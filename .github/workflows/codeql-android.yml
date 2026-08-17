@@ -58,7 +58,7 @@ jobs:
         uses: android-actions/setup-android@v4
       - name: Initialize CodeQL
         if: steps.changes.outputs.changed == 'true'
-        uses: github/codeql-action/init@v4.37.4
+        uses: github/codeql-action/init@v4.37.7
         with:
           languages: java-kotlin
           build-mode: manual
@@ -68,7 +68,7 @@ jobs:
         run: ./gradlew clean assembleDebug
       - name: Analyze
         if: steps.changes.outputs.changed == 'true'
-        uses: github/codeql-action/analyze@v4.37.4
+        uses: github/codeql-action/analyze@v4.37.7
         with:
           category: "/language:java-kotlin"
       - name: Create unaffected result
@@ -86,7 +86,7 @@ jobs:
           EOF
       - name: Upload unaffected result
         if: steps.changes.outputs.changed == 'false'
-        uses: github/codeql-action/upload-sarif@v4.37.4
+        uses: github/codeql-action/upload-sarif@v4.37.7
         with:
           sarif_file: unaffected.sarif
           category: "/language:java-kotlin"
