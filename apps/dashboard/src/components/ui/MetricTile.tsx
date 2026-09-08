@@ -69,7 +69,7 @@ export function MetricTile({
 
 function MetricDeltaLabel({ delta }: { delta: MetricDelta }) {
   const { change, comparisonLabel, direction = "neutral" } = delta;
-  const format = delta.format ?? ((input: number) => String(Math.abs(input)));
+  const format = delta.format ?? String;
   if (change === 0) {
     return (
       <span className="metric-tile__delta metric-tile__delta--flat">
@@ -91,7 +91,7 @@ function MetricDeltaLabel({ delta }: { delta: MetricDelta }) {
   return (
     <span className={`metric-tile__delta metric-tile__delta--${tone}`}>
       <Icon size={14} aria-hidden={true} />
-      {rising ? "Up" : "Down"} {format(change)} from {comparisonLabel}
+      {rising ? "Up" : "Down"} {format(Math.abs(change))} from {comparisonLabel}
     </span>
   );
 }
