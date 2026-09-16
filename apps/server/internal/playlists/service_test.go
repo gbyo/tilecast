@@ -74,3 +74,40 @@ func TestNormalizeSourceType(t *testing.T) {
 		t.Fatal("invalid source type was accepted")
 	}
 }
+
+func TestValidateBulkItemInput(t *testing.T) {
+	transition := "crossfade"
+	invalidTransition := "dissolve"
+	zeroDuration := int64(0)
+	duplicateID := uuid.New()
+	if err := validateBulkItemInput(BulkItemInput{Transition: &transition}); err != nil {
+		t.Fatalf("valid transition update rejected: %v", err)
+	}
+
+	duration := int64(15_000)
+	if err := validateBulkItemInput(BulkItemInput{DurationMS: &duration}); err != nil {
+		t.Fatalf("valid duration update rejected: %v", err)
+	}
+
+	for _, test := range []struct {
+		name  string
+		input BulkItemInput
+	}{
+		{name: "no fields", input: BulkItemInput{}},
+		{name: "both fields", input: BulkItemInput{Transition: &transition, DurationMS: &duration}},
+		{name: "invalid transition", input: BulkItemInput{Transition: &invalidTransition}},
+		{name: "invalid duration", input: BulkItemInput{DurationMS: &zeroDuration}},
+		{name: "duplicate item", input: BulkItemInput{Transition: &transition, ItemIDs: []uuid.UUID{duplicateID, duplicateID}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := validateBulkItemInput(test.input); err == nil {
+				t.Fatal("invalid bulk update was accepted")
+			}
+		})
+	}
+
+	itemID := uuid.New()
+	if err := validateBulkItemInput(BulkItemInput{Transition: &transition, ItemIDs: []uuid.UUID{itemID}}); err != nil {
+		t.Fatalf("valid item selection rejected: %v", err)
+	}
+}

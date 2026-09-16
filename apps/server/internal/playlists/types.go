@@ -127,6 +127,14 @@ type ItemInput struct {
 	UsePlayerDefaults  bool       `json:"usePlayerDefaults"`
 }
 
+// BulkItemInput describes one authoring-level update applied to a selection of
+// static playlist items. An empty itemIds array targets every item.
+type BulkItemInput struct {
+	ItemIDs    []uuid.UUID `json:"itemIds"`
+	Transition *string     `json:"transition"`
+	DurationMS *int64      `json:"durationMs"`
+}
+
 type ListResult struct {
 	Items    []Playlist `json:"items"`
 	Total    int        `json:"total"`

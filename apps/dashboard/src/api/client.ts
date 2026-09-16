@@ -56,6 +56,7 @@ import type {
   PublicationHistoryItem,
   PlaylistAssignment,
   PlaylistItemInput,
+  PlaylistBulkItemUpdateInput,
   PlaylistList,
   ScreenGroup,
   ScreenGroupList,
@@ -2194,6 +2195,16 @@ export const api = {
       method: "PUT",
       headers: { "X-CSRF-Token": csrfToken },
       body: JSON.stringify({ itemIds }),
+    }),
+  bulkUpdatePlaylistItems: (
+    id: string,
+    input: PlaylistBulkItemUpdateInput,
+    csrfToken: string,
+  ) =>
+    requestPlaylist(`/playlists/${id}/items/bulk`, {
+      method: "PUT",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(input),
     }),
   playlistAssignment: async (screenId: string) =>
     normalizePlaylistAssignment(

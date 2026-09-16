@@ -495,6 +495,19 @@ export type PlaylistItemInput = {
   deliveryPolicy: PlaylistItem["deliveryPolicy"];
   usePlayerDefaults?: boolean;
 };
+export type PlaylistBulkItemUpdateInput =
+  | {
+      /** Empty or omitted means every item in a static playlist. */
+      itemIds?: string[];
+      transition: PlaylistItem["transition"];
+      durationMs?: never;
+    }
+  | {
+      /** Empty or omitted means every item in a static playlist. */
+      itemIds?: string[];
+      transition?: never;
+      durationMs: number;
+    };
 export type PlaylistAssignment = {
   screenId: string;
   playlistId?: string;

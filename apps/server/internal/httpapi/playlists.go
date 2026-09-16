@@ -166,6 +166,26 @@ func (s *server) addPlaylistItem(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"data": result})
 }
+
+func (s *server) bulkUpdatePlaylistItems(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlUUID(w, r, "id")
+	if !ok {
+		return
+	}
+	var body playlists.BulkItemInput
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	result, err := s.playlists.BulkUpdateItems(r.Context(), id, user.ID, body)
+	if err != nil {
+		s.writePlaylistError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": result})
+}
+
 func (s *server) updatePlaylistItem(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
 	if !ok {
@@ -328,7 +348,7 @@ func (s *server) writePlaylistError(w http.ResponseWriter, r *http.Request, err 
 		writeError(w, http.StatusUnprocessableEntity, "presentation_not_ready", strings.TrimPrefix(err.Error(), playlists.ErrPresentationNotReady.Error()+": "))
 	case errors.Is(err, playlists.ErrConflict):
 		writeError(w, http.StatusConflict, "playlist_conflict", strings.TrimPrefix(err.Error(), playlists.ErrConflict.Error()+": "))
-	case strings.Contains(err.Error(), "must be") || strings.Contains(err.Error(), "duration") || strings.Contains(err.Error(), "offset") || strings.Contains(err.Error(), "order") || strings.Contains(err.Error(), "in use") || strings.Contains(err.Error(), "cannot be added"):
+	case strings.Contains(err.Error(), "must be") || strings.Contains(err.Error(), "duration") || strings.Contains(err.Error(), "offset") || strings.Contains(err.Error(), "order") || strings.Contains(err.Error(), "itemIds") || strings.Contains(err.Error(), "in use") || strings.Contains(err.Error(), "cannot be added"):
 		writeError(w, http.StatusUnprocessableEntity, "playlist_validation_failed", err.Error())
 	default:
 		s.internalError(w, r, err)

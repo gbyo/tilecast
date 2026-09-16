@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
@@ -835,6 +836,88 @@ func (s *Service) AddItem(ctx context.Context, playlistID, userID uuid.UUID, inp
 	_ = draftRevision
 	if err = insertAudit(ctx, tx, userID, "playlist.draft.item_added", playlistID); err != nil {
 		return Playlist{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Playlist{}, err
+	}
+	return s.GetDraft(ctx, playlistID)
+}
+
+func validateBulkItemInput(input BulkItemInput) error {
+	if (input.Transition == nil) == (input.DurationMS == nil) {
+		return errors.New("bulk playlist update must set exactly one field")
+	}
+	if input.Transition != nil && *input.Transition != "none" && *input.Transition != "fade" && *input.Transition != "crossfade" {
+		return errors.New("transition must be none, fade, or crossfade")
+	}
+	if input.DurationMS != nil && *input.DurationMS <= 0 {
+		return errors.New("image durationMs must be positive")
+	}
+	seen := map[uuid.UUID]bool{}
+	for _, id := range input.ItemIDs {
+		if id == uuid.Nil {
+			return errors.New("itemIds must contain valid item IDs")
+		}
+		if seen[id] {
+			return errors.New("itemIds contains a duplicate")
+		}
+		seen[id] = true
+	}
+	return nil
+}
+
+// BulkUpdateItems applies an authoring-level playback default to a static
+// playlist. The stored item values are updated deliberately: this is an
+// explicit playlist edit, so it must take precedence over Player defaults.
+func (s *Service) BulkUpdateItems(ctx context.Context, playlistID, userID uuid.UUID, input BulkItemInput) (Playlist, error) {
+	if err := s.requireStaticPlaylist(ctx, playlistID); err != nil {
+		return Playlist{}, err
+	}
+	if err := validateBulkItemInput(input); err != nil {
+		return Playlist{}, err
+	}
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Playlist{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	if len(input.ItemIDs) > 0 {
+		var count int
+		if err = tx.QueryRow(ctx, `SELECT count(*) FROM playlist_draft_items WHERE playlist_id=$1 AND id=ANY($2::uuid[])`, playlistID, input.ItemIDs).Scan(&count); err != nil {
+			return Playlist{}, err
+		}
+		if count != len(input.ItemIDs) {
+			return Playlist{}, errors.New("itemIds contains an unknown playlist item")
+		}
+	}
+
+	var tag pgconn.CommandTag
+	if input.Transition != nil {
+		var defaultImageDurationMS int64
+		if err = tx.QueryRow(ctx, `SELECT COALESCE((SELECT round((settings->>'player.playback.default_image_duration_seconds')::numeric*1000)::bigint FROM organization_runtime_settings LIMIT 1),10000)`).Scan(&defaultImageDurationMS); err != nil {
+			return Playlist{}, err
+		}
+		if len(input.ItemIDs) == 0 {
+			tag, err = tx.Exec(ctx, `UPDATE playlist_draft_items item SET transition=$2,duration_ms=CASE WHEN item.duration_ms IS NULL AND EXISTS(SELECT 1 FROM assets image WHERE image.id=item.asset_id AND image.type='image') THEN $3 ELSE item.duration_ms END,use_player_defaults=FALSE,updated_at=now() WHERE item.playlist_id=$1`, playlistID, *input.Transition, defaultImageDurationMS)
+		} else {
+			tag, err = tx.Exec(ctx, `UPDATE playlist_draft_items item SET transition=$3,duration_ms=CASE WHEN item.duration_ms IS NULL AND EXISTS(SELECT 1 FROM assets image WHERE image.id=item.asset_id AND image.type='image') THEN $4 ELSE item.duration_ms END,use_player_defaults=FALSE,updated_at=now() WHERE item.playlist_id=$1 AND item.id=ANY($2::uuid[])`, playlistID, input.ItemIDs, *input.Transition, defaultImageDurationMS)
+		}
+	} else if len(input.ItemIDs) == 0 {
+		tag, err = tx.Exec(ctx, `UPDATE playlist_draft_items item SET duration_ms=$2,use_player_defaults=FALSE,updated_at=now() FROM assets asset WHERE item.playlist_id=$1 AND asset.id=item.asset_id AND asset.type='image'`, playlistID, *input.DurationMS)
+	} else {
+		tag, err = tx.Exec(ctx, `UPDATE playlist_draft_items item SET duration_ms=$3,use_player_defaults=FALSE,updated_at=now() FROM assets asset WHERE item.playlist_id=$1 AND item.id=ANY($2::uuid[]) AND asset.id=item.asset_id AND asset.type='image'`, playlistID, input.ItemIDs, *input.DurationMS)
+	}
+	if err != nil {
+		return Playlist{}, err
+	}
+	if tag.RowsAffected() > 0 {
+		if _, err = bumpDraftTx(ctx, tx, playlistID, userID); err != nil {
+			return Playlist{}, err
+		}
+		if err = insertAudit(ctx, tx, userID, "playlist.draft.items_bulk_updated", playlistID); err != nil {
+			return Playlist{}, err
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return Playlist{}, err

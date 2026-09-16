@@ -1267,6 +1267,29 @@ paths:
         - $ref: "#/components/parameters/CSRFToken"
       responses:
         { "200": { description: Complete item order replaced transactionally } }
+  /api/v1/playlists/{id}/items/bulk:
+    put:
+      operationId: bulkUpdatePlaylistItems
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/CSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlaylistBulkItemInput" }
+      responses:
+        {
+          "200":
+            {
+              description: Selected static playlist items updated transactionally,
+            },
+          "409":
+            {
+              description: Tag-driven playlists do not support manual item updates,
+            },
+          "422": { description: Invalid bulk update or item selection },
+        }
   /api/v1/playlists/{id}/tag-rule:
     put:
       operationId: setPlaylistTagRule
@@ -4353,6 +4376,27 @@ components:
           description: >-
             Resolve playback defaults from the effective Player configuration
             on Android and Linux at runtime.
+    PlaylistBulkItemInput:
+      type: object
+      additionalProperties: false
+      oneOf:
+        - required: [transition]
+          not: { required: [durationMs] }
+        - required: [durationMs]
+          not: { required: [transition] }
+      properties:
+        itemIds:
+          type: array
+          uniqueItems: true
+          description: Omit or send an empty array to update every item in a static playlist.
+          items: { type: string, format: uuid }
+        transition: { type: string, enum: [none, fade, crossfade] }
+        durationMs:
+          {
+            type: integer,
+            minimum: 1,
+            description: Fixed duration applied to image items.,
+          }
     PresentationReference:
       type: object
       additionalProperties: false

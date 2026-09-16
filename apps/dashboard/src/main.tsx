@@ -26,6 +26,7 @@ import "./styles/player-updates.css";
 import "./styles/context-menu.css";
 import "./styles/popover.css";
 import "./styles/screens-media-fixes.css";
+import "./styles/playlist-editor.css";
 
 installCommandPaletteFocus();
 
