@@ -34,6 +34,15 @@
     var(--tc-bg-surface)
   );
   --tc-table-row-selected: var(--tc-action-primary-soft);
+  --tc-editor-surface: var(--tc-bg-elevated);
+  --tc-editor-surface-muted: var(--tc-bg-subtle);
+  --tc-editor-selection: var(--tc-table-row-selected);
+  --tc-editor-row-hover: var(--tc-table-row-hover);
+  --tc-editor-divider: var(--tc-border-subtle);
+  --tc-editor-content-max-width: 1180px;
+  --tc-editor-thumbnail-width: 72px;
+  --tc-editor-thumbnail-height: 44px;
+  --tc-editor-drawer-width: 440px;
   --tc-notice-info-bg: var(--tc-status-info-bg);
   --tc-notice-success-bg: var(--tc-status-success-bg);
   --tc-notice-warning-bg: var(--tc-status-warning-bg);

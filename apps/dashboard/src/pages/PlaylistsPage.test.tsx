@@ -12,6 +12,15 @@ import {
   playlistPreviewItemAvailable,
   playlistPreviewItemDuration,
 } from "./PlaylistPreviewPage";
+import {
+  itemHasTransitionOverride,
+  playlistAuthoringDefaults,
+  playlistDurationLabel,
+  playlistImageDuration,
+  playlistTransition,
+  movePlaylistItem,
+  reorderPlaylistItems,
+} from "../components/playlist-editor/playlistEditorModel";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -88,6 +97,104 @@ describe("playlist editor", () => {
         item({ assetType: "widget", widgetProvider: "youtube" }),
       ),
     ).toBe(false);
+  });
+
+  it("summarizes uniform and mixed playlist transitions", () => {
+    expect(playlistTransition([])).toBe("none");
+    expect(
+      playlistTransition([
+        item({ transition: "fade" }),
+        item({ id: "second", transition: "fade" }),
+      ]),
+    ).toBe("fade");
+    expect(
+      playlistTransition([
+        item({ transition: "fade" }),
+        item({ id: "second", transition: "crossfade" }),
+      ]),
+    ).toBe("mixed");
+  });
+
+  it("summarizes fixed, mixed, and Player-default image durations", () => {
+    expect(
+      playlistImageDuration([
+        item({ durationMs: 12_000 }),
+        item({ id: "second", durationMs: 12_000 }),
+      ]),
+    ).toEqual({ kind: "value", seconds: 12 });
+    expect(
+      playlistImageDuration([
+        item({ durationMs: 12_000 }),
+        item({ id: "second", durationMs: 15_000 }),
+      ]),
+    ).toEqual({ kind: "mixed" });
+    expect(
+      playlistImageDuration([
+        item({ durationMs: undefined, usePlayerDefaults: true }),
+      ]),
+    ).toEqual({ kind: "player" });
+    expect(
+      playlistDurationLabel([
+        item({ durationMs: undefined, usePlayerDefaults: true }),
+      ]),
+    ).toBe("Uses Player defaults");
+  });
+
+  it("inherits playlist playback settings when adding new content", () => {
+    const existing = [
+      item({ transition: "fade", durationMs: 12_000 }),
+      item({ id: "second", transition: "fade", durationMs: 12_000 }),
+    ];
+    expect(playlistAuthoringDefaults(existing, "image")).toEqual({
+      transition: "fade",
+      durationMs: 12_000,
+      usePlayerDefaults: false,
+    });
+    expect(playlistAuthoringDefaults(existing, "video")).toEqual({
+      transition: "fade",
+      durationMs: undefined,
+      usePlayerDefaults: false,
+    });
+    expect(
+      playlistAuthoringDefaults(
+        [item({ transition: "none", usePlayerDefaults: true })],
+        "image",
+      ),
+    ).toEqual({
+      transition: "none",
+      durationMs: undefined,
+      usePlayerDefaults: true,
+    });
+  });
+
+  it("marks Player defaults and per-item transitions as overrides", () => {
+    expect(
+      itemHasTransitionOverride(item({ transition: "fade" }), "fade"),
+    ).toBe(false);
+    expect(
+      itemHasTransitionOverride(item({ transition: "crossfade" }), "fade"),
+    ).toBe(true);
+    expect(
+      itemHasTransitionOverride(item({ usePlayerDefaults: true }), "none"),
+    ).toBe(true);
+  });
+
+  it("supports deterministic drag and keyboard reordering", () => {
+    const items = [
+      item({ id: "first" }),
+      item({ id: "second" }),
+      item({ id: "third" }),
+    ];
+    expect(reorderPlaylistItems(items, "first", "third")).toEqual([
+      "second",
+      "third",
+      "first",
+    ]);
+    expect(movePlaylistItem(items, "second", -1)).toEqual([
+      "second",
+      "first",
+      "third",
+    ]);
   });
 
   it("opens the playlist preview in a focused popup window", () => {

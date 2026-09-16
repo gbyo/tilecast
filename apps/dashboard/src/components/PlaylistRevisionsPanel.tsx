@@ -12,9 +12,12 @@ const revisionPageSize = 10;
 export function PlaylistRevisionsPanel({
   playlistId,
   canRestore,
+  embedded = false,
 }: {
   playlistId: string;
   canRestore: boolean;
+  /** Render inside the shared history Drawer without repeating its title. */
+  embedded?: boolean;
 }) {
   const auth = useAuth();
   const client = useQueryClient();
@@ -59,14 +62,24 @@ export function PlaylistRevisionsPanel({
   const hiddenRevisionCount = revisionItems.length - visibleRevisions.length;
 
   return (
-    <section className="settings-subsection">
-      <header>
-        <h3>History</h3>
-        <p>
+    <section
+      className={`settings-subsection${embedded ? " playlist-history-panel" : ""}`}
+      aria-label={embedded ? "Playlist revision history" : undefined}
+    >
+      {embedded ? (
+        <p className="playlist-history-panel__intro">
           The last {revisions.data?.kept} revisions are kept. Restoring makes a
           new revision, so it can be undone the same way.
         </p>
-      </header>
+      ) : (
+        <header>
+          <h3>History</h3>
+          <p>
+            The last {revisions.data?.kept} revisions are kept. Restoring makes
+            a new revision, so it can be undone the same way.
+          </p>
+        </header>
+      )}
 
       {result && (
         <div className="notice" role="status">

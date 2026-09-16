@@ -261,6 +261,35 @@ describe("playlist creation contract", () => {
   });
 });
 
+describe("playlist bulk editing contract", () => {
+  it("sends an authoring-level transition update to the static playlist endpoint", async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ data: { id: "playlist-1", items: [] } }),
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    await api.bulkUpdatePlaylistItems(
+      "playlist-1",
+      { transition: "crossfade" },
+      "csrf-token",
+    );
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/playlists/playlist-1/items/bulk",
+      expect.objectContaining({
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": "csrf-token",
+        },
+        body: JSON.stringify({ transition: "crossfade" }),
+      }),
+    );
+  });
+});
+
 describe("Widget preview snapshots", () => {
   it("uploads the frozen JPEG with CSRF protection", async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, status: 204 });

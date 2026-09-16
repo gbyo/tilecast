@@ -359,6 +359,7 @@ func (s *server) routes() http.Handler {
 			dashboard.With(s.requireRoles(contentManagers...), s.requireCSRF).Delete("/playlists/{id}", s.deletePlaylist)
 			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF).Post("/playlists/{id}/duplicate", s.duplicatePlaylist)
 			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF).Post("/playlists/{id}/items", s.addPlaylistItem)
+			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF).Put("/playlists/{id}/items/bulk", s.bulkUpdatePlaylistItems)
 			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF).Patch("/playlists/{id}/items/{itemId}", s.updatePlaylistItem)
 			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF).Delete("/playlists/{id}/items/{itemId}", s.deletePlaylistItem)
 			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF).Put("/playlists/{id}/items/order", s.reorderPlaylistItems)
