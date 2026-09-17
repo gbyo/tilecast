@@ -6,15 +6,25 @@ type Props = InputHTMLAttributes<HTMLInputElement> & {
   hint?: string;
 };
 
-export function FormField({ label, error, hint, id, ...input }: Props) {
+export function FormField({
+  label,
+  error,
+  hint,
+  id,
+  "aria-describedby": describedBy,
+  ...input
+}: Props) {
   const messageId = `${id}-message`;
+  const ariaDescribedBy = [describedBy, error || hint ? messageId : undefined]
+    .filter(Boolean)
+    .join(" ") || undefined;
   return (
     <label className="field" htmlFor={id}>
       <span className="field__label">{label}</span>
       <input
         id={id}
         aria-invalid={Boolean(error)}
-        aria-describedby={error || hint ? messageId : undefined}
+        aria-describedby={ariaDescribedBy}
         {...input}
       />
       {(error || hint) && (
