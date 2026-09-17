@@ -31,6 +31,17 @@ export function playlistPreviewItemDuration(item: PlaylistItem) {
 
 export const PLAYLIST_PREVIEW_FADE_MS = 300;
 
+export function playlistPreviewShortcutTargetIsInteractive(
+  target: EventTarget | null,
+) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      "button, a[href], input, select, textarea, [contenteditable='true'], [role='button'], [role='link'], [role='slider'], [role='textbox'], [role='combobox']",
+    ),
+  );
+}
+
 function mediaStyle(item: PlaylistItem) {
   return {
     objectFit: item.fitMode === "stretch" ? ("fill" as const) : item.fitMode,
@@ -291,6 +302,11 @@ export function PlaylistPreviewPage() {
   }, [advance, current, paused]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        playlistPreviewShortcutTargetIsInteractive(event.target)
+      )
+        return;
       if (event.key === "ArrowRight") move(1);
       else if (event.key === "ArrowLeft") move(-1);
       else if (event.key === " ") {
