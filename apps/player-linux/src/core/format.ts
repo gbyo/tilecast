@@ -43,15 +43,29 @@ function formatDateValue(
   timezone: string,
   style: "short" | "long" | "datetime" | "time",
 ): string {
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    // Date-only string like "2026-07-20": parse as local calendar date.
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-    if (!m) {
+  // ECMAScript parses YYYY-MM-DD as midnight UTC. Formatting that instant in a
+  // timezone west of UTC can move a calendar-only value to the previous day, so
+  // recognize date-only input before Date.parse and keep it timezone-neutral.
+  const trimmed = value.trim();
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (dateOnly) {
+    const year = Number(dateOnly[1]);
+    const month = Number(dateOnly[2]);
+    const day = Number(dateOnly[3]);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== month - 1 ||
+      date.getUTCDate() !== day
+    ) {
       return value;
     }
-    const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-    return formatInstant(d, "UTC", style);
+    return formatInstant(date, "UTC", style);
+  }
+
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return value;
   }
   return formatInstant(new Date(parsed), timezone, style);
 }
