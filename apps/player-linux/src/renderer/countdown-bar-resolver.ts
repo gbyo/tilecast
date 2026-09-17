@@ -129,9 +129,10 @@ const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
     day: number,
     hour: number,
     minute: number,
+    second: number,
     timezone: string,
   ): number {
-    const desired = Date.UTC(year, month - 1, day, hour, minute, 0);
+    const desired = Date.UTC(year, month - 1, day, hour, minute, second);
     let guess = desired;
     // Two passes cover ordinary offsets and DST boundary corrections without a
     // heavy timezone dependency. Intl remains the source of timezone truth.
@@ -182,10 +183,14 @@ const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
       const instant = Date.parse(config.oneTimeAt ?? "");
       return Number.isFinite(instant) ? [instant] : [];
     }
-    const match = /^(\d{2}):(\d{2})/.exec(config.targetTime ?? "");
+    const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(
+      config.targetTime ?? "",
+    );
     if (!match) return [];
     const hour = Number(match[1]);
     const minute = Number(match[2]);
+    const second = Number(match[3] ?? 0);
+    if (hour > 23 || minute > 59 || second > 59) return [];
     const current = zonedParts(now, config.timezone);
     const dateAnchor = Date.UTC(current.year, current.month - 1, current.day);
     const days = new Set(config.daysOfWeek ?? []);
@@ -202,6 +207,7 @@ const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
           date.getUTCDate(),
           hour,
           minute,
+          second,
           config.timezone,
         ),
       );
