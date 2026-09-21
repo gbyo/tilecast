@@ -19,7 +19,7 @@ import {
   Upload,
   UserRound,
 } from "lucide-react";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import {
   Link,
   matchRoutes,
@@ -544,9 +544,11 @@ function CommandPalette({
 }
 
 export function StudioTopbar({
+  leading,
   user,
   csrfToken = "",
 }: {
+  leading?: ReactNode;
   user?: User;
   csrfToken?: string;
 }) {
@@ -587,7 +589,8 @@ export function StudioTopbar({
 
   return (
     <header className="topbar">
-      <div className="topbar__left">
+      <div className="topbar__left flex items-center gap-2">
+        {leading}
         {/* A single crumb is just the page title repeated above the page's own <h1>,
             so the trail only appears once it actually describes a path. */}
         {breadcrumbs.length > 1 && <BreadcrumbTrail items={breadcrumbs} />}
