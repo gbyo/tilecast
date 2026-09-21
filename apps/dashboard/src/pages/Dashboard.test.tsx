@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -64,77 +63,49 @@ const summary = (
 });
 
 describe("SidebarNavigation", () => {
-  it("keeps workspace facets collapsed away from their routes", async () => {
+  it("exposes content and presentation destinations directly in sidebar groups", async () => {
     vi.spyOn(api, "listForms").mockResolvedValue([summary(["submit"])]);
     renderNav();
 
-    expect(
-      screen
-        .getByRole("button", { name: "Content" })
-        .getAttribute("aria-expanded"),
-    ).toBe("false");
-    expect(
-      screen
-        .getByRole("button", { name: "Presentations" })
-        .getAttribute("aria-expanded"),
-    ).toBe("false");
-    expect(screen.queryByRole("link", { name: "Media" })).toBeNull();
+    expect(screen.getByText("Studio")).toBeTruthy();
+    expect(screen.getByText("Content")).toBeTruthy();
+    expect(screen.getByText("Presentations")).toBeTruthy();
+    expect(screen.getByText("System")).toBeTruthy();
+
+    expect(screen.getByRole("link", { name: "Media" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Widgets" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Data" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Playlists" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Layouts" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Campaigns" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Schedules" })).toBeTruthy();
 
     await waitFor(() => {
       expect(screen.queryByRole("link", { name: "Approvals" })).toBeNull();
     });
   });
 
-  it("opens Content for nested content routes and marks the current facet", () => {
+  it("marks the current content destination active for nested routes", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([]);
     renderNav("/widgets/widget-1");
 
     expect(
       screen
-        .getByRole("button", { name: "Content" })
-        .getAttribute("aria-expanded"),
-    ).toBe("true");
-    expect(
-      screen
         .getByRole("link", { name: "Widgets" })
         .getAttribute("aria-current"),
     ).toBe("page");
-    expect(
-      screen
-        .getByRole("button", { name: "Presentations" })
-        .getAttribute("aria-expanded"),
-    ).toBe("false");
   });
 
-  it("opens Presentations for nested presentation routes", () => {
+  it("marks the current presentation destination active for nested routes", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([]);
     renderNav("/layouts/layout-1");
 
-    expect(
-      screen
-        .getByRole("button", { name: "Presentations" })
-        .getAttribute("aria-expanded"),
-    ).toBe("true");
     expect(
       screen
         .getByRole("link", { name: "Layouts" })
         .getAttribute("aria-current"),
     ).toBe("page");
     expect(screen.getByRole("link", { name: "Campaigns" })).toBeTruthy();
-  });
-
-  it("uses the Base UI collapsible interaction for workspace groups", async () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([]);
-    const user = userEvent.setup();
-    renderNav();
-
-    const content = screen.getByRole("button", { name: "Content" });
-    expect(content.getAttribute("aria-expanded")).toBe("false");
-
-    await user.click(content);
-
-    expect(content.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("link", { name: "Media" })).toBeTruthy();
   });
 
   it("shows Approvals only when the user can review at least one form", async () => {
@@ -146,15 +117,29 @@ describe("SidebarNavigation", () => {
     });
   });
 
-  it("keeps Settings in the shadcn sidebar footer", () => {
+  it("keeps Settings in the System group and the account menu in the footer", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([]);
     renderWithSidebar(
-      <AppSidebar user={undefined} signingOut={false} onLogout={() => {}} />,
+      <AppSidebar
+        user={{
+          id: "user-1",
+          name: "Gibson Bell",
+          email: "gibson@example.com",
+          role: "owner",
+        }}
+        signingOut={false}
+        onLogout={() => {}}
+      />,
     );
 
+    const settings = screen.getByRole("link", { name: "Settings" });
+    expect(settings.closest('[data-sidebar="footer"]')).toBeNull();
+    expect(settings.closest('[data-sidebar="group"]')?.textContent).toContain(
+      "System",
+    );
     expect(
       screen
-        .getByRole("link", { name: "Settings" })
+        .getByRole("button", { name: /Gibson Bell/i })
         .closest('[data-sidebar="footer"]'),
     ).toBeTruthy();
   });
