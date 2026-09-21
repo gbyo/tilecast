@@ -124,8 +124,10 @@ describe("SidebarNavigation", () => {
         user={{
           id: "user-1",
           name: "Gibson Bell",
-          email: "gibson@example.com",
+          username: "gibson",
           role: "owner",
+          active: true,
+          createdAt: "2026-09-21T00:00:00Z",
         }}
         signingOut={false}
         onLogout={() => {}}
