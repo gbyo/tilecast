@@ -11,107 +11,122 @@
   --font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--tc-studio-radius) * 0.6);
+  --radius-md: calc(var(--tc-studio-radius) * 0.8);
+  --radius-lg: var(--tc-studio-radius);
+  --radius-xl: calc(var(--tc-studio-radius) * 1.4);
+  --color-background: var(--tc-studio-background);
+  --color-foreground: var(--tc-studio-foreground);
+  --color-card: var(--tc-studio-card);
+  --color-card-foreground: var(--tc-studio-card-foreground);
+  --color-popover: var(--tc-studio-popover);
+  --color-popover-foreground: var(--tc-studio-popover-foreground);
+  --color-primary: var(--tc-studio-primary);
+  --color-primary-foreground: var(--tc-studio-primary-foreground);
+  --color-secondary: var(--tc-studio-secondary);
+  --color-secondary-foreground: var(--tc-studio-secondary-foreground);
+  --color-muted: var(--tc-studio-muted);
+  --color-muted-foreground: var(--tc-studio-muted-foreground);
+  --color-accent: var(--tc-studio-accent);
+  --color-accent-foreground: var(--tc-studio-accent-foreground);
+  --color-destructive: var(--tc-studio-destructive);
+  --color-border: var(--tc-studio-border);
+  --color-input: var(--tc-studio-input);
+  --color-ring: var(--tc-studio-ring);
+  --color-sidebar: var(--tc-studio-sidebar);
+  --color-sidebar-foreground: var(--tc-studio-sidebar-foreground);
+  --color-sidebar-primary: var(--tc-studio-sidebar-primary);
+  --color-sidebar-primary-foreground: var(
+    --tc-studio-sidebar-primary-foreground
+  );
+  --color-sidebar-accent: var(--tc-studio-sidebar-accent);
+  --color-sidebar-accent-foreground: var(
+    --tc-studio-sidebar-accent-foreground
+  );
+  --color-sidebar-border: var(--tc-studio-sidebar-border);
+  --color-sidebar-ring: var(--tc-studio-sidebar-ring);
 }
 
-.shadcn-theme {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  color: var(--foreground);
+/*
+ * Keep shadcn's palette names private to Studio while the legacy Signal pages
+ * still coexist with the new shell. Signal has older generic variables such as
+ * --accent and --sidebar-border, so defining canonical shadcn variables on the
+ * document root would silently restyle unmigrated pages. Tailwind still exposes
+ * the normal bg-muted/text-foreground/etc. API through the @theme aliases above.
+ *
+ * The style marker lives on <html> so Base UI portals (menus, tooltips, mobile
+ * sheets) inherit the same palette as the non-portaled sidebar.
+ */
+.style-vega {
+  --tc-studio-radius: 0.625rem;
+  --tc-studio-background: oklch(1 0 0);
+  --tc-studio-foreground: oklch(0.145 0 0);
+  --tc-studio-card: oklch(1 0 0);
+  --tc-studio-card-foreground: oklch(0.145 0 0);
+  --tc-studio-popover: oklch(1 0 0);
+  --tc-studio-popover-foreground: oklch(0.145 0 0);
+  --tc-studio-primary: oklch(0.205 0 0);
+  --tc-studio-primary-foreground: oklch(0.985 0 0);
+  --tc-studio-secondary: oklch(0.97 0 0);
+  --tc-studio-secondary-foreground: oklch(0.205 0 0);
+  --tc-studio-muted: oklch(0.97 0 0);
+  --tc-studio-muted-foreground: oklch(0.556 0 0);
+  --tc-studio-accent: oklch(0.97 0 0);
+  --tc-studio-accent-foreground: oklch(0.205 0 0);
+  --tc-studio-destructive: oklch(0.577 0.245 27.325);
+  --tc-studio-border: oklch(0.922 0 0);
+  --tc-studio-input: oklch(0.922 0 0);
+  --tc-studio-ring: oklch(0.708 0 0);
+  --tc-studio-sidebar: oklch(0.985 0 0);
+  --tc-studio-sidebar-foreground: oklch(0.145 0 0);
+  --tc-studio-sidebar-primary: oklch(0.205 0 0);
+  --tc-studio-sidebar-primary-foreground: oklch(0.985 0 0);
+  --tc-studio-sidebar-accent: oklch(0.97 0 0);
+  --tc-studio-sidebar-accent-foreground: oklch(0.205 0 0);
+  --tc-studio-sidebar-border: oklch(0.922 0 0);
+  --tc-studio-sidebar-ring: oklch(0.708 0 0);
+  color: var(--tc-studio-foreground);
   font-family: var(--font-sans);
 }
 
-.dark .shadcn-theme {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.922 0 0);
-  --sidebar-primary-foreground: oklch(0.205 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* Both classes are on <html>, so this must match the same element. */
+.style-vega.dark {
+  --tc-studio-background: oklch(0.145 0 0);
+  --tc-studio-foreground: oklch(0.985 0 0);
+  --tc-studio-card: oklch(0.205 0 0);
+  --tc-studio-card-foreground: oklch(0.985 0 0);
+  --tc-studio-popover: oklch(0.205 0 0);
+  --tc-studio-popover-foreground: oklch(0.985 0 0);
+  --tc-studio-primary: oklch(0.922 0 0);
+  --tc-studio-primary-foreground: oklch(0.205 0 0);
+  --tc-studio-secondary: oklch(0.269 0 0);
+  --tc-studio-secondary-foreground: oklch(0.985 0 0);
+  --tc-studio-muted: oklch(0.269 0 0);
+  --tc-studio-muted-foreground: oklch(0.708 0 0);
+  --tc-studio-accent: oklch(0.269 0 0);
+  --tc-studio-accent-foreground: oklch(0.985 0 0);
+  --tc-studio-destructive: oklch(0.704 0.191 22.216);
+  --tc-studio-border: oklch(1 0 0 / 10%);
+  --tc-studio-input: oklch(1 0 0 / 15%);
+  --tc-studio-ring: oklch(0.556 0 0);
+  --tc-studio-sidebar: oklch(0.205 0 0);
+  --tc-studio-sidebar-foreground: oklch(0.985 0 0);
+  --tc-studio-sidebar-primary: oklch(0.922 0 0);
+  --tc-studio-sidebar-primary-foreground: oklch(0.205 0 0);
+  --tc-studio-sidebar-accent: oklch(0.269 0 0);
+  --tc-studio-sidebar-accent-foreground: oklch(0.985 0 0);
+  --tc-studio-sidebar-border: oklch(1 0 0 / 10%);
+  --tc-studio-sidebar-ring: oklch(0.556 0 0);
 }
 
-.shadcn-theme,
-.shadcn-theme *,
-.shadcn-theme *::before,
-.shadcn-theme *::after {
+.style-vega,
+.style-vega *,
+.style-vega *::before,
+.style-vega *::after {
   box-sizing: border-box;
 }
 
-.shadcn-theme button:not(:disabled),
-.shadcn-theme [role="button"]:not(:disabled) {
+.style-vega button:not(:disabled),
+.style-vega [role="button"]:not(:disabled) {
   cursor: pointer;
 }
