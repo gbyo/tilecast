@@ -154,7 +154,7 @@
 }
 
 .cn-button-variant-secondary {
-  @apply bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground;
+  @apply bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--tc-studio-secondary),var(--tc-studio-foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground;
 }
 
 .cn-button-variant-ghost {
@@ -1175,7 +1175,7 @@
 }
 
 .cn-sidebar-menu-button-variant-outline {
-  @apply bg-background hover:bg-sidebar-accent hover:text-sidebar-accent-foreground shadow-[0_0_0_1px_var(--sidebar-border)] hover:shadow-[0_0_0_1px_var(--sidebar-accent)];
+  @apply bg-background hover:bg-sidebar-accent hover:text-sidebar-accent-foreground shadow-[0_0_0_1px_var(--tc-studio-sidebar-border)] hover:shadow-[0_0_0_1px_var(--tc-studio-sidebar-accent)];
 }
 
 .cn-sidebar-menu-button-size-default {
@@ -1398,7 +1398,7 @@
 }
 
 .cn-input-group-addon {
-  @apply text-muted-foreground h-auto gap-2 py-1.5 text-sm font-medium group-data-[disabled=true]/input-group:opacity-50 [&>kbd]:rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-4;
+  @apply text-muted-foreground h-auto gap-2 py-1.5 text-sm font-medium group-data-[disabled=true]/input-group:opacity-50 [&>kbd]:rounded-[calc(var(--tc-studio-radius)-5px)] [&>svg:not([class*='size-'])]:size-4;
 }
 
 .cn-input-group-addon-align-inline-start {
@@ -1422,11 +1422,11 @@
 }
 
 .cn-input-group-button-size-xs {
-  @apply h-6 gap-1 rounded-[calc(var(--radius)-5px)] px-1.5 [&>svg:not([class*='size-'])]:size-3.5;
+  @apply h-6 gap-1 rounded-[calc(var(--tc-studio-radius)-5px)] px-1.5 [&>svg:not([class*='size-'])]:size-3.5;
 }
 
 .cn-input-group-button-size-icon-xs {
-  @apply size-6 rounded-[calc(var(--radius)-5px)] p-0 has-[>svg]:p-0;
+  @apply size-6 rounded-[calc(var(--tc-studio-radius)-5px)] p-0 has-[>svg]:p-0;
 }
 
 .cn-input-group-button-size-icon-sm {
@@ -1468,15 +1468,15 @@
 }
 
 .cn-bubble-variant-secondary {
-  @apply *:data-[slot=bubble-content]:bg-secondary *:data-[slot=bubble-content]:text-secondary-foreground [&>[data-slot=bubble-content]:is(button,a):hover]:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)];
+  @apply *:data-[slot=bubble-content]:bg-secondary *:data-[slot=bubble-content]:text-secondary-foreground [&>[data-slot=bubble-content]:is(button,a):hover]:bg-[color-mix(in_oklch,var(--tc-studio-secondary),var(--tc-studio-foreground)_5%)];
 }
 
 .cn-bubble-variant-muted {
-  @apply *:data-[slot=bubble-content]:bg-muted [&>[data-slot=bubble-content]:is(button,a):hover]:bg-[color-mix(in_oklch,var(--muted),var(--foreground)_5%)];
+  @apply *:data-[slot=bubble-content]:bg-muted [&>[data-slot=bubble-content]:is(button,a):hover]:bg-[color-mix(in_oklch,var(--tc-studio-muted),var(--tc-studio-foreground)_5%)];
 }
 
 .cn-bubble-variant-tinted {
-  @apply *:data-[slot=bubble-content]:bg-[oklch(from_var(--primary)_0.93_calc(c*0.4)_h)] dark:*:data-[slot=bubble-content]:bg-[oklch(from_var(--primary)_0.3_calc(c*0.4)_h)] *:data-[slot=bubble-content]:text-foreground [&>[data-slot=bubble-content]:is(button,a):hover]:bg-[oklch(from_var(--primary)_0.88_calc(c*0.5)_h)] dark:[&>[data-slot=bubble-content]:is(button,a):hover]:bg-[oklch(from_var(--primary)_0.35_calc(c*0.5)_h)];
+  @apply *:data-[slot=bubble-content]:bg-[oklch(from_var(--tc-studio-primary)_0.93_calc(c*0.4)_h)] dark:*:data-[slot=bubble-content]:bg-[oklch(from_var(--tc-studio-primary)_0.3_calc(c*0.4)_h)] *:data-[slot=bubble-content]:text-foreground [&>[data-slot=bubble-content]:is(button,a):hover]:bg-[oklch(from_var(--tc-studio-primary)_0.88_calc(c*0.5)_h)] dark:[&>[data-slot=bubble-content]:is(button,a):hover]:bg-[oklch(from_var(--tc-studio-primary)_0.35_calc(c*0.5)_h)];
 }
 
 .cn-bubble-variant-outline {
