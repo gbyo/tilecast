@@ -44,7 +44,7 @@ function TooltipContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
-        className="isolate z-50"
+        className="shadcn-theme isolate z-50"
       >
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
