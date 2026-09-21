@@ -69,7 +69,9 @@ describe("SidebarNavigation", () => {
     renderNav();
 
     expect(
-      screen.getByRole("button", { name: "Content" }).getAttribute("aria-expanded"),
+      screen
+        .getByRole("button", { name: "Content" })
+        .getAttribute("aria-expanded"),
     ).toBe("false");
     expect(
       screen
@@ -88,7 +90,9 @@ describe("SidebarNavigation", () => {
     renderNav("/widgets/widget-1");
 
     expect(
-      screen.getByRole("button", { name: "Content" }).getAttribute("aria-expanded"),
+      screen
+        .getByRole("button", { name: "Content" })
+        .getAttribute("aria-expanded"),
     ).toBe("true");
     expect(
       screen

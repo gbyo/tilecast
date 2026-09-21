@@ -1,26 +1,26 @@
-"use client"
+"use client";
 
-import { XIcon } from "lucide-react"
-import * as React from "react"
-import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
-import { cn } from "@/lib/utils"
+import { XIcon } from "lucide-react";
+import * as React from "react";
+import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
+import { cn } from "@/lib/utils";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
 }
 
 function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {
-  return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
+  return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />;
 }
 
 function SheetClose({ ...props }: SheetPrimitive.Close.Props) {
-  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />
+  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />;
 }
 
 function SheetPortal({ ...props }: SheetPrimitive.Portal.Props) {
-  return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
+  return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />;
 }
 
 function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
@@ -29,11 +29,11 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
       data-slot="sheet-overlay"
       className={cn(
         "cn-sheet-overlay fixed inset-0 z-50 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function SheetContent({
@@ -43,8 +43,8 @@ function SheetContent({
   showCloseButton = true,
   ...props
 }: SheetPrimitive.Popup.Props & {
-  side?: "top" | "right" | "bottom" | "left"
-  showCloseButton?: boolean
+  side?: "top" | "right" | "bottom" | "left";
+  showCloseButton?: boolean;
 }) {
   return (
     <SheetPortal>
@@ -54,7 +54,7 @@ function SheetContent({
         data-side={side}
         className={cn(
           "shadcn-theme cn-sheet-content data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem]",
-          className
+          className,
         )}
         {...props}
       >
@@ -76,7 +76,7 @@ function SheetContent({
         )}
       </SheetPrimitive.Popup>
     </SheetPortal>
-  )
+  );
 }
 
 function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
@@ -86,7 +86,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
       className={cn("cn-sheet-header flex flex-col", className)}
       {...props}
     />
-  )
+  );
 }
 
 function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
@@ -96,7 +96,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
       className={cn("cn-sheet-footer mt-auto flex flex-col", className)}
       {...props}
     />
-  )
+  );
 }
 
 function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
@@ -106,7 +106,7 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
       className={cn("cn-sheet-title cn-font-heading", className)}
       {...props}
     />
-  )
+  );
 }
 
 function SheetDescription({
@@ -119,7 +119,7 @@ function SheetDescription({
       className={cn("cn-sheet-description", className)}
       {...props}
     />
-  )
+  );
 }
 
 export {
@@ -131,4 +131,4 @@ export {
   SheetFooter,
   SheetTitle,
   SheetDescription,
-}
+};

@@ -111,10 +111,7 @@ function WorkspaceDestination({
   const active = tabs.some((tab) => tabMatchesPath(tab.to, location.pathname));
 
   return (
-    <Collapsible
-      defaultOpen={active}
-      className="group/collapsible"
-    >
+    <Collapsible defaultOpen={active} className="group/collapsible">
       <SidebarMenuItem>
         <CollapsibleTrigger
           render={<SidebarMenuButton tooltip={label} isActive={active} />}
@@ -303,7 +300,9 @@ export function AppSidebar({
               </span>
               <span className="grid flex-1 text-left leading-tight">
                 <span className="truncate text-sm font-semibold">Tilecast</span>
-                <span className="truncate text-xs text-muted-foreground">Studio</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  Studio
+                </span>
               </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -318,11 +317,7 @@ export function AppSidebar({
             item={{ label: "Settings", to: "/settings", icon: Settings }}
           />
         </SidebarMenu>
-        <AccountMenu
-          user={user}
-          signingOut={signingOut}
-          onLogout={onLogout}
-        />
+        <AccountMenu user={user} signingOut={signingOut} onLogout={onLogout} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

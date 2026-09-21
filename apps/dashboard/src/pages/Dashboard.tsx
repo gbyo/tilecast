@@ -3,10 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { api } from "@/api/client";
 import { useAuth } from "@/auth/AuthProvider";
-import {
-  AppSidebar,
-  SidebarNavigation,
-} from "@/components/AppSidebar";
+import { AppSidebar, SidebarNavigation } from "@/components/AppSidebar";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { StudioTopbar } from "@/components/StudioTopbar";
 import {
