@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider, createBrowserRouter } from "react-router";
 import "@tilecast/design-tokens/tokens.css";
 import "./theme";
+import "./styles/shadcn.css";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { installCommandPaletteFocus } from "./commandPaletteFocus";
