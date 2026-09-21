@@ -1,0 +1,32 @@
+name: Vega shell format follow-up
+
+on:
+  push:
+    branches:
+      - codex/studio-canonical-vega-shell
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: codex/studio-canonical-vega-shell
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write apps/dashboard/src/components/ui/textarea.tsx apps/dashboard/src/hooks/use-mobile.ts
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/dashboard/src/components/ui/textarea.tsx apps/dashboard/src/hooks/use-mobile.ts
+          git commit -m "style: format generated Vega support files"
+          git push origin HEAD:codex/studio-canonical-vega-shell
