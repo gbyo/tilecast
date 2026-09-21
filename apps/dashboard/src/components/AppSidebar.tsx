@@ -219,15 +219,7 @@ function AccountMenu({
   );
 }
 
-export function AppSidebar({
-  user,
-  signingOut,
-  onLogout,
-}: {
-  user?: User;
-  signingOut: boolean;
-  onLogout: () => void;
-}) {
+export function SidebarNavigation() {
   const forms = useQuery({
     queryKey: ["forms"],
     queryFn: api.listForms,
@@ -237,6 +229,64 @@ export function AppSidebar({
     canReviewForm(form.grantedCapabilities),
   );
 
+  return (
+    <SidebarContent>
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {primaryItems.map((item) => (
+              <NavDestination key={item.to} item={item} />
+            ))}
+
+            <WorkspaceDestination
+              label="Content"
+              icon={Library}
+              tabs={contentTabs}
+            />
+            <WorkspaceDestination
+              label="Presentations"
+              icon={Layers3}
+              tabs={presentationTabs}
+            />
+
+            {secondaryItems.map((item) => (
+              <NavDestination key={item.to} item={item} />
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      <SidebarGroup className="mt-auto">
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <NavDestination
+              item={{ label: "Activity", to: "/activity", icon: Activity }}
+            />
+            {canReview && (
+              <NavDestination
+                item={{
+                  label: "Approvals",
+                  to: "/approvals",
+                  icon: ClipboardCheck,
+                }}
+              />
+            )}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </SidebarContent>
+  );
+}
+
+export function AppSidebar({
+  user,
+  signingOut,
+  onLogout,
+}: {
+  user?: User;
+  signingOut: boolean;
+  onLogout: () => void;
+}) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -260,51 +310,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {primaryItems.map((item) => (
-                <NavDestination key={item.to} item={item} />
-              ))}
-
-              <WorkspaceDestination
-                label="Content"
-                icon={Library}
-                tabs={contentTabs}
-              />
-              <WorkspaceDestination
-                label="Presentations"
-                icon={Layers3}
-                tabs={presentationTabs}
-              />
-
-              {secondaryItems.map((item) => (
-                <NavDestination key={item.to} item={item} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavDestination
-                item={{ label: "Activity", to: "/activity", icon: Activity }}
-              />
-              {canReview && (
-                <NavDestination
-                  item={{
-                    label: "Approvals",
-                    to: "/approvals",
-                    icon: ClipboardCheck,
-                  }}
-                />
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+      <SidebarNavigation />
 
       <SidebarFooter>
         <SidebarMenu>
