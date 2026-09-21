@@ -85,7 +85,7 @@ export function DashboardShell() {
 
   return (
     <TooltipProvider>
-      <SidebarProvider className="shadcn-theme">
+      <SidebarProvider className="style-vega">
         <AppSidebar
           user={auth.status.user}
           signingOut={auth.isSubmitting}
