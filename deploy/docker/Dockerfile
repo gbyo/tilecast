@@ -14,7 +14,7 @@ RUN npm ci
 COPY apps/dashboard apps/dashboard
 RUN npm run build --workspace @tilecast/dashboard
 
-FROM golang:1.26-alpine AS server
+FROM golang:1.27-alpine AS server
 RUN apk add --no-cache ca-certificates git
 WORKDIR /src
 COPY apps/server/go.mod apps/server/go.sum ./
