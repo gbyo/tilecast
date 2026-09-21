@@ -65,6 +65,7 @@
  */
 .style-vega {
   --tc-studio-radius: 0.625rem;
+  --tc-studio-radius-md: calc(var(--tc-studio-radius) * 0.8);
   --tc-studio-background: oklch(1 0 0);
   --tc-studio-foreground: oklch(0.145 0 0);
   --tc-studio-card: oklch(1 0 0);
