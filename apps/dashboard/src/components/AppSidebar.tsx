@@ -48,6 +48,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -232,6 +233,7 @@ export function SidebarNavigation() {
   return (
     <SidebarContent>
       <SidebarGroup>
+        <SidebarGroupLabel>Studio</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
             {primaryItems.map((item) => (
@@ -257,6 +259,7 @@ export function SidebarNavigation() {
       </SidebarGroup>
 
       <SidebarGroup className="mt-auto">
+        <SidebarGroupLabel>Operations</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
             <NavDestination
