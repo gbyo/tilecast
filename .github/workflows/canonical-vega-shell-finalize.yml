@@ -1,0 +1,40 @@
+name: Canonical Vega shell finalize helper
+
+on:
+  push:
+    branches:
+      - codex/studio-canonical-vega-shell
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: codex/studio-canonical-vega-shell
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Refresh lockfile
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Install
+        run: npm ci
+      - name: Format canonical Vega shell
+        run: |
+          npx prettier --write             apps/dashboard/package.json             apps/dashboard/src/styles/shadcn.css             apps/dashboard/src/components/AppSidebar.tsx             apps/dashboard/src/components/StudioTopbar.tsx             apps/dashboard/src/components/ui/sidebar.tsx             apps/dashboard/src/components/ui/button.tsx             apps/dashboard/src/components/ui/dropdown-menu.tsx             apps/dashboard/src/components/ui/tooltip.tsx             apps/dashboard/src/components/ui/collapsible.tsx             apps/dashboard/src/components/ui/separator.tsx             apps/dashboard/src/components/ui/input.tsx             apps/dashboard/src/components/ui/skeleton.tsx             apps/dashboard/src/components/ui/sheet.tsx             apps/dashboard/src/components/ui/avatar.tsx             apps/dashboard/src/components/ui/breadcrumb.tsx             apps/dashboard/src/components/ui/popover.tsx             apps/dashboard/src/components/ui/command.tsx             apps/dashboard/src/components/ui/dialog.tsx             apps/dashboard/src/components/ui/input-group.tsx             apps/dashboard/src/main.tsx
+      - name: Commit generated lockfile and formatting
+        run: |
+          if git diff --quiet; then
+            echo "No finalization changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json apps/dashboard
+          git commit -m "chore: finalize canonical Vega shell"
+          git push origin HEAD:codex/studio-canonical-vega-shell
