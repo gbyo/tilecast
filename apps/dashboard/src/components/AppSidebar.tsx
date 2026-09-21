@@ -1,13 +1,10 @@
 import {
   Activity,
   CalendarDays,
-  ChevronRight,
   ChevronsUpDown,
   ClipboardCheck,
   ClipboardList,
   Home,
-  Layers3,
-  Library,
   LogOut,
   Monitor,
   Puzzle,
@@ -24,15 +21,8 @@ import { canReviewForm } from "@/forms/capabilities";
 import {
   contentTabs,
   presentationTabs,
-  tabMatchesPath,
-  type WorkspaceTab,
 } from "@/navigation/WorkspaceTabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,11 +61,6 @@ const primaryItems: readonly NavItem[] = [
   { label: "Screens", to: "/screens", icon: Monitor },
 ];
 
-const secondaryItems: readonly NavItem[] = [
-  { label: "Schedules", to: "/schedules", icon: CalendarDays },
-  { label: "Plugins", to: "/plugins", icon: Puzzle },
-];
-
 function pathIsActive(pathname: string, to: string) {
   if (to === "/") return pathname === "/";
   return pathname === to || pathname.startsWith(`${to}/`);
@@ -97,55 +82,6 @@ function NavDestination({ item }: { item: NavItem }) {
         <span>{item.label}</span>
       </SidebarMenuButton>
     </SidebarMenuItem>
-  );
-}
-
-function WorkspaceDestination({
-  label,
-  icon: Icon,
-  tabs,
-}: {
-  label: string;
-  icon: LucideIcon;
-  tabs: readonly WorkspaceTab[];
-}) {
-  const location = useLocation();
-  const active = tabs.some((tab) => tabMatchesPath(tab.to, location.pathname));
-
-  return (
-    <Collapsible defaultOpen={active} className="group/collapsible">
-      <SidebarMenuItem>
-        <CollapsibleTrigger
-          render={<SidebarMenuButton tooltip={label} isActive={active} />}
-        >
-          <Icon aria-hidden="true" />
-          <span>{label}</span>
-          <ChevronRight
-            className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
-            aria-hidden="true"
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {tabs.map((tab) => {
-              const TabIcon = tab.icon;
-              const tabActive = tabMatchesPath(tab.to, location.pathname);
-              return (
-                <SidebarMenuSubItem key={tab.to}>
-                  <SidebarMenuSubButton
-                    render={<NavLink to={tab.to} />}
-                    isActive={tabActive}
-                  >
-                    <TabIcon aria-hidden="true" />
-                    <span>{tab.label}</span>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              );
-            })}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
   );
 }
 
@@ -239,29 +175,46 @@ export function SidebarNavigation() {
             {primaryItems.map((item) => (
               <NavDestination key={item.to} item={item} />
             ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
 
-            <WorkspaceDestination
-              label="Content"
-              icon={Library}
-              tabs={contentTabs}
-            />
-            <WorkspaceDestination
-              label="Presentations"
-              icon={Layers3}
-              tabs={presentationTabs}
-            />
-
-            {secondaryItems.map((item) => (
+      <SidebarGroup>
+        <SidebarGroupLabel>Content</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {contentTabs.map((item) => (
               <NavDestination key={item.to} item={item} />
             ))}
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
 
-      <SidebarGroup className="mt-auto">
-        <SidebarGroupLabel>Operations</SidebarGroupLabel>
+      <SidebarGroup>
+        <SidebarGroupLabel>Presentations</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
+            {presentationTabs.map((item) => (
+              <NavDestination key={item.to} item={item} />
+            ))}
+            <NavDestination
+              item={{
+                label: "Schedules",
+                to: "/schedules",
+                icon: CalendarDays,
+              }}
+            />
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      <SidebarGroup className="mt-auto">
+        <SidebarGroupLabel>System</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <NavDestination
+              item={{ label: "Plugins", to: "/plugins", icon: Puzzle }}
+            />
             <NavDestination
               item={{ label: "Activity", to: "/activity", icon: Activity }}
             />
@@ -274,6 +227,9 @@ export function SidebarNavigation() {
                 }}
               />
             )}
+            <NavDestination
+              item={{ label: "Settings", to: "/settings", icon: Settings }}
+            />
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -318,11 +274,6 @@ export function AppSidebar({
       <SidebarNavigation />
 
       <SidebarFooter>
-        <SidebarMenu>
-          <NavDestination
-            item={{ label: "Settings", to: "/settings", icon: Settings }}
-          />
-        </SidebarMenu>
         <AccountMenu user={user} signingOut={signingOut} onLogout={onLogout} />
       </SidebarFooter>
       <SidebarRail />
