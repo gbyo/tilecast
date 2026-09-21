@@ -88,13 +88,13 @@ export function DashboardShell() {
           signingOut={auth.isSubmitting}
           onLogout={() => void auth.logout()}
         />
-        <SidebarInset className="workspace min-w-0 bg-background">
+        <SidebarInset className="min-w-0 overflow-hidden">
           <StudioTopbar
             leading={<SidebarTrigger className="shrink-0" />}
             user={auth.status.user}
             csrfToken={auth.status.csrfToken}
           />
-          <main className="workspace__content min-w-0 flex-1">
+          <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
             <RouteErrorBoundary key={location.pathname}>
               <div className="workspace__route">
                 <Outlet />
