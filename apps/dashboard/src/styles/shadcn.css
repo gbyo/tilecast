@@ -41,7 +41,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-.style-vega {
+.shadcn-theme {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -73,7 +73,7 @@
   font-family: var(--font-sans);
 }
 
-.dark .style-vega {
+.dark .shadcn-theme {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -102,14 +102,14 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-.style-vega,
-.style-vega *,
-.style-vega *::before,
-.style-vega *::after {
+.shadcn-theme,
+.shadcn-theme *,
+.shadcn-theme *::before,
+.shadcn-theme *::after {
   box-sizing: border-box;
 }
 
-.style-vega button:not(:disabled),
-.style-vega [role="button"]:not(:disabled) {
+.shadcn-theme button:not(:disabled),
+.shadcn-theme [role="button"]:not(:disabled) {
   cursor: pointer;
 }
