@@ -1,0 +1,38 @@
+name: Canonical Vega shell generator
+
+on:
+  push:
+    branches:
+      - codex/studio-canonical-vega-shell
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: codex/studio-canonical-vega-shell
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Regenerate shell primitives from shadcn base-vega
+        working-directory: apps/dashboard
+        run: |
+          npx --yes shadcn@4.21.0 add             sidebar             dropdown-menu             tooltip             collapsible             separator             button             input             skeleton             sheet             avatar             breadcrumb             popover             command             dialog             --overwrite             --yes
+      - name: Commit generated Vega primitives
+        run: |
+          if git diff --quiet; then
+            echo "No generated changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/dashboard package.json package-lock.json
+          git commit -m "refactor: regenerate canonical shadcn Vega shell primitives"
+          git push origin HEAD:codex/studio-canonical-vega-shell
