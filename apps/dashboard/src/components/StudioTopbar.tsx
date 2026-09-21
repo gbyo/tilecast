@@ -75,7 +75,7 @@ import {
   PopoverContent,
   PopoverTitle,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/components/ui/vega-popover";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
