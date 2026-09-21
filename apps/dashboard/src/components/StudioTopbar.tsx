@@ -442,11 +442,14 @@ function BreadcrumbTrail({ items }: { items: Breadcrumb[] }) {
   return (
     <ShadcnBreadcrumb className="min-w-0">
       <BreadcrumbList className="flex-nowrap">
+        <BreadcrumbItem>
+          <BreadcrumbLink render={<Link to="/" />}>Tilecast</BreadcrumbLink>
+        </BreadcrumbItem>
         {items.map((item, index) => {
           const current = index === items.length - 1;
           return (
             <Fragment key={`${item.to}:${item.label}`}>
-              {index > 0 && <BreadcrumbSeparator />}
+              <BreadcrumbSeparator />
               <BreadcrumbItem className="min-w-0">
                 {current ? (
                   <BreadcrumbPage className="max-w-64 truncate">
@@ -619,13 +622,11 @@ export function StudioTopbar({
   }, [location.pathname]);
 
   return (
-    <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b bg-background px-4">
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
       <div className="flex min-w-0 items-center gap-2">
         {leading}
-        <Separator orientation="vertical" className="mr-1 h-4" />
-        {/* A single crumb is just the page title repeated above the page's own <h1>,
-            so the trail only appears once it actually describes a path. */}
-        {breadcrumbs.length > 1 && <BreadcrumbTrail items={breadcrumbs} />}
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <BreadcrumbTrail items={breadcrumbs} />
       </div>
 
       <div className="ml-auto flex min-w-0 items-center gap-2">
