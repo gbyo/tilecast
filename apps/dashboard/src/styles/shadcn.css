@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "./shadcn-vega.css";
+@import "shadcn/tailwind.css";
 
 @source "../**/*.{ts,tsx}";
 
@@ -65,6 +65,7 @@
  */
 .style-vega {
   --tc-studio-radius: 0.625rem;
+  --tc-studio-radius-md: calc(var(--tc-studio-radius) * 0.8);
   --tc-studio-background: oklch(1 0 0);
   --tc-studio-foreground: oklch(0.145 0 0);
   --tc-studio-card: oklch(1 0 0);
@@ -135,4 +136,14 @@
 .style-vega button:not(:disabled),
 .style-vega [role="button"]:not(:disabled) {
   cursor: pointer;
+}
+
+@layer base {
+  .style-vega {
+    @apply bg-background text-foreground;
+  }
+
+  .style-vega * {
+    @apply border-border outline-ring/50;
+  }
 }

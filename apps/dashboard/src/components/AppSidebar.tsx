@@ -27,6 +27,7 @@ import {
   tabMatchesPath,
   type WorkspaceTab,
 } from "@/navigation/WorkspaceTabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Collapsible,
   CollapsibleContent,
@@ -172,9 +173,11 @@ function AccountMenu({
               />
             }
           >
-            <span className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
-              {initial}
-            </span>
+            <Avatar className="size-8 rounded-md">
+              <AvatarFallback className="rounded-md text-xs font-semibold">
+                {initial}
+              </AvatarFallback>
+            </Avatar>
             <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{user?.name}</span>
               <span className="truncate text-xs text-muted-foreground">
@@ -285,7 +288,7 @@ export function AppSidebar({
   onLogout: () => void;
 }) {
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
