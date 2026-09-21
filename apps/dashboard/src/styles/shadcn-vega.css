@@ -1,4 +1,3 @@
-.style-vega {
   /* MARK: Accordion */
   .cn-accordion-item {
     @apply not-last:border-b;
@@ -1745,4 +1744,3 @@
   .cn-dropdown-menu-sub-content-aria {
     @apply ring-foreground/10 bg-popover text-popover-foreground min-w-[96px] rounded-md p-1 shadow-lg ring-1 duration-100;
   }
-}
