@@ -18,7 +18,7 @@ import {
   Upload,
   UserRound,
 } from "lucide-react";
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import {
   Link,
   matchRoutes,
@@ -439,7 +439,7 @@ function BreadcrumbTrail({ items }: { items: Breadcrumb[] }) {
         {items.map((item, index) => {
           const current = index === items.length - 1;
           return (
-            <span className="contents" key={`${item.to}:${item.label}`}>
+            <Fragment key={`${item.to}:${item.label}`}>
               {index > 0 && <BreadcrumbSeparator />}
               <BreadcrumbItem className="min-w-0">
                 {current ? (
@@ -452,7 +452,7 @@ function BreadcrumbTrail({ items }: { items: Breadcrumb[] }) {
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>
-            </span>
+            </Fragment>
           );
         })}
       </BreadcrumbList>
