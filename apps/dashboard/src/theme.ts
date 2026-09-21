@@ -1,3 +1,5 @@
+document.documentElement.classList.add("style-vega");
+
 const appearanceKey = "tilecast.appearance";
 const appearances = new Set(["light", "dark", "system"]);
 const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
