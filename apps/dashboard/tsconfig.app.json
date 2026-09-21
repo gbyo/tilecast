@@ -3,7 +3,11 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "allowJs": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -16,7 +20,15 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }
