@@ -82,7 +82,7 @@ export function DashboardShell() {
 
   return (
     <TooltipProvider>
-      <SidebarProvider className="style-vega">
+      <SidebarProvider>
         <AppSidebar
           user={auth.status.user}
           signingOut={auth.isSubmitting}
