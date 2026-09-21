@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "./shadcn-vega.css";
+@import "shadcn/tailwind.css";
 
 @source "../**/*.{ts,tsx}";
 
@@ -135,4 +135,15 @@
 .style-vega button:not(:disabled),
 .style-vega [role="button"]:not(:disabled) {
   cursor: pointer;
+}
+
+
+@layer base {
+  .style-vega {
+    @apply bg-background text-foreground;
+  }
+
+  .style-vega * {
+    @apply border-border outline-ring/50;
+  }
 }
