@@ -40,9 +40,7 @@
     --tc-studio-sidebar-primary-foreground
   );
   --color-sidebar-accent: var(--tc-studio-sidebar-accent);
-  --color-sidebar-accent-foreground: var(
-    --tc-studio-sidebar-accent-foreground
-  );
+  --color-sidebar-accent-foreground: var(--tc-studio-sidebar-accent-foreground);
   --color-sidebar-border: var(--tc-studio-sidebar-border);
   --color-sidebar-ring: var(--tc-studio-sidebar-ring);
 }
