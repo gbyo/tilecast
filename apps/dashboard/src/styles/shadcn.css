@@ -138,7 +138,6 @@
   cursor: pointer;
 }
 
-
 @layer base {
   .style-vega {
     @apply bg-background text-foreground;

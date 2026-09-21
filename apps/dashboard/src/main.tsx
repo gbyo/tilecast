@@ -26,7 +26,6 @@ import "./styles/popover.css";
 import "./styles/screens-media-fixes.css";
 import "./styles/playlist-editor.css";
 
-
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },
 });

@@ -18,7 +18,13 @@ import {
   Upload,
   UserRound,
 } from "lucide-react";
-import { Fragment, useEffect, useState, type ComponentType, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import {
   Link,
   matchRoutes,
@@ -697,7 +703,10 @@ export function StudioTopbar({
                   );
                   if (groupItems.length === 0) return null;
                   return (
-                    <div className="border-b last:border-b-0" key={group.priority}>
+                    <div
+                      className="border-b last:border-b-0"
+                      key={group.priority}
+                    >
                       <div
                         className="flex items-center justify-between bg-muted/50 px-4 py-2 text-xs font-medium text-muted-foreground"
                         id={`topbar-alert-group-${group.priority}`}
@@ -717,7 +726,8 @@ export function StudioTopbar({
                               <span
                                 className={cn(
                                   "size-2 rounded-full bg-muted-foreground",
-                                  item.priority === "critical" && "bg-destructive",
+                                  item.priority === "critical" &&
+                                    "bg-destructive",
                                   item.priority === "warning" && "bg-amber-600",
                                   item.priority === "info" && "bg-blue-600",
                                 )}
@@ -821,5 +831,4 @@ export function StudioTopbar({
       )}
     </header>
   );
-
 }
