@@ -709,30 +709,46 @@ Do not reuse one key solely because all are Ed25519-capable identities.
 
 ### 11.1 Node ID
 
-Reuse the stable Linux `playerInstallationId` as the durable Edge node identifier. Do not create a second unrelated device identity unless a future multi-screen-per-host architecture requires it.
+Reuse the stable Linux `playerInstallationId` as the durable Edge node identifier.
 
-### 11.2 Enrollment
+Do not create a second unrelated device identity unless a future multi-screen-per-host architecture requires it.
+
+### 11.2 Enrollment and proof of possession
 
 After ordinary Tilecast player enrollment succeeds:
 
 1. `tilecastd` creates an Ed25519 node private key locally.
-2. It creates a CSR/public-key enrollment request containing the stable player installation ID and current screen ID.
-3. It calls an authenticated server Edge enrollment endpoint using the existing device bearer credential.
-4. The server verifies the credential, screen association, installation ID and node state.
-5. The server signs a node certificate from the installation Edge CA.
-6. The response returns:
-   - node certificate;
-   - Edge CA certificate;
-   - Edge authority public key/fingerprint;
-   - mesh protocol version;
-   - certificate expiry/renewal threshold.
-7. The private key never leaves the node.
+2. It creates a PKCS#10 CSR or equivalent signed enrollment request proving possession of that private key.
+3. The request carries only the public key plus bounded request metadata.
+4. It calls the authenticated Edge enrollment endpoint with the existing device credential and current `playerOwnerGeneration` when owner-sensitive.
+5. The server obtains authoritative installation ID, `playerInstallationId`, screen ID, trust realm, purpose and policy from authenticated database state. It does **not** trust identity values merely because the CSR subject/SAN asks for them.
+6. The server verifies CSR proof-of-possession and enrollment rate/overlap limits.
+7. The server issues the node certificate.
+8. The response returns the node certificate, Edge CA chain, authority keyring/transition material, trust/security coordinates, mesh protocol range, and renewal threshold.
+9. The private key never leaves the node.
 
-### 11.3 Certificate identity
+Enrollment/renewal is rate-limited per credential, node ID and source address. V1 also bounds the number of simultaneously valid overlapping node certificates during renewal/rebinding.
 
-The certificate profile is a protocol contract, not an implementation detail.
+A shadow/bootstrap enrollment grant is one-time, narrowly scoped to certificate enrollment and cannot authenticate normal player-owner operations.
 
-Use one checked-in X.509 profile with DER/golden fixtures shared by the server and Rust tests. The initial profile must define:
+### 11.3 Exact CA and leaf profiles
+
+Both CA and leaf certificate profiles are normative protocol contracts with checked-in DER/golden fixtures.
+
+Initial installation CA profile:
+
+```text
+version                 X.509 v3
+subject key             Ed25519
+signature               Ed25519
+basicConstraints        CA=true, pathLen=0, critical
+keyUsage                keyCertSign + cRLSign, critical
+extendedKeyUsage        absent
+validity                explicit bounded lifetime/rotation overlap
+custom identity         installationId + trustRealmId
+```
+
+Initial node leaf profile:
 
 ```text
 version                 X.509 v3
@@ -743,58 +759,65 @@ keyUsage                digitalSignature, critical
 extendedKeyUsage        clientAuth + serverAuth, critical
 serial                  positive unique random 128-bit value
 validity                server UTC with documented notBefore skew
-SAN/custom OIDs         installation ID, durable node ID, screen binding, purpose
+SAN/custom OIDs         installation ID, trustRealmId, durable node ID,
+                        screen binding, purpose
 purpose                 tilecast-edge-node
 ```
 
-Do not rely on common name text for authorization.
+Do not rely on common-name text for authorization.
 
-The player installation ID is the durable node identity; the screen ID is an authorization binding at certificate issue time. Each issued certificate also has a unique certificate serial number and public-key fingerprint.
+The player installation ID is the durable node identity; screen ID is the current authorization binding at issuance. Every certificate has a unique serial and public-key fingerprint.
 
-If the same hardware is deliberately rebound or repaired to a different logical screen, the server revokes the old certificate instance and requires certificate reissuance before mesh participation resumes. The durable node ID does not become revoked merely because one certificate was replaced.
+Peers validate:
 
-Peers validate the certificate instance, installation ID, durable node ID, current screen authorization binding, purpose, validity, key usage, EKU, and revocation state before accepting it.
+- trust realm and installation ID;
+- purpose;
+- durable node ID/current screen authorization;
+- CA chain/profile;
+- leaf BasicConstraints/KeyUsage/EKU;
+- exact certificate instance;
+- validity;
+- revocation/disabled-node state.
 
-Exact OID numbers and DER encodings are allocated in E0. The protocol fixtures include malformed, duplicate, missing, wrong-EKU, wrong-purpose, wrong-installation and wrong-node certificates.
+Exact OID numbers/DER encodings are allocated in E0. Fixtures include wrong CA path length, missing critical extensions, wrong EKU, wrong purpose, wrong realm/installation/node/screen, malformed CSR and CSR-without-valid-proof-of-possession.
 
 ### 11.4 Rotation
 
-Recommended initial policy:
+Recommended initial leaf policy:
 
 - validity: 180 days;
 - renew when fewer than 30 days remain;
 - retry with bounded exponential backoff;
-- continue using the still-valid old certificate until replacement is durable;
-- install replacement key/certificate material as one versioned identity generation, then atomically switch the active generation;
-- retire/revoke the old certificate instance after the new generation is durable and usable;
-- report renewal failure to the server before expiration becomes imminent.
+- keep the still-valid old certificate until replacement generation is durable;
+- atomically switch the complete identity generation;
+- retire/revoke the superseded certificate instance after the replacement is usable.
 
-A power loss must not leave a new private key paired with an old certificate or the reverse. Use versioned identity directories/files plus one atomic active-generation pointer, or an equivalent single-commit storage design.
+Power loss must not pair a new private key with an old certificate or incomplete authority/CA material.
 
-### 11.5 Revocation
+CA rotation is rarer and separate from leaf renewal. It uses an explicit overlapping trust window and updated ERB before removing the old CA.
 
-Use two distinct revocation scopes:
+### 11.5 Revocation and lifecycle
+
+Maintain distinct sets:
 
 ```text
-revoked certificate instances   -> certificate serial number/fingerprint
-disabled nodes                  -> durable playerInstallationId/nodeId
+revoked certificate instances -> serial/fingerprint
+disabled durable nodes        -> playerInstallationId/nodeId
 ```
 
-Certificate replacement, renewal and screen rebinding revoke only the superseded certificate instance. Device compromise, screen archive/disable, deliberate decommissioning, hardware replacement of the underlying installation identity, or explicit player-identity revocation can disable the durable node.
+Certificate renewal/rebinding revokes only the superseded instance.
 
-Existing Tilecast lifecycle mutations that change whether a physical player is authorized must update Edge authorization in the same authoritative transaction or produce an outbox row that cannot be lost. A bearer credential repair that keeps the same physical node may rotate only the certificate instance; a hardware replacement that changes `playerInstallationId` disables the old node.
+Screen archive/disable, explicit node decommissioning, hardware replacement of the underlying installation identity, credential/security repair and related current Tilecast lifecycle mutations must have explicit Edge consequences in the same authoritative transaction/outbox path.
 
-Use one monotonic server-side revocation generation included in independently versioned signed security state and in snapshots. The state contains both revoked-certificate instances and disabled nodes.
+A bearer credential repair that keeps the physical node may rotate only certificate instances. Hardware replacement with a new `playerInstallationId` disables the old durable node.
 
-Revocation applies to existing sessions and new handshakes. When a node learns a newer security generation, it immediately rejects matching application data and closes matching live Zenoh/peer-HTTPS sessions where possible.
+Security state is identified by `securityLineageId + securityGeneration + stateDigest`.
 
-Certificate-instance revocations do not grow forever. A revoked certificate instance may leave the signed active set only after its `notAfter` plus the documented maximum clock/replay safety margin. Durable node disablement has its own lifecycle and is not pruned merely because one certificate expired.
+Revocation applies to new and established sessions. A newer accepted security generation immediately rejects matching application data and closes matching Zenoh/peer-HTTPS sessions.
 
-Certificate expiry remains a second safety boundary.
+Certificate-instance revocations may leave the active security set only after `notAfter` plus maximum documented clock/replay safety margin. Durable node disablement follows the underlying device lifecycle instead.
 
-Tilecast application-level certificate checks use the Clock Authority's bounded trusted-time view. E5 must prove the actual rustls/Zenoh time-validation path; do not assume an application clock automatically controls TLS certificate validity.
-
-Do not implement online OCSP as an Edge availability dependency.
+Certificate expiry is a second safety boundary. Do not add online OCSP as an Edge availability dependency.
 
 ## 12. Server-side Edge trust, recovery and secrets
 
@@ -1019,7 +1042,9 @@ The shipped/tested configuration fixture must include the full mutual-authentica
         "connect_private_key": "...",
         "connect_certificate": "...",
         "close_link_on_expiration": true,
-        "verify_name_on_connect": false
+        "verify_name_on_connect": false,
+        "session_resumption": false,
+        "early_data_0rtt": false
       }
     }
   }
@@ -1040,6 +1065,10 @@ If the transport exposes a standard TLS exporter/channel-binding value, Tilecast
 All accepted paths verify the installation CA, certificate purpose, installation ID, durable node ID, exact certificate instance, current revocation generation and certificate validity. A CA-valid peer must not be able to publish as another node merely by choosing that node's keyspace.
 
 A node discovered over multicast is still not connected as a usable Tilecast peer until TLS mutual authentication and the selected logical-node binding both succeed.
+
+For v1, disable TLS session resumption for Edge peer mTLS unless the pinned Zenoh/rustls integration can prove that resumed sessions re-evaluate the exact certificate instance and current security generation. This keeps certificate rotation/revocation semantics simple.
+
+Zero-RTT/early application data is disabled even if a future transport/library enables it by default. Edge application state is never accepted before the current peer identity/security state is established.
 
 ### 13.4 Interface selection
 
@@ -2482,18 +2511,24 @@ for operator/bootstrap visibility of Edge peer endpoints.
 
 ### 22.2 Edge TXT fields
 
-Safe examples:
+Avoid advertising permanent installation/node UUIDs before authentication.
+
+Safe v1 examples:
 
 ```text
-installation-id=<uuid>
-node-id=<uuid>
-edge-version=<version>
 protocol=1
 port=7448
+discovery-id=<random boot/session opaque id>
 ```
+
+`discovery-id` is regenerated on boot/session restart and is useful only for deduplication/bootstrap diagnostics.
+
+Learn durable installation/node identity after mTLS/logical-node authentication.
 
 Do not include:
 
+- installation UUID;
+- durable node UUID;
 - screen credentials;
 - certificates/private material;
 - pairing secrets;
@@ -2531,9 +2566,15 @@ Later, if there is a clear maintenance benefit, replace the helper implementatio
 
 ### 23.3 Mesh exclusion
 
-When a Presentation Network activates, `tilecastd` re-evaluates interfaces but must keep Zenoh and peer blob listeners off that sidecar Wi-Fi.
+When a Presentation Network activates or an interface becomes newly forbidden, `tilecastd` must:
 
-No peer traffic should accidentally expose Tilecast Edge to AirPlay sender VLANs.
+1. withdraw Edge Avahi publication from that interface;
+2. stop/rebind Zenoh and peer-blob listeners so they do not accept new traffic there;
+3. close existing Zenoh/peer-HTTPS sessions whose local path uses the newly forbidden interface;
+4. remove stale advertised endpoints;
+5. re-run permitted-interface discovery before reconnecting.
+
+No existing or new peer traffic should expose Tilecast Edge to AirPlay sender VLANs.
 
 ---
 
@@ -2719,7 +2760,9 @@ Restart=always
 RestartSec=2
 WatchdogSec=30s
 RuntimeDirectory=tilecast-edge
+RuntimeDirectoryMode=0750
 StateDirectory=tilecast-edge
+StateDirectoryMode=0700
 UMask=0077
 ```
 
@@ -2777,21 +2820,32 @@ Only the main daemon health loop sends watchdog notifications. A stuck renderer 
 
 Renderer isolation and display-session ownership must be designed together.
 
-The separate `tilecast-renderer` UID remains the security target, but a system service cannot assume it can connect to a Wayland/X11 socket owned by an arbitrary logged-in kiosk user.
+The separate `tilecast-renderer` UID remains the security target.
 
-Support explicit host modes:
+Supported host modes:
 
-1. **Dedicated Tilecast compositor/session** — the compositor/session is owned by or grants narrowly scoped access to `tilecast-renderer`. This is the preferred Wayland migration mode.
-2. **Existing desktop/session compatibility** — a narrow session bridge or controlled ACL passes only the display/session handles/environment required by the renderer. Do not expose the server bearer credential or Edge identity to the logged-in user session.
-3. **Direct DRM/KMS appliance mode** — WPE owns the display directly and no compositor is required. Electron compatibility fallback is unavailable unless the system deliberately transitions to a compositor-backed mode.
+1. **Dedicated Tilecast compositor/session** — preferred Wayland migration mode.
+2. **Existing desktop/session compatibility** — narrow session bridge/ACL supplies only required display/session handles.
+3. **Direct DRM/KMS appliance mode** — WPE owns display directly; ordinary Electron fallback is unavailable without a deliberate compositor transition.
 
-Do not claim that a separate system UID plus `WPE_PLATFORM=wayland` is sufficient by itself.
+Every renderer launch receives a new random renderer generation, but the generation string is defense-in-depth rather than the only same-UID process boundary.
 
-`tilecastd` launches one renderer instance with a random instance generation. It passes only renderer/media sockets, the instance generation, presentation bootstrap data and required display/media device access.
+Prefer one of:
+
+- daemon-created connected Unix socket/socketpair file descriptors inherited only by the child renderer process; or
+- systemd/PID-aware launch where `tilecastd` records and verifies the renderer's expected PID + start identity/pidfd before accepting control/media traffic.
+
+Do not rely on a bearer-like renderer token stored in a same-UID-readable environment/file as the primary boundary.
+
+Renderer lifecycle is bound to the daemon. A `tilecastd` restart stops/recreates the renderer and creates a new renderer generation; a stale renderer is not allowed to survive daemon replacement and reconnect later.
+
+The renderer unit may use `PartOf=tilecast-edge.service`/equivalent dependency semantics once validated with the selected launch model.
+
+`tilecastd` passes only renderer/media communication handles, presentation bootstrap data and required display/media-device access.
 
 Renderer lifecycle control uses a fixed systemd unit relationship or narrow helper. Do not grant generic systemd manager authority.
 
-The service must not inherit read access to `/var/lib/tilecast-edge/identity` or direct CAS paths.
+The renderer never receives server bearer credentials, node private keys or direct CAS paths.
 
 ### 27.5 Safe mode
 
