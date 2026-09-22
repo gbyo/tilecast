@@ -30,7 +30,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use edge_cas::{ContentStore, LruByDomain, StorePolicy};
 use edge_ipc::{IpcServer, PeerPolicy};
+use edge_platform::disk::StatvfsProbe;
 use edge_platform::capabilities::CapabilityRegistry;
 use edge_platform::paths::EdgePaths;
 use edge_platform::providers::{HostTimeSyncProvider, SystemdProvider, WpePlatformProvider};
@@ -54,6 +56,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 const SUPERVISION_INTERVAL: Duration = Duration::from_secs(15);
 const CAPABILITY_INTERVAL: Duration = Duration::from_secs(300);
+const CAS_MAINTENANCE_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Whether state is usable.
 #[derive(Debug, Clone)]
@@ -75,6 +78,8 @@ pub struct DaemonContext {
     pub capabilities: Mutex<CapabilityRegistry>,
     pub capability_revision: std::sync::atomic::AtomicU64,
     pub node_id: Option<NodeId>,
+    /// The content store; `None` in recovery mode.
+    pub cas: Option<ContentStore>,
     pub shutdown: CancellationToken,
 }
 
@@ -183,6 +188,33 @@ impl Daemon {
             wayland_display: config.renderer.wayland_display.clone(),
         }));
 
+        let cas = match &state {
+            StateMode::Normal(db) => {
+                let policy = StorePolicy {
+                    limit_bytes: config.cas.limit_bytes,
+                    reserved_free_bytes: config.cas.reserved_free_bytes,
+                };
+                match ContentStore::open(
+                    paths.cas_root(),
+                    paths.partial_dir(),
+                    db.clone(),
+                    clock.clone(),
+                    Arc::new(StatvfsProbe),
+                    policy,
+                    Arc::new(LruByDomain),
+                )
+                .await
+                {
+                    Ok(store) => Some(store),
+                    Err(error) => {
+                        tracing::error!(component = "cas", event = "open_failed", error = %error);
+                        None
+                    }
+                }
+            }
+            StateMode::Recovery { .. } => None,
+        };
+
         let uid = rustix::process::geteuid().as_raw();
         let mut policy = PeerPolicy::for_daemon_uid(uid);
         policy.renderer_uids = config.ipc.renderer_uids.clone();
@@ -199,6 +231,7 @@ impl Daemon {
             capabilities: Mutex::new(registry),
             capability_revision: std::sync::atomic::AtomicU64::new(0),
             node_id,
+            cas,
             shutdown: CancellationToken::new(),
         });
 
@@ -241,6 +274,7 @@ impl Daemon {
         tasks.spawn(supervision_loop(Arc::clone(&context)));
         tasks.spawn(capability_loop(Arc::clone(&context)));
         tasks.spawn(crate::fixture::run(Arc::clone(&context)));
+        tasks.spawn(cas_maintenance_loop(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);
@@ -253,6 +287,11 @@ impl Daemon {
         if drained.is_err() {
             tracing::warn!(component = "daemon", event = "shutdown_timeout");
             tasks.abort_all();
+        }
+        if let Some(cas) = &context.cas
+            && let Err(error) = cas.flush_touches().await
+        {
+            tracing::warn!(component = "cas", event = "touch_flush_failed", error = %error);
         }
         if let Some(db) = context.db() {
             db.run_blocking(|c| daemon_repo::record_clean_shutdown(c, context.now()))
@@ -319,6 +358,28 @@ async fn capability_loop(context: Arc<DaemonContext>) {
             _ = ticker.tick() => {}
         }
         crate::capabilities::refresh(&context).await;
+    }
+}
+
+/// Flushes batched CAS access times and expires timed pins (RFC §8.3: one
+/// write per minute, never one per read).
+async fn cas_maintenance_loop(context: Arc<DaemonContext>) {
+    let Some(cas) = context.cas.clone() else {
+        return;
+    };
+    let mut ticker = tokio::time::interval(CAS_MAINTENANCE_INTERVAL);
+    loop {
+        tokio::select! {
+            _ = context.shutdown.cancelled() => return,
+            _ = ticker.tick() => {}
+        }
+        if let Err(error) = cas.flush_touches().await {
+            tracing::warn!(component = "cas", event = "touch_flush_failed", error = %error);
+        }
+        if let Some(db) = context.db() {
+            let now = context.now();
+            let _ = db.run(move |c| cas::expire_pins(c, now)).await;
+        }
     }
 }
 

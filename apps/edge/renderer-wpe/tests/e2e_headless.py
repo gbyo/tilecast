@@ -85,6 +85,8 @@ class Stack:
                 "--platform=headless",
                 f"--socket={self.socket}",
                 f"--runtime-dir={self.args.runtime_dir}",
+                f"--cas-root={self.workdir}/state/cas",
+                f"--gst-plugin-dir={self.args.gst_plugin_dir}",
                 "--headless-size=1280x720",
                 "--console",
             ],
@@ -176,9 +178,29 @@ def scenario_reconnect(args):
             stack.stop()
 
 
+def build_fixture(workdir):
+    """Copies the playlist fixture and generates its media with ffmpeg."""
+    source = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "playlist.json")
+    fixture_dir = os.path.join(workdir, "fixture")
+    media = os.path.join(fixture_dir, "media")
+    os.makedirs(media)
+    with open(source, encoding="utf-8") as handle, open(
+        os.path.join(fixture_dir, "playlist.json"), "w", encoding="utf-8"
+    ) as out:
+        out.write(handle.read())
+    run = lambda *argv: subprocess.run(["ffmpeg", "-loglevel", "error", "-y", *argv], check=True)  # noqa: E731
+    run("-f", "lavfi", "-i", "testsrc=size=1280x720:rate=1", "-frames:v", "1", os.path.join(media, "still.png"))
+    run(
+        "-f", "lavfi", "-i", "testsrc=size=1280x720:rate=30", "-t", "4",
+        "-c:v", "libx264", "-profile:v", "baseline", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        os.path.join(media, "clip.mp4"),
+    )
+    return os.path.join(fixture_dir, "playlist.json")
+
+
 def scenario_fixture(args):
-    fixture = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "playlist.json")
     with tempfile.TemporaryDirectory() as workdir:
+        fixture = build_fixture(workdir)
         stack = Stack(args, workdir, fixture=fixture)
         try:
             stack.start_daemon()
@@ -218,6 +240,7 @@ def main():
     parser.add_argument("--bin-dir", required=True)
     parser.add_argument("--renderer", required=True)
     parser.add_argument("--runtime-dir", required=True)
+    parser.add_argument("--gst-plugin-dir", required=True)
     parser.add_argument("--scenario", default="all")
     args = parser.parse_args()
     scenarios = {"status": scenario_status, "reconnect": scenario_reconnect, "fixture": scenario_fixture}

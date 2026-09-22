@@ -104,6 +104,7 @@ pub struct PresentationEngine {
     supervisor: SupervisorState,
     supervisor_config: SupervisorConfig,
     restart_count: u64,
+    logged_evidence: std::collections::HashSet<(String, edge_protocol::ipc::event::EvidenceKind)>,
 }
 
 impl PresentationEngine {
@@ -124,6 +125,7 @@ impl PresentationEngine {
             supervisor: SupervisorState::new(now_ms),
             supervisor_config,
             restart_count: 0,
+            logged_evidence: std::collections::HashSet::new(),
         }
     }
 
@@ -146,6 +148,7 @@ impl PresentationEngine {
             source,
         };
         self.next_generation += 1;
+        self.logged_evidence.clear();
         let reference = activation.reference();
         tracing::info!(
             component = "presentation",
@@ -230,6 +233,18 @@ impl PresentationEngine {
         let expectation = current.expectation_for(report.item_id.as_ref().map(SafeText::as_str));
         if !is_meaningful(report.kind, expectation) {
             return;
+        }
+        // Log the first acceptance of each (item, kind) per activation: enough
+        // for diagnostics and tests, bounded regardless of playback length.
+        let key = (report.item_id.as_ref().map(|i| i.as_str().to_owned()).unwrap_or_default(), report.kind);
+        if self.logged_evidence.len() < 512 && self.logged_evidence.insert(key) {
+            tracing::info!(
+                component = "presentation",
+                event = "evidence_accepted",
+                generation = report.activation.generation,
+                item = report.item_id.as_ref().map(SafeText::as_str).unwrap_or(""),
+                kind = report.kind.as_str()
+            );
         }
         if let Some(link) = self.link_for(session) {
             link.last_progress_at = Some(now);

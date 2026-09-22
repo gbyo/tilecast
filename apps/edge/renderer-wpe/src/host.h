@@ -46,6 +46,10 @@ struct _TcHost {
   TcPlatform platform;
   char *socket_path;
   char *runtime_dir;
+  /* CAS root fixed at startup: the web process's media source reads it from
+   * its environment, so tilecastd's renderer.configure must match it. */
+  char *startup_cas_root;
+  char *gst_plugin_dir;
   int headless_width;
   int headless_height;
   gboolean console_to_stderr;

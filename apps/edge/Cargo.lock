@@ -909,6 +909,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "clap",
+ "edge-cas",
  "edge-ipc",
  "edge-platform",
  "edge-protocol",

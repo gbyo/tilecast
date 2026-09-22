@@ -156,6 +156,12 @@ handle_configure (TcHost *host, JsonObject *data)
     g_warning ("protocol: ignoring renderer.configure with an unusable content store");
     return;
   }
+  if (g_strcmp0 (root, host->startup_cas_root) != 0) {
+    /* Video would read a different store than images; refuse to diverge. */
+    g_warning ("protocol: tilecastd's content store differs from --cas-root; media disabled");
+    tc_protocol_send_health (host, "degraded", "cas_root_mismatch");
+    return;
+  }
   g_free (host->cas_root);
   host->cas_root = g_strdup (root);
 }

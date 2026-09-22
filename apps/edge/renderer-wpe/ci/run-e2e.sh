@@ -8,6 +8,9 @@
 set -euo pipefail
 scenario=${1:-all}
 export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/target/cargo}
+export CARGO_HOME=${CARGO_HOME_CACHE:-/target/cargo-home}
+mkdir -p "$CARGO_HOME"
+ln -sf /opt/cargo/bin "$CARGO_HOME/bin" 2>/dev/null || true
 cd /src/apps/edge
 cargo build --locked -p tilecastd -p tilecastctl
 cmake -S renderer-wpe -B /target/renderer -G Ninja >/dev/null
@@ -19,4 +22,5 @@ python3 renderer-wpe/tests/e2e_headless.py \
   --bin-dir "$CARGO_TARGET_DIR/debug" \
   --renderer /target/renderer/tilecast-renderer-wpe \
   --runtime-dir "$runtime" \
+  --gst-plugin-dir /target/renderer/gstreamer-1.0 \
   --scenario "$scenario"

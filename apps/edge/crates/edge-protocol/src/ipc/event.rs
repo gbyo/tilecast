@@ -256,6 +256,28 @@ pub enum EvidenceKind {
     SurfaceShown,
 }
 
+impl EvidenceKind {
+    /// The wire name (snake_case).
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::ItemStarted => "item_started",
+            Self::ItemTransition => "item_transition",
+            Self::VideoProgress => "video_progress",
+            Self::ImageShown => "image_shown",
+            Self::WidgetShown => "widget_shown",
+            Self::WidgetEmpty => "widget_empty",
+            Self::WidgetAlive => "widget_alive",
+            Self::LayoutShown => "layout_shown",
+            Self::LayoutAlive => "layout_alive",
+            Self::LayoutZoneRendered => "layout_zone_rendered",
+            Self::WebsiteLoaded => "website_loaded",
+            Self::WebsiteAlive => "website_alive",
+            Self::FrameChanged => "frame_changed",
+            Self::SurfaceShown => "surface_shown",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RendererProgress {

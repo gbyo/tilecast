@@ -13,7 +13,7 @@ use edge_protocol::ipc::method::{
     Method, PingResult, ShowDiagnosticResult, SubmitServerUrlResult, error_codes,
 };
 use edge_protocol::ipc::status::{
-    CasStatus, DaemonMode, DaemonStatus, MeshStatus, PeerSummary, ServerBindingStatus,
+    CasStatus, CasVerifyResult, DaemonMode, DaemonStatus, MeshStatus, PeerSummary, ServerBindingStatus, VerifyOutcome,
 };
 use serde_json::Value;
 
@@ -81,7 +81,8 @@ impl IpcHandler for DaemonIpc {
                     component = "renderer",
                     event = "item_error",
                     code = item.code.as_str(),
-                    item = item.item_id.as_ref().map(SafeText::as_str).unwrap_or("")
+                    item = item.item_id.as_ref().map(SafeText::as_str).unwrap_or(""),
+                    message = item.message.as_str()
                 );
                 engine.item_error(session, item.activation, item.code.as_str());
             }
@@ -131,8 +132,20 @@ impl IpcHandler for DaemonIpc {
                 to_value(&summaries)
             }
             Method::CasStatus(_) => to_value(&self.cas_status().await?),
-            Method::CasVerify(_) => {
-                Err(error(error_codes::UNAVAILABLE, "Content verification is handled by the content store task."))
+            Method::CasVerify(params) => {
+                let cas = context.cas.as_ref().ok_or_else(|| error(error_codes::UNAVAILABLE, "The content store is unavailable."))?;
+                let outcome = cas
+                    .verify(&params.sha256)
+                    .await
+                    .map_err(|_| error(error_codes::INTERNAL, "The object could not be verified."))?;
+                to_value(&CasVerifyResult {
+                    sha256: params.sha256,
+                    outcome: match outcome {
+                        edge_cas::store::VerifyOutcome::Verified => VerifyOutcome::Verified,
+                        edge_cas::store::VerifyOutcome::Missing => VerifyOutcome::Missing,
+                        edge_cas::store::VerifyOutcome::Corrupt => VerifyOutcome::Corrupt,
+                    },
+                })
             }
             Method::DiagnosticsShowStatus(_) => {
                 let bound = self.is_bound().await;

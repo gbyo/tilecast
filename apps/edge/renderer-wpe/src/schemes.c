@@ -137,6 +137,7 @@ finish (WebKitURISchemeRequest *request, int fd, guint64 offset, guint64 length,
   g_autoptr (WebKitURISchemeResponse) response = webkit_uri_scheme_response_new (stream, (gint64) length);
   webkit_uri_scheme_response_set_status (response, status, NULL);
   webkit_uri_scheme_response_set_content_type (response, type);
+  /* (transfer full): the response owns the headers from here on. */
   if (headers != NULL)
     webkit_uri_scheme_response_set_http_headers (response, headers);
   webkit_uri_scheme_request_finish_with_response (request, response);
@@ -242,7 +243,6 @@ handle_media (WebKitURISchemeRequest *request, gpointer user_data)
     finish (request, fd, 0, size, 200, ref->mime_type, headers);
     break;
   }
-  soup_message_headers_unref (headers);
 }
 
 void
