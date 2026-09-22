@@ -4708,11 +4708,13 @@ No behavior change.
 
 ### PR 2 — `feat(edge-protocol): add v1 schemas and golden fixtures`
 
-- IPC envelopes;
-- capability schema;
-- canonical change-envelope encoding;
+- IPC min/max protocol envelopes;
+- renderer profiles and presentation requirements;
+- canonical change/security/snapshot/state-epoch envelopes;
+- X.509 profile fixtures;
 - presentation-bundle skeleton;
-- CEL fixture harness skeleton.
+- CEL fixture harness skeleton;
+- malformed JSON/duplicate-key/encoding fixtures.
 
 Go + TypeScript fixture validators first; Rust joins in PR 3.
 
@@ -4777,19 +4779,21 @@ Fresh-development Edge install can pair against existing server protocol.
 
 Hello/ping/liveness/reconnect only.
 
-### PR 13 — `feat(edge-state): add command idempotency and command client`
+### PR 13 — `feat(edge-state): add command execution classes and durable idempotency`
 
-Run non-disruptive test command first.
+Run a non-disruptive idempotent command first. Tie retention to server redelivery/owner-generation semantics before enabling disruptive commands.
 
 ### PR 14 — `feat(edge-state): port config and manifest reconciliation`
 
 Still origin-backed cache.
 
-### PR 15 — `feat(edge-migration): migrate Linux credential/state ownership`
+### PR 15 — `feat(edge-migration): fence and migrate Linux credential/state ownership`
 
-- explicit one-owner handoff;
-- server capability marker;
-- rollback.
+- server `playerOwnerGeneration`;
+- stale-owner rejection;
+- bearer handoff only after shadow mode;
+- crash-point ownership tests;
+- rollback acquires a newer generation.
 
 ### PR 16 — `refactor(player-linux): renderer-only Edge mode`
 
@@ -4797,7 +4801,7 @@ Electron loses server credential and networking when Edge ownership enabled.
 
 ### CAS PRs
 
-### PR 17 — `feat(edge-cas): add verified content-addressed store`
+### PR 17 — `feat(edge-cas): add verified blobs, references and multi-owner pins`
 
 ### PR 18 — `feat(edge-cas): add resumable origin downloads and pinning`
 
@@ -4845,11 +4849,14 @@ No app data beyond identity-safe presence. Installation-CA-only outbound trust, 
 
 ### Change feed PRs
 
-### PR 32 — `feat(server-edge): add signed Edge change outbox/feed`
+### PR 32 — `feat(server-edge): add state-epoch signed Edge outbox/feed`
 
-- captured subject revisions;
-- object-ready gating;
+- captured subject revisions/tombstones;
+- object-ready/source-retention gating;
+- state epoch;
+- previous/feed digest chain;
 - decimal-string signed counters;
+- independently versioned security state;
 - authority transition chain.
 
 ### PR 33 — `feat(server-edge): compile immutable presentation bundles`
@@ -4860,9 +4867,9 @@ Compile the exact outbox-captured immutable revision before its feed row can be 
 
 Track feed continuity separately from per-resource revision watermarks.
 
-### PR 35 — `feat(edge-sync): add gap recovery, retention and state snapshot fallback`
+### PR 35 — `feat(edge-sync): add gap/fork recovery, snapshots and re-anchor`
 
-Add signed snapshot checkpoints, explicit node feed progress and feed/object retention coupling.
+Add scoped signed snapshot checkpoints, digest verification, explicit node progress, feed/object retention coupling, destructive-local-state recovery rules and direct server state-epoch re-anchor.
 
 ### PR 36 — `perf(edge-sync): add soft content/change seeder role`
 
@@ -5013,16 +5020,23 @@ Run with the repo's existing shared Postgres advisory-lock test approach.
 
 ### 44.3 Protocol golden tests
 
-The same fixture directory is consumed by:
+The same fixture directory is consumed by Go, Rust, TypeScript and C where applicable.
 
-```text
-Go
-Rust
-TypeScript
-C renderer where applicable
-```
+Golden suites cover:
 
-For signed envelopes, verify exact canonical bytes and signatures across languages.
+- JCS canonical bytes/signatures;
+- numbers above 2^53 encoded as decimal strings;
+- duplicate JSON keys and malformed UTF-8;
+- exact Ed25519 key/signature encoding;
+- X.509 DER/profile/EKU/purpose/OID validation;
+- state epoch/feed digest chain;
+- subject revision/tombstone behavior;
+- security-state documents;
+- scoped snapshot checkpoints;
+- IPC min/max negotiation;
+- renderer instance generation;
+- renderer capability/profile versioning;
+- Context epoch/TTL/replay rules.
 
 ### 44.4 Multi-node integration harness
 
@@ -5052,73 +5066,95 @@ Use Linux network namespaces/veth and `tc netem` in a privileged CI/nightly envi
 
 ### 44.5 Failure injection
 
-Tests must kill processes at exact durability boundaries:
+Kill processes at durability/ownership boundaries:
 
-- after DB transaction, before file rename;
-- after file fsync, before CAS rename;
+- after domain transaction, before object compile;
+- after object fsync, before object-ready mark;
+- after feed state lock/sequence assignment, before feed commit;
+- after CAS file fsync, before rename;
 - after CAS rename, before destination-directory fsync;
-- after directory fsync, before DB metadata commit;
-- after command persistence, before execution;
-- after update symlink switch, before daemon READY;
-- while serving a Range response;
-- while receiving the final content chunk;
-- while replacing node certificate;
+- after directory fsync, before metadata commit;
+- after owner quiesce, before server owner-generation commit;
+- after owner-generation commit, before Edge first normal request;
+- after command intent persistence, before disruptive initiation;
+- after non-disruptive effect, before idempotency persistence where applicable;
+- after update rollback metadata, before symlink switch;
+- after update symlink switch, before directory fsync;
+- after candidate READY, before health confirmation;
+- while candidate stays alive but never confirms;
+- after DB schema migration, before candidate confirmation;
+- while replacing certificate identity generation;
 - during SQLite WAL checkpoint.
 
-Every state machine should document what happens after restart at each boundary.
+Recovery tests also simulate:
+
+- server DB restore to an older feed/resource state while authority keys survive;
+- local SQLite loss while identity/trusted checkpoint survives;
+- loss of trusted local checkpoint requiring direct server re-anchor;
+- stale legacy/Edge process waking after a newer owner generation exists.
+
+Every state machine documents the restart result at each boundary.
 
 ### 44.6 WPE renderer tests
 
-Use `WPE_PLATFORM=headless` in CI for:
+Use `WPE_PLATFORM=headless` for:
 
-- runtime startup;
+- launcher/runtime startup;
+- sandbox enabled before web process;
+- IPC instance generation;
+- custom URI access policy;
+- remote-origin denial for trusted runtime/media schemes;
+- native bridge denial for untrusted sites;
 - presentation fixtures;
-- bridge messages;
-- navigation policy;
-- permission denial;
+- navigation/permission denial;
 - timeout/recovery;
-- process termination behavior.
+- process termination.
 
-Wayland/DRM hardware jobs are separate because headless cannot validate display drivers/video decode.
+Wayland hardware/session jobs test the managed compositor/session and Electron compatibility path.
+
+Large-video tests cover custom-scheme Range seek, pause/resume, loop, transition drain and cancellation.
+
+DRM jobs are separate and explicitly test that compositorless mode does not pretend ordinary Electron fallback is available.
 
 ### 44.7 Security tests
 
-Required adversarial cases:
+Required adversarial cases include:
 
 - wrong installation certificate;
-- publicly trusted but non-Tilecast certificate on outbound Zenoh connector;
+- public-WebPKI-only certificate on outbound Zenoh connector;
+- wrong EKU/purpose/custom OID;
 - expired/revoked certificate;
-- replacement certificate for same node after old certificate-instance revocation;
-- disabled node attempts to use a newly issued/old certificate;
-- peer cert with modified node SAN;
-- CA-valid peer attempts to claim another node ID;
-- revoked peer already connected when revocation arrives;
-- peer HTTPS endpoint presents a different node certificate than its signed availability reply;
-- plaintext Zenoh endpoint attempt;
-- unsigned/modified Edge change;
-- replay old sequence;
-- stale resource revision at a later feed sequence;
-- expired event in the middle of a valid feed chain;
-- rolled-back domain transaction does not create a missing Edge feed position;
-- signer/projector crash does not create a permanent sequence hole;
-- snapshot/feed race cannot put visible snapshot state above its signed base sequence;
-- valid signed Context observation replayed after a newer sourceSequence;
-- old Context source epoch replayed after reinstall/new epoch;
-- target another screen's presentation bundle;
-- path traversal in peer HTTP;
-- malformed/huge Range;
-- mismatched resume `Content-Range`;
-- two concurrent consumers request the same missing hash;
-- object body larger than expected;
+- replacement certificate after old certificate-instance revocation;
+- disabled node using any certificate instance;
+- one node claiming another node's namespace or liveliness;
+- revoked peer already connected when security generation arrives;
+- peer HTTPS endpoint presents a different node certificate than advertised;
+- peer availability advertises loopback/public/arbitrary port/redirect target;
+- one authenticated peer attempts transfer/handshake/query starvation;
+- plaintext Zenoh;
+- unsigned/modified Edge state;
+- same epoch/sequence with different digest;
+- peer attempts to force higher state epoch;
+- server restore attempts to reuse old epoch history;
+- local DB loss receives an older valid signed snapshot from peer;
+- stale subject revision at later feed sequence;
+- revocation behind unrelated feed gap;
+- expired durable change (must be invalid);
+- expired ephemeral change in feed chain;
+- tombstone replay/rollback;
+- malformed signed JSON with duplicate keys/unsafe integer encoding;
+- Context observation replay across source epochs;
+- sender tries to exceed source maximum TTL;
+- renderer from stale instance generation reconnects;
+- renderer tries media hash outside presentation generation;
+- remote website tries Tilecast custom scheme/native bridge;
+- path traversal;
+- malformed/mismatched Range;
+- concurrent same-hash fetch race;
 - same-size wrong hash;
 - malformed CSR;
-- unsupported IPC role;
-- local socket from wrong UID;
-- renderer tries undeclared native method;
-- remote website attempts top navigation/bridge access;
-- malicious context expression outside supported subset;
-- HID/device hotplug storm;
-- untrusted sensor tries server-only context key.
+- wrong IPC role/UID;
+- untrusted sensor claims server-only key.
 
 ### 44.8 Compatibility tests
 
@@ -5127,53 +5163,61 @@ Matrix:
 ```text
 Server new + legacy Electron player
 Server new + Android player
-Server new + Edge/Electron renderer
-Server new + Edge/WPE renderer
-Mixed Display Group with all above where supported
+Server new + Edge/Electron renderer on Wayland compatibility host
+Server new + Edge/WPE renderer on Wayland compatibility host
+Server new + Edge/WPE renderer on DRM dedicated host
+Mixed Display Group with supported combinations
+Upgrade Edge N -> N+1 -> automatic rollback to N
+Upgrade renderer/runtime N -> N+1 -> rollback
 ```
+
+Compatibility tests include protocol min/max negotiation, state schema readable ranges, renderer/WPE runtime ABI, and owner-generation rollback.
 
 A server upgrade must not strand old players.
 
----
-
 ## 45. Failure-mode contract
-
-Every major failure has a predetermined safe behavior.
 
 | Failure | Correct behavior |
 | --- | --- |
-| Tilecast Server unreachable | Continue active/cached schedules, mesh, peer CDN, local context; show server status offline separately. |
-| Internet unreachable but local server reachable | Normal self-hosted operation; no special degradation except internet-backed sources. |
-| All peers disappear | Continue standalone; use server origin when reachable. |
-| Multicast blocked | Use configured/server seed; if none reachable, standalone + server. |
-| Zenoh crashes/fails to open | Playback/server path continues; mesh capability degraded. |
-| Peer HTTPS fails | Try next peer/origin; never block active presentation. |
-| Peer sends corrupt object | Reject hash; penalize source; refetch. |
-| Disk full | Preserve active pinned objects; stop new preparation; report incident; never delete active content to satisfy update. |
-| SQLite unavailable/corrupt | Enter Edge safe/recovery mode; preserve CAS; do not silently recreate identity/credentials. |
-| Node cert expires | Server playback still works if bearer valid, but peer mesh disabled until renewal; visible incident. |
-| Edge CA mismatch | Refuse peers; do not auto-trust new CA. |
-| Change-feed gap | Fetch missing range; do not skip feed position. |
-| Later feed event has older resource revision | Advance feed cursor but treat event as stale no-op; never roll resource state backward. |
-| Signed event expired | Advance verified feed cursor; do not activate expired effect. |
-| Server change retention gap | Fetch signed snapshot checkpoint, restore resource watermarks and resume from signed base sequence. |
-| Context source stale | Mark stale/expire per policy; no fabricated fresh value. |
-| PTP lost | Fall back to NTP/server offset and report clock-quality transition. |
-| System wall clock jumps | Reevaluate schedules; active playback progresses monotonic. |
+| Tilecast Server unreachable | Continue active/cached schedules, mesh, peer CDN and eligible local Context. |
+| Internet unreachable but local server reachable | Normal self-hosted operation except internet-backed sources. |
+| All peers disappear | Continue standalone; use origin when reachable. |
+| Multicast blocked | Use validated server/manual seed; otherwise standalone + server. |
+| Zenoh unavailable | Playback/server path continues; mesh degraded. |
+| Peer HTTPS fails | Next peer/origin; active presentation remains unaffected. |
+| Peer advertises unsafe endpoint | Reject without connecting. |
+| One peer floods requests | Per-peer limits/fairness protect other peers and playback. |
+| Peer sends corrupt object | Reject hash, penalize source, refetch. |
+| Disk full | Preserve all pinned owners; stop new preparation; report incident. |
+| SQLite corrupt, trusted checkpoint intact | Recovery mode; direct server/checkpoint validation before peer state resumes. |
+| SQLite + trusted checkpoint lost | No peer re-anchor; require direct server recovery anchor. |
+| Node cert expires | Server playback may continue; mesh disabled until renewal. |
+| Edge CA mismatch | Refuse peers; no auto-trust. |
+| Change-feed gap | Recover missing feed; independently newer signed security/current state may still apply. |
+| Same epoch/sequence, different digest | Feed-fork incident; stop peer advancement and reconcile directly with server. |
+| Server restored behind published state | Stop old-epoch publication; explicit recovery creates newer state epoch/re-anchor. |
+| Later feed event has older resource revision | Advance feed cursor as stale no-op; never roll resource back. |
+| Signed resource tombstone | Remove/retire that resource at its newer revision. |
+| Durable change carries expiry | Reject as invalid protocol data. |
+| Ephemeral signed event expired | Advance verified feed cursor; do not activate effect. |
+| Retention gap | Verify scoped signed snapshot checkpoint + digest and resume. |
+| Revocation arrives beyond unrelated feed gap | Apply newer signed security generation immediately; feed gap remains unresolved. |
+| Context source stale | Expire per receiver-bounded policy. |
+| New Context source epoch | Supersede old incarnation; do not compare sequence across epochs. |
+| PTP lost | Fall back to healthy next clock provider. |
+| System wall clock jumps | Reevaluate schedules; active playback remains monotonic. |
 | PipeWire unavailable | Audio/sensor capability degraded; visual playback continues. |
-| Avahi unavailable | Manual/server discovery and Zenoh seeds still work. |
-| NetworkManager absent | Presentation Network unsupported; Ethernet Tilecast unaffected. |
-| CEC/DDC permission denied | Display-control capability blocked; playback unaffected. |
-| Renderer crashes | Edge/server/mesh remain alive; restart renderer and restore current presentation. |
-| WPE repeatedly crashes | Fall back to Electron if policy/content permits; otherwise safe mode. |
-| `tilecastd` crashes | systemd restarts; renderer may hold/freeze briefly; daemon restores cached state; no command double execution. |
-| Power cut mid-download | `.part` remains resumable or is discarded safely; active content intact. |
-| Power cut mid-update | boot current or previous verified release; pending release never becomes unverified executable truth. |
-| Presentation Network active | Edge mesh remains on allowed management/Ethernet path only. |
-| Soft coordinator dies | Another eligible node takes role; correctness unchanged. |
-| LAN partition | Each partition continues local operation; no authority conflict; reconcile sequences on heal. |
-
----
+| Renderer crashes | Daemon/server/mesh remain alive; restart current renderer generation. |
+| Old renderer process reconnects | Reject stale renderer instance generation. |
+| WPE repeatedly crashes on Wayland compatibility host | Fall back to Electron if content/policy permits. |
+| Electron-required content on DRM dedicated host | Report incompatibility; do not silently omit content. |
+| Candidate update crashes | External rollback helper returns to previous compatible release. |
+| Candidate stays alive but never confirms | External confirmation deadline triggers rollback. |
+| Candidate migration would break previous DB reader | Reject update before activation. |
+| Power cut mid-download | Partial remains safely resumable or is discarded. |
+| Power cut during identity rotation | Active generation remains a matched key/cert/keyring set. |
+| Stale legacy/Edge owner wakes | Server rejects its older player owner generation. |
+| LAN partition | Each partition continues; signed state reconciles after heal without peer authority. |
 
 ## 46. Performance and resource targets
 
@@ -5218,14 +5262,17 @@ Measure before setting a hard throughput SLO.
 
 ### 46.4 Publish-to-ready comparison
 
-Track:
+Measure:
 
-```text
-legacy origin-only fleet publish → all prepared
-Edge peer-CDN fleet publish → all prepared
-```
+- legacy server push/reconcile path;
+- Edge signed state path;
+- object preparation time;
+- peer/origin fetch;
+- activation readiness.
 
-The metric is time to **verified prepared revision**, not just notification delivery.
+Also run a fleet-scaling benchmark for installation-wide and screen-targeted mutations. Report total signed feed bytes, payload bytes each node consumes, server CPU/storage and convergence time as fleet size grows.
+
+The v1 feed/scoping strategy must not exhibit unbounded practical O(N²) payload fan-out for ordinary organization-wide changes.
 
 ### 46.5 WPE
 
@@ -5304,61 +5351,65 @@ If Edge itself is the failing component during the transitional releases, the do
 
 ## 48. Code-review rules for Edge
 
-Add these to the Edge-specific `AGENTS.md` once implementation begins.
+Add these to Edge-specific contributor guidance when implementation begins.
 
 1. No new root privilege without a written threat-boundary review.
 2. No shell invocation with interpolated values.
-3. No arbitrary path from server/peer input.
-4. All network/body/frame sizes bounded.
-5. No application of peer-relayed authoritative state without server signature verification.
-6. Content bytes are not trusted until hash+size verification succeeds.
-7. Durable state transitions that can cause duplicate commands/updates require crash-point tests.
-8. Optional provider failures cannot abort main playback initialization.
-9. Every capability must explain unsupported vs blocked vs degraded.
-10. High-rate data must be aggregated/coalesced before persistence/network.
-11. No secret in logs/tests/screenshots.
-12. Edge/server protocol changes require cross-language fixtures.
-13. WPE changes touching remote website content require a navigation/permission/data-isolation review.
-14. New Spectrum 2 UI must use existing S2 composition patterns rather than re-skinning old custom components.
-15. Never claim a physical display state was confirmed when only a command send succeeded.
-16. Never infer health solely from process/socket liveness when meaningful playback evidence is available.
-
----
+3. No arbitrary path or network target from server/peer input.
+4. All network/body/frame sizes and per-peer resource use are bounded.
+5. No peer-relayed authoritative state without server signature verification.
+6. Peer hints never advance authoritative sequence/revision/epoch state.
+7. State epoch changes require the documented recovery trust path.
+8. Feed sequence proves completeness; subject revision proves resource freshness.
+9. Durable resources use tombstones for deletion.
+10. Content bytes are trusted only after hash+size verification.
+11. CAS pins have independent owners; clearing one owner cannot evict another.
+12. Command semantics are explicit; do not claim generic exactly-once physical side effects.
+13. Ownership migration requires server-side fencing, not local markers alone.
+14. Updates must preserve previous-release state-schema readability while automatic rollback is promised.
+15. Renderer/daemon updates require overlapping IPC protocol ranges.
+16. Renderer media/control messages bind to the current renderer instance/presentation generation.
+17. Optional provider failures cannot abort main playback initialization.
+18. High-rate data is aggregated/coalesced before persistence/network.
+19. No secret in logs/tests/screenshots.
+20. Edge/server protocol changes require cross-language fixtures.
+21. WPE changes keep subprocess sandbox enabled and review origin/custom-scheme/native-bridge boundaries.
+22. DRM dedicated mode cannot claim Electron fallback without a tested host-mode transition.
+23. New Studio Edge UI follows `docs/studio-rhea-redesign-plan.md`; do not reintroduce Spectrum or a second shell.
+24. Never claim physical display state confirmed when only command send succeeded.
+25. Never infer health solely from process/socket liveness when playback evidence exists.
+26. Retry-sensitive telemetry uses sequence/cumulative-epoch semantics, not naked heartbeat deltas.
 
 ## 49. Final technical decision table
 
 | Area | Decision | Do not do |
 | --- | --- | --- |
 | Edge daemon | Rust `tilecastd` | Keep growing Electron main process |
-| Renderer host | WPE WebKit WPEPlatform 2.54+ in small C/GLib process | New Cog/libwpe/WPEBackend-fdo architecture |
-| Transitional renderer | Existing Electron, stripped to renderer role | Flag-day Electron deletion |
-| Local persistence | SQLite WAL + immutable CAS files | Proliferate JSON state files for new relational state |
-| Local IPC | Separate renderer/admin AF_UNIX sockets + length-prefixed strict JSON + OS peer credential authorization | Client-selected role on one shared socket; open localhost admin HTTP API |
-| Mesh | Embedded Zenoh peer mode | Mandatory central broker |
-| Mesh security | Installation-scoped mTLS, installation-CA-only outbound trust, TLS-only Zenoh links, application identity binding | Trust LAN/subnet membership or public WebPKI roots |
-| Mesh discovery | Zenoh multicast + gossip + seed fallback | Depend on multicast working |
-| Human/bootstrap discovery | Avahi daemon via D-Bus | Another embedded JS mDNS stack |
-| Large bytes | mTLS HTTPS single-range peer service | Send MP4s as Zenoh publications |
-| Content identity | SHA-256 content-addressed objects | Filenames/URLs as trust identity |
-| Peer authority | None; peers relay signed server state | Peer becomes second Tilecast server |
-| Dynamic signing | Dedicated Edge authority key on server | Reuse offline update-signing private key |
-| Node key | Generated/stored on node | Server-generated/exported private node key |
-| Change ordering | Projector-assigned contiguous feed position for completeness + independent signed resource revisions for freshness | Treat feed position as resource revision; PostgreSQL `SERIAL`/sequence gaps; wall-clock/HLC last-write-wins |
-| Snapshot recovery | Authority-signed base sequence + resource revision watermarks from one consistent database view | Unsigned “current state” snapshot with an inferred cursor |
-| Canonical signed format | RFC 8785/JCS JSON over envelope excluding `signature`; 64-bit counters as decimal strings; golden unsigned bytes | Sign arbitrary serializer output, unsafe JSON integers or the signature field recursively |
-| Coordinator | Soft deterministic optimization roles | Raft/elected authoritative leader |
-| Context conditions | CEL subset validated by `cel-go`, cross-tested in Rust | Tilecast scripting/eval language |
-| Time | PTP if already synchronized, then host NTP, then server offset; monotonic playback progression | Automatically become PTP grandmaster |
-| NetworkManager | Existing narrow root helper first | Give daemon sudo/broad polkit |
-| Display control | typed CEC/DDC providers | Raw shell/CEC command field |
-| Audio | PipeWire typed provider | Remote arbitrary media graph scripting |
-| Sensors | udev + typed adapters | Generic arbitrary `/dev` access |
-| Supervision | systemd notify/watchdog, renderer separately restartable | Electron process owns whole machine health |
-| Software update | signed artifact + peer delivery + immutable release dirs + external rollback | Peer presence authorizes installation |
-| Studio UI | Spectrum 2 composition patterns | New legacy custom design system |
-| Physical display choreography | Deferred | Build topology editor in Edge v1 |
-
----
+| Renderer host | WPE WebKit WPEPlatform 2.54+ C/GLib host | New Cog/libwpe architecture |
+| Transitional renderer | Electron renderer-only on compatible display-session host | Flag-day Electron deletion |
+| Display host modes | Wayland compatibility vs DRM dedicated are explicit | Assume compositorless DRM can transparently run Electron |
+| Local persistence | SQLite WAL + immutable CAS + external trusted checkpoint | Reconstruct anti-rollback trust silently from peers |
+| CAS metadata | Blob facts + references + multi-owner pins | One `pinned_reason`/policy row per hash |
+| Local IPC | Separate sockets + OS identity + renderer instance/protocol generation | Client-selected role or stale-renderer reconnect |
+| Mesh | Embedded Zenoh peer mode | Mandatory broker |
+| Mesh security | Installation mTLS + installation-CA-only outbound trust + application identity binding | LAN trust or public WebPKI roots |
+| Liveliness | Identity-bound transport or signed presence document | Let a CA-valid node claim arbitrary node keyspace |
+| Large bytes | mTLS HTTPS single-range peer service | MP4 Zenoh publications |
+| Peer endpoint policy | Fixed/bounded private Edge-interface targets, no redirects/proxy | Follow arbitrary peer host/port/URL |
+| Content identity | SHA-256 | Filename/URL trust |
+| Change completeness | `stateEpoch + sequence + previous/feed digest` | Reuse sequence after DB restore |
+| Resource freshness | Signed type-specific subject revision | Treat feed order as semantic freshness |
+| Urgent security state | Independent signed generation may apply ahead of unrelated feed gap | Block revocation behind another screen's missing event |
+| Disaster recovery | Explicit direct-server state-epoch re-anchor | Accept an older peer snapshot after state loss |
+| Snapshots | Signed scoped checkpoint + base sequence/digest + resource watermarks | Unsigned current-state dump |
+| Player ownership | Server `playerOwnerGeneration` fencing | Local handoff boolean only |
+| Commands | Per-type idempotent/at-most-once/reconcilable semantics | Generic exactly-once side-effect promise |
+| Context replay | source epoch + sequence + receiver TTL bound | Bounded replay cache that can resurrect old packets |
+| Renderer capability | Per-renderer versioned profile | Union of WPE+Electron feature strings |
+| WPE security | Linux subprocess sandbox + remote-origin isolation | Disable sandbox/CORS-enable private schemes for convenience |
+| Updates | Signed immutable releases + schema/IPC/ABI compatibility + external confirmation deadline | Binary-only rollback after irreversible DB migration |
+| Clock security | Minimum trusted-time/cert policy before mesh; full providers later | Defer all cert-time behavior to E10 |
+| Studio UI | Canonical shadcn Base UI + Rhea plan | Spectrum revival or second Edge shell |
 
 ## 50. Decisions deliberately deferred
 
@@ -5400,104 +5451,71 @@ Removal is evidence-based. WPE capability/field telemetry determines the date.
 
 ## 51. Definition of Done for Tilecast Edge v1
 
-Tilecast Edge v1 is complete when all of the following are true.
-
 ### Architecture
 
-- `tilecastd` owns the Linux player's server credential, connection, durable content state and Linux host integrations.
-- Renderer is a separate disposable process.
-- The server remains the single authoritative control plane.
-- Existing Android and supported old Linux players still work against the same server.
+- `tilecastd` is the Linux authority for server credential, durable state and host integrations.
+- renderer is disposable and credential-free.
+- owner-generation fencing prevents legacy/Edge dual ownership.
 
-### Fabric
+### Fabric/security
 
-- Edge nodes discover/connect securely over Zenoh with mTLS and installation-CA-only outbound trust.
-- Node identity/keyspace is cryptographically checked even when Zenoh ACL cannot express dynamic own-node rules.
-- Multicast-blocked installations have a tested seed fallback based on validated reported listener endpoints.
-- Revoked certificate instances and disabled durable nodes behave independently and correctly.
-- Revoked/wrong-installation peers cannot connect.
-- Losing every peer does not interrupt standalone playback.
+- peers authenticate with installation-scoped mTLS and installation-CA-only outbound trust.
+- exact X.509 profile is fixture-tested.
+- one node cannot impersonate another node namespace/liveliness.
+- certificate-instance revocation and durable-node disablement remain distinct.
+- minimum trusted-time/certificate policy exists before mesh.
 
 ### Content
 
-- Linux cache is content-addressed and integrity verified.
-- Peer CDN serves only eligible immutable objects.
-- Peer/source failure falls back safely.
-- Active content cannot be evicted under cache pressure.
-- A typical multi-screen publish downloads shared large media from origin only as many times as necessary, ideally once per connected LAN fabric.
+- verified CAS uses blob/reference/multi-owner-pin model.
+- peer fetch is hash/size verified and endpoint/rate bounded.
+- canonical ETag supports safe cross-source resume.
+- presentation generations keep transition media readable through drain.
 
-### Changes
+### State distribution
 
-- Server changes use signed, contiguous Edge feed positions for completeness and signed per-resource revisions/generations for freshness.
-- A later feed position cannot roll a resource back to an older revision.
-- A node can receive applicable presentation change/object data from a peer without immediate server contact.
-- A peer cannot forge an applicable change.
-- Signed snapshot checkpoints restore both feed base sequence and resource watermarks after long disconnection.
-- Retained feed/snapshot state retains every referenced immutable object required for recovery.
+- state epoch handles authoritative server restore.
+- feed sequence/digest proves completeness.
+- signed subject revisions/tombstones prove resource freshness/removal.
+- urgent security/current-state generations can apply ahead of unrelated feed gaps.
+- destructive local state recovery cannot accept an older peer snapshot as a new trust anchor.
+- snapshots are scoped, signed and digest-anchored.
 
 ### Context
 
-- Context values are typed, scoped, attributable and freshness-aware.
-- CEL rule results match between server and Edge conformance suite.
-- Context can drive published presentation eligibility/visibility offline within its declared freshness policy.
-- Sensor values cannot spoof server-only context.
+- source epoch/replay survives reinstall/reset.
+- receiver-bounded maximum TTL prevents sender freshness extension.
+- CEL differential suite passes.
 
-### Linux platform
+### Renderer/WPE
 
-- Avahi integration is host-native and optional.
-- Presentation Network retains current privilege/routing safety.
-- CEC/DDC is owned by Edge and capability reported.
-- PipeWire inventory and local Noise Meter work on supported sessions without raw audio egress.
-- udev hotplug changes capability state without reboot.
-- Clock Authority reports source/quality and PTP when available.
-- systemd watchdog/restart behavior is verified.
-
-### WPE
-
-- WPEPlatform headless/Wayland/DRM paths are implemented and tested on their appropriate tiers.
-- `auto` renderer selection is capability/requirement based.
-- Unsupported WPE content safely selects Electron while compatibility renderer is shipped.
-- WPE is default for compatible content after field qualification.
-- Meaningful playback health semantics are unchanged.
+- capabilities remain versioned and per renderer.
+- daemon/renderer IPC ranges are compatible.
+- stale renderer generations are rejected.
+- WebKit subprocess sandbox remains enabled.
+- remote websites cannot access trusted custom schemes/native bridge.
+- Wayland compatibility and DRM dedicated host modes have explicit fallback semantics.
 
 ### Updates
 
-- Edge release artifacts are signed using the release-signing trust path.
-- Release bytes can be peer seeded.
-- Deployment authorization remains server-controlled.
-- New Edge release activation is atomic and has an external rollback path.
+- signed artifacts include schema/IPC/WPE-runtime compatibility metadata.
+- external confirmation deadline rolls back alive-but-unhealthy candidates.
+- automatic rollback never selects a previous binary unable to read current state.
+- rollback metadata is independent from candidate release/schema.
 
 ### Studio
 
-- Edge operational UI uses Spectrum 2.
-- Overview, Nodes, node detail, Content, Context and Settings are available.
-- status is never color-only;
-- backend metrics have documented meanings;
-- Edge Activity/Incidents reuse existing systems.
+- Edge surfaces follow `docs/studio-rhea-redesign-plan.md`.
+- no Spectrum dependency/second shell is introduced.
+- screen detail, Settings, Overview and Activity expose real bounded Edge state.
 
-### Reliability
+### Reliability/scale
 
-The multi-node failure matrix passes, including:
-
-- server outage;
-- multicast outage;
-- peer corruption;
-- disk-full;
-- renderer crash;
-- Edge crash;
-- wall-clock jump;
-- PTP loss;
-- update power cut;
-- LAN partition/heal.
-
-### Resource qualification
-
-- reference low-end Intel hardware completes 72-hour final WPE/Edge soak;
-- no unexplained memory/FD growth;
-- peer serving does not break 1080p playback;
-- cold cached restart restores presentation without requiring server access.
-
----
+- command duplicate initiation remains zero in crash tests for applicable command classes.
+- server restore/local DB loss/partition/heal tests pass.
+- feed-fork detection works.
+- representative fleet benchmark demonstrates bounded state-distribution fan-out.
+- low-end resource targets are met or consciously revised with measurements.
 
 ## 52. Repository-specific implementation notes
 
@@ -5531,11 +5549,15 @@ The outbox captures those immutable revision IDs in the same authoritative trans
 
 Do not add Zenoh as a mandatory Docker service. The normal Tilecast Server remains the current Go binary + PostgreSQL deployment. Edge mesh lives on Linux player nodes.
 
-### 52.7 Do not couple Spectrum 2 migration to runtime correctness
+### 52.7 Follow the canonical Rhea Studio plan without coupling UI to runtime correctness
 
-Server/Edge protocols should be independently testable from Studio. Spectrum migration should not block daemon/CDN correctness, and Edge should not force new legacy UI into `main` just to expose early debug state—use API/tests/`tilecastctl` until S2 surfaces are ready.
+Server/Edge protocols remain independently testable from Studio.
 
----
+The canonical UI migration is `docs/studio-rhea-redesign-plan.md` (shadcn Base UI + Rhea). Edge does not revive Spectrum and does not create an alternate shell.
+
+Runtime/CDN/security work can expose temporary API/`tilecastctl` diagnostics until the canonical Rhea surfaces are ready.
+
+## 53. Research notes and upstream references
 
 ## 53. Research notes and upstream references
 
@@ -5723,28 +5745,22 @@ Project home:
 
 CEL's safe, non-Turing-complete, parse/check/evaluate model and compile-once/evaluate-many design are the reason it is preferred over a Tilecast-specific expression language.
 
-### React Spectrum / Spectrum 2
+### shadcn Base UI + Rhea Studio
 
-Spectrum 2 React component docs:
+Canonical repository design plan:
 
-- SideNav: <https://react-spectrum.adobe.com/SideNav>
-- TableView: <https://react-spectrum.adobe.com/TableView>
-- Tabs: <https://react-spectrum.adobe.com/Tabs>
-- StatusLight: <https://react-spectrum.adobe.com/StatusLight>
-- ProgressBar: <https://react-spectrum.adobe.com/ProgressBar>
-- Meter: <https://react-spectrum.adobe.com/Meter>
-- InlineAlert: <https://react-spectrum.adobe.com/InlineAlert>
-- ContextualHelp: <https://react-spectrum.adobe.com/ContextualHelp>
+`docs/studio-rhea-redesign-plan.md`
 
-Spectrum status-light guidance:
+Official shadcn references used by that plan:
 
-<https://spectrum.adobe.com/page/status-light/>
+- <https://ui.shadcn.com/>
+- <https://ui.shadcn.com/blocks>
+- <https://ui.shadcn.com/docs/components/base/sidebar>
+- <https://ui.shadcn.com/docs/components/base/data-table>
 
-Spectrum meter guidance:
+This Edge RFC follows that document for shell, component, information-architecture and accessibility choices rather than duplicating the Studio design specification here.
 
-<https://spectrum.adobe.com/page/meter/>
-
-The UI plan follows these components instead of adding a new bespoke Edge dashboard design language.
+### NetworkManager
 
 ### NetworkManager
 
@@ -5770,7 +5786,7 @@ When a design choice is unclear during implementation, use this hierarchy:
 7. Optimize distribution only after correctness is independent of it.
 8. Report capabilities/limitations truthfully instead of pretending support.
 9. Reuse existing Tilecast domain semantics instead of inventing Edge-specific duplicates.
-10. Make the Spectrum 2 UI explain the system; do not make the UI become the system.
+10. Make the Rhea Studio UI explain backend state; do not make React become the distributed-system authority.
 ```
 
 That is the intended shape of **Tilecast Edge**: a secure, local-first distributed execution layer that makes a building full of displays feel like one coherent Tilecast installation without turning the product into a distributed database.
