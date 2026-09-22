@@ -1,0 +1,31 @@
+[package]
+name = "edge-mesh"
+description = "Tilecast Edge LAN fabric on Zenoh: TLS-only peer sessions, presence, signed node statements, object availability and change hints."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+base64.workspace = true
+edge-identity.workspace = true
+edge-protocol.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+zenoh.workspace = true
+
+[dev-dependencies]
+edge-identity = { workspace = true, features = ["test-util"] }
+edge-protocol = { workspace = true, features = ["test-util"] }
+serde_json.workspace = true
+time.workspace = true
+
+[lints]
+workspace = true
