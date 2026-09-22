@@ -5565,10 +5565,13 @@ This plan was built against the current Tilecast repository and current upstream
 - `docs/player-protocol.md`
 - `docs/player-updates.md`
 - `docs/reliability-and-power.md`
+- `docs/studio-rhea-redesign-plan.md`
+- `docs/activity.md`
 - `docs/display-control.md`
 - `docs/presentation-networks.md`
 - `apps/player-linux/README.md`
 - `apps/player-linux/src/core/player.ts`
+- `apps/player-linux/src/core/commands.ts`
 - `apps/player-linux/src/core/storage.ts`
 - `apps/player-linux/src/core/download.ts`
 - `apps/player-linux/src/core/socket.ts`
@@ -5588,7 +5591,11 @@ This plan was built against the current Tilecast repository and current upstream
 - `apps/server/internal/httpapi/install/tilecast-networkd`
 - `apps/server/internal/httpapi/install/tilecast-networkd.service`
 - `apps/server/internal/playlists/service.go`
+- `apps/server/internal/playlists/types.go`
+- `apps/server/internal/playlists/capabilities.go`
 - `apps/server/internal/devices/types.go`
+- `apps/server/internal/devices/credentials.go`
+- `apps/server/internal/database/migrations/00007_emergencies_and_player_commands.sql`
 - `.github/workflows/linux-player-release.yml`
 - current dashboard screen/activity components and package metadata.
 
@@ -5643,6 +5650,10 @@ systemd socket unit documentation:
 
 <https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html>
 
+Socket-activation FD passing/testing:
+
+<https://www.freedesktop.org/software/systemd/man/latest/systemd-socket-activate.html>
+
 Used for renderer/media/admin Unix socket ownership and inherited listening descriptors.
 
 ### WPE WebKit
@@ -5667,6 +5678,18 @@ Supported hardware notes:
 
 <https://wpewebkit.org/about/supported-hardware.html>
 
+Custom URI scheme/CORS integration guidance:
+
+<https://wpewebkit.org/blog/06-integrating-wpe.html>
+
+WebKit subprocess sandbox API:
+
+<https://webkitgtk.org/reference/webkit2gtk/stable/method.WebContext.set_sandbox_enabled.html>
+
+Custom URI response headers/status support:
+
+<https://webkitgtk.org/reference/webkit2gtk/stable/class.URISchemeResponse.html>
+
 Developer overview:
 
 <https://wpewebkit.org/developers/>
@@ -5676,7 +5699,11 @@ Important decisions derived from current upstream:
 - WPEPlatform is stable/default in 2.54;
 - new code should target WPEPlatform rather than legacy libwpe;
 - Wayland, DRM/KMS and headless are built in;
+- Wayland runs as a client of a compositor;
 - DRM/KMS can run without a compositor;
+- WebKit subprocess sandboxing must be enabled before web processes are created;
+- custom URI schemes remain subject to origin/CORS rules and require explicit embedder opt-in to cross-origin access;
+- custom URI responses can provide response status/headers needed for bounded media-response behavior;
 - new projects should prefer a small custom launcher rather than new Cog-based architecture.
 
 ### systemd
