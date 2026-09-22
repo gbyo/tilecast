@@ -1975,7 +1975,7 @@ context.weather.condition != "severe"
 
 Most users should never need to type CEL.
 
-Studio provides a Spectrum 2 condition builder:
+Studio provides a shadcn Base UI + Rhea condition builder that follows the canonical Studio plan:
 
 ```text
 Show when
@@ -3901,70 +3901,68 @@ The milestone numbers below are Edge milestones and do not replace Tilecast's ex
 
 ### E0 — Canonical RFC and protocol scaffolding
 
-**Goal:** merge the architecture/contracts before runtime code begins.
+**Goal:** make the security, recovery and interoperability contracts executable before runtime work.
 
-### E0.1 Add this document
+### E0.1 Canonical documents
 
-Repo path:
-
-```text
-docs/tilecast-edge.md
-```
-
-Update:
-
-- `docs/architecture.md` with the Edge boundary;
-- `README.md` only after Edge is actually available;
-- `AGENTS.md` with Rust/Edge conventions once code exists.
+- this RFC;
+- `docs/studio-rhea-redesign-plan.md` as the only Studio design-system/IA source;
+- architecture/terminology links.
 
 ### E0.2 Protocol package
 
-Create:
+Create `packages/edge-protocol/` with schemas/fixtures for:
 
 ```text
-packages/edge-protocol/
-  schemas/
-    ipc-v1.schema.json
-    capabilities-v1.schema.json
-    context-v1.schema.json
-    node-message-v1.schema.json
-    change-envelope-v1.schema.json
-    snapshot-envelope-v1.schema.json
-    presentation-bundle-v1.schema.json
-  fixtures/
-    valid/
-    invalid/
-    cel/
+ipc-v1.schema.json
+renderer-profile-v1.schema.json
+presentation-requirements-v1.schema.json
+node-message-v1.schema.json
+context-v1.schema.json
+change-envelope-v1.schema.json
+snapshot-envelope-v1.schema.json
+security-state-v1.schema.json
+state-epoch-transition-v1.schema.json
+presentation-bundle-v1.schema.json
+x509-profile/
+cel/
 ```
 
-Decide canonical signed encoding in this milestone. Recommended: JCS-canonical JSON because contracts remain inspectable and the server/dashboard ecosystem already understands JSON. Add golden-byte tests in Go and Rust.
+Fixtures define:
 
-### E0.3 Architecture tests/docs
+- JCS canonicalization and signature exclusion;
+- decimal-string 64-bit counters;
+- duplicate-key rejection;
+- UTF-8/unknown-field policy;
+- Ed25519 key/signature encoding;
+- state epoch + feed digest chaining;
+- subject revision/tombstone semantics;
+- per-renderer versioned capability profiles;
+- IPC min/max protocol negotiation;
+- renderer instance generations;
+- exact X.509 DER/profile requirements.
 
-Document:
+### E0.3 Recovery and ownership model
 
-- port defaults;
-- key hierarchy;
-- file paths;
-- service users/groups;
-- Edge keyspace;
-- security invariants;
-- downgrade compatibility.
+Specify fixtures/state machines for:
+
+- server restore requiring a new state epoch;
+- direct re-anchor;
+- destructive local DB recovery;
+- player owner-generation fencing;
+- command execution classes;
+- update schema compatibility.
 
 ### E0 exit criteria
 
-- Go and Rust test code independently produce identical canonical bytes/signature verification fixtures, including the rule that `signature` itself is excluded from signed canonical bytes.
-- Signed protocol counters that can exceed the JSON safe-integer range are decimal strings, with cross-language fixtures above 2^53.
-- Change-feed fixtures prove projector-assigned contiguous positions and signed `previousSequence` chaining; PostgreSQL `SERIAL`/sequence allocation is not the protocol order.
-- Change fixtures prove feed sequence and resource revision are independent and that a later feed position cannot roll a resource back.
-- Snapshot fixtures define a signed `baseSequence` checkpoint and per-resource revision watermarks.
-- IPC schema has explicit maximum frame and protocol negotiation rules.
-- IPC authorization fixtures prove renderer/admin roles are derived from socket + OS peer identity rather than client-supplied role text.
-- Renderer-media fixtures prove only active/prepared hashes can be read through `media.sock`.
-- A checked-in Zenoh mTLS fixture covers listener and connector credentials, installation-CA-only outbound trust, certificate expiry handling and logical node binding.
-- No implementation PR has to guess a trust boundary.
-
----
+- Go/Rust/TypeScript/C fixtures agree where applicable;
+- signed counters above 2^53 round-trip exactly;
+- same-sequence/different-digest is detected as a fork;
+- a stale resource revision never rolls back current state;
+- a new state epoch cannot be accepted from peer relay alone;
+- X.509 wrong EKU/purpose/installation/node fixtures fail;
+- renderer/admin authority is OS/socket-derived;
+- no implementation PR must invent a trust/recovery boundary.
 
 ### E1 — Rust workspace and daemon skeleton
 
@@ -4078,72 +4076,48 @@ Compare Edge-observed events to existing in-process callbacks in tests.
 
 ---
 
-### E3 — Edge identity, central server client and ownership handoff
+### E3 — Edge identity, central server client and fenced ownership handoff
 
-**Goal:** `tilecastd` becomes the Linux player's authoritative network/state process; Electron becomes renderer-only.
+**Goal:** `tilecastd` becomes the only authoritative Linux player owner while Electron becomes renderer-only.
 
 ### E3.1 Port server client logic
 
-Implement Rust equivalents of current:
+Implement current URL/identity/pairing/REST/WebSocket/manifest/config behavior without changing semantics.
 
-```text
-server URL normalization/policy
-system identity verification
-pairing/enrollment
-credential storage
-REST client
-WebSocket hello/ping/liveness/reconnect
-manifest/config reconciliation
-commands polling/ack/result
-```
+### E3.2 Owner-generation fencing
 
-Maintain protocol compatibility with current Go server before adding new Edge-specific APIs.
+Implement `playerOwnerGeneration` and stale-owner rejection on owner-sensitive endpoints before moving the credential.
 
-### E3.2 Credential migration
+Tests kill/restart Electron and `tilecastd` at every handoff step and prove that only the newest server generation can poll/ack commands or run updates.
 
-Implement the transactional handoff described in §41.
+### E3.3 Credential migration
 
-Server records a capability/protocol marker indicating Edge owns the Linux player's connection.
+Use the §41 handoff. Shadow mode does not read the active bearer. If early certificate tests need enrollment, use the scoped one-time bootstrap grant.
 
-### E3.3 Durable commands
+### E3.4 Durable commands
 
-Port idempotency behavior before any disruptive command is enabled.
+Every command has an explicit class: idempotent/reconcilable, at-most-once initiation, or retryable with reconciliation.
 
-Tests must include crash at each boundary:
+Idempotency retention is tied to server redelivery/owner epochs, not a count-only cache.
 
-```text
-fetched → acknowledged → persisted idempotency → executed → result reported
-```
+### E3.5 Manifest/config state
 
-A restart must never execute a disruptive command twice.
+Port active/pending semantics and preserve current per-screen manifest/config revision contracts.
 
-### E3.4 Manifest/config state
+### E3.6 Electron renderer-only mode
 
-Port pending/current/previous configuration and active/pending presentation semantics into SQLite/CAS abstractions while still downloading from origin only.
+Remove bearer credential, server socket/polling, server clock and update authority from Electron.
 
-### E3.5 Electron renderer-only mode
-
-Remove from Electron ownership:
-
-- player bearer credential;
-- server WebSocket;
-- manifest/config polling;
-- command polling;
-- server clock calculation;
-- update authority.
-
-Electron consumes prepared presentations over IPC.
+Electron launches with a renderer-instance generation and consumes prepared presentations/media through Edge IPC.
 
 ### E3 exit criteria
 
-- server sees identical expected player lifecycle/status;
-- all existing Linux integration tests adapted/passing;
-- offline cached startup works with Edge owning state;
-- Electron can be killed/restarted without server disconnect;
-- `tilecastd` can be restarted without corrupting renderer/current content state;
-- legacy rollback path verified.
-
----
+- stale owner generation cannot perform owner-sensitive operations;
+- crash during every ownership step converges to exactly one owner;
+- shadow daemon never receives active bearer credential;
+- disruptive commands do not double-initiate across tested crash points;
+- offline cached startup remains functional;
+- legacy rollback acquires a newer owner generation before resuming.
 
 ### E4 — CAS migration and origin downloader
 
@@ -4182,185 +4156,162 @@ Presentation preparation references CAS object handles, never arbitrary file pat
 
 ---
 
-### E5 — Edge certificate authority and Zenoh mesh
+### E5 — Edge certificate authority, security clock and Zenoh mesh
 
-**Goal:** secure peer discovery/presence with no CDN yet.
+**Goal:** establish authenticated peer sessions without relying on LAN trust, public WebPKI, unsafe clocks or client-selected identity.
 
 ### E5.1 Server authority
 
-Implement:
-
-- Edge CA generation/storage;
-- Edge dynamic authority key generation/storage;
-- enrollment/renew endpoints;
-- node certificate DB;
-- revocation generation;
-- authority public fingerprint in Edge config.
+- Edge CA + authority key management;
+- exact X.509 profile;
+- certificate-instance revocation + durable node disablement;
+- revocation-generation state;
+- authority transition chain;
+- state-epoch recovery metadata.
 
 ### E5.2 Node enrollment
 
-Generate key locally; issue cert; atomic storage; rotation scheduler.
+- local Ed25519 key generation;
+- versioned atomic identity generations;
+- renewal/rebinding;
+- lifecycle integration with screen archive/disable, credential repair and hardware replacement.
 
-### E5.3 Zenoh
+### E5.3 Security clock minimum
 
-Embed peer session with:
+Before opening mesh links implement:
 
-- mTLS;
-- TLS-only protocol whitelist;
-- multicast scouting;
-- gossip;
-- static/server seed support;
-- permitted-interface selection;
-- Presentation Network exclusion.
+- persisted trusted-time lower bound;
+- uncertainty;
+- bounded server-offset measurements;
+- host time-sync state;
+- certificate-validity decision;
+- `time_untrusted`.
 
-### E5.4 Liveliness and node summary
+E10 later adds richer provider selection/PTP. It is not the first implementation of certificate-time policy.
 
-Publish liveliness token and bounded summary/capability revision.
+### E5.4 Zenoh
+
+- peer mode;
+- TLS-only transport;
+- installation-CA-only outbound verifier;
+- mTLS credentials;
+- logical-node binding;
+- identity-safe liveliness design;
+- coarse/static ACL defense-in-depth only where current Zenoh supports it.
 
 ### E5.5 Admin visibility
 
-Server receives current mesh status through ordinary Edge status reporting.
+Expose bounded mesh/security/time state.
 
 ### E5 exit criteria
 
-- two fresh nodes discover each other with no manual seed on same LAN;
-- unauthorized machine running Zenoh cannot establish Edge peer session;
-- valid cert from another Tilecast installation is rejected;
-- a publicly trusted non-Tilecast certificate is rejected on outbound Zenoh connection even with IP/hostname verification disabled;
-- multicast-blocked nodes connect using configured seed + gossip;
-- revoking one superseded certificate does not disable a newly issued certificate for the same durable node;
-- disabling a node rejects all of that node's certificate instances;
-- certificate-instance revocation and durable-node disablement stop new matching sessions and tear down/reject data from already-connected matching peers;
-- CA-valid certificate from one node cannot be used to publish or answer as another node ID;
-- node-originated keyspace/payload identity is verified even if Zenoh ACL cannot express a dynamic own-node rule;
-- TLS certificate validity behavior under bad host wall time matches the documented Clock Authority integration/degraded path;
-- Presentation Network activation does not move mesh listener/traffic onto Wi-Fi sidecar.
-
----
+- unauthorized, wrong-installation and public-WebPKI-only peers fail;
+- wrong EKU/purpose/node certificate fails;
+- one node cannot claim another node's keyspace or liveliness;
+- certificate-instance revocation does not disable a replacement certificate for the same node;
+- disabled node rejects all certificate instances;
+- active revoked sessions stop accepting data;
+- bad/uncertain host time follows the tested security-clock policy;
+- Presentation Network does not attract mesh traffic;
+- state epoch cannot change through peer gossip.
 
 ### E6 — Peer CDN
 
-**Goal:** verified local media/object distribution.
+**Goal:** fetch verified immutable bytes from peers without turning peer advertisements into arbitrary network access or allowing one node to monopolize the service.
 
 ### E6.1 Peer HTTPS server
 
-Implement fixed HEAD/GET Range endpoints with mTLS.
+- installation mTLS;
+- fixed/bounded listener port;
+- single Range;
+- canonical `ETag: "sha256:<hash>"`;
+- per-peer fairness/rate limits.
 
-Fuzz Range parser and path handling.
+### E6.2 Object query
 
-### E6.2 Zenoh object query
-
-Implement exact `has` queryable plus best-effort cache add/evict hints.
+Authenticated availability replies include node ID/certificate instance, hash/size, validated interface endpoint and bounded load.
 
 ### E6.3 Source selector
 
-Implement local → peers → origin fallback with rolling peer scores and cooldowns.
+- per-hash single-flight;
+- local → ranked peers → origin;
+- exact Range/`Content-Range` validation;
+- same canonical ETag across origin/peer;
+- endpoint allowlist/private-interface validation;
+- redirects/proxy inheritance disabled.
 
-### E6.4 Bandwidth/limits
+### E6.4 CAS ownership
 
-Configuration:
-
-```text
-max inbound downloads
-max outbound peer transfers
-max outbound bytes/sec optional
-peer source timeout
-failure cooldown
-```
-
-Defaults should work on low-end mini PCs without starving playback.
+Use blob/reference/pin tables. Pins support independent owners and `prepared → active → draining → retired` generations.
 
 ### E6.5 Metrics
 
-Add peer/origin byte counters and transfer results.
+Use sequenced/idempotent telemetry, not retry-sensitive heartbeat deltas.
 
 ### E6 exit criteria
 
-- a second screen prepares a large object from first screen with origin transfer count zero;
-- partial transfer resumes from a different peer/origin only after exact `Content-Range` validation;
-- concurrent requests for the same hash share one local transfer and never race on the partial file;
-- a peer endpoint presenting a different valid installation node certificate than the advertised node ID is rejected;
-- malicious/corrupt peer bytes never enter CAS;
-- disabling peer CDN immediately reverts to origin without affecting playback;
-- serving peers cannot read non-peerable objects;
-- 1+ GiB transfer soak does not cause renderer stalls on reference hardware.
+- cross-source resume works only with valid canonical range response;
+- concurrent same-hash consumers share one transfer;
+- wrong advertised node certificate fails;
+- peer cannot make another node connect to arbitrary host/port;
+- one peer cannot occupy all transfer/handshake/query capacity;
+- malicious/corrupt bytes never enter CAS;
+- releasing one pin owner cannot evict an object still pinned elsewhere;
+- disabling peer CDN immediately returns to origin.
 
----
+### E7 — Signed state distribution, feed and immutable Edge Objects
 
-### E7 — Signed Edge Change Feed and immutable Edge Objects
+**Goal:** preserve completeness, freshness, disaster recovery and urgent security state independently.
 
-**Goal:** a peer can relay an authoritative server change and its prepared state so other nodes do not need an immediate origin round trip.
+### E7.1 Outbox/projector
 
-### E7.1 Server outbox and `edge_changes`
+Domain transaction captures exact resource revision. Object-bearing events pin the source revision, build/durably store the object, then become projector-ready.
 
-Insert an unsequenced Edge outbox row in the same PostgreSQL transaction as the authoritative domain mutation.
+Serialized projection writes state epoch, sequence, previous sequence/digest, subject revision and feed digest atomically.
 
-Do not create a race where a playlist revision commits but its Edge change can be permanently lost, and do not assign protocol order with `BIGSERIAL` in that domain transaction.
+### E7.2 Independently versioned state
 
-The outbox row captures the authoritative subject revision/generation in the domain transaction. If the change needs an immutable object, an object compiler first builds the **captured revision**, stores/verifies its bytes, and marks the row object-ready. It must not compile the latest mutable state at worker execution time.
+Implement signed current-state documents for security/revocation and current screen state. Newer security state may apply ahead of an unrelated feed gap while feed recovery continues.
 
-A serialized/locked deterministic signer-projector claims only ready rows and, in one transaction:
+### E7.3 Snapshot checkpoint
 
-1. locks the installation's `edge_feed_state`;
-2. assigns `sequence = last_sequence + 1`;
-3. sets signed `previousSequence = last_sequence`;
-4. includes the captured subject revision/generation and already-durable object hash/size;
-5. canonicalizes the unsigned envelope;
-6. signs it;
-7. inserts the final `edge_changes` row;
-8. advances `edge_feed_state.last_sequence`;
-9. marks the outbox row projected.
+Screen-scoped recovery snapshot includes state epoch, base sequence/digest and per-resource watermarks from one consistent DB view.
 
-A projector crash/rollback therefore publishes either the complete next feed position or nothing. It cannot leave a permanent protocol hole caused by PostgreSQL sequence allocation. Projection order does not redefine resource freshness; consumers use the signed subject revision to reject stale rollback.
+Destructive local DB recovery requires trusted checkpoint or direct server re-anchor.
 
-### E7.2 Presentation bundle compiler
+### E7.4 State-epoch recovery
 
-Create immutable object from existing manifest assembly logic rather than duplicating scheduling/content resolution rules.
+Integration fixture:
 
-The compiler should call/shared-package the same domain services used by `/player/manifest`.
+```text
+nodes accept epoch 7 / sequence 1000
+server DB restored to data from sequence 900
+same authority key still exists
+server refuses to publish in epoch 7
+operator performs recovery re-anchor
+server publishes epoch 8 checkpoint
+directly connected node accepts epoch 8
+peer alone cannot force another node from epoch 7 to epoch 8
+```
 
-### E7.3 Peer relay
+### E7.5 Scaling
 
-Implement:
-
-- latest sequence hint;
-- peer missing-range query;
-- server fallback;
-- contiguous apply;
-- replay after restart;
-- retention/snapshot fallback.
-
-### E7.4 Fast propagation
-
-When a node sees `manifest.changed` or new Edge sequence from server, publish the signed hint immediately after verification.
+Exercise organization-wide mutations on a representative multi-screen fleet. The final strategy must avoid requiring every node to transfer every other screen's full payload indefinitely.
 
 ### E7 exit criteria
 
-Test scenario:
-
-```text
-A, B, C online
-only A can reach Tilecast Server
-server publishes new presentation
-A receives signed change/object
-B and C learn change from A
-B/C fetch bundle/media from A/peers
-B/C activate correct server-authorized revision
-```
-
-Also test:
-
-- A sends altered envelope → rejected;
-- B receives sequence gap → does not silently skip;
-- revision 13 projects before revision 12 → both feed positions advance, final applied resource remains revision 13;
-- signed expired event advances feed continuity but does not activate its expired effect;
-- stale screen-targeted bundle reaches wrong screen → cached if allowed, never applied;
-- committed feed row never references a not-yet-durable object;
-- snapshot checkpoint is built from a database view whose visible mutations are all at/below its signed base sequence;
-- objects referenced by retained feed/snapshot state cannot be garbage-collected;
-- server reconnect reconciles to identical state.
-
----
+- altered/unsigned envelope fails;
+- gap does not silently skip;
+- same `(stateEpoch, sequence)` with different digest is a fork incident;
+- stale resource revision is a no-op, never rollback;
+- tombstone converges deletion;
+- expired ephemeral event advances feed but does not activate;
+- revocation applies despite unrelated feed gap;
+- feed row never references non-durable object;
+- retained recovery state retains required objects;
+- snapshot/feed boundary is transactionally consistent;
+- server restore uses a new state epoch instead of reusing old sequence/revision history;
+- representative fleet update meets bounded fan-out target.
 
 ### E8 — Context Engine and CEL
 
@@ -4372,7 +4323,17 @@ Implement context source definitions, values and rules.
 
 ### E8.2 Local store/merge
 
-Implement scope/priority/revision/freshness algorithm in Rust with golden fixtures. Local signed observations use `sourceEpoch` + decimal-string `sourceSequence`; reinstall/reset creates a new epoch while replay state for recent old epochs remains bounded/persistent.
+Implement scope/priority/revision/freshness with golden fixtures.
+
+Local observations use `sourceEpoch` + decimal-string `sourceSequence`.
+
+Tests prove:
+
+- new source epoch supersedes old incarnation;
+- sequences are not compared across epochs;
+- old replay state is retained until the old observation acceptance window is impossible;
+- sender-provided expiry cannot exceed source maximum TTL;
+- stale/compromised source cannot extend freshness with a future timestamp.
 
 ### E8.3 CEL
 
@@ -4450,142 +4411,138 @@ Every provider can be absent/broken independently while ordinary playback contin
 
 ---
 
-### E10 — Clock Authority and PTP reporting
+### E10 — Full Clock Authority and PTP reporting
 
-**Goal:** explicit synchronization quality with existing playback semantics preserved.
+**Goal:** extend the E5 security clock into the complete playback/schedule clock-quality model.
 
-### E10.1 Clock module
+### E10.1 Provider selection
 
-Port server-offset logic, monotonic playback anchor and timezone/clock transition detection.
+Add full wall-clock provider scoring/uncertainty on top of the E5 trusted-time floor.
 
 ### E10.2 Host sync inspection
 
-Detect NTP/chrony/system synchronization in a provider-neutral way where practical.
+Integrate chrony/systemd-timesyncd or equivalent state.
 
 ### E10.3 PTP
 
-- detect PHC/ptp4l;
-- observe configured state;
-- optionally read allowed management status;
-- no auto-grandmaster;
-- report source/offset/uncertainty.
+Detect/report optional PTP source without taking over network configuration in v1.
 
-### E10.4 UI/API
+### E10.4 Playback/schedule integration
 
-Expose quality, not just a `ptp: true` boolean.
+Preserve server-corrected schedule semantics and monotonic active playback.
+
+### E10.5 UI/API
+
+Expose source, quality, offset, uncertainty and transitions through the Rhea screen/system surfaces.
 
 ### E10 exit criteria
 
-- a 30-second wall-clock jump does not make active synchronized video jump 30 seconds;
-- schedules reevaluate correctly after clock correction;
-- PTP loss falls back to next authority and reports transition;
-- nodes without PTP behave exactly as existing corrected-clock players.
-
----
+- E5 certificate-time safety remains unchanged;
+- PTP loss falls back to a healthy next provider;
+- wall-clock jumps reevaluate schedules without rewinding active playback;
+- mixed legacy/Edge synchronized playback preserves existing server anchors.
 
 ### E11 — Edge-managed updates and peer release seeding
 
-**Goal:** update daemon/renderers safely and efficiently.
+**Goal:** install signed releases with protocol/ABI/schema compatibility and a rollback mechanism that works even when the candidate daemon stays alive but unhealthy.
 
 ### E11.1 Release workflows
 
-Add CI build/sign/publish pipeline for Edge artifacts.
-
-Requirements mirror current Linux release workflow:
-
-- release version matches manifest;
-- stable release includes current main unless explicit hotfix override;
-- signed release metadata;
-- hashes/sizes verified after build;
-- signing keys ephemeral in CI;
-- artifacts reproducibly named.
+Publish signed Edge, renderer and private-WPE-runtime artifacts with compatibility metadata.
 
 ### E11.2 Server update domain
 
-Extend release model/deployment target capabilities for Edge components without breaking Android/current Linux records.
+Reuse canary/maintenance/pause/cancel/retry/settlement semantics.
 
 ### E11.3 Peer delivery
 
-Update artifacts use CAS/peer CDN.
+Peer CDN can provide bytes only; deployment authorization remains server-owned.
 
 ### E11.4 Atomic install/rollback
 
-Implement immutable release dirs and external rollback helper.
+Implement:
+
+- no-follow FD-pinned staging verification;
+- immutable release dirs;
+- parent-directory fsync after symlink promotion;
+- root-owned rollback metadata;
+- external confirmation deadline;
+- state-schema backward-readable gate;
+- daemon/renderer IPC compatibility gate;
+- renderer/private-WPE-runtime ABI gate.
 
 ### E11 exit criteria
 
-- 7-node deployment downloads artifact from origin once in the ideal LAN case;
-- canary failure pauses rollout;
-- power cut before/after symlink switch boots a valid current or previous release;
-- repeated new-release crash causes automatic rollback;
-- rollback is visible in Studio/Activity.
+- candidate crash rolls back;
+- candidate `READY=1` but never healthy rolls back after external deadline;
+- previous binary can open resulting state before rollback is permitted;
+- incompatible schema/IPC/WPE ABI release is rejected before activation;
+- rollback mechanism does not depend on candidate release or candidate DB schema;
+- update settlement still works for deliberate sleep/no-content state.
 
----
+### E12 — WPE renderer: headless and Wayland compatibility
 
-### E12 — WPE renderer: headless and Wayland experimental
-
-**Goal:** establish WPE rendering without making it default.
+**Goal:** prove the first-party WPE host and renderer boundary without sacrificing sandboxing or Electron compatibility.
 
 ### E12.1 Launcher
 
-Build C/GLib WPEPlatform launcher and Unix IPC bridge.
+Build C/GLib WPEPlatform launcher with:
+
+- renderer-instance handshake;
+- WebKit subprocess sandbox enabled before web processes;
+- trusted custom URI handlers;
+- native bridge;
+- renderer IPC.
 
 ### E12.2 Shared renderer runtime
 
-Run extracted trusted browser renderer in WPE.
+Run extracted trusted renderer assets without server credentials or direct CAS paths.
 
-### E12.3 Content support wave 1
+### E12.3 Content wave 1
 
-Required:
+Images, H.264 video, native widgets/trees, layouts without remote websites, transitions, synchronized playback and compatible plugins.
 
-```text
-idle/setup/safe surfaces
-images
-H.264 video
-native widgets/render trees
-basic layouts without remote websites
-transitions
-synchronized playback
-branding/plugins that do not require unsupported browser integrations
-```
+Large video must pass custom-scheme seek/pause/resume/loop/cancel tests before WPE video capability is advertised.
 
 ### E12.4 Headless CI
 
-Add parity corpus.
+Run protocol/runtime tests under WPE headless.
 
-### E12.5 Wayland field mode
+### E12.5 Wayland compatibility host
 
-Enable opt-in renderer policy on selected screens.
+Use a Tilecast-managed compositor/session for `tilecast-renderer`, or qualify the explicit controlled session-bridge mode.
+
+Electron and WPE compatibility must both work in this host mode.
 
 ### E12 exit criteria
 
-- reference presentations pass semantic parity suite;
-- 24-hour Wayland soak on reference old hardware;
-- WPE failure automatically falls back/recover according to policy;
-- unsupported requirement automatically selects Electron under `auto`.
-
----
+- sandbox remains enabled;
+- remote fixture origin cannot access Tilecast custom schemes/native bridge;
+- stale renderer instance cannot reconnect as current;
+- reference presentations pass semantic parity;
+- 24-hour Wayland soak;
+- unsupported requirement selects Electron under `auto`.
 
 ### E13 — WPE websites, YouTube and advanced parity
 
-**Goal:** remove the largest compatibility blocker.
+**Goal:** remove the largest compatibility blocker without weakening origin/session isolation.
 
 ### E13.1 Website security prototype
 
-Prove and document:
+Prove:
 
 - navigation allowlist;
 - permission policy;
-- cookie/data isolation strategy;
+- per-asset/site data isolation;
 - clearing/reload/timeout;
-- crash recovery;
-- fallback behavior.
-
-If isolated multiple website surfaces require an embedder-level composition design, implement that deliberately rather than weakening isolation to meet a deadline.
+- subprocess crash recovery;
+- remote-origin denial for `tilecast://runtime` and `tilecast://media`;
+- no native bridge for untrusted site content;
+- sandbox remains enabled.
 
 ### E13.2 Layout website zones
 
-Test multiple sites, z-order, clipping and lifecycle.
+Test multiple isolated sites, z-order, clipping and lifecycle.
 
 ### E13.3 YouTube
 
@@ -4593,80 +4550,63 @@ Validate IFrame API, autoplay, origin/referrer, progress/end/error semantics.
 
 ### E13 exit criteria
 
-The server's presentation requirement compiler can mark all currently supported Tilecast presentation types as WPE-capable or explain a precise remaining fallback reason.
-
----
+The requirement compiler can mark every supported content type with exact capability/version requirements and give a precise fallback reason where WPE is not eligible.
 
 ### E14 — WPE DRM/KMS production path
 
-**Goal:** remove the compositor requirement on dedicated signage hosts.
+**Goal:** qualify dedicated compositorless signage mode as a distinct host mode.
 
 ### E14.1 DRM platform qualification
 
-Hardware matrix:
-
-```text
-Ivy Bridge / Intel HD 4000 reference box
-modern Intel iGPU
-representative AMD/Mesa box
-one ARM/Raspberry Pi target when ARM package is supported
-```
+Hardware matrix includes old Intel, modern Intel, representative AMD/Mesa and one ARM target when ARM packages exist.
 
 ### E14.2 Kiosk lifecycle
 
 Verify:
 
-- boot directly to renderer;
-- no desktop login required for dedicated image/setup;
-- hotplug/mode behavior;
+- boot directly to WPE DRM;
+- hotplug/modes;
 - display sleep/active hours;
 - CEC/DDC coexistence;
-- live preview;
-- renderer restart without losing DRM ownership indefinitely.
+- preview;
+- crash/restart display reclaim;
+- explicit incompatibility/fallback behavior for Electron-required content.
 
 ### E14 exit criteria
 
-- 72-hour DRM soak on at least reference Intel hardware;
-- no progressive memory growth outside documented bounds;
-- repeated renderer crash/restart reclaims display reliably;
-- video decode performance meets target.
+- 72-hour DRM soak;
+- no progressive memory growth outside bounds;
+- repeated crash/restart reclaims display;
+- decode performance meets target;
+- product/Studio clearly reports that `drm_dedicated` cannot offer ordinary Electron fallback unless a tested host-mode transition exists.
 
----
+### E15 — Rhea Edge administration integration
 
-### E15 — Spectrum 2 Edge administration UI
+This work follows `docs/studio-rhea-redesign-plan.md`; it does not create a second Studio shell or global Edge silo.
 
-This can begin in parallel once E5/E6 server contracts stabilize and the Spectrum 2 migration foundation is merged.
+### E15.1 API/types
 
-### E15.1 Routes/API types
+Add Edge fields/routes to existing screen, settings, overview and activity surfaces.
 
-Implement Overview, Nodes, Node detail, Content, Context, Settings.
+### E15.2 Screens/detail integration
 
-### E15.2 Existing screen integration
+Add optional fleet columns/filters and Device/System sections for Edge status.
 
-Add Edge summary to Screen detail without duplicating entire node view.
+### E15.3 Settings/activity
 
-### E15.3 Activity/incidents
-
-Add Edge categories/filters/links using existing Activity patterns.
+Add bounded Edge policy under Settings and Edge incident categories under Activity.
 
 ### E15.4 Accessibility
 
-- S2 semantic components;
-- label all status lights;
-- keyboard reachable tables/actions;
-- no hover-only operations;
-- no color-only state;
-- reduced motion respected;
-- table loading/empty/error states.
+Use canonical shadcn/Rhea semantics: text/icon status, keyboard access, no hover-only actions, no color-only state, reduced motion.
 
 ### E15 exit criteria
 
-- no new legacy `components/ui` usage introduced by Edge;
-- no custom global CSS where S2 component/style APIs suffice;
+- no Spectrum dependency is reintroduced;
+- no second sidebar/shell is created;
+- canonical Rhea components/interaction rules are used;
 - Playwright/accessibility tests cover core operational flows;
-- UI displays only backend-provided real metrics.
-
----
+- UI shows backend-provided real metrics/state only.
 
 ### E16 — Partition resilience and coordinator roles
 
@@ -4696,33 +4636,21 @@ Scenarios:
 
 ### E17 — WPE default, Electron compatibility
 
-**Goal:** new/eligible Linux installations use WPE by default.
+**Goal:** prefer WPE when one WPE profile plus current host mode satisfies the entire presentation requirement set.
 
-Change `auto` policy to prefer WPE when requirements permit.
+Wayland compatibility hosts may fall back to Electron.
 
-Electron remains installed as compatibility fallback through at least one stable release window.
+DRM dedicated hosts cannot claim ordinary Electron fallback unless the tested host-mode transition exists. If an Electron-only presentation is assigned to such a host, report incompatibility before disrupting current valid playback.
 
-Collect real metrics:
-
-```text
-% WPE sessions
-fallback count/reasons
-renderer restart rate
-playback incident rate by renderer
-memory use
-website failure rate
-```
-
-Do not compare raw incident counts without normalizing by playback time/fleet size.
+Collect normalized playback-time/fleet metrics for WPE sessions, fallbacks, restarts, incidents, memory and website failures.
 
 ### E17 exit criteria
 
-- no material reliability regression versus Electron across measured deployments;
-- top fallback reasons are understood;
-- support documentation exists for WPE/DRM/Wayland capability issues;
-- explicit rollback policy tested.
-
----
+- no material measured reliability regression;
+- top fallback reasons understood;
+- capability-version mismatches are explicit;
+- host-mode constraints are explicit;
+- rollback path tested.
 
 ### E18 — Electron retirement
 
@@ -4889,13 +4817,15 @@ Security review required.
 
 ### PR 23 — `feat(edge-identity): enroll and rotate node certificate`
 
+- exact X.509 profile/golden fixtures;
 - versioned atomic identity generations;
 - certificate-instance serial/fingerprint revocation;
-- durable node disablement kept separate from certificate replacement.
+- durable node disablement kept separate from certificate replacement;
+- minimum trusted-time/certificate-validity module needed before mesh.
 
 ### PR 24 — `feat(edge-mesh): add mTLS Zenoh peer session`
 
-No app data beyond presence.
+No app data beyond identity-safe presence. Installation-CA-only outbound trust, security-clock policy and authenticated node binding are mandatory before merge.
 
 ### PR 25 — `feat(edge-mesh): add liveliness and node summaries`
 
@@ -4968,7 +4898,9 @@ This is optimization; do not merge before feed correctness is proven without it.
 
 ### PR 49 — `feat(edge-audio): move Noise Meter to local PipeWire capture`
 
-### PR 50 — `feat(edge-clock): add Clock Authority`
+### PR 50 — `feat(edge-clock): complete Clock Authority provider selection`
+
+Build on the minimum trusted-time/certificate policy already required by PR 23/24.
 
 ### PR 51 — `feat(edge-clock): add PTP detection/reporting`
 
@@ -4980,7 +4912,7 @@ This is optimization; do not merge before feed correctness is proven without it.
 
 ### PR 54 — `feat(edge-update): fetch releases through CAS/peer CDN`
 
-### PR 55 — `feat(edge-update): add immutable release activation and rollback helper`
+### PR 55 — `feat(edge-update): add schema-compatible activation and external rollback watchdog`
 
 ### WPE PRs
 
@@ -5004,23 +4936,27 @@ Headless hello/IPC only.
 
 ### PR 64 — `feat(renderer-wpe): qualify DRM/KMS mode`
 
-### Spectrum 2 UI PRs
+### Rhea Studio integration PRs
 
-These start only after the Spectrum 2 shell/components used by Tilecast are stable enough to avoid building the same Edge pages twice.
+These start only after the canonical shadcn Base UI + Rhea shell/components in `docs/studio-rhea-redesign-plan.md` are stable enough to avoid rebuilding the same surfaces twice.
 
-### PR 65 — `feat(studio-edge): add Edge overview and node API client`
+### PR 65 — `feat(studio-edge): add Edge data to Overview/Screens clients`
 
-### PR 66 — `feat(studio-edge): add Spectrum 2 Nodes TableView`
+### PR 66 — `feat(studio-edge): add Rhea Screens Edge columns and filters`
 
-### PR 67 — `feat(studio-edge): add node detail tabs`
+### PR 67 — `feat(studio-edge): add screen Device/System Edge detail`
 
-### PR 68 — `feat(studio-edge): add content-delivery view`
+### PR 68 — `feat(studio-edge): add content-delivery diagnostics surface`
 
 ### PR 69 — `feat(studio-edge): add Context value/rule UI`
 
 ### PR 70 — `feat(studio-edge): add Edge settings`
 
 ### PR 71 — `feat(activity): integrate Edge events/incidents`
+
+No PR in this group reintroduces Spectrum or a second Studio sidebar.
+
+### Final rollout PRs
 
 ### Final rollout PRs
 
