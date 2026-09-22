@@ -1,17 +1,10 @@
 // vitest/config re-exports Vite's defineConfig with the `test` key typed, so the shared test
 // setup below is checked rather than silently ignored.
-import path from "node:path";
-import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
+  plugins: [react()],
   server: {
     host: "0.0.0.0",
     port: 5173,

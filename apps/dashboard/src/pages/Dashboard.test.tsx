@@ -1,56 +1,29 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { SidebarNavigation } from "./Dashboard";
 import { api } from "../api/client";
 import type { FormSummary } from "../api/types";
-import { AppSidebar, SidebarNavigation } from "../components/AppSidebar";
-import { SidebarProvider } from "../components/ui/sidebar";
-import { TooltipProvider } from "../components/ui/tooltip";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-function installMatchMedia() {
-  Object.defineProperty(window, "matchMedia", {
-    configurable: true,
-    value: vi.fn().mockImplementation(() => ({
-      matches: false,
-      media: "",
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-}
-
-function renderWithSidebar(children: React.ReactNode, pathname = "/") {
-  installMatchMedia();
-  window.innerWidth = 1200;
+function renderNav(pathname = "/") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[pathname]}>
-        <TooltipProvider>
-          <SidebarProvider>{children}</SidebarProvider>
-        </TooltipProvider>
+        <SidebarNavigation />
       </MemoryRouter>
     </QueryClientProvider>,
   );
-}
-
-function renderNav(pathname = "/") {
-  return renderWithSidebar(<SidebarNavigation />, pathname);
 }
 
 const summary = (
@@ -64,77 +37,120 @@ const summary = (
 });
 
 describe("SidebarNavigation", () => {
-  it("keeps workspace facets collapsed away from their routes", async () => {
+  it("collapses workspace facets when no child route is current", async () => {
+    // A submitter-only form does not surface Approvals.
     vi.spyOn(api, "listForms").mockResolvedValue([summary(["submit"])]);
     renderNav();
 
-    expect(
-      screen
-        .getByRole("button", { name: "Content" })
-        .getAttribute("aria-expanded"),
-    ).toBe("false");
-    expect(
-      screen
-        .getByRole("button", { name: "Presentations" })
-        .getAttribute("aria-expanded"),
-    ).toBe("false");
-    expect(screen.queryByRole("link", { name: "Media" })).toBeNull();
-
     await waitFor(() => {
-      expect(screen.queryByRole("link", { name: "Approvals" })).toBeNull();
+      expect(
+        screen.getAllByRole("link").map((link) => link.textContent),
+      ).toEqual([
+        "Overview",
+        "Screens",
+        "Content",
+        "Presentations",
+        "Schedules",
+        "Plugins",
+        "Activity",
+        "Settings",
+      ]);
     });
+    expect(
+      screen
+        .getByRole("link", { name: "Content" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+    expect(
+      screen.getByLabelText("Content submenu").getAttribute("aria-hidden"),
+    ).toBe("true");
+    expect(screen.queryByRole("link", { name: "Media" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Compose" })).toBeNull();
   });
 
-  it("opens Content for nested content routes and marks the current facet", () => {
+  it("expands Content and gives only the current child the active state", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([]);
+    // /widgets belongs to Content, and NavLink alone would not match it.
     renderNav("/widgets/widget-1");
 
     expect(
       screen
-        .getByRole("button", { name: "Content" })
+        .getByRole("link", { name: "Content" })
         .getAttribute("aria-expanded"),
     ).toBe("true");
+    expect(
+      screen.getByRole("link", { name: "Content" }).className,
+    ).not.toContain("active");
     expect(
       screen
         .getByRole("link", { name: "Widgets" })
         .getAttribute("aria-current"),
     ).toBe("page");
+    expect(screen.getByRole("link", { name: "Widgets" }).className).toContain(
+      "active",
+    );
+    expect(screen.getByRole("link", { name: "Media" }).className).not.toContain(
+      "active",
+    );
+    expect(screen.getByRole("link", { name: "Data" }).className).not.toContain(
+      "active",
+    );
     expect(
       screen
-        .getByRole("button", { name: "Presentations" })
+        .getByRole("link", { name: "Presentations" })
         .getAttribute("aria-expanded"),
     ).toBe("false");
   });
 
-  it("opens Presentations for nested presentation routes", () => {
+  it("expands Presentations and highlights Layouts for a nested route", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([]);
     renderNav("/layouts/layout-1");
 
     expect(
       screen
-        .getByRole("button", { name: "Presentations" })
+        .getByRole("link", { name: "Presentations" })
         .getAttribute("aria-expanded"),
     ).toBe("true");
+    expect(
+      screen.getByRole("link", { name: "Presentations" }).className,
+    ).not.toContain("active");
     expect(
       screen
         .getByRole("link", { name: "Layouts" })
         .getAttribute("aria-current"),
     ).toBe("page");
-    expect(screen.getByRole("link", { name: "Campaigns" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Layouts" }).className).toContain(
+      "active",
+    );
+    expect(
+      screen.getByRole("link", { name: "Playlists" }).className,
+    ).not.toContain("active");
+    expect(
+      screen
+        .getByRole("link", { name: "Content" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
   });
 
-  it("uses the Base UI collapsible interaction for workspace groups", async () => {
+  it("keeps labels available as native tooltips in compact mode", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([]);
-    const user = userEvent.setup();
+    renderNav("/assets");
+
+    expect(
+      screen.getByRole("link", { name: "Content" }).getAttribute("title"),
+    ).toBe("Content");
+    expect(
+      screen.getByRole("link", { name: "Media" }).getAttribute("title"),
+    ).toBe("Media");
+  });
+
+  it("keeps Settings in a dedicated footer region", () => {
+    vi.spyOn(api, "listForms").mockResolvedValue([]);
     renderNav();
 
-    const content = screen.getByRole("button", { name: "Content" });
-    expect(content.getAttribute("aria-expanded")).toBe("false");
-
-    await user.click(content);
-
-    expect(content.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("link", { name: "Media" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Settings" }).parentElement?.className,
+    ).toBe("sidebar__nav-footer");
   });
 
   it("shows Approvals only when the user can review at least one form", async () => {
@@ -144,18 +160,5 @@ describe("SidebarNavigation", () => {
     await waitFor(() => {
       expect(screen.getByRole("link", { name: "Approvals" })).toBeTruthy();
     });
-  });
-
-  it("keeps Settings in the shadcn sidebar footer", () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([]);
-    renderWithSidebar(
-      <AppSidebar user={undefined} signingOut={false} onLogout={() => {}} />,
-    );
-
-    expect(
-      screen
-        .getByRole("link", { name: "Settings" })
-        .closest('[data-sidebar="footer"]'),
-    ).toBeTruthy();
   });
 });
