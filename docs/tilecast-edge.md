@@ -618,7 +618,7 @@ This distinction is required because the current player-update private key inten
 | Edge node key | Generated/stored only on node | Node certificate and peer identity |
 | Player device credential | Node only; hash on server | Central player API authentication |
 
-Do not reuse one key simply because all are Ed25519-capable identities.
+Do not reuse one key solely because all are Ed25519-capable identities.
 
 ---
 
@@ -677,7 +677,7 @@ Use a monotonic server-side revocation generation included in signed Edge change
 
 Certificate expiry remains a second safety boundary.
 
-Revocation applies to existing sessions as well as new handshakes. When a node learns a newer revocation generation, it must immediately reject application data from a revoked node and close any matching live Zenoh/peer-HTTPS sessions. Transport teardown may race, so application-level node checks remain mandatory until the connection is gone.
+Revocation applies to existing sessions and new handshakes. When a node learns a newer revocation generation, it must immediately reject application data from a revoked node and close any matching live Zenoh/peer-HTTPS sessions. Transport teardown may race, so application-level node checks remain mandatory until the connection is gone.
 
 Certificate validation must use the Clock Authority's bounded trusted-time view rather than blindly trusting a potentially stale RTC. Persist the newest trustworthy wall-clock lower bound learned from Tilecast Server/NTP/PTP and never allow validation time to move backward across restart. If Edge cannot bound current time well enough to decide certificate validity safely, peer mesh enters a visible `time_untrusted`/degraded state instead of disabling certificate expiry checks; ordinary server-backed/cached playback remains available.
 
@@ -1934,7 +1934,7 @@ Do not include:
 
 ### 22.3 D-Bus implementation
 
-Use `zbus` in Rust to call Avahi's D-Bus API. Handle avahi-daemon restart and service-name collision. mDNS failure simply changes discovery capability state; Zenoh static seeds/manual server URL still work.
+Use `zbus` in Rust to call Avahi's D-Bus API. Handle avahi-daemon restart and service-name collision. mDNS failure changes discovery capability state; Zenoh static seeds/manual server URL still work.
 
 ---
 
@@ -2128,7 +2128,7 @@ An administrator explicitly maps the hardware instance to a Tilecast input ident
 
 ### 26.4 Ambient brightness
 
-An ambient-light provider may feed Context Engine and/or an explicit display-brightness policy. Automatic DDC brightness must use bounded ranges, smoothing/hysteresis and an operator-defined min/max to avoid oscillating or making the display unreadable.
+An ambient-light provider may feed Context Engine, an explicit display-brightness policy, or both. Automatic DDC brightness must use bounded ranges, smoothing/hysteresis and an operator-defined min/max to avoid oscillating or making the display unreadable.
 
 ---
 
