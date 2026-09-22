@@ -57,10 +57,13 @@
 //! # State on reconnect
 //!
 //! The daemon is the source of truth. When a renderer connects (or
-//! reconnects), the daemon sends `renderer.configure` followed by the current
-//! `presentation.activate` with its original `activationId` and
-//! `generation`. A renderer that is already showing that activation must not
-//! reload it. A renderer never assumes anything survived a disconnect.
+//! reconnects), the daemon sends `renderer.configure` immediately. After the
+//! renderer reports `renderer.ready` (which carries the features it can
+//! show), the daemon sends the current `presentation.activate` with its
+//! original `activationId` and `generation`, if the renderer supports every
+//! feature it requires. A renderer that is already showing that activation
+//! must not reload it. A renderer never assumes anything survived a
+//! disconnect.
 //!
 //! # What never crosses this socket
 //!

@@ -4,6 +4,9 @@ members = [
     "crates/edge-protocol",
     "crates/edge-state",
     "crates/edge-ipc",
+    "crates/edge-platform",
+    "tilecastd",
+    "tilecastctl",
 ]
 
 [workspace.package]

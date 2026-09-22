@@ -1,0 +1,53 @@
+# Tilecast WPE renderer for dedicated signage (WPE_PLATFORM=drm).
+# Development machines with a compositor run the renderer with
+# --platform=wayland from the desktop session instead.
+[Unit]
+Description=Tilecast WPE renderer
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md
+# The renderer is disposable and independent: it waits for tilecastd's socket
+# and reconnects, and a renderer crash never restarts the daemon.
+After=tilecast-edge.service systemd-user-sessions.service
+Wants=tilecast-edge.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+User=tilecast
+Group=tilecast
+SupplementaryGroups=video render input
+ExecStart=/opt/tilecast-edge/current/bin/tilecast-renderer-wpe --platform=drm --socket=/run/tilecast-edge/edge.sock --runtime-dir=/opt/tilecast-edge/current/share/tilecast/renderer-web
+Restart=always
+RestartSec=2
+TimeoutStopSec=10s
+# Own the VT so DRM master is available without a desktop session.
+TTYPath=/dev/tty1
+StandardInput=tty-force
+TTYReset=yes
+TTYVHangup=yes
+
+CacheDirectory=tilecast-renderer
+CacheDirectoryMode=0700
+Environment=XDG_CACHE_HOME=/var/cache/tilecast-renderer
+Environment=XDG_DATA_HOME=/var/cache/tilecast-renderer/data
+UMask=0077
+
+# Filesystem isolation (RFC Amendment A1.4): the renderer reads only the CAS
+# and its own runtime assets. It cannot see the Edge identity directory, the
+# state database or any home directory.
+ProtectHome=yes
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/tilecast-edge/cas
+InaccessiblePaths=-/var/lib/tilecast-edge/identity -/var/lib/tilecast-edge/state.db -/var/lib/tilecast-edge/state.db-wal -/var/lib/tilecast-edge/state.db-shm -/var/lib/tilecast-edge/partial -/var/lib/tilecast-edge/updates
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
