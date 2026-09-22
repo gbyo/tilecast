@@ -1,0 +1,139 @@
+#include "host.h"
+#include "validate.h"
+
+#include <glib-unix.h>
+#include <wpe/drm/wpe-drm.h>
+#include <wpe/headless/wpe-headless.h>
+#include <wpe/wayland/wpe-wayland.h>
+
+static gboolean
+on_terminate (gpointer user_data)
+{
+  TcHost *host = user_data;
+  g_message ("renderer: stopping");
+  tc_ipc_stop (host, "renderer_stopping");
+  g_main_loop_quit (host->loop);
+  return G_SOURCE_REMOVE;
+}
+
+static gboolean
+on_exit_timer (gpointer user_data)
+{
+  TcHost *host = user_data;
+  g_message ("renderer: --exit-after elapsed");
+  tc_ipc_stop (host, "renderer_stopping");
+  g_main_loop_quit (host->loop);
+  return G_SOURCE_REMOVE;
+}
+
+static gboolean
+on_health (gpointer user_data)
+{
+  TcHost *host = user_data;
+  gboolean responsive = webkit_web_view_get_is_web_process_responsive (host->view);
+  tc_protocol_send_health (host, responsive ? "healthy" : "failing", responsive ? NULL : "web_process_unresponsive");
+  return G_SOURCE_CONTINUE;
+}
+
+static WPEDisplay *
+create_display (TcPlatform platform)
+{
+  switch (platform) {
+  case TC_PLATFORM_DRM:
+    return wpe_display_drm_new ();
+  case TC_PLATFORM_WAYLAND:
+    return wpe_display_wayland_new ();
+  case TC_PLATFORM_HEADLESS:
+  default:
+    return wpe_display_headless_new ();
+  }
+}
+
+int
+main (int argc, char **argv)
+{
+  g_autofree char *platform = NULL;
+  g_autofree char *socket_path = NULL;
+  g_autofree char *runtime_dir = NULL;
+  g_autofree char *size = NULL;
+  gboolean console = FALSE;
+  int exit_after = 0;
+  GOptionEntry entries[] = {
+    { "platform", 0, 0, G_OPTION_ARG_STRING, &platform, "drm, wayland or headless", "NAME" },
+    { "socket", 0, 0, G_OPTION_ARG_FILENAME, &socket_path, "tilecastd socket", "PATH" },
+    { "runtime-dir", 0, 0, G_OPTION_ARG_FILENAME, &runtime_dir, "Trusted web runtime directory", "PATH" },
+    { "headless-size", 0, 0, G_OPTION_ARG_STRING, &size, "Headless view size (default 1920x1080)", "WxH" },
+    { "console", 0, 0, G_OPTION_ARG_NONE, &console, "Write page console messages to stderr (development)", NULL },
+    { "exit-after", 0, 0, G_OPTION_ARG_INT, &exit_after, "Exit after N seconds (CI)", "N" },
+    { NULL },
+  };
+  g_autoptr (GOptionContext) options = g_option_context_new ("- Tilecast WPE renderer");
+  g_option_context_add_main_entries (options, entries, NULL);
+  g_autoptr (GError) error = NULL;
+  if (!g_option_context_parse (options, &argc, &argv, &error)) {
+    g_printerr ("tilecast-renderer-wpe: %s\n", error->message);
+    return 2;
+  }
+
+  TcHost host = { 0 };
+  host.headless_width = 1920;
+  host.headless_height = 1080;
+  if (platform == NULL || g_strcmp0 (platform, "drm") == 0)
+    host.platform = TC_PLATFORM_DRM;
+  else if (g_strcmp0 (platform, "wayland") == 0)
+    host.platform = TC_PLATFORM_WAYLAND;
+  else if (g_strcmp0 (platform, "headless") == 0)
+    host.platform = TC_PLATFORM_HEADLESS;
+  else {
+    g_printerr ("tilecast-renderer-wpe: unknown platform %s\n", platform);
+    return 2;
+  }
+  if (size != NULL && sscanf (size, "%dx%d", &host.headless_width, &host.headless_height) != 2) {
+    g_printerr ("tilecast-renderer-wpe: --headless-size must be WxH\n");
+    return 2;
+  }
+  host.socket_path = g_strdup (socket_path ? socket_path : "/run/tilecast-edge/edge.sock");
+  host.runtime_dir = g_strdup (runtime_dir ? runtime_dir : "/opt/tilecast-edge/current/share/tilecast/renderer-web");
+  if (!tc_is_clean_absolute_path (host.socket_path) || !tc_is_clean_absolute_path (host.runtime_dir)) {
+    g_printerr ("tilecast-renderer-wpe: --socket and --runtime-dir must be clean absolute paths\n");
+    return 2;
+  }
+  host.console_to_stderr = console;
+  host.exit_after_seconds = exit_after > 0 ? (guint) exit_after : 0;
+  host.content = g_ptr_array_new_with_free_func (tc_content_ref_free);
+  host.plugin_content = g_ptr_array_new_with_free_func (tc_content_ref_free);
+  host.pending_replies = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+                                                (GDestroyNotify) webkit_script_message_reply_unref);
+  host.current_generation = -1;
+  host.loop = g_main_loop_new (NULL, FALSE);
+
+  host.display = create_display (host.platform);
+  if (!wpe_display_connect (host.display, &error)) {
+    g_printerr ("tilecast-renderer-wpe: cannot open %s display: %s\n", platform ? platform : "drm", error->message);
+    return 4;
+  }
+  wpe_display_set_primary (host.display);
+  if (!tc_view_create (&host, &error)) {
+    g_printerr ("tilecast-renderer-wpe: cannot create the web view: %s\n", error->message);
+    return 4;
+  }
+
+  tc_ipc_start (&host);
+  host.health_source = g_timeout_add_seconds (60, on_health, &host);
+  g_unix_signal_add (SIGTERM, on_terminate, &host);
+  g_unix_signal_add (SIGINT, on_terminate, &host);
+  if (host.exit_after_seconds > 0)
+    g_timeout_add_seconds (host.exit_after_seconds, on_exit_timer, &host);
+
+  g_main_loop_run (host.loop);
+
+  g_clear_object (&host.view);
+  g_clear_object (&host.network_session);
+  g_clear_object (&host.web_context);
+  g_clear_object (&host.display);
+  g_main_loop_unref (host.loop);
+  g_hash_table_unref (host.pending_replies);
+  g_ptr_array_unref (host.content);
+  g_ptr_array_unref (host.plugin_content);
+  return host.exit_code;
+}
