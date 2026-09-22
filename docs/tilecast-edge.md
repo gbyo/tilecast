@@ -51,7 +51,7 @@ The final Linux architecture is:
                  ┌─────────────┴──────────────┐
                  │                            │
         tilecast-renderer-wpe        Electron compatibility
-          WPE WebKit 2.54+               renderer
+          WPE WebKit stable 2.54.x       renderer
                  │
           DRM/KMS / Wayland
                  │
@@ -2299,8 +2299,6 @@ Server-only keys remain impossible for an Edge-local source to claim.
 
 ## 19. Context rules with CEL
 
-## 19. Context rules with CEL
-
 Use Common Expression Language instead of inventing a Tilecast expression parser.
 
 CEL is designed for embedded, safe, non-Turing-complete expressions and for compile/check-once, evaluate-many workloads. That maps directly to content visibility/selection rules.
@@ -2956,7 +2954,7 @@ WPE is a renderer replacement, not a replacement for Tilecast Edge.
 
 ### 28.1 Target WPE baseline
 
-Target **WPE WebKit 2.54+** and the new **WPEPlatform** API.
+Target a tested, security-patched **stable WPE WebKit 2.54.x** build and the WPEPlatform API. Upgrade the qualified series deliberately rather than treating every numerically newer development/future build as supported.
 
 Do not build new Tilecast code around:
 
@@ -3325,10 +3323,10 @@ Compatibility metadata is not accepted solely because a manifest claims it.
 
 When a signed release is available:
 
-- release manifest is peerable;
-- release artifacts are peerable;
-- the soft release seeder may download them once from origin;
-- other targeted nodes fetch over peer CDN;
+- signed release-set metadata may be `installation_peerable` when it contains no target-sensitive data;
+- target-specific release artifacts use `target_granted` object authorization tied to the server deployment target;
+- the soft release seeder may download authorized bytes once from origin;
+- other targeted nodes fetch through the peer CDN only with the appropriate object grant;
 - nodes may prefetch before their maintenance window;
 - install does not begin until their persistent deployment state says it is authorized.
 
@@ -3430,21 +3428,6 @@ Track WPE/WebKit security advisories and raise the minimum accepted patched buil
 As of this RFC date, Ubuntu's public package index does not provide the required WPE 2.54 package for Ubuntu 26.04, so Ubuntu support cannot rely on stock WPE alone.
 
 A future Tilecast appliance image may make OS/runtime updates image-atomic.
-
-### 30.8 WPE runtime dependency and packaging
-
-Tilecast's renderer baseline is WPE WebKit 2.54+ / WPEPlatform. Do not assume a supported Debian/Ubuntu release provides that runtime merely because WebKitGTK or an older WPE package exists. The installer must probe the exact WPEPlatform API/runtime version before enabling WPE.
-
-For general-purpose installations, support one of two explicit modes:
-
-1. a distribution/repository whose packaged WPE WebKit satisfies Tilecast's tested baseline; or
-2. a Tilecast-owned, versioned WPE runtime bundle installed under a private immutable prefix and updated through a defined signed release path.
-
-Do not overwrite arbitrary distribution libraries in place and do not silently mix an old distro WPE runtime with a launcher compiled for WPEPlatform 2.54+. Mesa/GStreamer and other host graphics/media dependencies may remain distribution-owned initially, but their tested compatibility range must be reported.
-
-As of this RFC date, Ubuntu's public package index does not provide a WPE 2.54 package for Ubuntu 26.04, so Ubuntu support cannot rely on the stock WPE package alone. This is a packaging requirement, not a reason to lower the WPEPlatform baseline.
-
-A later Tilecast appliance image can make the entire OS/runtime atomic.
 
 ---
 
@@ -3890,7 +3873,7 @@ Sections may include:
 **Overview**
 
 - Edge/renderer status;
-- active state epoch/feed lag;
+- active state incarnation and per-stream lag/fork state;
 - last server/peer contact;
 - fallback/safe-mode reason.
 
@@ -4142,10 +4125,13 @@ These are release-blocking invariants.
 20. Renderer/admin IPC authority is derived from separate OS identities, socket permissions and peer credentials; a renderer cannot self-declare an admin role.
 21. Renderer media access is limited to daemon-issued prepared/active/draining presentation generations; renderer processes cannot open the Edge state/CAS tree directly.
 22. A CA-valid peer cannot impersonate another node's logical identity/keyspace, and outbound peer trust is installation-CA-only.
-23. Feed sequence proves delivery completeness but never overrides a newer signed resource revision.
-24. Snapshot recovery resumes only from an authority-signed base sequence consistent with the state contained in that snapshot.
-25. Locally authored Context observations are signed, source-scoped, epoch-scoped and replay-protected.
-26. A malformed optional Edge heartbeat field cannot suppress ordinary player contact/status processing.
+23. Per-stream sequence/digest proves completeness inside one state incarnation; it never overrides a newer same-incarnation resource revision.
+24. Snapshot recovery uses the materialized Edge projection at an exact signed stream checkpoint.
+25. Trust realm/state incarnation can change only through the documented direct recovery path; security lineage cannot silently decrease.
+26. Blob hash identity is not read authorization; target-granted content requires a valid server-signed grant.
+27. Locally authored Context observations are signed, definition-bound, source-scoped, epoch-scoped and replay-protected.
+28. Unknown security semantics fail closed/degrade mesh rather than silently advancing.
+29. A malformed optional Edge heartbeat field cannot suppress ordinary player contact/status processing.
 
 ---
 
@@ -4158,7 +4144,7 @@ Retain:
 - active/previous configuration;
 - current, prepared and draining presentation bundles/generations;
 - CAS objects according to policy;
-- bounded server change log required for offline continuity;
+- bounded per-stream signed history/checkpoints required for offline continuity;
 - current context and explicit last-known-good candidates;
 - command idempotency records for the required replay window;
 - current update/renderer recovery state.
@@ -4298,8 +4284,6 @@ After a rollback-style restore creates a new state incarnation:
 - server marks them cancelled/recovery-review or explicitly reauthorizes them into the new incarnation.
 
 This prevents a restored backup from replaying an old shutdown/reboot/update as newly pending state.
-
-### 41.5 Cache migration
 
 ### 41.5 Cache migration
 
@@ -4721,7 +4705,9 @@ Expose bounded mesh/security/time state.
 - active revoked sessions stop accepting data;
 - bad/uncertain host time follows the tested security-clock policy;
 - Presentation Network does not attract mesh traffic;
-- state epoch cannot change through peer gossip.
+- trust realm/state incarnation cannot change through peer gossip;
+- TLS resumption/0-RTT behavior matches the v1 disabled policy;
+- Presentation Network activation closes already-established sessions on newly forbidden interfaces.
 
 ### E6 — Peer CDN
 
@@ -5227,7 +5213,7 @@ No behavior change.
 
 - IPC min/max protocol envelopes;
 - renderer profiles and presentation requirements;
-- canonical change/security/snapshot/state-epoch envelopes;
+- canonical stream/current-state/security/snapshot/recovery-reanchor/object-grant envelopes;
 - X.509 profile fixtures;
 - presentation-bundle skeleton;
 - CEL fixture harness skeleton;
@@ -5364,7 +5350,7 @@ No app data beyond identity-safe presence. Installation-CA-only outbound trust, 
 
 ### PR 31 — `feat(edge-cdn): add transfer scoring, metrics and integrity incident inputs`
 
-### Change feed PRs
+### Signed stream/projection PRs
 
 ### PR 32 — `feat(server-edge): add fixed signed Edge streams and projection`
 
