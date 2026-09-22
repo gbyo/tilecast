@@ -2858,8 +2858,6 @@ A WebProcess/GPUProcess/network-process crash is renderer health input. `tilecas
 
 ## 29. Renderer selection state machine
 
-## 29. Renderer selection state machine
-
 Use an explicit state machine rather than scattered fallback booleans.
 
 Conceptually:
@@ -4965,8 +4963,6 @@ No PR in this group reintroduces Spectrum or a second Studio sidebar.
 
 ### Final rollout PRs
 
-### Final rollout PRs
-
 ### PR 72 — `test(edge): add network-partition/failure-injection suite`
 
 ### PR 73 — `perf(edge): add benchmark and low-end resource gates`
@@ -5559,8 +5555,6 @@ Runtime/CDN/security work can expose temporary API/`tilecastctl` diagnostics unt
 
 ## 53. Research notes and upstream references
 
-## 53. Research notes and upstream references
-
 This plan was built against the current Tilecast repository and current upstream documentation as of **September 22, 2026**. Prefer official/upstream documentation when implementation details change.
 
 ### Tilecast repository material reviewed
@@ -5759,8 +5753,6 @@ Official shadcn references used by that plan:
 - <https://ui.shadcn.com/docs/components/base/data-table>
 
 This Edge RFC follows that document for shell, component, information-architecture and accessibility choices rather than duplicating the Studio design specification here.
-
-### NetworkManager
 
 ### NetworkManager
 
