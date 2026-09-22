@@ -6,6 +6,7 @@ members = [
     "crates/edge-cas",
     "crates/edge-identity",
     "crates/edge-server",
+    "crates/edge-cdn",
     "crates/edge-ipc",
     "crates/edge-platform",
     "tilecastd",
@@ -60,7 +61,7 @@ thiserror = "2"
 time = { version = "0.3", features = ["formatting", "parsing", "macros", "serde"] }
 tokio = { version = "1.47", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync", "signal", "fs"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "logging", "tls12"] }
-tokio-util = { version = "0.7", features = ["rt"] }
+tokio-util = { version = "0.7", features = ["rt", "io"] }
 toml = "0.9"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter", "fmt"] }

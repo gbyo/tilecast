@@ -78,8 +78,9 @@ impl Sha256Digest {
         self.to_hex()[..12].to_owned()
     }
 
-    /// The HTTP entity tag used for this object by peer and origin blob
-    /// endpoints: `"sha256:<hex>"` including the quotes.
+    /// The HTTP entity tag of the peer blob endpoint (RFC §14.3):
+    /// `"sha256:<hex>"` including the quotes. The Tilecast Server origin uses
+    /// its own media tag (`"sha256-<hex>"`, see `edge_server::origin`).
     pub fn etag(&self) -> String {
         format!("\"sha256:{}\"", self.to_hex())
     }

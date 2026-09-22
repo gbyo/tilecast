@@ -341,6 +341,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-cdn"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "edge-cas",
+ "edge-identity",
+ "edge-platform",
+ "edge-protocol",
+ "edge-state",
+ "futures-util",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rustls",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "edge-identity"
 version = "0.1.0"
 dependencies = [
