@@ -48,14 +48,12 @@ The final Linux architecture is:
                                │
                     local Unix-domain IPC
                                │
-                 ┌─────────────┴──────────────┐
-                 │                            │
-        tilecast-renderer-wpe        Electron compatibility
-          WPE WebKit stable 2.54.x       renderer
-                 │
-          DRM/KMS / Wayland
-                 │
-                HDMI
+                    tilecast-renderer-wpe
+                      WPE WebKit 2.54.x
+                               │
+                       DRM/KMS / Wayland
+                               │
+                              HDMI
 ```
 
 The core decisions are:
@@ -68,8 +66,8 @@ The core decisions are:
 6. **Use SQLite locally.** It becomes the durable transactional state store for Edge metadata; immutable media remains ordinary files in a SHA-256 content-addressed store.
 7. **Use CEL for Context Engine conditions.** The server validates rules, and Edge evaluates a deliberately bounded, cross-tested subset locally.
 8. **Use Linux-native platform services.** Avahi/D-Bus for mDNS, NetworkManager through the existing narrow privilege boundary, PipeWire for audio, udev for hardware discovery, linuxptp for optional PTP, and systemd for lifecycle/watchdog supervision.
-9. **WPE WebKit is the future Linux renderer.** Target WPEPlatform 2.54+, not legacy Cog/libwpe/WPEBackend-fdo. The first-party renderer is a small C/GLib host; the existing browser renderer assets are reused where possible.
-10. **Electron is not removed in a flag day.** It becomes a compatibility renderer while `tilecastd` takes ownership of the machine. Edge chooses WPE only when the assigned presentation's requirements are supported by WPE.
+9. **WPE WebKit is the Linux renderer.** Target a tested stable WPE WebKit 2.54.x build through WPEPlatform, not legacy Cog/libwpe/WPEBackend-fdo. The first-party renderer is a small C/GLib host supervised by `tilecastd`.
+10. **Electron is legacy-only.** New Edge installations never ship, select, or fall back to Electron. `apps/player-linux` remains temporarily as a behavioral reference and legacy-state source while the one-time migration path is supported; production Edge playback is WPE-only.
 11. **Tilecast Studio Edge UI follows the canonical shadcn Base UI + Rhea Studio plan.** Edge surfaces must reuse the current Studio shell, information architecture, interaction rules and generated shadcn components from `docs/studio-rhea-redesign-plan.md`. Do not revive the abandoned Spectrum implementation or add a second Edge-specific design system.
 12. **No physical-neighbor choreography in this project.** That idea is explicitly deferred. Edge does not need a building topology or animated network map.
 
@@ -122,7 +120,7 @@ The following are deliberately **not** part of Tilecast Edge v1:
 - Cross-screen physical choreography or display-neighbor topology.
 - Requiring multicast to work. Multicast discovery is an optimization, never a dependency.
 - Requiring proprietary cloud services.
-- Immediately removing the existing Electron Linux player.
+- Maintaining Electron as an Edge compatibility renderer or runtime fallback. Existing Electron installs are supported only long enough to perform the documented one-time migration to Edge/WPE.
 - Building Tilecast OS as a prerequisite for Edge. A controlled appliance image is a later delivery option.
 
 ---
@@ -181,9 +179,9 @@ Tilecast Edge is successful only if these properties survive the migration.
 | `main/display-control.ts` | CEC/DDC host calls | Edge display provider |
 | `main/presentation-network.ts` | network helper client | Edge NetworkManager provider |
 | `main/airplay.ts` | UxPlay host lifecycle | Edge external-presentation provider |
-| `main/hardware.ts` | Electron-specific tuning | Electron compatibility renderer only |
+| `main/hardware.ts` | Electron-specific tuning | legacy reference only; WPE host qualification replaces it |
 | `preload.ts` synchronization | timeline projection | `tilecastd` presentation engine |
-| `renderer/renderer.ts` | browser presentation surface | shared web renderer runtime |
+| `renderer/renderer.ts` | browser presentation surface | behavioral source for the trusted WPE web runtime |
 | `renderer/noise-meter.ts` | browser microphone measurement | migrate to Edge PipeWire input |
 
 ### 4.3 What stays on the central server
@@ -214,7 +212,7 @@ apps/
   server/
   dashboard/
   player-android/
-  player-linux/                 # Electron compatibility during migration
+  player-linux/                 # legacy Electron source/state format; never an Edge renderer
 
   edge/
     Cargo.toml                   # Rust workspace
@@ -300,7 +298,7 @@ Presentation policy and business logic stay in Rust.
 
 `tilecastd` is the durable Linux player brain.
 
-It runs as a fixed unprivileged account, `tilecast-edge`, under a **system** systemd service. It should not run as root and should not inherit a logged-in user's broad session privileges. Renderers run under a separate `tilecast-renderer` identity so a compromised renderer cannot authenticate to daemon administration IPC merely because it shares the daemon's UID.
+It runs as the fixed unprivileged `tilecast` account under a **system** systemd service. It must not run as root and must not inherit a logged-in user's broad session privileges. The WPE launcher is also unprivileged; renderer authority is limited by dedicated Unix sockets, filesystem permissions, `SO_PEERCRED`, the daemon-recorded renderer instance/process identity, and WebKit's subprocess sandbox rather than by granting the renderer any administrative API.
 
 It owns:
 
@@ -330,9 +328,9 @@ It owns:
 
 ### 6.2 Renderers
 
-Renderers are disposable and run under the dedicated unprivileged `tilecast-renderer` account, separate from `tilecast-edge`.
+The WPE renderer is disposable and unprivileged.
 
-A renderer receives a complete, validated, prepared presentation contract and reports evidence about what actually happened on screen. Its access to `tilecastd` is granted by a renderer-only Unix socket whose ownership and peer-credential checks map that OS identity to the renderer role. The renderer does not self-assert an administrative role in JSON.
+It receives a complete, validated, prepared presentation contract and reports evidence about what actually happened on screen. Its access to `tilecastd` is granted only through renderer-specific Unix IPC. `SO_PEERCRED`, socket permissions, the renderer-instance generation and daemon-recorded process identity bind that connection to the WPE child that `tilecastd` launched. The renderer never self-asserts an administrative role in JSON.
 
 It does not receive:
 
@@ -635,39 +633,39 @@ The actual schemas live in `packages/edge-protocol/schemas/` and fixtures are co
 
 No renderer message can name an executable, shell fragment, arbitrary path or server credential.
 
-### 9.5 Renderer media socket
+### 9.5 Renderer media access
 
-`media.sock` is a separate byte-serving Unix socket. It does not expose SQLite, identity files, arbitrary paths, or the whole CAS namespace.
+Tilecast-owned media uses the canonical URI form:
 
-Use a small fixed HTTP-like contract over AF_UNIX:
-
-```http
-HEAD /v1/media/sha256/<hash>
-GET  /v1/media/sha256/<hash>
-Range: bytes=<start>-<end>
-X-Tilecast-Renderer-Instance: <generation>
-X-Tilecast-Presentation-Generation: <generation>
+```text
+tcmedia://sha256/<64-lowercase-hex-digest>
 ```
 
-Authorization rules:
+Remote pages never receive filesystem paths. The renderer accepts no arbitrary path, query-controlled filename, relative path or directory listing.
 
-1. the connecting UID is the configured renderer UID;
-2. the renderer instance is the currently launched instance;
-3. the presentation generation is currently `prepared`, `active`, or `draining`;
-4. the requested hash belongs to that presentation generation's capability set;
-5. the CAS object is already verified;
-6. only HEAD/GET and one bounded byte range are accepted;
-7. no directory listing or arbitrary path exists.
+WPE's GStreamer backend does not turn a custom WebKit URI-scheme handler into a GStreamer media source. Therefore H.264/video playback uses a Tilecast-owned `GstURIHandler` source plugin for `tcmedia`. `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` only adds `tcmedia` to WebKit's existing media-protocol allowlist; it is not a sandbox or a replacement for the built-in HTTP/HTTPS protocols.
 
-Presentation generations move through:
+The source plugin is a narrow read-only CAS adapter:
+
+1. accept only the exact canonical digest URI;
+2. derive the object path only from that validated SHA-256 digest;
+3. use the CAS root fixed at renderer startup;
+4. refuse path traversal, percent-encoded separators, query-selected paths and symlinks;
+5. open the object with Linux path-containment/no-follow protections and verify it is a regular file;
+6. implement bounded seek/range behavior required by GStreamer without copying whole videos into memory;
+7. never enumerate the CAS or expose SQLite/identity state.
+
+The daemon controls which verified objects are prepared/active/draining for the current presentation. The trusted WPE runtime receives only content references belonging to that presentation generation. WebKit subprocess sandboxing and renderer process hardening remain enabled.
+
+Image/widget/runtime resources may use a separate trusted local WebKit scheme, but remote website origins must not be able to access Tilecast trusted runtime/media schemes or the native bridge.
+
+Presentation generations still move through:
 
 ```text
 prepared -> active -> draining -> retired
 ```
 
-Activation does not immediately remove the previous generation. The previous generation remains readable until the renderer acknowledges the transition boundary or a bounded drain timeout expires.
-
-The WPE custom `tilecast://media/<hash>` scheme and Electron compatibility adapter both proxy reads through `media.sock`. Neither renderer gets direct read access to `/var/lib/tilecast-edge`.
+The previous generation remains readable until the renderer acknowledges the transition boundary or a bounded drain timeout expires.
 
 ## 10. Trust model
 
@@ -720,7 +718,7 @@ After ordinary Tilecast player enrollment succeeds:
 1. `tilecastd` creates an Ed25519 node private key locally.
 2. It creates a PKCS#10 CSR or equivalent signed enrollment request proving possession of that private key.
 3. The request carries only the public key plus bounded request metadata.
-4. It calls the authenticated Edge enrollment endpoint with the existing device credential and current `playerOwnerGeneration` when owner-sensitive.
+4. It calls the authenticated Edge enrollment endpoint with the verified existing device credential.
 5. The server obtains authoritative installation ID, `playerInstallationId`, screen ID, trust realm, purpose and policy from authenticated database state. It does **not** trust identity values merely because the CSR subject/SAN asks for them.
 6. The server verifies CSR proof-of-possession and enrollment rate/overlap limits.
 7. The server issues the node certificate.
@@ -728,8 +726,6 @@ After ordinary Tilecast player enrollment succeeds:
 9. The private key never leaves the node.
 
 Enrollment/renewal is rate-limited per credential, node ID and source address. V1 also bounds the number of simultaneously valid overlapping node certificates during renewal/rebinding.
-
-A shadow/bootstrap enrollment grant is one-time, narrowly scoped to certificate enrollment and cannot authenticate normal player-owner operations.
 
 ### 11.3 Exact CA and leaf profiles
 
@@ -2518,9 +2514,9 @@ unknown
 
 A capability report includes bounded reason/diagnostic metadata.
 
-### 21.2 Per-renderer profiles
+### 21.2 WPE renderer profile
 
-Every installed renderer release has a trusted static capability manifest shipped with the signed release. Runtime probes refine availability but do not invent protocol support.
+Every signed Edge release carries one trusted static WPE renderer capability manifest. Runtime probes refine availability but do not invent protocol support.
 
 Example:
 
@@ -2545,11 +2541,9 @@ Example:
 }
 ```
 
-Electron has its own profile.
+There is no Electron Edge renderer profile and no runtime renderer selector. A prepared presentation is compatible only when the installed WPE profile plus current host/runtime capabilities satisfy its complete requirement contract.
 
-Do not report the union of WPE and Electron capabilities as though one renderer can satisfy every combined requirement. The server may know the node has multiple profiles, but one complete renderer profile must satisfy one prepared presentation contract.
-
-This preserves the current server/player model where `nativePresentationCapabilities` maps capability name to version.
+This preserves the current versioned capability model while making the supported Linux renderer unambiguous.
 
 ### 21.3 Hardware/platform capabilities
 
@@ -2581,13 +2575,11 @@ A prepared presentation carries versioned requirements rather than a string set:
 }
 ```
 
-Compatibility requires one renderer profile plus current host/runtime capabilities to satisfy the full requirement set.
+Compatibility requires the installed WPE renderer profile plus current host/runtime capabilities to satisfy the full requirement set.
 
 ### 21.5 Reporting
 
-The node reports each renderer profile independently, the active renderer/profile revision, and host capabilities. Studio may summarize them, but server negotiation keeps the distinction.
-
-A renderer process may report runtime evidence after launch. That evidence validates/refines the signed installed profile; it is not the bootstrap source used to decide which renderer binary can be launched.
+The node reports the installed WPE profile revision, active WPE runtime details and host capabilities. A renderer process may report runtime evidence after launch. That evidence validates/refines the signed installed profile; it is not the bootstrap source for compatibility decisions.
 
 ## 22. Avahi and LAN service discovery
 
@@ -2922,34 +2914,23 @@ Only the main daemon health loop sends watchdog notifications. A stuck renderer 
 
 ### 27.4 Renderer service
 
-Renderer isolation and display-session ownership must be designed together.
-
-The separate `tilecast-renderer` UID remains the security target.
+The WPE renderer is the only Linux Edge display engine.
 
 Supported host modes:
 
-1. **Dedicated Tilecast compositor/session** — preferred Wayland migration mode.
-2. **Existing desktop/session compatibility** — narrow session bridge/ACL supplies only required display/session handles.
-3. **Direct DRM/KMS appliance mode** — WPE owns display directly; ordinary Electron fallback is unavailable without a deliberate compositor transition.
+1. **Wayland mode** — development and qualified installations where Tilecast deliberately owns/integrates with a compositor/session.
+2. **Direct DRM/KMS mode** — preferred dedicated-signage path; WPEPlatform owns the display directly with no desktop compositor.
+3. **Headless mode** — CI/integration testing only.
 
-Every renderer launch receives a new random renderer generation, but the generation string is defense-in-depth rather than the only same-UID process boundary.
+Every renderer launch receives a new random renderer generation. The daemon also records the launched PID/start identity or pidfd and rejects stale renderer processes that attempt to reconnect after restart.
 
-Prefer one of:
+Prefer daemon-created connected Unix socket/socketpair descriptors inherited only by the child renderer process where practical. Do not rely on a bearer-like renderer token stored in an environment/file as the primary boundary.
 
-- daemon-created connected Unix socket/socketpair file descriptors inherited only by the child renderer process; or
-- systemd/PID-aware launch where `tilecastd` records and verifies the renderer's expected PID + start identity/pidfd before accepting control/media traffic.
+Renderer lifecycle is bound to the daemon. A `tilecastd` restart stops/recreates WPE and creates a new renderer generation. The renderer unit may use `PartOf=tilecast-edge.service`/equivalent dependency semantics once validated with the selected launch model.
 
-Do not rely on a bearer-like renderer token stored in a same-UID-readable environment/file as the primary boundary.
+`tilecastd` passes only renderer/media communication handles, presentation bootstrap data and required display/media-device access. The renderer never receives server bearer credentials or node private keys.
 
-Renderer lifecycle is bound to the daemon. A `tilecastd` restart stops/recreates the renderer and creates a new renderer generation; a stale renderer is not allowed to survive daemon replacement and reconnect later.
-
-The renderer unit may use `PartOf=tilecast-edge.service`/equivalent dependency semantics once validated with the selected launch model.
-
-`tilecastd` passes only renderer/media communication handles, presentation bootstrap data and required display/media-device access.
-
-Renderer lifecycle control uses a fixed systemd unit relationship or narrow helper. Do not grant generic systemd manager authority.
-
-The renderer never receives server bearer credentials, node private keys or direct CAS paths.
+There is no Electron runtime fallback. Repeated WPE failure escalates through renderer recovery and then safe mode; software rollback is a release/installer action, not renderer selection.
 
 ### 27.5 Safe mode
 
@@ -2959,9 +2940,8 @@ Preserve the current recovery concept but redefine the layers:
 renderer retry
 current item retry/skip
 re-activate prepared presentation
-renderer reload/recreate
-renderer process restart
-renderer type fallback (WPE -> Electron where available)
+WPE view reload/recreate
+WPE renderer process restart
 Edge process restart only for Edge faults
 safe mode
 ```
@@ -2976,330 +2956,170 @@ Safe mode keeps:
 - Studio health;
 - local diagnostics.
 
----
+Safe mode never launches Electron.
 
-## 28. Renderer architecture and WPE WebKit migration
+## 28. Renderer architecture: WPE WebKit only
 
-WPE is a renderer replacement, not a replacement for Tilecast Edge.
+WPE is the Linux renderer for Tilecast Edge.
 
-`tilecastd` owns the player. WPE renders the presentation.
+`tilecastd` owns the player; `tilecast-renderer-wpe` renders the prepared presentation. Electron is not an Edge component, compatibility renderer, or runtime fallback.
 
 ### 28.1 Target WPE baseline
 
-Target a tested, security-patched **stable WPE WebKit 2.54.x** build and the WPEPlatform API. Upgrade the qualified series deliberately rather than treating every numerically newer development/future build as supported.
+Target a tested, security-patched **stable WPE WebKit 2.54.x** build and the stable WPEPlatform API. Upgrade the qualified series deliberately rather than assuming every numerically newer build is compatible.
 
-Do not build new Tilecast code around:
+Do not build new Tilecast code around legacy `libwpe`, WPEBackend-fdo, or Cog.
 
-- legacy `libwpe` embedding;
-- WPEBackend-fdo;
-- new Cog dependencies.
-
-WPE 2.54 made WPEPlatform stable/default and provides built-in:
+WPEPlatform provides:
 
 ```text
+WPE_PLATFORM=headless
 WPE_PLATFORM=wayland
 WPE_PLATFORM=drm
-WPE_PLATFORM=headless
 ```
 
-This maps almost perfectly to Tilecast:
-
-- `headless`: CI and renderer integration tests;
-- `wayland`: development and existing kiosk desktops;
-- `drm`: dedicated production signage machines with no compositor.
+Use headless for CI, Wayland for development/qualified compositor deployments and DRM/KMS for dedicated production signage.
 
 ### 28.2 First-party launcher
 
-Build `apps/edge/renderer-wpe` as a small C11/GLib program using:
-
-```text
-wpe-webkit-2.0
-wpe-platform-2.0
-```
+Build `apps/edge/renderer-wpe` as a deliberately small C11/GLib program using `wpe-webkit-2.0` and `wpe-platform-2.0`.
 
 Responsibilities:
 
-- connect to Edge Unix socket;
-- negotiate renderer protocol;
-- create WPE display/view;
-- load trusted Tilecast web renderer assets;
-- expose a strict native-to-JS bridge;
-- enforce website navigation/permission policies;
-- report progress/errors;
-- support capture for bounded live preview;
-- exit on unrecoverable engine failure so systemd/Edge can recreate it.
+- connect to Edge renderer IPC and negotiate the protocol;
+- create the WPEPlatform display/view;
+- load trusted Tilecast renderer assets;
+- install the strict native-to-JS bridge;
+- configure trusted local URI handlers and the `tcmedia` GStreamer source;
+- enforce website navigation/permission/data policies;
+- report meaningful progress/errors;
+- support bounded preview capture;
+- exit on unrecoverable engine failure so `tilecastd`/systemd can recreate it.
 
-It must not contain playlist selection, schedule policy, context merge logic, content downloading, credentials or update logic.
+It must not contain playlist selection, schedule policy, context merge logic, content downloading, credentials or update authority.
 
-### 28.3 Shared trusted web runtime
+### 28.3 Trusted renderer runtime
 
-Extract the dependency-free DOM interpreter from the current Electron renderer into a shared package:
+Port/extract the dependency-free DOM/render-tree behavior from the legacy Electron renderer into the trusted WPE runtime.
 
-```text
-packages/player-renderer-web
-```
+The runtime contains image/video presentation, transitions, native widget render-tree interpretation, layout rendering, QR/SVG/chart primitives, browser-local visual ticking, meaningful-progress instrumentation and safe fallback surfaces.
 
-Both Electron and WPE load the same trusted renderer assets during migration.
+It contains no server networking, credential storage, filesystem policy or player scheduling.
 
-This package should contain:
+`apps/player-linux` may remain temporarily as a behavioral reference and fixture source. It is not built into Edge releases and does not implement Edge IPC.
 
-- image/video presentation DOM;
-- transition/crossfade implementation;
-- native widget render-tree interpreter;
-- layout DOM rendering;
-- QR/SVG/chart primitives;
-- browser-local clock/countdown visual ticking;
-- renderer progress instrumentation;
-- safe fallback surfaces.
+### 28.4 Trusted runtime/media origins
 
-It should **not** contain server networking, filesystem state or player policy.
+Keep trusted Tilecast code and remote website content in distinct security worlds.
 
-### 28.4 Trusted runtime/media URI schemes
+A trusted local runtime scheme may serve only embedded/versioned renderer files with a strict MIME allowlist and CSP. It is not CORS-enabled for arbitrary remote origins.
 
-Use separate schemes/origins for trusted code and media:
+Tilecast-owned media is referenced as `tcmedia://sha256/<digest>`. Video reaches GStreamer through the hardened Tilecast `GstURIHandler` source in §9.5. `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` is only a protocol opt-in and is never treated as the CAS security boundary.
 
-```text
-tilecast-runtime://app/...
-tilecast-media://sha256/<hash>
-```
+Native bridge installation is limited to the trusted Tilecast top-level world/frame. Navigating to uploaded media or a remote site never grants bridge capability.
 
-Register both with WebKit's security manager as **local** using the applicable `webkit_security_manager_register_uri_scheme_as_local` / `WebKitSecurityManager.register_uri_scheme_as_local` API so non-local web pages cannot link to/access them. Register the trusted runtime as secure and, where the pinned WPE/WebKit API semantics support it correctly, display-isolated. Validate the exact flags in WPE integration tests rather than relying on browser defaults.
-
-Do not register either scheme as CORS-enabled for remote website origins.
-
-The runtime handler serves only embedded/versioned trusted files with a strict MIME allowlist and CSP.
-
-The media handler proxies validated hash/range requests to `media.sock`. It serves data with strict expected media MIME and never treats uploaded media as HTML/JS/executable content.
-
-Native bridge installation is limited to the trusted runtime top-level world/frame. Navigating to a media URL or remote website never grants bridge capability.
-
-Tests prove an arbitrary remote website cannot:
-
-- fetch or navigate trusted runtime/media schemes;
-- infer useful CAS membership through response differences;
-- receive bridge objects/messages;
-- turn an uploaded blob into executable trusted-origin content.
-
-Large-media Range/seek/pause/resume/loop/transition/cancel behavior remains an early WPE qualification gate.
+Tests prove arbitrary remote pages cannot access trusted Tilecast runtime/media capabilities, receive bridge objects, enumerate/escape CAS, or make uploaded blobs execute as trusted code.
 
 ### 28.5 Native/JS bridge
 
-Use WebKit's user-content/script-message APIs for a strict message bridge.
-
-Trusted runtime may call methods corresponding to the renderer IPC contract, e.g.:
-
-```text
-ready
-progress
-itemError
-websiteState
-previewReady
-```
+Expose only named, typed operations corresponding to the renderer IPC contract, such as `ready`, `progress`, `itemError`, `websiteState` and `previewReady`.
 
 Never expose a generic native invocation function.
 
-Untrusted remote website content must not receive the Tilecast native bridge.
+### 28.6 Website playback
 
-### 28.6 Website playback is the hardest parity area
+Remote website content remains hostile even when its URL was intentionally configured.
 
-Remote website content is hostile browser content even when the URL was intentionally configured.
+Before website capability is production-ready, WPE must prove navigation allowlisting, post-DNS destination policy, private/local egress policy, DNS-rebinding resistance, explicit proxy behavior, disabled downloads/external launches by default, bounded persistent storage, permission denial, timeout/reload behavior, YouTube IFrame behavior, WebProcess crash recovery, layout-zone lifecycle, WebKit subprocess sandboxing and denial of remote access to Tilecast native/local capabilities.
 
-WPE rollout must prove:
+If WPE cannot enforce a requirement safely, that presentation requirement is **unsupported** until Tilecast adds the required boundary. It does not fall back to Electron.
 
-- top-level host/origin allowlist;
-- post-DNS destination policy, not only hostname string checks;
-- private/link-local/loopback/local-service egress denied by default;
-- explicit operator-approved intranet origins/CIDRs when a signage use case needs them;
-- DNS-rebinding-safe destination checks;
-- explicit proxy mode (`direct`, approved proxy, or disabled) rather than accidental host proxy inheritance;
-- downloads/file chooser/external-protocol launches disabled by default;
-- bounded per-site/global cookie, IndexedDB, Cache Storage and service-worker data;
-- data-store clearing/expiry policy;
-- microphone/camera/geolocation/notifications denied unless a future typed feature explicitly allows them;
-- timeout/reload/custom-UA/fallback behavior;
-- YouTube IFrame behavior;
-- remote WebProcess crash recovery;
-- multiple website placements/z-order;
-- subprocess sandbox enabled before any web process;
-- no access to Tilecast local schemes/native bridge.
+### 28.7 Presentation compatibility
 
-A URL allowlist alone is not sufficient because a hostname can resolve/rebind to localhost or a private administrative service.
+Every prepared presentation carries the versioned requirement contract from §21.
 
-If the selected WPE/WebKit networking APIs cannot enforce destination policy robustly, website capability remains Electron-only until Tilecast supplies an OS/network-session boundary such as a narrowly managed network namespace/firewall policy.
+`tilecastd` compares it against the signed WPE renderer profile, pinned WPE runtime/ABI, current host/media probes and selected display backend.
 
-Website persistent storage counts against a bounded Tilecast renderer-data budget so a page cannot consume the disk outside CAS policy.
+If the complete set is not satisfied, Tilecast reports a precise `presentation_incompatible` reason and preserves the last valid presentation/safe surface. It never silently omits unsupported content and never launches a second renderer engine.
 
-The Linux WebKit subprocess sandbox is mandatory. Qualify the minimum device/socket allowances rather than disabling it globally.
+### 28.8 Display backend policy
 
-### 28.7 Renderer compatibility selection
-
-Every prepared presentation contains the versioned requirement contract from §21.
-
-`tilecastd` evaluates each installed renderer profile independently. One renderer must satisfy the complete requirement set.
-
-Conceptually:
+Renderer kind is fixed to WPE. The configurable choice is only the WPEPlatform backend:
 
 ```text
-for renderer in policy_order:
-    if renderer.profile + host/runtime probes satisfy all requirements:
-        choose renderer
-        break
-otherwise:
-    presentation incompatible
+displayBackend = auto | drm | wayland
 ```
 
-The union of WPE and Electron capability maps is never treated as one renderer capability set.
+`auto` prefers qualified DRM/KMS on dedicated signage hosts and otherwise uses a deliberately configured Wayland session. Headless is test-only.
 
-Studio reports a bounded reason when WPE cannot be selected, including the exact missing capability/version or host-mode constraint.
+### 28.9 DRM/KMS production mode
 
-This turns WPE migration into a controlled capability rollout without regressing the current versioned negotiation model.
+DRM/KMS is the preferred dedicated-signage path because WPEPlatform can render directly without a desktop compositor.
 
-### 28.8 Renderer preference policy
+Before making DRM default on a hardware class, validate connector/mode selection, hotplug, VT/session ownership, device ACLs, old Intel/Mesa behavior, H.264 hardware decode, renderer crash/restart display reclaim, CEC/DDC coexistence, active-hours/display sleep and preview behavior.
 
-Effective policy:
+There is no Electron fallback if WPE is unhealthy. Recovery remains within WPE/Edge or enters safe mode.
 
-```text
-preferred: auto | wpe | electron
-fallbackAllowed: true/false
-```
+### 28.10 Wayland mode
 
-`auto` is the normal setting.
+Wayland exists for development and installations where a compositor/session is intentionally part of the supported host profile.
 
-If an administrator explicitly forces WPE and content requirements are unsupported, Tilecast should report “presentation incompatible” rather than silently omit part of the content.
+Tilecast must own or deliberately integrate with that compositor/session. Do not depend on ambient `WAYLAND_DISPLAY`, `DISPLAY` or `XDG_RUNTIME_DIR` values inherited from an installer shell.
 
-### 28.9 DRM/KMS
-
-DRM/KMS is the desired dedicated-appliance path because WPEPlatform can render directly with no compositor.
-
-That property changes compatibility behavior: an Electron renderer cannot run as an ordinary Wayland/X11 client when no compositor/session exists.
-
-Define the mode explicitly:
-
-```text
-displayMode = wayland_compat | drm_dedicated
-```
-
-In `drm_dedicated`:
-
-- WPE can own the display directly;
-- Electron compatibility fallback is unavailable unless a tested mode transition starts a compositor/session;
-- renderer selection must reject content that requires Electron before tearing down the compositor compatibility environment;
-- rollback to a legacy Electron release may require reboot/host-mode restoration, not only a process restart.
-
-Before making DRM default, validate connector selection, modes, hotplug, VT/session ownership, device ACLs, old Intel/Mesa behavior and renderer crash recovery.
-
-### 28.10 Wayland
-
-Wayland is the migration/general-purpose mode where WPE and Electron compatibility can coexist.
-
-WPEPlatform Wayland requires a compositor. Tilecast must therefore own or deliberately integrate with that compositor/session.
-
-Preferred production-compatible migration layout:
-
-```text
-Tilecast-managed compositor/session
-    ├── WPE renderer as tilecast-renderer
-    └── Electron compatibility renderer as tilecast-renderer
-```
-
-If Tilecast runs inside an existing user's compositor instead, use the controlled session-bridge/ACL model from §27.4 and treat it as a separate qualification mode.
-
-Do not depend on ambient `WAYLAND_DISPLAY`, `DISPLAY`, or `XDG_RUNTIME_DIR` values that happen to exist in the installer user's shell.
+Wayland is not an Electron compatibility environment.
 
 ### 28.11 Headless CI
 
-Every WPE renderer PR should run a headless integration suite.
+Every renderer PR runs a real WPE headless integration suite covering status/setup, daemon restart/reconnect, renderer crash/recovery, images, CAS-backed H.264 video, widget/render trees, layouts, transitions, synchronized projection, website policy fixtures, malformed/stale IPC and preview capture where supported.
 
-Test at least:
+The qualification requires real daemon-accepted meaningful-progress evidence, not only DOM assertions.
 
-- idle/setup surfaces;
-- image;
-- video DOM lifecycle using test media;
-- widget render trees;
-- layouts;
-- transitions;
-- synchronized item projection;
-- website policy decisions with a local fixture server;
-- renderer crash/restart;
-- preview capture if supported headlessly.
+### 28.12 Legacy behavior corpus
 
-### 28.12 Parity testing
+Use the current Electron player only as a temporary source of behavioral expectations and fixtures while porting.
 
-Build a corpus of deterministic renderer fixtures.
-
-For each fixture, run both Electron and WPE and compare:
-
-- semantic renderer events;
-- item timing within tolerance;
-- DOM/layout assertions;
-- screenshot perceptual difference where meaningful;
-- error/fallback behavior.
-
-Do not require text rasterization to be pixel-identical across Chromium and WebKit. Use visual tolerances and semantic assertions.
+Capture deterministic semantic renderer events, item timing, layout/DOM assertions, error behavior and meaningful-progress behavior. WPE is compared against those expectations. Production builds do not contain Electron and field nodes do not run A/B renderer selection.
 
 ### 28.13 Meaningful progress remains authoritative
 
-WPE changing the browser engine must not weaken Tilecast's existing health model.
+Changing browser engines must not weaken Tilecast's existing health model.
 
-`renderer.ready` is not meaningful playback progress.
-
-Progress remains content-aware:
-
-- video position advances;
-- image displayed successfully and duration boundaries continue;
-- website first meaningful render succeeds;
-- layout zones render/rotate as expected;
-- item transition occurs;
-- bounded health check only for indefinite content where no other signal exists.
+`renderer.ready` is not playback progress. Progress remains content-aware: video position advances; images render and duration boundaries continue; websites reach first meaningful render; layout zones render/rotate as expected; item transitions occur; indefinite content uses bounded health confirmation only when no better signal exists.
 
 ### 28.14 WPE process model
 
 Keep WebKit's multi-process model and enable its Linux subprocess sandbox before any web process is created.
 
-The first-party launcher owns:
+The launcher owns WPEPlatform display/view lifetime, WebKit context/data-manager policy, sandbox enablement, trusted URI handlers/`tcmedia` integration, navigation/permission decisions, native bridge, renderer IPC and instance generation.
 
-- WPEPlatform display/view lifetime;
-- WebKitWebContext/WebsiteDataManager policy;
-- sandbox enablement;
-- custom URI handlers;
-- navigation/permission decisions;
-- native bridge endpoint;
-- renderer IPC and instance generation.
+A WebProcess/GPUProcess/network-process crash is renderer health input. `tilecastd` retains authority and recreates WPE according to the recovery state machine.
 
-It does not own server networking, content authority, scheduling, Context merge, updates, or secrets.
+---
 
-A WebProcess/GPUProcess/network-process crash is renderer health input. `tilecastd` retains authority and may restart/fallback according to the renderer state machine.
-
-## 29. Renderer selection state machine
-
-Use an explicit state machine rather than scattered fallback booleans.
-
-Conceptually:
+## 29. WPE renderer state machine
 
 ```text
 NoRenderer
    ↓
-EvaluateRequirements
-   ├─ WPE compatible ───────► StartingWPE
-   │                            │
-   │                          Ready
-   │                            │
-   │                        unhealthy
-   │                            ▼
-   │                     RecoveringWPE
-   │                            │
-   │                     repeated failure
-   │                            ▼
-   │                    FallbackElectron
+CheckPresentationCompatibility
+   ├─ compatible ─────► StartingWPE
+   │                       │
+   │                     Ready
+   │                       │
+   │                   unhealthy
+   │                       ▼
+   │                  RecoveringWPE
+   │                       │
+   │               repeated failure
+   │                       ▼
+   │                    SafeMode
    │
-   └─ WPE incompatible ────► StartingElectron
+   └─ incompatible ───► PresentationIncompatible
 ```
 
-A renderer fallback event is persisted and sent to Activity with bounded reason codes. After a healthy period or content change, policy may attempt WPE again according to a cooldown.
+A renderer recovery/incompatibility event is persisted and reported to Activity with bounded reason codes.
 
-The fallback must never cause a manifest/content downgrade: both renderers consume the same prepared presentation contract.
-
----
+No state launches Electron.
 
 ## 30. Edge software updates
 
@@ -3329,9 +3149,8 @@ A deployment selects one signed **release-set manifest**. It names the exact com
 ```text
 releaseSetId
 tilecast-edge version/hash
-renderer-wpe version/hash or null
-renderer-electron version/hash or null
-private WPE runtime version/hash/ABI or null
+renderer-wpe version/hash
+private WPE runtime version/hash/ABI
 required privileged-helper protocol
 ipcMinProtocol/ipcMaxProtocol
 stateSchemaMinReadable/stateSchemaMaxReadable/stateSchemaWritten
@@ -3534,18 +3353,11 @@ updated_at
 
 This database row is not the only recovery copy; the encrypted ERB/external recovery checkpoint from §12 is what prevents a database rollback from silently lowering security history.
 
-#### `edge_player_owners`
+#### Legacy Linux migration marker
 
-```text
-screen_id PK
-state_incarnation_id
-owner_generation
-owner_kind
-lease_id/lease_expiry NULL
-updated_at
-```
+The server does not coordinate concurrent Electron/Edge ownership. Edge installation is a one-time host migration: the legacy service is stopped/disabled before `tilecastd` imports state and begins authenticated work.
 
-Owner generations are meaningful only with their `state_incarnation_id`.
+Server state may record a bounded migration/audit marker (screen, legacy version, Edge version, migrated-at/result) for supportability, but there is no `edge_player_owners` generation table or dual-runtime lease protocol.
 
 #### `edge_node_certificates`
 
@@ -3643,7 +3455,7 @@ Preserve the existing separation between dashboard APIs and player-authenticated
 
 ### 33.1 Player/Edge endpoints
 
-Normal player routes use the existing bearer credential plus `(stateIncarnationId, playerOwnerGeneration)` for owner-sensitive operations.
+Normal Edge player routes use the existing bearer credential only after the client has verified the configured server's installation identity. Recovery/security operations additionally bind to the current trusted state incarnation where applicable.
 
 Illustrative endpoints:
 
@@ -3658,16 +3470,10 @@ GET  /api/v1/player/edge/objects/<sha256>
 POST /api/v1/player/edge/object-grants/validate   # optional server fallback, not peer authority
 POST /api/v1/player/edge/status
 POST /api/v1/player/edge/context/observations
-POST /api/v1/player/ownership/handoff
-POST /api/v1/player/ownership/rollback
 POST /api/v1/player/edge/recovery/reanchor
 ```
 
-A server-issued owner lease is bound to both incarnation and owner generation. A lease/generation from any previous state incarnation is fenced even if its numeric generation is larger.
-
 The recovery re-anchor endpoint is available only in explicit recovery state. It returns the new `stateIncarnationId`, trust/security checkpoint and initial signed stream checkpoints. It is never peer-relay authority.
-
-Shadow/bootstrap enrollment uses a separate one-time scoped grant rather than the active owner bearer path.
 
 ### 33.2 Dashboard APIs
 
@@ -3711,11 +3517,8 @@ Conceptual payload:
 
 ```json
 {
-  "ownership": {
-    "stateIncarnationId": "...",
-    "playerOwnerGeneration": "12"
-  },
   "trust": {
+    "stateIncarnationId": "...",
     "trustRealmId": "...",
     "securityLineageId": "...",
     "securityGeneration": "28"
@@ -3781,42 +3584,37 @@ Validate endpoint count/private-address/interface/port before using status as se
 
 ## 35. Backward compatibility
 
-Edge must coexist with:
+The server must coexist during rollout with:
 
 - existing Android players;
-- existing Electron Linux players not yet upgraded;
-- Edge-enabled Linux players using Electron renderer;
-- Edge-enabled Linux players using WPE renderer.
+- existing Electron Linux players that have not yet been migrated;
+- new Edge/WPE Linux players.
+
+Electron compatibility ends at the host migration boundary. An Edge node never runs Electron as a renderer.
 
 ### 35.1 Server behavior
 
-All new fields/endpoints are capability gated.
+All new Edge fields/endpoints remain capability-gated.
 
-A legacy player continues receiving current manifests, config and socket hints exactly as today.
+A legacy Electron player continues receiving the existing manifest/config/socket protocol until that host is migrated. An Edge/WPE player advertises its Edge protocol/capability marker and uses the new Edge contracts.
 
-An Edge-enabled player advertises a protocol/capability marker during hello/status, allowing the server to expose Edge object/change-feed behavior.
+The server does not require an all-at-once fleet cutover.
 
-### 35.2 Mixed display groups
+### 35.2 Legacy Linux host migration compatibility
 
-Display group synchronization must remain correct across old/new players.
+The migration installer stops/disables the legacy service before Edge starts owner-sensitive work, imports state read-only, verifies server installation identity before using the imported bearer credential, enrolls the node directly from `tilecastd`, preserves legacy state/artifacts until post-install health succeeds and supports an explicit package-level rollback during the migration window.
 
-Do not change shared playback epoch semantics merely to benefit Edge. Edge should consume the same server-defined playback anchor and use its improved Clock Authority locally.
+Rollback is a controlled installer/release action, never an automatic renderer fallback.
 
-If an optional low-latency mesh hint reaches Edge members first, legacy members still converge through the existing server path. The group must not depend on every member being Edge-enabled.
+### 35.3 Mixed display groups
 
-### 35.3 Android future participation
+Display-group synchronization must remain correct across legacy, Android and Edge/WPE members while migration is incomplete.
 
-Do not require Zenoh in Android v1.
+Edge consumes the same server-defined playback anchor and uses its improved Clock Authority locally. The group must not depend on every member being Edge-enabled.
 
-Later options:
+### 35.4 Android future participation
 
-- Android may continue to receive direct server state/manifest updates without participating in Edge peer streams or peer serving;
-- Android participates in HTTPS peer CDN discovery through server hints;
-- Android runs a compatible Zenoh library if operational/size constraints justify it.
-
-These are future decisions. Linux Edge must stand on its own.
-
----
+Do not require Zenoh in Android v1. Later Android participation may use direct server state, server-assisted peer CDN discovery, or a compatible Zenoh implementation if operational/size constraints justify it.
 
 ## 36. Tilecast Studio: Rhea Edge surfaces
 
@@ -4085,8 +3883,8 @@ Good events:
 ```text
 Edge joined fabric
 Edge lost all peers for N minutes
-Renderer fell back WPE → Electron
-WPE restored after cooldown
+WPE renderer entered recovery/safe mode
+WPE renderer recovered
 PTP authority lost/restored
 Certificate renewal failed/recovered
 Object hash failed verification
@@ -4154,8 +3952,8 @@ These are release-blocking invariants.
 17. Sensor providers are typed and explicitly enabled; no generic device-file bridge.
 18. An optional capability failure cannot brick normal playback.
 19. Revoked certificate instances and disabled durable nodes are distinct; certificate replacement does not accidentally disable the renewed/rebound node.
-20. Renderer/admin IPC authority is derived from separate OS identities, socket permissions and peer credentials; a renderer cannot self-declare an admin role.
-21. Renderer media access is limited to daemon-issued prepared/active/draining presentation generations; renderer processes cannot open the Edge state/CAS tree directly.
+20. Renderer/admin IPC authority is derived from separate sockets, filesystem permissions, `SO_PEERCRED`, daemon-recorded renderer process identity and protocol role; a renderer cannot self-declare an admin role.
+21. WPE media access is limited to canonical digest-addressed verified CAS objects needed by prepared/active/draining presentation generations; browser content never receives arbitrary CAS paths or enumeration capability.
 22. A CA-valid peer cannot impersonate another node's logical identity/keyspace, and outbound peer trust is installation-CA-only.
 23. Per-stream sequence/digest proves completeness inside one state incarnation; it never overrides a newer same-incarnation resource revision.
 24. Snapshot recovery uses the materialized Edge projection at an exact signed stream checkpoint.
@@ -4209,159 +4007,85 @@ Only `public_signage` and explicitly approved `operational` values may be projec
 
 ---
 
-## 41. Migration strategy: no flag day
+## 41. Migration strategy: one-time Electron → Edge/WPE cutover
 
-The migration is a sequence of fenced ownership transfers. A local marker alone is not enough because the old and new process can crash/restart independently while sharing one server bearer credential.
+The fleet does not require a flag-day server upgrade, but each Linux host performs one explicit runtime cutover. There is no long-lived shadow daemon and no Electron renderer mode inside Edge.
 
-### 41.1 Migration phases
-
-```text
-Today
-Electron owns player + renderer
-        │
-        ▼
-Phase A
-Electron owner + shadow tilecastd
-        │
-        ▼
-Phase B
-server fences ownership to tilecastd; Electron renders
-        │
-        ▼
-Phase C
-Edge fabric/CDN/context active; Electron renders
-        │
-        ▼
-Phase D
-WPE available in Wayland compatibility mode
-        │
-        ▼
-Phase E
-WPE default where one renderer profile satisfies content
-        │
-        ▼
-Phase F
-optional DRM dedicated mode / Electron retirement after parity
-```
-
-### 41.2 Shadow mode
-
-Shadow mode may:
-
-- open its own SQLite DB;
-- report local system capabilities through a non-owner/bootstrap path;
-- test watchdog/systemd/socket plumbing;
-- inspect existing player state read-only;
-- send comparison diagnostics.
-
-Shadow mode does not read or copy the active player bearer credential and does not enroll a production Edge node certificate through that credential.
-
-If early mesh/certificate testing is required, use a distinct one-time installer/bootstrap enrollment grant whose scope is limited to certificate enrollment and expires after use. Do not make two concurrent processes owners of the bearer credential.
-
-Shadow mode must not execute server commands, activate content, update the player, mutate Presentation Network state, or own the legacy cache.
-
-### 41.3 Server ownership fencing
-
-Owner identity is the tuple:
+### 41.1 Host migration phases
 
 ```text
-(stateIncarnationId, playerOwnerGeneration)
+legacy Electron player running
+        │
+        ▼
+installer preflight + legacy state snapshot
+        │
+        ▼
+stop/disable legacy player service
+        │
+        ▼
+install tilecastd + WPE renderer/runtime
+        │
+        ▼
+tilecastd imports legacy state read-only
+        │
+        ▼
+verify server installation identity
+        │
+        ▼
+enroll Edge node identity + reconcile state
+        │
+        ▼
+start WPE and run real playback health check
+        │
+        ├─ healthy ─► migration confirmed
+        │
+        └─ failed  ─► explicit package rollback window
 ```
 
-The server increments `playerOwnerGeneration` when ownership changes inside one state incarnation.
+Fresh Linux installs skip legacy import and pair directly through `tilecastd`.
 
-Every owner-sensitive Linux request carries that tuple or a short-lived lease cryptographically/transactionally bound to it.
+### 41.2 Legacy state importer
 
-Once generation N+1 is committed in incarnation I, generation N is rejected.
+The importer is versioned, bounded, idempotent and crash-safe. It may import the stable player installation ID, normalized server URL, pinned installation ID, screen metadata, device bearer credential, useful manifest/config/checkpoint/idempotency state and verified cached media.
 
-When recovery creates incarnation J, **every lease/generation from incarnation I is rejected regardless of its numeric generation**. J may start owner generation from a defined initial value because generations are never compared across incarnations.
+It never mutates/deletes the legacy directory during import. It verifies the configured server identity before sending the imported bearer credential, quarantines malformed/unknown state rather than guessing, copies secrets with fsync/atomic semantics, hash-verifies media before CAS promotion and keeps originals until the Edge post-install checkpoint is confirmed.
 
-The bearer credential authenticates the device; the owner tuple fences the runtime authorized to act now.
+### 41.3 Edge enrollment after import
 
-### 41.4 Credential handoff and recovery authentication
+`tilecastd` generates the Edge private key locally, persists it safely, creates the CSR and calls the player-authenticated Edge enrollment endpoint itself.
 
-Forward handoff:
+Electron is not involved in certificate enrollment and the Edge private key never passes through the legacy runtime.
 
-1. Electron quiesces owner-sensitive work.
-2. controlled handoff copies/moves the bearer into Edge protected storage.
-3. `tilecastd` verifies server installation/trust identity.
-4. `tilecastd` requests a new owner tuple with handoff nonce.
-5. server atomically commits generation N+1 in the current state incarnation.
-6. old generation N traffic is rejected.
-7. Edge starts owner-sensitive work.
-8. Electron becomes renderer-only.
+### 41.4 Service mutual exclusion
 
-Recovery has an additional rule: a database restore may resurrect an old bearer or omit a newer rotated bearer.
+The installer makes dual ownership structurally difficult:
 
-The server must not use a resurrected credential automatically to authorize a new state-incarnation owner. Recovery re-anchor validates the currently presented credential against recovery policy; if its history cannot be proven safe, the operator performs credential repair/re-pairing before issuing a new owner tuple.
+- legacy player service is stopped and disabled before `tilecastd` starts authenticated owner-sensitive work;
+- Edge refuses migration completion while the legacy service/process is active;
+- legacy rollback stops/disables Edge first;
+- install/systemd tests prove the two production stacks are not intentionally active together.
 
-Fresh installs pair directly through `tilecastd`.
-
-### 41.4.1 Commands and updates across restore
-
-Server-created disruptive work is bound to the state incarnation in which it was authorized.
-
-Commands/update targets carry:
-
-```text
-stateIncarnationId
-command/deployment ID
-authorization revision
-```
-
-After a rollback-style restore creates a new state incarnation:
-
-- pending disruptive commands from the restored old history do not auto-execute;
-- pending update/install authorizations from the old incarnation do not auto-install;
-- server marks them cancelled/recovery-review or explicitly reauthorizes them into the new incarnation.
-
-This prevents a restored backup from replaying an old shutdown/reboot/update as newly pending state.
+This replaces the previous owner-generation/shadow-handoff design.
 
 ### 41.5 Cache migration
 
-Do not re-download current media unnecessarily.
+Do not redownload current media unnecessarily. Import only recognized cache entries correlated with trusted manifest metadata, verify size + SHA-256, promote verified files into CAS and leave the legacy cache untouched until the Edge checkpoint is confirmed.
 
-Migration tool:
+### 41.6 Commands, updates and restore safety
 
-- enumerate legacy cache entries;
-- correlate with active/pending manifest variant metadata;
-- verify size + SHA-256;
-- import only verified files;
-- create blob/reference/pin metadata transactionally;
-- keep legacy cache until Edge ownership checkpoint is confirmed;
-- remove legacy cache in a later cleanup release.
+Removing dual runtime ownership does not weaken restore/replay safety.
 
-### 41.6 State migration and anti-rollback
+Disruptive server work remains bound to the state incarnation/authorization in which it was created. After rollback-style server recovery creates a new state incarnation, restored old commands/update targets do not auto-execute until explicitly reconciled/reauthorized.
 
-Importers cover server identity, credential state, active/pending manifest/config, clock offset, supervisor state, playback checkpoint, command idempotency and update staging metadata.
+Local command-idempotency records remain at least as long as the server may redeliver the command.
 
-Each importer is versioned/idempotent. Keep originals until Edge writes a confirmed checkpoint.
+### 41.7 Rollback window
 
-The trusted Edge checkpoint/trust realm/state incarnation/security lineage is not reconstructed from arbitrary peer state after destructive DB recovery.
+Rollback during initial deployment is a **package/service rollback**, not a renderer fallback.
 
-### 41.7 Command semantics
+A rollback procedure may restore the last Electron AppImage/service only while that legacy upgrade path is explicitly supported. It stops Edge/WPE first, restores any required compositor/session, preserves screen identity and Edge diagnostics, and requires a later explicit retry of Edge migration.
 
-Do not promise generic exactly-once physical side effects.
-
-Every command type declares one execution class:
-
-- **idempotent/reconcilable** — safe to retry until confirmed;
-- **at-most-once initiation** — persist the intent/idempotency record before triggering a disruptive action;
-- **retryable with state reconciliation** — effect can be checked and safely converged.
-
-Local idempotency records remain at least as long as the server can redeliver the command or until a newer state-incarnation/owner boundary proves the command cannot reappear. Count-only trimming is not sufficient.
-
-After destructive local command-state recovery, disruptive command consumption remains disabled until direct server reconciliation establishes the current state-incarnation owner tuple.
-
-### 41.8 Rollback during transition
-
-Rollback to the legacy player is fenced like forward handoff.
-
-The server issues a newer owner tuple to the legacy runtime. An old Edge daemon that later wakes with the same bearer but an older incarnation/generation cannot resume commands/updates.
-
-Rollback must preserve assignments/groups/history and must account for display host mode. A machine already converted to compositorless DRM may require explicit restoration of a compatible compositor/session before a legacy Electron binary can render.
-
-Once the server records the newer legacy owner generation, Edge certificates may remain dormant unless node/device revocation requires otherwise.
+New Edge releases never contain or launch Electron.
 
 ## 42. Implementation roadmap
 
@@ -4433,7 +4157,7 @@ Fixtures define:
 - exact CA/leaf X.509 profiles and CSR proof-of-possession;
 - Context scalar/time/duration encoding and CEL cost limits.
 
-### E0.3 Recovery/backup/ownership model
+### E0.3 Recovery/backup/migration model
 
 State-machine fixtures cover:
 
@@ -4536,96 +4260,68 @@ cargo build --release --workspace
 
 ---
 
-### E2 — Local IPC and Electron renderer split
+### E2 — Local IPC and first WPE vertical slice
 
-**Goal:** establish the daemon/renderer boundary while Electron still owns normal player behavior.
+**Goal:** establish the final daemon/WPE boundary immediately rather than building an Electron compatibility adapter.
 
 ### E2.1 IPC implementation
 
-Implement Rust server and TypeScript client with shared fixtures.
+Implement bounded framing, min/max negotiation, renderer-instance generation, `SO_PEERCRED` + daemon-recorded process identity, backpressure, reconnect/resubscribe semantics and malformed/stale-client rejection.
 
-Tests:
+### E2.2 Minimal WPEPlatform launcher
 
-- oversized frame rejected;
-- malformed JSON rejected;
-- wrong role rejected;
-- unsupported protocol rejected;
-- reconnect/resubscribe works;
-- slow client cannot unboundedly buffer daemon memory;
-- peer credentials validated.
+Build the real C/GLib WPEPlatform launcher now and prove headless startup, status/setup rendering, renderer readiness, daemon restart/reconnect, renderer crash/recreation and meaningful evidence accepted by the daemon.
 
-### E2.2 Extract shared renderer assets
+### E2.3 CAS-backed media qualification
 
-Move the current dependency-free renderer into `packages/player-renderer-web` without behavior changes.
+Implement the hardened `tcmedia://sha256/<digest>` path and custom GStreamer URI source required for WPE video.
 
-Electron's BrowserWindow loads the extracted bundle.
-
-### E2.3 Renderer event adapter
-
-Electron sends progress/error/preview events over Edge IPC in shadow/dual-report mode, while existing runtime still controls content.
-
-Compare Edge-observed events to existing in-process callbacks in tests.
+Prove mixed cached image/H.264/widget/layout playback and video progress/transition evidence under real WPE WebKit 2.54.
 
 ### E2 exit criteria
 
-- Electron screenshots/playback fixtures are unchanged within tolerance;
-- Edge can observe renderer health/progress without owning server connection;
-- IPC reconnect does not force content reload unless state actually changed.
+- WPE is the only Edge renderer in code/docs;
+- no Electron Edge IPC/client is created;
+- headless recovery/media scenarios pass;
+- malformed/stale renderer traffic is rejected;
+- renderer crash does not take down daemon/server/Edge state;
+- production core dumps are bounded/disabled by service policy.
 
 ---
 
-### E3 — Edge identity, central server client and fenced ownership handoff
+### E3 — Edge identity, central server client and legacy importer
 
-**Goal:** `tilecastd` becomes the only authoritative Linux player owner while Electron becomes renderer-only.
+**Goal:** make `tilecastd` the complete Linux player owner with a one-time migration from the existing Electron state format.
 
 ### E3.1 Port server client logic
 
-Implement current URL/identity/pairing/REST/WebSocket/manifest/config behavior without changing semantics.
+Port installation identity verification, URL policy, pairing, REST, WebSocket, liveness/backoff and current server protocol semantics. Authenticated handles become available only after server identity matches the pinned installation.
 
-### E3.2 Owner-tuple fencing
+### E3.2 Legacy state migration
 
-Implement authoritative server `edge_player_owners` state before moving the credential.
+Implement the §41 importer. The legacy service is stopped/disabled first; import state read-only, preserve originals and verify server identity before using the bearer credential.
 
-Owner identity is:
+### E3.3 Edge node enrollment
 
-```text
-(stateIncarnationId, playerOwnerGeneration)
-```
-
-Tests kill/restart Electron/`tilecastd` at every handoff step and prove:
-
-- only current tuple can poll/ack commands/run updates;
-- old-incarnation tuple is rejected regardless of numeric generation;
-- recovery requiring credential repair cannot be authorized by a resurrected old bearer automatically.
-
-### E3.3 Credential migration
-
-Use the §41 handoff. Shadow mode does not read the active bearer. If early certificate tests need enrollment, use the scoped one-time bootstrap grant.
+Generate the node key/CSR in `tilecastd`, enroll directly using the verified device credential, validate the response and persist it atomically.
 
 ### E3.4 Durable commands
 
-Every command has an explicit class: idempotent/reconcilable, at-most-once initiation, or retryable with reconciliation.
-
-Idempotency retention is tied to server redelivery/owner epochs, not a count-only cache.
+Every command has an explicit execution class. Retention is tied to server redelivery/state-incarnation semantics.
 
 ### E3.5 Manifest/config state
 
 Port active/pending semantics and preserve current per-screen manifest/config revision contracts.
 
-### E3.6 Electron renderer-only mode
-
-Remove bearer credential, server socket/polling, server clock and update authority from Electron.
-
-Electron launches with a renderer-instance generation and consumes prepared presentations/media through Edge IPC.
-
 ### E3 exit criteria
 
-- stale owner generation cannot perform owner-sensitive operations;
-- crash during every ownership step converges to exactly one owner;
-- shadow daemon never receives active bearer credential;
-- disruptive commands do not double-initiate across tested crash points;
-- offline cached startup remains functional;
-- legacy rollback acquires a newer owner generation before resuming.
+- fresh Edge installs pair without Electron;
+- legacy installs migrate without running two authoritative player stacks;
+- a wrong installation ID never receives the imported credential;
+- crash at each importer/enrollment point is recoverable/idempotent;
+- disruptive commands do not double-initiate;
+- offline cached startup remains functional through WPE;
+- explicit package rollback remains documented during the migration window.
 
 ### E4 — CAS migration and origin downloader
 
@@ -5015,97 +4711,40 @@ Implement:
 - rollback mechanism does not depend on candidate release or candidate DB schema;
 - update settlement still works for deliberate sleep/no-content state.
 
-### E12 — WPE renderer: headless and Wayland compatibility
+### E12 — WPE website/security parity
 
-**Goal:** prove the first-party WPE host and renderer boundary without sacrificing sandboxing or Electron compatibility.
+**Goal:** finish the hardest WebKit content surface without weakening Tilecast's trust boundary.
 
-### E12.1 Launcher
-
-Build C/GLib WPEPlatform launcher with:
-
-- renderer-instance handshake;
-- WebKit subprocess sandbox enabled before web processes;
-- trusted custom URI handlers;
-- native bridge;
-- renderer IPC.
-
-### E12.2 Shared renderer runtime
-
-Run extracted trusted renderer assets without server credentials or direct CAS paths.
-
-### E12.3 Content wave 1
-
-Images, H.264 video, native widgets/trees, layouts without remote websites, transitions, synchronized playback and compatible plugins.
-
-Large video must pass custom-scheme seek/pause/resume/loop/cancel tests before WPE video capability is advertised.
-
-### E12.4 Headless CI
-
-Run protocol/runtime tests under WPE headless.
-
-### E12.5 Wayland compatibility host
-
-Use a Tilecast-managed compositor/session for `tilecast-renderer`, or qualify the explicit controlled session-bridge mode.
-
-Electron and WPE compatibility must both work in this host mode.
+Prove navigation policy, post-DNS destination policy, permissions, data isolation/quotas, clearing/reload/timeout, subprocess crash recovery, remote-origin denial for Tilecast trusted schemes/native bridge, layout website zones and YouTube behavior.
 
 ### E12 exit criteria
 
-- sandbox remains enabled;
-- remote fixture origin cannot access Tilecast custom schemes/native bridge;
-- stale renderer instance cannot reconnect as current;
-- reference presentations pass semantic parity;
-- 24-hour Wayland soak;
-- unsupported requirement selects Electron under `auto`.
+Every supported website/YouTube requirement has an exact WPE capability/version contract. Unsupported requirements report incompatibility; there is no alternate renderer.
 
-### E13 — WPE websites, YouTube and advanced parity
+---
 
-**Goal:** remove the largest compatibility blocker without weakening origin/session isolation.
+### E13 — WPE Wayland qualification
 
-### E13.1 Website security prototype
+**Goal:** support a deliberate compositor/session deployment for development and installations that cannot use direct DRM/KMS.
 
-Prove:
-
-- navigation allowlist;
-- permission policy;
-- per-asset/site data isolation;
-- clearing/reload/timeout;
-- subprocess crash recovery;
-- remote-origin denial for `tilecast://runtime` and `tilecast://media`;
-- no native bridge for untrusted site content;
-- sandbox remains enabled.
-
-### E13.2 Layout website zones
-
-Test multiple isolated sites, z-order, clipping and lifecycle.
-
-### E13.3 YouTube
-
-Validate IFrame API, autoplay, origin/referrer, progress/end/error semantics.
+Validate managed session startup, display access, renderer restart, preview and media acceleration. Do not depend on an ambient desktop login.
 
 ### E13 exit criteria
 
-The requirement compiler can mark every supported content type with exact capability/version requirements and give a precise fallback reason where WPE is not eligible.
+- 24-hour soak;
+- restart reliably reclaims the view;
+- required display/media/session handles are bounded;
+- no Electron package/runtime is required.
+
+---
 
 ### E14 — WPE DRM/KMS production path
 
-**Goal:** qualify dedicated compositorless signage mode as a distinct host mode.
+**Goal:** qualify compositorless WPE as the preferred dedicated-signage mode.
 
-### E14.1 DRM platform qualification
+Hardware matrix includes old Intel/Ivy Bridge, modern Intel, representative AMD/Mesa and one ARM target when packages exist.
 
-Hardware matrix includes old Intel, modern Intel, representative AMD/Mesa and one ARM target when ARM packages exist.
-
-### E14.2 Kiosk lifecycle
-
-Verify:
-
-- boot directly to WPE DRM;
-- hotplug/modes;
-- display sleep/active hours;
-- CEC/DDC coexistence;
-- preview;
-- crash/restart display reclaim;
-- explicit incompatibility/fallback behavior for Electron-required content.
+Verify direct WPE DRM boot, connector/modes/hotplug, display sleep/active hours, CEC/DDC coexistence, preview, crash/restart reclaim, H.264 VA-API/GStreamer on the reference hardware and low-end memory/CPU stability.
 
 ### E14 exit criteria
 
@@ -5113,7 +4752,7 @@ Verify:
 - no progressive memory growth outside bounds;
 - repeated crash/restart reclaims display;
 - decode performance meets target;
-- product/Studio clearly reports that `drm_dedicated` cannot offer ordinary Electron fallback unless a tested host-mode transition exists.
+- no compositor or Electron dependency on dedicated hosts.
 
 ### E15 — Rhea Edge administration integration
 
@@ -5169,44 +4808,32 @@ Scenarios:
 
 ---
 
-### E17 — WPE default, Electron compatibility
+### E17 — WPE production rollout
 
-**Goal:** prefer WPE when one WPE profile plus current host mode satisfies the entire presentation requirement set.
+**Goal:** roll out the only Edge Linux renderer across the supported hardware matrix.
 
-Wayland compatibility hosts may fall back to Electron.
-
-DRM dedicated hosts cannot claim ordinary Electron fallback unless the tested host-mode transition exists. If an Electron-only presentation is assigned to such a host, report incompatibility before disrupting current valid playback.
-
-Collect normalized playback-time/fleet metrics for WPE sessions, fallbacks, restarts, incidents, memory and website failures.
+Collect normalized playback-time/fleet metrics for WPE sessions, restarts, incidents, memory, decode and website failures.
 
 ### E17 exit criteria
 
 - no material measured reliability regression;
-- top fallback reasons understood;
-- capability-version mismatches are explicit;
-- host-mode constraints are explicit;
-- rollback path tested.
+- presentation incompatibilities are explicit and understood;
+- Wayland/DRM host constraints are explicit;
+- release rollback path is tested;
+- all supported current Linux content requirements are implemented in WPE or deliberately dropped.
 
-### E18 — Electron retirement
+### E18 — Legacy Electron source cleanup
 
-Electron is removable only when:
-
-- all supported current content requirements have WPE implementations or the product deliberately drops a feature;
-- website isolation policy is at least equivalent in security intent;
-- WPE has a stable field window;
-- upgrade/rollback path no longer depends on AppImage behavior;
-- old Electron-only installs have a documented upgrade route.
+Electron is already absent from Edge runtime releases. This milestone removes temporary repository/reference baggage once the WPE port and legacy migration path are stable.
 
 Removal work:
 
-- delete Electron networking/runtime code already superseded;
-- remove Chromium/Electron packaging dependency;
-- remove old AppImage update path after compatibility cutoff;
-- keep migration importer as long as supported upgrades can originate from the last Electron release.
+- delete superseded Electron runtime/network/rendering source;
+- remove Chromium/Electron packaging/release workflows;
+- keep only fixtures needed to preserve historical behavior;
+- keep the state importer as long as supported upgrades can originate from the last Electron release.
 
-This milestone should be a product decision based on data, not an arbitrary target date.
-
----
+This is source/package cleanup, not a renderer cutover.
 
 ### E19 — Optional Tilecast appliance image
 
@@ -5276,63 +4903,37 @@ Go + TypeScript fixture validators first; Rust joins in PR 3.
 - installation docs;
 - hardened unit initial pass.
 
-### Renderer boundary PRs
+### WPE foundation and migration PRs
 
-### PR 6 — `refactor(player-linux): extract shared browser renderer runtime`
+### PR 6 — `feat(renderer-wpe): add WPEPlatform launcher and renderer IPC`
 
-Pure behavior-preserving extraction from Electron.
+Real C/GLib WPEPlatform launcher, headless status surface, daemon restart/reconnect, renderer crash recovery and renderer process binding.
 
-### PR 7 — `feat(edge-ipc): add Unix socket protocol`
+### PR 7 — `feat(renderer-wpe): add hardened tcmedia GStreamer CAS source`
 
-- Rust server;
-- TS client;
-- systemd socket units for renderer/media/admin sockets;
-- renderer media socket with active-hash capability set;
-- schema/golden tests;
-- SO_PEERCRED checks;
-- backpressure.
+Canonical digest URI, fixed CAS root, path/symlink escape rejection, seek/range behavior and H.264 progress evidence.
 
-### PR 8 — `feat(player-linux): report renderer progress over Edge IPC`
+### PR 8 — `test(renderer-wpe): add headless recovery and mixed-content harness`
 
-Shadow only. Existing player remains authoritative.
+Status, daemon restart, renderer crash, and mixed image/video/widget/layout scenarios run on real WPE.
 
-### PR 9 — `test(edge): add renderer IPC parity harness`
+### PR 9 — `feat(edge-server): port server identity and URL policy`
 
-Compare old callbacks vs Edge-observed event stream.
+### PR 10 — `feat(edge-server): implement pairing/enrollment and REST/WebSocket client`
 
-### Server ownership PRs
+### PR 11 — `feat(edge-migration): import legacy Linux state and credential`
 
-### PR 10 — `feat(edge-server): port server identity and URL policy`
-
-No credential migration yet.
-
-### PR 11 — `feat(edge-server): implement pairing/enrollment client`
-
-Fresh-development Edge install can pair against existing server protocol.
-
-### PR 12 — `feat(edge-server): port authenticated REST/WebSocket client`
-
-Hello/ping/liveness/reconnect only.
+### PR 12 — `feat(edge-identity): enroll Edge node directly after migration`
 
 ### PR 13 — `feat(edge-state): add command execution classes and durable idempotency`
 
-Run a non-disruptive idempotent command first. Tie retention to server redelivery/owner-generation semantics before enabling disruptive commands.
-
 ### PR 14 — `feat(edge-state): port config and manifest reconciliation`
 
-Still origin-backed cache.
+### PR 15 — `test(edge-migration): add crash-point and explicit rollback coverage`
 
-### PR 15 — `feat(edge-migration): fence and migrate Linux credential/state ownership`
+### PR 16 — `build(player-linux): stop shipping Electron in new Edge releases`
 
-- server `playerOwnerGeneration`;
-- stale-owner rejection;
-- bearer handoff only after shadow mode;
-- crash-point ownership tests;
-- rollback acquires a newer generation.
-
-### PR 16 — `refactor(player-linux): renderer-only Edge mode`
-
-Electron loses server credential and networking when Edge ownership enabled.
+Keep legacy source/fixtures only while needed for migration/reference.
 
 ### CAS PRs
 
@@ -5458,27 +5059,25 @@ Build on the minimum trusted-time/certificate policy already required by PR 23/2
 
 ### PR 55 — `feat(edge-update): add atomic release-set activation and stable rollback watchdog`
 
-### WPE PRs
+### Advanced WPE qualification PRs
 
-### PR 56 — `feat(renderer-wpe): add minimal WPEPlatform launcher`
+### PR 56 — `feat(renderer-wpe): harden trusted runtime/native bridge`
 
-Headless hello/IPC only.
+### PR 57 — `feat(renderer-wpe): complete image/video/widget/layout parity`
 
-### PR 57 — `feat(renderer-wpe): load shared Tilecast renderer runtime`
+### PR 58 — `feat(renderer-wpe): add Wayland qualified host mode`
 
-### PR 58 — `feat(renderer-wpe): add image/video/widget/layout wave 1`
+### PR 59 — `feat(renderer-wpe): harden website networking/permissions/storage`
 
-### PR 59 — `test(renderer): add Electron/WPE parity corpus`
+### PR 60 — `feat(renderer-wpe): add website layout and YouTube parity`
 
-### PR 60 — `feat(edge-renderer): add capability-based renderer selector`
+### PR 61 — `feat(renderer-wpe): qualify DRM/KMS on reference hardware`
 
-### PR 61 — `feat(renderer-wpe): add Wayland field mode`
+### PR 62 — `perf(renderer-wpe): add Ivy Bridge H.264/resource soak gates`
 
-### PR 62 — `feat(renderer-wpe): harden website navigation/permissions/data policy`
+### PR 63 — `test(renderer-wpe): add trusted-scheme/CAS escape adversarial suite`
 
-### PR 63 — `feat(renderer-wpe): add YouTube and website layout parity`
-
-### PR 64 — `feat(renderer-wpe): qualify DRM/KMS mode`
+### PR 64 — `build(renderer-wpe): finalize signed WPE runtime/ABI packaging`
 
 ### Rhea Studio integration PRs
 
@@ -5506,13 +5105,13 @@ No PR in this group reintroduces Spectrum or a second Studio sidebar.
 
 ### PR 73 — `perf(edge): add benchmark and low-end resource gates`
 
-### PR 74 — `feat(edge-renderer): prefer WPE in auto mode for compatible content`
+### PR 74 — `feat(renderer-wpe): make qualified DRM/KMS the dedicated-host default`
 
 ### PR 75+ — parity gaps and field fixes
 
-### Final PR — `refactor(player-linux): remove Electron compatibility renderer`
+### Final cleanup PR — `refactor(player-linux): remove legacy Electron source/package workflow`
 
-Only after E18 criteria are met. Do not pre-schedule this PR.
+This removes reference/legacy packaging only. Electron is already absent from Edge runtime releases.
 
 ---
 
@@ -5725,9 +5324,9 @@ Matrix:
 ```text
 Server new + legacy Electron player
 Server new + Android player
-Server new + Edge/Electron renderer on Wayland compatibility host
-Server new + Edge/WPE renderer on Wayland compatibility host
+Server new + Edge/WPE renderer on Wayland host
 Server new + Edge/WPE renderer on DRM dedicated host
+Legacy Electron host -> one-time Edge/WPE migration
 Mixed Display Group with supported combinations
 Upgrade release set N -> N+1 -> rollback N
 Upgrade renderer/WPE runtime as one release set
@@ -5744,7 +5343,7 @@ Compatibility tests include:
 - daemon/renderer IPC overlap;
 - renderer/private-WPE ABI;
 - privileged updater/watchdog protocol;
-- owner tuple across rollback/recovery.
+- legacy-import/state-incarnation behavior across rollback/recovery.
 
 A server upgrade must not strand older players; when older Edge software cannot understand new **security** semantics it must degrade mesh safely rather than silently skipping them.
 
@@ -5783,8 +5382,8 @@ A server upgrade must not strand older players; when older Edge software cannot 
 | Presentation Network becomes forbidden | Withdraw listeners/Avahi and close sessions on that interface. |
 | Renderer crashes | Recreate bound renderer process/generation. |
 | Daemon restarts | Bound renderer is stopped/recreated. |
-| WPE repeatedly crashes in Wayland mode | Electron fallback if compatible/policy allows. |
-| Electron-required content on DRM host | Report incompatibility without disrupting valid current playback. |
+| WPE repeatedly crashes | Bounded WPE recovery, then safe mode; never launch Electron. |
+| Presentation requires unsupported WPE capability | Report incompatibility without disrupting the last valid presentation/safe surface. |
 | Candidate release crashes | Stable watchdog rolls back complete release set. |
 | Candidate stays alive but fails smoke/health | Stable watchdog rolls back. |
 | Candidate power-cycles repeatedly unconfirmed | Persisted attempt bound causes rollback. |
@@ -5876,8 +5475,6 @@ edge.mesh.enabled
 edge.peer_delivery.enabled
 edge.change_feed.enabled
 edge.context.enabled
-edge.wpe.enabled
-edge.wpe.preferred
 ```
 
 Do not leave permanent boolean-flag soup. Remove transitional flags once a milestone becomes the stable behavior.
@@ -5892,8 +5489,9 @@ Recommended school rollout:
 2. two screens on same LAN to validate mesh/CDN;
 3. one screen from each hardware generation;
 4. a small display group;
-5. remaining Linux screens;
-6. WPE separately canaried after Edge daemon is already stable.
+5. remaining Linux screens.
+
+WPE is part of every Edge canary from the first migrated host; it is not a later optional renderer rollout.
 
 ### 47.3 Metrics before expansion
 
@@ -5916,13 +5514,12 @@ An administrator must be able to disable:
 ```text
 peer delivery
 mesh discovery/connectivity
-WPE preference
 sensor contributions
 ```
 
 without unpairing the screen or deleting cached content.
 
-If Edge itself is the failing component during the transitional releases, the documented local rollback returns the screen to the legacy Linux player.
+During the explicitly supported migration window, a failed Edge installation may use the documented package-level rollback to the legacy Linux player. This is never an automatic runtime fallback.
 
 ---
 
@@ -5955,7 +5552,7 @@ If Edge itself is the failing component during the transitional releases, the do
 25. No secret in logs/tests/screenshots.
 26. Edge protocol changes require cross-language fixtures.
 27. WPE keeps subprocess sandbox, local-scheme isolation, strict remote-site network policy and storage quotas.
-28. DRM mode cannot claim Electron fallback without a tested host transition.
+28. No Edge runtime path may launch or depend on Electron; WPE failure uses WPE recovery/safe mode or explicit package rollback during migration.
 29. Context source-local revisions are not compared across different sources.
 30. Context observations bind definition revision and bounded deterministic scalar encoding.
 31. CEL source/AST/evaluation cost is bounded.
@@ -5970,8 +5567,8 @@ If Edge itself is the failing component during the transitional releases, the do
 | --- | --- | --- |
 | Edge daemon | Rust `tilecastd` | Grow Electron main process |
 | Renderer host | stable tested WPE 2.54.x WPEPlatform C/GLib | Unqualified arbitrary newer WPE/Cog architecture |
-| Transitional renderer | Electron renderer-only in compatible host mode | Flag-day deletion |
-| Display modes | Wayland compatibility vs DRM dedicated explicit | Pretend compositorless DRM transparently runs Electron |
+| Legacy Linux transition | one-time read-only Electron-state import, then WPE-only Edge | dual-active/renderer fallback architecture |
+| Display modes | WPE headless test, Wayland qualified, DRM/KMS dedicated | desktop/Electron dependency on dedicated hosts |
 | Local persistence | SQLite WAL + CAS + durable trusted checkpoint | Reconstruct anti-rollback trust from peers |
 | Trust recovery | encrypted ERB or explicit trust-realm reset/re-enrollment | Put raw CA keys in ordinary unencrypted backup |
 | Ordinary restore | fresh opaque state incarnation after rollback restore | Numerically decrement/reuse recovery epoch |
@@ -5980,7 +5577,7 @@ If Edge itself is the failing component during the transitional releases, the do
 | Stream integrity | sequence + previous/stream digest + domain-separated signature | Circular/self-hashed envelope |
 | Resource freshness | revision + state digest inside one incarnation | Compare revisions across incarnations |
 | Snapshots | materialized Edge projection at exact stream watermark | Snapshot arbitrary DB while async compilation pending |
-| Player ownership | `(stateIncarnationId, ownerGeneration)` | Generation alone/local marker |
+| Host runtime ownership | systemd-enforced legacy/Edge mutual exclusion + idempotent importer | concurrent Electron and Edge owners |
 | Commands/updates | authorization bound to incarnation | Re-execute restored pending disruptive work |
 | CAS auth | blob identity + reference sharing class/object grant | Hash means every node may read |
 | Mesh security | trust-realm mTLS, CA-only outbound trust, no v1 resumption/0-RTT | LAN/public-WebPKI trust |
@@ -6022,11 +5619,11 @@ Linux Edge v1 must not wait for Android Zenoh/CDN support.
 
 Edge/WPE must first prove the runtime. Appliance-image work is a separate product/deployment milestone.
 
-### 50.8 Electron removal date
+### 50.8 Legacy migration-support removal date
 
-Removal is evidence-based. WPE capability/field telemetry determines the date.
+Electron is already excluded from Edge runtime architecture.
 
----
+The deferred decision is only when Tilecast may stop supporting **upgrades from** the final legacy Electron release and therefore remove the legacy state importer/reference fixtures. Make that decision from fleet/version telemetry and documented support policy.
 
 ## 51. Definition of Done for Tilecast Edge v1
 
@@ -6063,11 +5660,13 @@ Removal is evidence-based. WPE capability/field telemetry determines the date.
 - resource revisions reset namespace on trusted new incarnation;
 - tombstones/removal converge.
 
-### Ownership/commands
+### Migration/commands
 
-- owner tuple fences stale runtimes across normal handoff and restore;
-- resurrected old bearer does not auto-authorize recovery;
-- old-incarnation pending disruptive commands/updates do not auto-execute.
+- legacy Electron and Edge services are never intentionally authoritative at the same time;
+- legacy import is read-only, idempotent and verifies server identity before credential use;
+- Edge node enrollment is performed directly by `tilecastd`;
+- old-incarnation pending disruptive commands/updates do not auto-execute;
+- package rollback during the supported migration window stops Edge first and never becomes runtime renderer fallback.
 
 ### Context
 
@@ -6079,11 +5678,15 @@ Removal is evidence-based. WPE capability/field telemetry determines the date.
 
 ### Renderer/WPE
 
-- renderer process identity is stronger than same-UID token;
+- WPE is the only Edge Linux renderer;
+- renderer process identity is bound to the daemon-launched instance/process;
 - daemon restart recreates renderer;
-- sandbox is enabled;
-- trusted local URI schemes cannot be accessed by remote pages;
-- remote website private-network/proxy/download/storage policy is enforced;
+- WebKit subprocess sandbox is enabled;
+- `tcmedia` accepts only canonical digest URIs and cannot escape/enumerate CAS;
+- CAS-backed H.264 passes seek/progress/restart tests;
+- trusted local runtime/media capabilities cannot be reached by arbitrary remote pages;
+- remote website private-network/proxy/download/storage policy is enforced before website capability is declared;
+- Wayland and DRM/KMS host modes are explicitly qualified;
 - stable patched WPE baseline/security updates are tracked.
 
 ### Updates
@@ -6293,7 +5896,10 @@ Important decisions derived from current upstream:
 - WebKit subprocess sandboxing must be enabled before web processes are created;
 - custom URI schemes remain subject to origin/CORS rules and require explicit embedder opt-in to cross-origin access;
 - custom URI responses can provide response status/headers needed for bounded media-response behavior;
-- new projects should prefer a small custom launcher rather than new Cog-based architecture.
+- new projects should prefer a small custom launcher rather than new Cog-based architecture;
+- Tilecast Edge uses WPE as its only Linux renderer; Electron remains only a legacy migration/reference source;
+- WPE custom URI scheme registration alone is not a GStreamer URI source, so Tilecast video uses a narrow custom `GstURIHandler` source for canonical `tcmedia://sha256/<digest>` CAS reads;
+- `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` adds Tilecast's protocol to WebKit's existing media-protocol allowlist; it is not treated as the CAS security boundary.
 
 ### systemd
 
