@@ -105,6 +105,9 @@ func (s *Service) Enroll(ctx context.Context, sessionID uuid.UUID, enrollmentTok
 		if _, err := tx.Exec(ctx, `UPDATE device_credentials SET revoked_at=now(),revocation_reason=$3 WHERE screen_id=$1 AND id<>$2 AND revoked_at IS NULL`, screenID, credentialID, revocationReason); err != nil {
 			return EnrollmentResult{}, fmt.Errorf("replace previous device credentials: %w", err)
 		}
+		if err := s.revokeDependents(ctx, tx, screenID, &credentialID, revocationReason); err != nil {
+			return EnrollmentResult{}, err
+		}
 		if approvedBy != nil {
 			if err := insertAudit(ctx, tx, *approvedBy, auditAction, screenID); err != nil {
 				return EnrollmentResult{}, err
@@ -124,6 +127,9 @@ func (s *Service) Enroll(ctx context.Context, sessionID uuid.UUID, enrollmentTok
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return EnrollmentResult{}, fmt.Errorf("commit enrollment: %w", err)
+	}
+	if replaceExisting || pairingMode == "hardware_replacement" {
+		s.dependentsRevoked(screenID)
 	}
 	if pairingMode == "hardware_replacement" {
 		s.presence.Disconnect(screenID)

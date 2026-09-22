@@ -21,6 +21,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/campaigns"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/edge"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 	"github.com/tilecast/tilecast/apps/server/internal/forms"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -61,6 +62,7 @@ type Dependencies struct {
 	Snapshots            *snapshots.Service
 	Span                 *span.Service
 	PresentationNetworks *presentnet.Service
+	Edge                 *edge.Service
 	DB                   *pgxpool.Pool
 	Logger               *slog.Logger
 	CookieName           string
@@ -113,6 +115,7 @@ type server struct {
 	snapshots                     *snapshots.Service
 	span                          *span.Service
 	presentationNetworks          *presentnet.Service
+	edge                          *edge.Service
 	liveStreams                   *livestream.Service
 	releasePublishTokenHash       [32]byte
 	releasePublishTokenConfigured bool
@@ -180,6 +183,7 @@ func New(deps Dependencies) *API {
 		snapshots:            deps.Snapshots,
 		span:                 deps.Span,
 		presentationNetworks: deps.PresentationNetworks,
+		edge:                 deps.Edge,
 		liveStreams:          livestream.NewService(deps.Devices),
 		startedAt:            time.Now(),
 		backups:              deps.Backups,
@@ -195,6 +199,9 @@ func New(deps Dependencies) *API {
 		// A heartbeat that reports the last preparing participant as ready should
 		// release the gateway immediately rather than wait for the periodic sweep.
 		s.devices.SetAirplayReconciler(s.reconcileAirplaySession)
+		if s.edge != nil {
+			s.wireEdgeRevocation()
+		}
 	}
 	if deps.ReleasePublishToken != "" {
 		s.releasePublishTokenHash = sha256.Sum256([]byte(deps.ReleasePublishToken))

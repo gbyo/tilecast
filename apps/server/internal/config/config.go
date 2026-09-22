@@ -26,6 +26,7 @@ type Config struct {
 	Operations    OperationsConfig
 	Updates       UpdatesConfig
 	Backup        BackupConfig
+	Edge          EdgeConfig
 	WebAuthn      WebAuthnConfig
 	Notifications NotificationsConfig
 	// PresentationNetworkKey seals Wi-Fi credentials for Presentation Networks.
@@ -67,6 +68,15 @@ type NotificationsConfig struct {
 type WebAuthnConfig struct {
 	RPID    string
 	Origins string
+}
+
+// EdgeConfig controls Tilecast Edge support (docs/tilecast-edge.md). It is
+// an operator switch until Edge policy moves into the typed settings
+// registry with the Spectrum 2 Edge settings surface. Root holds the Edge
+// authority and CA private keys and must be backed up with the database.
+type EdgeConfig struct {
+	Enabled bool
+	Root    string
 }
 
 type BackupConfig struct {
@@ -308,6 +318,11 @@ func Load() (Config, error) {
 	if cfg.Media.KeepOriginals, err = strconv.ParseBool(get("TILECAST_KEEP_ORIGINALS", "true")); err != nil {
 		return Config{}, fmt.Errorf("parse TILECAST_KEEP_ORIGINALS: %w", err)
 	}
+
+	if cfg.Edge.Enabled, err = strconv.ParseBool(get("TILECAST_EDGE_ENABLED", "false")); err != nil {
+		return Config{}, fmt.Errorf("parse TILECAST_EDGE_ENABLED: %w", err)
+	}
+	cfg.Edge.Root = get("TILECAST_EDGE_ROOT", "/data/edge")
 
 	cfg.Backup.Root = get("TILECAST_BACKUP_ROOT", "/data/backups")
 	if cfg.Backup.ReservedFreeBytes, err = parsePositiveInt64("TILECAST_BACKUP_RESERVED_FREE_BYTES", "1073741824"); err != nil {

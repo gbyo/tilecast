@@ -103,6 +103,11 @@ func (s *server) routes() http.Handler {
 		api.With(s.requireDevice).Get("/player/updates/{releaseId}/artifact", s.playerUpdateArtifact)
 		api.With(s.requireDevice).Head("/player/updates/{releaseId}/artifact", s.playerUpdateArtifact)
 		api.With(s.requireDevice).Post("/player/update-deployments/{deploymentId}/status", s.playerUpdateStatus)
+		// Tilecast Edge. Device credential only; see edge.go.
+		api.With(s.requireDevice).Post("/player/edge/enroll", s.playerEdgeEnroll)
+		api.With(s.requireDevice).Get("/player/edge/changes", s.playerEdgeChanges)
+		api.With(s.requireDevice).Get("/player/edge/revocations", s.playerEdgeRevocations)
+		api.With(s.requireDevice).Post("/player/edge/status", s.playerEdgeStatus)
 		api.With(s.operationsRateLimit, s.requireReleasePublisher, s.blockDuringBackup).Post("/player-releases/upload", s.uploadPlayerRelease)
 
 		// Integration tokens are a third authentication boundary, next to the
@@ -138,6 +143,7 @@ func (s *server) routes() http.Handler {
 			// settings, so they carry the same Owner/Administrator + CSRF boundary as
 			// every other settings and screen-assignment operation. Credentials are
 			// write-only: no read here can produce a stored PSK or password.
+			dashboard.With(s.requireRoles("owner", "administrator")).Get("/edge/nodes", s.listEdgeNodes)
 			dashboard.With(s.requireRoles("owner", "administrator")).Get("/presentation-networks", s.listPresentationNetworks)
 			dashboard.With(s.requireRoles("owner", "administrator")).Get("/presentation-networks/{id}", s.getPresentationNetwork)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF).Post("/presentation-networks", s.createPresentationNetwork)

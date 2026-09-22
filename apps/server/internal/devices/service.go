@@ -21,10 +21,41 @@ type Service struct {
 	publicURL         string
 	now               func() time.Time
 	airplayReconciler func(context.Context, uuid.UUID)
+	revocation        CredentialRevocationHooks
+}
+
+// CredentialRevocationHooks let dependent identities follow a screen's
+// device credential. InTransaction runs inside the transaction that revokes
+// or replaces the credential, so the dependent state can never outlive it;
+// keep is the credential that remains active after a replacement (nil when
+// every credential of the screen is revoked). AfterCommit runs once the
+// transaction has committed.
+type CredentialRevocationHooks struct {
+	InTransaction func(ctx context.Context, tx pgx.Tx, screenID uuid.UUID, keep *uuid.UUID, reason string) error
+	AfterCommit   func(screenID uuid.UUID)
 }
 
 func NewService(db *pgxpool.Pool, presence *PresenceHub, publicURL string) *Service {
 	return &Service{db: db, presence: presence, publicURL: strings.TrimRight(publicURL, "/"), now: time.Now}
+}
+
+// SetCredentialRevocationHooks wires Tilecast Edge certificate revocation to
+// device credential revocation (docs/tilecast-edge.md §11.5).
+func (s *Service) SetCredentialRevocationHooks(hooks CredentialRevocationHooks) {
+	s.revocation = hooks
+}
+
+func (s *Service) revokeDependents(ctx context.Context, tx pgx.Tx, screenID uuid.UUID, keep *uuid.UUID, reason string) error {
+	if s.revocation.InTransaction == nil {
+		return nil
+	}
+	return s.revocation.InTransaction(ctx, tx, screenID, keep, reason)
+}
+
+func (s *Service) dependentsRevoked(screenID uuid.UUID) {
+	if s.revocation.AfterCommit != nil {
+		s.revocation.AfterCommit(screenID)
+	}
 }
 
 // SetAirplayReconciler wires the durable AirPlay preparation state machine into

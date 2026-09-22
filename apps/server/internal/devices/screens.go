@@ -244,9 +244,13 @@ func (s *Service) Revoke(ctx context.Context, id, userID uuid.UUID, reason strin
 	if err := insertAudit(ctx, tx, userID, "screen.credential.revoked", id); err != nil {
 		return err
 	}
+	if err := s.revokeDependents(ctx, tx, id, nil, reason); err != nil {
+		return err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
+	s.dependentsRevoked(id)
 	s.presence.Disconnect(id)
 	return nil
 }

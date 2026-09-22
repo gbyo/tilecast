@@ -25,6 +25,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/discovery"
+	"github.com/tilecast/tilecast/apps/server/internal/edge"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 	"github.com/tilecast/tilecast/apps/server/internal/forms"
 	"github.com/tilecast/tilecast/apps/server/internal/httpapi"
@@ -160,6 +161,13 @@ func serve() {
 	if !presentationNetworkService.CredentialsAvailable() {
 		logger.Info("Presentation Network credentials are unavailable",
 			"reason", presentnet.KeyEnvironmentVariable+" is not set")
+	}
+	var edgeService *edge.Service
+	if cfg.Edge.Enabled {
+		edgeService = edge.NewService(db, cfg.Edge.Root, logger)
+		// A failure is reported by every Edge endpoint; the rest of the server
+		// keeps running (a missing Edge authority is a recovery condition).
+		_ = edgeService.Initialize(ctx)
 	}
 	campaignService := campaigns.NewService(db, deviceService)
 	campaignService.SetPresentationChecker(playlistService)
@@ -308,6 +316,7 @@ func serve() {
 		Snapshots:            snapshotService,
 		Span:                 spanService,
 		PresentationNetworks: presentationNetworkService,
+		Edge:                 edgeService,
 		DB:                   db,
 		Logger:               logger,
 		CookieName:           cfg.CookieName,
@@ -337,6 +346,24 @@ func serve() {
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if edgeService != nil {
+		// The signer also runs right after each revocation; this loop catches
+		// outbox rows written by any other transaction (RFC §E7.1).
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-shutdownCtx.Done():
+					return
+				case <-ticker.C:
+					if _, err := edgeService.Publish(shutdownCtx); err != nil && !errors.Is(err, edge.ErrDisabled) && !errors.Is(err, edge.ErrAuthorityMissing) {
+						logger.Error("edge change publication failed", "error", err)
+					}
+				}
+			}
+		}()
+	}
 	go func() {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
