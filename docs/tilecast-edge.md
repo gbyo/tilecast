@@ -70,7 +70,7 @@ The core decisions are:
 8. **Use Linux-native platform services.** Avahi/D-Bus for mDNS, NetworkManager through the existing narrow privilege boundary, PipeWire for audio, udev for hardware discovery, linuxptp for optional PTP, and systemd for lifecycle/watchdog supervision.
 9. **WPE WebKit is the future Linux renderer.** Target WPEPlatform 2.54+, not legacy Cog/libwpe/WPEBackend-fdo. The first-party renderer is a small C/GLib host; the existing browser renderer assets are reused where possible.
 10. **Electron is not removed in a flag day.** It becomes a compatibility renderer while `tilecastd` takes ownership of the machine. Edge chooses WPE only when the assigned presentation's requirements are supported by WPE.
-11. **Tilecast Studio Edge UI is Spectrum 2 only.** Do not add new legacy custom UI/CSS for Edge while the dashboard is migrating to Adobe Spectrum 2.
+11. **Tilecast Studio Edge UI follows the canonical shadcn Base UI + Rhea Studio plan.** Edge surfaces must reuse the current Studio shell, information architecture, interaction rules and generated shadcn components from `docs/studio-rhea-redesign-plan.md`. Do not revive the abandoned Spectrum implementation or add a second Edge-specific design system.
 12. **No physical-neighbor choreography in this project.** That idea is explicitly deferred. Edge does not need a building topology or animated network map.
 
 ---
@@ -457,20 +457,26 @@ Use `rusqlite` with a bundled SQLite build in release packaging so Edge does not
 
 ### 8.2 Proposed local tables
 
+Keep immutable blob facts separate from mutable references and pin ownership.
+
 ```text
 schema_meta
 server_identity
 screen_state
 server_sync_state
+trusted_checkpoint
 objects
+object_references
+object_pins
 object_partials
-object_leases
 peers
 peer_transfer_scores
 server_changes
+resource_watermarks
 context_candidates
 context_effective
 context_rules
+context_replay_watermarks
 command_idempotency
 update_state
 capability_state
@@ -479,7 +485,37 @@ playback_checkpoint
 activity_outbox
 ```
 
-High-rate telemetry samples do not belong in SQLite history. Keep current gauges/counters in memory and upload bounded samples on cadence, matching Tilecast's existing telemetry policy.
+`objects` contains facts that are intrinsic to one verified blob:
+
+```text
+hash
+size_bytes
+verified_at
+created_at
+last_accessed_at
+source_kind
+```
+
+Do not store one `pinned_reason`, one logical domain, or one authorization bit on the blob row. The same bytes may be referenced by several domains and may be pinned by several independent owners.
+
+`object_references` records logical uses such as media, Edge Object, renderer bundle, or update artifact. It carries reference-specific metadata such as content type, original identity, peerability, and authorization class.
+
+`object_pins` is many-to-one:
+
+```text
+hash
+owner_kind
+owner_id
+reason
+created_at
+PRIMARY KEY (hash, owner_kind, owner_id)
+```
+
+An object remains non-evictable while any pin exists. Releasing one active presentation, prefetch, takeover, update, or rollback owner cannot remove another owner's protection.
+
+Transfer single-flight leases are process-local by default. If a later implementation persists leases, every row must carry a boot/process generation plus expiry, and startup must clear stale generations before waiting on them.
+
+`trusted_checkpoint` stores only the minimum anti-rollback state required to decide whether peer state is safe after restart. Destructive SQLite recovery must not silently recreate this trust state from peers.
 
 ### 8.3 Write amplification
 
@@ -677,18 +713,32 @@ After ordinary Tilecast player enrollment succeeds:
 
 ### 11.3 Certificate identity
 
-The certificate must bind:
+The certificate profile is a protocol contract, not an implementation detail.
 
-- Tilecast installation ID;
-- Edge node/player installation ID;
-- logical screen ID at issue time;
-- protocol purpose (`tilecast-edge-node`).
+Use one checked-in X.509 profile with DER/golden fixtures shared by the server and Rust tests. The initial profile must define:
 
-Put stable machine-readable identifiers in SAN/custom OID fields rather than relying only on display names/common names.
+```text
+version                 X.509 v3
+subject key             Ed25519
+signature               Ed25519
+basicConstraints        CA=false, critical
+keyUsage                digitalSignature, critical
+extendedKeyUsage        clientAuth + serverAuth, critical
+serial                  positive unique random 128-bit value
+validity                server UTC with documented notBefore skew
+SAN/custom OIDs         installation ID, durable node ID, screen binding, purpose
+purpose                 tilecast-edge-node
+```
+
+Do not rely on common name text for authorization.
 
 The player installation ID is the durable node identity; the screen ID is an authorization binding at certificate issue time. Each issued certificate also has a unique certificate serial number and public-key fingerprint.
 
-If the same hardware is deliberately rebound/repaired to a different logical screen, the server revokes the **old certificate instance** and requires immediate certificate reissuance before mesh participation resumes. The durable node ID does not become revoked merely because one certificate was replaced. Peers must never treat a stale screen ID embedded in an otherwise valid certificate as current authorization.
+If the same hardware is deliberately rebound or repaired to a different logical screen, the server revokes the old certificate instance and requires certificate reissuance before mesh participation resumes. The durable node ID does not become revoked merely because one certificate was replaced.
+
+Peers validate the certificate instance, installation ID, durable node ID, current screen authorization binding, purpose, validity, key usage, EKU, and revocation state before accepting it.
+
+Exact OID numbers and DER encodings are allocated in E0. The protocol fixtures include malformed, duplicate, missing, wrong-EKU, wrong-purpose, wrong-installation and wrong-node certificates.
 
 ### 11.4 Rotation
 
@@ -907,18 +957,18 @@ Avoid overly broad wildcard subscriptions where fixed/narrow keys are possible. 
 
 ### 13.7 Liveliness
 
-Use Zenoh liveliness tokens as the low-latency peer-presence primitive.
+Liveliness is only a discovery hint. It is not proof of node identity or authorization.
 
-A node declares a token tied to its session. Session loss retracts the token, which gives other nodes a fast `present/gone` signal without implementing a second custom heartbeat protocol.
+A Tilecast node must not publish an identity-bearing key such as `nodes/<node-id>/liveliness` unless the implementation can cryptographically bind that key to the authenticated transport identity. Current Zenoh ACL key expressions are static, so the RFC must not assume that a certificate identity can be substituted into a dynamic key path.
 
-Liveliness is **not** the durable screen-online authority in Studio. Tilecast Server retains its current status authority based on authenticated server socket/contact thresholds. Mesh presence is a separate fact:
+Two acceptable v1 designs exist:
 
-```text
-Server status: Online / Recent / Stale / Offline
-Edge mesh:     Present / Not seen / Unsupported
-```
+1. the pinned Zenoh build exposes the authenticated peer certificate/subject strongly enough that Tilecast can bind the transport to the certificate's durable node ID before accepting identity-bearing liveliness; or
+2. Zenoh liveliness uses an opaque connection/session key, while the actual node-presence document is a separately signed application message containing node ID, certificate fingerprint, boot/session generation, capabilities and replay data.
 
-That distinction matters during a server outage: a screen can be server-offline but mesh-present and playing normally.
+A CA-valid node must not be able to declare another node's liveliness by choosing that node's key expression.
+
+Liveliness loss is not authority loss. Playback, signed state, cache validity and command state do not depend on a liveliness token remaining present.
 
 ### 13.8 Queryables
 
@@ -996,23 +1046,34 @@ Every peerable object is keyed by SHA-256:
 /var/lib/tilecast-edge/cas/sha256/<first-two-hex>/<64-hex-hash>
 ```
 
-The hash is the identity. Original upload filenames are metadata only.
+The hash is the byte identity. Original upload filenames and logical content identities are reference metadata only.
 
-The `objects` table stores:
+The blob table stores only immutable/intrinsic facts:
 
 ```text
 hash
-domain                  # media, edge_object, update, renderer_bundle...
 size_bytes
 verified_at
 created_at
 last_accessed_at
-pinned_reason
-peerable
 source_kind
+```
+
+Logical references are stored separately so one blob can simultaneously represent media, an Edge Object, a renderer bundle, or an update artifact without collapsing their policy.
+
+Reference metadata may include:
+
+```text
+hash
+reference_kind
+reference_id
 content_type
+peerable
+authorization_class
 etag
 ```
+
+Every CAS path derives only from validated lowercase SHA-256 hex. Blob lookup never accepts an arbitrary filesystem path.
 
 ### 14.2 What is peerable
 
@@ -1163,14 +1224,28 @@ Repeated integrity failures from one authenticated peer should generate a server
 
 ### 14.10 Cache pinning and eviction
 
-Objects are pinned when needed by:
+Pins are independent ownership records, not one mutable reason field.
+
+Objects may be pinned at the same time by:
 
 - active presentation;
-- pending presentation activation;
+- prepared/pending presentation;
+- draining presentation during a transition or crossfade;
 - next known scheduled presentation inside the configured prefetch horizon;
 - active takeover;
 - in-progress update deployment;
-- current/previous renderer release required for rollback.
+- current renderer/Edge release;
+- previous renderer/Edge release required for rollback.
+
+Eviction is permitted only when no pin rows remain.
+
+Presentation media permissions and CAS pins use the same presentation generation model:
+
+```text
+prepared -> active -> draining -> retired
+```
+
+When a new presentation activates, the previous generation remains readable and pinned until the renderer acknowledges the transition boundary or a bounded drain timeout expires. This prevents a crossfade or final decoder read from losing access because the new presentation became active.
 
 Unpinned objects use LRU-style eviction constrained by:
 
@@ -1179,7 +1254,7 @@ Unpinned objects use LRU-style eviction constrained by:
 - object class priority;
 - recent use.
 
-Eviction never deletes a `.part` file owned by an active transfer lease and never deletes the current/previous software release.
+Eviction never deletes a partial file owned by a live transfer lease and never deletes current/previous software releases.
 
 ### 14.11 Cache scrub
 
@@ -1210,32 +1285,51 @@ Nodes may also publish best-effort add/evict events to warm local peer indexes. 
 
 ## 15. Fast change propagation without making every node contact the server
 
-The CDN solves bytes. A second protocol is needed for authoritative **change knowledge**.
+The CDN solves bytes. State propagation needs two related but distinct mechanisms:
 
-The correct model is a **signed Edge Change Feed**.
+1. a signed feed that proves ordered delivery/completeness; and
+2. independently versioned signed state documents that can apply urgent or newer state without waiting behind an unrelated screen's missing feed event.
 
-### 15.1 Why not gossip raw manifests
+A peer never creates authority. It only relays server-signed material.
+
+### 15.1 State epoch
+
+Every signed Edge state item belongs to a server-managed `stateEpoch`.
+
+`stateEpoch` changes only during an explicit control-plane recovery that intentionally re-anchors authoritative state, such as restoring PostgreSQL to a point older than state already accepted by nodes.
+
+This is distinct from `authorityEpoch`:
+
+- `authorityEpoch` identifies the signing-key generation.
+- `stateEpoch` identifies the authoritative control-plane history generation.
+- `feedSequence` orders published feed records inside one state epoch.
+- `subject.revision` decides freshness for one resource inside one state epoch.
+
+A server restore must not reuse old feed/resource numbers inside the same state epoch with the same signing key. If the restored database is older than an already published checkpoint, the operator performs a direct authenticated re-anchor that creates a new state epoch. Peer relay alone cannot authorize a state-epoch change.
+
+The server persists the current state epoch in backup/recovery metadata. The node persists the newest trusted epoch/checkpoint outside any local state that can be silently reconstructed from peer snapshots.
+
+### 15.2 Why not gossip raw manifests
 
 A peer must not be able to invent:
 
 - a new screen assignment;
-- an emergency;
-- a schedule;
-- a renderer update;
-- a context policy;
-- a certificate revocation.
+- a new configuration;
+- a takeover;
+- a certificate revocation;
+- a Context definition;
+- an update authorization.
 
-Therefore peers relay exact server-signed envelopes. They do not rewrite or re-sign them as authoritative state.
+Peers may relay signed server state and immutable content only.
 
-### 15.2 `edge_changes`
+### 15.3 Server outbox and feed storage
 
-Use a durable outbox plus a **projector-assigned contiguous Edge feed position**. Do not use `BIGSERIAL`/PostgreSQL sequence allocation as the protocol's gapless ordering mechanism: sequence values can be consumed by rolled-back transactions and are not commit ordering.
-
-Conceptually:
+Authoritative domain transactions insert an outbox row in the same PostgreSQL transaction as the domain mutation.
 
 ```text
 edge_change_outbox
   id                  UUID PRIMARY KEY
+  state_epoch         BIGINT
   organization_id     UUID
   type                TEXT
   target_kind         TEXT
@@ -1251,13 +1345,17 @@ edge_change_outbox
   projected_at        TIMESTAMPTZ NULL
 
 edge_feed_state
-  installation_id     UUID PRIMARY KEY
+  state_epoch         BIGINT PRIMARY KEY
   last_sequence       BIGINT
+  head_digest         BYTEA NULL
 
 edge_changes
-  sequence            BIGINT PRIMARY KEY
+  state_epoch         BIGINT
+  sequence            BIGINT
   previous_sequence   BIGINT NULL
-  outbox_id            UUID UNIQUE
+  previous_digest     BYTEA NULL
+  feed_digest         BYTEA
+  outbox_id           UUID UNIQUE
   organization_id     UUID
   type                TEXT
   target_kind         TEXT
@@ -1270,37 +1368,46 @@ edge_changes
   signed_envelope     BYTEA
   created_at          TIMESTAMPTZ
   expires_at          TIMESTAMPTZ NULL
+  PRIMARY KEY (state_epoch, sequence)
 ```
 
-The authoritative domain mutation inserts the outbox row in the same PostgreSQL transaction. The row captures the immutable authoritative resource revision/generation that caused the event; a later worker must not re-read the newest current state and label it as that older event.
+The outbox captures the exact immutable authoritative resource revision/generation. A background worker must not re-read the latest mutable resource and label it as an older event.
 
-If the event references an immutable Edge Object, compile/store that exact revision first and mark the outbox row object-ready. Only then may the serialized/locked signer-projector claim it, increment `edge_feed_state.last_sequence`, sign the envelope, and insert the final `edge_changes` row in one transaction. A committed feed row must never point at an object that is not already durable and fetchable.
+If the event references an immutable Edge Object, compile/store that exact captured revision first and pin the source publication until object compilation succeeds. Only an object-ready outbox row may be signed into the feed.
 
-Feed sequence is **delivery/completeness order**, not semantic resource freshness. Two independent domain transactions may become projector-ready in a different order from their resource revisions. Every mutable change therefore carries a type-appropriate signed subject revision/generation, and the consumer refuses to roll a resource back to an older revision even while it advances the contiguous feed position.
+The serialized signer-projector locks the installation feed state and, in one transaction:
 
-Therefore every committed Edge feed position exists and positions reflect projection order rather than unrelated PostgreSQL sequence allocation.
+1. assigns the next sequence inside the current state epoch;
+2. includes the current `previousSequence` and `previousDigest`;
+3. includes the captured subject revision and already durable object hash/size;
+4. canonicalizes and signs the envelope;
+5. computes/stores the new feed digest over the canonical signed record chain;
+6. inserts `edge_changes`;
+7. advances `edge_feed_state`;
+8. marks the outbox row projected.
 
-The exact canonical bytes that were signed are retained so any peer can relay them byte-for-byte.
+A rollback publishes either the complete next feed position or nothing.
 
-### 15.3 Envelope shape
+### 15.4 Signed envelope
 
-Use a versioned canonical encoding. JSON is acceptable if canonicalization is explicitly defined (RFC 8785/JCS or an equivalent tested canonical encoder). Another option is deterministic CBOR. Do not sign ordinary `encoding/json` output and assume field order forever.
-
-Conceptual envelope:
+Conceptual v1 envelope:
 
 ```json
 {
   "schema": 1,
   "installationId": "...",
+  "stateEpoch": "7",
   "sequence": "1234",
   "previousSequence": "1233",
+  "previousDigest": "...",
+  "feedDigest": "...",
   "type": "screen.presentation.changed",
   "target": {
     "kind": "screen",
     "id": "..."
   },
   "subject": {
-    "kind": "screen.presentation",
+    "kind": "screen.manifest",
     "id": "...",
     "revision": "42"
   },
@@ -1315,90 +1422,92 @@ Conceptual envelope:
 }
 ```
 
-The signed bytes are precisely defined: canonicalize the envelope **without** the `signature` member using the selected JCS implementation, sign those bytes, then attach the encoded signature. Verification removes `signature`, reproduces the canonical bytes, and verifies them. Golden fixtures contain both the unsigned canonical bytes and the complete signed envelope.
+Canonicalize the envelope without `signature` using RFC 8785/JCS, sign those bytes, then attach the encoded signature.
 
-All potentially 64-bit counters/revisions inside signed JCS documents use canonical unsigned decimal **strings** (`"1234"`), not JSON numbers. This avoids ECMAScript/I-JSON integer precision differences across Go, Rust, TypeScript and C. Small schema/enum values such as `schema` and bounded `authorityEpoch` may remain JSON integers.
+Every potentially 64-bit counter/revision is an unsigned decimal string. Duplicate JSON object keys are rejected before canonicalization. Protocol schemas define unknown-field behavior, UTF-8 requirements, Ed25519 key/signature encoding, Base64/Base64url rules and malformed-input fixtures across Go, Rust, TypeScript and C.
 
-`previousSequence` is signed. For the first feed record it is null; after snapshot recovery, the next feed record must chain from the snapshot's signed `baseSequence`.
+`previousDigest` makes a same-epoch fork detectable. A node that sees the same `(stateEpoch, sequence)` with a different digest reports a feed-fork incident and stops peer advancement until direct server reconciliation.
 
-`subject.revision` is also signed when the change mutates versioned state. Type-specific rules define whether it is an immutable publication revision, configuration revision, revocation generation or another monotonic resource generation.
+### 15.5 Feed order versus resource freshness
 
-`expiresAt` controls whether the event's **effect** remains eligible; it never removes the event from feed continuity. A node verifies and advances past a valid contiguous expired envelope, but it does not activate an expired effect. If trusted-time uncertainty overlaps an expiry boundary, safety-sensitive expiring effects remain inactive/pending while the node seeks a newer signed state or trustworthy time.
+Feed sequence is delivery/completeness order, not semantic resource freshness.
 
-`tilecastd` verifies:
+Every mutable change carries a type-specific signed subject generation. Initial mapping includes:
 
-- signature;
-- authority epoch/key;
-- installation ID;
-- sequence semantics;
-- target applicability;
-- schema support;
-- object hash/size when object is fetched.
+| Change type | Subject freshness value |
+| --- | --- |
+| `screen.presentation.changed` | `screen_manifest_state.manifest_version` |
+| `screen.configuration.changed` | `screen_config_state.config_revision` |
+| certificate/node revocation | revocation generation |
+| Context definition/value policy | Context resource generation |
+| authority transition | authority epoch/transition generation |
 
-### 15.4 Server WebSocket role
+If a later feed position carries an older subject revision than the node has already applied, the node records a stale no-op and still advances feed continuity.
 
-The existing server socket stays the fastest authoritative origin path, but instead of every change carrying all state it may send:
+Deletion/removal is represented by an explicit signed tombstone at a newer subject revision. A node does not need to wait for a future snapshot to learn that a mutable resource was removed.
 
-```json
-{
-  "type": "edge.changes.available",
-  "latestSequence": "1234"
-}
-```
+### 15.6 Urgent independently versioned state
 
-The node reconciles missing signed envelopes.
+A global contiguous feed must not delay security or urgent state behind an unrelated screen event.
 
-### 15.5 Peer relay
+At minimum, the server publishes independently versioned signed state documents for:
 
-When one node receives and verifies sequence 1234, it announces the exact signed envelope or a `latestSequence` hint over Zenoh.
+- certificate-instance revocations and durable-node disablement;
+- current screen presentation/configuration state;
+- active takeover state where urgency requires it;
+- Context definition/rule state.
 
-Other nodes:
+A node may apply a valid newer signed state document when its resource generation is newer, even if the ordinary feed cursor has a gap. The node does **not** skip the missing feed position; it separately records the newer resource watermark and continues feed recovery.
 
-1. compare with their last contiguous verified/applied feed sequence;
-2. require the incoming envelope's signed `previousSequence` to match that local position;
-3. request missing feed positions from a peer first when it does not match;
-4. verify each server signature locally;
-5. fall back to Tilecast Server if no peer can provide the gap.
+Revocation state uses this path. A missing presentation event for another screen cannot delay application of a newer revocation generation.
 
-This gives the desired behavior: a screen may learn of a new server-authorized update from a nearby screen without immediately contacting the server.
+Peer `latestSequence` hints are wakeups only. They never advance `highest_seen_sequence`, state epoch, resource revision or revocation generation. Only a verified authority-signed envelope/checkpoint or direct authenticated server response can do that.
 
-### 15.6 Sequence gaps
+### 15.7 Feed scope and scaling
 
-Never apply “latest wins” blindly across a missing feed position for state that depends on ordered revocations/config changes.
+Do not require every node to download every other screen's payload indefinitely merely to advance its own useful state.
 
-Store:
+V1 may keep one installation feed for audit/completeness, but implementations must support at least one bounded strategy before broad rollout:
+
+- compact multi-target events for one authoritative mutation that affects many screens;
+- target-aware range filtering with signed skip/checkpoint proofs; or
+- scoped feed partitions with an installation-level security stream.
+
+The chosen strategy must preserve fork/gap detection without O(N²) fleet fan-out. E7 includes a scale test using an organization-wide change across a representative fleet.
+
+### 15.8 Sequence gaps
+
+Within one state epoch, a feed gap means a published feed position is missing locally.
+
+The node tracks:
 
 ```text
+state_epoch
 last_contiguous_sequence
-highest_seen_sequence
+last_contiguous_digest
+highest_verified_sequence
+per-resource revision watermarks
 ```
 
-A gap means a **published Edge feed position** is missing locally, not merely that a PostgreSQL sequence number was skipped. If sequence 1238 arrives while the local position is 1235 and the signed `previousSequence` chain cannot be connected, fetch the missing feed records. The simplest v1 rule is to require contiguous feed verification/application.
+A gap triggers range recovery. The node does not infer loss from PostgreSQL sequence allocation because protocol positions are assigned only by the serialized signer-projector.
 
-Feed order and resource order are separate. Once envelope 1238 is contiguous and valid, the node advances its feed cursor even if its signed `subject.revision` is stale compared with the already-applied revision for that resource. In that case the event is recorded as a stale no-op; it must never roll state backward.
+A same-sequence/different-digest record is not a normal gap. It is a fork and requires direct server reconciliation.
 
-Because positions are assigned only by the serialized signer-projector when a final signed feed row is committed, transaction rollback must never create a permanent protocol gap.
+### 15.9 Signed snapshot checkpoints
 
-### 15.7 Retention and snapshot fallback
-
-The server cannot keep an infinite relay log.
-
-Start with configurable bounded retention, for example:
-
-- at least 14 days; and
-- at least the newest 50,000 changes;
-
-then prune older rows using explicit node progress plus the minimum retention floor. An “active node” is an enrolled, non-disabled node seen within the configured active window. Nodes offline beyond the replay window recover from a signed snapshot instead of blocking pruning indefinitely.
-
-Each Edge node reports its last applied contiguous feed sequence, highest seen sequence and current snapshot base. The server uses that progress for lag metrics and safe retention decisions.
-
-If a node asks for a sequence older than retention, the server returns an authority-signed **Edge state snapshot checkpoint**. A snapshot envelope contains at least:
+If a node is behind retention, the server returns an authority-signed checkpoint:
 
 ```json
 {
   "schema": 1,
   "installationId": "...",
+  "stateEpoch": "7",
+  "scope": {
+    "kind": "screen",
+    "id": "..."
+  },
   "baseSequence": "81234",
+  "baseDigest": "...",
   "authorityEpoch": 1,
   "generatedAt": "2026-09-22T19:00:00Z",
   "object": {
@@ -1409,49 +1518,72 @@ If a node asks for a sequence older than retention, the server returns an author
 }
 ```
 
-The immutable snapshot object contains the current Edge-applicable projected state plus the authoritative resource revision/generation for every mutable entry that can later receive incremental feed changes.
+Snapshot scope is explicit. Prefer screen-scoped snapshots for ordinary player recovery; use installation/security snapshots only for state that is truly installation-wide.
 
-Snapshot creation has a hard consistency invariant: all authoritative mutations visible in the database snapshot used to build the object must already have signed feed positions **at or below** `baseSequence`; mutations not visible in that database snapshot must receive feed positions **above** `baseSequence`. Use the same signer/projector serialization lock and a PostgreSQL repeatable-read snapshot (or an equivalent proven transaction design) to enforce this relationship.
+The immutable snapshot object contains the current applicable projected state and per-resource revision/generation watermarks.
 
-The node verifies the checkpoint signature and object hash, applies the snapshot transactionally, sets its contiguous feed cursor to the signed `baseSequence`, restores the per-resource revision watermarks contained in the snapshot, and resumes with the next chained feed position.
+Snapshot creation uses the feed serialization lock plus a consistent PostgreSQL snapshot so:
 
-Peers may cache/relay the signed snapshot envelope and immutable snapshot object byte-for-byte.
+- every authoritative mutation visible in the snapshot has a feed position at or below `baseSequence`; and
+- every mutation not visible in the snapshot receives a feed position above `baseSequence`.
 
-Feed/object retention is linked. The server must retain objects referenced by the retained replay window and the current signed snapshot. Garbage collection cannot remove an object while any retained feed record/snapshot still requires it. If an old feed object's bytes are unavailable despite this invariant, the server must force signed snapshot recovery rather than returning an unusable feed range.
+The node verifies state epoch, authority chain, checkpoint signature, base digest and object hash before applying it.
 
-### 15.8 Change types
+After destructive local DB recovery, peer snapshots are insufficient to establish a new trust anchor. The node first performs direct authenticated server re-anchoring or uses a separately persisted trusted checkpoint that proves the received state is not older than its previous trust state.
 
-Initial feed types:
+Feed/object retention is linked. Objects referenced by the retained replay window and current recovery snapshots remain retained.
+
+### 15.10 Expiry semantics
+
+`expiresAt` is permitted only for change types whose effect is explicitly ephemeral.
+
+Durable configuration, resource tombstones, certificate/node revocation state, authority transitions and state-epoch transitions have `expiresAt = null`.
+
+For a valid ephemeral envelope that has expired, the node verifies it and advances feed continuity but does not activate its effect. If trusted-time uncertainty overlaps the expiry boundary, safety-sensitive effects stay inactive/pending until trusted time or newer signed state is available.
+
+### 15.11 Server WebSocket and peer relay
+
+The authenticated server WebSocket remains a low-latency hint path.
+
+Example hints:
+
+```text
+edge.change.available
+edge.security.changed
+edge.snapshot.available
+```
+
+A hint carries bounded identifiers only. It does not become authoritative merely because it arrived over the socket.
+
+Peers relay exact signed bytes. They do not reserialize or resign them.
+
+### 15.12 Change types
+
+Initial signed types include:
 
 ```text
 screen.presentation.changed
 screen.configuration.changed
+screen.takeover.changed
 screen.command.available          # hint only; command still server-authorized/persistent
-content.object.published
-context.definition.changed
-context.server-value.changed
-edge.mesh.configuration.changed
-edge.node.revoked
-edge.release.available
-player.release.available
-organization.branding.changed     # if renderer relevant
+edge.security.changed
+edge.context.definition.changed
+edge.context.value.changed
+edge.authority.changed
+edge.state_epoch.changed
 ```
 
-Takeovers require special urgency but retain the same trust rule: a peer may accelerate discovery of the server-signed takeover state, never originate an emergency.
+### 15.13 Secrets stay direct
 
-### 15.9 Secrets stay direct
+Peer relay must not carry:
 
-Some state is intentionally **not relayable**:
+- device bearer credentials;
+- node private keys;
+- Presentation Network passwords/PSKs;
+- integration secrets;
+- dashboard/session secrets.
 
-- Presentation Network provisioning secrets;
-- one-time enrollment tokens;
-- device credential rotation material;
-- dashboard authentication;
-- sensitive integration credentials.
-
-Those continue to require direct authenticated server communication.
-
----
+The server remains the direct authority for secrets and command execution authorization.
 
 ## 16. Immutable Edge Objects
 
