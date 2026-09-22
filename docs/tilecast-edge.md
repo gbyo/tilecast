@@ -1232,10 +1232,14 @@ edge_change_outbox
   type                TEXT
   target_kind         TEXT
   target_id           UUID NULL
+  subject_kind        TEXT NULL
+  subject_id          UUID/TEXT NULL
+  subject_revision    TEXT NULL
   object_hash         TEXT NULL
   payload             BYTEA/JSONB
   created_at          TIMESTAMPTZ
   expires_at          TIMESTAMPTZ NULL
+  object_ready_at     TIMESTAMPTZ NULL
   projected_at        TIMESTAMPTZ NULL
 
 edge_feed_state
@@ -1250,6 +1254,9 @@ edge_changes
   type                TEXT
   target_kind         TEXT
   target_id           UUID NULL
+  subject_kind        TEXT NULL
+  subject_id          UUID/TEXT NULL
+  subject_revision    TEXT NULL
   object_hash         TEXT NULL
   payload             BYTEA/JSONB
   signed_envelope     BYTEA
@@ -1257,7 +1264,13 @@ edge_changes
   expires_at          TIMESTAMPTZ NULL
 ```
 
-The authoritative domain mutation inserts the outbox row in the same PostgreSQL transaction. A serialized/locked signer-projector later claims committed outbox rows, increments `edge_feed_state.last_sequence`, signs the envelope, and inserts the final `edge_changes` row in one transaction. Therefore every committed Edge feed position exists and positions reflect projection order rather than unrelated transaction start/commit races.
+The authoritative domain mutation inserts the outbox row in the same PostgreSQL transaction. The row captures the immutable authoritative resource revision/generation that caused the event; a later worker must not re-read the newest current state and label it as that older event.
+
+If the event references an immutable Edge Object, compile/store that exact revision first and mark the outbox row object-ready. Only then may the serialized/locked signer-projector claim it, increment `edge_feed_state.last_sequence`, sign the envelope, and insert the final `edge_changes` row in one transaction. A committed feed row must never point at an object that is not already durable and fetchable.
+
+Feed sequence is **delivery/completeness order**, not semantic resource freshness. Two independent domain transactions may become projector-ready in a different order from their resource revisions. Every mutable change therefore carries a type-appropriate signed subject revision/generation, and the consumer refuses to roll a resource back to an older revision even while it advances the contiguous feed position.
+
+Therefore every committed Edge feed position exists and positions reflect projection order rather than unrelated PostgreSQL sequence allocation.
 
 The exact canonical bytes that were signed are retained so any peer can relay them byte-for-byte.
 
@@ -1271,16 +1284,21 @@ Conceptual envelope:
 {
   "schema": 1,
   "installationId": "...",
-  "sequence": 1234,
-  "previousSequence": 1233,
+  "sequence": "1234",
+  "previousSequence": "1233",
   "type": "screen.presentation.changed",
   "target": {
     "kind": "screen",
     "id": "..."
   },
+  "subject": {
+    "kind": "screen.presentation",
+    "id": "...",
+    "revision": "42"
+  },
   "object": {
     "sha256": "...",
-    "sizeBytes": 18241
+    "sizeBytes": "18241"
   },
   "issuedAt": "2026-09-22T19:00:00Z",
   "expiresAt": null,
@@ -1291,7 +1309,13 @@ Conceptual envelope:
 
 The signed bytes are precisely defined: canonicalize the envelope **without** the `signature` member using the selected JCS implementation, sign those bytes, then attach the encoded signature. Verification removes `signature`, reproduces the canonical bytes, and verifies them. Golden fixtures contain both the unsigned canonical bytes and the complete signed envelope.
 
-`previousSequence` is signed. For the first retained/base feed record it may be null or the signed snapshot base as explicitly defined by the protocol; otherwise it must equal the preceding feed position.
+All potentially 64-bit counters/revisions inside signed JCS documents use canonical unsigned decimal **strings** (`"1234"`), not JSON numbers. This avoids ECMAScript/I-JSON integer precision differences across Go, Rust, TypeScript and C. Small schema/enum values such as `schema` and bounded `authorityEpoch` may remain JSON integers.
+
+`previousSequence` is signed. For the first feed record it is null; after snapshot recovery, the next feed record must chain from the snapshot's signed `baseSequence`.
+
+`subject.revision` is also signed when the change mutates versioned state. Type-specific rules define whether it is an immutable publication revision, configuration revision, revocation generation or another monotonic resource generation.
+
+`expiresAt` controls whether the event's **effect** remains eligible; it never removes the event from feed continuity. A node verifies and advances past a valid contiguous expired envelope, but it does not activate an expired effect. If trusted-time uncertainty overlaps an expiry boundary, safety-sensitive expiring effects remain inactive/pending while the node seeks a newer signed state or trustworthy time.
 
 `tilecastd` verifies:
 
@@ -1341,7 +1365,9 @@ last_contiguous_sequence
 highest_seen_sequence
 ```
 
-A gap means a **published Edge feed position** is missing locally, not merely that a PostgreSQL sequence number was skipped. If sequence 1238 arrives while the local position is 1235 and the signed `previousSequence` chain cannot be connected, fetch the missing feed records. The simplest v1 rule is to require contiguous change application.
+A gap means a **published Edge feed position** is missing locally, not merely that a PostgreSQL sequence number was skipped. If sequence 1238 arrives while the local position is 1235 and the signed `previousSequence` chain cannot be connected, fetch the missing feed records. The simplest v1 rule is to require contiguous feed verification/application.
+
+Feed order and resource order are separate. Once envelope 1238 is contiguous and valid, the node advances its feed cursor even if its signed `subject.revision` is stale compared with the already-applied revision for that resource. In that case the event is recorded as a stale no-op; it must never roll state backward.
 
 Because positions are assigned only by the serialized signer-projector when a final signed feed row is committed, transaction rollback must never create a permanent protocol gap.
 
@@ -1356,9 +1382,32 @@ Start with configurable bounded retention, for example:
 
 then prune older rows after all active nodes have advanced past them when practical.
 
-If a node asks for a sequence older than retention, the server returns a signed **Edge state snapshot** reference. The node fetches the current immutable snapshot/object, applies it transactionally, records its base sequence, and resumes from the live feed.
+If a node asks for a sequence older than retention, the server returns an authority-signed **Edge state snapshot checkpoint**. A snapshot envelope contains at least:
 
-Peers may cache/relay that signed snapshot object as well.
+```json
+{
+  "schema": 1,
+  "installationId": "...",
+  "baseSequence": "81234",
+  "authorityEpoch": 1,
+  "generatedAt": "2026-09-22T19:00:00Z",
+  "object": {
+    "sha256": "...",
+    "sizeBytes": "..."
+  },
+  "signature": "..."
+}
+```
+
+The immutable snapshot object contains the current Edge-applicable projected state plus the authoritative resource revision/generation for every mutable entry that can later receive incremental feed changes.
+
+Snapshot creation has a hard consistency invariant: all authoritative mutations visible in the database snapshot used to build the object must already have signed feed positions **at or below** `baseSequence`; mutations not visible in that database snapshot must receive feed positions **above** `baseSequence`. Use the same signer/projector serialization lock and a PostgreSQL repeatable-read snapshot (or an equivalent proven transaction design) to enforce this relationship.
+
+The node verifies the checkpoint signature and object hash, applies the snapshot transactionally, sets its contiguous feed cursor to the signed `baseSequence`, restores the per-resource revision watermarks contained in the snapshot, and resumes with the next chained feed position.
+
+Peers may cache/relay the signed snapshot envelope and immutable snapshot object byte-for-byte.
+
+Feed/object retention is linked. The server must retain objects referenced by the retained replay window and the current signed snapshot. Garbage collection cannot remove an object while any retained feed record/snapshot still requires it. If an old feed object's bytes are unavailable despite this invariant, the server must force signed snapshot recovery rather than returning an unusable feed range.
 
 ### 15.8 Change types
 
@@ -1678,6 +1727,7 @@ schema
 installationId
 nodeId
 sourceId
+sourceEpoch
 sourceSequence
 key
 scope
@@ -1688,7 +1738,11 @@ certificate/identity reference
 signature
 ```
 
-`sourceSequence` is monotonic per `(nodeId, sourceId)`. Peers persist the highest accepted value needed for replay protection and reject older/replayed observations even when their signatures are valid. The observation signature is made by the node key and is accepted only after the node certificate, installation binding, current revocation state, configured source permission, scope and value schema all validate. Server-only context keys remain impossible for an Edge-local source to claim.
+`sourceEpoch` is a random 128-bit source-incarnation identifier created when that local source state is initialized. `sourceSequence` is a canonical decimal string that increases monotonically within `(nodeId, sourceId, sourceEpoch)`.
+
+Peers persist the highest accepted sequence for each recent source epoch and reject older/replayed observations even when their signatures are valid. A reinstall/state reset creates a new epoch instead of restarting sequence 1 inside the old replay namespace. Retain bounded replay state for old epochs long enough that replaying a pre-reinstall packet does not become fresh again.
+
+The observation signature is made by the node key and is accepted only after the exact certificate instance, installation binding, durable node state, current revocation generation, configured source permission, scope and value schema all validate. Server-only context keys remain impossible for an Edge-local source to claim.
 
 When an effective local context value changes:
 
@@ -2207,7 +2261,7 @@ systemd becomes the Linux process supervisor rather than the last rung inside El
 
 ### 27.1 `tilecast-edge.service`
 
-Illustrative unit properties:
+Illustrative service properties:
 
 ```ini
 [Service]
@@ -2222,6 +2276,22 @@ RuntimeDirectory=tilecast-edge
 StateDirectory=tilecast-edge
 UMask=0077
 ```
+
+Create `renderer.sock`, `media.sock` and `admin.sock` with dedicated systemd `.socket` units and pass the listening file descriptors to `tilecastd`. Example ownership intent:
+
+```ini
+# renderer/media socket units
+SocketUser=tilecast-edge
+SocketGroup=tilecast-renderer
+SocketMode=0660
+
+# admin socket unit
+SocketUser=tilecast-edge
+SocketGroup=tilecast-admin
+SocketMode=0660
+```
+
+The Edge service must support the inherited listening descriptors at startup and must not unlink/rebind them itself. This keeps socket ownership independent from `UMask=0077` and avoids granting `tilecast-edge` extra group-management privilege.
 
 Add hardening after testing required hardware access:
 
@@ -2385,9 +2455,9 @@ tilecast://runtime/index.html
 tilecast://media/<hash>
 ```
 
-The WPE host serves only known local runtime resources and validated CAS objects through scheme handlers.
+The WPE host serves only known local runtime resources through its embedded runtime handler. For `tilecast://media/<hash>`, it proxies the hash/range request to `tilecastd` through `media.sock`; it does not open the CAS path directly.
 
-Path traversal must be impossible because the handler resolves identifiers, not filesystem paths.
+Path traversal must be impossible because the handler resolves validated identifiers, not filesystem paths. The same active-presentation hash allowlist used by `media.sock` applies regardless of renderer engine.
 
 ### 28.5 Native/JS bridge
 
@@ -2668,6 +2738,8 @@ The helper independently checks:
 - target version path is valid and non-existing or exactly matching;
 - installed files have fixed expected names/modes;
 - symlinks point only inside `/opt/tilecast-edge/releases`.
+
+The helper must avoid a verify-then-open TOCTOU race. It opens the staged artifact with no-follow semantics, verifies the manifest/hash/size against that opened file descriptor, and copies/installs from the same descriptor or an equivalently pinned inode. A writable path must not be re-opened after verification.
 
 ### 30.6 Crash-safe activation
 
