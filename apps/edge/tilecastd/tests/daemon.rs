@@ -124,10 +124,8 @@ async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
     assert!(observed.systemd_watchdog);
 
     // An administrative self-test activation reaches the renderer.
-    let shown: ShowDiagnosticResult = serde_json::from_value(
-        admin.request(Method::DiagnosticsShowStatus(Empty {})).await.unwrap().unwrap(),
-    )
-    .unwrap();
+    let shown: ShowDiagnosticResult =
+        serde_json::from_value(admin.request(Method::DiagnosticsShowStatus(Empty {})).await.unwrap().unwrap()).unwrap();
     let Event::PresentationActivate(second) = expect_event(&client).await else { panic!("second activation") };
     assert_eq!(second.generation, shown.generation);
     assert!(second.generation > activation.generation);
@@ -152,7 +150,10 @@ async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
 
     // Clean shutdown: goodbye to sessions, STOPPING=1, clean marker.
     running.shutdown.cancel();
-    assert_eq!(client.next_incoming(Duration::from_secs(5)).await.unwrap(), Incoming::Goodbye("daemon_shutdown".into()));
+    assert_eq!(
+        client.next_incoming(Duration::from_secs(5)).await.unwrap(),
+        Incoming::Goodbye("daemon_shutdown".into())
+    );
     running.task.await.unwrap().unwrap();
     let mut saw_stopping = false;
     while let Ok(n) = running.notify.recv(&mut [0u8; 512]) {
@@ -162,7 +163,9 @@ async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
     assert!(saw_stopping);
     let db = edge_state::StateDb::open(running.dir.path().join("state/state.db"), Default::default()).unwrap();
     let start = db
-        .run_blocking(|c| edge_state::repo::daemon::record_start(c, edge_protocol::Timestamp::from_unix_seconds(9).unwrap(), "t"))
+        .run_blocking(|c| {
+            edge_state::repo::daemon::record_start(c, edge_protocol::Timestamp::from_unix_seconds(9).unwrap(), "t")
+        })
         .unwrap();
     assert!(!start.previous_run_unclean, "shutdown was recorded as clean");
 }

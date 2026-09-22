@@ -95,7 +95,12 @@ impl CapabilityRegistry {
                     self.last_known.insert(name, capabilities);
                 }
                 Ok(Err(error)) => {
-                    tracing::warn!(component = "capabilities", event = "probe_failed", provider = name, reason = error.reason);
+                    tracing::warn!(
+                        component = "capabilities",
+                        event = "probe_failed",
+                        provider = name,
+                        reason = error.reason
+                    );
                     self.degrade(name, now);
                 }
                 Err(_) => {

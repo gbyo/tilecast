@@ -296,7 +296,10 @@ impl ContentStore {
     }
 
     /// Opens a verified object for reading (peer serving).
-    pub async fn open_verified(&self, digest: &Sha256Digest) -> Result<Option<(std::fs::File, ObjectRecord)>, CasError> {
+    pub async fn open_verified(
+        &self,
+        digest: &Sha256Digest,
+    ) -> Result<Option<(std::fs::File, ObjectRecord)>, CasError> {
         let Some(record) = self.ensure_verified(digest).await? else {
             return Ok(None);
         };
@@ -368,7 +371,12 @@ impl ContentStore {
     }
 
     /// Replaces the pins `holder` holds for `reason` with exactly `digests`.
-    pub async fn replace_pins(&self, reason: PinReason, holder: &str, digests: Vec<Sha256Digest>) -> Result<(), CasError> {
+    pub async fn replace_pins(
+        &self,
+        reason: PinReason,
+        holder: &str,
+        digests: Vec<Sha256Digest>,
+    ) -> Result<(), CasError> {
         let holder = holder.to_owned();
         let now = self.now();
         self.inner.db.run(move |c| repo::replace_pins(c, reason, &holder, &digests, now)).await?;
@@ -643,7 +651,8 @@ impl WriteSession {
         file.sync_all()?;
         drop(file);
         let path = self.path.clone();
-        let (actual, size) = tokio::task::spawn_blocking(move || hash_file(&path)).await.map_err(|_| CasError::Task)??;
+        let (actual, size) =
+            tokio::task::spawn_blocking(move || hash_file(&path)).await.map_err(|_| CasError::Task)??;
         if size != self.expected_size || actual != self.digest {
             let digest = self.digest;
             let _ = tokio::fs::remove_file(&self.path).await;

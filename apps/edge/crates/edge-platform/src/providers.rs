@@ -128,9 +128,9 @@ impl WpePlatformProvider {
         if cards.is_empty() {
             return (CapabilityState::Unsupported, Some("no_drm_device"), Some("No DRM display device was found."));
         }
-        let accessible = cards.iter().any(|card| {
-            rustix::fs::access(card, rustix::fs::Access::READ_OK | rustix::fs::Access::WRITE_OK).is_ok()
-        });
+        let accessible = cards
+            .iter()
+            .any(|card| rustix::fs::access(card, rustix::fs::Access::READ_OK | rustix::fs::Access::WRITE_OK).is_ok());
         if accessible {
             (CapabilityState::Available, None, None)
         } else {
@@ -171,9 +171,30 @@ impl CapabilityProvider for WpePlatformProvider {
         if !installed {
             let detail = Some("tilecast-renderer-wpe is not installed.");
             return Ok(vec![
-                capability(ids::RENDERER_WPE_DRM, CapabilityState::Unsupported, "wpe", Some("renderer_not_installed"), detail, now)?,
-                capability(ids::RENDERER_WPE_WAYLAND, CapabilityState::Unsupported, "wpe", Some("renderer_not_installed"), detail, now)?,
-                capability(ids::RENDERER_WPE_HEADLESS, CapabilityState::Unsupported, "wpe", Some("renderer_not_installed"), detail, now)?,
+                capability(
+                    ids::RENDERER_WPE_DRM,
+                    CapabilityState::Unsupported,
+                    "wpe",
+                    Some("renderer_not_installed"),
+                    detail,
+                    now,
+                )?,
+                capability(
+                    ids::RENDERER_WPE_WAYLAND,
+                    CapabilityState::Unsupported,
+                    "wpe",
+                    Some("renderer_not_installed"),
+                    detail,
+                    now,
+                )?,
+                capability(
+                    ids::RENDERER_WPE_HEADLESS,
+                    CapabilityState::Unsupported,
+                    "wpe",
+                    Some("renderer_not_installed"),
+                    detail,
+                    now,
+                )?,
             ]);
         }
         let this = self.clone();

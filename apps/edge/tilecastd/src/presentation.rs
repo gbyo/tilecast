@@ -108,7 +108,12 @@ pub struct PresentationEngine {
 }
 
 impl PresentationEngine {
-    pub fn new(cas_root: &std::path::Path, kiosk: KioskPolicy, supervisor_config: SupervisorConfig, now_ms: i64) -> Self {
+    pub fn new(
+        cas_root: &std::path::Path,
+        kiosk: KioskPolicy,
+        supervisor_config: SupervisorConfig,
+        now_ms: i64,
+    ) -> Self {
         let configure = RendererConfigure {
             content_store: ContentStoreDescriptor {
                 layout: ShortToken::new("cas-sha256-v1").expect("literal token"),
@@ -305,10 +310,9 @@ impl PresentationEngine {
 
     fn command(&self, command: RendererCommandKind) {
         if let Some(link) = &self.renderer {
-            let _ = link.session.send_event(Event::RendererCommand(RendererCommand {
-                command_id: uuid::Uuid::new_v4(),
-                command,
-            }));
+            let _ = link
+                .session
+                .send_event(Event::RendererCommand(RendererCommand { command_id: uuid::Uuid::new_v4(), command }));
         }
     }
 

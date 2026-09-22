@@ -191,7 +191,13 @@ fn classify(error: &SourceError) -> AttemptOutcome {
     }
 }
 
-fn report(observer: Option<&dyn FetchObserver>, source: &dyn BlobSource, outcome: AttemptOutcome, bytes: u64, started: Instant) {
+fn report(
+    observer: Option<&dyn FetchObserver>,
+    source: &dyn BlobSource,
+    outcome: AttemptOutcome,
+    bytes: u64,
+    started: Instant,
+) {
     if let Some(observer) = observer {
         observer.attempt(source, outcome, bytes, started.elapsed());
     }

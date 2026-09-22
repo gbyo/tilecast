@@ -12,7 +12,14 @@ use edge_protocol::capability::{Capability, CapabilityId, CapabilityState, ids};
 
 use crate::daemon::{DaemonContext, StateMode};
 
-fn live(id: &str, state: CapabilityState, provider: &str, reason: Option<&str>, detail: Option<&str>, context: &DaemonContext) -> Option<Capability> {
+fn live(
+    id: &str,
+    state: CapabilityState,
+    provider: &str,
+    reason: Option<&str>,
+    detail: Option<&str>,
+    context: &DaemonContext,
+) -> Option<Capability> {
     let mut capability = Capability::new(CapabilityId::new(id).ok()?, state, context.now());
     capability.provider = ShortToken::new(provider).ok();
     capability.reason_code = reason.and_then(|r| ShortToken::new(r).ok());
@@ -26,10 +33,18 @@ async fn daemon_capabilities(context: &DaemonContext) -> Vec<Capability> {
     let status = renderer.status();
     let (state, reason, detail) = match status.state.as_str() {
         "healthy" | "waiting_for_progress" => (CapabilityState::Available, None, None),
-        "incompatible" => (CapabilityState::Degraded, Some("presentation_incompatible"), status.incompatible_reason.as_ref().map(|r| r.as_str().to_owned())),
+        "incompatible" => (
+            CapabilityState::Degraded,
+            Some("presentation_incompatible"),
+            status.incompatible_reason.as_ref().map(|r| r.as_str().to_owned()),
+        ),
         "safe_mode" => (CapabilityState::Degraded, Some("safe_mode"), None),
         "starting" => (CapabilityState::Supported, Some("renderer_starting"), None),
-        _ => (CapabilityState::Supported, Some("renderer_not_connected"), Some("The WPE renderer is not connected to tilecastd.".to_owned())),
+        _ => (
+            CapabilityState::Supported,
+            Some("renderer_not_connected"),
+            Some("The WPE renderer is not connected to tilecastd.".to_owned()),
+        ),
     };
     let mut wpe = live(ids::RENDERER_WPE, state, "tilecast-renderer-wpe", reason, detail.as_deref(), context);
     if let (Some(capability), Some(version)) = (wpe.as_mut(), renderer.renderer_version()) {
@@ -44,8 +59,22 @@ async fn daemon_capabilities(context: &DaemonContext) -> Vec<Capability> {
     };
     out.extend(live(ids::SYSTEM_STATE_STORE, state, "sqlite", reason, None, context));
     if !context.config.mesh.enabled {
-        out.extend(live(ids::MESH_ZENOH, CapabilityState::Supported, "zenoh", Some("mesh_disabled"), Some("The Edge mesh is disabled on this node."), context));
-        out.extend(live(ids::MESH_PEER_CACHE, CapabilityState::Supported, "edge-cdn", Some("mesh_disabled"), Some("Peer delivery is disabled on this node."), context));
+        out.extend(live(
+            ids::MESH_ZENOH,
+            CapabilityState::Supported,
+            "zenoh",
+            Some("mesh_disabled"),
+            Some("The Edge mesh is disabled on this node."),
+            context,
+        ));
+        out.extend(live(
+            ids::MESH_PEER_CACHE,
+            CapabilityState::Supported,
+            "edge-cdn",
+            Some("mesh_disabled"),
+            Some("Peer delivery is disabled on this node."),
+            context,
+        ));
     }
     out
 }

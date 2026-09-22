@@ -14,8 +14,8 @@ use edge_cas::{
     LruByDomain, SourceError, SourceKind, SourceStream, StorePolicy,
 };
 use edge_platform::disk::FixedSpace;
-use edge_protocol::time::system_clock;
 use edge_protocol::Sha256Digest;
+use edge_protocol::time::system_clock;
 use edge_state::repo::cas::{Domain, PinReason, SourceKind as RecordSource};
 use edge_state::{OpenOptions, StateDb};
 use futures_util::StreamExt as _;
@@ -54,7 +54,12 @@ async fn store(env: &Env) -> ContentStore {
 }
 
 fn meta() -> IngestMeta {
-    IngestMeta { domain: Domain::Media, content_type: Some("image/png".into()), peerable: true, source: RecordSource::Origin }
+    IngestMeta {
+        domain: Domain::Media,
+        content_type: Some("image/png".into()),
+        peerable: true,
+        source: RecordSource::Origin,
+    }
 }
 
 fn request(bytes: &[u8]) -> FetchRequest {
@@ -76,7 +81,14 @@ struct Scripted {
 
 impl Scripted {
     fn new(label: &'static str, bytes: &[u8]) -> Self {
-        Self { label, bytes: bytes.to_vec(), fail_after: None, ignore_offset: false, opens: Arc::default(), delay: None }
+        Self {
+            label,
+            bytes: bytes.to_vec(),
+            fail_after: None,
+            ignore_offset: false,
+            opens: Arc::default(),
+            delay: None,
+        }
     }
 }
 
@@ -155,14 +167,18 @@ async fn corrupt_same_size_bytes_never_enter_the_store() {
     assert_eq!(std::fs::read(store.verified_path(&record.sha256).await.unwrap().unwrap()).unwrap(), DATA);
     assert_eq!(
         *observer.0.lock().unwrap(),
-        vec![("evil-peer".to_owned(), AttemptOutcome::IntegrityFailure), ("origin".to_owned(), AttemptOutcome::Completed)]
+        vec![
+            ("evil-peer".to_owned(), AttemptOutcome::IntegrityFailure),
+            ("origin".to_owned(), AttemptOutcome::Completed)
+        ]
     );
 
     // With only the corrupt source, nothing is promoted and no partial remains.
     let other = b"another object entirely";
     let mut corrupt = other.to_vec();
     corrupt[0] ^= 1;
-    let result = fetcher.fetch(&request(other), &[Arc::new(Scripted::new("evil", &corrupt)) as Arc<dyn BlobSource>], None).await;
+    let result =
+        fetcher.fetch(&request(other), &[Arc::new(Scripted::new("evil", &corrupt)) as Arc<dyn BlobSource>], None).await;
     assert!(matches!(result, Err(FetchError::Exhausted)));
     assert!(store.stat(&Sha256Digest::of(other)).await.unwrap().is_none());
 }
@@ -175,7 +191,9 @@ async fn oversized_stream_is_rejected() {
     let mut longer = DATA.to_vec();
     longer.extend_from_slice(b"trailing garbage");
     let observer = Outcomes::default();
-    let result = fetcher.fetch(&request(DATA), &[Arc::new(Scripted::new("long", &longer)) as Arc<dyn BlobSource>], Some(&observer)).await;
+    let result = fetcher
+        .fetch(&request(DATA), &[Arc::new(Scripted::new("long", &longer)) as Arc<dyn BlobSource>], Some(&observer))
+        .await;
     assert!(result.is_err());
     assert_eq!(observer.0.lock().unwrap()[0].1, AttemptOutcome::IntegrityFailure);
 }
@@ -252,7 +270,8 @@ async fn reconciliation_handles_every_crash_boundary() {
     std::fs::create_dir_all(cas.join(liar.fanout())).unwrap();
     std::fs::write(cas.join(liar.fanout()).join(liar.to_hex()), b"not liar").unwrap();
     // (d) An orphan partial without a row, and junk in the CAS tree.
-    std::fs::write(env.dir.path().join("partial").join(format!("{}.part", Sha256Digest::of(b"x").to_hex())), b"x").unwrap();
+    std::fs::write(env.dir.path().join("partial").join(format!("{}.part", Sha256Digest::of(b"x").to_hex())), b"x")
+        .unwrap();
     std::fs::write(cas.join(good.fanout()).join("not-a-digest"), b"junk").unwrap();
 
     let store = store(&env).await;
@@ -332,7 +351,8 @@ async fn free_space_reserve_is_enforced() {
     )
     .await
     .unwrap();
-    let result = store.import_file(&write_temp(&env, "big", DATA), Sha256Digest::of(DATA), DATA.len() as u64, meta()).await;
+    let result =
+        store.import_file(&write_temp(&env, "big", DATA), Sha256Digest::of(DATA), DATA.len() as u64, meta()).await;
     assert!(matches!(result, Err(CasError::InsufficientSpace { .. })));
 }
 

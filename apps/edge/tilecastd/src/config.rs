@@ -55,7 +55,11 @@ pub struct CasConfig {
 
 impl Default for CasConfig {
     fn default() -> Self {
-        Self { limit_bytes: 8 * 1024 * 1024 * 1024, reserved_free_bytes: 1024 * 1024 * 1024, max_concurrent_downloads: 2 }
+        Self {
+            limit_bytes: 8 * 1024 * 1024 * 1024,
+            reserved_free_bytes: 1024 * 1024 * 1024,
+            max_concurrent_downloads: 2,
+        }
     }
 }
 
