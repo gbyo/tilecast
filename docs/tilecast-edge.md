@@ -780,45 +780,61 @@ revoked certificate instances   -> certificate serial number/fingerprint
 disabled nodes                  -> durable playerInstallationId/nodeId
 ```
 
-Certificate replacement, renewal and screen rebinding revoke only the superseded certificate instance. Device compromise, explicit decommissioning or revocation of the underlying player identity can disable the durable node and therefore reject every certificate for that node.
+Certificate replacement, renewal and screen rebinding revoke only the superseded certificate instance. Device compromise, screen archive/disable, deliberate decommissioning, hardware replacement of the underlying installation identity, or explicit player-identity revocation can disable the durable node.
 
-Use one monotonic server-side revocation generation included in signed Edge changes/snapshots. The signed revocation state contains both the revoked-certificate set and disabled-node set. Nodes reject a peer when either its exact certificate instance is revoked or its durable node ID is disabled.
+Existing Tilecast lifecycle mutations that change whether a physical player is authorized must update Edge authorization in the same authoritative transaction or produce an outbox row that cannot be lost. A bearer credential repair that keeps the same physical node may rotate only the certificate instance; a hardware replacement that changes `playerInstallationId` disables the old node.
+
+Use one monotonic server-side revocation generation included in independently versioned signed security state and in snapshots. The state contains both revoked-certificate instances and disabled nodes.
+
+Revocation applies to existing sessions and new handshakes. When a node learns a newer security generation, it immediately rejects matching application data and closes matching live Zenoh/peer-HTTPS sessions where possible.
+
+Certificate-instance revocations do not grow forever. A revoked certificate instance may leave the signed active set only after its `notAfter` plus the documented maximum clock/replay safety margin. Durable node disablement has its own lifecycle and is not pruned merely because one certificate expired.
 
 Certificate expiry remains a second safety boundary.
 
-Revocation applies to existing sessions and new handshakes. When a node learns a newer revocation generation, it must immediately reject application data from a matching certificate/node and close any matching live Zenoh/peer-HTTPS sessions. Transport teardown may race, so application-level certificate-serial/node checks remain mandatory until the connection is gone.
-
-Tilecast application-level certificate checks must use the Clock Authority's bounded trusted-time view rather than blindly trusting a potentially stale RTC. Persist the newest trustworthy wall-clock lower bound learned from Tilecast Server/NTP/PTP and never allow validation time to move backward across restart.
-
-The TLS library may still perform its own X.509 time check before Tilecast application code runs. E5 must prove one of two supported implementations: inject Tilecast's trusted time into the rustls/Zenoh verifier through a supported time-provider/verifier path, or require trustworthy host wall time before enabling the mesh transport. Do not claim that Clock Authority controls TLS validity unless that integration is wired and tested.
-
-If Edge cannot bound current time well enough to decide certificate validity safely, peer mesh enters a visible `time_untrusted`/degraded state instead of disabling certificate expiry checks; ordinary server-backed/cached playback remains available.
+Tilecast application-level certificate checks use the Clock Authority's bounded trusted-time view. E5 must prove the actual rustls/Zenoh time-validation path; do not assume an application clock automatically controls TLS certificate validity.
 
 Do not implement online OCSP as an Edge availability dependency.
 
----
-
 ## 12. Server-side Edge secrets
 
-The self-hosted server should generate the installation Edge CA and Edge authority key during Edge initialization, store them under its persistent `/data` volume with strict permissions, and back them up with the installation.
+Persist the installation Edge CA and dynamic Edge authority signing keys under the server data directory with owner-only permissions.
 
 Requirements:
 
 - keys generated with cryptographically secure randomness;
-- write to a temporary file, fsync, atomic rename;
+- temporary write + fsync + atomic rename + directory fsync;
 - private files mode 0600;
 - never returned through dashboard APIs;
-- only public certificate/fingerprint returned to players;
-- no key material in logs, audit metadata or database rows;
-- support explicit authority rotation using overlapping trust epochs rather than silently replacing the key.
+- no key material in logs, audit metadata, or ordinary database rows;
+- explicit authority rotation through a verifiable epoch transition chain;
+- explicit Edge CA rotation plan before accepting overlapping CA roots.
 
-Authority signing-key rotation uses a permanent verifiable transition chain. Before epoch N+1 signs ordinary feed/snapshot state, epoch N signs an immutable transition object containing the new epoch number, new public key/fingerprint, activation time/sequence and overlap policy. Nodes that trust epoch N may trust N+1 only after verifying that transition. The server retains the transition chain for offline nodes and snapshot recovery; a node must never accept an unknown higher epoch only because the server/peer claims it is newer.
+Authority signing-key rotation does not change `stateEpoch`. Before authority epoch N+1 signs ordinary state, epoch N signs a transition object containing the new epoch number, public key/fingerprint, activation boundary and overlap policy.
 
-During the overlap window, the server may include both current and next authority metadata in signed snapshots so long-disconnected nodes can advance without an online trust reset. Edge CA rotation is a separate operation from authority-signing-key rotation and requires an explicit overlapping CA trust/re-enrollment plan before it is enabled.
+### 12.1 Control-plane state epoch
 
-A server loss that restores PostgreSQL but not the Edge authority/CA data must be treated as a visible recovery condition, not silently generate a new identity and strand every peer.
+`stateEpoch` is a separate recovery primitive.
 
----
+Normal operation never increments it. It changes only when an operator deliberately restores/re-anchors authoritative database state to a history that may be older than state already observed by players.
+
+The server stores state-epoch metadata in recovery/backup metadata outside the mutable feed tables so a restored database cannot silently reuse an old epoch.
+
+Recovery procedure:
+
+1. detect that restored feed/resource checkpoints may be behind previously published state;
+2. stop Edge feed publication;
+3. require an explicit administrator recovery action;
+4. create a strictly newer state epoch;
+5. issue a direct authenticated state-epoch transition/re-anchor document;
+6. rebuild the first signed snapshot/security state for the new epoch;
+7. resume feed publication at sequence 1 with a new chain digest.
+
+A node accepts a higher state epoch only from the directly authenticated Tilecast Server recovery path or an already trusted transition chain explicitly defined for disaster recovery. A peer cannot convince another node to abandon a newer state epoch.
+
+Restoring PostgreSQL while retaining the same Edge authority/CA files is therefore safe: sequence/revision reuse is impossible inside the old epoch, and intentional rollback becomes an explicit new epoch.
+
+A server loss that restores PostgreSQL but loses Edge authority/CA files remains a separate visible recovery condition. Do not silently generate new keys and strand the fleet.
 
 ## 13. Zenoh fabric design
 
@@ -1119,7 +1135,7 @@ Never peer-share:
 
 ### 14.3 Peer object endpoint
 
-Each node exposes a small mTLS HTTPS service on the Edge interface.
+Each node exposes a small mTLS HTTPS service only on permitted Edge interfaces.
 
 V1 endpoints:
 
@@ -1128,33 +1144,43 @@ HEAD /v1/blobs/sha256/<hash>
 GET  /v1/blobs/sha256/<hash>
 ```
 
-No upload endpoint. No directory listing. No arbitrary path.
+No upload endpoint, directory listing, or arbitrary path.
 
-Responses:
+Responses use one canonical immutable validator shared with the server origin:
 
 ```http
 ETag: "sha256:<hash>"
 Accept-Ranges: bytes
-Cache-Control: public, immutable
+Cache-Control: private, immutable
 Content-Length: ...
 ```
 
-Range behavior must implement only valid single-range requests initially. Reject malformed, multi-range or out-of-bounds requests with an explicit response rather than attempting complex parsing.
+Both origin and peer endpoints emit the same content-addressed ETag for the same bytes. This allows a partial to resume across sources without trusting a source-specific validator.
+
+Range handling accepts only one bounded valid range. A resumed append requires a `206` whose `Content-Range` starts at the exact local length and whose total matches the expected object size.
 
 ### 14.4 Peer authorization
 
-Before serving any bytes:
+Before serving bytes:
 
 1. TLS client certificate chains only to the installation Edge CA.
-2. certificate purpose and installation ID are valid.
-3. exact certificate serial/fingerprint is not revoked.
-4. durable node ID is not disabled.
-5. requested object exists and is marked `peerable`.
-6. request path hash exactly matches the stored object's validated hash.
+2. certificate purpose/installation ID are valid.
+3. exact certificate instance is not revoked.
+4. durable node is not disabled.
+5. requested reference is peerable.
+6. path hash matches the verified blob.
 
-For an outbound peer fetch, the client also knows the expected node ID from the authenticated object-availability reply. It must verify that the peer HTTPS certificate's SAN/OID node ID matches that expected node ID. Hostname/IP verification may be disabled for changing private addresses only when this Tilecast identity check and installation-CA-only chain validation are both enforced.
+For an outbound peer fetch, object availability returns an authenticated node identity plus bounded endpoint. The requester verifies the peer HTTPS certificate node ID against the advertised node ID.
 
-A valid peer certificate grants **read access only to peerable immutable objects**, not to the local database or renderer state.
+Endpoints are not arbitrary scan targets. V1 accepts only:
+
+- the fixed configured peer-CDN port or a server-configured bounded allowlist;
+- private/link-local addresses that belong to the advertising peer's validated Edge interfaces/subnets;
+- no loopback, Unix, URL, hostname, redirect, proxy, or public-address target supplied by a peer.
+
+The peer HTTP client disables redirects and proxy inheritance for this path.
+
+A valid peer certificate grants read access only to peerable immutable references. It does not grant access to the local database, renderer state, or every CAS object.
 
 ### 14.5 Fetch algorithm
 
@@ -1183,18 +1209,31 @@ The receiver **always verifies the final bytes**. mTLS authenticates the peer; i
 
 CAS startup/recovery must reconcile the two possible crash windows around file promotion and SQLite metadata: a verified CAS file with no metadata row may be re-indexed after validating its hash/path, while a metadata row whose file is missing is removed/marked absent and becomes eligible for refetch. Neither state is treated as a complete object until the filesystem and metadata agree.
 
-### 14.6 Ranking peers
+### 14.6 Ranking peers and abuse limits
 
 Maintain a bounded rolling score using:
 
-- most recent successful RTT;
+- recent RTT;
 - recent effective throughput;
 - consecutive failures;
-- whether the peer is on the same preferred interface/subnet;
-- peer's current transfer load if reported;
-- recent object-availability freshness.
+- preferred interface/subnet;
+- reported transfer load;
+- object-availability freshness.
 
-Do not build a complex distributed optimizer in v1. A simple weighted score with failure cooldown is sufficient.
+Also enforce per-peer fairness. A single authenticated node cannot consume all serving capacity.
+
+Bound at least:
+
+- concurrent TLS handshakes per peer/IP;
+- concurrent blob transfers per node;
+- requests per time window;
+- outstanding object-availability queries/replies;
+- response bytes/time;
+- idle/read/write timeouts.
+
+Global limits remain in place as a second boundary.
+
+Do not build a distributed optimizer in v1. A simple weighted score plus cooldown/fair-share scheduling is sufficient.
 
 ### 14.7 No striped multi-peer downloads in v1
 
@@ -1211,20 +1250,28 @@ The protocol should not make future chunking impossible, but it is not a release
 
 ### 14.8 Partial downloads and source switching
 
-A `.part` record stores:
+A partial record stores:
 
 ```text
 hash
 expected_size
 bytes_present
-last_source
-etag
 updated_at
 ```
 
-Because the identity is the expected SHA-256, an interrupted peer transfer can resume from another peer or from the server if the source presents the same immutable object and honors Range.
+The object hash is the immutable identity and the canonical ETag is `"sha256:<hash>"` on origin and peers.
 
-If a source sends `200` after a Range request, restart the partial from zero unless the response can be proven to represent the identical full object. Preserve the conservative semantics of the current downloader.
+A transfer can resume from another authenticated peer/origin only when:
+
+- local partial length is within expected size;
+- the new source accepts the canonical validator;
+- response is `206`;
+- `Content-Range` starts exactly at local partial length;
+- total size matches expected size.
+
+If the source returns `200`, restart from zero. A mismatched `206` is rejected, never appended.
+
+Final size + SHA-256 verification remains mandatory before promotion.
 
 ### 14.9 Corruption response
 
@@ -3062,16 +3109,31 @@ HTTP handlers remain thin in `internal/httpapi`.
 
 Add migrations, not edits to shipped migrations.
 
-Suggested tables:
+Edge server schema includes at least:
+
+#### `edge_control_state`
+
+```text
+installation_id PK
+state_epoch
+feed_last_sequence
+feed_head_digest
+revocation_generation
+updated_at
+```
+
+State-epoch recovery metadata also has an external backup/recovery copy as described in §12.1.
 
 #### `edge_node_certificates`
 
 ```text
-id
-screen_id
+id PK
 player_installation_id
-serial_number
+screen_id
+serial_number UNIQUE
 public_key_fingerprint
+certificate_pem
+issued_at
 not_before
 not_after
 revoked_at
@@ -3079,19 +3141,17 @@ revocation_reason
 created_at
 ```
 
-Do not store node private keys.
-
-Certificate rows represent certificate **instances**. Revocation by `serial_number`/`public_key_fingerprint` is distinct from disabling the durable `player_installation_id`. Re-enrollment/renewal may revoke one certificate row without disabling the node. Node disablement should reuse the authoritative existing player/device lifecycle state where possible rather than inventing a conflicting second active flag.
+Certificate rows represent certificate instances. Durable node disablement is separate and should reuse the authoritative existing player/screen lifecycle where possible.
 
 #### `edge_node_status`
 
-Current projection only:
-
 ```text
 screen_id PK
+player_owner_generation
 edge_version
 renderer_kind
 renderer_version
+renderer_profile_revision
 mesh_state
 peer_count
 mesh_endpoints
@@ -3101,8 +3161,10 @@ clock_source
 clock_offset_ms
 clock_uncertainty_ms
 capability_revision
+state_epoch
 last_applied_change_sequence
-highest_seen_change_sequence
+last_applied_change_digest
+highest_verified_change_sequence
 snapshot_base_sequence
 last_edge_contact_at
 last_mesh_change_at
@@ -3110,50 +3172,25 @@ last_error_code
 updated_at
 ```
 
-Do not append every heartbeat into this table.
-
 #### `edge_changes`
 
-As described above, stores sequence and canonical signed envelope.
+Use the outbox/feed/control schema from §15, including `state_epoch`, chain digests and subject revisions.
 
 #### `edge_objects`
 
-```text
-sha256 PK
-kind
-size_bytes
-storage_key
-content_type
-peerable
-created_at
-expires_at NULL
-```
+Server immutable object metadata. Object bytes are durable before a feed record can reference them.
 
 #### `edge_context_sources`
 
-Server configuration for typed sources, scopes and priorities.
+Typed source definitions with maximum TTL/freshness and privacy classification.
 
 #### `edge_context_rules`
 
-```text
-id
-target_kind
-target_id
-name
-expression
-schema_version
-enabled
-created_by
-updated_by
-created_at
-updated_at
-```
-
-Published presentation revisions should reference immutable compiled/context-rule versions where reproducibility matters rather than silently changing behavior under an already-approved publication.
+Validated CEL source + normalized metadata + revision.
 
 #### `edge_settings`
 
-Prefer extending the existing typed settings registry when the setting fits organization/group/screen policy. Add a dedicated table only for state that genuinely is not a setting-registry value.
+Bounded Edge settings. Studio never stores peer-supplied arbitrary network targets or secrets in this table.
 
 ### 32.2 Current status vs history
 
@@ -3179,34 +3216,29 @@ Preserve the existing separation between dashboard APIs and player-authenticated
 
 ### 33.1 Player/Edge endpoints
 
-Suggested namespace:
+All normal routes use the existing player bearer credential plus the current player owner generation where the operation is owner-sensitive.
+
+Illustrative endpoints:
 
 ```text
-/api/v1/player/edge/...
-```
-
-Endpoints:
-
-```http
 POST /api/v1/player/edge/enroll
 POST /api/v1/player/edge/renew
-GET  /api/v1/player/edge/config
-GET  /api/v1/player/edge/changes?after=<seq>&limit=<n>
+GET  /api/v1/player/edge/security
+GET  /api/v1/player/edge/changes
+GET  /api/v1/player/edge/snapshot
 GET  /api/v1/player/edge/objects/<sha256>
 POST /api/v1/player/edge/status
 POST /api/v1/player/edge/context/observations
+POST /api/v1/player/ownership/handoff
+POST /api/v1/player/ownership/rollback
+POST /api/v1/player/edge/recovery/reanchor
 ```
 
-Every route uses the existing player bearer credential. Dashboard cookies are not accepted.
+Owner-sensitive requests carry `playerOwnerGeneration` or a server-issued lease bound to that generation. Stale generations receive a conflict/fenced response.
 
-Strictly bound:
+The recovery re-anchor endpoint is available only in an explicit server recovery state and returns the new state epoch plus signed recovery checkpoint. It is never callable through peer relay.
 
-- request sizes;
-- query limits;
-- number of observations/status entries;
-- strings/enums;
-- timestamps;
-- certificate/CSR sizes.
+Shadow/bootstrap enrollment, if implemented, uses a separate one-time scoped grant rather than the active player bearer credential.
 
 ### 33.2 Dashboard APIs
 
@@ -3244,13 +3276,14 @@ Prefer whichever keeps current `lastContactAt` semantics unambiguous. An Edge op
 
 ## 34. Edge status contract
 
-A bounded status model might contain:
+Status remains bounded operational state, not an unbounded event transport.
+
+Conceptual payload:
 
 ```json
 {
-  "schemaVersion": 1,
-  "edgeVersion": "1.0.0",
-  "nodeId": "...",
+  "playerOwnerGeneration": "12",
+  "edgeVersion": "1.4.0",
   "mesh": {
     "state": "connected",
     "peerCount": 6,
@@ -3265,15 +3298,15 @@ A bounded status model might contain:
     ]
   },
   "changeFeed": {
+    "stateEpoch": "7",
     "lastAppliedSequence": "81234",
-    "highestSeenSequence": "81234",
+    "lastAppliedDigest": "...",
+    "highestVerifiedSequence": "81234",
     "snapshotBaseSequence": "80000"
   },
   "cache": {
-    "usedBytes": 13812412342,
-    "limitBytes": 17179869184,
-    "peerServedBytesDelta": 12345678,
-    "originFetchedBytesDelta": 1234
+    "usedBytes": "13812412342",
+    "limitBytes": "17179869184"
   },
   "clock": {
     "source": "ptp",
@@ -3284,16 +3317,20 @@ A bounded status model might contain:
   "renderer": {
     "kind": "wpe",
     "version": "1.0.0",
+    "profileRevision": "3",
+    "instance": "c4c7...",
     "state": "healthy",
     "fallbackReason": null
   },
-  "capabilityRevision": 42
+  "capabilityRevision": "42"
 }
 ```
 
-Feed sequence fields are canonical decimal strings on the wire. Counters are deltas/rollups, not ever-growing event payloads. The server bounds and validates advertised endpoint count/address/port values before using them as seed hints.
+Potentially 64-bit counters/revisions are decimal strings.
 
----
+Do not put retry-sensitive byte deltas such as `peerServedBytesDelta` in ordinary status. Use the existing sequenced/idempotent telemetry pipeline, or cumulative monotonic counters paired with a boot epoch and server-side last-seen value.
+
+The server bounds/validates endpoint count, private address, interface and port before using endpoint data as seed hints.
 
 ## 35. Backward compatibility
 
@@ -3334,350 +3371,169 @@ These are future decisions. Linux Edge must stand on its own.
 
 ---
 
-## 36. Tilecast Studio: Spectrum 2 Edge workspace
+## 36. Tilecast Studio: Rhea Edge surfaces
 
-The Edge UI must be implemented against the Spectrum 2 migration, not the legacy `components/ui` layer currently present on `main`.
+The canonical Studio design source is `docs/studio-rhea-redesign-plan.md`.
 
-### 36.1 Dependency rule
+Do not revive Spectrum 2, the abandoned Spectrum shell, or a second Edge-specific component language.
 
-When implementation begins, use the project's established Spectrum 2 dependency/import convention. Current upstream examples use `@react-spectrum/s2` components such as `SideNav`, `TableView`, `StatusLight`, `Meter`, `ProgressBar`, `Tabs`, `InlineAlert` and `ContextualHelp`.
+### 36.1 Design-system rule
 
-Do not add:
+Edge UI uses the current Studio stack:
 
-- new Lucide icons for Edge once the Spectrum migration has an S2 icon path;
-- a bespoke Edge design token set;
-- another global Edge CSS sheet duplicating S2 primitives;
-- custom status pills where `StatusLight` or S2 semantic components fit;
-- a fake graph/topology visual just because this is called a fabric.
+- shadcn/ui with the Base UI implementation;
+- Rhea preset/theme selected by the canonical Studio plan;
+- Geist/Lucide and existing project token choices from that plan;
+- `dashboard-01` shell and the established inset/icon-collapsible Sidebar;
+- feature-specific TanStack Data Tables where the plan calls for them;
+- existing route/breadcrumb/command/activity patterns.
+
+Use generated shadcn primitives. Do not recreate shadcn components in custom CSS.
 
 ### 36.2 Information architecture
 
-Edge is an operational workspace, not twenty new top-level routes.
-
-Recommended product navigation:
-
-```text
-Operations
-  Screens
-  Edge
-  Activity
-```
-
-Edge workspace:
-
-```text
-/edge                 Overview
-/edge/nodes           Nodes
-/edge/nodes/:id       Node detail
-/edge/content         Content delivery
-/edge/context         Context
-/settings/edge        Edge settings
-```
-
-Keep configuration under Settings when it is organization policy. Keep current operational state under Edge.
-
-### 36.3 Edge overview
-
-The overview should show only measurements the backend actually provides.
-
-Example composition:
-
-```text
-Tilecast Edge
-Fabric healthy                                      ● Healthy
-7 of 7 Edge nodes mesh-present
-
-Nodes                       Content delivery
-7 mesh-present              93% of eligible bytes from peers
-0 degraded                  34.8 GB origin traffic avoided
-
-Clock                       Context
-6 synchronized              14 effective values
-1 degraded                  1 stale source
-
-Recent Edge activity
-Library      Served 486 MB to Cafeteria             4 sec ago
-Office       WPE renderer recovered                  1 min ago
-Cafeteria   PTP synchronization lost                6 min ago
-```
-
-Do not show invented “health scores,” percentages without defined denominators, or projected savings.
-
-### 36.4 Status semantics
-
-Use `StatusLight` with visible labels. Spectrum guidance explicitly requires a label; color alone is insufficient.
-
-Suggested semantic mapping:
-
-```text
-positive     Healthy / Synchronized / Available
-notice       Degraded / Stale / Falling back
-negative     Failed / Blocked / Integrity failure
-neutral      Unsupported / Not configured
-informative  Updating / Preparing / Discovering
-```
-
-The server supplies semantic state; React should not duplicate complex thresholds.
-
-### 36.5 Nodes page
-
-Use Spectrum 2 `TableView` because nodes are comparison-heavy operational data.
-
-Columns:
-
-```text
-Name
-Server status
-Mesh status
-Renderer
-Peers
-Cache
-Clock
-Edge version
-Needs attention
-```
-
-Do not cram raw capability JSON into the table.
-
-Rows link to node detail.
-
-Filters:
-
-```text
-Status
-Renderer
-Clock source
-Capability problem
-Version
-Location/group (using existing Tilecast resources)
-```
-
-Bulk actions should reuse the S2 TableView/ActionBar pattern only for safe operations that already have server-side previews and authorization, such as `Run Edge self-test` or an update deployment action.
-
-### 36.6 Node detail
-
-Use related tabs:
+The current Studio plan says the global sidebar contains only major product workspaces:
 
 ```text
 Overview
-Capabilities
-Network
+Screens
 Content
-Audio & Inputs
-System
+Presentations
+Schedules
+Plugins
+Activity
+Approvals (when available)
+Settings
 ```
 
-Spectrum 2 Tabs automatically handle constrained-width overflow, which is useful on smaller Studio windows.
+Edge is operational infrastructure, not a new permanent global product silo.
 
-#### Overview
+Place Edge surfaces as follows:
 
-Show:
+- **Overview**: fleet Edge health summary/attention when useful.
+- **Screens → Fleet**: Edge-aware columns/filters.
+- **Screen detail → Device/System**: authoritative node detail for one screen.
+- **Activity**: Edge incidents/transitions.
+- **Settings**: installation-wide Edge/network/cache/update policy.
+- **Diagnostics route reachable from screen/detail or command palette**: deeper node/cache/mesh inspection for operators.
 
-- live preview/current presentation from existing screen system;
-- server and mesh presence separately;
-- renderer and fallback reason;
-- Edge version;
-- clock source/quality;
-- peer count;
-- cache usage;
-- last healthy playback;
-- latest relevant incidents.
+If later evidence shows a dedicated fleet-wide Edge workspace is necessary, add it by updating the canonical Rhea IA document first. This RFC does not independently create `Operations → Edge`.
 
-#### Capabilities
+### 36.3 Overview integration
 
-Group by category with state + provider + safe reason.
+Use compact existing Rhea overview composition for:
 
-Example:
+- Edge-enabled screens;
+- nodes needing attention;
+- peer/origin delivery health;
+- renderer fallback count;
+- certificate/update incidents.
+
+Do not turn the entire Overview page into Edge infrastructure metrics.
+
+### 36.4 Screens fleet integration
+
+Use the feature-specific Screens Data Table.
+
+Useful optional columns/filters:
 
 ```text
-Display control
-● HDMI-CEC power             Available · cec-ctl
-● DDC brightness             Available · ddcutil
-○ DDC volume                 Unsupported by display
-
-Rendering
-● WPE DRM/KMS                Available · WPE 2.54.0
-● H.264 hardware decode      Available
-! Isolated website runtime   Electron fallback required
+Edge state
+renderer
+peer count
+cache
+clock quality
+Edge version
+certificate/update attention
 ```
 
-#### Network
+Status must use text/icon/accessibility semantics, not color alone.
 
-Show:
+### 36.5 Screen detail
 
-- server path;
-- selected Edge interface;
-- mesh endpoint;
-- peer count;
-- multicast discovery state;
-- configured/static seeds;
-- Presentation Network state in the existing secure model;
-- certificate expiry/fingerprint suffix safe for diagnostics.
+Add Edge information to the existing screen-detail information architecture rather than duplicating a second full-screen node page.
 
-Never show Wi-Fi PSKs or full device credentials.
+Sections may include:
 
-#### Content
+**Overview**
 
-Show:
+- Edge/renderer status;
+- active state epoch/feed lag;
+- last server/peer contact;
+- fallback/safe-mode reason.
 
-- cache used/limit/free-space reserve;
-- pinned bytes;
-- peer vs origin bytes for the selected recent time window;
-- active transfers;
-- recent integrity/fallback events.
+**Capabilities**
 
-Use `ProgressBar` for an active system operation such as a file transfer. Use `Meter` for a quantity such as cache utilization. Spectrum distinguishes system progress from quantities.
+- per-renderer capability profiles;
+- host capabilities;
+- unsupported/blocked/degraded reasons.
 
-#### Audio & Inputs
+**Network**
 
-Show real PipeWire outputs/inputs and registered typed sensor adapters.
+- mesh state;
+- validated advertised endpoints;
+- peer list/quality;
+- Presentation Network status kept clearly separate.
 
-Controls are capability gated. A missing PipeWire session should render an explanatory `InlineAlert`, not a broken empty selector.
+**Content**
 
-#### System
+- active/prepared/draining presentation generations;
+- cache use/pins;
+- peer/origin delivery observations.
 
-Show:
+**Audio & Inputs**
 
-- uptime;
-- systemd watchdog state;
-- renderer service state;
-- CPU architecture;
-- kernel;
-- storage free;
-- Edge process memory;
-- WPE runtime/Mesa/GStreamer versions where reported;
-- last cold boot verification if retained from existing reliability behavior.
+- PipeWire/sensor capability state.
 
-### 36.7 Content delivery page
+**System**
 
-This page answers one question: **how effectively is Edge distributing content?**
+- Edge/renderer/runtime versions;
+- owner generation;
+- certificate expiry/serial fingerprint summary;
+- update/rollback state;
+- clock source/uncertainty.
 
-Metrics with precisely defined denominators:
+Do not show private keys, bearer credentials, Wi-Fi PSKs or integration secrets.
 
-```text
-Peer bytes served
-Peer bytes received
-Origin bytes received
-Peer-hit ratio by eligible bytes
-Peer transfer success rate
-Median peer throughput
-Cache used / limit
-Integrity failures
-```
+### 36.6 Settings
 
-A peer-hit ratio must exclude bytes that were never peer-eligible, or its meaning becomes misleading.
-
-Active transfer rows:
-
-```text
-Object / safe content label
-Source node or Origin
-Destination
-Bytes / total
-Rate
-State
-Started
-```
-
-Avoid showing raw SHA-256 by default; make it available in technical details/copy action.
-
-### 36.8 Context page
-
-Two views:
-
-#### Current context
-
-`TableView` columns:
-
-```text
-Key
-Value
-Scope
-Effective source
-Freshness
-Observed
-Expires
-```
-
-Example:
-
-```text
-school.phase              lunch       Organization   Bell schedule     Live
-school.period             4           Organization   Bell schedule     Live
-events.football_game      true        Organization   Calendar          Live
-weather.condition         rain        Organization   Weather           4m ago
-cafeteria.noise           71.4        Location       Cafeteria sensor  Live
-```
-
-#### Rules
-
-Show target, friendly summary, status and advanced CEL source on demand.
-
-The rule editor starts with the visual condition builder. `ContextualHelp` explains freshness, precedence and advanced expressions next to the relevant controls rather than hiding all guidance in docs.
-
-### 36.9 Edge settings
-
-Recommended sections:
-
-```text
-Fabric
-Content delivery
-Discovery & interfaces
-Context
-Clock
-Hardware & sensors
-Renderer
-Updates
-```
-
-Settings should expose safe policy, not transport internals that administrators should not need.
+Place bounded installation-wide Edge configuration inside the canonical Settings navigation.
 
 Examples:
 
-Fabric:
-- Enable Edge fabric
-- Static seed endpoints (advanced)
-- Mesh listen port (advanced)
+- enable/disable mesh;
+- enable/disable peer delivery;
+- cache size/reserve;
+- approved interfaces;
+- manual static seeds;
+- renderer preference/fallback;
+- sensor contribution policy;
+- diagnostics verbosity.
 
-Content delivery:
-- Enable peer delivery
-- Cache limit
-- Reserved free space
-- Max outbound peer transfers
-- Max inbound download concurrency
+Destructive actions use the canonical Alert Dialog pattern. Long-running mutations show Spinner/Progress according to the Rhea interaction plan.
 
-Clock:
-- Prefer host PTP when synchronized
-- Managed PTP (future/experimental, off)
+### 36.7 Activity and incidents
 
-Renderer:
-- Auto / Prefer WPE / Prefer Electron
-- Allow compatibility fallback
+Use existing Activity semantics/categories.
 
-Sensors:
-- globally allow local sensor providers;
-- explicit mappings/enabled devices.
+Useful events include certificate renewal/revocation, feed fork/re-anchor, loss of all peers, repeated integrity failure, renderer fallback, update rollback and time-untrusted transitions.
 
-### 36.10 Empty/degraded states
+Do not record packet noise.
+
+### 36.8 Empty/degraded states
+
+Use the canonical shadcn Empty/Alert/Badge/Item patterns.
 
 Examples:
 
-- No Edge nodes yet: explain that Linux Edge appears after upgraded pairing/installation, with a path to install documentation.
-- Multicast unavailable but seeds working: `notice`, not `negative`.
-- Peer CDN disabled: neutral “Origin delivery only.”
-- PTP absent: neutral; NTP/server clock is expected fallback.
-- PipeWire absent: capability-specific neutral/notice, not whole-node failure.
-- WPE unsupported presentation: show Electron fallback as a normal compatibility state unless fallback itself fails.
+- no Edge nodes;
+- multicast unavailable but seed path healthy;
+- peer delivery disabled;
+- node certificate expiring;
+- time untrusted;
+- WPE unavailable and Electron compatibility selected.
 
-### 36.11 Activity/Incidents integration
-
-Do not create an “Edge logs” page that duplicates Activity.
-
-Add Edge categories/links to the existing Activity system. Node detail can embed filtered recent entries.
-
-Incident derivation remains server-side using bounded measurements and hysteresis.
-
----
+The UI describes backend-provided state. It does not infer distributed-system correctness in React.
 
 ## 37. Local administration: `tilecastctl`
 
@@ -3754,10 +3610,12 @@ peer_bytes_received
 origin_bytes_received
 peer_transfer_failures
 peer_integrity_failures
+peer_rate_limit_rejections
 cache_bytes
 cache_pinned_bytes
 cache_evictions
 change_sequence_lag
+feed_fork_incidents
 context_live_values
 context_stale_values
 clock_offset_ms
@@ -3767,7 +3625,9 @@ renderer_fallbacks
 edge_uptime_seconds
 ```
 
-Send current gauges/counter deltas through the existing telemetry architecture. The server's Prometheus-compatible fleet health can expose server-side aggregate metrics.
+Reuse Tilecast's existing sequenced/idempotent telemetry architecture for rollups and accumulated counters. Do not send retry-sensitive naked deltas in the Edge heartbeat/status route.
+
+High-rate samples stay local/coalesced. The server's Prometheus-compatible fleet health exposes server-side aggregate metrics.
 
 ### 38.3 Activity
 
