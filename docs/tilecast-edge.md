@@ -2782,7 +2782,7 @@ raw samples discarded
 
 No PCM buffer, recording or speech content is serialized to the server or mesh.
 
-If PipeWire capture is not available, retain an explicitly reported unsupported/degraded state. The browser-based path may remain only during Electron transition.
+If PipeWire capture is not available, retain an explicitly reported unsupported/degraded state. Do not keep the legacy browser microphone path as an Edge fallback.
 
 ---
 
@@ -3384,7 +3384,6 @@ Certificate rows represent instances. Durable node disablement reuses existing a
 ```text
 screen_id PK
 state_incarnation_id
-player_owner_generation
 trust_realm_id
 security_lineage_id
 security_generation
@@ -3439,7 +3438,7 @@ Meaningful Edge events belong in existing Activity/incident infrastructure:
 edge.peer_integrity_failure
 edge.mesh_unavailable
 edge.certificate_renewal_failed
-edge.renderer_fallback
+edge.renderer_recovery
 edge.ptp_lost
 edge.context_source_stale
 edge.update_rollback
@@ -3570,7 +3569,7 @@ Conceptual payload:
     "profileRevision": "3",
     "instance": "c4c7...",
     "state": "healthy",
-    "fallbackReason": null
+    "recoveryReason": null
   },
   "capabilityRevision": "42"
 }
@@ -3671,7 +3670,7 @@ Use compact existing Rhea overview composition for:
 - Edge-enabled screens;
 - nodes needing attention;
 - peer/origin delivery health;
-- renderer fallback count;
+- renderer recovery/safe-mode count;
 - certificate/update incidents.
 
 Do not turn the entire Overview page into Edge infrastructure metrics.
@@ -3705,11 +3704,11 @@ Sections may include:
 - Edge/renderer status;
 - active state incarnation and per-stream lag/fork state;
 - last server/peer contact;
-- fallback/safe-mode reason.
+- renderer recovery/safe-mode reason.
 
 **Capabilities**
 
-- per-renderer capability profiles;
+- WPE renderer capability profile;
 - host capabilities;
 - unsupported/blocked/degraded reasons.
 
@@ -3733,7 +3732,6 @@ Sections may include:
 **System**
 
 - Edge/renderer/runtime versions;
-- owner generation;
 - certificate expiry/serial fingerprint summary;
 - update/rollback state;
 - clock source/uncertainty.
@@ -3751,7 +3749,7 @@ Examples:
 - cache size/reserve;
 - approved interfaces;
 - manual static seeds;
-- renderer preference/fallback;
+- WPE display backend policy (`auto`, `drm`, `wayland`);
 - sensor contribution policy;
 - diagnostics verbosity.
 
@@ -3761,7 +3759,7 @@ Destructive actions use the canonical Alert Dialog pattern. Long-running mutatio
 
 Use existing Activity semantics/categories.
 
-Useful events include certificate renewal/revocation, feed fork/re-anchor, loss of all peers, repeated integrity failure, renderer fallback, update rollback and time-untrusted transitions.
+Useful events include certificate renewal/revocation, feed fork/re-anchor, loss of all peers, repeated integrity failure, WPE renderer recovery/safe mode, update rollback and time-untrusted transitions.
 
 Do not record packet noise.
 
@@ -3776,7 +3774,7 @@ Examples:
 - peer delivery disabled;
 - node certificate expiring;
 - time untrusted;
-- WPE unavailable and Electron compatibility selected.
+- WPE unavailable, unsupported on this host, or blocked by a missing runtime/backend capability.
 
 The UI describes backend-provided state. It does not infer distributed-system correctness in React.
 
@@ -3866,7 +3864,7 @@ context_stale_values
 clock_offset_ms
 clock_uncertainty_ms
 renderer_restarts
-renderer_fallbacks
+renderer_safe_mode_entries
 edge_uptime_seconds
 ```
 
@@ -4168,7 +4166,7 @@ State-machine fixtures cover:
 - new state-incarnation prepare/activate crash points;
 - security lineage rollback refusal;
 - destructive local DB/checkpoint recovery;
-- `(stateIncarnationId, playerOwnerGeneration)` fencing;
+- legacy/Edge service mutual exclusion and importer crash-point recovery;
 - old pending command/update non-replay after restore;
 - update release-set/schema rollback.
 
@@ -4188,7 +4186,7 @@ State-machine fixtures cover:
 
 ### E1 — Rust workspace and daemon skeleton
 
-**Goal:** a packaged, supervised, unprivileged daemon with no player ownership yet.
+**Goal:** a packaged, supervised, unprivileged daemon skeleton before server/legacy-state ownership is enabled.
 
 ### E1.1 Workspace
 
@@ -4228,7 +4226,7 @@ Ship installer assets for:
 tilecast-edge.service
 ```
 
-Shadow mode only.
+Daemon skeleton only; it does not yet use the legacy bearer credential or perform owner-sensitive server work.
 
 Implement:
 
@@ -4614,7 +4612,7 @@ Break this milestone into separate PRs; providers are independent.
 ### E9.2 Presentation Network client migration
 
 - current helper protocol from Edge;
-- remove client ownership from Electron;
+- port the current legacy Presentation Network client behavior into the Edge provider;
 - exact existing security semantics.
 
 ### E9.3 Display Control
@@ -5132,7 +5130,7 @@ context precedence/freshness
 CEL adapter
 clock authority selection
 capability transitions
-renderer selector
+presentation compatibility
 update state machine
 certificate renewal schedule
 ```
@@ -5267,11 +5265,11 @@ Headless/WPE tests cover:
 - navigation/permissions;
 - process termination/recovery.
 
-Wayland jobs test managed compositor/session and Electron compatibility.
+Wayland jobs test the managed compositor/session, WPE media acceleration, recovery and preview behavior.
 
 Large-media tests cover Range seek, pause/resume, loop, transition drain and cancellation.
 
-DRM jobs remain separate and do not claim ordinary Electron fallback.
+DRM jobs remain separate and prove compositorless WPE display ownership, recovery and hardware-decode behavior.
 
 ### 44.7 Security tests
 
