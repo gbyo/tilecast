@@ -4357,68 +4357,94 @@ The milestone numbers below are Edge milestones and do not replace Tilecast's ex
 
 ### E0 — Canonical RFC and protocol scaffolding
 
-**Goal:** make the security, recovery and interoperability contracts executable before runtime work.
+**Goal:** freeze trust/recovery/stream/wire semantics before runtime implementation.
 
 ### E0.1 Canonical documents
 
 - this RFC;
-- `docs/studio-rhea-redesign-plan.md` as the only Studio design-system/IA source;
+- `docs/studio-rhea-redesign-plan.md`;
 - architecture/terminology links.
 
 ### E0.2 Protocol package
 
-Create `packages/edge-protocol/` with schemas/fixtures for:
+Create `packages/edge-protocol/` with closed schemas/fixtures for:
 
 ```text
 ipc-v1.schema.json
 renderer-profile-v1.schema.json
 presentation-requirements-v1.schema.json
 node-message-v1.schema.json
-context-v1.schema.json
-change-envelope-v1.schema.json
-snapshot-envelope-v1.schema.json
+context-observation-v1.schema.json
+stream-record-v1.schema.json
+current-state-v1.schema.json
+snapshot-v1.schema.json
 security-state-v1.schema.json
-state-epoch-transition-v1.schema.json
+recovery-reanchor-v1.schema.json
+authority-transition-v1.schema.json
+object-grant-v1.schema.json
+release-set-v1.schema.json
 presentation-bundle-v1.schema.json
 x509-profile/
 cel/
 ```
 
+The stream topology is already fixed by §15:
+
+```text
+security/<installation>
+policy/<installation>
+screen/<screen-id>
+```
+
+Do not freeze stream-record schemas while leaving stream partitioning/skipping as an E7 implementation choice.
+
 Fixtures define:
 
-- JCS canonicalization and signature exclusion;
-- decimal-string 64-bit counters;
-- duplicate-key rejection;
-- UTF-8/unknown-field policy;
-- Ed25519 key/signature encoding;
-- state epoch + feed digest chaining;
-- subject revision/tombstone semantics;
-- per-renderer versioned capability profiles;
-- IPC min/max protocol negotiation;
-- renderer instance generations;
-- exact X.509 DER/profile requirements.
+- exact cryptographic domain prefixes;
+- exact stream-digest preimage and genesis behavior;
+- JCS canonicalization/signature exclusion;
+- Base64url/no-padding digest/signature encoding;
+- decimal-string large counters;
+- duplicate-key/malformed-UTF-8 rejection;
+- closed/unknown-field behavior;
+- trust realm + state incarnation + security lineage coordinates;
+- same-revision/different-state-digest fork behavior;
+- subject tombstones;
+- unknown schema/message safe degradation;
+- per-renderer versioned capabilities;
+- IPC min/max negotiation;
+- renderer instance/process binding;
+- exact CA/leaf X.509 profiles and CSR proof-of-possession;
+- Context scalar/time/duration encoding and CEL cost limits.
 
-### E0.3 Recovery and ownership model
+### E0.3 Recovery/backup/ownership model
 
-Specify fixtures/state machines for:
+State-machine fixtures cover:
 
-- server restore requiring a new state epoch;
-- direct re-anchor;
-- destructive local DB recovery;
-- player owner-generation fencing;
-- command execution classes;
-- update schema compatibility.
+- encrypted ERB creation/restore;
+- restore with matching/newer ERB;
+- restore without ERB → trust reset/re-enrollment;
+- cross-installation restore trust quarantine;
+- new state-incarnation prepare/activate crash points;
+- security lineage rollback refusal;
+- destructive local DB/checkpoint recovery;
+- `(stateIncarnationId, playerOwnerGeneration)` fencing;
+- old pending command/update non-replay after restore;
+- update release-set/schema rollback.
 
 ### E0 exit criteria
 
 - Go/Rust/TypeScript/C fixtures agree where applicable;
+- domain-crossing signature reuse fails;
+- stream digest construction has one unambiguous preimage;
 - signed counters above 2^53 round-trip exactly;
-- same-sequence/different-digest is detected as a fork;
-- a stale resource revision never rolls back current state;
-- a new state epoch cannot be accepted from peer relay alone;
-- X.509 wrong EKU/purpose/installation/node fixtures fail;
-- renderer/admin authority is OS/socket-derived;
-- no implementation PR must invent a trust/recovery boundary.
+- same stream coordinate/different digest is a fork;
+- same subject revision/different state digest is a fork;
+- resource revisions are compared only inside one state incarnation;
+- a peer cannot authorize trust-realm or state-incarnation change;
+- unknown security semantics fail closed/degrade mesh safely;
+- X.509/CSR negative fixtures fail;
+- no implementation PR must invent stream/recovery semantics.
 
 ### E1 — Rust workspace and daemon skeleton
 
@@ -4540,11 +4566,21 @@ Compare Edge-observed events to existing in-process callbacks in tests.
 
 Implement current URL/identity/pairing/REST/WebSocket/manifest/config behavior without changing semantics.
 
-### E3.2 Owner-generation fencing
+### E3.2 Owner-tuple fencing
 
-Implement `playerOwnerGeneration` and stale-owner rejection on owner-sensitive endpoints before moving the credential.
+Implement authoritative server `edge_player_owners` state before moving the credential.
 
-Tests kill/restart Electron and `tilecastd` at every handoff step and prove that only the newest server generation can poll/ack commands or run updates.
+Owner identity is:
+
+```text
+(stateIncarnationId, playerOwnerGeneration)
+```
+
+Tests kill/restart Electron/`tilecastd` at every handoff step and prove:
+
+- only current tuple can poll/ack commands/run updates;
+- old-incarnation tuple is rejected regardless of numeric generation;
+- recovery requiring credential repair cannot be authorized by a resurrected old bearer automatically.
 
 ### E3.3 Credential migration
 
@@ -4616,21 +4652,33 @@ Presentation preparation references CAS object handles, never arbitrary file pat
 
 **Goal:** establish authenticated peer sessions without relying on LAN trust, public WebPKI, unsafe clocks or client-selected identity.
 
-### E5.1 Server authority
+### E5.1 Server trust/recovery authority
 
-- Edge CA + authority key management;
-- exact X.509 profile;
-- certificate-instance revocation + durable node disablement;
-- revocation-generation state;
+Implement:
+
+- Edge trust realm;
+- exact Edge CA + authority-key profiles;
+- encrypted Edge Recovery Bundle;
+- security lineage/checkpoint;
 - authority transition chain;
-- state-epoch recovery metadata.
+- state-incarnation prepare/activate recovery metadata;
+- backup/restore and cross-installation trust-reset integration.
+
+The server must be unable to reopen mesh/certificate issuance with security history older than its recovered externally trusted checkpoint.
 
 ### E5.2 Node enrollment
 
-- local Ed25519 key generation;
+Implement:
+
+- local Ed25519 generation;
+- CSR proof-of-possession;
+- server-derived certificate identity fields;
+- enrollment/renewal rate limits;
+- bounded overlapping active certs;
 - versioned atomic identity generations;
 - renewal/rebinding;
-- lifecycle integration with screen archive/disable, credential repair and hardware replacement.
+- lifecycle integration with screen/device repair/replacement;
+- trust-realm reset/re-enrollment path.
 
 ### E5.3 Security clock minimum
 
@@ -4649,11 +4697,15 @@ E10 later adds richer provider selection/PTP. It is not the first implementation
 
 - peer mode;
 - TLS-only transport;
-- installation-CA-only outbound verifier;
+- installation/trust-realm CA-only verifier;
 - mTLS credentials;
+- TLS resumption disabled for v1;
+- 0-RTT/early application data disabled;
 - logical-node binding;
-- identity-safe liveliness design;
-- coarse/static ACL defense-in-depth only where current Zenoh supports it.
+- identity-safe liveliness;
+- fixed security/policy/screen namespace;
+- Presentation Network interface withdrawal closes existing forbidden-interface sessions;
+- coarse/static ACL defense-in-depth only where supported.
 
 ### E5.5 Admin visibility
 
@@ -4715,59 +4767,68 @@ Use sequenced/idempotent telemetry, not retry-sensitive heartbeat deltas.
 - releasing one pin owner cannot evict an object still pinned elsewhere;
 - disabling peer CDN immediately returns to origin.
 
-### E7 — Signed state distribution, feed and immutable Edge Objects
+### E7 — Signed streams, materialized Edge projection and immutable objects
 
-**Goal:** preserve completeness, freshness, disaster recovery and urgent security state independently.
+**Goal:** implement the fixed security/policy/per-screen stream model with recoverable snapshots and fork detection.
 
-### E7.1 Outbox/projector
+### E7.1 Outbox/object compilation
 
-Domain transaction captures exact resource revision. Object-bearing events pin the source revision, build/durably store the object, then become projector-ready.
+Domain transactions capture exact subject revision/tombstone and pin any immutable source publication.
 
-Serialized projection writes state epoch, sequence, previous sequence/digest, subject revision and feed digest atomically.
+Object compiler builds the exact captured revision. Failed rows have bounded retry/error/supersession state rather than permanent silent pins.
 
-### E7.2 Independently versioned state
+### E7.2 Stream projector
 
-Implement signed current-state documents for security/revocation and current screen state. Newer security state may apply ahead of an unrelated feed gap while feed recovery continues.
+For each fixed `streamId`:
 
-### E7.3 Snapshot checkpoint
+- update stream chain and materialized projection in one transaction;
+- use exact §15 digest/signature/domain algorithm;
+- store same-subject `stateDigest`;
+- reject equivocation/fork.
 
-Screen-scoped recovery snapshot includes state epoch, base sequence/digest and per-resource watermarks from one consistent DB view.
+### E7.3 Current state/security
 
-Destructive local DB recovery requires trusted checkpoint or direct server re-anchor.
+Implement independently retrievable signed current-state documents.
 
-### E7.4 State-epoch recovery
+Security stream includes `securityLineageId + securityGeneration` and may advance without waiting for policy/screen stream gaps.
 
-Integration fixture:
+### E7.4 Snapshots
+
+Generate per-stream snapshots from `edge_projection_state`, not arbitrary authoritative tables.
+
+This guarantees the snapshot contains only mutations whose Edge object/stream representation is complete.
+
+### E7.5 Recovery
+
+Fixture:
 
 ```text
-nodes accept epoch 7 / sequence 1000
-server DB restored to data from sequence 900
-same authority key still exists
-server refuses to publish in epoch 7
-operator performs recovery re-anchor
-server publishes epoch 8 checkpoint
-directly connected node accepts epoch 8
-peer alone cannot force another node from epoch 7 to epoch 8
+nodes trust realm R, incarnation A
+screen stream at seq 1000
+server restores DB from older state
+matching/newer ERB proves security lineage S/generation G
+server prepares incarnation B + all initial projections/checkpoints
+server durably marks B active
+direct server re-anchor moves node A -> B
+resource revisions restart inside B
+peer alone cannot move A -> B
 ```
 
-### E7.5 Scaling
-
-Exercise organization-wide mutations on a representative multi-screen fleet. The final strategy must avoid requiring every node to transfer every other screen's full payload indefinitely.
+Also test restore without usable ERB: Edge enters security-recovery-required/trust-reset path rather than publishing older revocations.
 
 ### E7 exit criteria
 
-- altered/unsigned envelope fails;
-- gap does not silently skip;
-- same `(stateEpoch, sequence)` with different digest is a fork incident;
-- stale resource revision is a no-op, never rollback;
-- tombstone converges deletion;
-- expired ephemeral event advances feed but does not activate;
-- revocation applies despite unrelated feed gap;
-- feed row never references non-durable object;
-- retained recovery state retains required objects;
-- snapshot/feed boundary is transactionally consistent;
-- server restore uses a new state epoch instead of reusing old sequence/revision history;
-- representative fleet update meets bounded fan-out target.
+- domain-separated signatures cannot be replayed across document kinds;
+- exact stream digest fixtures agree cross-language;
+- gaps/forks are detected per stream;
+- same revision/different state digest is a fork;
+- stale subject is a no-op;
+- tombstone converges removal;
+- security advances independently of screen/policy gaps;
+- snapshot never contains an unprojected async mutation;
+- current-state bootstrap after local trust loss requires direct server;
+- obsolete failed object compile can be superseded without leaking a permanent pin;
+- security, policy and one screen stream remain bounded in fleet-scale benchmark.
 
 ### E8 — Context Engine and CEL
 
@@ -5269,11 +5330,11 @@ After PR 20, the disk model should already be final enough for CDN work.
 
 ### Identity/mesh PRs
 
-### PR 21 — `feat(server-edge): add Edge CA and authority key management`
+### PR 21 — `feat(server-edge): add trust realm, Edge CA/authority keys and encrypted recovery bundle`
 
-Security review required.
+Security review required. Integrate backup/restore and trust-reset behavior before issuing production Edge certificates.
 
-### PR 22 — `feat(server-edge): add node certificate enrollment/renewal`
+### PR 22 — `feat(server-edge): add PoP node certificate enrollment/renewal`
 
 ### PR 23 — `feat(edge-identity): enroll and rotate node certificate`
 
@@ -5289,7 +5350,7 @@ No app data beyond identity-safe presence. Installation-CA-only outbound trust, 
 
 ### PR 25 — `feat(edge-mesh): add liveliness and node summaries`
 
-### PR 26 — `feat(edge-mesh): add seed fallback and interface policy`
+### PR 26 — `feat(edge-mesh): add seed fallback and interface/session withdrawal policy`
 
 ### PR 27 — `feat(server-edge): add revocation propagation`
 
@@ -5305,27 +5366,29 @@ No app data beyond identity-safe presence. Installation-CA-only outbound trust, 
 
 ### Change feed PRs
 
-### PR 32 — `feat(server-edge): add state-epoch signed Edge outbox/feed`
+### PR 32 — `feat(server-edge): add fixed signed Edge streams and projection`
 
+- security/policy/per-screen stream tables;
 - captured subject revisions/tombstones;
 - object-ready/source-retention gating;
-- state epoch;
-- previous/feed digest chain;
+- materialized Edge projection;
+- exact previous/stream digest chain;
+- domain-separated signing;
+- same-revision state digest;
 - decimal-string signed counters;
-- independently versioned security state;
-- authority transition chain.
+- independently versioned security state.
 
 ### PR 33 — `feat(server-edge): compile immutable presentation bundles`
 
 Compile the exact outbox-captured immutable revision before its feed row can be signed.
 
-### PR 34 — `feat(edge-sync): apply signed change feed and peer relay`
+### PR 34 — `feat(edge-sync): apply signed streams/current-state and peer relay`
 
-Track feed continuity separately from per-resource revision watermarks.
+Track per-stream continuity separately from per-resource revision watermarks and trust coordinates.
 
-### PR 35 — `feat(edge-sync): add gap/fork recovery, snapshots and re-anchor`
+### PR 35 — `feat(edge-sync): add gap/fork recovery, projection snapshots and re-anchor`
 
-Add scoped signed snapshot checkpoints, digest verification, explicit node progress, feed/object retention coupling, destructive-local-state recovery rules and direct server state-epoch re-anchor.
+Add per-stream projection snapshots, trust/security checkpoints, destructive-local-state bootstrap rules and direct server state-incarnation re-anchor.
 
 ### PR 36 — `perf(edge-sync): add soft content/change seeder role`
 
@@ -5375,7 +5438,7 @@ Build on the minimum trusted-time/certificate policy already required by PR 23/2
 
 ### PR 54 — `feat(edge-update): fetch releases through CAS/peer CDN`
 
-### PR 55 — `feat(edge-update): add schema-compatible activation and external rollback watchdog`
+### PR 55 — `feat(edge-update): add atomic release-set activation and stable rollback watchdog`
 
 ### WPE PRs
 
