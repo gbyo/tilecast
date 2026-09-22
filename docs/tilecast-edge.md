@@ -1160,6 +1160,36 @@ A CA-valid node must not be able to declare another node's liveliness by choosin
 
 Liveliness loss is not authority loss. Playback, signed state, cache validity and command state do not depend on a liveliness token remaining present.
 
+### 13.7.1 Generic node-signed message envelope
+
+When Zenoh transport identity is not sufficient for a message's authorization, use a domain-separated node envelope:
+
+```text
+schema
+trustRealmId
+installationId
+nodeId
+certificateFingerprint
+bootId
+messageSequence
+kind
+key
+payloadDigest
+issuedAt
+expiresAt/null
+signature
+```
+
+`bootId` is a random 128-bit identifier generated on daemon boot. `messageSequence` is a decimal-string counter increasing within `(nodeId, bootId)`.
+
+The signed `payloadDigest` is SHA-256 over the canonical payload bytes for that message kind; `key` binds the logical Zenoh/application key so a valid payload cannot be replayed under another namespace.
+
+Sign with `TilecastEdge/node-message/v1`.
+
+Receivers persist/recently retain replay watermarks for accepted boot IDs according to the message type's maximum lifetime. Message types define bounded max age/expiry; an old signed node summary cannot remain fresh indefinitely.
+
+Context observations keep their more specific source-epoch/source-sequence envelope and signing domain.
+
 ### 13.8 Queryables
 
 Use Zenoh queryables for request/reply operations where multiple peers may respond, especially:
@@ -1849,6 +1879,8 @@ Its signature uses `TilecastEdge/current-state/v1`.
 
 Same coordinates/revision with a different `stateDigest` is a fork incident.
 
+Every object referenced by the active materialized projection/current-state document remains pinned on the server and eligible origin until that projection is superseded and all retained stream/snapshot recovery windows no longer need it. Snapshot objects pin every referenced immutable object required to reconstruct their state for the snapshot retention window.
+
 A newly enrolled node or node that lost local anti-rollback state obtains its initial security/screen watermarks directly from the authenticated Tilecast Server. Peer-only current-state documents are not accepted as the first trust anchor.
 
 ### 15.9 Security stream
@@ -1958,7 +1990,7 @@ Only verified signed state/direct authenticated server recovery does.
 
 State-incarnation recovery transition/re-anchor is **not** a peer-actionable ordinary stream event.
 
-Do not include `edge.state_epoch.changed` or an equivalent in the normal relayable change-type list.
+Do not include a recovery-incarnation transition as an ordinary peer-actionable relayable stream record.
 
 Commands and update authorization also remain direct server-authorized state, not peer-created authority.
 
@@ -3031,7 +3063,7 @@ tilecast-runtime://app/...
 tilecast-media://sha256/<hash>
 ```
 
-Register both with WebKit's security manager as **local** so non-local web pages cannot link to/access them. Register the trusted runtime as secure and, where the pinned WPE/WebKit API semantics support it correctly, display-isolated. Validate the exact flags in the WPE integration tests rather than relying on browser defaults.
+Register both with WebKit's security manager as **local** using the applicable `webkit_security_manager_register_uri_scheme_as_local` / `WebKitSecurityManager.register_uri_scheme_as_local` API so non-local web pages cannot link to/access them. Register the trusted runtime as secure and, where the pinned WPE/WebKit API semantics support it correctly, display-isolated. Validate the exact flags in WPE integration tests rather than relying on browser defaults.
 
 Do not register either scheme as CORS-enabled for remote website origins.
 
@@ -3778,7 +3810,7 @@ Do not require Zenoh in Android v1.
 
 Later options:
 
-- Android receives server-signed change feed but not peer serving;
+- Android may continue to receive direct server state/manifest updates without participating in Edge peer streams or peer serving;
 - Android participates in HTTPS peer CDN discovery through server hints;
 - Android runs a compatible Zenoh library if operational/size constraints justify it.
 
@@ -5115,7 +5147,7 @@ Use canonical shadcn/Rhea semantics: text/icon status, keyboard access, no hover
 
 **Goal:** prove Edge remains useful when infrastructure fails.
 
-Implement/enable soft roles only after basic mesh/CDN/change feed is stable.
+Implement/enable soft roles only after basic mesh/CDN/signed-stream behavior is stable.
 
 Scenarios:
 
