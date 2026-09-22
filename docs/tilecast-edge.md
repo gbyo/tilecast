@@ -1255,30 +1255,65 @@ etag
 
 Every CAS path derives only from validated lowercase SHA-256 hex. Blob lookup never accepts an arbitrary filesystem path.
 
-### 14.2 What is peerable
+### 14.2 Peerability and confidentiality classes
 
-Peerable v1 classes:
+Being hash-addressed does not imply every enrolled node may read the bytes.
 
-- compatible media variants already eligible for the authenticated player;
-- immutable published Edge presentation objects;
-- renderer/runtime static bundles if they become hash-addressed;
-- signed player/Edge release artifacts during an authorized deployment/prefetch window;
-- public fonts/assets referenced by a presentation.
+Each logical object reference has one sharing class:
+
+```text
+installation_peerable
+target_granted
+origin_only
+never_on_player
+```
+
+**installation_peerable**
+
+Any active authenticated Edge node in the same trust realm may fetch the bytes. Use only for content whose confidentiality boundary is the installation, such as explicitly approved common signage media/static runtime assets.
+
+**target_granted**
+
+Peer transfer is allowed only to a caller that presents a valid server-signed object grant naming that hash and caller audience. Use for screen-targeted presentation bundles, targeted update artifacts, and media/datasets whose policy is not installation-wide.
+
+Conceptual grant core:
+
+```text
+trustRealmId
+stateIncarnationId
+hash
+size
+audienceScreenId or audienceNodeId
+referenceKind/referenceId
+grantGeneration
+notAfter/null
+```
+
+Sign with domain `TilecastEdge/object-grant/v1`.
+
+**origin_only**
+
+The authenticated Tilecast Server may serve it, but peers never do.
+
+**never_on_player**
+
+Secrets/private records are not projected to player storage at all.
 
 Never peer-share:
 
-- the device bearer credential;
+- device bearer credentials;
 - Edge private keys;
-- Presentation Network PSK/enterprise passwords or CA provisioning response;
+- Presentation Network credentials;
 - dashboard sessions;
 - website cookie/storage partitions;
-- private form attachments that are not already player-manifest eligible;
+- private form attachments unless explicitly projected with an approved sharing class;
 - screenshots/live-preview frames;
 - raw microphone/audio samples;
 - arbitrary logs;
-- unapproved content;
-- secrets from Data Source configuration;
+- unapproved/sensitive Data Source configuration;
 - server private signing/CA keys.
+
+A screen-specific presentation bundle being non-applicable to another screen is **not** by itself a confidentiality control; use `target_granted` when other nodes must not read it.
 
 ### 14.3 Peer object endpoint
 
@@ -1289,11 +1324,12 @@ V1 endpoints:
 ```http
 HEAD /v1/blobs/sha256/<hash>
 GET  /v1/blobs/sha256/<hash>
+Tilecast-Object-Grant: <optional signed grant>
 ```
 
-No upload endpoint, directory listing, or arbitrary path.
+No upload endpoint, directory listing, arbitrary path, redirect handling, or generic URL fetcher.
 
-Responses use one canonical immutable validator shared with the server origin:
+Responses use one canonical immutable validator shared with server origin:
 
 ```http
 ETag: "sha256:<hash>"
@@ -1302,32 +1338,36 @@ Cache-Control: private, immutable
 Content-Length: ...
 ```
 
-Both origin and peer endpoints emit the same content-addressed ETag for the same bytes. This allows a partial to resume across sources without trusting a source-specific validator.
+Origin and peers emit the same content-addressed ETag for the same bytes.
 
-Range handling accepts only one bounded valid range. A resumed append requires a `206` whose `Content-Range` starts at the exact local length and whose total matches the expected object size.
+Range handling accepts only one bounded range. Resume requires a `206` whose `Content-Range` starts at the exact local length and whose total equals expected size.
 
 ### 14.4 Peer authorization
 
 Before serving bytes:
 
-1. TLS client certificate chains only to the installation Edge CA.
-2. certificate purpose/installation ID are valid.
-3. exact certificate instance is not revoked.
-4. durable node is not disabled.
-5. requested reference is peerable.
-6. path hash matches the verified blob.
+1. TLS client certificate chains to the installation Edge CA and matches trust realm.
+2. certificate purpose/installation/node identity is valid.
+3. exact certificate instance is not revoked and durable node is enabled.
+4. hash matches a verified local blob.
+5. at least one logical reference authorizes the request:
+   - `installation_peerable`; or
+   - `target_granted` with a valid authority-signed grant whose audience matches the authenticated caller.
+6. `origin_only` and `never_on_player` references are never peer-served.
 
-For an outbound peer fetch, object availability returns an authenticated node identity plus bounded endpoint. The requester verifies the peer HTTPS certificate node ID against the advertised node ID.
+Hash alone is not an authorization identifier. The blob table therefore does not calculate permissive peerability by OR-ing every reference together.
 
-Endpoints are not arbitrary scan targets. V1 accepts only:
+For outbound peer fetch, availability reply contains authenticated node identity plus bounded endpoint. The requester validates peer HTTPS certificate node ID against the advertisement.
 
-- the fixed configured peer-CDN port or a server-configured bounded allowlist;
-- private/link-local addresses that belong to the advertising peer's validated Edge interfaces/subnets;
-- no loopback, Unix, URL, hostname, redirect, proxy, or public-address target supplied by a peer.
+V1 endpoint targets allow only:
 
-The peer HTTP client disables redirects and proxy inheritance for this path.
+- fixed configured peer-CDN port/bounded server allowlist;
+- validated private/link-local address on the advertising peer's Edge interface;
+- no loopback, public address, arbitrary hostname/URL, Unix target, redirect, or inherited proxy.
 
-A valid peer certificate grants read access only to peerable immutable references. It does not grant access to the local database, renderer state, or every CAS object.
+For peer-CDN requests, redirects and ambient proxy configuration are disabled.
+
+A valid peer certificate never grants database/renderer access or blanket CAS read permission.
 
 ### 14.5 Fetch algorithm
 
@@ -2070,34 +2110,33 @@ Context must be:
 - relayable when appropriate;
 - incapable of becoming arbitrary code execution.
 
-### 18.2 Context record
+### 18.2 Context record and deterministic value encoding
 
-A context candidate is conceptually:
+A candidate is conceptually:
 
 ```json
 {
   "key": "school.phase",
   "type": "string",
   "value": "lunch",
-  "scope": {
-    "kind": "organization",
-    "id": "..."
-  },
+  "scope": {"kind": "organization", "id": "..."},
   "sourceId": "bell-schedule",
+  "sourceEpoch": "...",
   "sourceRevision": "418",
+  "definitionRevision": "12",
   "priority": 50,
-  "observedAt": "2026-09-22T16:10:00-04:00",
-  "expiresAt": "2026-09-22T16:55:00-04:00",
+  "observedAt": "2026-09-22T20:10:00Z",
+  "expiresAt": "2026-09-22T20:55:00Z",
   "freshness": "live"
 }
 ```
 
-Supported v1 value types should be deliberately small:
+Supported v1 value types remain deliberately small:
 
 ```text
 boolean
-integer
-number
+signed integer
+finite number
 string
 timestamp
 duration
@@ -2106,11 +2145,20 @@ bounded list of scalar values
 bounded object with declared schema
 ```
 
-Do not accept unbounded arbitrary JSON blobs as “context.”
+Signed/wire rules:
 
-### 18.3 Scopes
+- integers outside the agreed JSON-safe range use canonical decimal strings;
+- floating values must be finite; reject NaN and ±Infinity;
+- normalize/reject ambiguous negative zero according to the E0 numeric fixture contract;
+- timestamps are canonical UTC RFC 3339 with the agreed fractional-second precision;
+- durations use one documented canonical representation;
+- lists/objects have schema-defined size/depth limits.
 
-Support:
+Do not accept arbitrary unbounded JSON.
+
+### 18.3 Scope/source precedence
+
+Scopes:
 
 ```text
 organization
@@ -2119,22 +2167,24 @@ display_group
 screen
 ```
 
-Effective value selection uses more-specific scope before less-specific scope when both apply to the current screen.
-
-Suggested precedence:
+More-specific applicable scope wins:
 
 1. screen;
 2. display group;
 3. location;
 4. organization.
 
-Within the same specificity:
+For each `(sourceId, sourceEpoch)`, first choose that source's newest valid candidate by its own source sequence/revision.
+
+Then compare candidates from different sources using configured authority order:
 
 1. higher configured source priority;
-2. higher source revision;
-3. stable source-ID tie-break.
+2. explicit configured stable source order where needed;
+3. stable source ID tie-break.
 
-Do **not** resolve conflicts by whichever machine's wall-clock timestamp looks newest.
+Do **not** compare source-local revision numbers across different sources. Revision 418 from source A is not inherently newer/better than revision 2 from source B.
+
+Do not resolve conflicts by whichever machine's wall-clock timestamp looks newest.
 
 ### 18.4 Freshness
 
@@ -2202,36 +2252,42 @@ Long-term historical analytics, if ever needed, belong in server Activity/metric
 
 ### 18.8 Mesh propagation
 
-Locally authored observations use a signed envelope with at least:
+Locally authored observations use a domain-separated signed envelope with at least:
 
 ```text
+trustRealmId
 nodeId
 certificateFingerprint
 sourceId
 sourceEpoch
 sourceSequence
+definitionRevision
 key
 scope
-value
+typed value
 observedAt
 expiresAt
 schema
 signature
 ```
 
-`sourceEpoch` is a random 128-bit source-incarnation identifier created when local source state is initialized. `sourceSequence` is a canonical decimal string increasing within `(nodeId, sourceId, sourceEpoch)`.
+Sign with `TilecastEdge/context-observation/v1`.
 
-A new source epoch supersedes the previous authenticated incarnation for that `(nodeId, sourceId)`. Sequence numbers from different epochs are never compared numerically.
+`sourceEpoch` is a random 128-bit source-incarnation identifier. `sourceSequence` increases monotonically within `(nodeId, sourceId, sourceEpoch)`.
 
-Replay watermarks for an old epoch may be deleted only after every observation from that epoch can no longer satisfy the receiver's maximum permitted freshness window and the issuing certificate can no longer make that observation acceptable. Bounded storage alone is not sufficient if pruning would make an old signed packet look new again.
+A new authenticated source epoch supersedes the previous incarnation for that source. Sequence numbers from different epochs are never compared.
 
-Freshness is receiver-bounded. Each source definition declares a maximum TTL. The receiver computes an acceptance deadline from trusted receive time and clamps any sender-provided `expiresAt` to that policy. A compromised but otherwise authorized node cannot make one sensor value fresh for years by choosing a distant expiry.
+The signed `definitionRevision` binds the observation to the permission/schema/freshness policy under which it was authored. If the definition changes, old candidates are revalidated/retired; they are not silently reinterpreted under a different permission/schema.
 
-The observation signature is accepted only after certificate instance, installation binding, durable node state, current revocation generation, source permission, scope, value schema, epoch and replay state validate.
+Replay watermarks for an old epoch may be deleted only after every packet from that epoch can no longer pass the receiver's freshness/certificate acceptance policy.
 
-Server-only Context keys remain impossible for an Edge-local source to claim.
+Each source definition provides maximum TTL. Receiver trusted time clamps sender `expiresAt`; sender timestamps cannot extend freshness beyond policy.
 
-Peer propagation is a low-latency path. Server reconciliation remains able to replace/retire a source epoch and restore canonical policy.
+The observation verifies certificate instance, trust realm, installation/node state, current security generation, source permission, definition revision, scope, value encoding/schema, epoch and replay sequence.
+
+Server-only keys remain impossible for an Edge-local source to claim.
+
+## 19. Context rules with CEL
 
 ## 19. Context rules with CEL
 
@@ -2265,18 +2321,26 @@ The builder stores canonical CEL.
 
 An **Advanced expression** mode may expose the CEL source for administrators/editors who need it.
 
-### 19.3 Validation
+### 19.3 Validation and resource limits
 
 The server is the publication gate.
 
-At save/publish time:
+At save/publish:
 
-1. parse the expression using `cel-go`;
-2. type-check against Tilecast's declared context schema;
-3. reject unknown keys/functions/type mismatches;
-4. reject unsupported constructs outside the Tilecast Edge CEL subset;
-5. store source text plus normalized rule metadata;
-6. compile/evaluate known test vectors.
+1. enforce a maximum expression byte length;
+2. parse with `cel-go`;
+3. enforce maximum AST nodes/depth and bounded literal/list/object sizes;
+4. type-check against Tilecast's declared Context schema;
+5. reject unknown keys/functions/type mismatches;
+6. reject constructs outside the documented Tilecast CEL subset;
+7. compile/evaluate known test vectors under an explicit work/cost limit;
+8. store source plus normalized rule metadata and compiler/subset version.
+
+The Edge evaluator enforces equivalent complexity/work limits at runtime. A malicious or accidentally expensive rule must not consume unbounded CPU during every presentation tick.
+
+Prefer a deliberately small subset. If comprehensions/macros cannot be costed consistently across Go/Rust evaluators, reject them in v1.
+
+Numeric/timestamp/duration edge cases are part of the cross-language fixture suite, including overflow, invalid duration/timestamp and non-finite number rejection.
 
 ### 19.4 Rust evaluator
 
@@ -2950,32 +3014,33 @@ This package should contain:
 
 It should **not** contain server networking, filesystem state or player policy.
 
-### 28.4 Trusted runtime URI scheme
+### 28.4 Trusted runtime/media URI schemes
 
-Register explicit trusted runtime/media schemes, for example:
+Use separate schemes/origins for trusted code and media:
 
 ```text
-tilecast://runtime/...
-tilecast://media/<hash>
+tilecast-runtime://app/...
+tilecast-media://sha256/<hash>
 ```
 
-The runtime handler serves only embedded/versioned trusted resources.
+Register both with WebKit's security manager as **local** so non-local web pages cannot link to/access them. Register the trusted runtime as secure and, where the pinned WPE/WebKit API semantics support it correctly, display-isolated. Validate the exact flags in the WPE integration tests rather than relying on browser defaults.
 
-The media handler proxies to `media.sock`; it does not open the CAS path directly.
+Do not register either scheme as CORS-enabled for remote website origins.
 
-Remote website origins must not gain cross-origin read access to trusted Tilecast schemes. WebKit blocks cross-origin access to custom schemes unless the embedder explicitly opts into CORS. Tilecast keeps the media/runtime schemes **not CORS-enabled** for remote website contexts.
+The runtime handler serves only embedded/versioned trusted files with a strict MIME allowlist and CSP.
 
-Tests must prove that an arbitrary remote website cannot:
+The media handler proxies validated hash/range requests to `media.sock`. It serves data with strict expected media MIME and never treats uploaded media as HTML/JS/executable content.
 
-- fetch `tilecast://media/<hash>`;
-- enumerate or probe local hashes through response differences;
-- fetch trusted runtime JS/HTML;
-- navigate a trusted top-level runtime view;
-- receive the native bridge.
+Native bridge installation is limited to the trusted runtime top-level world/frame. Navigating to a media URL or remote website never grants bridge capability.
 
-Path traversal is impossible because handlers resolve validated identifiers, not filesystem paths.
+Tests prove an arbitrary remote website cannot:
 
-Large media custom-scheme behavior is an early prototype gate. Before WPE becomes eligible for video, tests must prove Range/seeking, pause/resume, looping, transition reads and cancellation on representative large MP4/H.264 files.
+- fetch or navigate trusted runtime/media schemes;
+- infer useful CAS membership through response differences;
+- receive bridge objects/messages;
+- turn an uploaded blob into executable trusted-origin content.
+
+Large-media Range/seek/pause/resume/loop/transition/cancel behavior remains an early WPE qualification gate.
 
 ### 28.5 Native/JS bridge
 
@@ -2997,26 +3062,34 @@ Untrusted remote website content must not receive the Tilecast native bridge.
 
 ### 28.6 Website playback is the hardest parity area
 
-The current Electron player has useful website isolation/session behavior. WPE does not have Electron's `<webview>` tag/session-partition abstraction.
+Remote website content is hostile browser content even when the URL was intentionally configured.
 
-WPE rollout must explicitly prove:
+WPE rollout must prove:
 
-- top-level host allowlist enforcement;
-- remote-page navigation policy decisions;
-- cookie policy and clearing;
-- per-asset or suitably isolated website data stores/sessions;
-- permission denial for microphone/camera/geolocation unless a future typed feature opts in;
-- timeout/reload behavior;
-- custom user agent;
-- fallback image behavior;
-- YouTube IFrame API behavior;
-- remote-site crash/process termination;
-- multiple website placements inside layouts;
-- z-order/cropping if separate WebViews are needed;
-- WebKit subprocess sandbox enabled before any web process is created;
-- no remote-origin access to Tilecast custom URI schemes or native bridge.
+- top-level host/origin allowlist;
+- post-DNS destination policy, not only hostname string checks;
+- private/link-local/loopback/local-service egress denied by default;
+- explicit operator-approved intranet origins/CIDRs when a signage use case needs them;
+- DNS-rebinding-safe destination checks;
+- explicit proxy mode (`direct`, approved proxy, or disabled) rather than accidental host proxy inheritance;
+- downloads/file chooser/external-protocol launches disabled by default;
+- bounded per-site/global cookie, IndexedDB, Cache Storage and service-worker data;
+- data-store clearing/expiry policy;
+- microphone/camera/geolocation/notifications denied unless a future typed feature explicitly allows them;
+- timeout/reload/custom-UA/fallback behavior;
+- YouTube IFrame behavior;
+- remote WebProcess crash recovery;
+- multiple website placements/z-order;
+- subprocess sandbox enabled before any web process;
+- no access to Tilecast local schemes/native bridge.
 
-The Linux WebKit subprocess sandbox is a release requirement, not optional hardening. If required GPU/media/device access breaks under sandboxing, qualify the minimum explicit sandbox allowances rather than disabling the sandbox globally.
+A URL allowlist alone is not sufficient because a hostname can resolve/rebind to localhost or a private administrative service.
+
+If the selected WPE/WebKit networking APIs cannot enforce destination policy robustly, website capability remains Electron-only until Tilecast supplies an OS/network-session boundary such as a narrowly managed network namespace/firewall policy.
+
+Website persistent storage counts against a bounded Tilecast renderer-data budget so a page cannot consume the disk outside CAS policy.
+
+The Linux WebKit subprocess sandbox is mandatory. Qualify the minimum device/socket allowances rather than disabling it globally.
 
 ### 28.7 Renderer compatibility selection
 
@@ -3207,38 +3280,36 @@ The existing update domain/deployment model remains responsible for:
 
 A peer may provide the bytes, but only an authorized deployment permits installation.
 
-### 30.2 Release signing and compatibility metadata
+### 30.2 Signed release sets and compatibility metadata
 
 Keep the existing offline/CI release signing model.
 
-Signed artifact kinds include:
+A deployment selects one signed **release-set manifest**. It names the exact compatible component set:
 
 ```text
-tilecast-edge-linux
-tilecast-renderer-wpe-linux
-tilecast-renderer-electron-linux
-tilecast-wpe-runtime-linux
+releaseSetId
+tilecast-edge version/hash
+renderer-wpe version/hash or null
+renderer-electron version/hash or null
+private WPE runtime version/hash/ABI or null
+required privileged-helper protocol
+ipcMinProtocol/ipcMaxProtocol
+stateSchemaMinReadable/stateSchemaMaxReadable/stateSchemaWritten
+rollbackCompatibleSetIds
+hostMode constraints
+minimum security-patched WPE build
 ```
 
-Each byte artifact has independent hash/size metadata.
+Artifacts remain independently hash/size verified, but activation/rollback changes the release set as one unit. Do not independently flip daemon, renderer and private runtime pointers into an untested combination.
 
-Release metadata also declares:
+CI must actually exercise declared compatibility. At minimum:
 
-```text
-component
-version
-ipcMinProtocol
-ipcMaxProtocol
-stateSchemaMinReadable
-stateSchemaMaxReadable
-stateSchemaWritten
-requiredWpeRuntimeAbi/version
-rollbackCompatibleWith
-```
+- previous supported daemon opens/checks the candidate-migrated DB;
+- candidate/previous IPC overlap is tested;
+- renderer/private-WPE ABI pair starts a smoke fixture;
+- rollback set passes its `--check-state`/equivalent compatibility probe.
 
-An activation is rejected before promotion if the selected Edge daemon, renderer and private WPE runtime have no compatible protocol/ABI set.
-
-A database migration that makes the previous release unable to read the resulting state may not ship while automatic rollback to that previous release remains part of the safety contract.
+Compatibility metadata is not accepted solely because a manifest claims it.
 
 ### 30.3 Peer prefetch
 
@@ -3251,92 +3322,104 @@ When a signed release is available:
 - nodes may prefetch before their maintenance window;
 - install does not begin until their persistent deployment state says it is authorized.
 
-### 30.4 Release directory model
+### 30.4 Release-set directory model
 
-For Edge-owned binaries, prefer immutable release directories:
-
-```text
-/opt/tilecast-edge/releases/1.3.0/
-/opt/tilecast-edge/releases/1.4.0/
-/opt/tilecast-edge/current -> releases/1.4.0
-/opt/tilecast-edge/previous -> releases/1.3.0
-```
-
-Neither `tilecast-edge` nor `tilecast-renderer` should have arbitrary write permission to `/opt/tilecast-edge`.
-
-### 30.5 Privileged promotion
-
-A narrowly scoped root update helper may perform only:
+Prefer immutable component/release-set directories:
 
 ```text
-install_verified_release
-activate_release
-rollback_pending_release
-confirm_release
+/opt/tilecast-edge/releases/<component>/<version>/
+/opt/tilecast-edge/sets/<release-set-id>/manifest.json
+/opt/tilecast-edge/current-set -> sets/<id>/
+/opt/tilecast-edge/previous-set -> sets/<id>/
 ```
 
-Inputs are release IDs/hashes, not arbitrary filesystem paths or commands.
+The set manifest points only at verified immutable component directories.
 
-The helper independently checks:
+Neither runtime user has arbitrary write access to `/opt/tilecast-edge`.
 
-- source path is under Edge's fixed staging directory;
-- signed release manifest validates against pinned release public key;
-- hash/size match;
-- target version path is valid and non-existing or exactly matching;
-- installed files have fixed expected names/modes;
-- symlinks point only inside `/opt/tilecast-edge/releases`.
+### 30.5 Privileged promotion/watchdog
 
-The helper must avoid a verify-then-open TOCTOU race. It opens the staged artifact with no-follow semantics, verifies the manifest/hash/size against that opened file descriptor, and copies/installs from the same descriptor or an equivalently pinned inode. A writable path must not be re-opened after verification.
-
-### 30.6 Crash-safe activation and rollback
-
-Activation flow:
+A stable root-owned updater/watchdog supports only fixed typed operations such as:
 
 ```text
-download to CAS/staging
-      ↓
-verify signature/hash/size + compatibility metadata
-      ↓
-install immutable release dir/runtime bundle
-      ↓
-record root-owned previous/current/pending rollback metadata
-      ↓
-run only rollback-compatible state migrations
-      ↓
-atomically switch current symlink
-      ↓
-fsync /opt/tilecast-edge parent directory
-      ↓
-restart Edge service
-      ↓
-new daemon reports READY
-      ↓
-stable external confirmation timer remains armed
-      ↓
-minimum health window + schema/renderer checks
-      ↓
-confirm release and disarm timer
+install_verified_artifact
+install_verified_release_set
+activate_release_set
+request_confirmation
+rollback_pending_release_set
 ```
 
-The rollback mechanism lives outside the candidate release and does not depend on opening the candidate SQLite schema.
+It has its own conservative package/protocol version. Release metadata declares the minimum helper/watchdog protocol required; an app release cannot assume it may replace the privileged supervisor atomically with itself.
 
-A stable root-owned confirmation timer/watchdog rolls back a pending release when confirmation does not arrive by the deadline. This handles both crash loops and a daemon that remains alive after `READY=1` but never becomes healthy enough to settle.
+Staging verification is FD/inode-pinned with no-follow semantics and fixed install destinations.
 
-Rollback verifies that the previous binary declares the resulting local state schema readable before switching back. If schema rollback is impossible, activation must have been rejected before migration/promotion.
+### 30.6 Exclusive migration and activation
 
-Atomic `current`/`previous` symlink replacement is followed by parent-directory fsync where supported.
+Before an offline state-schema migration:
 
-### 30.7 Health settlement
+1. stop the old `tilecastd` and bound renderer;
+2. acquire exclusive state DB ownership/lock;
+3. verify previous release-set state compatibility;
+4. run only the candidate migration whose result remains readable by the promised rollback set;
+5. install/verify the full release set;
+6. write root-owned pending/previous/current-set metadata;
+7. atomically switch `current-set`;
+8. fsync the parent directory;
+9. start candidate daemon/renderer.
 
-Mirror existing update semantics:
+If a migration is designed to run while the old daemon remains live, it must be an explicitly tested expand-only online migration that the old runtime understands. Do not let two daemon versions race one SQLite schema migration.
 
-- expected version observed;
-- daemon uptime reaches at least 120 seconds (or a later documented threshold);
-- daemon not in Edge safe/fatal mode;
-- renderer can be launched or an expected sleep state is active;
-- no pending update error.
+### 30.7 External confirmation and rollback
 
-Healthy **playback** need not be required to settle an Edge binary update if the screen is deliberately sleeping/no content is assigned, but the local renderer-management path must be functional.
+The candidate can **request** confirmation; it cannot unilaterally disarm rollback protection.
+
+Root-owned pending metadata includes:
+
+```text
+pendingSetId
+previousSetId
+activationAttempt
+maxUnconfirmedBootAttempts
+confirmed=false
+helperProtocol
+```
+
+On each boot/activation attempt, the stable watchdog increments/persists `activationAttempt` and arms a monotonic per-attempt deadline.
+
+Power-cycling cannot reset the process forever: exceeding the bounded unconfirmed-attempt count rolls back immediately.
+
+The stable watchdog confirms only after independently checking:
+
+- candidate has remained alive for the minimum monotonic interval;
+- daemon reports no fatal/safe/update error;
+- state DB compatibility/health is valid;
+- renderer-management path works;
+- a built-in offline renderer smoke fixture succeeds.
+
+The smoke fixture does not require assigned school content or active hours. It exercises trusted runtime creation plus a tiny local image and, when that renderer advertises video, a tiny decoder/video probe.
+
+Alive-but-unhealthy candidate, crash loop, failed smoke, incompatible state or missed deadline rolls back the **entire release set**.
+
+Rollback metadata lives outside candidate release directories and candidate SQLite schema.
+
+### 30.8 WPE runtime dependency and packaging
+
+Target the stable WPE WebKit **2.54.x** series initially, with an exact tested minimum patched build recorded in each release set. Do not treat arbitrary `>=2.54` development/future series as automatically qualified.
+
+For general-purpose installations support either:
+
+1. distribution/repository packages matching Tilecast's tested stable baseline; or
+2. Tilecast-owned immutable private WPE runtime bundle in the signed release set.
+
+Do not overwrite distro libraries or mix an older runtime with a launcher built for a different WPEPlatform ABI.
+
+Mesa/GStreamer may remain distribution-owned initially, but report/test their supported ranges.
+
+Track WPE/WebKit security advisories and raise the minimum accepted patched build through normal signed release-set rollout when a relevant security fix ships. Development snapshots are never production-qualified merely because their numeric version is newer.
+
+As of this RFC date, Ubuntu's public package index does not provide the required WPE 2.54 package for Ubuntu 26.04, so Ubuntu support cannot rely on stock WPE alone.
+
+A future Tilecast appliance image may make OS/runtime updates image-atomic.
 
 ### 30.8 WPE runtime dependency and packaging
 
