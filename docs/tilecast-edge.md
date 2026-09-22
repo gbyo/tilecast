@@ -5537,23 +5537,31 @@ Run with the repo's existing shared Postgres advisory-lock test approach.
 
 ### 44.3 Protocol golden tests
 
-The same fixture directory is consumed by Go, Rust, TypeScript and C where applicable.
+The same fixtures are consumed by Go, Rust, TypeScript and C where applicable.
 
 Golden suites cover:
 
-- JCS canonical bytes/signatures;
-- numbers above 2^53 encoded as decimal strings;
-- duplicate JSON keys and malformed UTF-8;
-- exact Ed25519 key/signature encoding;
-- X.509 DER/profile/EKU/purpose/OID validation;
-- state epoch/feed digest chain;
-- subject revision/tombstone behavior;
-- security-state documents;
-- scoped snapshot checkpoints;
-- IPC min/max negotiation;
-- renderer instance generation;
+- every signing-domain prefix;
+- stream digest preimage/genesis construction;
+- signature-domain separation;
+- JCS canonical bytes;
+- large counters encoded as decimal strings;
+- duplicate JSON keys/malformed UTF-8/closed-schema behavior;
+- exact Base64url/no-padding digest/signature encoding;
+- CA/leaf X.509 DER profile and CSR proof-of-possession;
+- trust realm/state incarnation/security lineage coordinates;
+- fixed security/policy/screen stream IDs;
+- same-coordinate/different-digest fork;
+- same-subject-revision/different-state-digest fork;
+- subject tombstones;
+- current-state/snapshot/security/recovery documents;
+- unknown schema/message safe-degradation rules;
+- object grants;
+- IPC min/max and renderer process binding;
 - renderer capability/profile versioning;
-- Context epoch/TTL/replay rules.
+- Context scalar/timestamp/duration/numeric edge cases;
+- Context epoch/definition-revision/TTL/replay rules;
+- CEL resource-cost fixtures.
 
 ### 44.4 Multi-node integration harness
 
@@ -5583,95 +5591,114 @@ Use Linux network namespaces/veth and `tc netem` in a privileged CI/nightly envi
 
 ### 44.5 Failure injection
 
-Kill processes at durability/ownership boundaries:
+Kill/restart at durability and ownership boundaries:
 
 - after domain transaction, before object compile;
 - after object fsync, before object-ready mark;
-- after feed state lock/sequence assignment, before feed commit;
+- after stream-state lock, before signed stream/projection commit;
+- after stream/projection commit, before outbox cleanup;
+- after trusted-checkpoint file fsync, before SQLite activation;
+- after SQLite preparation, before trusted checkpoint;
+- after recovery incarnation prepared, before active marker;
+- after active marker, before first node fetch;
+- during ERB creation/rotation;
 - after CAS file fsync, before rename;
-- after CAS rename, before destination-directory fsync;
-- after directory fsync, before metadata commit;
-- after owner quiesce, before server owner-generation commit;
-- after owner-generation commit, before Edge first normal request;
+- after CAS rename, before directory fsync;
+- after owner quiesce, before owner-tuple commit;
+- after owner tuple commit, before Edge first request;
 - after command intent persistence, before disruptive initiation;
-- after non-disruptive effect, before idempotency persistence where applicable;
-- after update rollback metadata, before symlink switch;
-- after update symlink switch, before directory fsync;
-- after candidate READY, before health confirmation;
-- while candidate stays alive but never confirms;
-- after DB schema migration, before candidate confirmation;
-- while replacing certificate identity generation;
+- after release-set pending metadata, before pointer switch;
+- after pointer switch, before directory fsync;
+- after offline DB migration, before candidate start;
+- after candidate READY, before external confirmation;
+- candidate alive forever but smoke/health never passes;
+- repeated power cycles before update confirmation;
+- during identity generation replacement;
 - during SQLite WAL checkpoint.
 
-Recovery tests also simulate:
+Recovery scenarios:
 
-- server DB restore to an older feed/resource state while authority keys survive;
-- local SQLite loss while identity/trusted checkpoint survives;
-- loss of trusted local checkpoint requiring direct server re-anchor;
-- stale legacy/Edge process waking after a newer owner generation exists.
+- DB restore older than fleet state + matching/newer ERB;
+- DB restore older than fleet state + missing/stale ERB;
+- complete old-disk image restore where DB and ordinary server files both roll back;
+- cross-installation backup restore with mismatched old trust realm on disk;
+- local SQLite loss with trusted checkpoint intact;
+- local SQLite + trusted checkpoint loss;
+- resurrected old bearer after restore;
+- restored pending reboot/shutdown/update;
+- stale legacy/Edge owner waking from old incarnation;
+- failed asynchronous object compilation then newer superseding revision.
 
-Every state machine documents the restart result at each boundary.
+Every crash point has one documented restart/convergence result.
 
 ### 44.6 WPE renderer tests
 
-Use `WPE_PLATFORM=headless` for:
+Headless/WPE tests cover:
 
 - launcher/runtime startup;
-- sandbox enabled before web process;
-- IPC instance generation;
-- custom URI access policy;
-- remote-origin denial for trusted runtime/media schemes;
-- native bridge denial for untrusted sites;
+- subprocess sandbox enabled before web process;
+- inherited/PID-bound renderer IPC identity;
+- daemon restart kills/recreates renderer;
+- runtime/media URI schemes registered local with intended security flags;
+- strict MIME/CSP;
+- remote-origin denial for local schemes/native bridge;
+- remote website localhost/private/link-local/DNS-rebinding egress denial;
+- explicit proxy behavior;
+- file-download/file-chooser/external-protocol denial;
+- website storage quota/cleanup;
 - presentation fixtures;
-- navigation/permission denial;
-- timeout/recovery;
-- process termination.
+- navigation/permissions;
+- process termination/recovery.
 
-Wayland hardware/session jobs test the managed compositor/session and Electron compatibility path.
+Wayland jobs test managed compositor/session and Electron compatibility.
 
-Large-video tests cover custom-scheme Range seek, pause/resume, loop, transition drain and cancellation.
+Large-media tests cover Range seek, pause/resume, loop, transition drain and cancellation.
 
-DRM jobs are separate and explicitly test that compositorless mode does not pretend ordinary Electron fallback is available.
+DRM jobs remain separate and do not claim ordinary Electron fallback.
 
 ### 44.7 Security tests
 
 Required adversarial cases include:
 
-- wrong installation certificate;
-- public-WebPKI-only certificate on outbound Zenoh connector;
-- wrong EKU/purpose/custom OID;
+- wrong installation/trust-realm certificate;
+- public-WebPKI-only certificate;
+- wrong CA/leaf constraints, KU/EKU/purpose/OID;
+- invalid CSR proof-of-possession;
+- enrollment/renewal flood and overlapping-cert limit;
 - expired/revoked certificate;
-- replacement certificate after old certificate-instance revocation;
-- disabled node using any certificate instance;
-- one node claiming another node's namespace or liveliness;
-- revoked peer already connected when security generation arrives;
-- peer HTTPS endpoint presents a different node certificate than advertised;
-- peer availability advertises loopback/public/arbitrary port/redirect target;
-- one authenticated peer attempts transfer/handshake/query starvation;
-- plaintext Zenoh;
-- unsigned/modified Edge state;
-- same epoch/sequence with different digest;
-- peer attempts to force higher state epoch;
-- server restore attempts to reuse old epoch history;
-- local DB loss receives an older valid signed snapshot from peer;
-- stale subject revision at later feed sequence;
-- revocation behind unrelated feed gap;
-- expired durable change (must be invalid);
-- expired ephemeral change in feed chain;
-- tombstone replay/rollback;
-- malformed signed JSON with duplicate keys/unsafe integer encoding;
-- Context observation replay across source epochs;
-- sender tries to exceed source maximum TTL;
-- renderer from stale instance generation reconnects;
-- renderer tries media hash outside presentation generation;
-- remote website tries Tilecast custom scheme/native bridge;
-- path traversal;
+- disabled node using any cert;
+- TLS resumed-session attempt after certificate/security change;
+- TLS early-data/0-RTT application attempt;
+- one node claiming another namespace/liveliness;
+- Presentation Network activation while a peer session already uses that interface;
+- peer HTTPS certificate differs from availability advertisement;
+- peer advertises loopback/public/arbitrary-port/redirect/proxy target;
+- authenticated peer starvation attempt;
+- unsigned/modified signed state;
+- signature valid under wrong protocol domain;
+- malformed stream digest/preimage;
+- same stream coordinate + different digest;
+- same subject revision + different state digest;
+- peer attempts trust-realm/state-incarnation transition;
+- restored DB tries lower security generation;
+- missing ERB tries to reopen existing trust realm;
+- local DB loss receives old valid peer state as bootstrap;
+- old-incarnation lower/higher resource revisions;
+- durable state with illegal expiry;
+- unknown security schema/message;
+- target-only blob fetch without/mismatched object grant;
+- hash has one peerable reference and one sensitive reference;
+- Context cross-source revision misuse;
+- Context definition revision changed under old observation;
+- Context NaN/Infinity/overflow/noncanonical timestamp;
+- CEL oversized/deep/costly expression;
+- stale renderer reconnect;
+- remote website accesses local scheme/localhost/private network;
+- uploaded media attempts HTML/JS trusted execution;
 - malformed/mismatched Range;
-- concurrent same-hash fetch race;
-- same-size wrong hash;
-- malformed CSR;
-- wrong IPC role/UID;
-- untrusted sensor claims server-only key.
+- concurrent same-hash race;
+- malformed recovery bundle/mismatched installation/trust realm;
+- wrong IPC role/UID/process identity.
 
 ### 44.8 Compatibility tests
 
@@ -5684,57 +5711,72 @@ Server new + Edge/Electron renderer on Wayland compatibility host
 Server new + Edge/WPE renderer on Wayland compatibility host
 Server new + Edge/WPE renderer on DRM dedicated host
 Mixed Display Group with supported combinations
-Upgrade Edge N -> N+1 -> automatic rollback to N
-Upgrade renderer/runtime N -> N+1 -> rollback
+Upgrade release set N -> N+1 -> rollback N
+Upgrade renderer/WPE runtime as one release set
+Server restore with matching ERB
+Server restore without ERB -> trust reset workflow
 ```
 
-Compatibility tests include protocol min/max negotiation, state schema readable ranges, renderer/WPE runtime ABI, and owner-generation rollback.
+Compatibility tests include:
 
-A server upgrade must not strand old players.
+- server/player protocol min/max;
+- fixed stream schema version negotiation;
+- state-schema readable ranges;
+- actual N-1 binary check/open of N-migrated state;
+- daemon/renderer IPC overlap;
+- renderer/private-WPE ABI;
+- privileged updater/watchdog protocol;
+- owner tuple across rollback/recovery.
+
+A server upgrade must not strand older players; when older Edge software cannot understand new **security** semantics it must degrade mesh safely rather than silently skipping them.
 
 ## 45. Failure-mode contract
 
 | Failure | Correct behavior |
 | --- | --- |
-| Tilecast Server unreachable | Continue active/cached schedules, mesh, peer CDN and eligible local Context. |
-| Internet unreachable but local server reachable | Normal self-hosted operation except internet-backed sources. |
-| All peers disappear | Continue standalone; use origin when reachable. |
-| Multicast blocked | Use validated server/manual seed; otherwise standalone + server. |
+| Tilecast Server unreachable | Continue trusted cached schedules, eligible mesh/CDN and local Context. |
+| All peers disappear | Continue standalone; origin when reachable. |
+| Multicast blocked | Validated seeds/manual config or standalone. |
 | Zenoh unavailable | Playback/server path continues; mesh degraded. |
-| Peer HTTPS fails | Next peer/origin; active presentation remains unaffected. |
 | Peer advertises unsafe endpoint | Reject without connecting. |
-| One peer floods requests | Per-peer limits/fairness protect other peers and playback. |
-| Peer sends corrupt object | Reject hash, penalize source, refetch. |
-| Disk full | Preserve all pinned owners; stop new preparation; report incident. |
-| SQLite corrupt, trusted checkpoint intact | Recovery mode; direct server/checkpoint validation before peer state resumes. |
-| SQLite + trusted checkpoint lost | No peer re-anchor; require direct server recovery anchor. |
-| Node cert expires | Server playback may continue; mesh disabled until renewal. |
-| Edge CA mismatch | Refuse peers; no auto-trust. |
-| Change-feed gap | Recover missing feed; independently newer signed security/current state may still apply. |
-| Same epoch/sequence, different digest | Feed-fork incident; stop peer advancement and reconcile directly with server. |
-| Server restored behind published state | Stop old-epoch publication; explicit recovery creates newer state epoch/re-anchor. |
-| Later feed event has older resource revision | Advance feed cursor as stale no-op; never roll resource back. |
-| Signed resource tombstone | Remove/retire that resource at its newer revision. |
-| Durable change carries expiry | Reject as invalid protocol data. |
-| Ephemeral signed event expired | Advance verified feed cursor; do not activate effect. |
-| Retention gap | Verify scoped signed snapshot checkpoint + digest and resume. |
-| Revocation arrives beyond unrelated feed gap | Apply newer signed security generation immediately; feed gap remains unresolved. |
-| Context source stale | Expire per receiver-bounded policy. |
-| New Context source epoch | Supersede old incarnation; do not compare sequence across epochs. |
-| PTP lost | Fall back to healthy next clock provider. |
-| System wall clock jumps | Reevaluate schedules; active playback remains monotonic. |
-| PipeWire unavailable | Audio/sensor capability degraded; visual playback continues. |
-| Renderer crashes | Daemon/server/mesh remain alive; restart current renderer generation. |
-| Old renderer process reconnects | Reject stale renderer instance generation. |
-| WPE repeatedly crashes on Wayland compatibility host | Fall back to Electron if content/policy permits. |
-| Electron-required content on DRM dedicated host | Report incompatibility; do not silently omit content. |
-| Candidate update crashes | External rollback helper returns to previous compatible release. |
-| Candidate stays alive but never confirms | External confirmation deadline triggers rollback. |
-| Candidate migration would break previous DB reader | Reject update before activation. |
-| Power cut mid-download | Partial remains safely resumable or is discarded. |
-| Power cut during identity rotation | Active generation remains a matched key/cert/keyring set. |
-| Stale legacy/Edge owner wakes | Server rejects its older player owner generation. |
-| LAN partition | Each partition continues; signed state reconciles after heal without peer authority. |
+| One peer floods requests | Per-peer fairness protects others/playback. |
+| Peer sends corrupt bytes | Hash reject, penalize, refetch. |
+| Target-only object requested without valid grant | Reject even if hash exists locally. |
+| Disk full | Preserve every live pin owner; stop new preparation. |
+| SQLite corrupt, trusted checkpoint intact | Rebuild from server/signed objects without moving trust behind checkpoint. |
+| SQLite + trusted checkpoint lost | Require direct server bootstrap/recovery; peer state is not first anchor. |
+| Node cert expires | Server playback may continue; mesh disabled until safe renewal. |
+| Trust realm mismatch | Refuse peer/state; no auto-trust. |
+| Stream gap | Recover that stream; other streams remain independently usable. |
+| Same stream coordinate, different digest | Fork incident; direct server reconciliation. |
+| Same resource revision, different state digest | Equivocation incident; direct server reconciliation. |
+| DB restored behind fleet, matching/newer ERB | Prepare fresh state incarnation, then direct re-anchor. |
+| DB restored without current security proof | `edge_security_recovery_required`; no lower security publication. |
+| Edge trust material lost | Explicit new trust realm + node re-enrollment. |
+| Cross-installation restore + old local trust files | Quarantine old trust; import matching ERB or reset trust realm. |
+| Later stream record has older revision in same incarnation | Stale no-op. |
+| New trusted state incarnation has lower numeric resource revision | Valid after direct re-anchor; revisions do not compare across incarnations. |
+| Durable state carries expiry | Reject. |
+| Ephemeral state expired | Do not activate; stream continuity remains valid. |
+| Snapshot retention gap | Verify per-stream projection snapshot/checkpoint. |
+| Unknown security schema/type | Disable mesh/security-sensitive participation; require server/upgrade. |
+| Context source stale | Expire under receiver policy. |
+| Context definition changed | Retire/revalidate observations bound to old definition. |
+| Presentation Network becomes forbidden | Withdraw listeners/Avahi and close sessions on that interface. |
+| Renderer crashes | Recreate bound renderer process/generation. |
+| Daemon restarts | Bound renderer is stopped/recreated. |
+| WPE repeatedly crashes in Wayland mode | Electron fallback if compatible/policy allows. |
+| Electron-required content on DRM host | Report incompatibility without disrupting valid current playback. |
+| Candidate release crashes | Stable watchdog rolls back complete release set. |
+| Candidate stays alive but fails smoke/health | Stable watchdog rolls back. |
+| Candidate power-cycles repeatedly unconfirmed | Persisted attempt bound causes rollback. |
+| Candidate migration breaks previous reader | Activation rejected before committing update. |
+| Privileged helper too old for release set | Deployment incompatible; no activation. |
+| Power cut mid-download | Resume/discard safely. |
+| Power cut during identity rotation | Previous complete generation remains usable. |
+| Old-incarnation owner wakes | Server rejects tuple regardless of numeric generation. |
+| Restored old disruptive command/update appears pending | Does not execute until explicitly reauthorized in current incarnation. |
+| LAN partition | Each partition continues trusted state; reconciles after heal without peer authority. |
 
 ## 46. Performance and resource targets
 
@@ -5868,65 +5910,67 @@ If Edge itself is the failing component during the transitional releases, the do
 
 ## 48. Code-review rules for Edge
 
-Add these to Edge-specific contributor guidance when implementation begins.
-
-1. No new root privilege without a written threat-boundary review.
-2. No shell invocation with interpolated values.
-3. No arbitrary path or network target from server/peer input.
-4. All network/body/frame sizes and per-peer resource use are bounded.
-5. No peer-relayed authoritative state without server signature verification.
-6. Peer hints never advance authoritative sequence/revision/epoch state.
-7. State epoch changes require the documented recovery trust path.
-8. Feed sequence proves completeness; subject revision proves resource freshness.
-9. Durable resources use tombstones for deletion.
-10. Content bytes are trusted only after hash+size verification.
-11. CAS pins have independent owners; clearing one owner cannot evict another.
-12. Command semantics are explicit; do not claim generic exactly-once physical side effects.
-13. Ownership migration requires server-side fencing, not local markers alone.
-14. Updates must preserve previous-release state-schema readability while automatic rollback is promised.
-15. Renderer/daemon updates require overlapping IPC protocol ranges.
-16. Renderer media/control messages bind to the current renderer instance/presentation generation.
-17. Optional provider failures cannot abort main playback initialization.
-18. High-rate data is aggregated/coalesced before persistence/network.
-19. No secret in logs/tests/screenshots.
-20. Edge/server protocol changes require cross-language fixtures.
-21. WPE changes keep subprocess sandbox enabled and review origin/custom-scheme/native-bridge boundaries.
-22. DRM dedicated mode cannot claim Electron fallback without a tested host-mode transition.
-23. New Studio Edge UI follows `docs/studio-rhea-redesign-plan.md`; do not reintroduce Spectrum or a second shell.
-24. Never claim physical display state confirmed when only command send succeeded.
-25. Never infer health solely from process/socket liveness when playback evidence exists.
-26. Retry-sensitive telemetry uses sequence/cumulative-epoch semantics, not naked heartbeat deltas.
+1. No new root privilege without written threat-boundary review.
+2. No interpolated shell execution.
+3. No arbitrary path/network target from server/peer input.
+4. Bound every network/body/frame/per-peer resource.
+5. Peer relay never creates trust-realm/state-incarnation authority.
+6. Every signed protocol has an explicit domain prefix.
+7. Stream digest/signature preimages are normative fixtures.
+8. Security lineage/generation never decreases through ordinary restore.
+9. Resource revisions compare only inside one state incarnation.
+10. Same revision + different state digest is a fork.
+11. Durable deletion uses tombstones.
+12. Unknown security semantics fail closed/degrade mesh.
+13. Content is trusted only after size/hash verification.
+14. Hash identity is not authorization; target-granted bytes require signed grant.
+15. CAS pins have independent owners.
+16. Commands use explicit execution semantics, not generic exactly-once claims.
+17. Owner fencing uses incarnation + generation.
+18. Restore cannot auto-execute old-incarnation disruptive work.
+19. Updates activate/rollback complete release sets.
+20. Automatic rollback requires actual previous-reader schema compatibility.
+21. Candidate cannot unilaterally disarm stable rollback watchdog.
+22. Renderer IPC binds to actual launched process plus presentation generation.
+23. Optional provider failure cannot brick playback.
+24. High-rate data is coalesced.
+25. No secret in logs/tests/screenshots.
+26. Edge protocol changes require cross-language fixtures.
+27. WPE keeps subprocess sandbox, local-scheme isolation, strict remote-site network policy and storage quotas.
+28. DRM mode cannot claim Electron fallback without a tested host transition.
+29. Context source-local revisions are not compared across different sources.
+30. Context observations bind definition revision and bounded deterministic scalar encoding.
+31. CEL source/AST/evaluation cost is bounded.
+32. Rhea Studio remains canonical UI plan.
+33. Do not claim physical display state from command-send alone.
+34. Do not infer health only from process/socket liveness where playback evidence exists.
+35. Retry-sensitive telemetry is sequenced/cumulative, not naked heartbeat delta.
 
 ## 49. Final technical decision table
 
 | Area | Decision | Do not do |
 | --- | --- | --- |
-| Edge daemon | Rust `tilecastd` | Keep growing Electron main process |
-| Renderer host | WPE WebKit WPEPlatform 2.54+ C/GLib host | New Cog/libwpe architecture |
-| Transitional renderer | Electron renderer-only on compatible display-session host | Flag-day Electron deletion |
-| Display host modes | Wayland compatibility vs DRM dedicated are explicit | Assume compositorless DRM can transparently run Electron |
-| Local persistence | SQLite WAL + immutable CAS + external trusted checkpoint | Reconstruct anti-rollback trust silently from peers |
-| CAS metadata | Blob facts + references + multi-owner pins | One `pinned_reason`/policy row per hash |
-| Local IPC | Separate sockets + OS identity + renderer instance/protocol generation | Client-selected role or stale-renderer reconnect |
-| Mesh | Embedded Zenoh peer mode | Mandatory broker |
-| Mesh security | Installation mTLS + installation-CA-only outbound trust + application identity binding | LAN trust or public WebPKI roots |
-| Liveliness | Identity-bound transport or signed presence document | Let a CA-valid node claim arbitrary node keyspace |
-| Large bytes | mTLS HTTPS single-range peer service | MP4 Zenoh publications |
-| Peer endpoint policy | Fixed/bounded private Edge-interface targets, no redirects/proxy | Follow arbitrary peer host/port/URL |
-| Content identity | SHA-256 | Filename/URL trust |
-| Change completeness | `stateEpoch + sequence + previous/feed digest` | Reuse sequence after DB restore |
-| Resource freshness | Signed type-specific subject revision | Treat feed order as semantic freshness |
-| Urgent security state | Independent signed generation may apply ahead of unrelated feed gap | Block revocation behind another screen's missing event |
-| Disaster recovery | Explicit direct-server state-epoch re-anchor | Accept an older peer snapshot after state loss |
-| Snapshots | Signed scoped checkpoint + base sequence/digest + resource watermarks | Unsigned current-state dump |
-| Player ownership | Server `playerOwnerGeneration` fencing | Local handoff boolean only |
-| Commands | Per-type idempotent/at-most-once/reconcilable semantics | Generic exactly-once side-effect promise |
-| Context replay | source epoch + sequence + receiver TTL bound | Bounded replay cache that can resurrect old packets |
-| Renderer capability | Per-renderer versioned profile | Union of WPE+Electron feature strings |
-| WPE security | Linux subprocess sandbox + remote-origin isolation | Disable sandbox/CORS-enable private schemes for convenience |
-| Updates | Signed immutable releases + schema/IPC/ABI compatibility + external confirmation deadline | Binary-only rollback after irreversible DB migration |
-| Clock security | Minimum trusted-time/cert policy before mesh; full providers later | Defer all cert-time behavior to E10 |
-| Studio UI | Canonical shadcn Base UI + Rhea plan | Spectrum revival or second Edge shell |
+| Edge daemon | Rust `tilecastd` | Grow Electron main process |
+| Renderer host | stable tested WPE 2.54.x WPEPlatform C/GLib | Unqualified arbitrary newer WPE/Cog architecture |
+| Transitional renderer | Electron renderer-only in compatible host mode | Flag-day deletion |
+| Display modes | Wayland compatibility vs DRM dedicated explicit | Pretend compositorless DRM transparently runs Electron |
+| Local persistence | SQLite WAL + CAS + durable trusted checkpoint | Reconstruct anti-rollback trust from peers |
+| Trust recovery | encrypted ERB or explicit trust-realm reset/re-enrollment | Put raw CA keys in ordinary unencrypted backup |
+| Ordinary restore | fresh opaque state incarnation after rollback restore | Numerically decrement/reuse recovery epoch |
+| Security recovery | independent security lineage/generation | Let DB restore resurrect revocations |
+| Streams | fixed security, policy and per-screen streams | One global player payload feed/O(N²) fan-out |
+| Stream integrity | sequence + previous/stream digest + domain-separated signature | Circular/self-hashed envelope |
+| Resource freshness | revision + state digest inside one incarnation | Compare revisions across incarnations |
+| Snapshots | materialized Edge projection at exact stream watermark | Snapshot arbitrary DB while async compilation pending |
+| Player ownership | `(stateIncarnationId, ownerGeneration)` | Generation alone/local marker |
+| Commands/updates | authorization bound to incarnation | Re-execute restored pending disruptive work |
+| CAS auth | blob identity + reference sharing class/object grant | Hash means every node may read |
+| Mesh security | trust-realm mTLS, CA-only outbound trust, no v1 resumption/0-RTT | LAN/public-WebPKI trust |
+| Updates | signed atomic release sets + stable external watchdog | Independently flip incompatible components |
+| WPE website security | sandbox + local trusted schemes + egress/proxy/storage policy | Only URL/CORS checks |
+| Context precedence | source-local newest, then configured source priority/order | Compare revision counters from different sources |
+| Context safety | definition-bound signed observations + deterministic scalar formats + CEL cost bounds | Arbitrary JSON/unbounded expressions |
+| Studio UI | canonical shadcn Base UI + Rhea | Spectrum/second shell |
 
 ## 50. Decisions deliberately deferred
 
@@ -5968,71 +6012,77 @@ Removal is evidence-based. WPE capability/field telemetry determines the date.
 
 ## 51. Definition of Done for Tilecast Edge v1
 
-### Architecture
+### Trust/recovery
 
-- `tilecastd` is the Linux authority for server credential, durable state and host integrations.
-- renderer is disposable and credential-free.
-- owner-generation fencing prevents legacy/Edge dual ownership.
+- trust realm is recoverable through encrypted ERB or explicitly reset with re-enrollment;
+- ordinary rollback restore creates a fresh opaque state incarnation;
+- security lineage/generation cannot silently move backward;
+- new incarnation is fully prepared/durable before publication;
+- local trust loss cannot use peer state as first anchor;
+- cross-installation restore cannot mix mismatched trust material.
 
-### Fabric/security
+### Fabric/protocol
 
-- peers authenticate with installation-scoped mTLS and installation-CA-only outbound trust.
-- exact X.509 profile is fixture-tested.
-- one node cannot impersonate another node namespace/liveliness.
-- certificate-instance revocation and durable-node disablement remain distinct.
-- minimum trusted-time/certificate policy exists before mesh.
+- fixed security/policy/per-screen streams are implemented;
+- exact digest/signature/domain fixtures agree cross-language;
+- stream and resource equivocation are detected;
+- unknown security semantics degrade safely;
+- mTLS uses exact CA/leaf profile, no v1 TLS resumption/0-RTT;
+- Presentation Network withdrawal closes existing forbidden-interface sessions.
 
 ### Content
 
-- verified CAS uses blob/reference/multi-owner-pin model.
-- peer fetch is hash/size verified and endpoint/rate bounded.
-- canonical ETag supports safe cross-source resume.
-- presentation generations keep transition media readable through drain.
+- blob/reference/multi-owner-pin model;
+- sharing classes and object grants enforce confidentiality;
+- canonical ETag/resume and per-peer limits work;
+- transition media remains pinned/readable through drain.
 
-### State distribution
+### State
 
-- state epoch handles authoritative server restore.
-- feed sequence/digest proves completeness.
-- signed subject revisions/tombstones prove resource freshness/removal.
-- urgent security/current-state generations can apply ahead of unrelated feed gaps.
-- destructive local state recovery cannot accept an older peer snapshot as a new trust anchor.
-- snapshots are scoped, signed and digest-anchored.
+- snapshots come from materialized Edge projection;
+- source publication remains pinned until object projection completes/supersedes;
+- security stream can advance independently;
+- resource revisions reset namespace on trusted new incarnation;
+- tombstones/removal converge.
+
+### Ownership/commands
+
+- owner tuple fences stale runtimes across normal handoff and restore;
+- resurrected old bearer does not auto-authorize recovery;
+- old-incarnation pending disruptive commands/updates do not auto-execute.
 
 ### Context
 
-- source epoch/replay survives reinstall/reset.
-- receiver-bounded maximum TTL prevents sender freshness extension.
-- CEL differential suite passes.
+- source-local revision ordering is correct;
+- observations bind definition revision;
+- receiver TTL/replay guarantees survive reset;
+- numeric/time formats are deterministic;
+- CEL differential and cost-limit suite passes.
 
 ### Renderer/WPE
 
-- capabilities remain versioned and per renderer.
-- daemon/renderer IPC ranges are compatible.
-- stale renderer generations are rejected.
-- WebKit subprocess sandbox remains enabled.
-- remote websites cannot access trusted custom schemes/native bridge.
-- Wayland compatibility and DRM dedicated host modes have explicit fallback semantics.
+- renderer process identity is stronger than same-UID token;
+- daemon restart recreates renderer;
+- sandbox is enabled;
+- trusted local URI schemes cannot be accessed by remote pages;
+- remote website private-network/proxy/download/storage policy is enforced;
+- stable patched WPE baseline/security updates are tracked.
 
 ### Updates
 
-- signed artifacts include schema/IPC/WPE-runtime compatibility metadata.
-- external confirmation deadline rolls back alive-but-unhealthy candidates.
-- automatic rollback never selects a previous binary unable to read current state.
-- rollback metadata is independent from candidate release/schema.
+- daemon/renderers/private runtime activate as one signed compatible release set;
+- old daemon cannot race offline migration;
+- stable watchdog, persisted unconfirmed attempts and offline smoke fixture gate confirmation;
+- real previous-reader compatibility is tested;
+- privileged updater/watchdog protocol compatibility is enforced.
 
-### Studio
+### Studio/reliability
 
-- Edge surfaces follow `docs/studio-rhea-redesign-plan.md`.
-- no Spectrum dependency/second shell is introduced.
-- screen detail, Settings, Overview and Activity expose real bounded Edge state.
-
-### Reliability/scale
-
-- command duplicate initiation remains zero in crash tests for applicable command classes.
-- server restore/local DB loss/partition/heal tests pass.
-- feed-fork detection works.
-- representative fleet benchmark demonstrates bounded state-distribution fan-out.
-- low-end resource targets are met or consciously revised with measurements.
+- Rhea surfaces show backend-provided bounded real state;
+- backup/restore UI explains ERB/trust-reset consequences;
+- restore/local-loss/partition/fork/failure-injection suites pass;
+- fleet benchmark demonstrates bounded per-screen stream fan-out;
+- low-end resource targets are measured.
 
 ## 52. Repository-specific implementation notes
 
