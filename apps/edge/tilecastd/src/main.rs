@@ -23,6 +23,13 @@ enum Command {
     Run,
     /// Validate the configuration file and exit.
     CheckConfig,
+    /// Import the legacy Electron Linux Player's state once (installer step).
+    ImportLegacy {
+        /// Legacy data directory (default: `legacy.data_dir`, then
+        /// `$XDG_DATA_HOME/tilecast-player` or `~/.local/share/tilecast-player`).
+        #[arg(long, value_name = "DIR")]
+        from: Option<PathBuf>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -42,6 +49,34 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Command::Run => run(config),
+        Command::ImportLegacy { from } => import_legacy(config, from),
+    }
+}
+
+/// Exit codes: 0 imported or already complete, 1 failed (legacy state is
+/// untouched; the installer keeps or restores the legacy player).
+fn import_legacy(config: EdgeConfig, from: Option<PathBuf>) -> ExitCode {
+    tilecastd::logging::init(&config.log);
+    let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("tilecastd: could not start async runtime: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match runtime.block_on(tilecastd::legacy_import::run(&config, from)) {
+        Ok(edge_server::legacy::ImportOutcome::Imported(summary)) => {
+            println!("{}", serde_json::to_string_pretty(&summary).unwrap_or_default());
+            ExitCode::SUCCESS
+        }
+        Ok(edge_server::legacy::ImportOutcome::AlreadyComplete) => {
+            println!("legacy state was already imported");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("tilecastd: legacy import failed: {error:#}");
+            ExitCode::FAILURE
+        }
     }
 }
 

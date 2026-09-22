@@ -2,6 +2,11 @@
 //! `core/commands.ts`). A disruptive command is recorded as `executing`
 //! *before* it runs; a restart that finds such a row reports its result
 //! instead of running it again.
+//!
+//! `command_id` holds the server-issued `idempotencyKey` of the command, the
+//! same key the legacy player persisted in `executed-commands.json`, so keys
+//! imported from a legacy installation suppress exactly the commands it had
+//! already run.
 
 use edge_protocol::Timestamp;
 use rusqlite::{Connection, OptionalExtension, params};

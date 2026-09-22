@@ -9,9 +9,7 @@ use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ipc::Role;
 use edge_protocol::ipc::event::Event;
 use edge_protocol::ipc::message::ErrorBody;
-use edge_protocol::ipc::method::{
-    Method, PingResult, ShowDiagnosticResult, SubmitServerUrlResult, error_codes,
-};
+use edge_protocol::ipc::method::{Method, PingResult, ShowDiagnosticResult, SubmitServerUrlResult, error_codes};
 use edge_protocol::ipc::status::{
     CasStatus, CasVerifyResult, DaemonMode, DaemonStatus, MeshStatus, PeerSummary, ServerBindingStatus, VerifyOutcome,
 };
@@ -133,7 +131,10 @@ impl IpcHandler for DaemonIpc {
             }
             Method::CasStatus(_) => to_value(&self.cas_status().await?),
             Method::CasVerify(params) => {
-                let cas = context.cas.as_ref().ok_or_else(|| error(error_codes::UNAVAILABLE, "The content store is unavailable."))?;
+                let cas = context
+                    .cas
+                    .as_ref()
+                    .ok_or_else(|| error(error_codes::UNAVAILABLE, "The content store is unavailable."))?;
                 let outcome = cas
                     .verify(&params.sha256)
                     .await
@@ -234,7 +235,7 @@ impl DaemonIpc {
                 identity_verified_at: b.identity_verified_at,
                 has_device_credential: b.credential_state == edge_state::repo::binding::CredentialState::Stored,
             }),
-            identity: crate::identity_status::current(context).await,
+            identity: crate::identity_status::current_with_link(context).await,
             cas: self.cas_status().await.ok(),
             mesh: MeshStatus {
                 state: ShortToken::new(if context.config.mesh.enabled { "starting" } else { "disabled" })

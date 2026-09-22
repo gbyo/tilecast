@@ -32,8 +32,8 @@ use std::time::Duration;
 use anyhow::Context as _;
 use edge_cas::{ContentStore, LruByDomain, StorePolicy};
 use edge_ipc::{IpcServer, PeerPolicy};
-use edge_platform::disk::StatvfsProbe;
 use edge_platform::capabilities::CapabilityRegistry;
+use edge_platform::disk::StatvfsProbe;
 use edge_platform::paths::EdgePaths;
 use edge_platform::providers::{HostTimeSyncProvider, SystemdProvider, WpePlatformProvider};
 use edge_platform::systemd::Notifier;
@@ -47,9 +47,12 @@ use edge_state::{OpenOptions, StateDb, StateError};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
+use edge_identity::RevocationSet;
+
 use crate::config::EdgeConfig;
 use crate::ipc_handler::DaemonIpc;
 use crate::presentation::{ActivationSource, PresentationEngine};
+use crate::server_link::{self, LinkState};
 use crate::supervisor::SupervisorConfig;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -80,6 +83,11 @@ pub struct DaemonContext {
     pub node_id: Option<NodeId>,
     /// The content store; `None` in recovery mode.
     pub cas: Option<ContentStore>,
+    /// Revoked peer nodes, shared by every verifier in the process.
+    pub revocations: RevocationSet,
+    /// Wakes the server link early (mesh change hints, IPC requests).
+    pub server_wake: tokio::sync::Notify,
+    pub link_state: std::sync::Mutex<LinkState>,
     pub shutdown: CancellationToken,
 }
 
@@ -162,8 +170,7 @@ impl Daemon {
     /// Performs startup steps 2–4. Configuration is already validated.
     pub async fn start(config: EdgeConfig, notifier: Notifier) -> anyhow::Result<Self> {
         let clock = system_clock();
-        let paths =
-            EdgePaths::from_environment(config.paths.state_dir.as_deref(), config.paths.runtime_dir.as_deref());
+        let paths = EdgePaths::from_environment(config.paths.state_dir.as_deref(), config.paths.runtime_dir.as_deref());
         paths.ensure_private_dirs().with_context(|| format!("creating {}", paths.state_dir.display()))?;
         let now = clock.now();
         let (state, node_id) = open_state(&paths, now);
@@ -215,6 +222,11 @@ impl Daemon {
             StateMode::Recovery { .. } => None,
         };
 
+        let revocations = match &state {
+            StateMode::Normal(db) => server_link::load_revocations(db, now),
+            StateMode::Recovery { .. } => RevocationSet::new(),
+        };
+
         let uid = rustix::process::geteuid().as_raw();
         let mut policy = PeerPolicy::for_daemon_uid(uid);
         policy.renderer_uids = config.ipc.renderer_uids.clone();
@@ -232,6 +244,9 @@ impl Daemon {
             capability_revision: std::sync::atomic::AtomicU64::new(0),
             node_id,
             cas,
+            revocations,
+            server_wake: tokio::sync::Notify::new(),
+            link_state: std::sync::Mutex::new(LinkState::Unbound),
             shutdown: CancellationToken::new(),
         });
 
@@ -275,6 +290,7 @@ impl Daemon {
         tasks.spawn(capability_loop(Arc::clone(&context)));
         tasks.spawn(crate::fixture::run(Arc::clone(&context)));
         tasks.spawn(cas_maintenance_loop(Arc::clone(&context)));
+        tasks.spawn(server_link::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);
@@ -283,7 +299,8 @@ impl Daemon {
         shutdown.cancelled().await;
         context.notifier.stopping();
         tracing::info!(component = "daemon", event = "stopping");
-        let drained = tokio::time::timeout(SHUTDOWN_TIMEOUT, async { while tasks.join_next().await.is_some() {} }).await;
+        let drained =
+            tokio::time::timeout(SHUTDOWN_TIMEOUT, async { while tasks.join_next().await.is_some() {} }).await;
         if drained.is_err() {
             tracing::warn!(component = "daemon", event = "shutdown_timeout");
             tasks.abort_all();

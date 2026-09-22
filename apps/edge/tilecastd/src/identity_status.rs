@@ -19,7 +19,8 @@ pub async fn current(context: &DaemonContext) -> EdgeIdentityStatus {
     };
     let now = context.now();
     let state = if certificate.not_after <= now { "expired" } else { "enrolled" };
-    let suffix = certificate.fingerprint.chars().rev().take(12).collect::<Vec<_>>().into_iter().rev().collect::<String>();
+    let suffix =
+        certificate.fingerprint.chars().rev().take(12).collect::<Vec<_>>().into_iter().rev().collect::<String>();
     status(
         state,
         Some(CertificateStatus {
@@ -33,4 +34,12 @@ pub async fn current(context: &DaemonContext) -> EdgeIdentityStatus {
 
 fn status(state: &str, certificate: Option<CertificateStatus>) -> EdgeIdentityStatus {
     EdgeIdentityStatus { state: ShortToken::new(state).expect("literal token"), certificate, last_error: None }
+}
+
+/// Adds the server link's last stop reason, if any.
+pub async fn current_with_link(context: &DaemonContext) -> EdgeIdentityStatus {
+    let mut status = current(context).await;
+    let reason = context.link_state.lock().unwrap_or_else(|e| e.into_inner()).reason_code();
+    status.last_error = reason.and_then(|r| ShortToken::new(r).ok());
+    status
 }

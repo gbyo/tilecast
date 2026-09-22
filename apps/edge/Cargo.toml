@@ -5,6 +5,7 @@ members = [
     "crates/edge-state",
     "crates/edge-cas",
     "crates/edge-identity",
+    "crates/edge-server",
     "crates/edge-ipc",
     "crates/edge-platform",
     "tilecastd",
@@ -48,6 +49,7 @@ ring = "0.17"
 rusqlite = { version = "0.37", features = ["bundled"] }
 rustix = { version = "1", features = ["fs"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
+rustls-native-certs = "0.8"
 rustls-pki-types = "1"
 rustls-webpki = { version = "0.103", default-features = false, features = ["ring", "std"] }
 serde = { version = "1", features = ["derive"] }

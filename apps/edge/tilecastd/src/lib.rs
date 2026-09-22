@@ -13,6 +13,8 @@
 //! * [`supervisor`] — the renderer recovery ladder.
 //! * [`capabilities`] — daemon-owned capabilities and persistence.
 //! * [`fixture`] — development presentation source.
+//! * [`server_link`] — identity gate, enrollment, change feed, Edge status.
+//! * [`legacy_import`] — the one-time `import-legacy` command.
 
 pub mod capabilities;
 pub mod config;
@@ -20,6 +22,8 @@ pub mod daemon;
 pub mod fixture;
 pub mod identity_status;
 pub mod ipc_handler;
+pub mod legacy_import;
 pub mod logging;
 pub mod presentation;
+pub mod server_link;
 pub mod supervisor;
