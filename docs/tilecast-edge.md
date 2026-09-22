@@ -1112,28 +1112,38 @@ Use one installation-scoped namespace:
 tilecast/<installation-id>/...
 ```
 
-The installation ID is part of the keyspace **and** enforced cryptographically. The namespace alone is not a security boundary.
+The namespace is routing, not authorization.
 
-Suggested v1 key layout:
+V1 layout aligns with the fixed stream topology:
 
 ```text
-tilecast/<installation>/nodes/<node-id>/liveliness
+tilecast/<installation>/nodes/<opaque-session>/liveliness
 tilecast/<installation>/nodes/<node-id>/summary
 tilecast/<installation>/nodes/<node-id>/capabilities
 tilecast/<installation>/nodes/<node-id>/clock
 tilecast/<installation>/nodes/<node-id>/cache/events
 
-tilecast/<installation>/changes/latest
-tilecast/<installation>/changes/query
+tilecast/<installation>/streams/security/latest
+tilecast/<installation>/streams/security/query
+tilecast/<installation>/streams/policy/latest
+tilecast/<installation>/streams/policy/query
+tilecast/<installation>/streams/screen/<screen-id>/latest
+tilecast/<installation>/streams/screen/<screen-id>/query
 
 tilecast/<installation>/objects/has/<sha256>
-
 tilecast/<installation>/context/<scope>/<scope-id>/<key>
-
 tilecast/<installation>/roles/<role>/candidate
 ```
 
-Avoid overly broad wildcard subscriptions where fixed/narrow keys are possible. Zenoh's ACL documentation notes that exact key expressions are cheaper to match and topology can make ACL behavior subtle.
+Exact stream IDs inside signed protocol documents are:
+
+```text
+security/<installation-id>
+policy/<installation-id>
+screen/<screen-id>
+```
+
+Avoid overly broad subscriptions where narrow keys suffice. Authorization still verifies the authenticated node and signed application document; key naming alone is not a security boundary.
 
 ### 13.7 Liveliness
 
@@ -3493,18 +3503,34 @@ Add migrations, not edits to shipped migrations.
 
 Edge server schema includes at least:
 
-#### `edge_control_state`
+#### `edge_recovery_state`
 
 ```text
 installation_id PK
-state_epoch
-feed_last_sequence
-feed_head_digest
-revocation_generation
+trust_realm_id
+active_state_incarnation_id
+security_lineage_id
+security_generation
+security_state_digest
+authority_keyring_digest
+recovery_state
 updated_at
 ```
 
-State-epoch recovery metadata also has an external backup/recovery copy as described in §12.1.
+This database row is not the only recovery copy; the encrypted ERB/external recovery checkpoint from §12 is what prevents a database rollback from silently lowering security history.
+
+#### `edge_player_owners`
+
+```text
+screen_id PK
+state_incarnation_id
+owner_generation
+owner_kind
+lease_id/lease_expiry NULL
+updated_at
+```
+
+Owner generations are meaningful only with their `state_incarnation_id`.
 
 #### `edge_node_certificates`
 
@@ -3512,6 +3538,7 @@ State-epoch recovery metadata also has an external backup/recovery copy as descr
 id PK
 player_installation_id
 screen_id
+trust_realm_id
 serial_number UNIQUE
 public_key_fingerprint
 certificate_pem
@@ -3523,14 +3550,19 @@ revocation_reason
 created_at
 ```
 
-Certificate rows represent certificate instances. Durable node disablement is separate and should reuse the authoritative existing player/screen lifecycle where possible.
+Certificate rows represent instances. Durable node disablement reuses existing authoritative device/screen lifecycle where possible.
 
 #### `edge_node_status`
 
 ```text
 screen_id PK
+state_incarnation_id
 player_owner_generation
+trust_realm_id
+security_lineage_id
+security_generation
 edge_version
+release_set_id
 renderer_kind
 renderer_version
 renderer_profile_revision
@@ -3543,36 +3575,34 @@ clock_source
 clock_offset_ms
 clock_uncertainty_ms
 capability_revision
-state_epoch
-last_applied_change_sequence
-last_applied_change_digest
-highest_verified_change_sequence
-snapshot_base_sequence
+stream_cursors JSONB
 last_edge_contact_at
 last_mesh_change_at
 last_error_code
 updated_at
 ```
 
-#### `edge_changes`
+Each `stream_cursors` entry is bounded and contains stream ID, last applied sequence/digest, highest verified sequence and snapshot base where relevant.
 
-Use the outbox/feed/control schema from §15, including `state_epoch`, chain digests and subject revisions.
+#### Edge streams/projection/outbox
+
+Use the exact §15 tables: outbox, `edge_stream_state`, `edge_stream_changes`, and `edge_projection_state`.
 
 #### `edge_objects`
 
-Server immutable object metadata. Object bytes are durable before a feed record can reference them.
+Server immutable-object metadata plus reference/grant/sharing-class metadata. Object bytes are durable before a stream record may reference them.
 
 #### `edge_context_sources`
 
-Typed source definitions with maximum TTL/freshness and privacy classification.
+Typed source definitions with maximum TTL, deterministic precedence and privacy classification.
 
 #### `edge_context_rules`
 
-Validated CEL source + normalized metadata + revision.
+Validated bounded CEL source + normalized metadata + subset/compiler revision.
 
 #### `edge_settings`
 
-Bounded Edge settings. Studio never stores peer-supplied arbitrary network targets or secrets in this table.
+Bounded Edge settings. Never store peer-supplied arbitrary targets/secrets here.
 
 ### 32.2 Current status vs history
 
@@ -3598,7 +3628,7 @@ Preserve the existing separation between dashboard APIs and player-authenticated
 
 ### 33.1 Player/Edge endpoints
 
-All normal routes use the existing player bearer credential plus the current player owner generation where the operation is owner-sensitive.
+Normal player routes use the existing bearer credential plus `(stateIncarnationId, playerOwnerGeneration)` for owner-sensitive operations.
 
 Illustrative endpoints:
 
@@ -3606,9 +3636,11 @@ Illustrative endpoints:
 POST /api/v1/player/edge/enroll
 POST /api/v1/player/edge/renew
 GET  /api/v1/player/edge/security
-GET  /api/v1/player/edge/changes
-GET  /api/v1/player/edge/snapshot
+GET  /api/v1/player/edge/streams/<stream-id>/changes
+GET  /api/v1/player/edge/streams/<stream-id>/current
+GET  /api/v1/player/edge/streams/<stream-id>/snapshot
 GET  /api/v1/player/edge/objects/<sha256>
+POST /api/v1/player/edge/object-grants/validate   # optional server fallback, not peer authority
 POST /api/v1/player/edge/status
 POST /api/v1/player/edge/context/observations
 POST /api/v1/player/ownership/handoff
@@ -3616,11 +3648,11 @@ POST /api/v1/player/ownership/rollback
 POST /api/v1/player/edge/recovery/reanchor
 ```
 
-Owner-sensitive requests carry `playerOwnerGeneration` or a server-issued lease bound to that generation. Stale generations receive a conflict/fenced response.
+A server-issued owner lease is bound to both incarnation and owner generation. A lease/generation from any previous state incarnation is fenced even if its numeric generation is larger.
 
-The recovery re-anchor endpoint is available only in an explicit server recovery state and returns the new state epoch plus signed recovery checkpoint. It is never callable through peer relay.
+The recovery re-anchor endpoint is available only in explicit recovery state. It returns the new `stateIncarnationId`, trust/security checkpoint and initial signed stream checkpoints. It is never peer-relay authority.
 
-Shadow/bootstrap enrollment, if implemented, uses a separate one-time scoped grant rather than the active player bearer credential.
+Shadow/bootstrap enrollment uses a separate one-time scoped grant rather than the active owner bearer path.
 
 ### 33.2 Dashboard APIs
 
@@ -3658,14 +3690,23 @@ Prefer whichever keeps current `lastContactAt` semantics unambiguous. An Edge op
 
 ## 34. Edge status contract
 
-Status remains bounded operational state, not an unbounded event transport.
+Status is bounded current operational state.
 
 Conceptual payload:
 
 ```json
 {
-  "playerOwnerGeneration": "12",
+  "ownership": {
+    "stateIncarnationId": "...",
+    "playerOwnerGeneration": "12"
+  },
+  "trust": {
+    "trustRealmId": "...",
+    "securityLineageId": "...",
+    "securityGeneration": "28"
+  },
   "edgeVersion": "1.4.0",
+  "releaseSetId": "...",
   "mesh": {
     "state": "connected",
     "peerCount": 6,
@@ -3679,13 +3720,22 @@ Conceptual payload:
       }
     ]
   },
-  "changeFeed": {
-    "stateEpoch": "7",
-    "lastAppliedSequence": "81234",
-    "lastAppliedDigest": "...",
-    "highestVerifiedSequence": "81234",
-    "snapshotBaseSequence": "80000"
-  },
+  "streams": [
+    {
+      "streamId": "security/...",
+      "lastAppliedSequence": "140",
+      "lastAppliedDigest": "...",
+      "highestVerifiedSequence": "140",
+      "snapshotBaseSequence": "120"
+    },
+    {
+      "streamId": "screen/...",
+      "lastAppliedSequence": "81234",
+      "lastAppliedDigest": "...",
+      "highestVerifiedSequence": "81234",
+      "snapshotBaseSequence": "80000"
+    }
+  ],
   "cache": {
     "usedBytes": "13812412342",
     "limitBytes": "17179869184"
@@ -3708,11 +3758,11 @@ Conceptual payload:
 }
 ```
 
-Potentially 64-bit counters/revisions are decimal strings.
+Potentially 64-bit counters are decimal strings.
 
-Do not put retry-sensitive byte deltas such as `peerServedBytesDelta` in ordinary status. Use the existing sequenced/idempotent telemetry pipeline, or cumulative monotonic counters paired with a boot epoch and server-side last-seen value.
+Do not send retry-sensitive naked byte deltas here. Use sequenced/idempotent telemetry or cumulative counters + boot epoch.
 
-The server bounds/validates endpoint count, private address, interface and port before using endpoint data as seed hints.
+Validate endpoint count/private-address/interface/port before using status as seed hints.
 
 ## 35. Backward compatibility
 
@@ -3996,7 +4046,7 @@ peer_rate_limit_rejections
 cache_bytes
 cache_pinned_bytes
 cache_evictions
-change_sequence_lag
+stream_sequence_lag
 feed_fork_incidents
 context_live_values
 context_stale_values
@@ -4090,7 +4140,7 @@ These are release-blocking invariants.
 18. An optional capability failure cannot brick normal playback.
 19. Revoked certificate instances and disabled durable nodes are distinct; certificate replacement does not accidentally disable the renewed/rebound node.
 20. Renderer/admin IPC authority is derived from separate OS identities, socket permissions and peer credentials; a renderer cannot self-declare an admin role.
-21. Renderer media access is limited to the daemon-issued active/prepared hash capability set; renderer processes cannot open the Edge state/CAS tree directly.
+21. Renderer media access is limited to daemon-issued prepared/active/draining presentation generations; renderer processes cannot open the Edge state/CAS tree directly.
 22. A CA-valid peer cannot impersonate another node's logical identity/keyspace, and outbound peer trust is installation-CA-only.
 23. Feed sequence proves delivery completeness but never overrides a newer signed resource revision.
 24. Snapshot recovery resumes only from an authority-signed base sequence consistent with the state contained in that snapshot.
@@ -4106,7 +4156,7 @@ These are release-blocking invariants.
 Retain:
 
 - active/previous configuration;
-- current and pending presentation bundles;
+- current, prepared and draining presentation bundles/generations;
 - CAS objects according to policy;
 - bounded server change log required for offline continuity;
 - current context and explicit last-known-good candidates;
@@ -4194,38 +4244,62 @@ Shadow mode must not execute server commands, activate content, update the playe
 
 ### 41.3 Server ownership fencing
 
-The server issues a monotonically increasing `playerOwnerGeneration` when ownership changes.
+Owner identity is the tuple:
 
-All owner-sensitive Linux player traffic carries the current generation, including:
+```text
+(stateIncarnationId, playerOwnerGeneration)
+```
 
-- authenticated WebSocket ownership;
-- command polling/ack/result;
-- manifest/config owner status;
-- update execution/reporting;
-- state-changing Edge owner endpoints.
+The server increments `playerOwnerGeneration` when ownership changes inside one state incarnation.
 
-Once generation N+1 is committed, generation N is rejected for owner-sensitive operations even if an old process still has the bearer credential.
+Every owner-sensitive Linux request carries that tuple or a short-lived lease cryptographically/transactionally bound to it.
 
-The bearer credential authenticates the device. The owner generation fences the currently authorized runtime process generation.
+Once generation N+1 is committed in incarnation I, generation N is rejected.
 
-A connection lease/session token derived from the owner generation may be used for ordinary calls, but it cannot outlive or bypass a newer server owner generation.
+When recovery creates incarnation J, **every lease/generation from incarnation I is rejected regardless of its numeric generation**. J may start owner generation from a defined initial value because generations are never compared across incarnations.
 
-### 41.4 Credential handoff
+The bearer credential authenticates the device; the owner tuple fences the runtime authorized to act now.
 
-Preferred sequence:
+### 41.4 Credential handoff and recovery authentication
 
-1. Electron stops owner-sensitive activity and reports quiesced state.
-2. installer/controlled handoff moves or copies the existing credential into Edge's protected identity path without logging it.
-3. `tilecastd` verifies server installation identity.
-4. `tilecastd` requests a new owner generation using the existing credential and a handoff nonce/record.
-5. server atomically commits Edge owner generation N+1.
-6. generation N traffic from Electron is now rejected.
-7. `tilecastd` authenticates normal owner traffic with generation N+1.
-8. Electron restarts as renderer-only client.
+Forward handoff:
 
-If the server does not commit step 5, legacy generation N remains authoritative and rollback removes the uncommitted Edge copy.
+1. Electron quiesces owner-sensitive work.
+2. controlled handoff copies/moves the bearer into Edge protected storage.
+3. `tilecastd` verifies server installation/trust identity.
+4. `tilecastd` requests a new owner tuple with handoff nonce.
+5. server atomically commits generation N+1 in the current state incarnation.
+6. old generation N traffic is rejected.
+7. Edge starts owner-sensitive work.
+8. Electron becomes renderer-only.
 
-A fresh Edge install pairs directly through `tilecastd`.
+Recovery has an additional rule: a database restore may resurrect an old bearer or omit a newer rotated bearer.
+
+The server must not use a resurrected credential automatically to authorize a new state-incarnation owner. Recovery re-anchor validates the currently presented credential against recovery policy; if its history cannot be proven safe, the operator performs credential repair/re-pairing before issuing a new owner tuple.
+
+Fresh installs pair directly through `tilecastd`.
+
+### 41.4.1 Commands and updates across restore
+
+Server-created disruptive work is bound to the state incarnation in which it was authorized.
+
+Commands/update targets carry:
+
+```text
+stateIncarnationId
+command/deployment ID
+authorization revision
+```
+
+After a rollback-style restore creates a new state incarnation:
+
+- pending disruptive commands from the restored old history do not auto-execute;
+- pending update/install authorizations from the old incarnation do not auto-install;
+- server marks them cancelled/recovery-review or explicitly reauthorizes them into the new incarnation.
+
+This prevents a restored backup from replaying an old shutdown/reboot/update as newly pending state.
+
+### 41.5 Cache migration
 
 ### 41.5 Cache migration
 
@@ -4247,7 +4321,7 @@ Importers cover server identity, credential state, active/pending manifest/confi
 
 Each importer is versioned/idempotent. Keep originals until Edge writes a confirmed checkpoint.
 
-The trusted Edge checkpoint/state epoch is not reconstructed from arbitrary peer state after destructive DB recovery.
+The trusted Edge checkpoint/trust realm/state incarnation/security lineage is not reconstructed from arbitrary peer state after destructive DB recovery.
 
 ### 41.7 Command semantics
 
@@ -4259,15 +4333,15 @@ Every command type declares one execution class:
 - **at-most-once initiation** — persist the intent/idempotency record before triggering a disruptive action;
 - **retryable with state reconciliation** — effect can be checked and safely converged.
 
-Local idempotency records remain at least as long as the server can redeliver the command or until a newer owner/command epoch proves the command cannot reappear. Count-only trimming is not sufficient.
+Local idempotency records remain at least as long as the server can redeliver the command or until a newer state-incarnation/owner boundary proves the command cannot reappear. Count-only trimming is not sufficient.
 
-After destructive local command-state recovery, disruptive command consumption remains disabled until direct server reconciliation or a new owner generation establishes a safe boundary.
+After destructive local command-state recovery, disruptive command consumption remains disabled until direct server reconciliation establishes the current state-incarnation owner tuple.
 
 ### 41.8 Rollback during transition
 
 Rollback to the legacy player is fenced like forward handoff.
 
-The server issues a newer owner generation to the legacy runtime. An old Edge daemon that later wakes with the same bearer but an older generation cannot resume commands/updates.
+The server issues a newer owner tuple to the legacy runtime. An old Edge daemon that later wakes with the same bearer but an older incarnation/generation cannot resume commands/updates.
 
 Rollback must preserve assignments/groups/history and must account for display host mode. A machine already converted to compositorless DRM may require explicit restoration of a compatible compositor/session before a legacy Electron binary can render.
 
