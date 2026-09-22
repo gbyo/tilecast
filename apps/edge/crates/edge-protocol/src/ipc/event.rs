@@ -425,11 +425,9 @@ impl PreviewResult {
     /// Size check that cannot be expressed as a serde bound on a String.
     pub fn within_limits(&self) -> bool {
         match &self.result {
-            PreviewOutcome::Captured {
-                jpeg_base64,
-                width,
-                height,
-            } => jpeg_base64.len() <= MAX_PREVIEW_BASE64_CHARS && *width <= 3840 && *height <= 2160,
+            PreviewOutcome::Captured { jpeg_base64, width, height } => {
+                jpeg_base64.len() <= MAX_PREVIEW_BASE64_CHARS && *width <= 3840 && *height <= 2160
+            }
             PreviewOutcome::Unavailable { .. } => true,
         }
     }
@@ -459,10 +457,7 @@ mod tests {
 
     #[test]
     fn rejects_unknown_names_fields_and_types() {
-        assert!(matches!(
-            Event::decode("renderer.exec", json!({})),
-            Err(EventError::Unknown(_))
-        ));
+        assert!(matches!(Event::decode("renderer.exec", json!({})), Err(EventError::Unknown(_))));
         assert!(
             Event::decode(
                 "renderer.progress",
@@ -499,11 +494,7 @@ mod tests {
     fn preview_limits() {
         let ok = PreviewResult {
             request_id: uuid::Uuid::nil(),
-            result: PreviewOutcome::Captured {
-                jpeg_base64: "AAAA".into(),
-                width: 960,
-                height: 540,
-            },
+            result: PreviewOutcome::Captured { jpeg_base64: "AAAA".into(), width: 960, height: 540 },
         };
         assert!(ok.within_limits());
         let huge = PreviewResult {

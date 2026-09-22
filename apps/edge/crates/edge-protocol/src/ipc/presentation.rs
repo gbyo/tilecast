@@ -46,9 +46,7 @@ pub fn content_uri(digest: &Sha256Digest) -> String {
 /// Parses a content URI. Returns `None` for anything that is not exactly
 /// `tcmedia://sha256/<digest>`.
 pub fn parse_content_uri(value: &str) -> Option<Sha256Digest> {
-    value
-        .strip_prefix(CONTENT_URI_PREFIX)
-        .and_then(|hex| Sha256Digest::parse(hex).ok())
+    value.strip_prefix(CONTENT_URI_PREFIX).and_then(|hex| Sha256Digest::parse(hex).ok())
 }
 
 /// One immutable object a presentation uses.
@@ -124,11 +122,7 @@ pub enum PresentationDocument {
         code: SafeText<16>,
         #[serde(rename = "approvalUrl")]
         approval_url: SafeText<512>,
-        #[serde(
-            rename = "organizationName",
-            default,
-            skip_serializing_if = "Option::is_none"
-        )]
+        #[serde(rename = "organizationName", default, skip_serializing_if = "Option::is_none")]
         organization_name: Option<SafeText<120>>,
     },
     Idle(StatusSurface),
@@ -178,12 +172,7 @@ impl PresentationDocument {
     /// of silently dropping content (RFC §28.8, Amendment A1).
     pub fn required_features(&self) -> Vec<&'static str> {
         let mut features = vec!["status-surfaces-v1"];
-        if let Self::Playing {
-            items,
-            synchronized,
-            ..
-        } = self
-        {
+        if let Self::Playing { items, synchronized, .. } = self {
             for item in items {
                 let feature = match item.kind {
                     ItemKind::Image => "image",
@@ -243,27 +232,20 @@ pub fn validate_content_references(
 }
 
 /// The same check for any bounded JSON payload (for example plugin state).
-pub fn validate_value(
-    value: &serde_json::Value,
-    content: &[ContentRef],
-) -> Result<(), PresentationError> {
+pub fn validate_value(value: &serde_json::Value, content: &[ContentRef]) -> Result<(), PresentationError> {
     match value {
         serde_json::Value::String(text) => {
             if text.to_ascii_lowercase().starts_with("tcmedia:") {
-                let digest = parse_content_uri(text)
-                    .ok_or_else(|| PresentationError::MalformedContentUri(truncate(text)))?;
+                let digest =
+                    parse_content_uri(text).ok_or_else(|| PresentationError::MalformedContentUri(truncate(text)))?;
                 if !content.iter().any(|item| item.sha256 == digest) {
                     return Err(PresentationError::UnlistedContent(digest.short()));
                 }
             }
             Ok(())
         }
-        serde_json::Value::Array(items) => items
-            .iter()
-            .try_for_each(|item| validate_value(item, content)),
-        serde_json::Value::Object(members) => members
-            .values()
-            .try_for_each(|item| validate_value(item, content)),
+        serde_json::Value::Array(items) => items.iter().try_for_each(|item| validate_value(item, content)),
+        serde_json::Value::Object(members) => members.values().try_for_each(|item| validate_value(item, content)),
         _ => Ok(()),
     }
 }
@@ -307,19 +289,12 @@ mod tests {
             "takeover": false, "generation": 3
         }))
         .expect("playing");
-        assert_eq!(
-            playing.required_features(),
-            vec!["status-surfaces-v1", "image"]
-        );
+        assert_eq!(playing.required_features(), vec!["status-surfaces-v1", "image"]);
         validate_content_references(&playing, &content()).expect("references valid");
+        assert!(serde_json::from_value::<PresentationDocument>(json!({"state": "hologram"})).is_err());
         assert!(
-            serde_json::from_value::<PresentationDocument>(json!({"state": "hologram"})).is_err()
-        );
-        assert!(
-            serde_json::from_value::<PresentationDocument>(
-                json!({"state": "safe-mode", "reason": "x", "more": 1})
-            )
-            .is_err()
+            serde_json::from_value::<PresentationDocument>(json!({"state": "safe-mode", "reason": "x", "more": 1}))
+                .is_err()
         );
     }
 

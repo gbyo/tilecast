@@ -49,18 +49,8 @@ pub const MAX_CAPABILITIES: usize = 256;
 pub const MAX_ATTRIBUTES: usize = 16;
 
 /// Closed set of capability categories (first segment of an ID).
-pub const CATEGORIES: &[&str] = &[
-    "renderer",
-    "video",
-    "mesh",
-    "time",
-    "display",
-    "audio",
-    "input",
-    "network",
-    "system",
-    "external_presentation",
-];
+pub const CATEGORIES: &[&str] =
+    &["renderer", "video", "mesh", "time", "display", "audio", "input", "network", "system", "external_presentation"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -102,9 +92,7 @@ impl CapabilityId {
         for segment in segments {
             count += 1;
             let valid = !segment.is_empty()
-                && segment
-                    .chars()
-                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+                && segment.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
             if !valid {
                 return Err(CapabilityIdError);
             }
@@ -150,9 +138,7 @@ fn list16<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<ShortToken>,
     bounded_vec(deserializer, 16)
 }
 
-fn attributes<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<BTreeMap<Token<48>, AttributeValue>, D::Error> {
+fn attributes<'de, D: Deserializer<'de>>(deserializer: D) -> Result<BTreeMap<Token<48>, AttributeValue>, D::Error> {
     let map = BTreeMap::<Token<48>, AttributeValue>::deserialize(deserializer)?;
     if map.len() > MAX_ATTRIBUTES {
         return Err(D::Error::custom("too many capability attributes"));
@@ -174,11 +160,7 @@ pub struct Capability {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<DetailText>,
     pub observed_at: Timestamp,
-    #[serde(
-        default,
-        deserialize_with = "attributes",
-        skip_serializing_if = "BTreeMap::is_empty"
-    )]
+    #[serde(default, deserialize_with = "attributes", skip_serializing_if = "BTreeMap::is_empty")]
     pub attributes: BTreeMap<Token<48>, AttributeValue>,
 }
 
@@ -229,17 +211,12 @@ pub struct CapabilitySnapshot {
     pub capabilities: Vec<Capability>,
 }
 
-fn capability_list<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<Capability>, D::Error> {
+fn capability_list<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Capability>, D::Error> {
     let list: Vec<Capability> = bounded_vec(deserializer, MAX_CAPABILITIES)?;
     let mut seen = std::collections::BTreeSet::new();
     for capability in &list {
         if !seen.insert(capability.id.clone()) {
-            return Err(D::Error::custom(format!(
-                "duplicate capability {}",
-                capability.id.as_str()
-            )));
+            return Err(D::Error::custom(format!("duplicate capability {}", capability.id.as_str())));
         }
     }
     Ok(list)
@@ -261,12 +238,7 @@ impl CapabilitySnapshot {
                 return Err(SnapshotError::Duplicate(pair[0].id.as_str().to_owned()));
             }
         }
-        Ok(Self {
-            schema: CAPABILITY_SCHEMA_V1,
-            revision,
-            generated_at,
-            capabilities,
-        })
+        Ok(Self { schema: CAPABILITY_SCHEMA_V1, revision, generated_at, capabilities })
     }
 
     pub fn get(&self, id: &str) -> Option<&Capability> {
@@ -275,11 +247,7 @@ impl CapabilitySnapshot {
 
     /// Whether two capability lists differ in any material way.
     pub fn materially_differs(previous: &[Capability], next: &[Capability]) -> bool {
-        previous.len() != next.len()
-            || previous
-                .iter()
-                .zip(next)
-                .any(|(a, b)| !a.materially_equal(b))
+        previous.len() != next.len() || previous.iter().zip(next).any(|(a, b)| !a.materially_equal(b))
     }
 }
 
@@ -313,20 +281,10 @@ mod tests {
 
     #[test]
     fn id_grammar() {
-        for good in [
-            "renderer.wpe",
-            "display.ddc.brightness",
-            "video.h264.hardware_decode",
-        ] {
+        for good in ["renderer.wpe", "display.ddc.brightness", "video.h264.hardware_decode"] {
             assert!(CapabilityId::new(good).is_ok(), "{good}");
         }
-        for bad in [
-            "renderer",
-            "platform.linux",
-            "display..cec",
-            "Display.cec",
-            "a.b.c.d.e.f.g",
-        ] {
+        for bad in ["renderer", "platform.linux", "display..cec", "Display.cec", "a.b.c.d.e.f.g"] {
             assert!(CapabilityId::new(bad).is_err(), "{bad}");
         }
     }
@@ -346,10 +304,7 @@ mod tests {
         assert!(!capability.state.is_usable());
         assert!(serde_json::from_str::<Capability>(&json.replace("blocked", "maybe")).is_err());
         assert!(
-            serde_json::from_str::<Capability>(
-                &json.replace("\"provider\"", "\"extra\": 1, \"provider\"")
-            )
-            .is_err()
+            serde_json::from_str::<Capability>(&json.replace("\"provider\"", "\"extra\": 1, \"provider\"")).is_err()
         );
     }
 
@@ -366,16 +321,8 @@ mod tests {
 
     #[test]
     fn snapshot_sorts_and_rejects_duplicates() {
-        let make = |id: &str| {
-            Capability::new(
-                CapabilityId::new(id).expect("id"),
-                CapabilityState::Unsupported,
-                at(),
-            )
-        };
-        let snapshot =
-            CapabilitySnapshot::new(3, at(), vec![make("time.ptp"), make("audio.pipewire")])
-                .expect("ok");
+        let make = |id: &str| Capability::new(CapabilityId::new(id).expect("id"), CapabilityState::Unsupported, at());
+        let snapshot = CapabilitySnapshot::new(3, at(), vec![make("time.ptp"), make("audio.pipewire")]).expect("ok");
         assert_eq!(snapshot.capabilities[0].id.as_str(), "audio.pipewire");
         assert_eq!(
             CapabilitySnapshot::new(3, at(), vec![make("time.ptp"), make("time.ptp")]).unwrap_err(),

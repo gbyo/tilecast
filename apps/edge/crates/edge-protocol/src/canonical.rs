@@ -152,39 +152,21 @@ mod tests {
         // U+1F600 (surrogate pair D83D DE00) sorts before U+FFFD in UTF-16
         // even though its UTF-8 bytes sort after.
         let value = json!({"\u{fffd}": 1, "\u{1f600}": 2, "b": 3, "a": 4, "A": 5});
-        assert_eq!(
-            canon(value),
-            "{\"A\":5,\"a\":4,\"b\":3,\"\u{1f600}\":2,\"\u{fffd}\":1}"
-        );
+        assert_eq!(canon(value), "{\"A\":5,\"a\":4,\"b\":3,\"\u{1f600}\":2,\"\u{fffd}\":1}");
     }
 
     #[test]
     fn escapes_like_json_stringify() {
         let value = json!("q\"b\\\u{8}\u{c}\n\r\t\u{1}\u{1f}\u{7f}é\u{2028}");
-        assert_eq!(
-            canon(value),
-            "\"q\\\"b\\\\\\b\\f\\n\\r\\t\\u0001\\u001f\u{7f}é\u{2028}\""
-        );
+        assert_eq!(canon(value), "\"q\\\"b\\\\\\b\\f\\n\\r\\t\\u0001\\u001f\u{7f}é\u{2028}\"");
     }
 
     #[test]
     fn rejects_non_integers_and_unsafe_integers() {
-        assert_eq!(
-            canonicalize(&json!(1.5)),
-            Err(CanonicalError::UnsupportedNumber)
-        );
-        assert_eq!(
-            canonicalize(&json!(MAX_SAFE_INTEGER + 1)),
-            Err(CanonicalError::UnsupportedNumber)
-        );
-        assert_eq!(
-            canonicalize(&json!(-(MAX_SAFE_INTEGER as i64) - 1)),
-            Err(CanonicalError::UnsupportedNumber)
-        );
-        assert_eq!(
-            canon(json!(-(MAX_SAFE_INTEGER as i64))),
-            "-9007199254740991"
-        );
+        assert_eq!(canonicalize(&json!(1.5)), Err(CanonicalError::UnsupportedNumber));
+        assert_eq!(canonicalize(&json!(MAX_SAFE_INTEGER + 1)), Err(CanonicalError::UnsupportedNumber));
+        assert_eq!(canonicalize(&json!(-(MAX_SAFE_INTEGER as i64) - 1)), Err(CanonicalError::UnsupportedNumber));
+        assert_eq!(canon(json!(-(MAX_SAFE_INTEGER as i64))), "-9007199254740991");
     }
 
     #[test]
@@ -199,11 +181,7 @@ mod tests {
             b"{\"a\":1e2}",
             b" {\"a\":1}",
         ] {
-            assert!(
-                parse_canonical(bad).is_err(),
-                "{:?}",
-                String::from_utf8_lossy(bad)
-            );
+            assert!(parse_canonical(bad).is_err(), "{:?}", String::from_utf8_lossy(bad));
         }
     }
 

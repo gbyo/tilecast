@@ -79,9 +79,7 @@ pub struct ContextValue {
     pub expires_at: Option<Timestamp>,
 }
 
-pub fn bounded_values<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<ContextValue>, D::Error> {
+pub fn bounded_values<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<ContextValue>, D::Error> {
     let values: Vec<ContextValue> = bounded_vec(deserializer, MAX_CONTEXT_VALUES)?;
     for value in &values {
         if let ContextData::Scalar(ContextScalar::Number(number)) = value.data
@@ -106,8 +104,7 @@ mod tests {
         )
         .expect("valid");
         assert_eq!(scalar.freshness, Freshness::Live);
-        let list: ContextData =
-            serde_json::from_str(r#"{"list":[{"type":"integer","value":4}]}"#).expect("valid");
+        let list: ContextData = serde_json::from_str(r#"{"list":[{"type":"integer","value":4}]}"#).expect("valid");
         assert!(matches!(list, ContextData::List { .. }));
         assert!(serde_json::from_str::<ContextData>(r#"{"type":"object","value":{}}"#).is_err());
     }

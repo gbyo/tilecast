@@ -110,8 +110,7 @@ where
         Some(key)
     })?;
     let signer = signer.ok_or(StatementError::Signed(SignedError::UntrustedKey))?;
-    let body: StatementBody =
-        serde_json::from_value(verified.body).map_err(|_| StatementError::InvalidBody)?;
+    let body: StatementBody = serde_json::from_value(verified.body).map_err(|_| StatementError::InvalidBody)?;
     if body.schema != STATEMENT_SCHEMA_V1 {
         return Err(StatementError::InvalidBody);
     }
@@ -150,9 +149,7 @@ pub fn sign_statement(
     certificate_der: &[u8],
     draft: StatementDraft<'_>,
 ) -> Result<SignedDocument, SignedError> {
-    let lifetime = draft
-        .lifetime_seconds
-        .clamp(1, MAX_STATEMENT_LIFETIME_SECONDS);
+    let lifetime = draft.lifetime_seconds.clamp(1, MAX_STATEMENT_LIFETIME_SECONDS);
     let issued_at = draft.now.truncate_to_seconds();
     let body = serde_json::json!({
         "schema": STATEMENT_SCHEMA_V1,
@@ -178,10 +175,7 @@ mod tests {
     }
 
     fn signer(key: &SigningKey) -> StatementSigner {
-        StatementSigner {
-            node_id: NODE.parse().expect("node"),
-            public_key: key.public_key().clone(),
-        }
+        StatementSigner { node_id: NODE.parse().expect("node"), public_key: key.public_key().clone() }
     }
 
     fn statement(key: &SigningKey, node: &str) -> SignedDocument {
@@ -214,10 +208,7 @@ mod tests {
         // A valid certificate cannot speak for another node ID.
         let other_node = "2f0c3c9e-7d2a-4b6e-9a51-0c8f2e4d6b7a";
         assert_eq!(
-            verify_statement(&statement(&key, other_node), installation, now(), |_| Some(
-                signer(&key)
-            ))
-            .unwrap_err(),
+            verify_statement(&statement(&key, other_node), installation, now(), |_| Some(signer(&key))).unwrap_err(),
             StatementError::NodeMismatch
         );
     }

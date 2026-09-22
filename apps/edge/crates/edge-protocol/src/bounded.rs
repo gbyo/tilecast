@@ -113,11 +113,7 @@ impl<const MAX: usize> SafeText<MAX> {
     /// produces (for example a local error rendered for an operator), never to
     /// launder a value received from another process.
     pub fn lossy(value: &str) -> Self {
-        let cleaned: String = value
-            .chars()
-            .map(|c| if c.is_control() { ' ' } else { c })
-            .take(MAX)
-            .collect();
+        let cleaned: String = value.chars().map(|c| if c.is_control() { ' ' } else { c }).take(MAX).collect();
         Self(cleaned)
     }
 
@@ -160,9 +156,7 @@ where
 {
     let values = Vec::<T>::deserialize(deserializer)?;
     if values.len() > max {
-        return Err(D::Error::custom(format!(
-            "list has more than {max} entries"
-        )));
+        return Err(D::Error::custom(format!("list has more than {max} entries")));
     }
     Ok(values)
 }
@@ -183,36 +177,18 @@ mod tests {
         assert!(ShortToken::new("i2c_permission_denied").is_ok());
         assert!(ShortToken::new("renderer.wpe").is_ok());
         assert_eq!(ShortToken::new(""), Err(BoundedError::Empty));
-        assert_eq!(
-            ShortToken::new("Upper"),
-            Err(BoundedError::InvalidCharacter)
-        );
-        assert_eq!(
-            ShortToken::new("9lives"),
-            Err(BoundedError::InvalidCharacter)
-        );
-        assert_eq!(
-            ShortToken::new("has space"),
-            Err(BoundedError::InvalidCharacter)
-        );
+        assert_eq!(ShortToken::new("Upper"), Err(BoundedError::InvalidCharacter));
+        assert_eq!(ShortToken::new("9lives"), Err(BoundedError::InvalidCharacter));
+        assert_eq!(ShortToken::new("has space"), Err(BoundedError::InvalidCharacter));
         assert_eq!(ShortToken::new("a/b"), Err(BoundedError::InvalidCharacter));
-        assert_eq!(
-            ShortToken::new("a".repeat(65)),
-            Err(BoundedError::TooLong { max: 64 })
-        );
+        assert_eq!(ShortToken::new("a".repeat(65)), Err(BoundedError::TooLong { max: 64 }));
     }
 
     #[test]
     fn safe_text_rejects_controls_and_length() {
         assert!(DetailText::new("I²C device permission is missing.").is_ok());
-        assert_eq!(
-            DetailText::new("line\nbreak"),
-            Err(BoundedError::InvalidCharacter)
-        );
-        assert_eq!(
-            SafeText::<3>::new("four"),
-            Err(BoundedError::TooLong { max: 3 })
-        );
+        assert_eq!(DetailText::new("line\nbreak"), Err(BoundedError::InvalidCharacter));
+        assert_eq!(SafeText::<3>::new("four"), Err(BoundedError::TooLong { max: 3 }));
         assert_eq!(SafeText::<4>::lossy("a\u{7}bcdef").as_str(), "a bc");
     }
 

@@ -189,10 +189,7 @@ fn typed<T: serde::de::DeserializeOwned>(
     kind: &'static str,
 ) -> Result<T, MessageError> {
     object.remove("type");
-    serde_json::from_value(Value::Object(object)).map_err(|e| MessageError::Malformed {
-        kind,
-        detail: e.to_string(),
-    })
+    serde_json::from_value(Value::Object(object)).map_err(|e| MessageError::Malformed { kind, detail: e.to_string() })
 }
 
 fn with_type<T: Serialize>(kind: &str, value: &T) -> Value {
@@ -206,8 +203,7 @@ fn with_type<T: Serialize>(kind: &str, value: &T) -> Value {
 impl Frame {
     /// Parses one frame payload. The caller has already enforced framing.
     pub fn decode(payload: &[u8]) -> Result<Frame, MessageError> {
-        let value: Value =
-            serde_json::from_slice(payload).map_err(|_| MessageError::NotAnObject)?;
+        let value: Value = serde_json::from_slice(payload).map_err(|_| MessageError::NotAnObject)?;
         let Value::Object(object) = value else {
             return Err(MessageError::NotAnObject);
         };
@@ -221,26 +217,13 @@ impl Frame {
             "rejected" => Ok(Frame::Rejected(typed(object, "rejected")?)),
             "goodbye" => Ok(Frame::Goodbye(typed(object, "goodbye")?)),
             "request" => {
-                let wire: RequestWire =
-                    serde_json::from_value(Value::Object(object)).map_err(|e| {
-                        MessageError::Malformed {
-                            kind: "request",
-                            detail: e.to_string(),
-                        }
-                    })?;
-                Ok(Frame::Request(Request {
-                    id: wire.id,
-                    method: Method::decode(&wire.method, wire.params)?,
-                }))
+                let wire: RequestWire = serde_json::from_value(Value::Object(object))
+                    .map_err(|e| MessageError::Malformed { kind: "request", detail: e.to_string() })?;
+                Ok(Frame::Request(Request { id: wire.id, method: Method::decode(&wire.method, wire.params)? }))
             }
             "response" => {
-                let wire: ResponseWire =
-                    serde_json::from_value(Value::Object(object)).map_err(|e| {
-                        MessageError::Malformed {
-                            kind: "response",
-                            detail: e.to_string(),
-                        }
-                    })?;
+                let wire: ResponseWire = serde_json::from_value(Value::Object(object))
+                    .map_err(|e| MessageError::Malformed { kind: "response", detail: e.to_string() })?;
                 let outcome = match (wire.result, wire.error) {
                     (Some(result), None) => Ok(result),
                     (None, Some(error)) => Err(error),
@@ -251,23 +234,12 @@ impl Frame {
                         });
                     }
                 };
-                Ok(Frame::Response(Response {
-                    id: wire.id,
-                    outcome,
-                }))
+                Ok(Frame::Response(Response { id: wire.id, outcome }))
             }
             "event" => {
-                let wire: EventWire =
-                    serde_json::from_value(Value::Object(object)).map_err(|e| {
-                        MessageError::Malformed {
-                            kind: "event",
-                            detail: e.to_string(),
-                        }
-                    })?;
-                Ok(Frame::Event(EventFrame {
-                    seq: wire.seq,
-                    event: Event::decode(&wire.event, wire.data)?,
-                }))
+                let wire: EventWire = serde_json::from_value(Value::Object(object))
+                    .map_err(|e| MessageError::Malformed { kind: "event", detail: e.to_string() })?;
+                Ok(Frame::Event(EventFrame { seq: wire.seq, event: Event::decode(&wire.event, wire.data)? }))
             }
             other => Err(MessageError::UnknownType(other.chars().take(32).collect())),
         }
@@ -291,13 +263,8 @@ impl Frame {
                     Ok(value) => (Some(value.clone()), None),
                     Err(error) => (None, Some(error.clone())),
                 };
-                serde_json::to_value(ResponseWire {
-                    kind: "response".into(),
-                    id: response.id.clone(),
-                    result,
-                    error,
-                })
-                .unwrap_or(Value::Null)
+                serde_json::to_value(ResponseWire { kind: "response".into(), id: response.id.clone(), result, error })
+                    .unwrap_or(Value::Null)
             }
             Frame::Event(frame) => serde_json::to_value(EventWire {
                 kind: "event".into(),
@@ -324,9 +291,7 @@ mod tests {
     fn hello_round_trip_and_strictness() {
         let payload = br#"{"type":"hello","minProtocolVersion":1,"maxProtocolVersion":1,"role":"renderer","client":"tilecast-renderer-wpe","clientVersion":"0.1.0","features":["image"]}"#;
         let frame = Frame::decode(payload).expect("valid hello");
-        let Frame::Hello(hello) = &frame else {
-            panic!("expected hello")
-        };
+        let Frame::Hello(hello) = &frame else { panic!("expected hello") };
         assert_eq!(hello.role, Role::Renderer);
         assert_eq!(Frame::decode(&frame.encode()).expect("round trip"), frame);
 
@@ -344,40 +309,22 @@ mod tests {
 
     #[test]
     fn request_response_shapes() {
-        let request = Frame::Request(Request {
-            id: RequestId::new("r1").expect("id"),
-            method: Method::StatusGet(Empty {}),
-        });
-        assert_eq!(
-            Frame::decode(&request.encode()).expect("round trip"),
-            request
-        );
+        let request =
+            Frame::Request(Request { id: RequestId::new("r1").expect("id"), method: Method::StatusGet(Empty {}) });
+        assert_eq!(Frame::decode(&request.encode()).expect("round trip"), request);
         assert!(
-            Frame::decode(
-                br#"{"type":"response","id":"r1","result":{},"error":{"code":"x","message":"y"}}"#
-            )
-            .is_err()
+            Frame::decode(br#"{"type":"response","id":"r1","result":{},"error":{"code":"x","message":"y"}}"#).is_err()
         );
         assert!(Frame::decode(br#"{"type":"response","id":"r1"}"#).is_err());
-        let ok = Frame::decode(
-            br#"{"type":"response","id":"r1","error":{"code":"not_authorized","message":"no"}}"#,
-        )
-        .expect("valid");
-        let Frame::Response(response) = ok else {
-            panic!("expected response")
-        };
+        let ok = Frame::decode(br#"{"type":"response","id":"r1","error":{"code":"not_authorized","message":"no"}}"#)
+            .expect("valid");
+        let Frame::Response(response) = ok else { panic!("expected response") };
         assert!(response.outcome.is_err());
-        assert!(
-            Frame::decode(br#"{"type":"request","id":"Bad Id","method":"ping","params":{}}"#)
-                .is_err()
-        );
+        assert!(Frame::decode(br#"{"type":"request","id":"Bad Id","method":"ping","params":{}}"#).is_err());
     }
 
     #[test]
     fn unknown_type_is_rejected() {
-        assert!(matches!(
-            Frame::decode(br#"{"type":"exec","cmd":"rm -rf /"}"#),
-            Err(MessageError::UnknownType(_))
-        ));
+        assert!(matches!(Frame::decode(br#"{"type":"exec","cmd":"rm -rf /"}"#), Err(MessageError::UnknownType(_))));
     }
 }

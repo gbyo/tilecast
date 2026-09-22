@@ -28,11 +28,7 @@ pub fn parse_canonical_uuid(value: &str) -> Result<Uuid, IdParseError> {
     }
     for (index, byte) in bytes.iter().enumerate() {
         let hyphen = matches!(index, 8 | 13 | 18 | 23);
-        let valid = if hyphen {
-            *byte == b'-'
-        } else {
-            byte.is_ascii_digit() || (b'a'..=b'f').contains(byte)
-        };
+        let valid = if hyphen { *byte == b'-' } else { byte.is_ascii_digit() || (b'a'..=b'f').contains(byte) };
         if !valid {
             return Err(IdParseError);
         }
@@ -139,23 +135,16 @@ pub mod canonical_uuid {
 pub mod canonical_uuid_option {
     use super::*;
 
-    pub fn serialize<S: Serializer>(
-        value: &Option<Uuid>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(value: &Option<Uuid>, serializer: S) -> Result<S::Ok, S::Error> {
         match value {
             Some(value) => serializer.collect_str(&value.hyphenated()),
             None => serializer.serialize_none(),
         }
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<Option<Uuid>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Uuid>, D::Error> {
         let value = Option::<String>::deserialize(deserializer)?;
-        value
-            .map(|value| parse_canonical_uuid(&value).map_err(D::Error::custom))
-            .transpose()
+        value.map(|value| parse_canonical_uuid(&value).map_err(D::Error::custom)).transpose()
     }
 }
 

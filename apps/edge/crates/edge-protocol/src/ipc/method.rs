@@ -142,10 +142,7 @@ mod tests {
         assert_eq!(verify.allowed_roles(), &[Role::Tilecastctl]);
         assert!(Method::decode("cas.verify", json!({"sha256": "../../x"})).is_err());
         assert!(Method::decode("cas.verify", json!({"path": "/etc"})).is_err());
-        assert!(matches!(
-            Method::decode("shell.exec", json!({})),
-            Err(MethodError::Unknown(_))
-        ));
+        assert!(matches!(Method::decode("shell.exec", json!({})), Err(MethodError::Unknown(_))));
         assert!(Method::decode("ping", json!({"extra": 1})).is_err());
         let round = Method::decode("ping", Method::Ping(Empty {}).params()).expect("round trip");
         assert_eq!(round, Method::Ping(Empty {}));

@@ -43,17 +43,13 @@ fn canonical_json_cases() {
     for case in cases["invalid"].as_array().expect("invalid list") {
         let name = case["name"].as_str().expect("name");
         let input = case["input"].as_str().expect("input");
-        let result = serde_json::from_str::<Value>(input)
-            .map_err(|_| ())
-            .and_then(|value| canonicalize(&value).map_err(|_| ()));
+        let result =
+            serde_json::from_str::<Value>(input).map_err(|_| ()).and_then(|value| canonicalize(&value).map_err(|_| ()));
         assert!(result.is_err(), "{name} must not canonicalize");
     }
     for case in cases["notCanonical"].as_array().expect("notCanonical list") {
         let name = case["name"].as_str().expect("name");
-        assert!(
-            parse_canonical(case["input"].as_str().expect("input").as_bytes()).is_err(),
-            "{name} must be rejected"
-        );
+        assert!(parse_canonical(case["input"].as_str().expect("input").as_bytes()).is_err(), "{name} must be rejected");
     }
 }
 
@@ -181,10 +177,7 @@ fn signed_change_fixtures() {
     for case in stored["cases"].as_array().expect("cases") {
         let document: SignedDocument = serde_json::from_value(case["document"].clone()).expect("document");
         let verified = verify_change(&document, &trust).expect("fixture verifies");
-        assert_eq!(
-            String::from_utf8(verified.document.body.clone().into_bytes()).expect("utf8"),
-            document.body
-        );
+        assert_eq!(String::from_utf8(verified.document.body.clone().into_bytes()).expect("utf8"), document.body);
     }
     for case in stored["tampered"].as_array().expect("tampered") {
         let document: SignedDocument = serde_json::from_value(case["document"].clone()).expect("document");

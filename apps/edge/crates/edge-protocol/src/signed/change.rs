@@ -194,9 +194,7 @@ pub struct AuthorityTrust {
 
 impl AuthorityTrust {
     pub fn resolve(&self, key_id: &str) -> Option<&AuthorityKey> {
-        self.keys
-            .iter()
-            .find(|key| key.public_key.key_id() == key_id)
+        self.keys.iter().find(|key| key.public_key.key_id() == key_id)
     }
 }
 
@@ -237,10 +235,7 @@ impl VerifiedChange {
 }
 
 /// Verifies a server change envelope for this node's installation.
-pub fn verify_change(
-    document: &SignedDocument,
-    trust: &AuthorityTrust,
-) -> Result<VerifiedChange, ChangeError> {
+pub fn verify_change(document: &SignedDocument, trust: &AuthorityTrust) -> Result<VerifiedChange, ChangeError> {
     let mut signer_epoch = None;
     let verified = document.verify(Purpose::ServerChange, |key_id, _| {
         trust.resolve(key_id).map(|key| {
@@ -251,16 +246,11 @@ pub fn verify_change(
 
     // Check the schema number before strict decoding so a future schema is
     // reported as such rather than as a malformed body.
-    let schema = verified
-        .body
-        .get("schema")
-        .and_then(serde_json::Value::as_u64)
-        .ok_or(ChangeError::InvalidBody)?;
+    let schema = verified.body.get("schema").and_then(serde_json::Value::as_u64).ok_or(ChangeError::InvalidBody)?;
     if schema != u64::from(CHANGE_SCHEMA_V1) {
         return Err(ChangeError::UnsupportedSchema(schema));
     }
-    let body: ChangeBody =
-        serde_json::from_value(verified.body).map_err(|_| ChangeError::InvalidBody)?;
+    let body: ChangeBody = serde_json::from_value(verified.body).map_err(|_| ChangeError::InvalidBody)?;
     if body.installation_id != trust.installation_id {
         return Err(ChangeError::WrongInstallation);
     }
@@ -270,8 +260,7 @@ pub fn verify_change(
     if body.sequence == 0 || body.previous_sequence >= body.sequence {
         return Err(ChangeError::InvalidSequence);
     }
-    if serde_json::to_vec(&body.payload).map_or(usize::MAX, |bytes| bytes.len()) > MAX_PAYLOAD_BYTES
-    {
+    if serde_json::to_vec(&body.payload).map_or(usize::MAX, |bytes| bytes.len()) > MAX_PAYLOAD_BYTES {
         return Err(ChangeError::PayloadTooLarge);
     }
     Ok(VerifiedChange {
@@ -309,10 +298,7 @@ impl ChainPosition {
         } else if change.previous_sequence == self.last_sequence {
             ChainDecision::Next
         } else {
-            ChainDecision::Missing {
-                after: self.last_sequence,
-                up_to: change.sequence,
-            }
+            ChainDecision::Missing { after: self.last_sequence, up_to: change.sequence }
         }
     }
 
@@ -336,8 +322,7 @@ impl PendingChanges {
     /// Holds a change. When full, the change furthest from the current
     /// position is dropped: it will be fetched again from the feed.
     pub fn hold(&mut self, change: VerifiedChange) {
-        self.by_previous
-            .insert(change.body.previous_sequence, change);
+        self.by_previous.insert(change.body.previous_sequence, change);
         while self.by_previous.len() > Self::MAX_HELD {
             let Some(last) = self.by_previous.keys().next_back().copied() else {
                 break;
@@ -353,8 +338,7 @@ impl PendingChanges {
 
     /// Discards held changes at or before `position`.
     pub fn prune(&mut self, position: ChainPosition) {
-        self.by_previous
-            .retain(|_, change| change.body.sequence > position.last_sequence);
+        self.by_previous.retain(|_, change| change.body.sequence > position.last_sequence);
     }
 
     pub fn len(&self) -> usize {
@@ -395,10 +379,7 @@ mod tests {
         let key = SigningKey::from_seed(&[1u8; 32]);
         let trust = AuthorityTrust {
             installation_id: INSTALLATION.parse().expect("id"),
-            keys: vec![AuthorityKey {
-                epoch: 1,
-                public_key: key.public_key().clone(),
-            }],
+            keys: vec![AuthorityKey { epoch: 1, public_key: key.public_key().clone() }],
         };
         (key, trust)
     }
@@ -420,36 +401,21 @@ mod tests {
         let (key, trust) = setup();
         let mut other = body(5, 3);
         other["installationId"] = json!("00000000-0000-4000-8000-000000000000");
-        assert_eq!(
-            verify_change(&signed(&key, other), &trust).unwrap_err(),
-            ChangeError::WrongInstallation
-        );
+        assert_eq!(verify_change(&signed(&key, other), &trust).unwrap_err(), ChangeError::WrongInstallation);
 
         let mut epoch = body(5, 3);
         epoch["authorityEpoch"] = json!(2);
-        assert_eq!(
-            verify_change(&signed(&key, epoch), &trust).unwrap_err(),
-            ChangeError::EpochMismatch
-        );
+        assert_eq!(verify_change(&signed(&key, epoch), &trust).unwrap_err(), ChangeError::EpochMismatch);
 
         let mut schema = body(5, 3);
         schema["schema"] = json!(2);
-        assert_eq!(
-            verify_change(&signed(&key, schema), &trust).unwrap_err(),
-            ChangeError::UnsupportedSchema(2)
-        );
+        assert_eq!(verify_change(&signed(&key, schema), &trust).unwrap_err(), ChangeError::UnsupportedSchema(2));
 
-        assert_eq!(
-            verify_change(&signed(&key, body(5, 5)), &trust).unwrap_err(),
-            ChangeError::InvalidSequence
-        );
+        assert_eq!(verify_change(&signed(&key, body(5, 5)), &trust).unwrap_err(), ChangeError::InvalidSequence);
 
         let mut extra = body(5, 3);
         extra["surprise"] = json!(1);
-        assert_eq!(
-            verify_change(&signed(&key, extra), &trust).unwrap_err(),
-            ChangeError::InvalidBody
-        );
+        assert_eq!(verify_change(&signed(&key, extra), &trust).unwrap_err(), ChangeError::InvalidBody);
     }
 
     #[test]
@@ -468,17 +434,13 @@ mod tests {
         let mut future = body(6, 5);
         future["type"] = json!("screen.hologram.changed");
         let change = verify_change(&signed(&key, future), &trust).expect("valid");
-        assert_eq!(
-            change.change_type,
-            ChangeType::Unknown("screen.hologram.changed".into())
-        );
+        assert_eq!(change.change_type, ChangeType::Unknown("screen.hologram.changed".into()));
     }
 
     #[test]
     fn chain_uses_links_not_integer_contiguity() {
         let (key, trust) = setup();
-        let decode =
-            |seq, prev| verify_change(&signed(&key, body(seq, prev)), &trust).expect("valid");
+        let decode = |seq, prev| verify_change(&signed(&key, body(seq, prev)), &trust).expect("valid");
         let mut position = ChainPosition { last_sequence: 10 };
 
         // Gap in integers, but the chain links: apply.
@@ -488,13 +450,7 @@ mod tests {
 
         // A peer relays 20, which links to 17: something is missing.
         let c20 = decode(20, 17);
-        assert_eq!(
-            position.classify(&c20.body),
-            ChainDecision::Missing {
-                after: 14,
-                up_to: 20
-            }
-        );
+        assert_eq!(position.classify(&c20.body), ChainDecision::Missing { after: 14, up_to: 20 });
         let mut pending = PendingChanges::default();
         pending.hold(c20);
 
@@ -507,10 +463,7 @@ mod tests {
         assert_eq!(position.last_sequence, 20);
         assert!(pending.is_empty());
 
-        assert_eq!(
-            position.classify(&decode(17, 14).body),
-            ChainDecision::AlreadySeen
-        );
+        assert_eq!(position.classify(&decode(17, 14).body), ChainDecision::AlreadySeen);
     }
 
     #[test]

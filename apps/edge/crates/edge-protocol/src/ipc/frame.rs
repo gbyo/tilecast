@@ -62,12 +62,7 @@ impl FrameDecoder {
         if self.buffer.len() < 4 {
             return Ok(None);
         }
-        let header = [
-            self.buffer[0],
-            self.buffer[1],
-            self.buffer[2],
-            self.buffer[3],
-        ];
+        let header = [self.buffer[0], self.buffer[1], self.buffer[2], self.buffer[3]];
         let length = match check_length(header) {
             Ok(length) => length,
             Err(error) => {
@@ -108,20 +103,14 @@ mod tests {
                 out.push(frame);
             }
         }
-        assert_eq!(
-            out,
-            vec![b"{\"type\":\"a\"}".to_vec(), b"{\"type\":\"b\"}".to_vec()]
-        );
+        assert_eq!(out, vec![b"{\"type\":\"a\"}".to_vec(), b"{\"type\":\"b\"}".to_vec()]);
         assert_eq!(decoder.pending_bytes(), 0);
     }
 
     #[test]
     fn rejects_empty_and_oversized_before_buffering() {
         assert_eq!(encode(b""), Err(FrameError::Empty));
-        assert_eq!(
-            encode(&vec![b'x'; MAX_FRAME_BYTES + 1]),
-            Err(FrameError::TooLarge(MAX_FRAME_BYTES + 1))
-        );
+        assert_eq!(encode(&vec![b'x'; MAX_FRAME_BYTES + 1]), Err(FrameError::TooLarge(MAX_FRAME_BYTES + 1)));
         let mut decoder = FrameDecoder::new();
         decoder.push(&((MAX_FRAME_BYTES as u32) + 1).to_be_bytes());
         assert!(matches!(decoder.next_frame(), Err(FrameError::TooLarge(_))));

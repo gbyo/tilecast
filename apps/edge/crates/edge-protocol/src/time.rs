@@ -40,9 +40,7 @@ impl Timestamp {
     }
 
     pub fn from_unix_millis(millis: i64) -> Option<Self> {
-        OffsetDateTime::from_unix_timestamp_nanos(i128::from(millis) * 1_000_000)
-            .ok()
-            .map(Self)
+        OffsetDateTime::from_unix_timestamp_nanos(i128::from(millis) * 1_000_000).ok().map(Self)
     }
 
     pub fn parse(value: &str) -> Result<Self, time::error::Parse> {

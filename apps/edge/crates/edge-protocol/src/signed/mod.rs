@@ -151,10 +151,7 @@ impl PublicKey {
     }
 
     pub fn from_base64url(value: &str) -> Option<Self> {
-        URL_SAFE_NO_PAD
-            .decode(value)
-            .ok()
-            .and_then(|bytes| Self::from_slice(&bytes))
+        URL_SAFE_NO_PAD.decode(value).ok().and_then(|bytes| Self::from_slice(&bytes))
     }
 
     pub fn raw(&self) -> &[u8; 32] {
@@ -171,9 +168,7 @@ impl PublicKey {
     }
 
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> bool {
-        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, &self.raw)
-            .verify(message, signature)
-            .is_ok()
+        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, &self.raw).verify(message, signature).is_ok()
     }
 }
 
@@ -239,15 +234,11 @@ impl SignedDocument {
         if self.body.len() > max.div_ceil(3) * 4 {
             return Err(SignedError::TooLarge);
         }
-        let body_bytes = URL_SAFE_NO_PAD
-            .decode(&self.body)
-            .map_err(|_| SignedError::Malformed)?;
+        let body_bytes = URL_SAFE_NO_PAD.decode(&self.body).map_err(|_| SignedError::Malformed)?;
         if body_bytes.len() > max {
             return Err(SignedError::TooLarge);
         }
-        let signature = URL_SAFE_NO_PAD
-            .decode(&self.signature.value)
-            .map_err(|_| SignedError::Malformed)?;
+        let signature = URL_SAFE_NO_PAD.decode(&self.signature.value).map_err(|_| SignedError::Malformed)?;
         if signature.len() != 64 {
             return Err(SignedError::Malformed);
         }
@@ -256,19 +247,14 @@ impl SignedDocument {
                 if certificate.len() > 8 * 1024 {
                     return Err(SignedError::TooLarge);
                 }
-                Some(
-                    URL_SAFE_NO_PAD
-                        .decode(certificate)
-                        .map_err(|_| SignedError::Malformed)?,
-                )
+                Some(URL_SAFE_NO_PAD.decode(certificate).map_err(|_| SignedError::Malformed)?)
             }
             (None, Purpose::NodeStatement) => return Err(SignedError::Malformed),
             (Some(_), _) => return Err(SignedError::Malformed),
             (None, _) => None,
         };
 
-        let key = resolve(&self.signature.key_id, certificate_der.as_deref())
-            .ok_or(SignedError::UntrustedKey)?;
+        let key = resolve(&self.signature.key_id, certificate_der.as_deref()).ok_or(SignedError::UntrustedKey)?;
         if key.key_id() != self.signature.key_id {
             return Err(SignedError::UntrustedKey);
         }
@@ -306,10 +292,9 @@ impl SigningKey {
     /// Loads a PKCS#8 v1 or v2 Ed25519 private key.
     pub fn from_pkcs8(der: &[u8]) -> Result<Self, SignedError> {
         use ring::signature::KeyPair as _;
-        let pair = ring::signature::Ed25519KeyPair::from_pkcs8_maybe_unchecked(der)
-            .map_err(|_| SignedError::Malformed)?;
-        let public =
-            PublicKey::from_slice(pair.public_key().as_ref()).ok_or(SignedError::Malformed)?;
+        let pair =
+            ring::signature::Ed25519KeyPair::from_pkcs8_maybe_unchecked(der).map_err(|_| SignedError::Malformed)?;
+        let public = PublicKey::from_slice(pair.public_key().as_ref()).ok_or(SignedError::Malformed)?;
         Ok(Self { pair, public })
     }
 
@@ -371,12 +356,8 @@ mod tests {
     #[test]
     fn sign_verify_round_trip() {
         let key = key();
-        let doc = key
-            .sign(Purpose::ServerChange, &json!({"b": 1, "a": "x"}), None)
-            .expect("signed");
-        let verified = doc
-            .verify(Purpose::ServerChange, trust(&key))
-            .expect("verifies");
+        let doc = key.sign(Purpose::ServerChange, &json!({"b": 1, "a": "x"}), None).expect("signed");
+        let verified = doc.verify(Purpose::ServerChange, trust(&key)).expect("verifies");
         assert_eq!(verified.body_bytes, b"{\"a\":\"x\",\"b\":1}");
         let reparsed = SignedDocument::from_json_bytes(&doc.to_json_bytes()).expect("decodes");
         assert_eq!(reparsed, doc);
@@ -385,51 +366,27 @@ mod tests {
     #[test]
     fn purpose_is_bound_into_signature() {
         let key = key();
-        let mut doc = key
-            .sign(Purpose::ServerSnapshot, &json!({"a": 1}), None)
-            .expect("signed");
-        assert_eq!(
-            doc.verify(Purpose::ServerChange, trust(&key)).unwrap_err(),
-            SignedError::WrongPurpose
-        );
+        let mut doc = key.sign(Purpose::ServerSnapshot, &json!({"a": 1}), None).expect("signed");
+        assert_eq!(doc.verify(Purpose::ServerChange, trust(&key)).unwrap_err(), SignedError::WrongPurpose);
         doc.purpose = Purpose::ServerChange;
-        assert_eq!(
-            doc.verify(Purpose::ServerChange, trust(&key)).unwrap_err(),
-            SignedError::BadSignature
-        );
+        assert_eq!(doc.verify(Purpose::ServerChange, trust(&key)).unwrap_err(), SignedError::BadSignature);
     }
 
     #[test]
     fn tampered_body_and_signature_are_rejected() {
         let key = key();
-        let doc = key
-            .sign(Purpose::ServerChange, &json!({"sequence": 1}), None)
-            .expect("signed");
+        let doc = key.sign(Purpose::ServerChange, &json!({"sequence": 1}), None).expect("signed");
 
         let mut tampered = doc.clone();
         tampered.body = URL_SAFE_NO_PAD.encode(b"{\"sequence\":2}");
-        assert_eq!(
-            tampered
-                .verify(Purpose::ServerChange, trust(&key))
-                .unwrap_err(),
-            SignedError::BadSignature
-        );
+        assert_eq!(tampered.verify(Purpose::ServerChange, trust(&key)).unwrap_err(), SignedError::BadSignature);
 
         let mut bad_sig = doc.clone();
         bad_sig.signature.value = URL_SAFE_NO_PAD.encode([0u8; 64]);
-        assert_eq!(
-            bad_sig
-                .verify(Purpose::ServerChange, trust(&key))
-                .unwrap_err(),
-            SignedError::BadSignature
-        );
+        assert_eq!(bad_sig.verify(Purpose::ServerChange, trust(&key)).unwrap_err(), SignedError::BadSignature);
 
         let other = SigningKey::from_seed(&[8u8; 32]);
-        assert_eq!(
-            doc.verify(Purpose::ServerChange, trust(&other))
-                .unwrap_err(),
-            SignedError::UntrustedKey
-        );
+        assert_eq!(doc.verify(Purpose::ServerChange, trust(&other)).unwrap_err(), SignedError::UntrustedKey);
     }
 
     #[test]
@@ -457,31 +414,20 @@ mod tests {
     #[test]
     fn wrapper_rules() {
         let key = key();
-        let doc = key
-            .sign(Purpose::ServerChange, &json!({}), None)
-            .expect("signed");
+        let doc = key.sign(Purpose::ServerChange, &json!({}), None).expect("signed");
         let mut wrong_format = doc.clone();
         wrong_format.format = "tilecast-edge-signed-v2".into();
         assert_eq!(
-            wrong_format
-                .verify(Purpose::ServerChange, trust(&key))
-                .unwrap_err(),
+            wrong_format.verify(Purpose::ServerChange, trust(&key)).unwrap_err(),
             SignedError::UnsupportedFormat
         );
         let mut with_cert = doc.clone();
         with_cert.certificate = Some("AA".into());
-        assert_eq!(
-            with_cert
-                .verify(Purpose::ServerChange, trust(&key))
-                .unwrap_err(),
-            SignedError::Malformed
-        );
+        assert_eq!(with_cert.verify(Purpose::ServerChange, trust(&key)).unwrap_err(), SignedError::Malformed);
         assert!(SignedDocument::from_json_bytes(b"{\"format\":1}").is_err());
         let mut extra = serde_json::to_value(&doc).expect("json");
         extra["unexpected"] = json!(true);
-        assert!(
-            SignedDocument::from_json_bytes(&serde_json::to_vec(&extra).expect("bytes")).is_err()
-        );
+        assert!(SignedDocument::from_json_bytes(&serde_json::to_vec(&extra).expect("bytes")).is_err());
         assert!(SignedDocument::from_json_bytes(&vec![b' '; MAX_DOCUMENT_BYTES + 1]).is_err());
     }
 }

@@ -155,10 +155,7 @@ mod tests {
     #[test]
     fn digest_of_empty_input() {
         assert_eq!(Sha256Digest::of(b"").to_hex(), EMPTY);
-        assert_eq!(
-            Sha256Digest::parse(EMPTY).expect("valid"),
-            Sha256Digest::of(b"")
-        );
+        assert_eq!(Sha256Digest::parse(EMPTY).expect("valid"), Sha256Digest::of(b""));
     }
 
     #[test]
@@ -171,10 +168,7 @@ mod tests {
             &format!("{}/{}", &EMPTY[..31], &EMPTY[32..]),
             "",
         ] {
-            assert!(
-                Sha256Digest::parse(bad).is_err(),
-                "{bad:?} must be rejected"
-            );
+            assert!(Sha256Digest::parse(bad).is_err(), "{bad:?} must be rejected");
         }
         assert!(Sha256Digest::parse_legacy_case_insensitive(&EMPTY.to_uppercase()).is_ok());
     }
