@@ -64,6 +64,18 @@ impl Default for BlobServerLimits {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TransferGauge {
+    transfers: Arc<Semaphore>,
+    max: usize,
+}
+
+impl TransferGauge {
+    pub fn active(&self) -> u32 {
+        self.max.saturating_sub(self.transfers.available_permits()) as u32
+    }
+}
+
 #[derive(Debug)]
 struct Shared {
     store: ContentStore,
@@ -102,6 +114,11 @@ impl PeerBlobServer {
 
     pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
         self.listener.local_addr()
+    }
+
+    /// Transfers in progress, for load reported in availability replies.
+    pub fn gauge(&self) -> TransferGauge {
+        TransferGauge { transfers: Arc::clone(&self.shared.transfers), max: self.limits.max_transfers.max(1) }
     }
 
     pub async fn run(self, shutdown: CancellationToken) {

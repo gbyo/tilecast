@@ -14,11 +14,13 @@
 //! * [`capabilities`] — daemon-owned capabilities and persistence.
 //! * [`fixture`] — development presentation source.
 //! * [`server_link`] — identity gate, enrollment, change feed, Edge status.
+//! * [`fabric`] — peer blob service and Zenoh mesh.
 //! * [`legacy_import`] — the one-time `import-legacy` command.
 
 pub mod capabilities;
 pub mod config;
 pub mod daemon;
+pub mod fabric;
 pub mod fixture;
 pub mod identity_status;
 pub mod ipc_handler;

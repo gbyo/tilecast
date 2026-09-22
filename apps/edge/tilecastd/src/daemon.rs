@@ -88,6 +88,12 @@ pub struct DaemonContext {
     /// Wakes the server link early (mesh change hints, IPC requests).
     pub server_wake: tokio::sync::Notify,
     pub link_state: std::sync::Mutex<LinkState>,
+    /// The one change-feed applier, shared by the server link and mesh
+    /// hints. Created after enrollment.
+    pub feed: Mutex<Option<edge_server::feed::FeedApplier>>,
+    pub mesh_state: std::sync::Mutex<crate::fabric::MeshState>,
+    pub fabric: tokio::sync::RwLock<Option<crate::fabric::FabricHandle>>,
+    pub peer_selector: edge_cdn::PeerSelector,
     pub shutdown: CancellationToken,
 }
 
@@ -247,6 +253,10 @@ impl Daemon {
             revocations,
             server_wake: tokio::sync::Notify::new(),
             link_state: std::sync::Mutex::new(LinkState::Unbound),
+            feed: Mutex::new(None),
+            mesh_state: std::sync::Mutex::new(crate::fabric::MeshState::default()),
+            fabric: tokio::sync::RwLock::new(None),
+            peer_selector: edge_cdn::PeerSelector::new(),
             shutdown: CancellationToken::new(),
         });
 
@@ -291,6 +301,7 @@ impl Daemon {
         tasks.spawn(crate::fixture::run(Arc::clone(&context)));
         tasks.spawn(cas_maintenance_loop(Arc::clone(&context)));
         tasks.spawn(server_link::run(Arc::clone(&context)));
+        tasks.spawn(crate::fabric::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

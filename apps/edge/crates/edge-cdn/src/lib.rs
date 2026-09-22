@@ -20,4 +20,4 @@ pub mod server;
 
 pub use client::{PeerBlobSource, PeerEndpoint};
 pub use selector::{PeerCandidate, PeerSelector};
-pub use server::{BlobServerLimits, PeerBlobServer};
+pub use server::{BlobServerLimits, PeerBlobServer, TransferGauge};

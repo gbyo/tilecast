@@ -193,6 +193,41 @@ impl FeedApplier {
         self.offer_verified(change, source, now).await
     }
 
+    /// Offers several relayed changes (a peer's catch-up answer) in sequence
+    /// order. Returns `NeedsReconcile` if the chain is still open afterwards.
+    pub async fn offer_batch(
+        &mut self,
+        documents: &[SignedDocument],
+        source: &str,
+        now: Timestamp,
+    ) -> Result<Offer, FeedError> {
+        let mut verified: Vec<VerifiedChange> =
+            documents.iter().filter_map(|document| verify_change(document, &self.trust).ok()).collect();
+        verified.sort_by_key(|change| change.body.sequence);
+        verified.dedup_by_key(|change| change.body.sequence);
+        let (mut wakes, mut applied_any, mut open) = (Vec::new(), false, false);
+        for change in verified {
+            match self.offer_verified(change, source, now).await? {
+                Offer::Applied(applied) => {
+                    open = false;
+                    applied_any = true;
+                    wakes.extend(applied);
+                }
+                Offer::NeedsReconcile => open = true,
+                Offer::Duplicate | Offer::Rejected(_) => {}
+            }
+        }
+        let position = self.position().await?;
+        self.pending.prune(position);
+        if open || !self.pending.is_empty() {
+            Ok(Offer::NeedsReconcile)
+        } else if !applied_any {
+            Ok(Offer::Duplicate)
+        } else {
+            Ok(Offer::Applied(wakes))
+        }
+    }
+
     /// Reads the server feed after the current position until caught up.
     pub async fn reconcile(&mut self, server: &AuthenticatedServer, now: Timestamp) -> Result<FeedReport, FeedError> {
         let mut report = FeedReport::default();

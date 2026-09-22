@@ -65,7 +65,6 @@ impl LinkState {
 
 #[derive(Debug, Default)]
 struct Link {
-    applier: Option<FeedApplier>,
     next_status_ms: i64,
     failures: u32,
 }
@@ -150,7 +149,7 @@ async fn pass(context: &DaemonContext, link: &mut Link) -> LinkState {
     if let Err(state) = ensure_certificate(context, &server, node_id).await {
         return state;
     }
-    if let Err(state) = reconcile(context, &server, link).await {
+    if let Err(state) = reconcile(context, &server).await {
         return state;
     }
     if now.unix_millis() >= link.next_status_ms {
@@ -209,15 +208,16 @@ async fn ensure_certificate(
     }
 }
 
-async fn reconcile(context: &DaemonContext, server: &AuthenticatedServer, link: &mut Link) -> Result<(), LinkState> {
+async fn reconcile(context: &DaemonContext, server: &AuthenticatedServer) -> Result<(), LinkState> {
     let db = context.db().ok_or(LinkState::Unbound)?;
-    if link.applier.is_none() {
+    let mut feed = context.feed.lock().await;
+    if feed.is_none() {
         let trust = db.run(|c| identity::get_trust(c)).await.map_err(|_| LinkState::Retrying("state_error"))?;
         let Some(trust) = trust else { return Err(LinkState::Retrying("edge_not_enrolled")) };
         let authority = AuthorityTrust { installation_id: trust.installation_id, keys: trust.authority_keys };
-        link.applier = Some(FeedApplier::new(db.clone(), authority, context.revocations.clone()));
+        *feed = Some(FeedApplier::new(db.clone(), authority, context.revocations.clone()));
     }
-    let Some(applier) = link.applier.as_mut() else { return Ok(()) };
+    let Some(applier) = feed.as_mut() else { return Ok(()) };
     match applier.reconcile(server, context.now()).await {
         Ok(report) => {
             if report.applied > 0 || !report.wakes.is_empty() {
@@ -266,13 +266,16 @@ async fn report_status(context: &DaemonContext, server: &AuthenticatedServer) ->
             ),
             None => None,
         };
-    let mesh_state = if context.config.mesh.enabled { "not_started" } else { "disabled" };
+    let (mesh_state, peer_count) = {
+        let mesh = context.mesh_state.lock().unwrap_or_else(|e| e.into_inner());
+        (mesh.state, mesh.peers)
+    };
     let mut status = serde_json::json!({
         "schemaVersion": 1,
         "edgeVersion": VERSION,
         "nodeId": node_id.to_string(),
         "renderer": {"kind": "wpe", "state": renderer_state},
-        "mesh": {"state": mesh_state, "peerCount": 0},
+        "mesh": {"state": mesh_state, "peerCount": peer_count},
         "capabilities": serde_json::to_value(&stored.snapshot).unwrap_or_default(),
     });
     if let Some(version) = renderer_version {

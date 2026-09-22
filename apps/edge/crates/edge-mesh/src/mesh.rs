@@ -204,7 +204,7 @@ pub struct Mesh {
     session: zenoh::Session,
     shared: Arc<Shared>,
     cancel: CancellationToken,
-    tasks: tokio::task::JoinSet<()>,
+    tasks: Mutex<tokio::task::JoinSet<()>>,
 }
 
 impl std::fmt::Debug for Mesh {
@@ -234,13 +234,13 @@ impl Mesh {
             events,
         });
         let cancel = CancellationToken::new();
-        let mut mesh = Self { session, shared, cancel, tasks: tokio::task::JoinSet::new() };
+        let mesh = Self { session, shared, cancel, tasks: Mutex::new(tokio::task::JoinSet::new()) };
         mesh.declare().await?;
         tracing::info!(component = "mesh", event = "started", node = %mesh.shared.identity.node_id);
         Ok(mesh)
     }
 
-    async fn declare(&mut self) -> Result<(), MeshError> {
+    async fn declare(&self) -> Result<(), MeshError> {
         let (session, shared, keys) = (&self.session, Arc::clone(&self.shared), self.shared.keys.clone());
         let me = shared.identity.node_id;
 
@@ -254,7 +254,7 @@ impl Mesh {
             .await
             .map_err(zenoh_error)?;
         let (task_shared, cancel, session_for_task) = (Arc::clone(&shared), self.cancel.clone(), session.clone());
-        self.tasks.spawn(async move {
+        self.spawn(async move {
             let _token = token;
             loop {
                 let sample = tokio::select! {
@@ -301,7 +301,7 @@ impl Mesh {
         {
             let subscriber = session.declare_subscriber(keys.every_node(key)).await.map_err(zenoh_error)?;
             let (shared, cancel) = (Arc::clone(&shared), self.cancel.clone());
-            self.tasks.spawn(async move {
+            self.spawn(async move {
                 loop {
                     let sample = tokio::select! {
                         () = cancel.cancelled() => return,
@@ -317,7 +317,7 @@ impl Mesh {
         for key in [NodeKey::Summary, NodeKey::Capabilities] {
             let queryable = session.declare_queryable(keys.node(me, key)).await.map_err(zenoh_error)?;
             let (shared, cancel) = (Arc::clone(&shared), self.cancel.clone());
-            self.tasks.spawn(async move {
+            self.spawn(async move {
                 loop {
                     let query = tokio::select! {
                         () = cancel.cancelled() => return,
@@ -341,7 +341,7 @@ impl Mesh {
         // and only when this node runs a blob service.
         let objects = session.declare_queryable(keys.every_object()).await.map_err(zenoh_error)?;
         let (object_shared, cancel) = (Arc::clone(&shared), self.cancel.clone());
-        self.tasks.spawn(async move {
+        self.spawn(async move {
             loop {
                 let query = tokio::select! {
                     () = cancel.cancelled() => return,
@@ -363,7 +363,7 @@ impl Mesh {
         // Relayed server changes: hints only.
         let changes = session.declare_subscriber(keys.changes_latest()).await.map_err(zenoh_error)?;
         let (change_shared, cancel) = (Arc::clone(&shared), self.cancel.clone());
-        self.tasks.spawn(async move {
+        self.spawn(async move {
             loop {
                 let sample = tokio::select! {
                     () = cancel.cancelled() => return,
@@ -381,7 +381,7 @@ impl Mesh {
         // Stored changes for peers catching up (`?after=<sequence>`).
         let history = session.declare_queryable(keys.changes_query()).await.map_err(zenoh_error)?;
         let (history_shared, cancel) = (Arc::clone(&shared), self.cancel.clone());
-        self.tasks.spawn(async move {
+        self.spawn(async move {
             loop {
                 let query = tokio::select! {
                     () = cancel.cancelled() => return,
@@ -520,10 +520,15 @@ impl Mesh {
         out
     }
 
-    /// Retracts the liveliness token and ends the session.
-    pub async fn close(mut self) {
+    fn spawn(&self, task: impl std::future::Future<Output = ()> + Send + 'static) {
+        self.tasks.lock().unwrap_or_else(|e| e.into_inner()).spawn(task);
+    }
+
+    /// Retracts the liveliness token and ends the session. Idempotent.
+    pub async fn close(&self) {
         self.cancel.cancel();
-        while self.tasks.join_next().await.is_some() {}
+        let mut tasks = std::mem::take(&mut *self.tasks.lock().unwrap_or_else(|e| e.into_inner()));
+        while tasks.join_next().await.is_some() {}
         let _ = self.session.close().await;
         tracing::info!(component = "mesh", event = "stopped");
     }

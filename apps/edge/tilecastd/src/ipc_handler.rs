@@ -237,12 +237,14 @@ impl DaemonIpc {
             }),
             identity: crate::identity_status::current_with_link(context).await,
             cas: self.cas_status().await.ok(),
-            mesh: MeshStatus {
-                state: ShortToken::new(if context.config.mesh.enabled { "starting" } else { "disabled" })
-                    .expect("literal"),
-                peer_count: 0,
-                last_peer_change_at: None,
-                reason_code: None,
+            mesh: {
+                let mesh = context.mesh_state.lock().unwrap_or_else(|e| e.into_inner()).clone();
+                MeshStatus {
+                    state: ShortToken::new(mesh.state).expect("literal"),
+                    peer_count: mesh.peers as u32,
+                    last_peer_change_at: mesh.last_peer_change_at,
+                    reason_code: mesh.reason.and_then(|r| ShortToken::new(r).ok()),
+                }
             },
             renderer,
             capability_revision: context.capability_revision.load(Ordering::Relaxed),

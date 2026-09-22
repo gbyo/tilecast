@@ -11,13 +11,17 @@ rust-version.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 clap.workspace = true
+base64.workspace = true
 edge-cas.workspace = true
+edge-cdn.workspace = true
 edge-identity.workspace = true
 edge-ipc.workspace = true
+edge-mesh.workspace = true
 edge-platform.workspace = true
 edge-protocol.workspace = true
 edge-server.workspace = true
 edge-state.workspace = true
+nix = { version = "0.31", default-features = false, features = ["net"] }
 rustix = { workspace = true, features = ["process"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -31,6 +35,7 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+edge-identity = { workspace = true, features = ["test-util"] }
 edge-protocol = { workspace = true, features = ["test-util"] }
 tempfile.workspace = true
 

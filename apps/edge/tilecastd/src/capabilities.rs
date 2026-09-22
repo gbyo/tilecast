@@ -58,24 +58,15 @@ async fn daemon_capabilities(context: &DaemonContext) -> Vec<Capability> {
         StateMode::Recovery { reason } => (CapabilityState::Blocked, Some(*reason)),
     };
     out.extend(live(ids::SYSTEM_STATE_STORE, state, "sqlite", reason, None, context));
-    if !context.config.mesh.enabled {
-        out.extend(live(
-            ids::MESH_ZENOH,
-            CapabilityState::Supported,
-            "zenoh",
-            Some("mesh_disabled"),
-            Some("The Edge mesh is disabled on this node."),
-            context,
-        ));
-        out.extend(live(
-            ids::MESH_PEER_CACHE,
-            CapabilityState::Supported,
-            "edge-cdn",
-            Some("mesh_disabled"),
-            Some("Peer delivery is disabled on this node."),
-            context,
-        ));
-    }
+    let mesh = context.mesh_state.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let (state, detail) = match mesh.state {
+        "available" => (CapabilityState::Available, None),
+        "disabled" => (CapabilityState::Supported, Some("The Edge mesh is disabled on this node.")),
+        "starting" => (CapabilityState::Supported, None),
+        _ => (CapabilityState::Blocked, Some("The Edge mesh cannot run on this node right now.")),
+    };
+    out.extend(live(ids::MESH_ZENOH, state, "zenoh", mesh.reason, detail, context));
+    out.extend(live(ids::MESH_PEER_CACHE, state, "edge-cdn", mesh.reason, detail, context));
     out
 }
 
