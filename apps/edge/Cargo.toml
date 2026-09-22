@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/edge-protocol",
     "crates/edge-state",
+    "crates/edge-ipc",
 ]
 
 [workspace.package]

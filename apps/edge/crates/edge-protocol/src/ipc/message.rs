@@ -276,6 +276,14 @@ impl Frame {
         }
     }
 
+    /// The `id` of a payload that is shaped like a request but whose method
+    /// or params failed to decode, so the daemon can answer it with an error
+    /// instead of disconnecting.
+    pub fn request_id(payload: &[u8]) -> Option<RequestId> {
+        let wire: RequestWire = serde_json::from_slice(payload).ok()?;
+        (wire.kind == "request").then_some(wire.id)
+    }
+
     /// Serializes the payload (without the length prefix).
     pub fn encode(&self) -> Vec<u8> {
         serde_json::to_vec(&self.to_value()).unwrap_or_default()
