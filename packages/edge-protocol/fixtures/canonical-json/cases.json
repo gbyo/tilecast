@@ -1,0 +1,97 @@
+{
+  "description": "Golden cases for the Tilecast Edge canonical JSON subset (RFC 8785/JCS restricted to integers). 'valid' inputs canonicalize to 'canonical'. 'invalid' inputs cannot be canonicalized. 'notCanonical' are valid JSON that parse_canonical must reject because they are not already canonical.",
+  "valid": [
+    {
+      "name": "empty object",
+      "input": "{}",
+      "canonical": "{}"
+    },
+    {
+      "name": "key order and whitespace",
+      "input": "{ \"b\": 2, \"a\": 1 }",
+      "canonical": "{\"a\":1,\"b\":2}"
+    },
+    {
+      "name": "nested objects and arrays",
+      "input": "{\"z\":[3,{\"y\":true,\"x\":null}],\"a\":{\"c\":\"d\"}}",
+      "canonical": "{\"a\":{\"c\":\"d\"},\"z\":[3,{\"x\":null,\"y\":true}]}"
+    },
+    {
+      "name": "utf16 key order",
+      "input": "{\"\\ufffd\":1,\"\\ud83d\\ude00\":2,\"b\":3,\"a\":4,\"A\":5}",
+      "canonical": "{\"A\":5,\"a\":4,\"b\":3,\"😀\":2,\"�\":1}"
+    },
+    {
+      "name": "string escapes",
+      "input": "{\"s\":\"q\\\"b\\\\\\b\\f\\n\\r\\t\\u0001\\u001f\\u007f\\u00e9\\u2028\"}",
+      "canonical": "{\"s\":\"q\\\"b\\\\\\b\\f\\n\\r\\t\\u0001\\u001fé \"}"
+    },
+    {
+      "name": "solidus is not escaped",
+      "input": "{\"u\":\"https:\\/\\/example.org\\/a\"}",
+      "canonical": "{\"u\":\"https://example.org/a\"}"
+    },
+    {
+      "name": "integer range",
+      "input": "{\"max\":9007199254740991,\"min\":-9007199254740991,\"zero\":0,\"neg\":-1}",
+      "canonical": "{\"max\":9007199254740991,\"min\":-9007199254740991,\"neg\":-1,\"zero\":0}"
+    },
+    {
+      "name": "empty containers",
+      "input": "{\"a\":[],\"o\":{}}",
+      "canonical": "{\"a\":[],\"o\":{}}"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "fraction",
+      "input": "{\"n\":1.5}"
+    },
+    {
+      "name": "exponent integer",
+      "input": "{\"n\":1e2}"
+    },
+    {
+      "name": "negative zero fraction",
+      "input": "{\"n\":-0.0}"
+    },
+    {
+      "name": "above safe integer",
+      "input": "{\"n\":9007199254740992}"
+    },
+    {
+      "name": "below safe integer",
+      "input": "{\"n\":-9007199254740992}"
+    },
+    {
+      "name": "not json",
+      "input": "{\"a\":"
+    }
+  ],
+  "notCanonical": [
+    {
+      "name": "unsorted",
+      "input": "{\"b\":1,\"a\":2}"
+    },
+    {
+      "name": "whitespace",
+      "input": "{\"a\": 1}"
+    },
+    {
+      "name": "duplicate key",
+      "input": "{\"a\":1,\"a\":1}"
+    },
+    {
+      "name": "escaped letter",
+      "input": "{\"a\":\"\\u0041\"}"
+    },
+    {
+      "name": "escaped solidus",
+      "input": "{\"a\":\"\\/\"}"
+    },
+    {
+      "name": "uppercase hex escape",
+      "input": "{\"a\":\"\\u001F\"}"
+    }
+  ]
+}

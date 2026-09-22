@@ -1,0 +1,9 @@
+{
+  "frame": {
+    "type": "response",
+    "id": "r1",
+    "result": {
+      "daemonTime": "2026-09-22T19:00:00Z"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "response",
+    "id": "r1",
+    "result": {},
+    "error": {
+      "code": "x",
+      "message": "y"
+    }
+  }
+}

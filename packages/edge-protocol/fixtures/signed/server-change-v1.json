@@ -1,0 +1,156 @@
+{
+  "authorityEpoch": 1,
+  "cases": [
+    {
+      "body": {
+        "authorityEpoch": 1,
+        "expiresAt": null,
+        "installationId": "5a0b8f3e-2c1d-4e6f-8a9b-0c1d2e3f4a5b",
+        "issuedAt": "2026-09-22T19:00:00Z",
+        "object": {
+          "kind": "presentation_bundle",
+          "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "sizeBytes": 18241
+        },
+        "payload": {},
+        "previousSequence": 1229,
+        "revocationGeneration": 7,
+        "schema": 1,
+        "sequence": 1234,
+        "target": {
+          "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+          "kind": "screen"
+        },
+        "type": "screen.presentation.changed"
+      },
+      "canonicalBody": "{\"authorityEpoch\":1,\"expiresAt\":null,\"installationId\":\"5a0b8f3e-2c1d-4e6f-8a9b-0c1d2e3f4a5b\",\"issuedAt\":\"2026-09-22T19:00:00Z\",\"object\":{\"kind\":\"presentation_bundle\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"sizeBytes\":18241},\"payload\":{},\"previousSequence\":1229,\"revocationGeneration\":7,\"schema\":1,\"sequence\":1234,\"target\":{\"id\":\"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\"kind\":\"screen\"},\"type\":\"screen.presentation.changed\"}",
+      "document": {
+        "body": "eyJhdXRob3JpdHlFcG9jaCI6MSwiZXhwaXJlc0F0IjpudWxsLCJpbnN0YWxsYXRpb25JZCI6IjVhMGI4ZjNlLTJjMWQtNGU2Zi04YTliLTBjMWQyZTNmNGE1YiIsImlzc3VlZEF0IjoiMjAyNi0wOS0yMlQxOTowMDowMFoiLCJvYmplY3QiOnsia2luZCI6InByZXNlbnRhdGlvbl9idW5kbGUiLCJzaGEyNTYiOiI5Zjg2ZDA4MTg4NGM3ZDY1OWEyZmVhYTBjNTVhZDAxNWEzYmY0ZjFiMmIwYjgyMmNkMTVkNmMxNWIwZjAwYTA4Iiwic2l6ZUJ5dGVzIjoxODI0MX0sInBheWxvYWQiOnt9LCJwcmV2aW91c1NlcXVlbmNlIjoxMjI5LCJyZXZvY2F0aW9uR2VuZXJhdGlvbiI6Nywic2NoZW1hIjoxLCJzZXF1ZW5jZSI6MTIzNCwidGFyZ2V0Ijp7ImlkIjoiN2M5ZTY2NzktNzQyNS00MGRlLTk0NGItZTA3ZmMxZjkwYWU3Iiwia2luZCI6InNjcmVlbiJ9LCJ0eXBlIjoic2NyZWVuLnByZXNlbnRhdGlvbi5jaGFuZ2VkIn0",
+        "format": "tilecast-edge-signed-v1",
+        "purpose": "server.change",
+        "signature": {
+          "alg": "ed25519",
+          "keyId": "sha256:56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+          "value": "DM4jv8yZu_QLGFXzH16rrVqWmOsMxJT6Fpl9-06ZumnxJOEszu7bUYAVZNy2cVa0ykqgpfnBKfYXUeNkWKujCg"
+        }
+      },
+      "name": "presentation changed with object",
+      "purpose": "server.change",
+      "signingInputBase64url": "dGlsZWNhc3QtZWRnZS1zaWduZWQtdjEKc2VydmVyLmNoYW5nZQp7ImF1dGhvcml0eUVwb2NoIjoxLCJleHBpcmVzQXQiOm51bGwsImluc3RhbGxhdGlvbklkIjoiNWEwYjhmM2UtMmMxZC00ZTZmLThhOWItMGMxZDJlM2Y0YTViIiwiaXNzdWVkQXQiOiIyMDI2LTA5LTIyVDE5OjAwOjAwWiIsIm9iamVjdCI6eyJraW5kIjoicHJlc2VudGF0aW9uX2J1bmRsZSIsInNoYTI1NiI6IjlmODZkMDgxODg0YzdkNjU5YTJmZWFhMGM1NWFkMDE1YTNiZjRmMWIyYjBiODIyY2QxNWQ2YzE1YjBmMDBhMDgiLCJzaXplQnl0ZXMiOjE4MjQxfSwicGF5bG9hZCI6e30sInByZXZpb3VzU2VxdWVuY2UiOjEyMjksInJldm9jYXRpb25HZW5lcmF0aW9uIjo3LCJzY2hlbWEiOjEsInNlcXVlbmNlIjoxMjM0LCJ0YXJnZXQiOnsiaWQiOiI3YzllNjY3OS03NDI1LTQwZGUtOTQ0Yi1lMDdmYzFmOTBhZTciLCJraW5kIjoic2NyZWVuIn0sInR5cGUiOiJzY3JlZW4ucHJlc2VudGF0aW9uLmNoYW5nZWQifQ"
+    },
+    {
+      "body": {
+        "authorityEpoch": 1,
+        "expiresAt": "2027-03-21T19:05:00Z",
+        "installationId": "5a0b8f3e-2c1d-4e6f-8a9b-0c1d2e3f4a5b",
+        "issuedAt": "2026-09-22T19:05:00Z",
+        "object": null,
+        "payload": {
+          "certificatesExpireAt": "2027-03-21T19:05:00Z",
+          "nodeId": "1f0c3c9e-7d2a-4b6e-9a51-0c8f2e4d6b7a",
+          "screenId": null
+        },
+        "previousSequence": 1234,
+        "revocationGeneration": 8,
+        "schema": 1,
+        "sequence": 1240,
+        "target": {
+          "id": "1f0c3c9e-7d2a-4b6e-9a51-0c8f2e4d6b7a",
+          "kind": "node"
+        },
+        "type": "edge.node.revoked"
+      },
+      "canonicalBody": "{\"authorityEpoch\":1,\"expiresAt\":\"2027-03-21T19:05:00Z\",\"installationId\":\"5a0b8f3e-2c1d-4e6f-8a9b-0c1d2e3f4a5b\",\"issuedAt\":\"2026-09-22T19:05:00Z\",\"object\":null,\"payload\":{\"certificatesExpireAt\":\"2027-03-21T19:05:00Z\",\"nodeId\":\"1f0c3c9e-7d2a-4b6e-9a51-0c8f2e4d6b7a\",\"screenId\":null},\"previousSequence\":1234,\"revocationGeneration\":8,\"schema\":1,\"sequence\":1240,\"target\":{\"id\":\"1f0c3c9e-7d2a-4b6e-9a51-0c8f2e4d6b7a\",\"kind\":\"node\"},\"type\":\"edge.node.revoked\"}",
+      "document": {
+        "body": "eyJhdXRob3JpdHlFcG9jaCI6MSwiZXhwaXJlc0F0IjoiMjAyNy0wMy0yMVQxOTowNTowMFoiLCJpbnN0YWxsYXRpb25JZCI6IjVhMGI4ZjNlLTJjMWQtNGU2Zi04YTliLTBjMWQyZTNmNGE1YiIsImlzc3VlZEF0IjoiMjAyNi0wOS0yMlQxOTowNTowMFoiLCJvYmplY3QiOm51bGwsInBheWxvYWQiOnsiY2VydGlmaWNhdGVzRXhwaXJlQXQiOiIyMDI3LTAzLTIxVDE5OjA1OjAwWiIsIm5vZGVJZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsInNjcmVlbklkIjpudWxsfSwicHJldmlvdXNTZXF1ZW5jZSI6MTIzNCwicmV2b2NhdGlvbkdlbmVyYXRpb24iOjgsInNjaGVtYSI6MSwic2VxdWVuY2UiOjEyNDAsInRhcmdldCI6eyJpZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsImtpbmQiOiJub2RlIn0sInR5cGUiOiJlZGdlLm5vZGUucmV2b2tlZCJ9",
+        "format": "tilecast-edge-signed-v1",
+        "purpose": "server.change",
+        "signature": {
+          "alg": "ed25519",
+          "keyId": "sha256:56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+          "value": "_TTZ72Yl4Sf25LWbcni-TCwKrfj8x9ioXi2IN_fvaKsaaWlQ3py4KE80Gndg8mV86r2kSR1_L5CCvIGMDgkFDQ"
+        }
+      },
+      "name": "node revoked with unicode payload text",
+      "purpose": "server.change",
+      "signingInputBase64url": "dGlsZWNhc3QtZWRnZS1zaWduZWQtdjEKc2VydmVyLmNoYW5nZQp7ImF1dGhvcml0eUVwb2NoIjoxLCJleHBpcmVzQXQiOiIyMDI3LTAzLTIxVDE5OjA1OjAwWiIsImluc3RhbGxhdGlvbklkIjoiNWEwYjhmM2UtMmMxZC00ZTZmLThhOWItMGMxZDJlM2Y0YTViIiwiaXNzdWVkQXQiOiIyMDI2LTA5LTIyVDE5OjA1OjAwWiIsIm9iamVjdCI6bnVsbCwicGF5bG9hZCI6eyJjZXJ0aWZpY2F0ZXNFeHBpcmVBdCI6IjIwMjctMDMtMjFUMTk6MDU6MDBaIiwibm9kZUlkIjoiMWYwYzNjOWUtN2QyYS00YjZlLTlhNTEtMGM4ZjJlNGQ2YjdhIiwic2NyZWVuSWQiOm51bGx9LCJwcmV2aW91c1NlcXVlbmNlIjoxMjM0LCJyZXZvY2F0aW9uR2VuZXJhdGlvbiI6OCwic2NoZW1hIjoxLCJzZXF1ZW5jZSI6MTI0MCwidGFyZ2V0Ijp7ImlkIjoiMWYwYzNjOWUtN2QyYS00YjZlLTlhNTEtMGM4ZjJlNGQ2YjdhIiwia2luZCI6Im5vZGUifSwidHlwZSI6ImVkZ2Uubm9kZS5yZXZva2VkIn0"
+    }
+  ],
+  "description": "Server change envelopes signed with a PUBLISHED TEST SEED. This key is not secret and must never be trusted outside tests.",
+  "installationId": "5a0b8f3e-2c1d-4e6f-8a9b-0c1d2e3f4a5b",
+  "keyId": "sha256:56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+  "publicKeyBase64url": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg",
+  "tampered": [
+    {
+      "document": {
+        "body": "eyJzZXF1ZW5jZSI6MX0",
+        "format": "tilecast-edge-signed-v1",
+        "purpose": "server.change",
+        "signature": {
+          "alg": "ed25519",
+          "keyId": "sha256:56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+          "value": "_TTZ72Yl4Sf25LWbcni-TCwKrfj8x9ioXi2IN_fvaKsaaWlQ3py4KE80Gndg8mV86r2kSR1_L5CCvIGMDgkFDQ"
+        }
+      },
+      "expectError": "bad_signature",
+      "name": "body altered"
+    },
+    {
+      "document": {
+        "body": "eyJhdXRob3JpdHlFcG9jaCI6MSwiZXhwaXJlc0F0IjoiMjAyNy0wMy0yMVQxOTowNTowMFoiLCJpbnN0YWxsYXRpb25JZCI6IjVhMGI4ZjNlLTJjMWQtNGU2Zi04YTliLTBjMWQyZTNmNGE1YiIsImlzc3VlZEF0IjoiMjAyNi0wOS0yMlQxOTowNTowMFoiLCJvYmplY3QiOm51bGwsInBheWxvYWQiOnsiY2VydGlmaWNhdGVzRXhwaXJlQXQiOiIyMDI3LTAzLTIxVDE5OjA1OjAwWiIsIm5vZGVJZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsInNjcmVlbklkIjpudWxsfSwicHJldmlvdXNTZXF1ZW5jZSI6MTIzNCwicmV2b2NhdGlvbkdlbmVyYXRpb24iOjgsInNjaGVtYSI6MSwic2VxdWVuY2UiOjEyNDAsInRhcmdldCI6eyJpZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsImtpbmQiOiJub2RlIn0sInR5cGUiOiJlZGdlLm5vZGUucmV2b2tlZCJ9",
+        "format": "tilecast-edge-signed-v1",
+        "purpose": "server.change",
+        "signature": {
+          "alg": "ed25519",
+          "keyId": "sha256:56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        }
+      },
+      "expectError": "bad_signature",
+      "name": "signature zeroed"
+    },
+    {
+      "document": {
+        "body": "eyJhdXRob3JpdHlFcG9jaCI6MSwiZXhwaXJlc0F0IjoiMjAyNy0wMy0yMVQxOTowNTowMFoiLCJpbnN0YWxsYXRpb25JZCI6IjVhMGI4ZjNlLTJjMWQtNGU2Zi04YTliLTBjMWQyZTNmNGE1YiIsImlzc3VlZEF0IjoiMjAyNi0wOS0yMlQxOTowNTowMFoiLCJvYmplY3QiOm51bGwsInBheWxvYWQiOnsiY2VydGlmaWNhdGVzRXhwaXJlQXQiOiIyMDI3LTAzLTIxVDE5OjA1OjAwWiIsIm5vZGVJZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsInNjcmVlbklkIjpudWxsfSwicHJldmlvdXNTZXF1ZW5jZSI6MTIzNCwicmV2b2NhdGlvbkdlbmVyYXRpb24iOjgsInNjaGVtYSI6MSwic2VxdWVuY2UiOjEyNDAsInRhcmdldCI6eyJpZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsImtpbmQiOiJub2RlIn0sInR5cGUiOiJlZGdlLm5vZGUucmV2b2tlZCJ9",
+        "format": "tilecast-edge-signed-v1",
+        "purpose": "server.snapshot",
+        "signature": {
+          "alg": "ed25519",
+          "keyId": "sha256:56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+          "value": "_TTZ72Yl4Sf25LWbcni-TCwKrfj8x9ioXi2IN_fvaKsaaWlQ3py4KE80Gndg8mV86r2kSR1_L5CCvIGMDgkFDQ"
+        }
+      },
+      "expectError": "wrong_purpose",
+      "name": "purpose swapped"
+    },
+    {
+      "document": {
+        "body": "eyJhdXRob3JpdHlFcG9jaCI6MSwiZXhwaXJlc0F0IjoiMjAyNy0wMy0yMVQxOTowNTowMFoiLCJpbnN0YWxsYXRpb25JZCI6IjVhMGI4ZjNlLTJjMWQtNGU2Zi04YTliLTBjMWQyZTNmNGE1YiIsImlzc3VlZEF0IjoiMjAyNi0wOS0yMlQxOTowNTowMFoiLCJvYmplY3QiOm51bGwsInBheWxvYWQiOnsiY2VydGlmaWNhdGVzRXhwaXJlQXQiOiIyMDI3LTAzLTIxVDE5OjA1OjAwWiIsIm5vZGVJZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsInNjcmVlbklkIjpudWxsfSwicHJldmlvdXNTZXF1ZW5jZSI6MTIzNCwicmV2b2NhdGlvbkdlbmVyYXRpb24iOjgsInNjaGVtYSI6MSwic2VxdWVuY2UiOjEyNDAsInRhcmdldCI6eyJpZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsImtpbmQiOiJub2RlIn0sInR5cGUiOiJlZGdlLm5vZGUucmV2b2tlZCJ9",
+        "format": "tilecast-edge-signed-v1",
+        "purpose": "server.change",
+        "signature": {
+          "alg": "ed25519",
+          "keyId": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "value": "_TTZ72Yl4Sf25LWbcni-TCwKrfj8x9ioXi2IN_fvaKsaaWlQ3py4KE80Gndg8mV86r2kSR1_L5CCvIGMDgkFDQ"
+        }
+      },
+      "expectError": "untrusted_key",
+      "name": "unknown key"
+    },
+    {
+      "document": {
+        "body": "eyJhdXRob3JpdHlFcG9jaCI6MSwiZXhwaXJlc0F0IjoiMjAyNy0wMy0yMVQxOTowNTowMFoiLCJpbnN0YWxsYXRpb25JZCI6IjVhMGI4ZjNlLTJjMWQtNGU2Zi04YTliLTBjMWQyZTNmNGE1YiIsImlzc3VlZEF0IjoiMjAyNi0wOS0yMlQxOTowNTowMFoiLCJvYmplY3QiOm51bGwsInBheWxvYWQiOnsiY2VydGlmaWNhdGVzRXhwaXJlQXQiOiIyMDI3LTAzLTIxVDE5OjA1OjAwWiIsIm5vZGVJZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsInNjcmVlbklkIjpudWxsfSwicHJldmlvdXNTZXF1ZW5jZSI6MTIzNCwicmV2b2NhdGlvbkdlbmVyYXRpb24iOjgsInNjaGVtYSI6MSwic2VxdWVuY2UiOjEyNDAsInRhcmdldCI6eyJpZCI6IjFmMGMzYzllLTdkMmEtNGI2ZS05YTUxLTBjOGYyZTRkNmI3YSIsImtpbmQiOiJub2RlIn0sInR5cGUiOiJlZGdlLm5vZGUucmV2b2tlZCJ9",
+        "format": "tilecast-edge-signed-v2",
+        "purpose": "server.change",
+        "signature": {
+          "alg": "ed25519",
+          "keyId": "sha256:56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+          "value": "_TTZ72Yl4Sf25LWbcni-TCwKrfj8x9ioXi2IN_fvaKsaaWlQ3py4KE80Gndg8mV86r2kSR1_L5CCvIGMDgkFDQ"
+        }
+      },
+      "expectError": "unsupported_format",
+      "name": "future format"
+    }
+  ],
+  "testSeedHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+}

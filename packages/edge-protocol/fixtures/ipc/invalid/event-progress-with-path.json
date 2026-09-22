@@ -1,0 +1,15 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "renderer.progress",
+    "data": {
+      "activation": {
+        "activationId": "3f2b8c1d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+        "generation": 2
+      },
+      "kind": "image_shown",
+      "path": "/var/lib/tilecast-edge/identity"
+    }
+  }
+}

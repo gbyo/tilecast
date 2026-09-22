@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "welcome",
+    "protocolVersion": 1,
+    "sessionId": "6a1f0c9e-2b3d-4c5e-8f70-1a2b3c4d5e6f",
+    "role": "renderer",
+    "daemonVersion": "0.1.0",
+    "features": [],
+    "maxFrameBytes": 4194304
+  }
+}

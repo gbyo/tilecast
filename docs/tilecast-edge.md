@@ -13,6 +13,82 @@
 
 ---
 
+## Amendment A1 — WPE-first Linux renderer and one-time migration
+
+**Status:** Accepted, 2026-09-22. This amendment overrides the sections it names. Everything else in this document stands.
+
+### A1.1 Decision
+
+The Linux player target is now:
+
+```text
+tilecastd (Rust) ──versioned Unix IPC──► tilecast-renderer-wpe (C/GLib, WPEPlatform) ──► WPE WebKit 2.54+
+```
+
+Tilecast no longer builds an Electron compatibility renderer for Edge. `apps/player-linux` stays in the repository unchanged, as the behavioral reference for existing semantics and as the rollback target for installations that have not migrated. New architecture work does not make Electron an Edge renderer.
+
+The renderer uses WPEPlatform only (no Cog, no libwpe, no WPEBackend-fdo) and selects `WPE_PLATFORM=drm` on dedicated signage, `wayland` on development machines, and `headless` in CI.
+
+### A1.2 Transition model
+
+The transition is:
+
+```text
+legacy Electron installation ──one-time verified migration──► tilecastd + tilecast-renderer-wpe
+```
+
+This replaces the shadow and dual-owner phases:
+
+- There is no Electron Edge-renderer bridge, no shadow mode running beside Electron, no `edge_server_owner`/`edge_full_owner` runtime modes, no credential leasing, and no CSR delegation through Electron.
+- A privileged, one-time install lays down the Edge release, installs the `tilecast-edge` and `tilecast-renderer` system units, and disables (does not delete) the legacy `tilecast-player` user unit. Only one of the two stacks is ever enabled, so only one process owns the device credential and the command stream.
+- `tilecastd` runs as the existing `tilecast` account and imports the legacy XDG state directly (§A1.3). The legacy directory and AppImage remain intact for rollback until a later cleanup release.
+- The legacy AppImage self-updater is not used to deliver the Edge stack. Future Linux releases target Edge + WPE.
+
+### A1.3 Legacy import
+
+`tilecastd import-legacy` is bounded, idempotent and crash-safe. It reads the Linux player's data directory (`$XDG_DATA_HOME/tilecast-player`, default `~/.local/share/tilecast-player`) read-only and imports:
+
+- `installation.json`: the player installation ID, which becomes the Edge node ID (§11.1);
+- `credential.json`: server URL, installation ID, screen ID and name, device credential;
+- durable safe state: persisted command idempotency, the playback-disabled flag, the last server clock offset, and verified media cache files.
+
+Imported state is untrusted until it is checked. Before the imported credential is used, `tilecastd` normalizes the server URL with the player's URL policy, fetches `/api/v1/system/identity`, and requires the installation ID to match. Only then does it send the credential. It then generates its own node key and CSR and calls `/api/v1/player/edge/enroll` with that credential itself. The node private key never exists anywhere except the node's Edge identity directory.
+
+Cached media is imported only after its size and SHA-256 match a manifest entry, never on filename or size alone (§41.5 still applies). Pairing sessions and other temporary state are not imported.
+
+### A1.4 Account and renderer isolation
+
+Both `tilecastd` and the renderer run as the fixed `tilecast` account (§6, §6.4). The daemon/renderer boundary is the versioned Unix socket (`tilecast:tilecast 0660`, `SO_PEERCRED` checked), and systemd filesystem namespacing. The renderer unit cannot see the Edge identity directory, the state database or the legacy home directory, and it has read-only access to the CAS. WebKit's own web-process sandbox is a second layer, not the only one.
+
+### A1.5 Change feed ordering
+
+The change feed uses a single serialized signer fed by a transactional outbox (§E7.1):
+
+- Domain transactions insert an outbox row in the same PostgreSQL transaction as the authoritative change.
+- One signer at a time, under an advisory lock, reads committed outbox rows, assigns feed sequences, signs, and commits. The sequence therefore defines signed publication order. It is not necessarily the commit order of the concurrent domain transactions.
+- Sequences are monotonic and may contain integer gaps. Consumers reconcile with `sequence > last_seen ORDER BY sequence` and remember the greatest verified sequence. A missing integer is never evidence of a lost change.
+- Every signed change carries `previousSequence`: the sequence of the change published immediately before it (0 for the first). A node that receives changes from a peer can prove it is missing a signed publication without interpreting numeric gaps. Server reconciliation remains authoritative, and Zenoh stays a transport and wake-up path.
+
+§15.6's "require contiguous change application" is replaced by the `previousSequence` chain rule above.
+
+### A1.6 Sections superseded
+
+| Section | Change |
+| --- | --- |
+| §1 decisions 9–10, §49 renderer rows | WPE is the only Edge renderer; no Electron compatibility renderer. |
+| §4.2 | "Electron compatibility renderer only" rows no longer apply; Electron modules are reference behavior. |
+| §5 | `apps/player-linux` is reference/rollback, not "Electron compatibility during migration". |
+| §15.6 | Contiguity replaced by the signed `previousSequence` chain (§A1.5). |
+| §27.5, §29 | No WPE→Electron fallback. The ladder ends in renderer restart and then safe mode. Presentations that need unsupported renderer features are reported as incompatible. |
+| §28.3 | The shared trusted web runtime is loaded by WPE. Extraction is for WPE, not for Electron. |
+| §28.7–28.8 | Requirement sets select supported/incompatible, not WPE/Electron. |
+| §35 | "Edge-enabled Linux players using Electron renderer" no longer exists. |
+| §41.1–41.4, §41.7 | Phases A–F and the shadow/ownership handoff are replaced by §A1.2–A1.3. Rollback re-enables the preserved legacy unit. |
+| §42 E2, E3.5, E12.5, E17, E18; §43 PRs 6, 8, 9, 15, 16, 60, 74 | Electron bridge, dual-report and renderer-selection work is dropped. The WPE renderer starts immediately after the IPC contract, before the daemon is feature-complete. |
+| §47.1 | `edge.wpe.enabled`/`edge.wpe.preferred` flags are unnecessary. |
+
+---
+
 ## 1. Executive decision
 
 Tilecast Edge turns Linux Tilecast installations from independent kiosk clients into a secure, cooperative local edge fabric.
@@ -611,7 +687,7 @@ This distinction is required because the current player-update private key inten
 | Edge node key | Generated/stored only on node | Node certificate and peer identity |
 | Player device credential | Node only; hash on server | Central player API authentication |
 
-Do not reuse one key simply because all are Ed25519-capable identities.
+Do not reuse one key only because all are Ed25519-capable identities.
 
 ---
 
@@ -1860,7 +1936,7 @@ Do not include:
 
 ### 22.3 D-Bus implementation
 
-Use `zbus` in Rust to call Avahi's D-Bus API. Handle avahi-daemon restart and service-name collision. mDNS failure simply changes discovery capability state; Zenoh static seeds/manual server URL still work.
+Use `zbus` in Rust to call Avahi's D-Bus API. Handle avahi-daemon restart and service-name collision. mDNS failure changes only the discovery capability state; Zenoh static seeds/manual server URL still work.
 
 ---
 
@@ -2054,7 +2130,7 @@ An administrator explicitly maps the hardware instance to a Tilecast input ident
 
 ### 26.4 Ambient brightness
 
-An ambient-light provider may feed Context Engine and/or an explicit display-brightness policy. Automatic DDC brightness must use bounded ranges, smoothing/hysteresis and an operator-defined min/max to avoid oscillating or making the display unreadable.
+An ambient-light provider may feed the Context Engine, an explicit display-brightness policy, or both. Automatic DDC brightness must use bounded ranges, smoothing/hysteresis and an operator-defined min/max to avoid oscillating or making the display unreadable.
 
 ---
 

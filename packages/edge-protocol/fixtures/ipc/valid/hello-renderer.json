@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "hello",
+    "minProtocolVersion": 1,
+    "maxProtocolVersion": 1,
+    "role": "renderer",
+    "client": "tilecast-renderer-wpe",
+    "clientVersion": "0.1.0",
+    "features": ["image", "video", "render-tree-v1", "layout-v1"]
+  }
+}

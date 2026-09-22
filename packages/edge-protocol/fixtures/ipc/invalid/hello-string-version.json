@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "hello",
+    "minProtocolVersion": "1",
+    "maxProtocolVersion": 1,
+    "role": "renderer",
+    "client": "x",
+    "clientVersion": "1",
+    "features": []
+  }
+}
