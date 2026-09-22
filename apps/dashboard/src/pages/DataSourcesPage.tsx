@@ -1,36 +1,59 @@
-import {
-  Button,
-  ContextMenu,
-  EmptyState,
-  Notice,
-  PageHeader,
-  Select,
-  ViewToggle,
-  useContextMenu,
-  type ContextMenuItem,
-} from "../components/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, EllipsisVertical, SquarePen, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
+import { ActionMenu, MenuItem } from "@react-spectrum/s2/ActionMenu";
+import { Button } from "@react-spectrum/s2/Button";
+import { Cell, Column, Row, TableBody, TableHeader, TableView } from "@react-spectrum/s2/TableView";
+import { SearchField } from "@react-spectrum/s2/SearchField";
+import { Picker, PickerItem } from "@react-spectrum/s2/Picker";
+import { IllustratedMessage } from "@react-spectrum/s2/IllustratedMessage";
+import { InlineAlert } from "@react-spectrum/s2/InlineAlert";
+import { Heading } from "@react-spectrum/s2/Heading";
+import { StatusLight } from "@react-spectrum/s2/StatusLight";
+import { Text } from "@react-spectrum/s2/Text";
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import AddIcon from "@react-spectrum/s2/icons/Add";
 import { api, ApiError } from "../api/client";
-import type { DataSource, DataSourceDefinition } from "../api/types";
+import type { DataSourceDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import {
-  DashboardListToolbar,
-  DashboardSearch,
-} from "../components/DashboardListToolbar";
 import {
   DataSourceCreateShell,
   DataSourceProviderGallery,
 } from "../content/DataSourceCreateFlow";
 import { DataSourceEditor } from "../content/DataSourceEditors";
-import { providerLabel, sourceIcon } from "../content/dataSourceProviderMeta";
+import { providerLabel } from "../content/dataSourceProviderMeta";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { WorkspaceTabs, contentTabs } from "../navigation/WorkspaceTabs";
 import { canManageContent } from "./ContentPage";
 import { CreateFormDataSourcePage } from "./CreateFormDataSourcePage";
 import { FormDataSourcePage } from "./FormDataSourcePage";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
+
+const tableStyles = style({ height: 560, minHeight: 360, width: "full" });
+const pageHeaderStyles = style({
+  display: "flex",
+  alignItems: "start",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 24,
+});
+const filterStyles = style({
+  display: "flex",
+  alignItems: "end",
+  flexWrap: "wrap",
+  gap: 12,
+  marginBottom: 16,
+});
+
+function formatUpdatedAt(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Unknown"
+    : new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
+}
 
 export function DataSourcesPage() {
   const auth = useAuth();
@@ -40,7 +63,6 @@ export function DataSourcesPage() {
   const canManage = canManageContent(auth.status?.user);
   const [search, setSearch] = useState("");
   const [provider, setProvider] = useState("");
-  const [view, setView] = useState<"grid" | "list">("grid");
   const params = new URLSearchParams({ page: "1", pageSize: "100" });
   if (search) params.set("search", search);
   if (provider) params.set("provider", provider);
@@ -72,168 +94,126 @@ export function DataSourcesPage() {
     onSuccess: () =>
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] }),
   });
-  const menu = useContextMenu<DataSource>();
-  const actionsFor = (source: DataSource): ContextMenuItem[] => {
-    const actions: ContextMenuItem[] = [
-      {
-        label: canManage ? "Edit" : "Open",
-        icon: <SquarePen size={14} />,
-        onSelect: () => void navigate(`/data-sources/${source.id}`),
-      },
-    ];
-    if (canManage)
-      actions.push(
-        {
-          label: "Duplicate",
-          icon: <Copy size={14} />,
-          disabled: duplicate.isPending,
-          onSelect: () => duplicate.mutate(source.id),
-        },
-        {
-          label: "Delete",
-          icon: <Trash2 size={14} />,
-          danger: true,
-          separated: true,
-          disabled: remove.isPending,
-          onSelect: () => {
-            if (confirm(`Delete ${source.name}?`)) remove.mutate(source.id);
-          },
-        },
-      );
-    return actions;
-  };
+  const { confirm } = useSpectrumDialogs();
   const actionError = duplicate.error ?? remove.error;
 
   return (
     <section className="content-page apps-page">
       <WorkspaceTabs label="Content library" tabs={contentTabs} />
-      <PageHeader
-        title="Data Sources"
-        description="Reusable connections that fetch, parse, and cache data."
-        actions={
-          canManage ? (
-            <Button
-              variant="primary"
-              onClick={() => void navigate("/data-sources/new")}
-            >
-              <Plus size={16} aria-hidden="true" /> Create Data Source
-            </Button>
-          ) : undefined
-        }
-      />
-      <DashboardListToolbar>
-        <DashboardSearch
+      <header className={pageHeaderStyles}>
+        <div>
+          <Heading level={1}>Data sources</Heading>
+          <Text>Connections that fetch, parse, and cache operational data.</Text>
+        </div>
+        {canManage && (
+          <Button variant="accent" onPress={() => void navigate("/data-sources/new")}>
+            <AddIcon aria-hidden="true" /> Create data source
+          </Button>
+        )}
+      </header>
+      <div className={filterStyles}>
+        <SearchField
           value={search}
-          onValueChange={setSearch}
-          label="Search Data Sources"
-          placeholder="Search Data Sources"
+          onChange={setSearch}
+          aria-label="Search data sources"
+          placeholder="Search data sources"
         />
-        <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Filter by Data Source provider"
-          value={provider}
-          onChange={(event) => setProvider(event.target.value)}
+        <Picker
+          label="Provider"
+          selectedKey={provider || "all"}
+          onSelectionChange={(key) => setProvider(key === "all" ? "" : String(key))}
         >
-          <option value="">All Data Source types</option>
+          <PickerItem id="all">All providers</PickerItem>
           {(definitions.data?.dataSources ?? [])
             .filter((item) => item.id !== "form")
             .map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
+              <PickerItem key={item.id} id={item.id}>{item.name}</PickerItem>
             ))}
-        </Select>
-        <ViewToggle value={view} onValueChange={setView} />
-      </DashboardListToolbar>
+        </Picker>
+      </div>
       {dataSources.isError && (
-        <Notice variant="danger">
+        <InlineAlert variant="negative" fillStyle="subtleFill">
+          <Heading level={2}>Data sources could not be loaded</Heading>
           {dataSources.error instanceof ApiError
             ? dataSources.error.message
             : "Data Sources could not be loaded."}
-        </Notice>
+        </InlineAlert>
       )}
       {actionError && (
-        <Notice variant="danger">
+        <InlineAlert variant="negative" fillStyle="subtleFill">
+          <Heading level={2}>The action could not be completed</Heading>
           {actionError instanceof ApiError
             ? actionError.message
             : "The Data Source action could not be completed."}
-        </Notice>
+        </InlineAlert>
       )}
-      {dataSources.isLoading ? (
-        <div className="table-loading">Loading Data Sources...</div>
-      ) : visibleDataSources.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<Plus size={24} aria-hidden="true" />}
-          title="No Data Sources yet"
-          message="Create a reusable connection to feed your Widgets."
-          action={
-            canManage ? (
-              <Button
-                variant="primary"
-                onClick={() => void navigate("/data-sources/new")}
-              >
-                Create Data Source
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className={`asset-collection asset-collection--${view}`}>
-          {visibleDataSources.map((source) => (
-            <article
-              className="asset-card asset-card--has-menu"
-              key={source.id}
-              onContextMenu={(event) => menu.open(event, source)}
-            >
-              <button
-                type="button"
-                className="asset-card__menu"
-                aria-haspopup="menu"
-                aria-expanded={menu.anchor?.target.id === source.id}
-                aria-label={`Actions for ${source.name}`}
-                onClick={(event) => menu.open(event, source)}
-              >
-                <EllipsisVertical size={15} aria-hidden="true" />
-              </button>
-              <button
-                className="asset-card__open"
-                onClick={() => void navigate(`/data-sources/${source.id}`)}
-                aria-label={`Edit ${source.name}`}
-              >
-                <span className="asset-preview">
-                  {sourceIcon(
-                    source.provider,
-                    definitionsByProvider.get(source.provider),
-                  )}
-                </span>
-                <span className="asset-card__body">
-                  <strong>{source.name}</strong>
-                  <small>
-                    {definitionsByProvider.get(source.provider)?.name ??
-                      providerLabel(source.provider)}{" "}
-                    · {source.cachedRecordCount} cached records
-                  </small>
-                </span>
-                <span
-                  className={`media-status media-status--${source.status === "ready" ? "ready" : source.status === "error" ? "failed" : "processing"}`}
-                >
-                  {source.status}
-                </span>
-              </button>
-            </article>
-          ))}
-          {menu.anchor && (
-            <ContextMenu
-              x={menu.anchor.x}
-              y={menu.anchor.y}
-              label={`Actions for ${menu.anchor.target.name}`}
-              items={actionsFor(menu.anchor.target)}
-              onClose={menu.close}
-            />
+      <TableView
+        aria-label="Data sources"
+        density={document.documentElement.dataset.density === "compact" ? "compact" : "regular"}
+        styles={tableStyles}
+        loadingState={dataSources.isLoading ? "loading" : undefined}
+      >
+        <TableHeader>
+          <Column isRowHeader>Name</Column>
+          <Column>Provider</Column>
+          <Column>Status</Column>
+          <Column>Cached records</Column>
+          <Column>Last updated</Column>
+          <Column>Created by</Column>
+          <Column>Actions</Column>
+        </TableHeader>
+        <TableBody
+          items={visibleDataSources}
+          renderEmptyState={() => (
+            <IllustratedMessage>
+              <AddIcon aria-hidden="true" />
+              <Heading level={2}>{search || provider ? "No matching data sources" : "No data sources yet"}</Heading>
+              <Text>{search || provider ? "Adjust your search or provider filter." : "Create a reusable connection to feed your widgets."}</Text>
+              {canManage && !search && !provider && (
+                <Button variant="accent" onPress={() => void navigate("/data-sources/new")}>
+                  Create data source
+                </Button>
+              )}
+            </IllustratedMessage>
           )}
-        </div>
-      )}
+        >
+          {(source) => (
+            <Row id={source.id} href={`/data-sources/${source.id}`}>
+              <Cell>{source.name}</Cell>
+              <Cell>{definitionsByProvider.get(source.provider)?.name ?? providerLabel(source.provider)}</Cell>
+              <Cell>
+                <StatusLight variant={source.status === "ready" ? "positive" : source.status === "error" ? "negative" : "informative"}>
+                  {source.status}
+                </StatusLight>
+              </Cell>
+              <Cell>{source.cachedRecordCount.toLocaleString()}</Cell>
+              <Cell>{formatUpdatedAt(source.updatedAt)}</Cell>
+              <Cell>{source.creator?.name ?? "—"}</Cell>
+              <Cell>
+                <ActionMenu
+                  aria-label={`Actions for ${source.name}`}
+                  onAction={async (key) => {
+                    if (key === "open") void navigate(`/data-sources/${source.id}`);
+                    if (key === "duplicate") duplicate.mutate(source.id);
+                    if (
+                      key === "delete" &&
+                      await confirm({
+                        title: `Delete ${source.name}?`,
+                        confirmLabel: "Delete data source",
+                        tone: "negative",
+                      })
+                    ) remove.mutate(source.id);
+                  }}
+                >
+                  <MenuItem id="open">{canManage ? "Edit" : "Open"}</MenuItem>
+                  {canManage && <MenuItem id="duplicate" isDisabled={duplicate.isPending}>Duplicate</MenuItem>}
+                  {canManage && <MenuItem id="delete" isDisabled={remove.isPending}>Delete</MenuItem>}
+                </ActionMenu>
+              </Cell>
+            </Row>
+          )}
+        </TableBody>
+      </TableView>
     </section>
   );
 }

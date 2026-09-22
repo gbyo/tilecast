@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Button } from "@react-spectrum/s2/Button";
+import { Checkbox } from "@react-spectrum/s2/Checkbox";
+import { Heading } from "@react-spectrum/s2/Heading";
+import { InlineAlert } from "@react-spectrum/s2/InlineAlert";
+import { ProgressBar } from "@react-spectrum/s2/ProgressBar";
+import { StatusLight } from "@react-spectrum/s2/StatusLight";
+import { Text } from "@react-spectrum/s2/Text";
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 import { api } from "../api/client";
 import type { ScreenScope } from "../api/types";
+
+const editorStyles = style({ display: "flex", flexDirection: "column", gap: 16 });
+const checkListStyles = style({ display: "grid", gap: 8 });
 
 // No selection means the whole fleet. That is stated rather than implied,
 // because an empty list of grants reads equally well as "nothing", and getting
@@ -51,9 +62,9 @@ export function ScreenScopeEditor({
 
   if (userRole === "owner")
     return (
-      <p className="role-description">
+      <Text>
         Owner access applies to the entire fleet.
-      </p>
+      </Text>
     );
 
   const toggle = (scope: ScreenScope, on: boolean) => {
@@ -70,82 +81,84 @@ export function ScreenScopeEditor({
     selected.some((item) => item.type === type && item.id === id);
 
   return (
-    <div className="screen-scope-editor">
-      <p className="role-description">
+    <div className={editorStyles}>
+      <Text>
         {selected.length === 0
           ? "This account can operate every screen. Select buildings or Display Groups to narrow it."
           : `This account can operate screens in ${selected.length} selected ${selected.length === 1 ? "place" : "places"} only. It still sees the whole content library.`}
-      </p>
+      </Text>
 
-      {scopes.isLoading ? (
-        <div className="table-loading">Loading scope…</div>
+      {scopes.isLoading || locations.isLoading || groups.isLoading ? (
+        <ProgressBar label="Loading screen scope" isIndeterminate />
       ) : (
         <>
-          <fieldset className="setting-control--checks">
-            <legend className="field__label">Locations</legend>
+          {(scopes.error || locations.error || groups.error) && (
+            <InlineAlert variant="negative" fillStyle="subtleFill">
+              <Heading level={3}>Screen scope could not be loaded</Heading>
+              <Text>
+                {(scopes.error ?? locations.error ?? groups.error)?.message ??
+                  "Please try again."}
+              </Text>
+            </InlineAlert>
+          )}
+          <section aria-labelledby="scope-locations-heading">
+            <Heading id="scope-locations-heading" level={4}>Locations</Heading>
             {!locations.data?.items?.length ? (
-              <span className="setting-dependency">No locations exist.</span>
+              <Text>No locations exist.</Text>
             ) : (
-              locations.data.items.map((location) => (
-                <label className="check-option" key={location.id}>
-                  <input
-                    type="checkbox"
-                    disabled={disabled}
-                    checked={has("location", location.id)}
-                    onChange={(event) =>
-                      toggle(
-                        { type: "location", id: location.id },
-                        event.target.checked,
-                      )
+              <div className={checkListStyles}>
+                {locations.data.items.map((location) => (
+                  <Checkbox
+                    key={location.id}
+                    isDisabled={disabled}
+                    isSelected={has("location", location.id)}
+                    onChange={(on) =>
+                      toggle({ type: "location", id: location.id }, on)
                     }
-                  />
-                  {location.name}
-                </label>
-              ))
+                  >
+                    {location.name}
+                  </Checkbox>
+                ))}
+              </div>
             )}
-          </fieldset>
+          </section>
 
-          <fieldset className="setting-control--checks">
-            <legend className="field__label">Display Groups</legend>
+          <section aria-labelledby="scope-groups-heading">
+            <Heading id="scope-groups-heading" level={4}>Display Groups</Heading>
             {!groups.data?.items?.length ? (
-              <span className="setting-dependency">
-                No Display Groups exist.
-              </span>
+              <Text>No Display Groups exist.</Text>
             ) : (
-              groups.data.items.map((group) => (
-                <label className="check-option" key={group.id}>
-                  <input
-                    type="checkbox"
-                    disabled={disabled}
-                    checked={has("group", group.id)}
-                    onChange={(event) =>
-                      toggle(
-                        { type: "group", id: group.id },
-                        event.target.checked,
-                      )
-                    }
-                  />
-                  {group.name}
-                </label>
-              ))
+              <div className={checkListStyles}>
+                {groups.data.items.map((group) => (
+                  <Checkbox
+                    key={group.id}
+                    isDisabled={disabled}
+                    isSelected={has("group", group.id)}
+                    onChange={(on) => toggle({ type: "group", id: group.id }, on)}
+                  >
+                    {group.name}
+                  </Checkbox>
+                ))}
+              </div>
             )}
-          </fieldset>
+          </section>
 
-          <div className="settings-subsection__action">
-            <div>{saved && <span>Screen scope saved.</span>}</div>
-            <button
-              className="button"
-              type="button"
-              disabled={disabled || save.isPending}
-              onClick={() => save.mutate()}
+          <div>
+            {saved && <StatusLight variant="positive">Screen scope saved</StatusLight>}
+            <Button
+              variant="accent"
+              isDisabled={disabled || save.isPending}
+              isPending={save.isPending}
+              onPress={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save screen scope"}
-            </button>
+            </Button>
           </div>
           {save.error && (
-            <div className="notice notice--error" role="alert">
-              {save.error.message}
-            </div>
+            <InlineAlert variant="negative" fillStyle="subtleFill">
+              <Heading level={3}>Screen scope could not be saved</Heading>
+              <Text>{save.error.message}</Text>
+            </InlineAlert>
           )}
         </>
       )}

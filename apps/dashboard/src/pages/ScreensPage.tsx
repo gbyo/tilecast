@@ -56,6 +56,7 @@ import type {
   User,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import { ScreenContentChain } from "../content/ScreenContentChain";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { ScreenPresentationNetworkPanel } from "../components/ScreenPresentationNetworkPanel";
@@ -394,6 +395,7 @@ const useTakeovers = () =>
    While a takeover is active the banner below becomes the loudest thing on the
    page, which is the only time the danger treatment is truthful. */
 function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
+  const { confirm, prompt } = useSpectrumDialogs();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const takeovers = useTakeovers();
@@ -418,14 +420,20 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
               <button
                 className="button button--danger"
                 type="button"
-                onClick={() => {
-                  if (
-                    !confirm(
-                      "Cancel this takeover and restore current scheduled or fallback playback?",
-                    )
-                  )
-                    return;
-                  const reason = prompt("Optional cancellation reason") ?? "";
+                onClick={async () => {
+                  if (!(await confirm({
+                    title: "End this takeover?",
+                    description:
+                      "Scheduled or fallback playback will resume on the targeted screens.",
+                    confirmLabel: "End takeover",
+                    tone: "negative",
+                  }))) return;
+                  const reason = (await prompt({
+                    title: "Cancellation reason",
+                    description: "Optionally record why this takeover ended.",
+                    label: "Reason",
+                    confirmLabel: "End takeover",
+                  })) ?? "";
                   cancel.mutate({ id: item.id, reason });
                 }}
               >
@@ -449,6 +457,7 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
 }
 
 function TakeoverAction({ screens }: { screens: Screen[] }) {
+  const { confirm, prompt } = useSpectrumDialogs();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -511,21 +520,32 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
   const ready = Boolean(
     name && playlistId && (screenIds.length > 0 || groupIds.length > 0),
   );
-  const beginActivation = (confirmed: boolean) => {
+  const beginActivation = async (confirmed: boolean) => {
     const requiresPassword = Boolean(
       runtimeSettings.data?.values["takeover.reauthentication_required"],
     );
     const password = requiresPassword
-      ? (prompt("Confirm your current password") ?? "")
+      ? (await prompt({
+          title: "Confirm your current password",
+          description:
+            "Your password is required by the installation's takeover policy.",
+          label: "Current password",
+          type: "password",
+          confirmLabel: "Continue",
+        })) ?? ""
       : "";
     if (requiresPassword && !password) return;
     // A completed three-second hold already is the confirmation, so it does not
     // also raise a dialog.
     if (
       confirmed ||
-      confirm(
-        "Activate the selected playlist for these targets? Existing overlapping takeovers will be replaced.",
-      )
+      await confirm({
+        title: "Activate this takeover?",
+        description:
+          "The selected playlist will replace existing overlapping takeovers for these targets.",
+        confirmLabel: "Activate takeover",
+        tone: "negative",
+      })
     )
       activate.mutate(password);
   };
@@ -2103,6 +2123,7 @@ function ApprovalPanel({
   request: PairingRequest;
   onDone: (screenId?: string) => void;
 }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const defaultDestination: PairingDestination =
@@ -2135,30 +2156,16 @@ function ApprovalPanel({
   });
   const approve = useMutation({
     mutationFn: (values: ApprovalForm) => {
-      const repair = destination === "credential_repair";
       if (destination === "replace_hardware" && !replacementScreenId)
         throw new Error(
           "Choose the existing screen whose hardware is being replaced.",
         );
-      if (
-        repair &&
-        !window.confirm(
-          `Repair pairing for “${request.existingScreenName}” and replace its credential after this player enrolls?`,
-        )
-      )
-        throw new Error("Pairing repair was cancelled.");
       if (destination === "replace_hardware") {
         const target = screens.data?.items.find(
           (screen) => screen.id === replacementScreenId,
         );
         if (!target)
           throw new Error("The replacement screen could not be found.");
-        if (
-          !window.confirm(
-            `Replace the hardware for “${target.name}”? Its name, group membership, assignments, schedules, policies, and history will stay on the same logical screen.`,
-          )
-        )
-          throw new Error("Hardware replacement was cancelled.");
       }
       return api.approvePairing(
         request.id,
@@ -2336,10 +2343,44 @@ function ApprovalPanel({
         </div>
       )}
       <form
-        onSubmit={(event) =>
-          void form.handleSubmit((values) => approve.mutateAsync(values))(event)
-        }
+        onSubmit={(event) => {
+          event.preventDefault();
+          void form.handleSubmit(async (values) => {
+            if (destination === "credential_repair" && !(await confirm({
+              title: `Repair pairing for “${request.existingScreenName}”?`,
+              description:
+                "The player's credential will be replaced after enrollment completes.",
+              confirmLabel: "Repair pairing",
+              tone: "negative",
+            }))) return;
+            if (destination === "replace_hardware") {
+              const target = screens.data?.items.find(
+                (screen) => screen.id === replacementScreenId,
+              );
+              if (!target) {
+                form.setError("root", {
+                  type: "manual",
+                  message: "Choose the existing screen whose hardware is being replaced.",
+                });
+                return;
+              }
+              if (!(await confirm({
+                title: `Replace the hardware for “${target.name}”?`,
+                description:
+                  "Its name, group membership, assignments, schedules, policies, and history will stay on the same logical screen.",
+                confirmLabel: "Replace hardware",
+                tone: "negative",
+              }))) return;
+            }
+            await approve.mutateAsync(values);
+          })(event);
+        }}
       >
+        {form.formState.errors.root?.message && (
+          <div className="notice notice--error" role="alert">
+            {form.formState.errors.root.message}
+          </div>
+        )}
         <FormField
           id="screenName"
           label="Screen name"
@@ -2396,6 +2437,7 @@ function ApprovalPanel({
 }
 
 export function ScreenDetailPage() {
+  const { confirm, prompt } = useSpectrumDialogs();
   const { id = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const auth = useAuth();
@@ -2574,9 +2616,13 @@ export function ScreenDetailPage() {
     requestedTab,
     searchParams.get("section"),
   );
-  const selectTab = (nextTab: string) => {
+  const selectTab = async (nextTab: string) => {
     if (policyDirty && tab === "manage") {
-      if (!confirm("Leave Manage without saving your changes?")) return;
+      if (!(await confirm({
+        title: "Leave Manage without saving your changes?",
+        description: "Your player policy edits will be lost.",
+        confirmLabel: "Discard changes",
+      }))) return;
       setPolicyDirty(false);
     }
     const next = new URLSearchParams(searchParams);
@@ -2585,13 +2631,17 @@ export function ScreenDetailPage() {
     if (nextTab !== "manage") next.delete("section");
     setSearchParams(next);
   };
-  const selectManageSection = (nextSection: ScreenManageSection) => {
+  const selectManageSection = async (nextSection: ScreenManageSection) => {
     if (
       policyDirty &&
       manageSection === "settings" &&
       nextSection !== "settings"
     ) {
-      if (!confirm("Leave Settings without saving your changes?")) return;
+      if (!(await confirm({
+        title: "Leave Player Settings without saving your changes?",
+        description: "Your player policy edits will be lost.",
+        confirmLabel: "Discard changes",
+      }))) return;
       setPolicyDirty(false);
     }
     const next = new URLSearchParams(searchParams);
@@ -3556,12 +3606,14 @@ export function ScreenDetailPage() {
                         <button
                           className="button button--secondary"
                           disabled={command.isPending}
-                          onClick={() => {
-                            if (
-                              confirm(
-                                "Remove the autostart service? This screen will keep playing now, but will not return on its own after a reboot or a player update.",
-                              )
-                            )
+                          onClick={async () => {
+                            if (await confirm({
+                              title: "Remove the autostart service?",
+                              description:
+                                "This screen will keep playing now, but will not return on its own after a reboot or player update.",
+                              confirmLabel: "Remove service",
+                              tone: "negative",
+                            }))
                               command.mutate({
                                 type: "remove_autostart",
                                 payload: {},
@@ -3618,10 +3670,15 @@ export function ScreenDetailPage() {
                           <button
                             className="button button--secondary"
                             disabled={command.isPending}
-                            onClick={() => {
-                              const input = window.prompt(
-                                "CEC physical address (for example 1.0.0.0)",
-                              );
+                            onClick={async () => {
+                              const input = await prompt({
+                                title: "Set display input",
+                                description:
+                                  "Enter the CEC physical address reported by the display, such as 1.0.0.0.",
+                                label: "CEC physical address",
+                                placeholder: "1.0.0.0",
+                                confirmLabel: "Set input",
+                              });
                               if (input?.trim())
                                 command.mutate({
                                   type: "display_set_input",
@@ -3636,10 +3693,14 @@ export function ScreenDetailPage() {
                           <button
                             className="button button--secondary"
                             disabled={command.isPending}
-                            onClick={() => {
-                              const value = window.prompt(
-                                "Display volume, from 0 to 100",
-                              );
+                            onClick={async () => {
+                              const value = await prompt({
+                                title: "Set display volume",
+                                label: "Volume (0–100)",
+                                type: "number",
+                                placeholder: "0–100",
+                                confirmLabel: "Set volume",
+                              });
                               const volume =
                                 value == null ? NaN : Number(value);
                               if (
@@ -3688,10 +3749,14 @@ export function ScreenDetailPage() {
                           <button
                             className="button button--secondary"
                             disabled={command.isPending}
-                            onClick={() => {
-                              const value = window.prompt(
-                                "Display brightness, from 0 to 100",
-                              );
+                            onClick={async () => {
+                              const value = await prompt({
+                                title: "Set display brightness",
+                                label: "Brightness (0–100)",
+                                type: "number",
+                                placeholder: "0–100",
+                                confirmLabel: "Set brightness",
+                              });
                               const brightness =
                                 value == null ? NaN : Number(value);
                               if (
@@ -3833,12 +3898,14 @@ export function ScreenDetailPage() {
               </button>
               <button
                 className="button button--danger-quiet"
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Clear media not protected by active or pending playback?",
-                    )
-                  )
+                onClick={async () => {
+                  if (await confirm({
+                    title: "Clear media cache?",
+                    description:
+                      "Media protected by active or pending playback will be kept.",
+                    confirmLabel: "Clear media cache",
+                    tone: "negative",
+                  }))
                     command.mutate({ type: "clear_media_cache", payload: {} });
                 }}
               >
@@ -3846,12 +3913,14 @@ export function ScreenDetailPage() {
               </button>
               <button
                 className="button button--danger-quiet"
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Clear cookies, cache, DOM storage, and WebView state?",
-                    )
-                  )
+                onClick={async () => {
+                  if (await confirm({
+                    title: "Clear website data?",
+                    description:
+                      "Cookies, cache, DOM storage, and WebView state will be cleared.",
+                    confirmLabel: "Clear website data",
+                    tone: "negative",
+                  }))
                     command.mutate({ type: "clear_website_data", payload: {} });
                 }}
               >
@@ -3859,13 +3928,17 @@ export function ScreenDetailPage() {
               </button>
               <button
                 className="button button--danger-quiet"
-                onClick={() => {
+                onClick={async () => {
                   const disabling = !assignment.data?.playbackDisabled;
                   if (
                     !disabling ||
-                    confirm(
-                      "Disable ordinary playback while keeping this player paired and connected?",
-                    )
+                    await confirm({
+                      title: "Disable ordinary playback?",
+                      description:
+                        "The player will stay paired and connected, but ordinary scheduled playback will stop.",
+                      confirmLabel: "Disable playback",
+                      tone: "negative",
+                    })
                   )
                     command.mutate({
                       type: disabling ? "disable_playback" : "enable_playback",

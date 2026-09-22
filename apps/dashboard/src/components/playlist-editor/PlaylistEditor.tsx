@@ -11,6 +11,7 @@ import type {
 } from "../../api/types";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
+import { useSpectrumDialogs } from "../../dialogs/SpectrumDialogs";
 import { ContentPicker, type ContentPickerResult } from "../content-picker";
 import { UsedByPanel } from "../../content/UsedByPanel";
 import { PlaylistRevisionsPanel } from "../PlaylistRevisionsPanel";
@@ -31,6 +32,7 @@ import {
 } from "./playlistEditorModel";
 
 export function PlaylistEditorPage() {
+  const { confirm } = useSpectrumDialogs();
   const { id = "" } = useParams();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
@@ -366,8 +368,13 @@ export function PlaylistEditorPage() {
         onOpenHistory={openHistory}
         onOpenDetails={openDetails}
         onDuplicate={() => duplicate.mutate()}
-        onDelete={() => {
-          if (confirm(`Delete ${playlist.name}?`)) remove.mutate();
+        onDelete={async () => {
+          if (await confirm({
+            title: `Delete ${playlist.name}?`,
+            description: "This playlist will be permanently removed.",
+            confirmLabel: "Delete playlist",
+            tone: "negative",
+          })) remove.mutate();
         }}
       />
 

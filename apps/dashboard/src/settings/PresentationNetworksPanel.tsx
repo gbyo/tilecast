@@ -9,6 +9,7 @@ import type {
   Screen,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import {
   Button,
   Checkbox,
@@ -51,6 +52,7 @@ export function PresentationNetworksPanel({
 }: {
   canManage: boolean;
 }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -271,11 +273,16 @@ export function PresentationNetworksPanel({
                   compact
                   variant="danger"
                   disabled={remove.isPending}
-                  onClick={() => {
+                  onClick={async () => {
                     const warning = network.assignedScreens
                       ? `${network.name} is assigned to ${network.assignedScreens} screen${network.assignedScreens === 1 ? "" : "s"}. Delete it and remove those assignments?`
                       : `Delete ${network.name}?`;
-                    if (confirm(warning)) remove.mutate(network);
+                    if (await confirm({
+                      title: `Delete ${network.name}?`,
+                      description: warning,
+                      confirmLabel: "Delete network",
+                      tone: "negative",
+                    })) remove.mutate(network);
                   }}
                 >
                   <Trash2 size={14} aria-hidden="true" /> Delete

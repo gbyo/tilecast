@@ -64,6 +64,7 @@ import {
 import { useLocation, useNavigate, useParams } from "react-router";
 import QRCode from "qrcode";
 import { api, ApiError } from "../api/client";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import type {
   Asset,
   CalendarEvent,
@@ -470,6 +471,7 @@ export function createPrimitivePlacement(
 }
 
 export function LayoutEditorPage() {
+  const { prompt } = useSpectrumDialogs();
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const auth = useAuth();
@@ -1220,8 +1222,13 @@ export function LayoutEditorPage() {
     );
   }, [selection, update]);
   const renamePlacement = useCallback(
-    (target: LayoutPlacement) => {
-      const answer = window.prompt("Layer name", target.name);
+    async (target: LayoutPlacement) => {
+      const answer = await prompt({
+        title: "Rename layer",
+        label: "Layer name",
+        defaultValue: target.name,
+        confirmLabel: "Rename layer",
+      });
       if (answer === null) return;
       const name = answer.trim();
       if (!name || name === target.name) return;
@@ -1230,7 +1237,7 @@ export function LayoutEditorPage() {
         if (item) item.name = name;
       });
     },
-    [update],
+    [prompt, update],
   );
   // One switch for the whole selection rather than a per-item toggle, so a mixed
   // selection resolves to a single predictable state.
@@ -1789,11 +1796,13 @@ export function LayoutEditorPage() {
           className="icon-button"
           title="Rename Layout"
           aria-label={`Rename ${layoutQuery.data?.name ?? "Layout"}`}
-          onClick={() => {
-            const next = window.prompt(
-              "Layout name",
-              layoutQuery.data?.name ?? "",
-            );
+          onClick={async () => {
+            const next = await prompt({
+              title: "Rename Layout",
+              label: "Layout name",
+              defaultValue: layoutQuery.data?.name ?? "",
+              confirmLabel: "Rename Layout",
+            });
             if (next?.trim() && next.trim() !== layoutQuery.data?.name)
               rename.mutate(next.trim());
           }}

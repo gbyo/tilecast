@@ -8,6 +8,7 @@ import { z } from "zod";
 import { api, ApiError } from "../api/client";
 import type { NWSAlertRule, NWSAlertRuleInput, Playlist } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import { Notice, PageHeader } from "../components/ui";
 
 const emptyRule: NWSAlertRuleInput = {
@@ -130,6 +131,7 @@ const nwsAreas = [
  * policy that applies whether or not this plugin is used at all.
  */
 export function EmergencyAlertsPage() {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const editable = ["owner", "administrator"].includes(
     auth.status?.user?.role ?? "",
@@ -531,8 +533,16 @@ export function EmergencyAlertsPage() {
                       <button
                         className="button button--quiet"
                         type="button"
-                        onClick={() => {
-                          if (confirm(`Delete “${item.name}”?`))
+                        onClick={async () => {
+                          if (
+                            await confirm({
+                              title: `Delete “${item.name}”?`,
+                              description:
+                                "This emergency alert rule will be permanently removed.",
+                              confirmLabel: "Delete rule",
+                              tone: "negative",
+                            })
+                          )
                             removeRule.mutate(item.id);
                         }}
                       >

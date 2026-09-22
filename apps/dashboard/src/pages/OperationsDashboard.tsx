@@ -1,17 +1,115 @@
-import {
-  CalendarClock,
-  ChevronRight,
-  CircleAlert,
-  MonitorCheck,
-  RefreshCw,
-} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { Content } from "@react-spectrum/s2/Content";
+import { Heading } from "@react-spectrum/s2/Heading";
+import { IllustratedMessage } from "@react-spectrum/s2/IllustratedMessage";
+import { Link } from "@react-spectrum/s2/Link";
+import { LinkButton } from "@react-spectrum/s2/LinkButton";
+import { LabeledValue } from "@react-spectrum/s2/LabeledValue";
+import { Meter } from "@react-spectrum/s2/Meter";
+import { StatusLight } from "@react-spectrum/s2/StatusLight";
+import { Text } from "@react-spectrum/s2/Text";
+import {
+  Cell,
+  Column,
+  Row,
+  TableBody,
+  TableHeader,
+  TableView,
+} from "@react-spectrum/s2/TableView";
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import type { Schedule, Screen, ScreenStatus } from "../api/types";
 import { api } from "../api/client";
-import type { Schedule, ScreenStatus } from "../api/types";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
-import { PageHeader } from "../components/ui";
-import "./OperationsDashboard.css";
+
+const pageStyles = style({
+  display: "grid",
+  gap: 24,
+  width: "full",
+  maxWidth: 1440,
+  marginX: "auto",
+});
+
+const pageHeaderStyles = style({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "end",
+  justifyContent: "space-between",
+  gap: 16,
+});
+
+const overviewGridStyles = style({
+  display: "grid",
+  gridTemplateColumns: {
+    default: "minmax(0, 1fr)",
+    lg: "minmax(0, 1.15fr) minmax(20rem, 0.85fr)",
+  },
+  gap: 16,
+  alignItems: "start",
+});
+
+const columnStyles = style({ display: "grid", gap: 16, minWidth: 0 });
+
+const regionStyles = style({
+  display: "grid",
+  gap: 16,
+  minWidth: 0,
+  padding: 20,
+  borderWidth: 1,
+  borderColor: "gray-200",
+  borderRadius: "lg",
+  backgroundColor: "base",
+});
+
+const attentionRegionStyles = style({
+  display: "grid",
+  gap: 16,
+  minWidth: 0,
+  padding: 20,
+  borderWidth: 1,
+  borderColor: "negative",
+  borderRadius: "lg",
+  backgroundColor: "base",
+});
+
+const regionHeaderStyles = style({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "start",
+  justifyContent: "space-between",
+  gap: 12,
+});
+
+const metricGridStyles = style({
+  display: "grid",
+  gridTemplateColumns: { default: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" },
+  gap: 16,
+});
+
+const statusListStyles = style({ display: "grid", gap: 12 });
+
+const statusRowStyles = style({
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  alignItems: "center",
+  gap: 16,
+  paddingBlock: 8,
+  borderBottomWidth: 1,
+  borderColor: "gray-200",
+});
+
+const statusRowCopyStyles = style({ display: "grid", gap: 4, minWidth: 0 });
+
+const metricStatusStyles = style({ display: "flex", alignItems: "center", gap: 8 });
+
+const tableStyles = style({
+  width: "full",
+  minWidth: 880,
+  height: 440,
+});
+
+const tableWrapStyles = style({ width: "full", overflowX: "auto" });
+
+const scheduleDetailsStyles = style({ display: "grid", gap: 8 });
 
 const statusLabels: Record<ScreenStatus, string> = {
   online: "Online",
@@ -20,6 +118,15 @@ const statusLabels: Record<ScreenStatus, string> = {
   offline: "Offline",
   disabled: "Disabled",
   revoked: "Pairing revoked",
+};
+
+const statusVariants: Record<ScreenStatus, "positive" | "notice" | "negative" | "neutral"> = {
+  online: "positive",
+  recent: "notice",
+  stale: "notice",
+  offline: "negative",
+  disabled: "neutral",
+  revoked: "negative",
 };
 
 export function OperationsDashboard() {
@@ -32,281 +139,235 @@ export function OperationsDashboard() {
     queryKey: ["schedules"],
     queryFn: () => api.schedules(),
   });
-  const deployments = useQuery({
-    queryKey: ["update-deployments"],
-    queryFn: api.updateDeployments,
-    refetchInterval: 15_000,
-  });
 
   const allScreens = screens.data?.items ?? [];
   const online = allScreens.filter((screen) => screen.status === "online");
-  const attention = allScreens.filter((screen) => screen.status !== "online");
-  const activeSchedules = (schedules.data?.items ?? []).filter(
+  const needsAttention = allScreens.filter((screen) => screen.status !== "online");
+  const onAir = online.filter((screen) => Boolean(screen.nowPlayingName));
+  const enabledSchedules = (schedules.data?.items ?? []).filter(
     (schedule) => schedule.enabled,
   );
-  const updateActions = (deployments.data?.items ?? []).reduce(
-    (total, deployment) =>
-      total + deployment.waitingForUserCount + deployment.failedCount,
-    0,
-  );
-  const latestDeployment = deployments.data?.items[0];
-  const nextChange = nextScheduleChange(activeSchedules);
-
+  const nextChange = nextScheduleChange(enabledSchedules);
   return (
-    <div className="ops-console">
-      <PageHeader
-        className="ops-header"
-        title="System overview"
-        description="Live player state, items requiring attention, and what changes next."
-      />
+    <main className={pageStyles}>
+      <header className={pageHeaderStyles}>
+        <div>
+          <Heading level={1}>Overview</Heading>
+          <Text>Player health, what is on air, and the next scheduled change.</Text>
+        </div>
+        <LinkButton href="/screens/pair" variant="primary">
+          Pair screen
+        </LinkButton>
+      </header>
 
-      <section className="ops-summary" aria-label="Current status">
-        <Summary
-          value={`${online.length}/${allScreens.length}`}
-          label="Screens online"
-        />
-        <Summary
-          value={String(attention.length)}
-          label="Need attention"
-          urgent={attention.length > 0}
-        />
-        <Summary
-          value={String(activeSchedules.length)}
-          label="Active schedules"
-        />
-        <Summary
-          value={String(updateActions)}
-          label="Update actions"
-          urgent={updateActions > 0}
-        />
+      <section className={regionStyles} aria-labelledby="fleet-health-heading">
+        <div className={regionHeaderStyles}>
+          <div>
+            <Heading id="fleet-health-heading" level={2}>
+              Fleet health
+            </Heading>
+            <Text>Live connection status across your Tilecast players.</Text>
+          </div>
+          <Link href="/screens">Manage screens</Link>
+        </div>
+        {screens.isLoading ? (
+          <Text>Loading player status…</Text>
+        ) : screens.isError ? (
+          <StatusLight variant="negative">
+            Player status could not be loaded. Refresh or check the server connection.
+          </StatusLight>
+        ) : (
+          <>
+            <div className={metricGridStyles}>
+              <div className={metricStatusStyles}>
+                <StatusLight variant={needsAttention.length === 0 ? "positive" : "notice"}>
+                  {needsAttention.length === 0 ? "All reporting" : "Attention needed"}
+                </StatusLight>
+              </div>
+              <LabeledValue label="Online" value={online.length} />
+              <LabeledValue label="Need attention" value={needsAttention.length} />
+              <LabeledValue label="Enabled schedules" value={enabledSchedules.length} />
+            </div>
+            {allScreens.length > 0 && (
+              <Meter
+                aria-label="Players currently online"
+                label="Players online"
+                value={online.length}
+                maxValue={allScreens.length}
+                variant={online.length === allScreens.length ? "positive" : "notice"}
+              />
+            )}
+          </>
+        )}
       </section>
 
-      {attention.length > 0 && (
-        <section className="ops-attention" aria-labelledby="attention-heading">
-          <header>
+      <div className={overviewGridStyles}>
+        <section className={regionStyles} aria-labelledby="on-air-heading">
+          <div className={regionHeaderStyles}>
             <div>
-              <h3 id="attention-heading">
-                <CircleAlert size={18} aria-hidden="true" /> Needs attention
-              </h3>
-              <p>
-                Players below are not currently reporting an online connection.
-              </p>
+              <Heading id="on-air-heading" level={2}>
+                On air now
+              </Heading>
+              <Text>Current presentations reported by online players.</Text>
             </div>
-            <Link to="/screens">View all screens</Link>
-          </header>
-          <div className="ops-attention-list">
-            {attention.slice(0, 5).map((screen) => (
-              <Link key={screen.id} to={`/screens/${screen.id}`}>
-                <StatusDot status={screen.status} />
-                <span className="ops-attention-list__name">
-                  <strong>{screen.name}</strong>
-                  <small>{screen.location || "No location set"}</small>
-                </span>
-                <span>{statusLabels[screen.status]}</span>
-                <time>{formatRelative(screen.lastContactAt)}</time>
-                <ChevronRight size={16} aria-hidden="true" />
-              </Link>
-            ))}
+            <Link href="/screens">All screens</Link>
           </div>
-        </section>
-      )}
-
-      <FleetUptimePanel />
-
-      <div className="ops-grid">
-        <section
-          className="ops-panel ops-fleet"
-          aria-labelledby="fleet-heading"
-        >
-          <header>
-            <div>
-              <h3 id="fleet-heading">Player fleet</h3>
-              <p>Connection, playback readiness, and installed version.</p>
-            </div>
-            <Link to="/screens">Manage screens</Link>
-          </header>
           {screens.isLoading ? (
-            <div className="ops-empty">Loading player status…</div>
+            <Text>Loading current playback…</Text>
           ) : screens.isError ? (
-            <div className="ops-empty" role="alert">
-              <CircleAlert size={20} aria-hidden="true" />
-              <strong>Player status could not be loaded</strong>
-              <span>
-                Refresh the page or check the Tilecast server connection.
-              </span>
-            </div>
-          ) : allScreens.length === 0 ? (
-            <div className="ops-empty">
-              <MonitorCheck size={20} aria-hidden="true" />
-              <strong>No screens paired</strong>
-              <Link to="/screens/pair">Pair the first screen</Link>
-            </div>
+            <StatusLight variant="negative">Current playback is unavailable.</StatusLight>
+          ) : onAir.length === 0 ? (
+            <IllustratedMessage>
+              <Heading>No active playback reported</Heading>
+              <Content>
+                Online players appear here after they report a playlist or presentation.
+              </Content>
+            </IllustratedMessage>
           ) : (
-            <div className="ops-table-wrap">
-              <table className="ops-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Status</th>
-                    <th>Location</th>
-                    <th>Player</th>
-                    <th>Last contact</th>
-                    <th>
-                      <span className="visually-hidden">Open</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allScreens.map((screen) => (
-                    <tr key={screen.id}>
-                      <td>
-                        <Link to={`/screens/${screen.id}`}>{screen.name}</Link>
-                      </td>
-                      <td>
-                        <span className="ops-inline-status">
-                          <StatusDot status={screen.status} />{" "}
-                          {statusLabels[screen.status]}
-                        </span>
-                      </td>
-                      <td>{screen.location || "Not set"}</td>
-                      <td>{screen.playerVersion || "Not reported"}</td>
-                      <td>{formatRelative(screen.lastContactAt)}</td>
-                      <td>
-                        <Link
-                          className="ops-row-link"
-                          aria-label={`Open ${screen.name}`}
-                          to={`/screens/${screen.id}`}
-                        >
-                          <ChevronRight size={16} />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className={statusListStyles}>
+              {onAir.slice(0, 6).map((screen) => (
+                <ScreenSummary key={screen.id} screen={screen} />
+              ))}
             </div>
           )}
         </section>
 
-        <aside className="ops-side">
-          <section className="ops-panel">
-            <header>
+        <div className={columnStyles}>
+          <section className={regionStyles} aria-labelledby="coming-up-heading">
+            <div className={regionHeaderStyles}>
               <div>
-                <h3>Next schedule change</h3>
-                <p>Next enabled playback transition.</p>
+                <Heading id="coming-up-heading" level={2}>
+                  Coming up
+                </Heading>
+                <Text>Next enabled playback transition.</Text>
               </div>
-            </header>
-            {schedules.isError ? (
-              <div className="ops-empty ops-empty--compact" role="alert">
-                <CircleAlert size={18} aria-hidden="true" />
-                <strong>Schedules could not be loaded</strong>
-              </div>
+              <Link href="/schedules">Schedules</Link>
+            </div>
+            {schedules.isLoading ? (
+              <Text>Loading schedules…</Text>
+            ) : schedules.isError ? (
+              <StatusLight variant="negative">Schedules could not be loaded.</StatusLight>
             ) : nextChange ? (
-              <div className="ops-key-value">
-                <strong>{nextChange.schedule.name}</strong>
-                <span>{formatScheduleTime(nextChange.at)}</span>
-                <small>
-                  {nextChange.schedule.playlistName} on{" "}
-                  {targetLabel(nextChange.schedule)}
-                </small>
-                <Link to={`/schedules/${nextChange.schedule.id}`}>
-                  Open schedule <ChevronRight size={14} />
+              <div className={scheduleDetailsStyles}>
+                <Link href={`/schedules/${nextChange.schedule.id}`}>
+                  {nextChange.schedule.name}
                 </Link>
+                <Text>{formatScheduleTime(nextChange.at)}</Text>
+                <Text>
+                  {nextChange.schedule.playlistName} · {targetLabel(nextChange.schedule)}
+                </Text>
               </div>
             ) : (
-              <div className="ops-empty ops-empty--compact">
-                <CalendarClock size={18} aria-hidden="true" />
-                <strong>No upcoming change</strong>
-                <span>
-                  Fallback assignments continue until a schedule starts.
-                </span>
-              </div>
+              <Text>No upcoming schedule change. Current assignments continue playing.</Text>
             )}
           </section>
-
-          <section className="ops-panel">
-            <header>
-              <div>
-                <h3>Player updates</h3>
-                <p>Latest deployment result.</p>
-              </div>
-              <Link to="/settings/player-updates">Update center</Link>
-            </header>
-            {deployments.isError ? (
-              <div className="ops-empty ops-empty--compact" role="alert">
-                <CircleAlert size={18} aria-hidden="true" />
-                <strong>Update status could not be loaded</strong>
-              </div>
-            ) : latestDeployment ? (
-              <dl className="ops-deployment">
-                <div>
-                  <dt>Release</dt>
-                  <dd>{latestDeployment.versionName}</dd>
-                </div>
-                <div>
-                  <dt>Status</dt>
-                  <dd>{humanize(latestDeployment.status)}</dd>
-                </div>
-                <div>
-                  <dt>Succeeded</dt>
-                  <dd>
-                    {latestDeployment.succeededCount}/
-                    {latestDeployment.targetCount}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Action needed</dt>
-                  <dd>
-                    {latestDeployment.failedCount +
-                      latestDeployment.waitingForUserCount}
-                  </dd>
-                </div>
-              </dl>
-            ) : (
-              <div className="ops-empty ops-empty--compact">
-                <RefreshCw size={18} aria-hidden="true" />
-                <strong>No deployments yet</strong>
-                <span>
-                  Published player releases appear in the update center.
-                </span>
-              </div>
-            )}
-          </section>
-        </aside>
+          <FleetUptimePanel />
+        </div>
       </div>
-    </div>
+
+      <section className={attentionRegionStyles} aria-labelledby="needs-attention-heading">
+        <div className={regionHeaderStyles}>
+          <div>
+            <Heading id="needs-attention-heading" level={2}>
+              Needs attention
+            </Heading>
+            <Text>Players that are not currently reporting an online connection.</Text>
+          </div>
+          <Link href="/screens">Review fleet</Link>
+        </div>
+        {screens.isLoading ? (
+          <Text>Checking player state…</Text>
+        ) : screens.isError ? (
+          <StatusLight variant="negative">Player attention state is unavailable.</StatusLight>
+        ) : needsAttention.length === 0 ? (
+          <StatusLight variant="positive">All paired players are online.</StatusLight>
+        ) : (
+          <div className={statusListStyles}>
+            {needsAttention.slice(0, 8).map((screen) => (
+              <ScreenSummary key={screen.id} screen={screen} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className={regionStyles} aria-labelledby="player-fleet-heading">
+        <div className={regionHeaderStyles}>
+          <div>
+            <Heading id="player-fleet-heading" level={2}>
+              Player fleet
+            </Heading>
+            <Text>Connection state, playback, location, player version, and last contact.</Text>
+          </div>
+          <LinkButton href="/screens" variant="secondary">
+            Open screens
+          </LinkButton>
+        </div>
+        <div className={tableWrapStyles}>
+          <TableView
+            aria-label="Player fleet"
+            styles={tableStyles}
+            density="compact"
+            loadingState={screens.isLoading ? "loading" : undefined}
+          >
+            <TableHeader>
+              <Column id="screen" isRowHeader>
+                Screen
+              </Column>
+              <Column id="status">Status</Column>
+              <Column id="playing">Now playing</Column>
+              <Column id="location">Location</Column>
+              <Column id="player">Player</Column>
+              <Column id="last-seen">Last seen</Column>
+            </TableHeader>
+            <TableBody
+              items={allScreens}
+              renderEmptyState={() => (
+                <IllustratedMessage>
+                  <Heading>No screens paired</Heading>
+                  <Content>Pair a Tilecast Player to start monitoring your fleet.</Content>
+                </IllustratedMessage>
+              )}
+            >
+              {(screen) => (
+                <Row id={screen.id} href={`/screens/${screen.id}`}>
+                  <Cell>{screen.name}</Cell>
+                  <Cell>
+                    <StatusLight variant={statusVariants[screen.status]}>
+                      {statusLabels[screen.status]}
+                    </StatusLight>
+                  </Cell>
+                  <Cell>{screen.nowPlayingName || "Nothing assigned"}</Cell>
+                  <Cell>{screen.location || "Not set"}</Cell>
+                  <Cell>
+                    {screen.platform} · {screen.playerVersion || "Version unknown"}
+                    {screen.updateState ? ` · ${humanize(screen.updateState)}` : ""}
+                  </Cell>
+                  <Cell>{formatRelative(screen.lastContactAt)}</Cell>
+                </Row>
+              )}
+            </TableBody>
+          </TableView>
+        </div>
+      </section>
+    </main>
   );
 }
 
-function Summary({
-  value,
-  label,
-  urgent = false,
-}: {
-  value: string;
-  label: string;
-  urgent?: boolean;
-}) {
+function ScreenSummary({ screen }: { screen: Screen }) {
   return (
-    <div
-      className={
-        urgent
-          ? "ops-summary__item ops-summary__item--urgent"
-          : "ops-summary__item"
-      }
-    >
-      <strong>{value}</strong>
-      <span>{label}</span>
+    <div className={statusRowStyles}>
+      <div className={statusRowCopyStyles}>
+        <Link href={`/screens/${screen.id}`}>
+          {screen.name}
+        </Link>
+        <Text>
+          {screen.nowPlayingName || screen.location || "No location set"}
+        </Text>
+      </div>
+      <StatusLight variant={statusVariants[screen.status]}>
+        {statusLabels[screen.status]}
+      </StatusLight>
     </div>
-  );
-}
-
-function StatusDot({ status }: { status: ScreenStatus }) {
-  return (
-    <span
-      className={`ops-status-dot ops-status-dot--${status}`}
-      aria-hidden="true"
-    />
   );
 }
 

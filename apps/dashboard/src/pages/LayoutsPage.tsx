@@ -27,6 +27,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { LayoutOrientation, LayoutSummary } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import {
   DashboardListToolbar,
   DashboardSearch,
@@ -213,6 +214,7 @@ export function LayoutsPage() {
   const [renaming, setRenaming] = useState<LayoutSummary>();
   const [renameName, setRenameName] = useState("");
   const menu = useContextMenu<LayoutSummary>();
+  const { confirm } = useSpectrumDialogs();
 
   const layouts = useQuery({
     queryKey: ["layouts", "library"],
@@ -419,8 +421,15 @@ export function LayoutsPage() {
           danger: true,
           separated: true,
           disabled: remove.isPending,
-          onSelect: () => {
-            if (window.confirm(`Delete ${layout.name}?`))
+          onSelect: async () => {
+            if (
+              await confirm({
+                title: `Delete ${layout.name}?`,
+                description: "This Layout will be permanently removed.",
+                confirmLabel: "Delete Layout",
+                tone: "negative",
+              })
+            )
               remove.mutate(layout.id);
           },
         },

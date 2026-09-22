@@ -25,6 +25,7 @@ import type {
   DisplayControlAction,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import {
   Button,
   Field,
@@ -90,6 +91,7 @@ function scheduleToInput(
 }
 
 export function ScheduleEditorPage() {
+  const { confirm } = useSpectrumDialogs();
   const { id } = useParams();
   const navigate = useNavigate();
   const auth = useAuth();
@@ -442,9 +444,14 @@ export function ScheduleEditorPage() {
               type="button"
               variant="danger"
               disabled={remove.isPending}
-              onClick={() =>
-                confirm(`Delete ${input.name}?`) && remove.mutate()
-              }
+              onClick={async () => {
+                if (await confirm({
+                  title: `Delete ${input.name}?`,
+                  description: "This schedule will be permanently removed.",
+                  confirmLabel: "Delete schedule",
+                  tone: "negative",
+                })) remove.mutate();
+              }}
             >
               Delete
             </Button>
@@ -452,8 +459,13 @@ export function ScheduleEditorPage() {
           <Button
             type="button"
             variant="quiet"
-            onClick={() => {
-              if (!dirty || confirm("Discard unsaved schedule changes?"))
+            onClick={async () => {
+              if (!dirty || await confirm({
+                title: "Discard unsaved schedule changes?",
+                description: "Your edits to this schedule will be lost.",
+                confirmLabel: "Discard changes",
+                tone: "negative",
+              }))
                 void navigate("/schedules");
             }}
           >

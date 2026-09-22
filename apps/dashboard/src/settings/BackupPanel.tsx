@@ -3,8 +3,10 @@ import { Download, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { BackupArchive, BackupJob } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 
 export function BackupPanel({ owner }: { owner: boolean }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -28,13 +30,17 @@ export function BackupPanel({ owner }: { owner: boolean }) {
     mutationFn: async (archive: BackupArchive) => {
       const plan = await api.backupRestorePlan(archive.id);
       const identityWarning = plan.identityMismatch
-        ? `\n\nWARNING: This backup belongs to a different installation. Enrolled players will need to be reset and paired again.`
-        : "";
-      if (
-        !confirm(
-          `Restore ${archive.fileName}?\n\nTilecast will become temporarily unavailable and current database and media state will be replaced. A pre-restore backup will be created first.${identityWarning}`,
-        )
-      )
+        ? "This backup belongs to a different installation. Enrolled players will need to be reset and paired again."
+        : undefined;
+      if (!(await confirm({
+        title: `Restore ${archive.fileName}?`,
+        description: [
+          "Tilecast will become temporarily unavailable while current database and media state are replaced. A pre-restore backup will be created first.",
+          identityWarning,
+        ].filter(Boolean).join(" "),
+        confirmLabel: "Restore backup",
+        tone: "negative",
+      })))
         throw new CancelledAction();
       return api.restoreBackup(archive.id, plan.identityMismatch, csrf);
     },
@@ -42,7 +48,12 @@ export function BackupPanel({ owner }: { owner: boolean }) {
   });
   const remove = useMutation({
     mutationFn: async (archive: BackupArchive) => {
-      if (!confirm(`Delete ${archive.fileName}? This cannot be undone.`))
+      if (!(await confirm({
+        title: `Delete ${archive.fileName}?`,
+        description: "This cannot be undone.",
+        confirmLabel: "Delete backup",
+        tone: "negative",
+      })))
         throw new CancelledAction();
       try {
         return await api.deleteBackup(archive.id, false, csrf);
@@ -50,9 +61,13 @@ export function BackupPanel({ owner }: { owner: boolean }) {
         if (
           error instanceof ApiError &&
           error.code === "last_backup_protected" &&
-          confirm(
-            "This is the last complete backup. Delete it anyway? You will have no known-good backup to restore.",
-          )
+          await confirm({
+            title: "Delete the last complete backup?",
+            description:
+              "You will have no known-good backup to restore.",
+            confirmLabel: "Delete last backup",
+            tone: "negative",
+          })
         )
           return api.deleteBackup(archive.id, true, csrf);
         throw error;

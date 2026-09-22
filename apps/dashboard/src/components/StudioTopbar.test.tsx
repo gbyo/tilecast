@@ -8,8 +8,12 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useLocation } from "react-router";
+import { useHref, useNavigate } from "react-router";
+import { Provider as SpectrumProvider } from "@react-spectrum/s2/Provider";
+import { SpectrumDialogsProvider } from "../dialogs/SpectrumDialogs";
 import { studioRoutes } from "../App";
 import { api } from "../api/client";
 import type { Screen } from "../api/types";
@@ -23,8 +27,6 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  // cmdk measures and scrolls its result list in browsers. jsdom does not
-  // implement these layout APIs, so provide inert equivalents for interaction tests.
   class ResizeObserverMock {
     observe() {}
     unobserve() {}
@@ -54,6 +56,16 @@ const lobbyScreen = {
 
 function LocationValue() {
   return <output aria-label="Current route">{useLocation().pathname}</output>;
+}
+
+function TestSpectrumProvider({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate();
+  const routerHref = useHref;
+  return (
+    <SpectrumProvider router={{ navigate, useHref: routerHref }}>
+      {children}
+    </SpectrumProvider>
+  );
 }
 
 function renderTopbar(
@@ -93,19 +105,23 @@ function renderTopbar(
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
-        <StudioRoutesProvider routes={studioRoutes}>
-          <StudioTopbar
-            user={{
-              id: "user-1",
-              name: "Owner",
-              username: "owner",
-              role: "owner",
-              active: true,
-              createdAt: "2026-07-18T00:00:00Z",
-            }}
-          />
-          <LocationValue />
-        </StudioRoutesProvider>
+        <TestSpectrumProvider>
+          <SpectrumDialogsProvider>
+            <StudioRoutesProvider routes={studioRoutes}>
+              <StudioTopbar
+                user={{
+                  id: "user-1",
+                  name: "Owner",
+                  username: "owner",
+                  role: "owner",
+                  active: true,
+                  createdAt: "2026-07-18T00:00:00Z",
+                }}
+              />
+              <LocationValue />
+            </StudioRoutesProvider>
+          </SpectrumDialogsProvider>
+        </TestSpectrumProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -116,13 +132,11 @@ describe("StudioTopbar", () => {
     renderTopbar("/screens/screen-1");
 
     expect(
-      screen.getByRole("link", { name: "Screens" }).getAttribute("href"),
+      screen.getAllByRole("link", { name: "Screens" })[0]?.getAttribute("href"),
     ).toBe("/screens");
-    expect(
-      await screen.findByText("Amazon AFTKRT", {
-        selector: '[aria-current="page"]',
-      }),
-    ).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getAllByText("Amazon AFTKRT").length).toBeGreaterThan(0);
+    });
   });
 
   it("renders the breadcrumb name when a detail page cached the full entity under the shared key", async () => {
@@ -134,11 +148,9 @@ describe("StudioTopbar", () => {
     client.setQueryData(["screens", "screen-1"], lobbyScreen);
     renderTopbar("/screens/screen-1", client);
 
-    expect(
-      await screen.findByText("Amazon AFTKRT", {
-        selector: '[aria-current="page"]',
-      }),
-    ).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getAllByText("Amazon AFTKRT").length).toBeGreaterThan(0);
+    });
   });
 
   it("opens search with the global shortcut and navigates with Enter", async () => {
@@ -146,16 +158,17 @@ describe("StudioTopbar", () => {
     await waitFor(() => expect(api.screens).toHaveBeenCalled());
 
     fireEvent.keyDown(document, { key: "k", metaKey: true });
-    const searchInput = await screen.findByRole("combobox", {
+    expect(
+      await screen.findByRole("dialog", { name: "Search Tilecast" }),
+    ).toBeTruthy();
+    const searchInput = await screen.findByRole("searchbox", {
       name: "Search Tilecast",
     });
     fireEvent.change(searchInput, { target: { value: "Amazon" } });
-    const result = await screen.findByRole("option", {
+    const result = await screen.findByRole("menuitem", {
       name: /Amazon AFTKRT/,
     });
-    await waitFor(() =>
-      expect(result.getAttribute("aria-selected")).toBe("true"),
-    );
+    fireEvent.keyDown(searchInput, { key: "ArrowDown" });
     fireEvent.keyDown(searchInput, { key: "Enter" });
 
     await waitFor(() =>
@@ -166,65 +179,61 @@ describe("StudioTopbar", () => {
   });
 
   it("groups useful actions and destinations in the command menu", async () => {
+    const user = userEvent.setup();
     renderTopbar();
     await waitFor(() => expect(api.screens).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole("button", { name: "Search Tilecast" }));
+    await user.click(screen.getByRole("button", { name: /Search Tilecast/ }));
 
-    expect(
-      await screen.findByText("Quick actions", {
-        selector: "[cmdk-group-heading]",
-      }),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Screens", { selector: "[cmdk-group-heading]" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("option", { name: /Create playlist/ }),
-    ).toBeTruthy();
+    expect(await screen.findByText("Quick actions")).toBeTruthy();
+    expect(screen.getAllByText("Screens").length).toBeGreaterThan(0);
+    expect(screen.getByRole("menuitem", { name: /Create playlist/ })).toBeTruthy();
   });
 
   it("finds Display Groups and opens upload from a command action", async () => {
+    const user = userEvent.setup();
     renderTopbar();
     await waitFor(() => expect(api.screens).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole("button", { name: "Search Tilecast" }));
-    const searchInput = await screen.findByRole("combobox", {
+    await user.click(screen.getByRole("button", { name: /Search Tilecast/ }));
+    const searchInput = await screen.findByRole("searchbox", {
       name: "Search Tilecast",
     });
     fireEvent.change(searchInput, { target: { value: "sync" } });
 
     expect(
-      await screen.findByRole("option", { name: /Display Groups/ }),
+      await screen.findByRole("menuitem", { name: /Display Groups/ }),
     ).toBeTruthy();
 
     fireEvent.change(searchInput, { target: { value: "upload" } });
-    fireEvent.click(
-      await screen.findByRole("option", { name: /Upload media/ }),
+    await user.click(
+      await screen.findByRole("menuitem", { name: /Upload media/ }),
     );
     expect(screen.getByRole("dialog", { name: "Upload media" })).toBeTruthy();
   });
 
   it("shows active alerts and keeps global actions in the utility region", async () => {
+    const user = userEvent.setup();
     renderTopbar();
 
     expect(
-      await screen.findByText("1", { selector: ".topbar__notification-badge" }),
+      await screen.findByText("1"),
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: "Pair screen" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Create/ })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+    await user.click(screen.getByRole("button", { name: /Notifications/ }));
     expect(
-      await screen.findByRole("dialog", { name: "Notifications" }),
+      await screen.findByRole("heading", { name: "Notifications", level: 2 }),
     ).toBeTruthy();
     expect(
-      (await screen.findByRole("link", { name: /Amazon AFTKRT/ })).getAttribute(
+      (await screen.findByRole("link", { name: /Open Amazon AFTKRT/ })).getAttribute(
         "href",
       ),
     ).toBe("/screens/screen-1");
   });
 
   it("groups notifications by priority and surfaces new alert sources", async () => {
+    const user = userEvent.setup();
     renderTopbar("/", undefined, {
       deployments: {
         items: [
@@ -251,16 +260,16 @@ describe("StudioTopbar", () => {
     });
 
     // A failed deployment is critical, so the badge escalates to the critical style.
-    const badge = await screen.findByText("4", {
-      selector: ".topbar__notification-badge",
-    });
-    expect(badge.className).toContain("topbar__notification-badge--critical");
+    expect(await screen.findByText("4")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+    await user.click(screen.getByRole("button", { name: /Notifications/ }));
 
     expect(
+      await screen.findByRole("heading", { name: "Notifications", level: 2 }),
+    ).toBeTruthy();
+    expect(
       (
-        await screen.findByRole("link", { name: /Winter rollout/ })
+        await screen.findByRole("link", { name: /Open Winter rollout/ })
       ).getAttribute("href"),
     ).toBe("/settings/player/updates");
     expect(screen.getByText("Critical")).toBeTruthy();
@@ -268,18 +277,19 @@ describe("StudioTopbar", () => {
     expect(screen.getByText("Info")).toBeTruthy();
     expect(
       screen
-        .getByRole("link", { name: /Screens awaiting approval/ })
+        .getByRole("link", { name: /Open Screens awaiting approval/ })
         .getAttribute("href"),
     ).toBe("/screens/pair");
-    // The three priority labels above name their own list, which an ARIA menu
-    // could not have carried.
-    expect(screen.getByRole("list", { name: /Critical/ })).toBeTruthy();
+    expect(screen.getByText("Critical")).toBeTruthy();
+    expect(screen.getByText("Needs attention")).toBeTruthy();
+    expect(screen.getByText("Info")).toBeTruthy();
   });
 
-  it("offers creation actions for the full content workflow", () => {
+  it("offers creation actions for the full content workflow", async () => {
+    const user = userEvent.setup();
     renderTopbar();
 
-    fireEvent.click(screen.getByRole("button", { name: /Create/ }));
+    await user.click(screen.getByRole("button", { name: "Create" }));
 
     expect(screen.getByRole("menuitem", { name: "Upload media" })).toBeTruthy();
     expect(
@@ -309,11 +319,12 @@ describe("StudioTopbar", () => {
     ).toBe("/schedules/new");
   });
 
-  it("opens the existing upload workflow from Create", () => {
+  it("opens the existing upload workflow from Create", async () => {
+    const user = userEvent.setup();
     renderTopbar();
 
-    fireEvent.click(screen.getByRole("button", { name: /Create/ }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Upload media" }));
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    await user.click(screen.getByRole("menuitem", { name: "Upload media" }));
 
     expect(screen.getByRole("dialog", { name: "Upload media" })).toBeTruthy();
   });

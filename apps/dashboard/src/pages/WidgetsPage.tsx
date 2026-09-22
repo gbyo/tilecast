@@ -13,6 +13,7 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import {
   DashboardListToolbar,
   DashboardSearch,
@@ -71,6 +72,7 @@ export function WidgetsPage() {
     onSuccess: () =>
       void queryClient.invalidateQueries({ queryKey: ["assets"] }),
   });
+  const { confirm } = useSpectrumDialogs();
 
   return (
     <section className="content-page apps-page">
@@ -145,8 +147,15 @@ export function WidgetsPage() {
             onSelect={(widget) => void navigate(`/widgets/${widget.id}`)}
             canManage={canManage}
             onDuplicate={(widget) => duplicate.mutate(widget.id)}
-            onDelete={(widget) => {
-              if (confirm(`Delete ${widget.name}?`)) remove.mutate(widget.id);
+            onDelete={async (widget) => {
+              if (
+                await confirm({
+                  title: `Delete ${widget.name}?`,
+                  description: "This Widget will be permanently removed.",
+                  confirmLabel: "Delete Widget",
+                  tone: "negative",
+                })
+              ) remove.mutate(widget.id);
             }}
           />
           {/* Storing a capture is an editor-or-above action, so viewers browse the library without

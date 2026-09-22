@@ -32,6 +32,7 @@ import type {
   UpdateDeployment,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import {
   DeploymentMeter,
   UpdateDeploymentDrawer,
@@ -76,6 +77,7 @@ const maintenanceActions = [
   },
 ];
 export function SystemPanel({ canManage }: { canManage: boolean }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const client = useQueryClient();
   const query = useQuery({
@@ -153,8 +155,15 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
               <button
                 className="button button--quiet"
                 disabled={maintenance.isPending}
-                onClick={() => {
-                  if (!action.confirm || confirm(`${action.label}?`))
+                onClick={async () => {
+                  if (
+                    !action.confirm ||
+                    await confirm({
+                      title: `${action.label}?`,
+                      description: action.description,
+                      confirmLabel: action.label,
+                    })
+                  )
                     maintenance.mutate(action.id);
                 }}
               >
@@ -189,6 +198,7 @@ function Item({ label, value }: { label: string; value: string }) {
 }
 
 export function ImportExportPanel({ owner }: { owner: boolean }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const [document, setDocument] = useState<unknown>();
   const [preview, setPreview] = useState<{
@@ -270,8 +280,14 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
             <button
               className="button button--primary"
               disabled={apply.isPending}
-              onClick={() => {
-                if (confirm("Apply this validated settings document?"))
+              onClick={async () => {
+                if (await confirm({
+                  title: "Apply this validated settings document?",
+                  description:
+                    "The imported values will replace the matching settings and policies in this installation.",
+                  confirmLabel: "Apply settings",
+                  tone: "negative",
+                }))
                   apply.mutate();
               }}
             >

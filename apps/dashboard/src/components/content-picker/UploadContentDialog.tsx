@@ -3,6 +3,7 @@ import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { api } from "../../api/client";
 import type { Asset } from "../../api/types";
 import { droppedFiles } from "../content/dragDrop";
+import { useSpectrumDialogs } from "../../dialogs/SpectrumDialogs";
 
 type UploadItem = {
   id: string;
@@ -28,15 +29,23 @@ export function UploadContentDialog({
   onCreated: (asset: Asset) => void;
   onClose: () => void;
 }) {
+  const { confirm } = useSpectrumDialogs();
   const [items, setItems] = useState<UploadItem[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const active = items.some((item) =>
     ["waiting", "uploading"].includes(item.state),
   );
-  const close = () => {
-    if (!active || confirm("Uploads are still active. Close this upload view?"))
-      onClose();
+  const close = async () => {
+    if (
+      !active ||
+      (await confirm({
+        title: "Close the upload view?",
+        description:
+          "Uploads are still active. Closing this view will not cancel the uploads.",
+        confirmLabel: "Close upload view",
+      }))
+    ) onClose();
   };
   const update = (id: string, value: Partial<UploadItem>) =>
     setItems((current) =>

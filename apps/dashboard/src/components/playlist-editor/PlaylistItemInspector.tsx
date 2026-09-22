@@ -1,6 +1,7 @@
 import { AlertCircle, Check, Info, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button, Drawer, Field, Select } from "../ui";
+import { useSpectrumDialogs } from "../../dialogs/SpectrumDialogs";
 import type { PlaylistItem, PlaylistItemInput } from "../../api/types";
 import {
   itemInput,
@@ -29,6 +30,7 @@ export function PlaylistItemInspector({
   onChange: (input: PlaylistItemInput) => void;
   onDelete: () => void;
 }) {
+  const { confirm } = useSpectrumDialogs();
   const usesPlayerDefaults = item.usePlayerDefaults === true;
   const editable = canManage && !item.dynamic;
   const set = <K extends keyof PlaylistItemInput>(
@@ -61,8 +63,13 @@ export function PlaylistItemInspector({
           {editable && (
             <Button
               variant="danger"
-              onClick={() => {
-                if (confirm(`Remove ${item.assetName} from this playlist?`)) {
+              onClick={async () => {
+                if (await confirm({
+                  title: `Remove ${item.assetName} from this playlist?`,
+                  description: "This item will be removed from the sequence.",
+                  confirmLabel: "Remove item",
+                  tone: "negative",
+                })) {
                   onDelete();
                 }
               }}

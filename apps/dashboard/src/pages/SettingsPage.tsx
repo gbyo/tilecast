@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router";
 import { api, ApiError } from "../api/client";
 import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import { signalColors } from "@tilecast/design-tokens/values";
 import { SettingsShell } from "../settings/SettingsShell";
 import { SettingsSection } from "../settings/SettingsSection";
@@ -35,6 +36,7 @@ export {
 } from "../settings/SettingsOperations";
 
 export function SettingsPage() {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const location = useLocation();
   const active = sectionFromPath(location.pathname);
@@ -130,14 +132,17 @@ export function SettingsPage() {
     <SettingsShell
       active={active}
       dirty={dirty}
-      onNavigate={(next) => {
+      onNavigate={async (next) => {
         setSaved(undefined);
         return (
           next === active ||
           !currentDirty ||
-          confirm(
-            "This section has unsaved changes. Keep them and open another Settings section?",
-          )
+          await confirm({
+            title: "Leave this Settings section?",
+            description:
+              "This section has unsaved changes. Keep them and open another Settings section?",
+            confirmLabel: "Leave section",
+          })
         );
       }}
     >

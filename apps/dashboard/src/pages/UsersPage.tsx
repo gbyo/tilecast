@@ -1,18 +1,28 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Pencil,
-  Plus,
-  Save,
-  ShieldAlert,
-  ShieldCheck,
-  ShieldOff,
-  Trash2,
-  UserRoundX,
-} from "lucide-react";
+import { ActionMenu, MenuItem } from "@react-spectrum/s2/ActionMenu";
+import { Button } from "@react-spectrum/s2/Button";
+import { ButtonGroup } from "@react-spectrum/s2/ButtonGroup";
+import { Checkbox } from "@react-spectrum/s2/Checkbox";
+import { Cell, Column, Row, TableBody, TableHeader, TableView } from "@react-spectrum/s2/TableView";
+import { Content, Footer } from "@react-spectrum/s2/Dialog";
+import { Dialog, DialogContainer } from "@react-spectrum/s2/Dialog";
+import { Form } from "@react-spectrum/s2/Form";
+import { Heading } from "@react-spectrum/s2/Heading";
+import { IllustratedMessage } from "@react-spectrum/s2/IllustratedMessage";
+import { InlineAlert } from "@react-spectrum/s2/InlineAlert";
+import { Picker, PickerItem } from "@react-spectrum/s2/Picker";
+import { StatusLight } from "@react-spectrum/s2/StatusLight";
+import { Text } from "@react-spectrum/s2/Text";
+import { TextField } from "@react-spectrum/s2/TextField";
+import { SearchField } from "@react-spectrum/s2/SearchField";
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import AddIcon from "@react-spectrum/s2/icons/Add";
+import { api } from "../api/client";
 import type { User } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Dialog, Select } from "../components/ui";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
+import { ScreenScopeEditor } from "./ScreenScopeEditor";
 
 type UserRole = User["role"];
 type UserInput = {
@@ -56,8 +66,6 @@ function listUsers() {
   return userRequest<{ items: ManagedUser[]; total: number }>("/users", "");
 }
 
-import { ScreenScopeEditor } from "./ScreenScopeEditor";
-
 const roleLabels: Record<UserRole, string> = {
   owner: "Owner",
   administrator: "Administrator",
@@ -66,9 +74,6 @@ const roleLabels: Record<UserRole, string> = {
   viewer: "Viewer",
 };
 
-// Roles are a hierarchy of what an account can put in front of people, so the
-// difference between the two content roles is worth spelling out where somebody
-// is choosing between them.
 const roleDescriptions: Record<UserRole, string> = {
   owner: "Everything, including backups and integration tokens.",
   administrator: "Everything except Owner-only system operations.",
@@ -77,6 +82,38 @@ const roleDescriptions: Record<UserRole, string> = {
     "Creates and edits content, but cannot publish a Layout, delete anything, or put content on a screen.",
   viewer: "Reads only.",
 };
+
+const tableStyles = style({ height: 560, minHeight: 320, width: "full" });
+const pageHeaderStyles = style({
+  display: "flex",
+  alignItems: "start",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 24,
+});
+const filterStyles = style({ display: "flex", gap: 12, marginBottom: 16 });
+const securityStyles = style({
+  display: "flex",
+  alignItems: "start",
+  justifyContent: "space-between",
+  gap: 16,
+  paddingY: 16,
+  borderTopWidth: 1,
+  borderBottomWidth: 1,
+  borderColor: "gray-200",
+});
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function formatLastLogin(value: string | null | undefined) {
+  if (!value) return "Never signed in";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Unknown"
+    : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+}
 
 export function UsersPage() {
   const auth = useAuth();
@@ -96,7 +133,9 @@ export function UsersPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("viewer");
+  const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<ManagedUser>();
+  const [search, setSearch] = useState("");
   const create = useMutation({
     mutationFn: (input: UserInput) =>
       userRequest<User>("/users", csrf, {
@@ -108,161 +147,250 @@ export function UsersPage() {
       setUsername("");
       setPassword("");
       setRole("viewer");
+      setCreating(false);
       await client.invalidateQueries({ queryKey: ["users"] });
     },
   });
 
   if (!canManage) {
     return (
-      <div className="notice notice--error">
-        Owner or Administrator access is required to manage Studio users.
-      </div>
+      <InlineAlert variant="negative" fillStyle="subtleFill">
+        <Heading level={2}>User management is restricted</Heading>
+        <Text>Owner or Administrator access is required to manage Studio users.</Text>
+      </InlineAlert>
     );
   }
 
   const allowedRoles: UserRole[] = isOwner
     ? ["owner", "administrator", "editor", "contributor", "viewer"]
     : ["editor", "contributor", "viewer"];
+  const visibleUsers = (users.data?.items ?? []).filter((user) => {
+    const needle = search.trim().toLocaleLowerCase();
+    return (
+      !needle ||
+      user.name.toLocaleLowerCase().includes(needle) ||
+      user.username.toLocaleLowerCase().includes(needle) ||
+      roleLabels[user.role].toLocaleLowerCase().includes(needle)
+    );
+  });
 
   return (
     <section className="user-management">
-      <section
-        className="user-management__form"
-        aria-labelledby="add-user-title"
-      >
-        <h3 id="add-user-title">Add a user</h3>
-        <p>Passwords must contain at least 12 characters.</p>
-        <div className="user-management__fields">
-          <label>
-            Name
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <label>
-            Username
-            <input
-              value={username}
-              autoCapitalize="none"
-              autoCorrect="off"
-              onChange={(event) => setUsername(event.target.value)}
-            />
-          </label>
-          <label>
-            Temporary password
-            <input
-              type="password"
-              value={password}
-              autoComplete="new-password"
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </label>
-          <label>
-            Role
-            <Select
-              value={role}
-              onChange={(event) => setRole(event.target.value as UserRole)}
-            >
-              {allowedRoles.map((value) => (
-                <option key={value} value={value}>
-                  {roleLabels[value]}
-                </option>
-              ))}
-            </Select>
-            <small className="role-description">{roleDescriptions[role]}</small>
-          </label>
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={
-              create.isPending ||
-              name.trim().length < 2 ||
-              username.trim().length < 3 ||
-              password.length < 12
-            }
-            onClick={() =>
-              create.mutate({
-                name: name.trim(),
-                username: username.trim(),
-                password,
-                role,
-              })
-            }
-          >
-            <Plus size={16} /> {create.isPending ? "Adding…" : "Add user"}
-          </button>
+      <header className={pageHeaderStyles}>
+        <div>
+          <Heading level={1}>Users</Heading>
+          <Text>Manage Studio access, roles, and two-step verification.</Text>
         </div>
-        {create.error && (
-          <div className="notice notice--error" role="alert">
-            {create.error.message}
-          </div>
-        )}
-      </section>
+        <Button variant="accent" onPress={() => setCreating(true)}>
+          <AddIcon aria-hidden="true" /> Add user
+        </Button>
+      </header>
 
-      {users.isLoading ? (
-        <div className="table-loading">Loading users…</div>
-      ) : users.error ? (
-        <div className="notice notice--error" role="alert">
-          {users.error.message}
-        </div>
-      ) : (
-        <div className="user-management__list">
-          {users.data?.items?.map((user) => {
+      <div className={filterStyles}>
+        <SearchField
+          aria-label="Search users"
+          placeholder="Search users"
+          value={search}
+          onChange={setSearch}
+        />
+      </div>
+
+      {users.error && (
+        <InlineAlert variant="negative" fillStyle="subtleFill">
+          <Heading level={2}>Users could not be loaded</Heading>
+          <Text>{errorMessage(users.error, "Please try again.")}</Text>
+        </InlineAlert>
+      )}
+
+      <TableView
+        aria-label="Studio users"
+        density={document.documentElement.dataset.density === "compact" ? "compact" : "regular"}
+        styles={tableStyles}
+        loadingState={users.isLoading ? "loading" : undefined}
+      >
+        <TableHeader>
+          <Column isRowHeader>Name</Column>
+          <Column>Username</Column>
+          <Column>Role</Column>
+          <Column>Account</Column>
+          <Column>Two-step verification</Column>
+          <Column>Last signed in</Column>
+          <Column>Actions</Column>
+        </TableHeader>
+        <TableBody
+          items={visibleUsers}
+          renderEmptyState={() => (
+            <IllustratedMessage>
+              <Heading level={2}>
+                {search ? "No matching users" : "No users found"}
+              </Heading>
+              <Text>
+                {search
+                  ? "Adjust your search to find a Studio account."
+                  : "Create an account to give another person access to Studio."}
+              </Text>
+              {!search && (
+                <Button variant="accent" onPress={() => setCreating(true)}>
+                  Add user
+                </Button>
+              )}
+            </IllustratedMessage>
+          )}
+        >
+          {(user) => {
             const canEdit =
               currentUser?.role === "owner" ||
               (currentUser?.role === "administrator" &&
                 ["editor", "contributor", "viewer"].includes(user.role));
             return (
-              <article className="user-list-row" key={user.id}>
-                <span className="avatar" aria-hidden="true">
-                  {user.name.slice(0, 1).toUpperCase()}
-                </span>
-                <div className="user-list-row__identity">
-                  <strong>{user.name}</strong>
-                  <span>{user.username}</span>
-                  <small>
-                    {roleLabels[user.role]} ·{" "}
+              <Row id={user.id}>
+                <Cell>
+                  <Text>{user.name}</Text>
+                </Cell>
+                <Cell>{user.username}</Cell>
+                <Cell>
+                  <StatusLight variant={user.role === "owner" ? "notice" : "informative"}>
+                    {roleLabels[user.role]}
+                  </StatusLight>
+                </Cell>
+                <Cell>
+                  <StatusLight variant={user.active ? "positive" : "negative"}>
                     {user.active ? "Active" : "Inactive"}
-                    {user.lastLoginAt
-                      ? ` · Last signed in ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(user.lastLoginAt))}`
-                      : " · Never signed in"}
-                  </small>
-                  <small className="user-list-row__mfa">
-                    {user.mfaEnrolled ? (
-                      <>
-                        <ShieldCheck size={13} aria-hidden="true" /> Two-step
-                        verification on
-                      </>
-                    ) : user.mfaRequired ? (
-                      <>
-                        <ShieldAlert size={13} aria-hidden="true" /> Two-step
-                        verification required, not yet enrolled
-                      </>
-                    ) : (
-                      <>
-                        <ShieldOff size={13} aria-hidden="true" /> No two-step
-                        verification
-                      </>
-                    )}
-                  </small>
-                </div>
-                <button
-                  type="button"
-                  className="button button--secondary button--compact"
-                  disabled={!canEdit}
-                  onClick={() => setEditing(user)}
-                >
-                  <Pencil size={15} /> Edit
-                </button>
-              </article>
+                  </StatusLight>
+                </Cell>
+                <Cell>
+                  <StatusLight
+                    variant={
+                      user.mfaEnrolled
+                        ? "positive"
+                        : user.mfaRequired
+                          ? "negative"
+                          : "informative"
+                    }
+                  >
+                    {user.mfaEnrolled
+                      ? "Enrolled"
+                      : user.mfaRequired
+                        ? "Required, not enrolled"
+                        : "Not enabled"}
+                  </StatusLight>
+                </Cell>
+                <Cell>{formatLastLogin(user.lastLoginAt)}</Cell>
+                <Cell>
+                  <ActionMenu
+                    aria-label={`Actions for ${user.name}`}
+                    onAction={() => setEditing(user)}
+                  >
+                    <MenuItem id="edit" isDisabled={!canEdit}>Edit account</MenuItem>
+                  </ActionMenu>
+                </Cell>
+              </Row>
             );
-          })}
-        </div>
+          }}
+        </TableBody>
+      </TableView>
+
+      {creating && (
+        <DialogContainer
+          onDismiss={() => {
+            setCreating(false);
+            create.reset();
+          }}
+        >
+          <Dialog aria-label="Add a user" size="S" isDismissible>
+            <Heading slot="title">Add a user</Heading>
+            <Content>
+              <Form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  create.mutate({
+                    name: name.trim(),
+                    username: username.trim(),
+                    password,
+                    role,
+                  });
+                }}
+                validationBehavior="aria"
+              >
+                <TextField
+                  label="Name"
+                  autoFocus
+                  value={name}
+                  onChange={setName}
+                  isRequired
+                  minLength={2}
+                />
+                <TextField
+                  label="Username"
+                  value={username}
+                  onChange={setUsername}
+                  autoComplete="username"
+                  isRequired
+                  minLength={3}
+                />
+                <TextField
+                  label="Temporary password"
+                  type="password"
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete="new-password"
+                  description="Passwords must contain at least 12 characters."
+                  isRequired
+                  minLength={12}
+                />
+                <Picker
+                  label="Role"
+                  selectedKey={role}
+                  onSelectionChange={(key) => setRole(key as UserRole)}
+                >
+                  {allowedRoles.map((value) => (
+                    <PickerItem key={value} id={value}>
+                      {roleLabels[value]}
+                    </PickerItem>
+                  ))}
+                </Picker>
+                <Text>{roleDescriptions[role]}</Text>
+                {create.error && (
+                  <InlineAlert variant="negative" fillStyle="subtleFill">
+                    <Heading level={2}>User could not be added</Heading>
+                    <Text>{errorMessage(create.error, "Please try again.")}</Text>
+                  </InlineAlert>
+                )}
+                <Footer>
+                  <ButtonGroup>
+                    <Button
+                      variant="secondary"
+                      onPress={() => {
+                        setCreating(false);
+                        create.reset();
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="accent"
+                      isPending={create.isPending}
+                      isDisabled={
+                        create.isPending ||
+                        name.trim().length < 2 ||
+                        username.trim().length < 3 ||
+                        password.length < 12
+                      }
+                    >
+                      Add user
+                    </Button>
+                  </ButtonGroup>
+                </Footer>
+              </Form>
+            </Content>
+          </Dialog>
+        </DialogContainer>
       )}
 
       {editing && currentUser && (
         <UserEditorDialog
+          key={editing.id}
           user={editing}
           currentUser={currentUser}
           allowedRoles={
@@ -303,13 +431,7 @@ function UserEditorDialog({
   const [role, setRole] = useState<UserRole>(user.role);
   const [active, setActive] = useState(user.active);
   const [password, setPassword] = useState("");
-  useEffect(() => {
-    setName(user.name);
-    setUsername(user.username);
-    setRole(user.role);
-    setActive(user.active);
-    setPassword("");
-  }, [user]);
+  const { confirm } = useSpectrumDialogs();
   const update = useMutation({
     mutationFn: () =>
       userRequest<User>(`/users/${user.id}`, csrf, {
@@ -346,170 +468,182 @@ function UserEditorDialog({
     onSuccess: onChanged,
   });
   const isSelf = user.id === currentUser.id;
+  const mutationError =
+    update.error ??
+    deactivate.error ??
+    permanentlyDelete.error ??
+    resetSecurity.error;
 
   return (
-    <Dialog open title={`Edit ${user.name}`} onClose={onClose}>
-      <form
-        className="user-edit-dialog"
-        onSubmit={(event) => {
-          event.preventDefault();
-          update.mutate();
-        }}
-      >
-        <div className="user-edit-dialog__fields">
-          <label className="field">
-            <span className="field__label">Name</span>
-            <input
+    <DialogContainer onDismiss={onClose}>
+      <Dialog aria-label={`Edit ${user.name}`} size="L" isDismissible>
+        <Heading slot="title">Edit {user.name}</Heading>
+        <Content>
+          <Form
+            onSubmit={(event) => {
+              event.preventDefault();
+              update.mutate();
+            }}
+            validationBehavior="aria"
+          >
+            <TextField
+              label="Name"
+              autoFocus
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={setName}
+              isRequired
+              minLength={2}
             />
-          </label>
-          <label className="field">
-            <span className="field__label">Username</span>
-            <input
+            <TextField
+              label="Username"
               value={username}
-              autoCapitalize="none"
-              autoCorrect="off"
-              onChange={(event) => setUsername(event.target.value)}
+              onChange={setUsername}
+              autoComplete="username"
+              isRequired
+              minLength={3}
             />
-          </label>
-          <label className="field">
-            <span className="field__label">Role</span>
-            <Select
-              value={role}
-              onChange={(event) => setRole(event.target.value as UserRole)}
+            <Picker
+              label="Role"
+              selectedKey={role}
+              onSelectionChange={(key) => setRole(key as UserRole)}
             >
               {allowedRoles.map((value) => (
-                <option key={value} value={value}>
+                <PickerItem key={value} id={value}>
                   {roleLabels[value]}
-                </option>
+                </PickerItem>
               ))}
-            </Select>
-          </label>
-          <label className="field">
-            <span className="field__label">New password</span>
-            <input
+            </Picker>
+            <Text>{roleDescriptions[role]}</Text>
+            <TextField
+              label="New password"
               type="password"
               value={password}
               placeholder="Leave unchanged"
               autoComplete="new-password"
-              onChange={(event) => setPassword(event.target.value)}
+              description="Leave blank to keep the current password. New passwords need at least 12 characters."
+              onChange={setPassword}
+              minLength={password ? 12 : undefined}
             />
-            <span className="field__hint">At least 12 characters.</span>
-          </label>
-          <label className="checkbox-control">
-            <input
-              type="checkbox"
-              checked={active}
-              disabled={isSelf}
-              onChange={(event) => setActive(event.target.checked)}
-            />
-            <span>Account active</span>
-          </label>
-        </div>
-        <section className="user-edit-dialog__security">
-          <div>
-            <strong>Two-step verification</strong>
-            <p>
-              {user.mfaEnrolled
-                ? "This account has an authenticator app or a passkey enrolled."
-                : "This account has no second factor enrolled."}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="button button--danger-quiet"
-            disabled={!user.mfaEnrolled || resetSecurity.isPending}
-            onClick={() => {
-              if (
-                confirm(
-                  `Clear every authenticator, passkey, and recovery code for ${user.name}? They will be signed out everywhere and must enroll again.`,
-                )
-              )
-                resetSecurity.mutate();
-            }}
-          >
-            <ShieldOff size={15} />
-            {resetSecurity.isPending ? "Resetting…" : "Reset"}
-          </button>
-        </section>
-        {(update.error ||
-          deactivate.error ||
-          permanentlyDelete.error ||
-          resetSecurity.error) && (
-          <div className="notice notice--error" role="alert">
-            {
-              (
-                update.error ??
-                deactivate.error ??
-                permanentlyDelete.error ??
-                resetSecurity.error
-              )?.message
-            }
-          </div>
-        )}
-        <section className="user-edit-dialog__scope">
-          <h4>Screen scope</h4>
-          <ScreenScopeEditor
-            userId={user.id}
-            userRole={role}
-            csrf={csrf}
-            disabled={role === "owner"}
-          />
-        </section>
-        <footer className="user-edit-dialog__actions">
-          {user.active ? (
-            <button
-              type="button"
-              className="button button--danger-quiet"
-              disabled={isSelf || deactivate.isPending}
-              onClick={() => {
-                if (confirm(`Deactivate ${user.name}?`)) deactivate.mutate();
-              }}
+            <Checkbox
+              isSelected={active}
+              isDisabled={isSelf}
+              onChange={setActive}
             >
-              <UserRoundX size={15} />
-              {deactivate.isPending ? "Deactivating…" : "Deactivate"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="button button--danger-quiet"
-              disabled={isSelf || permanentlyDelete.isPending}
-              onClick={() => {
-                if (
-                  confirm(
-                    `Permanently delete ${user.name}? This removes their login, preferences, and security credentials. This cannot be undone.`,
-                  )
-                )
-                  permanentlyDelete.mutate();
-              }}
-            >
-              <Trash2 size={15} />
-              {permanentlyDelete.isPending ? "Deleting…" : "Delete permanently"}
-            </button>
-          )}
-          <span />
-          <button
-            type="button"
-            className="button button--quiet"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="button button--primary"
-            disabled={
-              update.isPending ||
-              name.trim().length < 2 ||
-              username.trim().length < 3 ||
-              (password.length > 0 && password.length < 12)
-            }
-          >
-            <Save size={15} /> {update.isPending ? "Saving…" : "Save changes"}
-          </button>
-        </footer>
-      </form>
-    </Dialog>
+              Account active
+            </Checkbox>
+            <section className={securityStyles} aria-labelledby="user-security-title">
+              <div>
+                <Heading id="user-security-title" level={3}>
+                  Two-step verification
+                </Heading>
+                <Text>
+                  {user.mfaEnrolled
+                    ? "This account has an authenticator app or a passkey enrolled."
+                    : "This account has no second factor enrolled."}
+                </Text>
+              </div>
+              <Button
+                variant="negative"
+                isDisabled={!user.mfaEnrolled || resetSecurity.isPending}
+                isPending={resetSecurity.isPending}
+                onPress={async () => {
+                  if (
+                    await confirm({
+                      title: `Reset two-step verification for ${user.name}?`,
+                      description:
+                        "This clears every authenticator, passkey, and recovery code. The user will be signed out everywhere and must enroll again.",
+                      confirmLabel: "Reset security",
+                      tone: "negative",
+                    })
+                  ) {
+                    resetSecurity.mutate();
+                  }
+                }}
+              >
+                Reset security
+              </Button>
+            </section>
+            <section aria-labelledby="screen-scope-title">
+              <Heading id="screen-scope-title" level={3}>Screen scope</Heading>
+              <ScreenScopeEditor
+                userId={user.id}
+                userRole={role}
+                csrf={csrf}
+                disabled={role === "owner"}
+              />
+            </section>
+            {mutationError && (
+              <InlineAlert variant="negative" fillStyle="subtleFill">
+                <Heading level={2}>Account update could not be completed</Heading>
+                <Text>{errorMessage(mutationError, "Please try again.")}</Text>
+              </InlineAlert>
+            )}
+            <Footer>
+              <ButtonGroup>
+                {user.active ? (
+                  <Button
+                    variant="negative"
+                    isDisabled={isSelf || deactivate.isPending}
+                    isPending={deactivate.isPending}
+                    onPress={async () => {
+                      if (
+                        await confirm({
+                          title: `Deactivate ${user.name}?`,
+                          description:
+                            "This prevents the account from signing in. You can reactivate it later.",
+                          confirmLabel: "Deactivate",
+                          tone: "negative",
+                        })
+                      ) {
+                        deactivate.mutate();
+                      }
+                    }}
+                  >
+                    Deactivate
+                  </Button>
+                ) : (
+                  <Button
+                    variant="negative"
+                    isDisabled={isSelf || permanentlyDelete.isPending}
+                    isPending={permanentlyDelete.isPending}
+                    onPress={async () => {
+                      if (
+                        await confirm({
+                          title: `Permanently delete ${user.name}?`,
+                          description:
+                            "This removes the login, preferences, and security credentials. This cannot be undone.",
+                          confirmLabel: "Delete permanently",
+                          tone: "negative",
+                        })
+                      ) {
+                        permanentlyDelete.mutate();
+                      }
+                    }}
+                  >
+                    Delete permanently
+                  </Button>
+                )}
+                <Button variant="secondary" onPress={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="accent"
+                  isDisabled={
+                    update.isPending ||
+                    name.trim().length < 2 ||
+                    username.trim().length < 3 ||
+                    (password.length > 0 && password.length < 12)
+                  }
+                  isPending={update.isPending}
+                >
+                  Save changes
+                </Button>
+              </ButtonGroup>
+            </Footer>
+          </Form>
+        </Content>
+      </Dialog>
+    </DialogContainer>
   );
 }

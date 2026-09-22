@@ -26,6 +26,7 @@ import type {
   NoiseMeterInput,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import { FormField } from "../components/FormField";
 import {
   Button,
@@ -442,6 +443,7 @@ export function PluginsPage() {
 }
 
 export function CountdownBarsPage() {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const instances = useQuery({
@@ -540,12 +542,14 @@ export function CountdownBarsPage() {
                     compact
                     variant="danger"
                     aria-label={`Delete ${instance.name}`}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Delete “${instance.name}”? The bar will be removed from targeted Players.`,
-                        )
-                      )
+                    onClick={async () => {
+                      if (await confirm({
+                        title: `Delete “${instance.name}”?`,
+                        description:
+                          "The bar will be removed from targeted Players.",
+                        confirmLabel: "Delete countdown bar",
+                        tone: "negative",
+                      }))
                         remove.mutate(instance.id);
                     }}
                   >
@@ -1135,6 +1139,7 @@ function brandBugSummary(instance: BrandBug) {
 }
 
 export function BrandBugsPage() {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const instances = useQuery({
@@ -1230,12 +1235,14 @@ export function BrandBugsPage() {
                     compact
                     variant="danger"
                     aria-label={`Delete ${instance.name}`}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Delete “${instance.name}”? The mark will be removed from targeted Players.`,
-                        )
-                      )
+                    onClick={async () => {
+                      if (await confirm({
+                        title: `Delete “${instance.name}”?`,
+                        description:
+                          "The mark will be removed from targeted Players.",
+                        confirmLabel: "Delete Brand Bug",
+                        tone: "negative",
+                      }))
                         remove.mutate(instance.id);
                     }}
                   >
@@ -1737,6 +1744,7 @@ function NoiseMeterPlatformNotice() {
 }
 
 export function NoiseMetersPage() {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const instances = useQuery({
@@ -1839,12 +1847,14 @@ export function NoiseMetersPage() {
                     compact
                     variant="danger"
                     aria-label={`Delete ${instance.name}`}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Delete “${instance.name}”? Targeted players will stop measuring room noise.`,
-                        )
-                      )
+                    onClick={async () => {
+                      if (await confirm({
+                        title: `Delete “${instance.name}”?`,
+                        description:
+                          "Targeted Players will stop measuring room noise.",
+                        confirmLabel: "Delete Noise Meter",
+                        tone: "negative",
+                      }))
                         remove.mutate(instance.id);
                     }}
                   >

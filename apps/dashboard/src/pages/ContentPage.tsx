@@ -1,6 +1,5 @@
 import {
   Button,
-  ContextMenu,
   Dialog,
   Drawer,
   Notice,
@@ -8,12 +7,29 @@ import {
   Select,
   ToggleGroup,
   ViewToggle,
-  useContextMenu,
-  type ContextMenuItem,
 } from "../components/ui";
+import { ActionBar } from "@react-spectrum/s2/ActionBar";
+import { ActionButton } from "@react-spectrum/s2/ActionButton";
+import {
+  ActionMenu,
+  MenuItem,
+} from "@react-spectrum/s2/ActionMenu";
+import {
+  AssetCard as SpectrumAssetCard,
+  CardPreview,
+  CardView,
+  Footer,
+} from "@react-spectrum/s2/CardView";
+import type { Key, Selection } from "@react-spectrum/s2/CardView";
+import { Button as SpectrumButton } from "@react-spectrum/s2/Button";
+import { Content } from "@react-spectrum/s2/Content";
+import { Heading } from "@react-spectrum/s2/Heading";
+import { IllustratedMessage } from "@react-spectrum/s2/IllustratedMessage";
+import { StatusLight } from "@react-spectrum/s2/StatusLight";
+import { Text } from "@react-spectrum/s2/Text";
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  EllipsisVertical,
   Archive,
   ArchiveRestore,
   FileImage,
@@ -21,9 +37,6 @@ import {
   Upload,
   Copy,
   Pencil,
-  Square,
-  SquareCheck,
-  SquarePen,
   Trash2,
   X,
   FolderPlus,
@@ -54,6 +67,7 @@ import type {
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import { NativeAppEditor, YouTubeSourceEditor } from "../content/SourceEditors";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
@@ -78,6 +92,28 @@ type SavedUpload = Pick<
 
 const resumeKey = "tilecast.resumable-uploads.v1";
 const chunkSize = 5 * 1024 * 1024;
+
+const assetCollectionStyles = style({
+  minHeight: 320,
+  width: "full",
+});
+
+const assetPreviewStyles = style({
+  display: "grid",
+  placeItems: "center",
+  minHeight: 160,
+  aspectRatio: "3/2",
+  overflow: "clip",
+  backgroundColor: "gray-100",
+});
+
+const assetMetadataStyles = style({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: 8,
+  minWidth: 0,
+});
 
 export function canManageContent(user?: User) {
   return Boolean(user && user.role !== "viewer");
@@ -138,6 +174,7 @@ export function nextExpirationDelay(assets: Asset[], now = Date.now()) {
 }
 
 export function ContentPage() {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const canManage = canManageContent(auth.status?.user);
   const csrf = auth.status?.csrfToken ?? "";
@@ -597,11 +634,12 @@ export function ContentPage() {
           }}
           onDelete={async () => {
             const ids = [...checkedAssetIds];
-            if (
-              !confirm(
-                `Permanently delete ${ids.length} archived item${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
-              )
-            )
+            if (!(await confirm({
+              title: `Permanently delete ${ids.length} archived item${ids.length === 1 ? "" : "s"}?`,
+              description: "This cannot be undone.",
+              confirmLabel: "Delete permanently",
+              tone: "negative",
+            })))
               return;
             await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
             setCheckedAssetIds(new Set());
@@ -649,8 +687,13 @@ export function ContentPage() {
                 queryClient.invalidateQueries({ queryKey: ["assets"] }),
               )
           }
-          onArchive={(asset) => {
-            if (confirm(`Move ${asset.name} to the archive?`))
+          onArchive={async (asset) => {
+            if (await confirm({
+              title: `Move ${asset.name} to the archive?`,
+              description:
+                "The item will leave the active library and can be restored later.",
+              confirmLabel: "Archive item",
+            }))
               void api
                 .archiveAssets([asset.id], csrf)
                 .then(refreshOrganization);
@@ -658,12 +701,13 @@ export function ContentPage() {
           onRestore={(asset) => {
             void api.restoreAssets([asset.id], csrf).then(refreshOrganization);
           }}
-          onDelete={(asset) => {
-            if (
-              confirm(
-                `Permanently delete ${asset.name}? This cannot be undone.`,
-              )
-            )
+          onDelete={async (asset) => {
+            if (await confirm({
+              title: `Permanently delete ${asset.name}?`,
+              description: "This cannot be undone.",
+              confirmLabel: "Delete permanently",
+              tone: "negative",
+            }))
               void api.deleteAsset(asset.id, csrf).then(refreshOrganization);
           }}
           selectedIds={checkedAssetIds}
@@ -706,24 +750,28 @@ export function ContentEmpty({
 }) {
   return (
     <div
-      className="content-empty"
+      className={assetCollectionStyles}
       onDragOver={(event) => event.preventDefault()}
       onDrop={archived ? undefined : onDrop}
     >
-      {archived ? <Archive size={30} /> : <FileImage size={30} />}
-      <h3>{archived ? "Archive is empty" : "No media yet"}</h3>
-      <p>
-        {archived
-          ? "Items you archive—or that reach their expiration—appear here and can be restored later."
-          : canManage
-            ? "Drag images or videos here, or choose files to begin your library."
-            : "An Owner, Administrator, or Editor can upload media."}
-      </p>
-      {canManage && !archived && (
-        <button className="button button--quiet" onClick={onChoose}>
-          Choose files
-        </button>
-      )}
+      <IllustratedMessage>
+        {archived ? <Archive aria-hidden="true" /> : <FileImage aria-hidden="true" />}
+        <Heading level={2}>{archived ? "Archive is empty" : "No media yet"}</Heading>
+        <Content>
+          <Text>
+            {archived
+              ? "Items you archive—or that reach their expiration—appear here and can be restored later."
+              : canManage
+                ? "Drag images or videos here, or choose files to begin your library."
+                : "An Owner, Administrator, or Editor can upload media."}
+          </Text>
+        </Content>
+        {canManage && !archived && (
+          <SpectrumButton variant="accent" onPress={onChoose}>
+            Choose files
+          </SpectrumButton>
+        )}
+      </IllustratedMessage>
     </div>
   );
 }
@@ -741,6 +789,9 @@ export function AssetCollection({
   onToggle,
   folderNames,
   archived = false,
+  onBulkArchive,
+  onBulkRestore,
+  onBulkDelete,
 }: {
   items: Asset[];
   view: "grid" | "list";
@@ -754,199 +805,165 @@ export function AssetCollection({
   onToggle?: (id: string) => void;
   folderNames?: Map<string, string>;
   archived?: boolean;
+  onBulkArchive?: (ids: string[]) => void | Promise<void>;
+  onBulkRestore?: (ids: string[]) => void | Promise<void>;
+  onBulkDelete?: (ids: string[]) => void | Promise<void>;
 }) {
-  const menu = useContextMenu<Asset>();
-  // Every action is also reachable from a visible control, so the menu stays a shortcut
-  // rather than the only route to duplication or deletion.
-  const actionsFor = (asset: Asset): ContextMenuItem[] => {
-    const actions: ContextMenuItem[] = archived
-      ? []
-      : [
-          {
-            label: canManage ? "Edit" : "Open",
-            icon: <SquarePen size={14} />,
-            onSelect: () => onSelect(asset),
-          },
-        ];
-    if (canManage && onToggle)
-      actions.push({
-        label: selectedIds.has(asset.id) ? "Clear selection" : "Select",
-        icon: selectedIds.has(asset.id) ? (
-          <Square size={14} />
-        ) : (
-          <SquareCheck size={14} />
-        ),
-        onSelect: () => onToggle(asset.id),
-      });
-    // Only Widgets have a duplicate endpoint; uploaded media has no server-side copy.
-    if (canManage && onDuplicate && asset.type === "widget")
-      actions.push({
-        label: "Duplicate",
-        icon: <Copy size={14} />,
-        onSelect: () => onDuplicate(asset),
-      });
-    if (canManage && !archived && onArchive)
-      actions.push({
-        label: "Archive",
-        icon: <Archive size={14} />,
-        separated: actions.length > 0,
-        onSelect: () => onArchive(asset),
-      });
-    if (canManage && archived && onRestore)
-      actions.push({
-        label: "Restore to library",
-        icon: <ArchiveRestore size={14} />,
-        onSelect: () => onRestore(asset),
-      });
-    if (canManage && archived && onDelete)
-      actions.push({
-        label: "Delete permanently",
-        icon: <Trash2 size={14} />,
-        danger: true,
-        separated: actions.length > 0,
-        onSelect: () => onDelete(asset),
-      });
-    return actions;
+  const toggleToSelection = (keys: Selection) => {
+    if (!onToggle) return;
+    const next =
+      keys === "all"
+        ? new Set(items.map((asset) => asset.id))
+        : new Set([...keys].map(String));
+    for (const asset of items) {
+      if (selectedIds.has(asset.id) !== next.has(asset.id)) onToggle(asset.id);
+    }
   };
+
+  const clearVisibleSelection = () => {
+    if (!onToggle) return;
+    for (const asset of items) if (selectedIds.has(asset.id)) onToggle(asset.id);
+  };
+
+  const statusVariant = (
+    asset: Asset,
+  ): "positive" | "negative" | "notice" | "informative" | "neutral" => {
+    if (archived) return isExpiredAsset(asset) ? "notice" : "neutral";
+    if (asset.processingStatus === "ready") return "positive";
+    if (asset.processingStatus === "failed") return "negative";
+    if (["queued", "inspecting", "processing", "uploading"].includes(asset.processingStatus))
+      return "informative";
+    return "neutral";
+  };
+
+  const openAsset = (key: Key) => {
+    const asset = items.find((item) => item.id === String(key));
+    if (asset) onSelect(asset);
+  };
+
   return (
-    <div className={`asset-collection asset-collection--${view}`}>
-      {items.map((asset) => {
-        // Widget cards already spell their actions out in a footer, so they skip the trigger
-        // and keep right-click as the shortcut.
-        const showTrigger = archived || !(asset.type === "widget" && canManage);
-        const expired = archived && isExpiredAsset(asset);
-        return (
-          <article
-            className={`asset-card${showTrigger ? " asset-card--has-menu" : ""}${selectedIds.has(asset.id) ? " asset-card--selected" : ""}`}
-            key={asset.id}
-            onContextMenu={(event) => menu.open(event, asset)}
-          >
-            {showTrigger && (
-              <button
-                type="button"
-                className="asset-card__menu"
-                aria-haspopup="menu"
-                aria-expanded={menu.anchor?.target.id === asset.id}
-                aria-label={`Actions for ${asset.name}`}
-                onClick={(event) => menu.open(event, asset)}
-              >
-                <EllipsisVertical size={15} aria-hidden="true" />
-              </button>
-            )}
-            {canManage && onToggle && (
-              <label className="asset-card__select">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(asset.id)}
-                  onChange={() => onToggle(asset.id)}
-                />
-                <span className="visually-hidden">Select {asset.name}</span>
-              </label>
-            )}
-            <button
-              className="asset-card__open"
-              onClick={() => onSelect(asset)}
-              aria-label={`${archived ? "View" : "Edit"} ${asset.name}`}
-            >
-              <span className="asset-preview">
-                <AssetPreview asset={asset} />
-              </span>
-              <span className="asset-card__body">
-                <strong>{asset.name}</strong>
-                <small>
-                  {asset.type === "video" &&
-                    formatDuration(asset.durationSeconds)}
-                  {asset.type === "widget" &&
-                    (asset.widget?.provider === "youtube"
-                      ? "YouTube"
-                      : asset.widget?.provider
-                        ? asset.widget.provider.toUpperCase()
-                        : asset.website?.displayUrl)}
-                  {asset.width && asset.height
-                    ? `${asset.type === "video" ? " · " : ""}${asset.width} × ${asset.height}`
-                    : ""}
-                </small>
-                <small>{formatBytes(asset.originalSize)}</small>
-                {(() => {
-                  const folderLabel = asset.folderId
-                    ? folderNames?.get(asset.folderId)
-                    : undefined;
-                  if (!folderLabel && !asset.tags?.length) return null;
-                  return (
-                    <span className="asset-card__organization">
-                      {folderLabel && (
-                        <span className="organizer-chip organizer-chip--folder">
-                          <Folder size={11} aria-hidden />
-                          {folderLabel}
-                        </span>
-                      )}
-                      {asset.tags?.map((tag) => (
-                        <span key={tag.id} className="organizer-chip">
-                          <span
-                            className="organizer-chip__dot"
-                            style={{ backgroundColor: tag.color }}
-                            aria-hidden
-                          />
-                          {tag.name}
-                        </span>
-                      ))}
-                    </span>
-                  );
-                })()}
-              </span>
-              <span
-                className={`media-status media-status--${expired ? "expired" : archived ? "archived" : asset.processingStatus}`}
-              >
-                {expired
-                  ? "Expired"
-                  : archived
-                    ? "Archived"
-                    : statusLabel(asset.processingStatus)}
-              </span>
-            </button>
-            {asset.type === "widget" && !archived && (
-              <footer className="source-card-actions">
-                <span>
-                  {asset.playlistUsage ?? 0} playlist
-                  {asset.playlistUsage === 1 ? "" : "s"}
-                  {` · ${asset.layoutUsage?.length ?? 0} Layout${asset.layoutUsage?.length === 1 ? "" : "s"}`}
-                </span>
-                {canManage && (
-                  <>
-                    <button type="button" onClick={() => onSelect(asset)}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDuplicate?.(asset)}
-                      aria-label={`Duplicate ${asset.name}`}
-                    >
-                      <Copy size={14} /> Duplicate
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onArchive?.(asset)}
-                      aria-label={`Archive ${asset.name}`}
-                    >
-                      <Archive size={14} /> Archive
-                    </button>
-                  </>
-                )}
-              </footer>
-            )}
-          </article>
-        );
-      })}
-      {menu.anchor && (
-        <ContextMenu
-          x={menu.anchor.x}
-          y={menu.anchor.y}
-          label={`Actions for ${menu.anchor.target.name}`}
-          items={actionsFor(menu.anchor.target)}
-          onClose={menu.close}
-        />
+    <CardView
+      aria-label={archived ? "Archived media" : "Media library"}
+      items={items}
+      layout={view === "grid" ? "grid" : "waterfall"}
+      density={document.documentElement.dataset.density === "compact" ? "compact" : "regular"}
+      size="M"
+      selectionMode={canManage && onToggle ? "multiple" : "none"}
+      selectedKeys={selectedIds}
+      onSelectionChange={toggleToSelection}
+      onAction={openAsset}
+      styles={assetCollectionStyles}
+      renderEmptyState={() => (
+        <IllustratedMessage>
+          <FileImage aria-hidden="true" />
+          <Heading level={2}>No matching media</Heading>
+          <Content><Text>Try a different search or filter.</Text></Content>
+        </IllustratedMessage>
       )}
-    </div>
+      renderActionBar={(keys) => {
+        const ids =
+          keys === "all"
+            ? items.map((asset) => asset.id)
+            : [...keys].map(String);
+        return (
+          <ActionBar
+            selectedItemCount={keys === "all" ? "all" : keys.size}
+            onClearSelection={clearVisibleSelection}
+          >
+            {!archived && onBulkArchive && (
+              <ActionButton onPress={() => void onBulkArchive(ids)}>
+                Archive selected
+              </ActionButton>
+            )}
+            {archived && onBulkRestore && (
+              <ActionButton onPress={() => void onBulkRestore(ids)}>
+                Restore selected
+              </ActionButton>
+            )}
+            {archived && onBulkDelete && (
+              <ActionButton onPress={() => void onBulkDelete(ids)}>
+                Delete permanently
+              </ActionButton>
+            )}
+          </ActionBar>
+        );
+      }}
+    >
+      {(asset) => {
+        const folderLabel = asset.folderId
+          ? folderNames?.get(asset.folderId)
+          : undefined;
+        const providerLabel =
+          asset.widget?.provider === "youtube"
+            ? "YouTube"
+            : asset.widget?.provider?.toUpperCase() ?? asset.website?.displayUrl;
+        const dimensions =
+          asset.width && asset.height ? `${asset.width} × ${asset.height}` : "";
+        const detail = [
+          asset.type === "video" ? formatDuration(asset.durationSeconds) : "",
+          asset.type === "widget" ? providerLabel ?? "Widget" : "",
+          dimensions,
+          formatBytes(asset.originalSize),
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        const label = archived
+          ? isExpiredAsset(asset)
+            ? "Expired"
+            : "Archived"
+          : statusLabel(asset.processingStatus);
+
+        return (
+          <SpectrumAssetCard id={asset.id} key={asset.id}>
+            <CardPreview>
+              <div className={assetPreviewStyles}>
+                <AssetPreview asset={asset} />
+              </div>
+            </CardPreview>
+            <Content>
+              <ActionMenu
+                aria-label={`Actions for ${asset.name}`}
+                onAction={(key) => {
+                  if (key === "open") onSelect(asset);
+                  if (key === "duplicate") onDuplicate?.(asset);
+                  if (key === "archive") onArchive?.(asset);
+                  if (key === "restore") onRestore?.(asset);
+                  if (key === "delete") onDelete?.(asset);
+                }}
+              >
+                <MenuItem id="open">{archived ? "View details" : "Open"}</MenuItem>
+                {canManage && asset.type === "widget" && onDuplicate && !archived && (
+                  <MenuItem id="duplicate">Duplicate</MenuItem>
+                )}
+                {canManage && !archived && onArchive && (
+                  <MenuItem id="archive">Archive</MenuItem>
+                )}
+                {canManage && archived && onRestore && (
+                  <MenuItem id="restore">Restore to library</MenuItem>
+                )}
+                {canManage && archived && onDelete && (
+                  <MenuItem id="delete">Delete permanently</MenuItem>
+                )}
+              </ActionMenu>
+              <Heading slot="title" level={3}>{asset.name}</Heading>
+              <Text slot="description">{detail || "Media asset"}</Text>
+            </Content>
+            <Footer>
+              <StatusLight variant={statusVariant(asset)}>{label}</StatusLight>
+              <div className={assetMetadataStyles}>
+                {folderLabel && <Text>{folderLabel}</Text>}
+                {asset.tags?.map((tag) => <Text key={tag.id}>{tag.name}</Text>)}
+                {asset.type === "widget" && (
+                  <Text>
+                    {asset.playlistUsage ?? 0} playlists · {asset.layoutUsage?.length ?? 0} layouts
+                  </Text>
+                )}
+              </div>
+            </Footer>
+          </SpectrumAssetCard>
+        );
+      }}
+    </CardView>
   );
 }
 
@@ -1160,6 +1177,7 @@ function ManageOrganizationDialog({
   onChanged: () => void;
   onClose: () => void;
 }) {
+  const { confirm } = useSpectrumDialogs();
   const sections: {
     title: string;
     empty: string;
@@ -1248,7 +1266,12 @@ function ManageOrganizationDialog({
                     onChanged();
                   }}
                   onDelete={async () => {
-                    if (!confirm(row.confirmText)) return;
+                    if (!(await confirm({
+                      title: `Delete ${row.name}?`,
+                      description: row.confirmText,
+                      confirmLabel: "Delete",
+                      tone: "negative",
+                    }))) return;
                     await row.remove();
                     onChanged();
                   }}
@@ -1785,6 +1808,7 @@ function MediaAssetDetails({
   onClose: () => void;
   onChanged: (asset: Asset) => void;
 }) {
+  const { confirm } = useSpectrumDialogs();
   const queryClient = useQueryClient();
   const [name, setName] = useState(asset.name);
   const [description, setDescription] = useState(asset.description);
@@ -1842,8 +1866,13 @@ function MediaAssetDetails({
             )}
             <Button
               variant="quiet"
-              onClick={() => {
-                if (window.confirm(`Move ${asset.name} to the archive?`))
+              onClick={async () => {
+                if (await confirm({
+                  title: `Move ${asset.name} to the archive?`,
+                  description:
+                    "The item will leave the active library and can be restored later.",
+                  confirmLabel: "Archive item",
+                }))
                   void api.archiveAssets([asset.id], csrf).then(() => {
                     void queryClient.invalidateQueries({
                       queryKey: ["assets"],
@@ -2000,6 +2029,8 @@ export function WebsiteEditor({
   onSaved: (asset: Asset) => void;
   page?: boolean;
 }) {
+  const { confirm } = useSpectrumDialogs();
+  const closeConfirmationOpen = useRef(false);
   const initial: WebsiteInput = asset?.website
     ? {
         name: asset.name,
@@ -2072,29 +2103,40 @@ export function WebsiteEditor({
       onSaved(value);
     },
   });
-  const close = () => {
-    if (!dirty || confirm("Discard unsaved website changes?")) onClose();
+  const close = async () => {
+    if (closeConfirmationOpen.current) return;
+    if (!dirty) {
+      onClose();
+      return;
+    }
+    closeConfirmationOpen.current = true;
+    try {
+      if (await confirm({
+        title: "Discard unsaved website changes?",
+        description: "Your edits to this Website App will be lost.",
+        confirmLabel: "Discard changes",
+        tone: "negative",
+      })) onClose();
+    } finally {
+      closeConfirmationOpen.current = false;
+    }
   };
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
-        if (!dirty || confirm("Discard unsaved website changes?")) onClose();
+        void close();
       }
     };
     addEventListener("keydown", escape);
     return () => removeEventListener("keydown", escape);
-  }, [dirty, onClose]);
+  }, [close]);
   return (
     <div
       className="details-backdrop"
       role={page ? undefined : "presentation"}
       onMouseDown={(event) => {
-        if (
-          event.target === event.currentTarget &&
-          (!dirty || confirm("Discard unsaved website changes?"))
-        )
-          onClose();
+        if (event.target === event.currentTarget) void close();
       }}
     >
       <section
@@ -2368,8 +2410,13 @@ export function WebsiteEditor({
           {asset && !readOnly && (
             <button
               className="button button--danger"
-              onClick={() => {
-                if (confirm(`Delete ${asset.name}?`))
+              onClick={async () => {
+                if (await confirm({
+                  title: `Delete ${asset.name}?`,
+                  description: "This Website App will be permanently removed.",
+                  confirmLabel: "Delete Website App",
+                  tone: "negative",
+                }))
                   void api.deleteAsset(asset.id, csrf).then(onClose);
               }}
             >

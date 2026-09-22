@@ -5,6 +5,7 @@ import { api, ApiError } from "../api/client";
 import type { Location, LocationInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { Button, Dialog } from "../components/ui";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 
 const emptyLocation: LocationInput = {
   name: "",
@@ -30,6 +31,7 @@ export function formatLocationAddress(location?: Partial<Location>) {
 }
 
 export function LocationsPanel({ canManage }: { canManage: boolean }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const client = useQueryClient();
   const query = useQuery({ queryKey: ["locations"], queryFn: api.locations });
@@ -153,16 +155,24 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                     type="button"
                     aria-label={`Delete ${location.name}`}
                     disabled={remove.isPending}
-                    onClick={() => {
-                      if (
-                        confirm(
-                          location.screenCount
-                            ? `${location.name} still has screens assigned and cannot be deleted.`
-                            : `Delete ${location.name}?`,
-                        ) &&
-                        location.screenCount === 0
-                      )
+                    onClick={async () => {
+                      if (location.screenCount > 0) {
+                        await confirm({
+                          title: "Location cannot be deleted yet",
+                          description: `${location.name} still has ${location.screenCount} screens assigned. Reassign or unassign them first.`,
+                          confirmLabel: "Got it",
+                        });
+                        return;
+                      }
+                      if (await confirm({
+                        title: `Delete ${location.name}?`,
+                        description:
+                          "This location will be removed from the installation.",
+                        confirmLabel: "Delete location",
+                        tone: "negative",
+                      })) {
                         remove.mutate(location);
+                      }
                     }}
                   >
                     <Trash2 size={16} />

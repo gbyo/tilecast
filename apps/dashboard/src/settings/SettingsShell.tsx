@@ -14,11 +14,19 @@ export function SettingsShell({
 }: {
   active: SettingsSectionId;
   dirty: Set<SettingsSectionId>;
-  onNavigate: (next: SettingsSectionId) => boolean;
+  onNavigate: (next: SettingsSectionId) => boolean | Promise<boolean>;
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
   const details = sectionDetails[active];
+  const requestNavigate = async (id: SettingsSectionId) => {
+    const item = settingsNavigation
+      .flatMap((group) => group.items)
+      .find((candidate) => candidate.id === id);
+    if (item && await onNavigate(item.id)) {
+      void navigate(`/settings/${item.path}`);
+    }
+  };
   return (
     <div className="settings-layout">
       <aside className="settings-nav" aria-label="Settings sections">
@@ -30,8 +38,7 @@ export function SettingsShell({
               const item = settingsNavigation
                 .flatMap((group) => group.items)
                 .find((item) => item.id === event.target.value);
-              if (item && onNavigate(item.id))
-                void navigate(`/settings/${item.path}`);
+              if (item) void requestNavigate(item.id);
             }}
           >
             {settingsNavigation
@@ -55,7 +62,9 @@ export function SettingsShell({
                   to={`/settings/${item.path}`}
                   aria-current={active === item.id ? "page" : undefined}
                   onClick={(event) => {
-                    if (!onNavigate(item.id)) event.preventDefault();
+                    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                    event.preventDefault();
+                    if (active !== item.id) void requestNavigate(item.id);
                   }}
                 >
                   <Icon size={16} aria-hidden="true" />

@@ -4,6 +4,7 @@ import { Send, Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { NotificationCategory, NotificationWebhook } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 
 const categoryLabels: Record<NotificationCategory, string> = {
   incident: "Screen problems",
@@ -14,6 +15,7 @@ const categoryLabels: Record<NotificationCategory, string> = {
 const allCategories = Object.keys(categoryLabels) as NotificationCategory[];
 
 export function NotificationsPanel({ manageable }: { manageable: boolean }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -76,11 +78,13 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
   });
   const removeWebhook = useMutation({
     mutationFn: async (webhook: NotificationWebhook) => {
-      if (
-        !confirm(
-          `Remove the webhook "${webhook.name}"? Its signing secret cannot be recovered, so the receiver will need a new one.`,
-        )
-      )
+      if (!(await confirm({
+        title: `Remove the “${webhook.name}” webhook?`,
+        description:
+          "Its signing secret cannot be recovered, so the receiver will need a new one.",
+        confirmLabel: "Remove webhook",
+        tone: "negative",
+      })))
         throw new CancelledAction();
       return api.deleteNotificationWebhook(webhook.id, csrf);
     },

@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import QRCode from "qrcode";
 import { api } from "../api/client";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import type {
   Asset,
   DataSource,
@@ -3649,6 +3650,8 @@ export function YouTubeSourceEditor({
   onSaved: (asset: Asset) => void;
   page?: boolean;
 }) {
+  const { confirm } = useSpectrumDialogs();
+  const closeConfirmationOpen = useRef(false);
   const queryClient = useQueryClient();
   const configured = asset?.widget?.configuration as YouTubeConfig | undefined;
   const [name, setName] = useState(asset?.name ?? "");
@@ -3701,20 +3704,34 @@ export function YouTubeSourceEditor({
       onSaved(saved);
     },
   });
-  const close = () => {
-    if (!dirty || confirm("Discard unsaved YouTube Widget changes?")) onClose();
+  const close = async () => {
+    if (closeConfirmationOpen.current) return;
+    if (!dirty) {
+      onClose();
+      return;
+    }
+    closeConfirmationOpen.current = true;
+    try {
+      if (await confirm({
+        title: "Discard unsaved YouTube Widget changes?",
+        description: "Your edits to this Widget will be lost.",
+        confirmLabel: "Discard changes",
+        tone: "negative",
+      })) onClose();
+    } finally {
+      closeConfirmationOpen.current = false;
+    }
   };
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
-        if (!dirty || confirm("Discard unsaved YouTube Widget changes?"))
-          onClose();
+        void close();
       }
     };
     addEventListener("keydown", escape);
     return () => removeEventListener("keydown", escape);
-  }, [dirty, onClose]);
+  }, [close]);
   return (
     <div className="details-backdrop" role={page ? undefined : "presentation"}>
       <section

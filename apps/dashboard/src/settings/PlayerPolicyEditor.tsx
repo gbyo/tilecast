@@ -4,6 +4,7 @@ import { ChevronDown, Search } from "lucide-react";
 import { api } from "../api/client";
 import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import { SettingControl } from "./SettingControl";
 import { descriptionFor, enumLabel } from "./settingDisplay";
 import { normalizeSettingValues } from "./settingValues";
@@ -61,6 +62,7 @@ export function PlayerPolicyEditor({
   id: string;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const manageable = ["owner", "administrator"].includes(
     auth.status?.user?.role ?? "",
@@ -229,11 +231,15 @@ export function PlayerPolicyEditor({
               type="button"
               className="button button--danger-quiet button--compact"
               disabled={!overrideCount || reset.isPending}
-              onClick={() => {
+              onClick={async () => {
                 if (
-                  confirm(
-                    "Reset every player-setting override for this target? This cannot be undone.",
-                  )
+                  await confirm({
+                    title: "Reset every player-setting override?",
+                    description:
+                      "All overrides for this target will be removed. This cannot be undone.",
+                    confirmLabel: "Reset overrides",
+                    tone: "negative",
+                  })
                 )
                   reset.mutate();
               }}

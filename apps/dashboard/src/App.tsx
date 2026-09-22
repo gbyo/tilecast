@@ -1,4 +1,10 @@
 import { Navigate, useRoutes, type RouteObject } from "react-router";
+import { Provider as SpectrumProvider } from "@react-spectrum/s2/Provider";
+import { useHref, useNavigate, type NavigateOptions } from "react-router";
+import { useEffect, useState, type PropsWithChildren } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "./api/client";
+import { useAuth } from "./auth/AuthProvider";
 import { AssetFilterPortal } from "./components/AssetFilterPortal";
 import { GitHubOAuthSetupPortal } from "./components/GitHubOAuthSetupPortal";
 import { StudioRoutesProvider } from "./navigation/studioRoutes";
@@ -51,6 +57,56 @@ import { CreateFormDataSourcePage } from "./pages/CreateFormDataSourcePage";
 import { FormDataSourcePage } from "./pages/FormDataSourcePage";
 import { DependencyGraphPage } from "./pages/DependencyGraphPage";
 import { CampaignsPage } from "./pages/CampaignsPage";
+import { SpectrumDialogsProvider } from "./dialogs/SpectrumDialogs";
+
+declare module "@react-spectrum/s2/Provider" {
+  interface RouterConfig {
+    routerOptions: NavigateOptions;
+  }
+}
+
+type Appearance = "light" | "dark" | "system";
+
+function currentAppearance(): Appearance {
+  const value = document.documentElement.dataset.appearance;
+  return value === "light" || value === "dark" ? value : "system";
+}
+
+function SpectrumApplication({ children }: PropsWithChildren) {
+  const navigate = useNavigate();
+  const routerHref = useHref;
+  const auth = useAuth();
+  const [appearance, setAppearance] = useState(currentAppearance);
+  const preferences = useQuery({
+    queryKey: ["preferences"],
+    queryFn: api.preferences,
+    enabled: Boolean(auth.status?.authenticated),
+  });
+
+  useEffect(() => {
+    const value = preferences.data?.values["preference.appearance"];
+    if (value === "light" || value === "dark" || value === "system")
+      setAppearance(value);
+  }, [preferences.data]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.appearance = appearance;
+    root.dataset.theme = appearance;
+    if (appearance === "system") delete root.dataset.colorScheme;
+    else root.dataset.colorScheme = appearance;
+  }, [appearance]);
+
+  return (
+    <SpectrumProvider
+      background="base"
+      colorScheme={appearance === "system" ? undefined : appearance}
+      router={{ navigate, useHref: routerHref }}
+    >
+      {children}
+    </SpectrumProvider>
+  );
+}
 
 const search = (
   label: string,
@@ -585,12 +641,14 @@ function RoutedApp() {
 
 export function App() {
   return (
-    <>
-      <AssetFilterPortal />
-      <GitHubOAuthSetupPortal />
-      <StudioRoutesProvider routes={studioRoutes}>
-        <RoutedApp />
-      </StudioRoutesProvider>
-    </>
+    <SpectrumApplication>
+      <SpectrumDialogsProvider>
+        <AssetFilterPortal />
+        <GitHubOAuthSetupPortal />
+        <StudioRoutesProvider routes={studioRoutes}>
+          <RoutedApp />
+        </StudioRoutesProvider>
+      </SpectrumDialogsProvider>
+    </SpectrumApplication>
   );
 }

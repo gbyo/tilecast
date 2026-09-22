@@ -19,6 +19,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
 import type { ScreenGroup } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
@@ -64,6 +65,7 @@ function formatGroupDate(value: string) {
 }
 
 export function GroupsPage() {
+  const { confirm, prompt } = useSpectrumDialogs();
   const auth = useAuth(),
     csrf = auth.status?.csrfToken ?? "",
     client = useQueryClient();
@@ -77,9 +79,14 @@ export function GroupsPage() {
       api.createScreenGroup({ name, description: "" }, csrf),
     onSuccess: () => client.invalidateQueries({ queryKey: ["screen-groups"] }),
   });
-  const createGroup = () => {
-    const name = prompt("Group name");
-    if (name) create.mutate(name);
+  const createGroup = async () => {
+    const name = await prompt({
+      title: "Create Display Group",
+      description: "Choose a name that helps operators identify this group.",
+      label: "Group name",
+      confirmLabel: "Create group",
+    });
+    if (name?.trim()) create.mutate(name.trim());
   };
 
   return (
@@ -160,6 +167,7 @@ export function GroupsPage() {
 }
 
 export function GroupDetailPage() {
+  const { confirm, prompt } = useSpectrumDialogs();
   const { id = "" } = useParams(),
     navigate = useNavigate(),
     auth = useAuth(),
@@ -287,15 +295,26 @@ export function GroupDetailPage() {
             <>
               <Button
                 variant="quiet"
-                onClick={() => {
-                  const name = prompt("Group name", groupData.name);
-                  if (name)
-                    update.mutate({
-                      name,
-                      description:
-                        prompt("Description", groupData.description) ??
-                        groupData.description,
+                onClick={async () => {
+                  const name = await prompt({
+                    title: "Edit Display Group",
+                    label: "Group name",
+                    defaultValue: groupData.name,
+                    confirmLabel: "Continue",
+                  });
+                  if (name?.trim()) {
+                    const description = await prompt({
+                      title: "Display Group description",
+                      label: "Description",
+                      defaultValue: groupData.description,
+                      confirmLabel: "Save group",
                     });
+                    if (description === null) return;
+                    update.mutate({
+                      name: name.trim(),
+                      description,
+                    });
+                  }
                 }}
               >
                 Edit Display Group
@@ -311,12 +330,13 @@ export function GroupDetailPage() {
               </Button>
               <Button
                 variant="danger"
-                onClick={() => {
-                  if (
-                    confirm(
-                      `Delete ${groupData.name}? Screens will not be deleted.`,
-                    )
-                  )
+                onClick={async () => {
+                  if (await confirm({
+                    title: `Delete ${groupData.name}?`,
+                    description: "Screens in this group will not be deleted.",
+                    confirmLabel: "Delete group",
+                    tone: "negative",
+                  }))
                     deleteGroup.mutate();
                 }}
               >

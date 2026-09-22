@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { IntegrationScope, IntegrationToken } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 
 const scopeLabels: Record<IntegrationScope, string> = {
   "data_source:write": "Write Manual Table rows",
@@ -51,6 +52,7 @@ function expiryNote(token: IntegrationToken): string | undefined {
 }
 
 export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -109,11 +111,13 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
   });
   const revoke = useMutation({
     mutationFn: async (token: IntegrationToken) => {
-      if (
-        !confirm(
-          `Revoke "${token.name}"? Anything using it stops working immediately, and a revoked token cannot be re-enabled.`,
-        )
-      )
+      if (!(await confirm({
+        title: `Revoke “${token.name}”?`,
+        description:
+          "Anything using this token stops working immediately. A revoked token cannot be re-enabled.",
+        confirmLabel: "Revoke token",
+        tone: "negative",
+      })))
         throw new CancelledAction();
       return api.revokeIntegrationToken(token.id, csrf);
     },

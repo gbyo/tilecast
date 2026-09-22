@@ -1,9 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
+import { Button as SpectrumButton } from "@react-spectrum/s2/Button";
+import { ButtonGroup } from "@react-spectrum/s2/ButtonGroup";
+import { Cell, Column, Row, TableBody, TableHeader, TableView } from "@react-spectrum/s2/TableView";
+import { Content, Footer } from "@react-spectrum/s2/Dialog";
+import { Dialog, DialogContainer } from "@react-spectrum/s2/Dialog";
+import { Form } from "@react-spectrum/s2/Form";
+import { Heading } from "@react-spectrum/s2/Heading";
+import { InlineAlert } from "@react-spectrum/s2/InlineAlert";
+import { IllustratedMessage } from "@react-spectrum/s2/IllustratedMessage";
+import { StatusLight } from "@react-spectrum/s2/StatusLight";
+import { Text } from "@react-spectrum/s2/Text";
+import { TextField } from "@react-spectrum/s2/TextField";
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import CalendarIcon from "@react-spectrum/s2/icons/Calendar";
 import {
   Archive,
-  CalendarRange,
   Plus,
   RotateCcw,
   Save,
@@ -19,13 +32,12 @@ import type {
 import { useAuth } from "../auth/AuthProvider";
 import {
   Button,
-  Dialog,
-  EmptyState,
   Field,
   Notice,
   PageHeader,
 } from "../components/ui";
 import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
+import { useSpectrumDialogs } from "../dialogs/SpectrumDialogs";
 
 function nextHour() {
   const date = new Date(Date.now() + 60 * 60 * 1000);
@@ -62,6 +74,14 @@ function snapshotForEdit(campaign: Campaign): CampaignSnapshot {
 }
 
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const campaignTableStyles = style({ height: 520, minHeight: 320, width: "full" });
+const campaignHeaderStyles = style({
+  display: "flex",
+  alignItems: "start",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 24,
+});
 
 function dateTimeInput(value?: string) {
   if (!value) return "";
@@ -107,78 +127,123 @@ function CampaignLibrary() {
   return (
     <section>
       <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
-      <PageHeader
-        title="Campaigns"
-        description="Coordinate immutable content releases across screens and groups. A release reuses the scheduler and never changes what is live until it is published."
-        actions={
-          canCreate ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus size={16} aria-hidden="true" /> Create campaign
-            </Button>
-          ) : undefined
-        }
-      />
-      {query.isLoading ? (
-        <div className="table-loading">Loading campaigns…</div>
-      ) : !query.data?.items.length ? (
-        <EmptyState
-          icon={<CalendarRange size={24} aria-hidden="true" />}
-          title="No campaigns yet"
-          message="Create a campaign to coordinate content and destinations in one reviewed release."
-        />
-      ) : (
-        <div className="backup-list">
-          {query.data.items.map((campaign) => (
-            <Link
-              className="backup-row"
-              to={`/campaigns/${campaign.id}`}
-              key={campaign.id}
-            >
-              <div className="backup-row__details">
-                <strong>{campaign.name}</strong>
-                <span>{campaign.description || "No description"}</span>
-                <span>
-                  {campaign.draft.blocks.length} blocks ·{" "}
-                  {campaign.draft.destinations.length} destinations
-                </span>
-              </div>
-              <span className="status-badge status-badge--recent">
-                {campaign.status}
-              </span>
-            </Link>
-          ))}
+      <header className={campaignHeaderStyles}>
+        <div>
+          <Heading level={1}>Campaigns</Heading>
+          <Text>
+            Coordinate reviewed content releases across screens and groups. Published campaigns share the scheduler and never replace live content until release.
+          </Text>
         </div>
-      )}
-      <Dialog open={creating} title="Create campaign" onClose={closeCreate}>
-        <Field label="Name">
-          <input
-            autoFocus
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </Field>
-        {create.error && (
-          <Notice variant="danger">{create.error.message}</Notice>
-        )}
-        <div className="form-actions">
-          <Button variant="quiet" onClick={closeCreate}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!name.trim()}
-            loading={create.isPending}
-            onClick={() => create.mutate()}
-          >
+        {canCreate && (
+          <SpectrumButton variant="accent" onPress={() => setCreating(true)}>
             Create campaign
-          </Button>
-        </div>
-      </Dialog>
+          </SpectrumButton>
+        )}
+      </header>
+      <TableView
+          aria-label="Campaigns"
+          density="regular"
+          styles={campaignTableStyles}
+          loadingState={query.isLoading ? "loading" : undefined}
+        >
+          <TableHeader>
+            <Column isRowHeader>Campaign</Column>
+            <Column>Status</Column>
+            <Column>Release window</Column>
+            <Column>Destinations</Column>
+            <Column>Content blocks</Column>
+            <Column>Updated</Column>
+          </TableHeader>
+          <TableBody
+            items={query.data?.items ?? []}
+            renderEmptyState={() => (
+              <IllustratedMessage>
+                <CalendarIcon aria-hidden="true" />
+                <Heading level={2}>No campaigns yet</Heading>
+                <Text>Create a campaign to coordinate content and destinations in one reviewed release.</Text>
+                {canCreate && (
+                  <SpectrumButton variant="accent" onPress={() => setCreating(true)}>
+                    Create campaign
+                  </SpectrumButton>
+                )}
+              </IllustratedMessage>
+            )}
+          >
+            {(campaign) => (
+              <Row id={campaign.id} href={`/campaigns/${campaign.id}`}>
+                <Cell>
+                  <div>
+                    <Text>{campaign.name}</Text>
+                    <Text>{campaign.description || "No description"}</Text>
+                  </div>
+                </Cell>
+                <Cell>
+                  <StatusLight variant={campaign.status === "published" ? "positive" : campaign.status === "failed" ? "negative" : "informative"}>
+                    {campaign.status}
+                  </StatusLight>
+                </Cell>
+                <Cell>
+                  {campaign.campaignStart ? new Date(campaign.campaignStart).toLocaleString() : "No start"}
+                  {campaign.campaignEnd ? ` – ${new Date(campaign.campaignEnd).toLocaleString()}` : " · No end"}
+                </Cell>
+                <Cell>{campaign.draft.destinations.length}</Cell>
+                <Cell>{campaign.draft.blocks.length}</Cell>
+                <Cell>{new Date(campaign.updatedAt).toLocaleString()}</Cell>
+              </Row>
+            )}
+          </TableBody>
+        </TableView>
+      {creating && (
+        <DialogContainer onDismiss={closeCreate}>
+          <Dialog aria-label="Create campaign" size="S">
+            <Heading slot="title">Create campaign</Heading>
+            <Content>
+              <Form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  create.mutate();
+                }}
+                validationBehavior="aria"
+              >
+                <TextField
+                  label="Campaign name"
+                  autoFocus
+                  value={name}
+                  onChange={setName}
+                  isRequired
+                />
+                {create.error && (
+                  <InlineAlert variant="negative" fillStyle="subtleFill">
+                    <Heading level={2}>Campaign could not be created</Heading>
+                    <Text>{create.error.message}</Text>
+                  </InlineAlert>
+                )}
+                <Footer>
+                  <ButtonGroup>
+                    <SpectrumButton variant="secondary" onPress={closeCreate}>
+                      Cancel
+                    </SpectrumButton>
+                    <SpectrumButton
+                      type="submit"
+                      variant="accent"
+                      isDisabled={!name.trim() || create.isPending}
+                      isPending={create.isPending}
+                    >
+                      Create campaign
+                    </SpectrumButton>
+                  </ButtonGroup>
+                </Footer>
+              </Form>
+            </Content>
+          </Dialog>
+        </DialogContainer>
+      )}
     </section>
   );
 }
 
 function CampaignEditor({ campaignId }: { campaignId: string }) {
+  const { confirm } = useSpectrumDialogs();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const navigate = useNavigate();
@@ -436,11 +501,15 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             )}
             {canEdit && (
               <Button
-                onClick={() => {
+                onClick={async () => {
                   if (
-                    window.confirm(
-                      "Archive this campaign and stop its schedules?",
-                    )
+                    await confirm({
+                      title: "Archive this campaign?",
+                      description:
+                        "Archiving stops its schedules. You can review the campaign afterwards, but it will no longer release content.",
+                      confirmLabel: "Archive campaign",
+                      tone: "negative",
+                    })
                   ) {
                     archive.mutate();
                   }

@@ -2,11 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createBrowserRouter } from "react-router";
+import "@react-spectrum/s2/page.css";
 import "@tilecast/design-tokens/tokens.css";
 import "./theme";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
-import { installCommandPaletteFocus } from "./commandPaletteFocus";
 import "./styles.css";
 import "./styles/layout-fonts.css";
 import "./styles/signal.css";
@@ -27,8 +27,6 @@ import "./styles/context-menu.css";
 import "./styles/popover.css";
 import "./styles/screens-media-fixes.css";
 import "./styles/playlist-editor.css";
-
-installCommandPaletteFocus();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },

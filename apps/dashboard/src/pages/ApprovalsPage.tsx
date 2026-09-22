@@ -1,34 +1,28 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
-import { ClipboardCheck } from "lucide-react";
 import { api } from "../api/client";
-import {
-  EmptyState,
-  Notice,
-  PageHeader,
-  Pagination,
-  Spinner,
-  StatusBadge,
-  TableContainer,
-} from "../components/ui";
+import { Button } from "@react-spectrum/s2/Button";
+import { ButtonGroup } from "@react-spectrum/s2/ButtonGroup";
+import { Cell, Column, Row, TableBody, TableHeader, TableView } from "@react-spectrum/s2/TableView";
+import { Heading } from "@react-spectrum/s2/Heading";
+import { IllustratedMessage } from "@react-spectrum/s2/IllustratedMessage";
+import { InlineAlert } from "@react-spectrum/s2/InlineAlert";
+import { StatusLight } from "@react-spectrum/s2/StatusLight";
+import { Text } from "@react-spectrum/s2/Text";
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 
 const PAGE_SIZE = 25;
+const approvalsTableStyles = style({ height: 560, minHeight: 320, width: "full" });
 
 // ApprovalsPage is the central inbox of submissions awaiting a decision across every form the user
 // may review, approve, or manage. Opening an item routes to the shared record review in the form's
 // Responses tab. Items leave the inbox automatically once they are no longer pending.
 export function ApprovalsPage() {
-  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const approvals = useQuery({
     queryKey: ["approvals", page],
     queryFn: () => api.listApprovals({ page, pageSize: PAGE_SIZE }),
   });
-
-  const openRecord = (formId: string, recordId: string) => {
-    void navigate(`/data-sources/${formId}?tab=responses&record=${recordId}`);
-  };
 
   const total = approvals.data?.total ?? 0;
   const items = approvals.data?.items ?? [];
@@ -36,80 +30,75 @@ export function ApprovalsPage() {
 
   return (
     <div className="approvals-page">
-      <PageHeader
-        eyebrow="Forms"
-        title="Approvals"
-        description="Submissions awaiting a review decision across your forms."
-      />
+      <header>
+        <Heading level={1}>Approvals</Heading>
+        <Text>Submissions awaiting a review decision across your forms.</Text>
+      </header>
 
       {approvals.isError && (
-        <Notice variant="danger" title="Could not load approvals">
-          {approvals.error instanceof Error
-            ? approvals.error.message
-            : "Please try again."}
-        </Notice>
+        <InlineAlert variant="negative" fillStyle="subtleFill">
+          <Heading level={2}>Could not load approvals</Heading>
+          <Text>{approvals.error instanceof Error ? approvals.error.message : "Please try again."}</Text>
+        </InlineAlert>
       )}
 
-      {approvals.isLoading ? (
-        <Spinner label="Loading approvals…" />
-      ) : items.length === 0 ? (
-        <EmptyState
-          icon={<ClipboardCheck size={28} aria-hidden="true" />}
-          title="Nothing to review"
-          message="There are no submissions awaiting your decision right now."
-        />
-      ) : (
-        <>
-          <TableContainer>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Form</th>
-                  <th scope="col">Submission</th>
-                  <th scope="col">Submitter</th>
-                  <th scope="col">State</th>
-                  <th scope="col">Submitted</th>
-                  <th scope="col">Display window</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr
-                    key={item.recordId}
-                    className="data-table__row--clickable"
-                    tabIndex={0}
-                    role="button"
-                    onClick={() => openRecord(item.dataSourceId, item.recordId)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openRecord(item.dataSourceId, item.recordId);
-                      }
-                    }}
-                  >
-                    <td>{item.formName}</td>
-                    <td>{item.title || "Untitled submission"}</td>
-                    <td>{item.submitterName || "Unknown"}</td>
-                    <td>
-                      <StatusBadge label={item.stateLabel} tone="info" />
-                    </td>
-                    <td>{new Date(item.submittedAt).toLocaleString()}</td>
-                    <td>{displayWindow(item.displayAt, item.expiresAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableContainer>
-          <Pagination
-            label="Approvals pages"
-            status={`Page ${page} of ${totalPages} · ${total} pending`}
-            previous={() => setPage((current) => Math.max(1, current - 1))}
-            next={() => setPage((current) => Math.min(totalPages, current + 1))}
-            previousDisabled={page <= 1}
-            nextDisabled={page >= totalPages}
-          />
-        </>
-      )}
+      <TableView
+        aria-label="Submissions awaiting approval"
+        density={document.documentElement.dataset.density === "compact" ? "compact" : "regular"}
+        styles={approvalsTableStyles}
+        loadingState={approvals.isLoading ? "loading" : undefined}
+      >
+        <TableHeader>
+          <Column isRowHeader>Form</Column>
+          <Column>Submission</Column>
+          <Column>Submitter</Column>
+          <Column>State</Column>
+          <Column>Submitted</Column>
+          <Column>Display window</Column>
+        </TableHeader>
+        <TableBody
+          items={items}
+          renderEmptyState={() => (
+            <IllustratedMessage>
+              <Heading level={2}>Nothing to review</Heading>
+              <Text>There are no submissions awaiting your decision right now.</Text>
+            </IllustratedMessage>
+          )}
+        >
+          {(item) => (
+            <Row
+              id={item.recordId}
+              href={`/data-sources/${item.dataSourceId}?tab=responses&record=${item.recordId}`}
+            >
+              <Cell>{item.formName}</Cell>
+              <Cell>{item.title || "Untitled submission"}</Cell>
+              <Cell>{item.submitterName || "Unknown"}</Cell>
+              <Cell><StatusLight variant="informative">{item.stateLabel}</StatusLight></Cell>
+              <Cell>{new Date(item.submittedAt).toLocaleString()}</Cell>
+              <Cell>{displayWindow(item.displayAt, item.expiresAt)}</Cell>
+            </Row>
+          )}
+        </TableBody>
+      </TableView>
+      <footer>
+        <Text>{`Page ${page} of ${totalPages} · ${total} pending`}</Text>
+        <ButtonGroup>
+          <Button
+            variant="secondary"
+            isDisabled={page <= 1}
+            onPress={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="secondary"
+            isDisabled={page >= totalPages}
+            onPress={() => setPage((current) => Math.min(totalPages, current + 1))}
+          >
+            Next
+          </Button>
+        </ButtonGroup>
+      </footer>
     </div>
   );
 }

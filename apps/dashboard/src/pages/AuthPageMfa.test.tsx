@@ -4,6 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Provider as SpectrumProvider } from "@react-spectrum/s2/Provider";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthProvider";
@@ -24,7 +25,9 @@ function renderLogin() {
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={["/login"]}>
         <AuthProvider>
-          <AuthPage mode="login" />
+          <SpectrumProvider>
+            <AuthPage mode="login" />
+          </SpectrumProvider>
         </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,

@@ -1,34 +1,55 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Command } from "cmdk";
+import { useEffect, useState, type ReactNode } from "react";
 import {
-  Bell,
-  Blocks,
-  CalendarClock,
-  ChevronDown,
-  ChevronRight,
-  Database,
-  FileSliders,
-  Image,
-  Layers3,
-  ListVideo,
-  Monitor,
-  MonitorCheck,
-  Plus,
-  Search,
-  Settings,
-  Upload,
-  UserRound,
-} from "lucide-react";
-import { useEffect, useState, type ComponentType } from "react";
-import {
-  Link,
   matchRoutes,
   useLocation,
   useNavigate,
   type RouteObject,
 } from "react-router";
-import { api } from "../api/client";
+import {
+  Breadcrumb,
+  Breadcrumbs,
+} from "@react-spectrum/s2/Breadcrumbs";
+import { Button } from "@react-spectrum/s2/Button";
+import { LinkButton } from "@react-spectrum/s2/LinkButton";
+import { Dialog, DialogContainer } from "@react-spectrum/s2/Dialog";
+import { Autocomplete } from "@react-spectrum/s2/Autocomplete";
+import { Content } from "@react-spectrum/s2/Content";
+import { Heading } from "@react-spectrum/s2/Heading";
+import { Text } from "@react-spectrum/s2/Text";
+import { ActionButton } from "@react-spectrum/s2/ActionButton";
+import { Link } from "@react-spectrum/s2/Link";
+import {
+  Header,
+  Menu,
+  MenuItem,
+  MenuSection,
+  MenuTrigger,
+} from "@react-spectrum/s2/Menu";
+import { Popover, DialogTrigger } from "@react-spectrum/s2/Popover";
+import { SearchField } from "@react-spectrum/s2/SearchField";
+import { StatusLight } from "@react-spectrum/s2/StatusLight";
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import AddIcon from "@react-spectrum/s2/icons/Add";
+import AppsIcon from "@react-spectrum/s2/icons/Apps";
+import BellIcon from "@react-spectrum/s2/icons/Bell";
+import CalendarIcon from "@react-spectrum/s2/icons/Calendar";
+import ChevronRightIcon from "@react-spectrum/s2/icons/ChevronRight";
+import ClockIcon from "@react-spectrum/s2/icons/Clock";
+import DataIcon from "@react-spectrum/s2/icons/Data";
+import DeviceDesktopIcon from "@react-spectrum/s2/icons/DeviceDesktop";
+import FilesIcon from "@react-spectrum/s2/icons/Files";
+import ImageIcon from "@react-spectrum/s2/icons/Image";
+import LayersIcon from "@react-spectrum/s2/icons/Layers";
+import ListBulletedIcon from "@react-spectrum/s2/icons/ListBulleted";
+import PluginIcon from "@react-spectrum/s2/icons/Plugin";
+import SearchIcon from "@react-spectrum/s2/icons/Search";
+import SettingsIcon from "@react-spectrum/s2/icons/Settings";
+import UploadIcon from "@react-spectrum/s2/icons/Upload";
+import UserIcon from "@react-spectrum/s2/icons/User";
+import UserGroupIcon from "@react-spectrum/s2/icons/UserGroup";
 import type { Screen, ScreenStatus, User } from "../api/types";
+import { api } from "../api/client";
 import {
   useNotifications,
   type NotificationPriority,
@@ -39,7 +60,6 @@ import {
   type BreadcrumbResource,
 } from "../navigation/studioRoutes";
 import { UploadContentDialog } from "./content-picker/UploadContentDialog";
-import { Button, Dialog, IconButton, Popover } from "./ui";
 
 type CommandGroupName =
   | "Quick actions"
@@ -59,7 +79,7 @@ type CommandResult = {
   to?: string;
   action?: CommandAction;
   category: CommandGroupName;
-  Icon: ComponentType<{ size?: number; "aria-hidden"?: boolean | "true" }>;
+  icon: ReactNode;
   score: number;
 };
 
@@ -73,6 +93,70 @@ type CommandProvider = {
   id: string;
   results: () => (Omit<CommandResult, "score"> & { keywords?: string[] })[];
 };
+
+const topbarStyles = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 16,
+  minHeight: 64,
+  paddingX: { default: 16, md: 24 },
+  borderBottomWidth: 1,
+  borderColor: "gray-200",
+  backgroundColor: "base",
+  position: "sticky",
+  top: 0,
+  zIndex: 10,
+});
+
+const topbarActionsStyles = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "end",
+  gap: 8,
+  flexShrink: 0,
+});
+
+const searchDialogStyles = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: 16,
+  minWidth: { default: "min(90vw, 32rem)", md: 640 },
+  maxWidth: "90vw",
+});
+
+const searchResultsStyles = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  maxHeight: "min(65vh, 36rem)",
+  overflowY: "auto",
+});
+
+const notificationListStyles = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  maxHeight: "min(65vh, 36rem)",
+  overflowY: "auto",
+});
+
+const notificationItemStyles = style({
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  alignItems: "center",
+  gap: 12,
+  paddingY: 8,
+  borderBottomWidth: 1,
+  borderColor: "gray-200",
+});
+
+const notificationCopyStyles = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  minWidth: 0,
+});
 
 const statusLabels: Record<ScreenStatus, string> = {
   online: "Online",
@@ -89,6 +173,12 @@ const notificationGroups: { priority: NotificationPriority; label: string }[] =
     { priority: "warning", label: "Needs attention" },
     { priority: "info", label: "Info" },
   ];
+
+const notificationVariants: Record<NotificationPriority, "negative" | "notice" | "informative"> = {
+  critical: "negative",
+  warning: "notice",
+  info: "informative",
+};
 
 const commandGroupOrder: CommandGroupName[] = [
   "Quick actions",
@@ -133,19 +223,27 @@ export function fuzzyScore(query: string, candidate: string) {
   return 100 - gaps - (haystack.length - needle.length);
 }
 
-function resultIcon(to: string) {
-  if (to.startsWith("/screens") || to.startsWith("/groups")) return Monitor;
-  if (to.startsWith("/assets")) return Image;
-  if (to.startsWith("/playlists")) return ListVideo;
-  if (to.startsWith("/layouts")) return Layers3;
-  if (to.startsWith("/schedules")) return CalendarClock;
+function resultIcon(to: string): ReactNode {
+  if (to.startsWith("/screens") || to.startsWith("/groups"))
+    return <DeviceDesktopIcon aria-hidden="true" />;
+  if (to.startsWith("/assets")) return <ImageIcon aria-hidden="true" />;
+  if (to.startsWith("/playlists")) return <ListBulletedIcon aria-hidden="true" />;
+  if (to.startsWith("/layouts")) return <LayersIcon aria-hidden="true" />;
+  if (to.startsWith("/schedules")) return <CalendarIcon aria-hidden="true" />;
+  if (to.startsWith("/plugins")) return <PluginIcon aria-hidden="true" />;
+  if (to.startsWith("/activity")) return <ClockIcon aria-hidden="true" />;
+  if (to.startsWith("/data-sources")) return <DataIcon aria-hidden="true" />;
   if (
     to.startsWith("/settings") ||
     to.startsWith("/preferences") ||
     to.startsWith("/account")
   )
-    return to.startsWith("/account") ? UserRound : Settings;
-  return FileSliders;
+    return to.startsWith("/account") ? (
+      <UserIcon aria-hidden="true" />
+    ) : (
+      <SettingsIcon aria-hidden="true" />
+    );
+  return <FilesIcon aria-hidden="true" />;
 }
 
 function routeGroup(to: string): CommandGroupName {
@@ -156,7 +254,11 @@ function routeGroup(to: string): CommandGroupName {
     to.startsWith("/data-sources")
   )
     return "Content";
-  if (to.startsWith("/playlists") || to.startsWith("/layouts"))
+  if (
+    to.startsWith("/playlists") ||
+    to.startsWith("/layouts") ||
+    to.startsWith("/campaigns")
+  )
     return "Presentations";
   if (to.startsWith("/schedules")) return "Scheduling";
   if (
@@ -184,7 +286,7 @@ function collectRouteResults(routes: readonly RouteObject[]) {
         description: item.description,
         to: item.to,
         category: routeGroup(item.to),
-        Icon: resultIcon(item.to),
+        icon: resultIcon(item.to),
         keywords: item.keywords,
       });
     }
@@ -204,7 +306,7 @@ function collectActionResults(permissions: CommandPermissions) {
       description: "Connect a new signage player",
       to: "/screens/pair",
       category: "Quick actions",
-      Icon: MonitorCheck,
+      icon: <DeviceDesktopIcon aria-hidden="true" />,
       keywords: ["add screen", "new device", "player"],
     });
   }
@@ -216,7 +318,7 @@ function collectActionResults(permissions: CommandPermissions) {
         description: "Add images, videos, or documents",
         action: "upload-media",
         category: "Quick actions",
-        Icon: Upload,
+        icon: <UploadIcon aria-hidden="true" />,
         keywords: ["content", "asset", "file"],
       },
       {
@@ -225,7 +327,7 @@ function collectActionResults(permissions: CommandPermissions) {
         description: "Build a new fullscreen presentation",
         to: "/playlists?create=1",
         category: "Quick actions",
-        Icon: ListVideo,
+        icon: <ListBulletedIcon aria-hidden="true" />,
         keywords: ["new presentation"],
       },
       {
@@ -234,7 +336,7 @@ function collectActionResults(permissions: CommandPermissions) {
         description: "Arrange content on a presentation canvas",
         to: "/layouts?create=1",
         category: "Quick actions",
-        Icon: Layers3,
+        icon: <LayersIcon aria-hidden="true" />,
         keywords: ["new presentation", "canvas"],
       },
       {
@@ -243,7 +345,7 @@ function collectActionResults(permissions: CommandPermissions) {
         description: "Plan where and when content plays",
         to: "/schedules/new",
         category: "Quick actions",
-        Icon: CalendarClock,
+        icon: <CalendarIcon aria-hidden="true" />,
         keywords: ["new deployment", "publish"],
       },
     );
@@ -269,13 +371,8 @@ export function buildCommandResults(
           description: `${statusLabels[screen.status]}${screen.location ? ` · ${screen.location}` : ""}`,
           to: `/screens/${screen.id}`,
           category: "Screens" as const,
-          Icon: Monitor,
-          keywords: [
-            screen.location,
-            screen.platform,
-            "screen",
-            "player",
-          ].filter(Boolean),
+          icon: <DeviceDesktopIcon aria-hidden="true" />,
+          keywords: [screen.location, screen.platform, "screen", "player"].filter(Boolean),
         })),
     },
   ];
@@ -340,9 +437,6 @@ function breadcrumbQueryKey(resource?: BreadcrumbResource, id?: string) {
   }
 }
 
-// These query keys are shared with each resource's detail page, so the cached value
-// must be the full entity (never a derived string) or the page and the breadcrumb
-// would overwrite each other's cache entry with incompatible shapes.
 function breadcrumbResource(resource: BreadcrumbResource, id: string) {
   switch (resource) {
     case "screen":
@@ -402,27 +496,16 @@ function useBreadcrumbs(routes: readonly RouteObject[], pathname: string) {
 
 function BreadcrumbTrail({ items }: { items: Breadcrumb[] }) {
   return (
-    <nav className="topbar__breadcrumbs" aria-label="Breadcrumb">
-      <ol>
-        {items.map((item, index) => {
-          const current = index === items.length - 1;
-          return (
-            <li key={`${item.to}:${item.label}`}>
-              {index > 0 && (
-                <span className="topbar__breadcrumb-separator" aria-hidden>
-                  /
-                </span>
-              )}
-              {current ? (
-                <span aria-current="page">{item.label}</span>
-              ) : (
-                <Link to={item.to}>{item.label}</Link>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
+    <Breadcrumbs aria-label="Breadcrumb">
+      {items.map((item, index) => (
+        <Breadcrumb
+          key={`${item.to}:${item.label}`}
+          href={index === items.length - 1 ? undefined : item.to}
+        >
+          {item.label}
+        </Breadcrumb>
+      ))}
+    </Breadcrumbs>
   );
 }
 
@@ -432,10 +515,7 @@ function isModalTextInput(target: EventTarget | null) {
     target.matches(
       'input:not([type="button"]):not([type="submit"]), textarea',
     ) || target.isContentEditable;
-  return (
-    textInput &&
-    Boolean(target.closest('dialog, [role="dialog"], .modal, .drawer'))
-  );
+  return textInput && Boolean(target.closest('[role="dialog"], dialog'));
 }
 
 function CommandPalette({
@@ -476,70 +556,108 @@ function CommandPalette({
     if (result.to) void navigate(result.to);
   };
 
+  if (!open) return null;
   return (
-    <Dialog
-      open={open}
-      title="Search Tilecast"
-      className="command-palette-dialog"
-      onClose={onClose}
-    >
-      <Command
-        className="command-palette"
-        label="Search Tilecast"
-        loop
-        shouldFilter={false}
-      >
-        <label className="command-palette__input">
-          <Search size={18} aria-hidden="true" />
-          <Command.Input
-            autoFocus
-            value={query}
-            onValueChange={setQuery}
-            placeholder="Search screens, media, playlists…"
-            aria-label="Search Tilecast"
-          />
-          <kbd>{platformShortcut()}</kbd>
-        </label>
-        <Command.List
-          className="command-palette__results"
-          label="Search results"
-        >
-          <Command.Empty className="command-palette__empty">
-            {query.trim()
-              ? `No results for “${query.trim()}”.`
-              : "No destinations available."}
-          </Command.Empty>
-          {groups.map((group) => (
-            <Command.Group
-              className="command-palette__group"
-              heading={group.name}
-              key={group.name}
+    <DialogContainer onDismiss={onClose}>
+      <Dialog aria-label="Search Tilecast" size="L">
+        <Heading slot="title">Search Tilecast</Heading>
+        <Content>
+          <div className={searchDialogStyles}>
+            <Autocomplete
+              filter={() => true}
             >
-              {group.results.map((result) => (
-                <Command.Item
-                  className="command-palette__result"
-                  key={result.id}
-                  value={result.id}
-                  onSelect={() => select(result)}
-                >
-                  <result.Icon size={18} aria-hidden="true" />
-                  <span>
-                    <strong>{result.label}</strong>
-                    <small>{result.description}</small>
-                  </span>
-                  <ChevronRight size={16} aria-hidden="true" />
-                </Command.Item>
-              ))}
-            </Command.Group>
-          ))}
-        </Command.List>
-        <footer className="command-palette__footer">
-          <span>↑↓ Move</span>
-          <span>Enter Open</span>
-          <span>Esc Close</span>
-        </footer>
-      </Command>
-    </Dialog>
+              <SearchField
+                autoFocus
+                aria-label="Search Tilecast"
+                placeholder="Search screens, media, playlists…"
+                value={query}
+                onChange={setQuery}
+              />
+              {groups.length === 0 ? (
+                <Text>
+                  {query.trim()
+                    ? `No results for “${query.trim()}”.`
+                    : "No destinations available."}
+                </Text>
+              ) : (
+                <div className={searchResultsStyles}>
+                  <Menu aria-label="Search results">
+                    {groups.map((group) => (
+                      <MenuSection key={group.name} aria-label={group.name}>
+                        <Header>
+                          <Heading>{group.name}</Heading>
+                        </Header>
+                        {group.results.map((result) => (
+                          <MenuItem
+                            key={result.id}
+                            id={result.id}
+                            textValue={result.label}
+                            onAction={() => select(result)}
+                          >
+                            {result.icon}
+                            <Text slot="label">{result.label}</Text>
+                            <Text slot="description">{result.description}</Text>
+                          </MenuItem>
+                        ))}
+                      </MenuSection>
+                    ))}
+                  </Menu>
+                </div>
+              )}
+            </Autocomplete>
+            <Text>{`Use ↑ and ↓ to move, Enter to open, Esc to close · ${platformShortcut()}`}</Text>
+          </div>
+        </Content>
+      </Dialog>
+    </DialogContainer>
+  );
+}
+
+function NotificationsPopover({ user }: { user?: User }) {
+  const notifications = useNotifications(user);
+
+  return (
+    <DialogTrigger>
+      <ActionButton
+        aria-label={`Notifications${notifications.count ? `, ${notifications.count} active` : ""}`}
+      >
+        <BellIcon aria-hidden="true" />
+        {notifications.count > 0 && <Text>{notifications.count}</Text>}
+      </ActionButton>
+      <Popover aria-label="Notifications" size="M">
+        <div className={notificationListStyles}>
+          <Heading level={2}>Notifications</Heading>
+          {notifications.count === 0 ? (
+            <Text>You&rsquo;re all caught up.</Text>
+          ) : (
+            notificationGroups.map((group) => {
+              const items = notifications.items.filter(
+                (item) => item.priority === group.priority,
+              );
+              if (items.length === 0) return null;
+              return (
+                <section key={group.priority} aria-label={group.label}>
+                  <Heading level={3}>{group.label}</Heading>
+                  {items.map((item) => (
+                    <div className={notificationItemStyles} key={item.id}>
+                      <div className={notificationCopyStyles}>
+                        <StatusLight variant={notificationVariants[item.priority]}>
+                          {item.title}
+                        </StatusLight>
+                        <Text>{item.detail}</Text>
+                      </div>
+                      <Link aria-label={`Open ${item.title}`} href={item.to}>
+                        <ChevronRightIcon aria-hidden="true" />
+                      </Link>
+                    </div>
+                  ))}
+                </section>
+              );
+            })
+          )}
+        </div>
+      </Popover>
+    </DialogTrigger>
   );
 }
 
@@ -561,7 +679,6 @@ export function StudioTopbar({
     queryFn: api.screens,
     refetchInterval: 10_000,
   });
-  const notifications = useNotifications(user);
   const canPair = user?.role === "owner" || user?.role === "administrator";
   const canCreate = user?.role !== "viewer";
 
@@ -580,159 +697,73 @@ export function StudioTopbar({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Popover dismisses itself on Escape, an outside press, and a route change.
   useEffect(() => {
     setPaletteOpen(false);
   }, [location.pathname]);
 
   return (
-    <header className="topbar">
-      <div className="topbar__left">
-        {/* A single crumb is just the page title repeated above the page's own <h1>,
-            so the trail only appears once it actually describes a path. */}
+    <header className={topbarStyles}>
+      <div>
         {breadcrumbs.length > 1 && <BreadcrumbTrail items={breadcrumbs} />}
       </div>
-      <button
-        className="topbar__search"
-        type="button"
-        aria-label="Search Tilecast"
-        aria-haspopup="dialog"
-        onClick={() => setPaletteOpen(true)}
-      >
-        <Search size={17} aria-hidden="true" />
-        {/* Deliberately not "Search screens…": pages carry their own list filter,
-            and two controls promising to search screens read as competitors. */}
-        <span className="topbar__search-placeholder">Search Tilecast…</span>
-        <kbd>{platformShortcut()}</kbd>
-      </button>
-      <div className="topbar__utilities">
-        {/* Not a menu: the panel carries a heading, a count, and labelled
-            groups, none of which an ARIA menu may contain — a screen reader
-            drops them and announces a bare item count. It is a labelled surface
-            holding grouped lists of links. */}
-        <Popover
-          label="Notifications"
-          className="topbar__notifications"
-          panelClassName="topbar__alerts"
-          width="22rem"
-          align="end"
-          trigger={(props) => (
-            <IconButton label="Notifications" {...props}>
-              <Bell size={18} aria-hidden="true" />
-              {notifications.count > 0 && (
-                <span
-                  className={`topbar__notification-badge topbar__notification-badge--${notifications.topPriority}`}
-                  aria-hidden="true"
-                >
-                  {notifications.count > 99 ? "99+" : notifications.count}
-                </span>
-              )}
-            </IconButton>
-          )}
+      <div className={topbarActionsStyles}>
+        <ActionButton
+          aria-label={`Search Tilecast (${platformShortcut()})`}
+          onPress={() => setPaletteOpen(true)}
         >
-          <header>
-            <strong>Notifications</strong>
-            <span>{notifications.count || "No"} active</span>
-          </header>
-          {notifications.count === 0 ? (
-            <p>You&rsquo;re all caught up.</p>
-          ) : (
-            <div className="topbar__alert-groups">
-              {notificationGroups.map((group) => {
-                const groupItems = notifications.items.filter(
-                  (item) => item.priority === group.priority,
-                );
-                if (groupItems.length === 0) return null;
-                return (
-                  <div className="topbar__alert-group" key={group.priority}>
-                    <p
-                      className="topbar__alert-group-label"
-                      id={`topbar-alert-group-${group.priority}`}
-                    >
-                      {group.label}
-                      <span>{groupItems.length}</span>
-                    </p>
-                    <ul
-                      className="topbar__alert-list"
-                      aria-labelledby={`topbar-alert-group-${group.priority}`}
-                    >
-                      {groupItems.map((item) => (
-                        <li key={item.id}>
-                          <Link to={item.to}>
-                            <span
-                              className={`topbar__alert-marker topbar__alert-marker--${item.priority}`}
-                              aria-hidden
-                            />
-                            <span>
-                              <strong>{item.title}</strong>
-                              <small>{item.detail}</small>
-                            </span>
-                            <ChevronRight size={15} aria-hidden="true" />
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Popover>
-        <span className="topbar__divider" aria-hidden="true" />
+          <SearchIcon aria-hidden="true" />
+          <Text>Search Tilecast</Text>
+          <Text>{platformShortcut()}</Text>
+        </ActionButton>
+        <NotificationsPopover user={user} />
         {canPair && (
-          <Link
-            className="button button--secondary topbar__pair"
-            to="/screens/pair"
-            aria-label="Pair screen"
-          >
-            <MonitorCheck size={16} aria-hidden="true" />
-            <span>Pair screen</span>
-          </Link>
+          <LinkButton href="/screens/pair" variant="secondary">
+            <DeviceDesktopIcon aria-hidden="true" />
+            <Text>Pair screen</Text>
+          </LinkButton>
         )}
         {canCreate && (
-          <Popover
-            label="Create"
-            mode="menu"
-            className="topbar__create"
-            panelClassName="topbar__create-menu"
-            align="end"
-            trigger={(props) => (
-              <Button variant="primary" {...props}>
-                <Plus size={16} aria-hidden="true" /> Create
-                <ChevronDown size={15} aria-hidden="true" />
-              </Button>
-            )}
-          >
-            {(close) => (
-              <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    close();
-                    setUploadOpen(true);
-                  }}
-                >
-                  <Upload size={16} aria-hidden="true" /> Upload media
-                </button>
-                <Link role="menuitem" to="/widgets/new" onClick={close}>
-                  <Blocks size={16} aria-hidden="true" /> Create widget
-                </Link>
-                <Link role="menuitem" to="/data-sources/new" onClick={close}>
-                  <Database size={16} aria-hidden="true" /> Create data source
-                </Link>
-                <Link role="menuitem" to="/playlists?create=1" onClick={close}>
-                  <ListVideo size={16} aria-hidden="true" /> Create playlist
-                </Link>
-                <Link role="menuitem" to="/layouts?create=1" onClick={close}>
-                  <Layers3 size={16} aria-hidden="true" /> Create layout
-                </Link>
-                <Link role="menuitem" to="/schedules/new" onClick={close}>
-                  <CalendarClock size={16} aria-hidden="true" /> Create schedule
-                </Link>
-              </>
-            )}
-          </Popover>
+          <MenuTrigger align="end">
+            <Button variant="primary">
+              <AddIcon aria-hidden="true" />
+              <Text>Create</Text>
+            </Button>
+            <Menu
+              aria-label="Create"
+              onAction={(key) => {
+                if (key === "upload") setUploadOpen(true);
+              }}
+            >
+              <MenuSection aria-label="Create content">
+                <MenuItem id="upload">
+                  <UploadIcon aria-hidden="true" />
+                  <Text slot="label">Upload media</Text>
+                </MenuItem>
+                <MenuItem id="widget" href="/widgets/new">
+                  <AppsIcon aria-hidden="true" />
+                  <Text slot="label">Create widget</Text>
+                </MenuItem>
+                <MenuItem id="data" href="/data-sources/new">
+                  <DataIcon aria-hidden="true" />
+                  <Text slot="label">Create data source</Text>
+                </MenuItem>
+              </MenuSection>
+              <MenuSection aria-label="Create a presentation">
+                <MenuItem id="playlist" href="/playlists?create=1">
+                  <ListBulletedIcon aria-hidden="true" />
+                  <Text slot="label">Create playlist</Text>
+                </MenuItem>
+                <MenuItem id="layout" href="/layouts?create=1">
+                  <LayersIcon aria-hidden="true" />
+                  <Text slot="label">Create layout</Text>
+                </MenuItem>
+                <MenuItem id="schedule" href="/schedules/new">
+                  <CalendarIcon aria-hidden="true" />
+                  <Text slot="label">Create schedule</Text>
+                </MenuItem>
+              </MenuSection>
+            </Menu>
+          </MenuTrigger>
         )}
       </div>
       <CommandPalette
