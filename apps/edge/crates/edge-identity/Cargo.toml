@@ -1,0 +1,35 @@
+[package]
+name = "edge-identity"
+description = "Tilecast Edge node identity: node keys, CSRs, certificate verification, revocation and mTLS configuration."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[features]
+# A test certificate authority matching the server's issuance template.
+test-util = ["rcgen/x509-parser"]
+
+[dependencies]
+edge-protocol.workspace = true
+rcgen.workspace = true
+ring.workspace = true
+rustls.workspace = true
+rustls-pki-types.workspace = true
+rustls-webpki.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+x509-parser.workspace = true
+
+[dev-dependencies]
+edge-identity = { path = ".", features = ["test-util"] }
+edge-protocol = { workspace = true, features = ["test-util"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
+tokio-rustls.workspace = true
+x509-parser = { workspace = true, features = ["verify"] }
+
+[lints]
+workspace = true

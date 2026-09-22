@@ -39,6 +39,7 @@
 //! re-signs server state.
 
 pub mod change;
+pub mod snapshot;
 pub mod statement;
 
 use base64::Engine as _;

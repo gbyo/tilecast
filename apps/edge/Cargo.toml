@@ -4,6 +4,7 @@ members = [
     "crates/edge-protocol",
     "crates/edge-state",
     "crates/edge-cas",
+    "crates/edge-identity",
     "crates/edge-ipc",
     "crates/edge-platform",
     "tilecastd",

@@ -241,6 +241,20 @@ pub fn revoked_node_ids(connection: &Connection) -> Result<Vec<NodeId>> {
     rows.map(|row| parse(&row?, "node_id")).collect()
 }
 
+/// Every stored revocation as (node, generation, forget after), to rebuild
+/// the in-memory revocation set at startup.
+pub fn revocation_entries(connection: &Connection) -> Result<Vec<(NodeId, u64, Timestamp)>> {
+    let mut statement =
+        connection.prepare("SELECT node_id, generation, forget_after_ms FROM revocations ORDER BY node_id")?;
+    let rows =
+        statement.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)))?;
+    rows.map(|row| {
+        let (node, generation, forget) = row?;
+        Ok((parse(&node, "node_id")?, generation as u64, from_ms(forget)?))
+    })
+    .collect()
+}
+
 /// Forgets revocations whose certificates have all expired.
 pub fn prune_revocations(connection: &Connection, now: Timestamp) -> Result<usize> {
     Ok(connection.execute("DELETE FROM revocations WHERE forget_after_ms < ?1", params![ms(now)])?)
