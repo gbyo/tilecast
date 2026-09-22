@@ -68,7 +68,7 @@ The core decisions are:
 8. **Use Linux-native platform services.** Avahi/D-Bus for mDNS, NetworkManager through the existing narrow privilege boundary, PipeWire for audio, udev for hardware discovery, linuxptp for optional PTP, and systemd for lifecycle/watchdog supervision.
 9. **WPE WebKit is the Linux renderer.** Target a tested stable WPE WebKit 2.54.x build through WPEPlatform, not legacy Cog/libwpe/WPEBackend-fdo. The first-party renderer is a small C/GLib host supervised by `tilecastd`.
 10. **Electron is legacy-only.** New Edge installations never ship, select, or fall back to Electron. `apps/player-linux` remains temporarily as a behavioral reference and legacy-state source while the one-time migration path is supported; production Edge playback is WPE-only.
-11. **Tilecast Studio Edge UI follows the canonical shadcn Base UI + Rhea Studio plan.** Edge surfaces must reuse the current Studio shell, information architecture, interaction rules and generated shadcn components from `docs/studio-rhea-redesign-plan.md`. Do not revive the abandoned Spectrum implementation or add a second Edge-specific design system.
+11. **Tilecast Studio Edge UI follows the canonical shadcn Base UI + Rhea Studio plan.** `docs/studio-rhea-redesign-plan.md` is being implemented as a separate concurrent workstream and is the source of truth for Studio shell, component architecture and information architecture. Edge surfaces integrate into that resulting Rhea implementation; Edge work must not independently redesign Studio, recreate the shell, or revive Spectrum 2.
 12. **No physical-neighbor choreography in this project.** That idea is explicitly deferred. Edge does not need a building topology or animated network map.
 
 ---
@@ -3619,7 +3619,9 @@ Do not require Zenoh in Android v1. Later Android participation may use direct s
 
 The canonical Studio design source is `docs/studio-rhea-redesign-plan.md`.
 
-Do not revive Spectrum 2, the abandoned Spectrum shell, or a second Edge-specific component language.
+That redesign is being implemented separately from Tilecast Edge. Treat it as an upstream UI dependency, not work for the Edge implementation to duplicate. Runtime/server/Edge work may proceed independently, but broad Studio UI work should integrate only after the Rhea shell/components it needs have landed or are otherwise available on the integration branch.
+
+**Spectrum 2 is abandoned for Tilecast Studio.** Do not add Spectrum packages, Spectrum components, Spectrum-specific composition, or a second Edge-specific component language.
 
 ### 36.1 Design-system rule
 
@@ -4754,7 +4756,9 @@ Verify direct WPE DRM boot, connector/modes/hotplug, display sleep/active hours,
 
 ### E15 — Rhea Edge administration integration
 
-This work follows `docs/studio-rhea-redesign-plan.md`; it does not create a second Studio shell or global Edge silo.
+This work follows the separately implemented `docs/studio-rhea-redesign-plan.md`; it does not create a second Studio shell or global Edge silo.
+
+The Studio redesign agent/workstream owns the product-wide shell, generated shadcn Base UI/Rhea component layer, navigation composition and broad page migration. E15 owns only the Edge-specific data and workflows that plug into those established surfaces. If the Rhea implementation is still in flight, keep Edge UI work limited to backend/API/types/tests or an isolated integration branch rather than recreating temporary UI that will immediately be replaced.
 
 ### E15.1 API/types
 
@@ -4774,9 +4778,10 @@ Use canonical shadcn/Rhea semantics: text/icon status, keyboard access, no hover
 
 ### E15 exit criteria
 
-- no Spectrum dependency is reintroduced;
+- no Spectrum dependency, import, component or composition is reintroduced;
+- Edge UI is built on the landed/integration-ready Rhea implementation rather than the pre-redesign shell;
 - no second sidebar/shell is created;
-- canonical Rhea components/interaction rules are used;
+- canonical generated shadcn Base UI + Rhea components/interaction rules are used;
 - Playwright/accessibility tests cover core operational flows;
 - UI shows backend-provided real metrics/state only.
 
@@ -5079,7 +5084,7 @@ Build on the minimum trusted-time/certificate policy already required by PR 23/2
 
 ### Rhea Studio integration PRs
 
-These start only after the canonical shadcn Base UI + Rhea shell/components in `docs/studio-rhea-redesign-plan.md` are stable enough to avoid rebuilding the same surfaces twice.
+These are an integration workstream, not a second Studio redesign. A separate agent/workstream is implementing `docs/studio-rhea-redesign-plan.md`. Start the Edge Studio PRs only after the Rhea shell/components they depend on have landed or are available on the shared integration branch, then rebase/adapt Edge work to that implementation. Do not build Edge screens against the pre-Rhea shell as temporary production UI.
 
 ### PR 65 — `feat(studio-edge): add Edge data to Overview/Screens clients`
 
@@ -5095,7 +5100,7 @@ These start only after the canonical shadcn Base UI + Rhea shell/components in `
 
 ### PR 71 — `feat(activity): integrate Edge events/incidents`
 
-No PR in this group reintroduces Spectrum or a second Studio sidebar.
+No PR in this group reintroduces Spectrum, installs Spectrum dependencies, recreates the global Studio shell, or forks a second Edge-specific sidebar/component system.
 
 ### Final rollout PRs
 
@@ -5739,9 +5744,9 @@ Do not add Zenoh as a mandatory Docker service. The normal Tilecast Server remai
 
 Server/Edge protocols remain independently testable from Studio.
 
-The canonical UI migration is `docs/studio-rhea-redesign-plan.md` (shadcn Base UI + Rhea). Edge does not revive Spectrum and does not create an alternate shell.
+The canonical UI migration is `docs/studio-rhea-redesign-plan.md` (shadcn Base UI + Rhea), and that migration is being implemented independently from Edge. Edge does not own the product-wide redesign, does not revive Spectrum 2 and does not create an alternate shell.
 
-Runtime/CDN/security work can expose temporary API/`tilecastctl` diagnostics until the canonical Rhea surfaces are ready.
+Runtime/CDN/security work can expose temporary API/`tilecastctl` diagnostics until the Rhea implementation is ready. When Studio work begins, rebase onto/integrate with the actual Rhea implementation instead of carrying assumptions from the old Studio or creating a parallel UI layer.
 
 ## 53. Research notes and upstream references
 
@@ -5972,7 +5977,7 @@ Official shadcn references used by that plan:
 - <https://ui.shadcn.com/docs/components/base/sidebar>
 - <https://ui.shadcn.com/docs/components/base/data-table>
 
-This Edge RFC follows that document for shell, component, information-architecture and accessibility choices rather than duplicating the Studio design specification here.
+This Edge RFC follows that document for shell, component, information-architecture and accessibility choices rather than duplicating the Studio design specification here. The Rhea redesign is a separate concurrent implementation workstream; this RFC deliberately treats it as the canonical upstream Studio dependency. Spectrum 2 is not part of the target Studio architecture.
 
 ### NetworkManager
 
