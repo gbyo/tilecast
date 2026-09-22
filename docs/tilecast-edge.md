@@ -300,7 +300,7 @@ Presentation policy and business logic stay in Rust.
 
 `tilecastd` is the durable Linux player brain.
 
-It runs as a fixed unprivileged account, preferably `tilecast`, under a **system** systemd service. It should not run as root and should not inherit a logged-in user's broad session privileges.
+It runs as a fixed unprivileged account, `tilecast-edge`, under a **system** systemd service. It should not run as root and should not inherit a logged-in user's broad session privileges. Renderers run under a separate `tilecast-renderer` identity so a compromised renderer cannot authenticate to daemon administration IPC merely because it shares the daemon's UID.
 
 It owns:
 
@@ -330,9 +330,11 @@ It owns:
 
 ### 6.2 Renderers
 
-Renderers are disposable.
+Renderers are disposable and run under the dedicated unprivileged `tilecast-renderer` account, separate from `tilecast-edge`.
 
-A renderer receives a complete, validated, prepared presentation contract and reports evidence about what actually happened on screen. It does not receive:
+A renderer receives a complete, validated, prepared presentation contract and reports evidence about what actually happened on screen. Its access to `tilecastd` is granted by a renderer-only Unix socket whose ownership and peer-credential checks map that OS identity to the renderer role. The renderer does not self-assert an administrative role in JSON.
+
+It does not receive:
 
 - the Tilecast device bearer credential;
 - Edge node private keys;
@@ -389,11 +391,11 @@ Recommended production layout:
 /var/lib/tilecast-edge/
     state.db
     identity/
-        device-credential        0600 tilecast:tilecast
-        node-key.pem             0600 tilecast:tilecast
-        node-cert.pem            0644
-        edge-ca.pem              0644
-        authority-public.pem     0644
+        device-credential        0600 tilecast-edge:tilecast-edge
+        node-key.pem             0600 tilecast-edge:tilecast-edge
+        node-cert.pem            0644 tilecast-edge:tilecast-edge
+        edge-ca.pem              0644 tilecast-edge:tilecast-edge
+        authority-public.pem     0644 tilecast-edge:tilecast-edge
     cas/
         sha256/
             ab/
@@ -403,7 +405,8 @@ Recommended production layout:
     diagnostics/
 
 /run/tilecast-edge/
-    edge.sock
+    renderer.sock
+    admin.sock
     health/
 
 /opt/tilecast-edge/
@@ -487,21 +490,23 @@ Do not update `last_accessed_at` synchronously on every media read. Batch cache-
 
 ### 9.1 Transport
 
-Use an AF_UNIX stream socket:
+Use separate AF_UNIX stream sockets for renderer and administrative clients:
 
 ```text
-/run/tilecast-edge/edge.sock
+/run/tilecast-edge/renderer.sock
+/run/tilecast-edge/admin.sock
 ```
 
-Permissions:
+Recommended ownership:
 
 ```text
-owner: tilecast
-group: tilecast
-mode: 0660
+renderer.sock  owner: tilecast-edge   group: tilecast-renderer   mode: 0660
+admin.sock     owner: tilecast-edge   group: tilecast-admin      mode: 0660
 ```
 
-`tilecastd` must inspect peer credentials (`SO_PEERCRED` on Linux) and reject unexpected UIDs even when filesystem permissions appear correct.
+`tilecastd` must inspect peer credentials (`SO_PEERCRED` on Linux) and reject unexpected UIDs even when filesystem permissions appear correct. Socket choice plus peer credentials determine the maximum role available to the connection. A client-provided JSON `role` is descriptive/negotiated metadata, never the authorization decision.
+
+A future user-session bridge must receive its own dedicated socket and allowed UID/group policy; it must not gain renderer or administration authority merely by connecting to one of these sockets.
 
 ### 9.2 Encoding
 
@@ -538,13 +543,15 @@ Every connection begins with:
 }
 ```
 
-Allowed roles are closed, e.g.:
+Allowed protocol roles are closed, e.g.:
 
 - `renderer`
 - `tilecastctl`
 - `session_bridge`
 
-The server replies with the negotiated protocol, Edge version, screen identity safe for that role, and enabled message capabilities.
+The claimed role must agree with the role already authorized by the socket and `SO_PEERCRED`. For example, a process connected as `tilecast-renderer` cannot send `"role": "tilecastctl"` and gain administration methods; that handshake is rejected.
+
+The server replies with the negotiated protocol, Edge version, screen identity safe for that authorized role, and enabled message capabilities.
 
 ### 9.4 Renderer contract
 
@@ -649,6 +656,8 @@ The certificate must bind:
 
 Put stable machine-readable identifiers in SAN/custom OID fields rather than relying only on display names/common names.
 
+The player installation ID is the durable node identity; the screen ID is an authorization binding at certificate issue time. If the same hardware is deliberately rebound/repaired to a different logical screen, the server revokes the old certificate and requires immediate certificate reissuance before mesh participation resumes. Peers must never treat a stale screen ID embedded in an otherwise valid certificate as current authorization.
+
 ### 11.4 Rotation
 
 Recommended initial policy:
@@ -667,6 +676,10 @@ If a screen/device credential is revoked or hardware is replaced, the Edge certi
 Use a monotonic server-side revocation generation included in signed Edge changes. Nodes keep the current bounded revocation set/generation and reject revoked peer node IDs even if the X.509 certificate has not expired yet.
 
 Certificate expiry remains a second safety boundary.
+
+Revocation applies to existing sessions as well as new handshakes. When a node learns a newer revocation generation, it must immediately reject application data from a revoked node and close any matching live Zenoh/peer-HTTPS sessions. Transport teardown may race, so application-level node checks remain mandatory until the connection is gone.
+
+Certificate validation must use the Clock Authority's bounded trusted-time view rather than blindly trusting a potentially stale RTC. Persist the newest trustworthy wall-clock lower bound learned from Tilecast Server/NTP/PTP and never allow validation time to move backward across restart. If Edge cannot bound current time well enough to decide certificate validity safely, peer mesh enters a visible `time_untrusted`/degraded state instead of disabling certificate expiry checks; ordinary server-backed/cached playback remains available.
 
 Do not implement online OCSP as an Edge availability dependency.
 
@@ -739,7 +752,7 @@ All ports must be configurable because schools may have policy conflicts.
 
 A critical Zenoh detail: scouting can otherwise negotiate any supported transport. Edge must explicitly restrict Zenoh link protocols to TLS.
 
-Conceptually:
+The shipped/tested configuration fixture must include the full mutual-authentication posture, not only listener credentials. Conceptually:
 
 ```json
 {
@@ -749,15 +762,24 @@ Conceptually:
       "protocols": ["tls"],
       "tls": {
         "root_ca_certificate": "...",
+        "enable_mtls": true,
         "listen_private_key": "...",
-        "listen_certificate": "..."
+        "listen_certificate": "...",
+        "connect_private_key": "...",
+        "connect_certificate": "...",
+        "close_link_on_expiration": true,
+        "verify_name_on_connect": false
       }
     }
   }
 }
 ```
 
-A node discovered over multicast is still not connected until TLS peer authentication succeeds.
+`verify_name_on_connect` is deliberately false only because Edge peers are reached through changing private IP addresses while certificates bind Tilecast logical node identity, not those IP addresses. This does **not** disable certificate-chain verification or mTLS.
+
+After transport authentication, every peer establishes Tilecast node identity with a bounded signed node statement containing its node ID, installation ID, certificate, protocol version and nonce/session binding. The receiving node verifies the certificate chain against the installation CA, verifies the statement with the public key in that certificate, checks the certificate's Tilecast SAN/OID identifiers against the statement, checks revocation, and then binds that logical node ID to the session. If the Zenoh API/version in use can expose an equivalently strong authenticated certificate subject binding directly, the implementation may use that instead, but E5 tests must prove the binding. A CA-valid peer must not be able to publish as another node merely by choosing that node's keyspace.
+
+A node discovered over multicast is still not connected as a usable Tilecast peer until TLS mutual authentication and logical node binding both succeed.
 
 ### 13.4 Interface selection
 
@@ -999,11 +1021,14 @@ For an object with expected hash and size:
 7. Verify exact byte count and SHA-256.
 8. fsync temporary file.
 9. atomically rename into CAS.
-10. record metadata transaction.
-11. publish best-effort cache-add event.
+10. fsync the destination directory so the rename itself is durable across power loss.
+11. record metadata transaction.
+12. publish best-effort cache-add event.
 ```
 
 The receiver **always verifies the final bytes**. mTLS authenticates the peer; it does not make the peer's disk infallible.
+
+CAS startup/recovery must reconcile the two possible crash windows around file promotion and SQLite metadata: a verified CAS file with no metadata row may be re-indexed after validating its hash/path, while a metadata row whose file is missing is removed/marked absent and becomes eligible for refetch. Neither state is treated as a complete object until the filesystem and metadata agree.
 
 ### 14.6 Ranking peers
 
@@ -1127,11 +1152,31 @@ Therefore peers relay exact server-signed envelopes. They do not rewrite or re-s
 
 ### 15.2 `edge_changes`
 
-Add a server table with a monotonic sequence:
+Use a durable outbox plus a **projector-assigned contiguous Edge feed position**. Do not use `BIGSERIAL`/PostgreSQL sequence allocation as the protocol's gapless ordering mechanism: sequence values can be consumed by rolled-back transactions and are not commit ordering.
+
+Conceptually:
 
 ```text
+edge_change_outbox
+  id                  UUID PRIMARY KEY
+  organization_id     UUID
+  type                TEXT
+  target_kind         TEXT
+  target_id           UUID NULL
+  object_hash         TEXT NULL
+  payload             BYTEA/JSONB
+  created_at          TIMESTAMPTZ
+  expires_at          TIMESTAMPTZ NULL
+  projected_at        TIMESTAMPTZ NULL
+
+edge_feed_state
+  installation_id     UUID PRIMARY KEY
+  last_sequence       BIGINT
+
 edge_changes
-  sequence            BIGSERIAL PRIMARY KEY
+  sequence            BIGINT PRIMARY KEY
+  previous_sequence   BIGINT NULL
+  outbox_id            UUID UNIQUE
   organization_id     UUID
   type                TEXT
   target_kind         TEXT
@@ -1142,6 +1187,8 @@ edge_changes
   created_at          TIMESTAMPTZ
   expires_at          TIMESTAMPTZ NULL
 ```
+
+The authoritative domain mutation inserts the outbox row in the same PostgreSQL transaction. A serialized/locked signer-projector later claims committed outbox rows, increments `edge_feed_state.last_sequence`, signs the envelope, and inserts the final `edge_changes` row in one transaction. Therefore every committed Edge feed position exists and positions reflect projection order rather than unrelated transaction start/commit races.
 
 The exact canonical bytes that were signed are retained so any peer can relay them byte-for-byte.
 
@@ -1156,6 +1203,7 @@ Conceptual envelope:
   "schema": 1,
   "installationId": "...",
   "sequence": 1234,
+  "previousSequence": 1233,
   "type": "screen.presentation.changed",
   "target": {
     "kind": "screen",
@@ -1171,6 +1219,10 @@ Conceptual envelope:
   "signature": "..."
 }
 ```
+
+The signed bytes are precisely defined: canonicalize the envelope **without** the `signature` member using the selected JCS implementation, sign those bytes, then attach the encoded signature. Verification removes `signature`, reproduces the canonical bytes, and verifies them. Golden fixtures contain both the unsigned canonical bytes and the complete signed envelope.
+
+`previousSequence` is signed. For the first retained/base feed record it may be null or the signed snapshot base as explicitly defined by the protocol; otherwise it must equal the preceding feed position.
 
 `tilecastd` verifies:
 
@@ -1202,15 +1254,16 @@ When one node receives and verifies sequence 1234, it announces the exact signed
 Other nodes:
 
 1. compare with their last contiguous applied sequence;
-2. request missing sequences from a peer first;
-3. verify each server signature locally;
-4. fall back to Tilecast Server if no peer can provide the gap.
+2. require the incoming envelope's signed `previousSequence` to match that local position;
+3. request missing feed positions from a peer first when it does not match;
+4. verify each server signature locally;
+5. fall back to Tilecast Server if no peer can provide the gap.
 
 This gives the desired behavior: a screen may learn of a new server-authorized update from a nearby screen without immediately contacting the server.
 
 ### 15.6 Sequence gaps
 
-Never apply “latest wins” blindly across a missing gap for state that depends on ordered revocations/config changes.
+Never apply “latest wins” blindly across a missing feed position for state that depends on ordered revocations/config changes.
 
 Store:
 
@@ -1219,7 +1272,9 @@ last_contiguous_sequence
 highest_seen_sequence
 ```
 
-If sequence 1238 arrives while 1236-1237 are missing, hold/apply only message classes explicitly documented as independently safe and fetch the gap. The simplest v1 rule is to require contiguous change application.
+A gap means a **published Edge feed position** is missing locally, not merely that a PostgreSQL sequence number was skipped. If sequence 1238 arrives while the local position is 1235 and the signed `previousSequence` chain cannot be connected, fetch the missing feed records. The simplest v1 rule is to require contiguous change application.
+
+Because positions are assigned only by the serialized signer-projector when a final signed feed row is committed, transaction rollback must never create a permanent protocol gap.
 
 ### 15.7 Retention and snapshot fallback
 
@@ -1547,11 +1602,30 @@ Long-term historical analytics, if ever needed, belong in server Activity/metric
 
 ### 18.8 Mesh propagation
 
+Edge-local observations use a versioned signed observation envelope rather than trusting the Zenoh key alone. It includes at least:
+
+```text
+schema
+installationId
+nodeId
+sourceId
+sourceSequence
+key
+scope
+typed value
+observedAt
+expiresAt
+certificate/identity reference
+signature
+```
+
+`sourceSequence` is monotonic per `(nodeId, sourceId)`. Peers persist the highest accepted value needed for replay protection and reject older/replayed observations even when their signatures are valid. The observation signature is made by the node key and is accepted only after the node certificate, installation binding, current revocation state, configured source permission, scope and value schema all validate. Server-only context keys remain impossible for an Edge-local source to claim.
+
 When an effective local context value changes:
 
 - persist locally if required;
-- publish an authenticated bounded update on its permitted Zenoh key;
-- peers validate source/scope permissions;
+- publish the signed bounded observation/update on its permitted Zenoh key;
+- peers validate identity, replay sequence, source/scope permissions and freshness;
 - recompute their relevant effective context;
 - coalesce noisy sensor updates.
 
@@ -2069,8 +2143,8 @@ Illustrative unit properties:
 ```ini
 [Service]
 Type=notify
-User=tilecast
-Group=tilecast
+User=tilecast-edge
+Group=tilecast-edge
 ExecStart=/opt/tilecast-edge/current/bin/tilecastd
 Restart=always
 RestartSec=2
@@ -2122,9 +2196,9 @@ Long-term:
 tilecast-renderer.service
 ```
 
-runs the selected renderer as the unprivileged Tilecast account.
+runs the selected renderer as the unprivileged `tilecast-renderer` account, not as `tilecast-edge`.
 
-`tilecastd` may request start/stop/restart through the systemd D-Bus API or a tightly constrained service relationship. It should not shell out to arbitrary `systemctl` command strings.
+`tilecastd` may request start/stop/restart through the systemd D-Bus API or a tightly constrained service relationship. It should not shell out to arbitrary `systemctl` command strings. The renderer service receives only the renderer socket and explicitly required device/session access; it must not inherit read access to `/var/lib/tilecast-edge/identity`.
 
 A renderer crash restarts the renderer, not the Edge daemon.
 
@@ -2566,11 +2640,18 @@ Mirror existing update semantics:
 
 Healthy **playback** need not be required to settle an Edge binary update if the screen is deliberately sleeping/no content is assigned, but the local renderer-management path must be functional.
 
-### 30.8 WPE runtime dependency updates
+### 30.8 WPE runtime dependency and packaging
 
-On general-purpose Debian/Ubuntu installations, WPE/Mesa/GStreamer system-library security updates remain the operating system's responsibility initially.
+Tilecast's renderer baseline is WPE WebKit 2.54+ / WPEPlatform. Do not assume a supported Debian/Ubuntu release provides that runtime merely because WebKitGTK or an older WPE package exists. The installer must probe the exact WPEPlatform API/runtime version before enabling WPE.
 
-Tilecast must report runtime versions and a compatibility state but should not silently replace arbitrary distribution packages.
+For general-purpose installations, support one of two explicit modes:
+
+1. a distribution/repository whose packaged WPE WebKit satisfies Tilecast's tested baseline; or
+2. a Tilecast-owned, versioned WPE runtime bundle installed under a private immutable prefix and updated through a defined signed release path.
+
+Do not overwrite arbitrary distribution libraries in place and do not silently mix an old distro WPE runtime with a launcher compiled for WPEPlatform 2.54+. Mesa/GStreamer and other host graphics/media dependencies may remain distribution-owned initially, but their tested compatibility range must be reported.
+
+As of this RFC date, Ubuntu's public package index does not provide a WPE 2.54 package for Ubuntu 26.04, so Ubuntu support cannot rely on the stock WPE package alone. This is a packaging requirement, not a reason to lower the WPEPlatform baseline.
 
 A later Tilecast appliance image can make the entire OS/runtime atomic.
 
@@ -3378,7 +3459,7 @@ These are release-blocking invariants.
 
 1. A LAN peer can never make another player accept unsigned authoritative state.
 2. Every applied server Edge change verifies the Edge authority signature and installation ID.
-3. Every peer connection uses mTLS after discovery; Zenoh's protocol whitelist prevents opportunistic plaintext sessions.
+3. Every peer connection uses mTLS after discovery; Zenoh's protocol whitelist prevents opportunistic plaintext sessions, and Tilecast cryptographically binds the resulting session to the claimed logical node identity.
 4. The existing Tilecast device bearer credential is never sent to another peer.
 5. Node private keys never leave their node.
 6. Release-signing private keys remain outside Tilecast Server.
@@ -3394,8 +3475,11 @@ These are release-blocking invariants.
 16. Context rules cannot perform I/O or mutations.
 17. Sensor providers are typed and explicitly enabled; no generic device-file bridge.
 18. An optional capability failure cannot brick normal playback.
-19. Revoked node identity prevents new peer access even before certificate natural expiry once revocation state reaches the peer.
-20. A malformed optional Edge heartbeat field cannot suppress ordinary player contact/status processing.
+19. Revoked node identity prevents new peer access and invalidates already-established peer sessions once revocation state reaches the peer.
+20. Renderer/admin IPC authority is derived from separate OS identities, socket permissions and peer credentials; a renderer cannot self-declare an admin role.
+21. A CA-valid peer cannot impersonate another node's logical identity/keyspace.
+22. Locally authored Context observations are signed, source-scoped and replay-protected.
+23. A malformed optional Edge heartbeat field cannot suppress ordinary player contact/status processing.
 
 ---
 
@@ -3633,8 +3717,11 @@ Document:
 
 ### E0 exit criteria
 
-- Go and Rust test code independently produce identical canonical bytes/signature verification fixtures.
+- Go and Rust test code independently produce identical canonical bytes/signature verification fixtures, including the rule that `signature` itself is excluded from signed canonical bytes.
+- Change-feed fixtures prove projector-assigned contiguous positions and signed `previousSequence` chaining; PostgreSQL `SERIAL`/sequence allocation is not the protocol order.
 - IPC schema has explicit maximum frame and protocol negotiation rules.
+- IPC authorization fixtures prove renderer/admin roles are derived from socket + OS peer identity rather than client-supplied role text.
+- A checked-in Zenoh mTLS fixture covers listener and connector credentials, certificate expiry handling and logical node binding.
 - No implementation PR has to guess a trust boundary.
 
 ---
@@ -3900,7 +3987,9 @@ Server receives current mesh status through ordinary Edge status reporting.
 - unauthorized machine running Zenoh cannot establish Edge peer session;
 - valid cert from another Tilecast installation is rejected;
 - multicast-blocked nodes connect using configured seed + gossip;
-- revocation stops new peer sessions;
+- revocation stops new peer sessions and tears down/rejects data from already-connected revoked peers;
+- CA-valid certificate from one node cannot be used to publish or answer as another node ID;
+- untrusted/too-uncertain wall time degrades mesh rather than bypassing certificate validity;
 - Presentation Network activation does not move mesh listener/traffic onto Wi-Fi sidecar.
 
 ---
@@ -3956,13 +4045,24 @@ Add peer/origin byte counters and transfer results.
 
 **Goal:** a peer can relay an authoritative server change and its prepared state so other nodes do not need an immediate origin round trip.
 
-### E7.1 Server `edge_changes`
+### E7.1 Server outbox and `edge_changes`
 
-Append signed canonical envelope inside the same transaction boundary or an outbox pattern tied to the underlying authoritative change.
+Insert an unsequenced Edge outbox row in the same PostgreSQL transaction as the authoritative domain mutation.
 
-Do not create a race where a playlist revision commits but its Edge change can be permanently lost.
+Do not create a race where a playlist revision commits but its Edge change can be permanently lost, and do not assign protocol order with `BIGSERIAL` in that domain transaction.
 
-Recommended implementation: transactional outbox row in the same PostgreSQL transaction, then deterministic signer/projector advances it to signed feed if signing cannot safely occur inside that transaction.
+A serialized/locked deterministic signer-projector claims committed outbox rows and, in one transaction:
+
+1. locks the installation's `edge_feed_state`;
+2. assigns `sequence = last_sequence + 1`;
+3. sets signed `previousSequence = last_sequence`;
+4. canonicalizes the unsigned envelope;
+5. signs it;
+6. inserts the final `edge_changes` row;
+7. advances `edge_feed_state.last_sequence`;
+8. marks the outbox row projected.
+
+A projector crash/rollback therefore publishes either the complete next feed position or nothing. It cannot leave a permanent protocol hole caused by PostgreSQL sequence allocation.
 
 ### E7.2 Presentation bundle compiler
 
@@ -4748,7 +4848,9 @@ Use Linux network namespaces/veth and `tc netem` in a privileged CI/nightly envi
 Tests must kill processes at exact durability boundaries:
 
 - after DB transaction, before file rename;
-- after file rename, before DB metadata commit;
+- after file fsync, before CAS rename;
+- after CAS rename, before destination-directory fsync;
+- after directory fsync, before DB metadata commit;
 - after command persistence, before execution;
 - after update symlink switch, before daemon READY;
 - while serving a Range response;
@@ -4779,9 +4881,14 @@ Required adversarial cases:
 - wrong installation certificate;
 - expired/revoked certificate;
 - peer cert with modified node SAN;
+- CA-valid peer attempts to claim another node ID;
+- revoked peer already connected when revocation arrives;
 - plaintext Zenoh endpoint attempt;
 - unsigned/modified Edge change;
 - replay old sequence;
+- rolled-back domain transaction does not create a missing Edge feed position;
+- signer/projector crash does not create a permanent sequence hole;
+- valid signed Context observation replayed after a newer sourceSequence;
 - target another screen's presentation bundle;
 - path traversal in peer HTTP;
 - malformed/huge Range;
@@ -5007,7 +5114,7 @@ Add these to the Edge-specific `AGENTS.md` once implementation begins.
 | Renderer host | WPE WebKit WPEPlatform 2.54+ in small C/GLib process | New Cog/libwpe/WPEBackend-fdo architecture |
 | Transitional renderer | Existing Electron, stripped to renderer role | Flag-day Electron deletion |
 | Local persistence | SQLite WAL + immutable CAS files | Proliferate JSON state files for new relational state |
-| Local IPC | Length-prefixed strict JSON over AF_UNIX + peer credential check | Open localhost admin HTTP API |
+| Local IPC | Separate renderer/admin AF_UNIX sockets + length-prefixed strict JSON + OS peer credential authorization | Client-selected role on one shared socket; open localhost admin HTTP API |
 | Mesh | Embedded Zenoh peer mode | Mandatory central broker |
 | Mesh security | Installation-scoped mTLS, TLS-only Zenoh links | Trust LAN/subnet membership |
 | Mesh discovery | Zenoh multicast + gossip + seed fallback | Depend on multicast working |
@@ -5017,8 +5124,8 @@ Add these to the Edge-specific `AGENTS.md` once implementation begins.
 | Peer authority | None; peers relay signed server state | Peer becomes second Tilecast server |
 | Dynamic signing | Dedicated Edge authority key on server | Reuse offline update-signing private key |
 | Node key | Generated/stored on node | Server-generated/exported private node key |
-| Change ordering | Monotonic server sequence + signed envelopes | Wall-clock/HLC last-write-wins |
-| Canonical signed format | RFC 8785/JCS JSON; envelopes avoid floating-point values | Sign arbitrary serializer output |
+| Change ordering | Projector-assigned contiguous feed position + signed `previousSequence` chain | PostgreSQL `SERIAL`/sequence gaps, wall-clock/HLC last-write-wins |
+| Canonical signed format | RFC 8785/JCS JSON over envelope excluding `signature`; golden unsigned bytes | Sign arbitrary serializer output or the signature field recursively |
 | Coordinator | Soft deterministic optimization roles | Raft/elected authoritative leader |
 | Context conditions | CEL subset validated by `cel-go`, cross-tested in Rust | Tilecast scripting/eval language |
 | Time | PTP if already synchronized, then host NTP, then server offset; monotonic playback progression | Automatically become PTP grandmaster |
