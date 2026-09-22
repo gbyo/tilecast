@@ -385,23 +385,24 @@ For generic existing Linux desktops where that cannot be guaranteed, PipeWire ca
 Recommended production layout:
 
 ```text
-/etc/tilecast-edge/
-    edge.toml                    root-owned optional operator config
-
 /var/lib/tilecast-edge/
     state.db
     identity/
-        device-credential        0600 tilecast-edge:tilecast-edge
-        node-key.pem             0600 tilecast-edge:tilecast-edge
-        node-cert.pem            0644 tilecast-edge:tilecast-edge
-        edge-ca.pem              0644 tilecast-edge:tilecast-edge
-        authority-public.pem     0644 tilecast-edge:tilecast-edge
+        active -> generations/<generation-id>/
+        generations/
+            <generation-id>/
+                node-key.pem             0600 tilecast-edge:tilecast-edge
+                node-cert.pem            0644 tilecast-edge:tilecast-edge
+                edge-ca-bundle.pem       0644 tilecast-edge:tilecast-edge
+                authority-keyring.json   0644 tilecast-edge:tilecast-edge
+                identity.json            0600 tilecast-edge:tilecast-edge
+        device-credential                0600 tilecast-edge:tilecast-edge
+        trusted-checkpoint.json          0600 tilecast-edge:tilecast-edge
     cas/
         sha256/
             ab/
-                abcdef...
-    partial/
-    updates/
+                <64-hex-hash>
+    staging/
     diagnostics/
 
 /run/tilecast-edge/
@@ -412,28 +413,28 @@ Recommended production layout:
 
 /opt/tilecast-edge/
     releases/
-        <version>/
-            bin/tilecastd
-            bin/tilecastctl
-            bin/tilecast-renderer-wpe
-            share/player-runtime/
-    current -> releases/<version>
-    previous -> releases/<version>
+    current -> releases/<version>/
+    previous -> releases/<version>/
+    rollback-state/
 ```
 
-Use systemd `StateDirectory=` and `RuntimeDirectory=` rather than manually creating writable system paths wherever possible.
+The active identity generation changes with one atomic pointer switch after the complete key/certificate/CA/keyring set is durable. Do not leave a single `node-key.pem` beside a separately replaced `node-cert.pem`.
+
+`authority-keyring.json` contains the verified public authority transition chain and currently trusted authority epochs. `edge-ca-bundle.pem` may contain overlapping installation CA certificates only during an explicit CA rotation plan.
+
+`trusted-checkpoint.json` is the minimal non-reconstructible anti-rollback state used after destructive SQLite recovery. It contains no private key and no server bearer secret.
+
+Rollback metadata for a pending software release lives outside the candidate release directory and outside a candidate database schema so a failed daemon cannot make its own rollback metadata unreadable.
 
 ### 7.1 Filesystem rules
 
-- State and CAS should be on the same filesystem when possible so temporary-file promotion can use atomic `rename(2)`.
-- The daemon must never derive a filesystem path from a user-supplied filename.
-- CAS paths derive only from validated lowercase SHA-256 hex.
-- Partial filenames derive from the hash plus a fixed suffix.
-- Secrets are not stored in the ordinary SQLite database unless/until an explicit encrypted-secret abstraction is introduced.
-- The SQLite file must not be remotely downloadable.
-- Renderer-visible media should be opened by the daemon or exposed through a constrained local URI/FD path; do not expose `/var/lib/tilecast-edge` wholesale.
-
----
+- state/identity directories are owner-only unless an explicit subdirectory has a narrower renderer group ACL;
+- CAS paths derive only from validated lowercase SHA-256 hex;
+- partial filenames derive from the hash plus a fixed suffix;
+- secrets are not stored in the ordinary SQLite database unless an explicit encrypted-secret abstraction is introduced;
+- the SQLite file must not be remotely downloadable;
+- renderer-visible media is exposed through the constrained `media.sock` path rather than direct CAS access;
+- atomic identity/current-release pointer changes are followed by parent-directory fsync on filesystems where that operation is supported.
 
 ## 8. Local state: SQLite plus immutable files
 
@@ -573,27 +574,35 @@ JSON is chosen because the clients are Rust, Node/TypeScript and C/GLib during m
 
 ### 9.3 Handshake
 
-Every connection begins with:
+Every control connection begins with an explicit compatibility range and instance identity:
 
 ```json
 {
   "type": "hello",
-  "protocolVersion": 1,
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
   "role": "renderer",
   "client": "tilecast-renderer-wpe",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "rendererInstance": "c4c7..."
 }
 ```
 
-Allowed protocol roles are closed, e.g.:
+Allowed protocol roles are closed, for example:
 
 - `renderer`
 - `tilecastctl`
 - `session_bridge`
 
-The claimed role must agree with the role already authorized by the socket and `SO_PEERCRED`. For example, a process connected as `tilecast-renderer` cannot send `"role": "tilecastctl"` and gain administration methods; that handshake is rejected.
+Socket choice plus OS peer identity authorize the maximum role. The claimed role must agree with that authorization.
 
-The server replies with the negotiated protocol, Edge version, screen identity safe for that authorized role, and enabled message capabilities.
+The daemon creates a random renderer-instance generation for every renderer launch and passes it through a protected environment/file descriptor or other launch-time channel. Renderer control and media requests must present the active generation after handshake. A stale renderer process from an earlier generation cannot reconnect and report readiness/progress for the new instance merely because it has the same Unix UID.
+
+The server replies with the selected protocol version, Edge version, active renderer instance, screen identity safe for that role, and enabled message capabilities.
+
+Daemon and renderer release metadata also declares IPC `minProtocol`/`maxProtocol`. An update may not activate a daemon/renderer pair with no common IPC version.
 
 ### 9.4 Renderer contract
 
@@ -628,7 +637,7 @@ No renderer message can name an executable, shell fragment, arbitrary path or se
 
 ### 9.5 Renderer media socket
 
-`media.sock` is a separate byte-serving Unix socket. It is not an administration API and it does not expose SQLite, identity files, arbitrary paths, or the whole CAS namespace.
+`media.sock` is a separate byte-serving Unix socket. It does not expose SQLite, identity files, arbitrary paths, or the whole CAS namespace.
 
 Use a small fixed HTTP-like contract over AF_UNIX:
 
@@ -636,21 +645,29 @@ Use a small fixed HTTP-like contract over AF_UNIX:
 HEAD /v1/media/sha256/<hash>
 GET  /v1/media/sha256/<hash>
 Range: bytes=<start>-<end>
+X-Tilecast-Renderer-Instance: <generation>
+X-Tilecast-Presentation-Generation: <generation>
 ```
 
 Authorization rules:
 
-1. the connecting UID must be the configured renderer UID;
-2. the requested hash must be part of the current prepared/active presentation capability set issued by `tilecastd`;
-3. the CAS object must already be verified;
-4. only HEAD/GET and one bounded byte range are accepted;
-5. no directory listing or arbitrary path exists.
+1. the connecting UID is the configured renderer UID;
+2. the renderer instance is the currently launched instance;
+3. the presentation generation is currently `prepared`, `active`, or `draining`;
+4. the requested hash belongs to that presentation generation's capability set;
+5. the CAS object is already verified;
+6. only HEAD/GET and one bounded byte range are accepted;
+7. no directory listing or arbitrary path exists.
 
-The active capability set changes transactionally with presentation activation. A compromised renderer can read bytes that the daemon explicitly made available to that presentation, but it cannot enumerate unrelated cached content or open Edge secrets.
+Presentation generations move through:
 
-The WPE custom `tilecast://media/<hash>` scheme and the Electron compatibility adapter both proxy reads through `media.sock`. This keeps the same renderer contract across engines without giving either renderer filesystem access to `/var/lib/tilecast-edge`.
+```text
+prepared -> active -> draining -> retired
+```
 
----
+Activation does not immediately remove the previous generation. The previous generation remains readable until the renderer acknowledges the transition boundary or a bounded drain timeout expires.
+
+The WPE custom `tilecast://media/<hash>` scheme and Electron compatibility adapter both proxy reads through `media.sock`. Neither renderer gets direct read access to `/var/lib/tilecast-edge`.
 
 ## 10. Trust model
 
@@ -1862,41 +1879,36 @@ Long-term historical analytics, if ever needed, belong in server Activity/metric
 
 ### 18.8 Mesh propagation
 
-Edge-local observations use a versioned signed observation envelope rather than trusting the Zenoh key alone. It includes at least:
+Locally authored observations use a signed envelope with at least:
 
 ```text
-schema
-installationId
 nodeId
+certificateFingerprint
 sourceId
 sourceEpoch
 sourceSequence
 key
 scope
-typed value
+value
 observedAt
 expiresAt
-certificate/identity reference
+schema
 signature
 ```
 
-`sourceEpoch` is a random 128-bit source-incarnation identifier created when that local source state is initialized. `sourceSequence` is a canonical decimal string that increases monotonically within `(nodeId, sourceId, sourceEpoch)`.
+`sourceEpoch` is a random 128-bit source-incarnation identifier created when local source state is initialized. `sourceSequence` is a canonical decimal string increasing within `(nodeId, sourceId, sourceEpoch)`.
 
-Peers persist the highest accepted sequence for each recent source epoch and reject older/replayed observations even when their signatures are valid. A reinstall/state reset creates a new epoch instead of restarting sequence 1 inside the old replay namespace. Retain bounded replay state for old epochs long enough that replaying a pre-reinstall packet does not become fresh again.
+A new source epoch supersedes the previous authenticated incarnation for that `(nodeId, sourceId)`. Sequence numbers from different epochs are never compared numerically.
 
-The observation signature is made by the node key and is accepted only after the exact certificate instance, installation binding, durable node state, current revocation generation, configured source permission, scope and value schema all validate. Server-only context keys remain impossible for an Edge-local source to claim.
+Replay watermarks for an old epoch may be deleted only after every observation from that epoch can no longer satisfy the receiver's maximum permitted freshness window and the issuing certificate can no longer make that observation acceptable. Bounded storage alone is not sufficient if pruning would make an old signed packet look new again.
 
-When an effective local context value changes:
+Freshness is receiver-bounded. Each source definition declares a maximum TTL. The receiver computes an acceptance deadline from trusted receive time and clamps any sender-provided `expiresAt` to that policy. A compromised but otherwise authorized node cannot make one sensor value fresh for years by choosing a distant expiry.
 
-- persist locally if required;
-- publish the signed bounded observation/update on its permitted Zenoh key;
-- peers validate identity, replay sequence, source/scope permissions and freshness;
-- recompute their relevant effective context;
-- coalesce noisy sensor updates.
+The observation signature is accepted only after certificate instance, installation binding, durable node state, current revocation generation, source permission, scope, value schema, epoch and replay state validate.
 
-High-rate samples are never sent one-for-one. Example: Noise Meter may sample audio frequently but publish a one-second or multi-second aggregate appropriate to the UI/rule use case.
+Server-only Context keys remain impossible for an Edge-local source to claim.
 
----
+Peer propagation is a low-latency path. Server reconciliation remains able to replace/retire a source epoch and restore canonical policy.
 
 ## 19. Context rules with CEL
 
@@ -2008,23 +2020,27 @@ A wall-clock correction during playback must not rewind or fast-forward an activ
 
 ### 20.2 Authority order
 
-Suggested order:
+The Clock Authority has a **security minimum** that ships before the first mTLS mesh, plus richer providers added later.
+
+Security minimum, required by E5:
+
+- persisted trusted-time lower bound;
+- uncertainty bound;
+- server-offset samples with bounded RTT;
+- host synchronized/unsynchronized state;
+- certificate-validity decision API;
+- `time_untrusted` state.
+
+Provider preference after E10 may use:
 
 1. valid synchronized PTP source, if explicitly available;
 2. synchronized host NTP/chrony/systemd-timesyncd state;
 3. Tilecast Server measured offset;
 4. local system wall clock with degraded quality.
 
-The active authority record includes:
+Selection considers uncertainty and freshness rather than only a fixed priority. A provider that claims a higher class but has stale/bad uncertainty does not override a healthier lower class.
 
-```text
-source
-state
-estimated_offset_ms
-estimated_uncertainty_ms
-last_observed_at
-last_transition_at
-```
+The mTLS implementation may use trusted time only if the pinned rustls/Zenoh path actually accepts a custom verifier/time provider. Otherwise Edge requires trustworthy host wall time before enabling mesh transport. This is an E5 implementation gate, not deferred Clock UI work.
 
 ### 20.3 Server offset
 
@@ -2061,96 +2077,90 @@ Reevaluate schedules/context boundaries after a clock change, while preserving m
 
 ## 21. Capability model
 
-Stop treating `platform == linux` as a proxy for what a machine can do.
+Capabilities are versioned contracts. Do not reduce the current Tilecast capability model to an unversioned string set.
 
 ### 21.1 Capability state
 
-Every capability has a state:
-
 ```text
-supported     # implementation exists and hardware could support it
-available     # usable now
- degraded     # usable with a known limitation
-blocked       # hardware/provider exists but permissions/config stop use
-unsupported   # implementation/hardware not present
+available
+unavailable
+blocked
+degraded
+unknown
 ```
 
-In API code, use a closed enum without the formatting whitespace above.
+A capability report includes bounded reason/diagnostic metadata.
 
-A capability includes:
+### 21.2 Per-renderer profiles
+
+Every installed renderer release has a trusted static capability manifest shipped with the signed release. Runtime probes refine availability but do not invent protocol support.
+
+Example:
 
 ```json
 {
-  "id": "display.ddc.brightness",
-  "state": "blocked",
-  "provider": "ddcutil",
-  "reasonCode": "i2c_permission_denied",
-  "detail": "I²C device permission is missing.",
-  "providerVersion": "...",
-  "observedAt": "..."
+  "renderer": "wpe",
+  "release": "1.4.0",
+  "ipcProtocol": {"min": 1, "max": 2},
+  "presentationSchemas": [1],
+  "nativeCapabilities": {
+    "content.image": 1,
+    "content.video.h264": 2,
+    "content.metric": 1,
+    "layout": 2
+  },
+  "webRuntimeVersion": 2,
+  "limits": {
+    "webBundleBytes": "20971520",
+    "maxVideoWidth": 3840,
+    "maxVideoHeight": 2160
+  }
 }
 ```
 
-`detail` is bounded and safe for administration UI. It must not contain command output that may expose network or user data.
+Electron has its own profile.
 
-### 21.2 Capability categories
+Do not report the union of WPE and Electron capabilities as though one renderer can satisfy every combined requirement. The server may know the node has multiple profiles, but one complete renderer profile must satisfy one prepared presentation contract.
 
-V1 registry:
+This preserves the current server/player model where `nativePresentationCapabilities` maps capability name to version.
 
-```text
-renderer.*
-video.*
-mesh.*
-time.*
-display.*
-audio.*
-input.*
-network.*
-system.*
-external_presentation.*
-```
+### 21.3 Hardware/platform capabilities
 
-Examples:
+Separate renderer protocol support from host capabilities:
 
-```text
-renderer.wpe
-renderer.wpe.drm
-renderer.wpe.wayland
-renderer.electron
-video.h264.hardware_decode
-mesh.zenoh
-mesh.peer_cache
-time.ptp
-display.cec.power
-display.ddc.brightness
-audio.pipewire
-audio.capture
-input.ambient_light
-input.evdev_button
-network.presentation_network
-system.systemd_watchdog
-```
+- display backend/connector/mode;
+- codec/decode path availability;
+- CEC/DDC;
+- PipeWire input/output;
+- Presentation Network;
+- sensors;
+- time providers;
+- WPE runtime/ABI;
+- Wayland/DRM session mode.
 
-### 21.3 Capability reporting
+### 21.4 Presentation requirements
 
-Persist only the current snapshot locally/server-side. Emit a meaningful Activity event when a capability changes materially, e.g. `DDC available → blocked`.
-
-Do not create an unbounded per-heartbeat capability history table.
-
-### 21.4 Requirements
-
-Presentations/releases may declare a **requirement set**:
+A prepared presentation carries versioned requirements rather than a string set:
 
 ```json
 {
-  "rendererFeatures": ["image", "video", "native_layout"],
-  "requiredCapabilities": []
+  "presentationSchema": 1,
+  "nativeCapabilities": {
+    "content.image": 1,
+    "content.video.h264": 2,
+    "layout": 2
+  },
+  "webRuntimeMinVersion": 2
 }
 ```
 
-The renderer selector uses requirements and capability states rather than platform strings.
+Compatibility requires one renderer profile plus current host/runtime capabilities to satisfy the full requirement set.
 
----
+### 21.5 Reporting
+
+The node reports each renderer profile independently, the active renderer/profile revision, and host capabilities. Studio may summarize them, but server negotiation keeps the distinction.
+
+A renderer process may report runtime evidence after launch. That evidence validates/refines the signed installed profile; it is not the bootstrap source used to decide which renderer binary can be launched.
 
 ## 22. Avahi and LAN service discovery
 
@@ -2471,17 +2481,23 @@ Only the main daemon health loop sends watchdog notifications. A stuck renderer 
 
 ### 27.4 Renderer service
 
-Long-term:
+Renderer isolation and display-session ownership must be designed together.
 
-```text
-tilecast-renderer.service
-```
+The separate `tilecast-renderer` UID remains the security target, but a system service cannot assume it can connect to a Wayland/X11 socket owned by an arbitrary logged-in kiosk user.
 
-runs the selected renderer as the unprivileged `tilecast-renderer` account, not as `tilecast-edge`.
+Support explicit host modes:
 
-`tilecastd` may request renderer start/stop/restart only through a fixed systemd unit relationship or a narrow helper whose allowlist contains the renderer unit and fixed actions. Do not grant the daemon generic systemd-manager D-Bus authority and do not shell out to arbitrary `systemctl` command strings. The renderer service receives only the renderer/media sockets and explicitly required device/session access; it must not inherit read access to `/var/lib/tilecast-edge/identity`.
+1. **Dedicated Tilecast compositor/session** — the compositor/session is owned by or grants narrowly scoped access to `tilecast-renderer`. This is the preferred Wayland migration mode.
+2. **Existing desktop/session compatibility** — a narrow session bridge or controlled ACL passes only the display/session handles/environment required by the renderer. Do not expose the server bearer credential or Edge identity to the logged-in user session.
+3. **Direct DRM/KMS appliance mode** — WPE owns the display directly and no compositor is required. Electron compatibility fallback is unavailable unless the system deliberately transitions to a compositor-backed mode.
 
-A renderer crash restarts the renderer, not the Edge daemon.
+Do not claim that a separate system UID plus `WPE_PLATFORM=wayland` is sufficient by itself.
+
+`tilecastd` launches one renderer instance with a random instance generation. It passes only renderer/media sockets, the instance generation, presentation bootstrap data and required display/media device access.
+
+Renderer lifecycle control uses a fixed systemd unit relationship or narrow helper. Do not grant generic systemd manager authority.
+
+The service must not inherit read access to `/var/lib/tilecast-edge/identity` or direct CAS paths.
 
 ### 27.5 Safe mode
 
@@ -2588,18 +2604,30 @@ It should **not** contain server networking, filesystem state or player policy.
 
 ### 28.4 Trusted runtime URI scheme
 
-Do not load the trusted Tilecast runtime from an arbitrary `file://` tree.
-
-Register a custom scheme such as:
+Register explicit trusted runtime/media schemes, for example:
 
 ```text
-tilecast://runtime/index.html
+tilecast://runtime/...
 tilecast://media/<hash>
 ```
 
-The WPE host serves only known local runtime resources through its embedded runtime handler. For `tilecast://media/<hash>`, it proxies the hash/range request to `tilecastd` through `media.sock`; it does not open the CAS path directly.
+The runtime handler serves only embedded/versioned trusted resources.
 
-Path traversal must be impossible because the handler resolves validated identifiers, not filesystem paths. The same active-presentation hash allowlist used by `media.sock` applies regardless of renderer engine.
+The media handler proxies to `media.sock`; it does not open the CAS path directly.
+
+Remote website origins must not gain cross-origin read access to trusted Tilecast schemes. WebKit blocks cross-origin access to custom schemes unless the embedder explicitly opts into CORS. Tilecast keeps the media/runtime schemes **not CORS-enabled** for remote website contexts.
+
+Tests must prove that an arbitrary remote website cannot:
+
+- fetch `tilecast://media/<hash>`;
+- enumerate or probe local hashes through response differences;
+- fetch trusted runtime JS/HTML;
+- navigate a trusted top-level runtime view;
+- receive the native bridge.
+
+Path traversal is impossible because handlers resolve validated identifiers, not filesystem paths.
+
+Large media custom-scheme behavior is an early prototype gate. Before WPE becomes eligible for video, tests must prove Range/seeking, pause/resume, looping, transition reads and cancellation on representative large MP4/H.264 files.
 
 ### 28.5 Native/JS bridge
 
@@ -2623,9 +2651,7 @@ Untrusted remote website content must not receive the Tilecast native bridge.
 
 The current Electron player has useful website isolation/session behavior. WPE does not have Electron's `<webview>` tag/session-partition abstraction.
 
-Therefore WPE rollout must explicitly track website parity rather than pretending it is solved by rendering HTML in an iframe.
-
-Required investigation/prototype items:
+WPE rollout must explicitly prove:
 
 - top-level host allowlist enforcement;
 - remote-page navigation policy decisions;
@@ -2638,42 +2664,34 @@ Required investigation/prototype items:
 - YouTube IFrame API behavior;
 - remote-site crash/process termination;
 - multiple website placements inside layouts;
-- z-order/cropping if separate WebViews are needed.
+- z-order/cropping if separate WebViews are needed;
+- WebKit subprocess sandbox enabled before any web process is created;
+- no remote-origin access to Tilecast custom URI schemes or native bridge.
+
+The Linux WebKit subprocess sandbox is a release requirement, not optional hardening. If required GPU/media/device access breaks under sandboxing, qualify the minimum explicit sandbox allowances rather than disabling the sandbox globally.
 
 ### 28.7 Renderer compatibility selection
 
-WPE does **not** need 100% feature parity before Edge itself ships.
+Every prepared presentation contains the versioned requirement contract from §21.
 
-Every prepared presentation has a renderer requirement set, for example:
+`tilecastd` evaluates each installed renderer profile independently. One renderer must satisfy the complete requirement set.
 
-```json
-{
-  "features": [
-    "image",
-    "h264-video",
-    "native-widget-v1",
-    "layout-v1"
-  ]
-}
-```
-
-Each installed renderer advertises supported features.
-
-`tilecastd` chooses:
+Conceptually:
 
 ```text
-WPE if requirements ⊆ WPE capabilities
-otherwise Electron compatibility renderer
+for renderer in policy_order:
+    if renderer.profile + host/runtime probes satisfy all requirements:
+        choose renderer
+        break
+otherwise:
+    presentation incompatible
 ```
 
-Studio reports the reason when WPE cannot be selected, e.g.:
+The union of WPE and Electron capability maps is never treated as one renderer capability set.
 
-```text
-Renderer: Electron compatibility
-Reason: presentation uses isolated website sessions not yet supported by WPE
-```
+Studio reports a bounded reason when WPE cannot be selected, including the exact missing capability/version or host-mode constraint.
 
-This turns WPE migration from a flag-day rewrite into a controlled capability rollout.
+This turns WPE migration into a controlled capability rollout without regressing the current versioned negotiation model.
 
 ### 28.8 Renderer preference policy
 
@@ -2690,32 +2708,42 @@ If an administrator explicitly forces WPE and content requirements are unsupport
 
 ### 28.9 DRM/KMS
 
-DRM is the desired appliance path because WPEPlatform can render directly with no compositor.
+DRM/KMS is the desired dedicated-appliance path because WPEPlatform can render directly with no compositor.
 
-Before making DRM default, validate:
+That property changes compatibility behavior: an Electron renderer cannot run as an ordinary Wayland/X11 client when no compositor/session exists.
 
-- correct connector selection on single/multiple HDMI outputs;
-- mode selection and 1920×1080 fallback;
-- hotplug behavior;
-- VT/session ownership;
-- permissions via `video`/render groups or logind/device ACLs;
-- Intel HD 4000/Mesa behavior on the reference old hardware;
-- modern Intel/AMD;
-- Raspberry Pi/ARM target when ARM Linux is promoted to supported;
-- screenshot/live preview path;
-- hardware video decode behavior;
-- DPMS interactions and CEC/DDC independence.
+Define the mode explicitly:
+
+```text
+displayMode = wayland_compat | drm_dedicated
+```
+
+In `drm_dedicated`:
+
+- WPE can own the display directly;
+- Electron compatibility fallback is unavailable unless a tested mode transition starts a compositor/session;
+- renderer selection must reject content that requires Electron before tearing down the compositor compatibility environment;
+- rollback to a legacy Electron release may require reboot/host-mode restoration, not only a process restart.
+
+Before making DRM default, validate connector selection, modes, hotplug, VT/session ownership, device ACLs, old Intel/Mesa behavior and renderer crash recovery.
 
 ### 28.10 Wayland
 
-Wayland remains useful for:
+Wayland is the migration/general-purpose mode where WPE and Electron compatibility can coexist.
 
-- developer machines;
-- installations that already use a kiosk compositor;
-- hardware where DRM direct mode has a driver limitation;
-- phased migration from the current desktop/session-based player.
+WPEPlatform Wayland requires a compositor. Tilecast must therefore own or deliberately integrate with that compositor/session.
 
-Do not require GNOME. Weston/cage/other minimal compositor use is acceptable where operator controlled.
+Preferred production-compatible migration layout:
+
+```text
+Tilecast-managed compositor/session
+    ├── WPE renderer as tilecast-renderer
+    └── Electron compatibility renderer as tilecast-renderer
+```
+
+If Tilecast runs inside an existing user's compositor instead, use the controlled session-bridge/ACL model from §27.4 and treat it as a separate qualification mode.
+
+Do not depend on ambient `WAYLAND_DISPLAY`, `DISPLAY`, or `XDG_RUNTIME_DIR` values that happen to exist in the installer user's shell.
 
 ### 28.11 Headless CI
 
@@ -2765,11 +2793,23 @@ Progress remains content-aware:
 
 ### 28.14 WPE process model
 
-Do not design Linux around WPE 2.54's experimental `WPEProcessManager`; current upstream notes make that API Android-specific/experimental.
+Keep WebKit's multi-process model and enable its Linux subprocess sandbox before any web process is created.
 
-On Linux, let WPE/WebKit own its normal Web/Network/GPU process model and supervise the top-level Tilecast renderer process using systemd/Edge.
+The first-party launcher owns:
 
----
+- WPEPlatform display/view lifetime;
+- WebKitWebContext/WebsiteDataManager policy;
+- sandbox enablement;
+- custom URI handlers;
+- navigation/permission decisions;
+- native bridge endpoint;
+- renderer IPC and instance generation.
+
+It does not own server networking, content authority, scheduling, Context merge, updates, or secrets.
+
+A WebProcess/GPUProcess/network-process crash is renderer health input. `tilecastd` retains authority and may restart/fallback according to the renderer state machine.
+
+## 29. Renderer selection state machine
 
 ## 29. Renderer selection state machine
 
@@ -2821,19 +2861,38 @@ The existing update domain/deployment model remains responsible for:
 
 A peer may provide the bytes, but only an authorized deployment permits installation.
 
-### 30.2 Release signing
+### 30.2 Release signing and compatibility metadata
 
 Keep the existing offline/CI release signing model.
 
-Add signed artifact kinds for:
+Signed artifact kinds include:
 
 ```text
 tilecast-edge-linux
 tilecast-renderer-wpe-linux
-tilecast-renderer-electron-linux (during compatibility period)
+tilecast-renderer-electron-linux
+tilecast-wpe-runtime-linux
 ```
 
-A single signed “Linux Edge bundle” may reference multiple component artifacts, but each byte artifact must have independent hash/size metadata.
+Each byte artifact has independent hash/size metadata.
+
+Release metadata also declares:
+
+```text
+component
+version
+ipcMinProtocol
+ipcMaxProtocol
+stateSchemaMinReadable
+stateSchemaMaxReadable
+stateSchemaWritten
+requiredWpeRuntimeAbi/version
+rollbackCompatibleWith
+```
+
+An activation is rejected before promotion if the selected Edge daemon, renderer and private WPE runtime have no compatible protocol/ABI set.
+
+A database migration that makes the previous release unable to read the resulting state may not ship while automatic rollback to that previous release remains part of the safety contract.
 
 ### 30.3 Peer prefetch
 
@@ -2883,33 +2942,43 @@ The helper independently checks:
 
 The helper must avoid a verify-then-open TOCTOU race. It opens the staged artifact with no-follow semantics, verifies the manifest/hash/size against that opened file descriptor, and copies/installs from the same descriptor or an equivalently pinned inode. A writable path must not be re-opened after verification.
 
-### 30.6 Crash-safe activation
+### 30.6 Crash-safe activation and rollback
 
 Activation flow:
 
 ```text
 download to CAS/staging
       ↓
-verify signature/hash/size
+verify signature/hash/size + compatibility metadata
       ↓
-install immutable release dir
+install immutable release dir/runtime bundle
       ↓
-record previous/current/pending
+record root-owned previous/current/pending rollback metadata
+      ↓
+run only rollback-compatible state migrations
       ↓
 atomically switch current symlink
+      ↓
+fsync /opt/tilecast-edge parent directory
       ↓
 restart Edge service
       ↓
 new daemon reports READY
       ↓
-minimum health window
+stable external confirmation timer remains armed
       ↓
-confirm release
+minimum health window + schema/renderer checks
+      ↓
+confirm release and disarm timer
 ```
 
-If the new daemon repeatedly fails before confirmation, a systemd `OnFailure`/stable rollback helper flips back to `previous` and restarts the service.
+The rollback mechanism lives outside the candidate release and does not depend on opening the candidate SQLite schema.
 
-The rollback mechanism must live outside the release being tested, otherwise a broken `tilecastd` could break its own rollback.
+A stable root-owned confirmation timer/watchdog rolls back a pending release when confirmation does not arrive by the deadline. This handles both crash loops and a daemon that remains alive after `READY=1` but never becomes healthy enough to settle.
+
+Rollback verifies that the previous binary declares the resulting local state schema readable before switching back. If schema rollback is impossible, activation must have been rejected before migration/promotion.
+
+Atomic `current`/`previous` symlink replacement is followed by parent-directory fsync where supported.
 
 ### 30.7 Health settlement
 
@@ -3832,7 +3901,7 @@ Only `public_signage` and explicitly approved `operational` values may be projec
 
 ## 41. Migration strategy: no flag day
 
-The safest implementation is a sequence of ownership transfers. At every meaningful milestone, a deployed Linux player must still play content and be recoverable with the old path.
+The migration is a sequence of fenced ownership transfers. A local marker alone is not enough because the old and new process can crash/restart independently while sharing one server bearer credential.
 
 ### 41.1 Migration phases
 
@@ -3842,11 +3911,11 @@ Electron owns player + renderer
         │
         ▼
 Phase A
-Electron player + shadow tilecastd
+Electron owner + shadow tilecastd
         │
         ▼
 Phase B
-tilecastd owns network/state; Electron renders
+server fences ownership to tilecastd; Electron renders
         │
         ▼
 Phase C
@@ -3854,113 +3923,113 @@ Edge fabric/CDN/context active; Electron renders
         │
         ▼
 Phase D
-WPE available; per-presentation renderer selection
+WPE available in Wayland compatibility mode
         │
         ▼
 Phase E
-WPE default; Electron compatibility fallback
+WPE default where one renderer profile satisfies content
         │
         ▼
 Phase F
-Electron removed only after measured parity and migration window
+optional DRM dedicated mode / Electron retirement after parity
 ```
 
 ### 41.2 Shadow mode
 
-The first installed `tilecastd` must not immediately take over credentials or media.
-
 Shadow mode may:
 
 - open its own SQLite DB;
-- report local system capabilities;
-- test systemd watchdog;
-- enroll an Edge certificate using an explicit server path;
-- start Zenoh on a test/disabled-by-default configuration;
-- inspect existing player state read-only through a migration adapter;
+- report local system capabilities through a non-owner/bootstrap path;
+- test watchdog/systemd/socket plumbing;
+- inspect existing player state read-only;
 - send comparison diagnostics.
 
-It must **not**:
+Shadow mode does not read or copy the active player bearer credential and does not enroll a production Edge node certificate through that credential.
 
-- execute server commands in parallel with Electron;
-- activate content;
-- update the player;
-- mutate Presentation Network profiles;
-- own the same cache path concurrently.
+If early mesh/certificate testing is required, use a distinct one-time installer/bootstrap enrollment grant whose scope is limited to certificate enrollment and expires after use. Do not make two concurrent processes owners of the bearer credential.
 
-### 41.3 Ownership handoff marker
+Shadow mode must not execute server commands, activate content, update the player, mutate Presentation Network state, or own the legacy cache.
 
-Use a durable local migration state:
+### 41.3 Server ownership fencing
 
-```text
-legacy
-shadow
-edge_server_owner
-edge_full_owner
-```
+The server issues a monotonically increasing `playerOwnerGeneration` when ownership changes.
 
-Only one process may own each server credential/command stream at once.
+All owner-sensitive Linux player traffic carries the current generation, including:
 
-The server should also know whether a Linux screen is Edge-managed so it does not issue two independent command paths during handoff.
+- authenticated WebSocket ownership;
+- command polling/ack/result;
+- manifest/config owner status;
+- update execution/reporting;
+- state-changing Edge owner endpoints.
 
-### 41.4 Credential migration
+Once generation N+1 is committed, generation N is rejected for owner-sensitive operations even if an old process still has the bearer credential.
+
+The bearer credential authenticates the device. The owner generation fences the currently authorized runtime process generation.
+
+A connection lease/session token derived from the owner generation may be used for ordinary calls, but it cannot outlive or bypass a newer server owner generation.
+
+### 41.4 Credential handoff
 
 Preferred sequence:
 
-1. Electron closes socket and stops command polling.
-2. Electron/installer transfers the existing credential file to Edge's protected identity path without logging/serializing it through Studio.
+1. Electron stops owner-sensitive activity and reports quiesced state.
+2. installer/controlled handoff moves or copies the existing credential into Edge's protected identity path without logging it.
 3. `tilecastd` verifies server installation identity.
-4. `tilecastd` authenticates and reports ownership transition.
-5. server marks Edge protocol active for that player.
-6. Electron restarts as renderer-only client.
+4. `tilecastd` requests a new owner generation using the existing credential and a handoff nonce/record.
+5. server atomically commits Edge owner generation N+1.
+6. generation N traffic from Electron is now rejected.
+7. `tilecastd` authenticates normal owner traffic with generation N+1.
+8. Electron restarts as renderer-only client.
 
-If anything fails before step 5 commits, restore legacy ownership.
+If the server does not commit step 5, legacy generation N remains authoritative and rollback removes the uncommitted Edge copy.
 
-A later fresh install pairs directly through `tilecastd` and never gives Electron the credential.
+A fresh Edge install pairs directly through `tilecastd`.
 
 ### 41.5 Cache migration
 
-Do not re-download the current media cache unnecessarily.
+Do not re-download current media unnecessarily.
 
 Migration tool:
 
-- enumerate current `cache/media` entries;
+- enumerate legacy cache entries;
 - correlate with active/pending manifest variant metadata;
 - verify size + SHA-256;
-- move/hard-link/copy only verified files into CAS depending on filesystem support;
-- record object metadata transactionally;
-- leave legacy cache intact until Edge activation is confirmed;
-- remove it in a later cleanup version.
+- import only verified files;
+- create blob/reference/pin metadata transactionally;
+- keep legacy cache until Edge ownership checkpoint is confirmed;
+- remove legacy cache in a later cleanup release.
 
-Do not trust legacy filename/size alone.
+### 41.6 State migration and anti-rollback
 
-### 41.6 State migration
+Importers cover server identity, credential state, active/pending manifest/config, clock offset, supervisor state, playback checkpoint, command idempotency and update staging metadata.
 
-Convert:
+Each importer is versioned/idempotent. Keep originals until Edge writes a confirmed checkpoint.
 
-```text
-server.json
-credential state
-manifest-active.json
-manifest-pending.json
-player config
-server-clock offset
-supervisor state
-playback checkpoint
-command idempotency keys
-update staging metadata
-```
+The trusted Edge checkpoint/state epoch is not reconstructed from arbitrary peer state after destructive DB recovery.
 
-Each importer is versioned and idempotent. Keep original files until a successful Edge checkpoint is written.
+### 41.7 Command semantics
 
-### 41.7 Rollback during transition
+Do not promise generic exactly-once physical side effects.
 
-Until Edge reaches the default-WPE milestone, support a bounded rollback to the last legacy Linux Player release.
+Every command type declares one execution class:
 
-Rollback must not require repairing the logical screen or losing assignments/groups/history.
+- **idempotent/reconcilable** — safe to retry until confirmed;
+- **at-most-once initiation** — persist the intent/idempotency record before triggering a disruptive action;
+- **retryable with state reconciliation** — effect can be checked and safely converged.
 
-Once the server says the same installation is returning through legacy player protocol, Edge certificates may remain dormant rather than being revoked automatically; deliberate hardware replacement/revocation remains separate.
+Local idempotency records remain at least as long as the server can redeliver the command or until a newer owner/command epoch proves the command cannot reappear. Count-only trimming is not sufficient.
 
----
+After destructive local command-state recovery, disruptive command consumption remains disabled until direct server reconciliation or a new owner generation establishes a safe boundary.
+
+### 41.8 Rollback during transition
+
+Rollback to the legacy player is fenced like forward handoff.
+
+The server issues a newer owner generation to the legacy runtime. An old Edge daemon that later wakes with the same bearer but an older generation cannot resume commands/updates.
+
+Rollback must preserve assignments/groups/history and must account for display host mode. A machine already converted to compositorless DRM may require explicit restoration of a compatible compositor/session before a legacy Electron binary can render.
+
+Once the server records the newer legacy owner generation, Edge certificates may remain dormant unless node/device revocation requires otherwise.
 
 ## 42. Implementation roadmap
 
