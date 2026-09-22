@@ -54,12 +54,30 @@ func (s *Service) Initialize(ctx context.Context) error {
 	s.mu.Lock()
 	s.authority, s.authorityErr = authority, err
 	s.mu.Unlock()
+	if errors.Is(err, ErrInstallationNotConfigured) {
+		s.logger.Info("edge authority waits for installation setup")
+		return err
+	}
 	if err != nil {
 		s.logger.Error("edge authority unavailable", "error", err)
 		return err
 	}
 	s.logger.Info("edge authority ready", "authority_key", authority.KeyID()[:19], "ca", authority.CAFingerprint()[:12])
 	return nil
+}
+
+// Retry initializes the authority again when the previous attempt failed
+// only because setup had not run yet (or on a transient database error). A
+// loaded authority and ErrAuthorityMissing are left alone: the latter is a
+// recovery condition, never a reason to generate new keys.
+func (s *Service) Retry(ctx context.Context) {
+	s.mu.RLock()
+	ready, last := s.authority != nil, s.authorityErr
+	s.mu.RUnlock()
+	if ready || errors.Is(last, ErrDisabled) || errors.Is(last, ErrAuthorityMissing) {
+		return
+	}
+	_ = s.Initialize(ctx)
 }
 
 func (s *Service) Authority() (*Authority, error) {

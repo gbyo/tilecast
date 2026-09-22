@@ -58,6 +58,10 @@ const (
 
 var ErrAuthorityMissing = errors.New("edge authority files are missing or do not match the database")
 
+// ErrInstallationNotConfigured means one-time setup has not run yet. Unlike
+// ErrAuthorityMissing it resolves on its own, so initialization is retried.
+var ErrInstallationNotConfigured = errors.New("edge authority needs a configured installation")
+
 type Authority struct {
 	InstallationID string
 	Epoch          int
@@ -89,7 +93,10 @@ func edgeURN(kind, id string) *url.URL {
 func LoadOrInitAuthority(ctx context.Context, db *pgxpool.Pool, root string) (*Authority, error) {
 	var installationID string
 	if err := db.QueryRow(ctx, `SELECT installation_id FROM organization_settings WHERE singleton=TRUE`).Scan(&installationID); err != nil {
-		return nil, fmt.Errorf("edge authority needs a configured installation: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrInstallationNotConfigured
+		}
+		return nil, fmt.Errorf("read installation identity: %w", err)
 	}
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, fmt.Errorf("create edge root: %w", err)

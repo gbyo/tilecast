@@ -357,7 +357,8 @@ func serve() {
 				case <-shutdownCtx.Done():
 					return
 				case <-ticker.C:
-					if _, err := edgeService.Publish(shutdownCtx); err != nil && !errors.Is(err, edge.ErrDisabled) && !errors.Is(err, edge.ErrAuthorityMissing) {
+					edgeService.Retry(shutdownCtx)
+					if _, err := edgeService.Publish(shutdownCtx); err != nil && !errors.Is(err, edge.ErrDisabled) && !errors.Is(err, edge.ErrAuthorityMissing) && !errors.Is(err, edge.ErrInstallationNotConfigured) {
 						logger.Error("edge change publication failed", "error", err)
 					}
 				}
