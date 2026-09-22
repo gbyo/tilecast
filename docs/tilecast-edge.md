@@ -406,6 +406,7 @@ Recommended production layout:
 
 /run/tilecast-edge/
     renderer.sock
+    media.sock
     admin.sock
     health/
 
@@ -497,14 +498,19 @@ Use separate AF_UNIX stream sockets for renderer and administrative clients:
 /run/tilecast-edge/admin.sock
 ```
 
-Recommended ownership:
+Create these sockets with systemd socket units so ownership and mode do not depend on the unprivileged daemon calling `chown(2)`:
 
 ```text
 renderer.sock  owner: tilecast-edge   group: tilecast-renderer   mode: 0660
+media.sock     owner: tilecast-edge   group: tilecast-renderer   mode: 0660
 admin.sock     owner: tilecast-edge   group: tilecast-admin      mode: 0660
 ```
 
+The socket units pass their listening file descriptors to `tilecastd`. The daemon does not recreate them with its process umask.
+
 `tilecastd` must inspect peer credentials (`SO_PEERCRED` on Linux) and reject unexpected UIDs even when filesystem permissions appear correct. Socket choice plus peer credentials determine the maximum role available to the connection. A client-provided JSON `role` is descriptive/negotiated metadata, never the authorization decision.
+
+Filesystem permission on `admin.sock` is the group-membership gate for read-only administration. Do not assume `SO_PEERCRED` reports supplementary groups; it reports the peer process identity, while the Unix socket mode/group controls whether that process could connect. Mutating recovery operations require peer UID 0 or another separately documented local authorization mechanism.
 
 A future user-session bridge must receive its own dedicated socket and allowed UID/group policy; it must not gain renderer or administration authority merely by connecting to one of these sockets.
 
@@ -527,7 +533,7 @@ Rules:
 - unsolicited events use a separate event envelope;
 - bounded JPEG preview frames may use Base64 initially because existing previews are already capped; add a binary frame type only if profiling justifies it.
 
-JSON is chosen because the clients are Rust, Node/TypeScript and C/GLib during migration. The local socket is not the bottleneck for media bytes, which never travel through IPC.
+JSON is chosen because the clients are Rust, Node/TypeScript and C/GLib during migration. Presentation media bytes never travel through the JSON control framing. Renderer media reads use the separate `media.sock` contract defined below.
 
 ### 9.3 Handshake
 
@@ -583,6 +589,30 @@ renderer.capabilities
 The actual schemas live in `packages/edge-protocol/schemas/` and fixtures are consumed by Rust, TypeScript, and C tests.
 
 No renderer message can name an executable, shell fragment, arbitrary path or server credential.
+
+### 9.5 Renderer media socket
+
+`media.sock` is a separate byte-serving Unix socket. It is not an administration API and it does not expose SQLite, identity files, arbitrary paths, or the whole CAS namespace.
+
+Use a small fixed HTTP-like contract over AF_UNIX:
+
+```http
+HEAD /v1/media/sha256/<hash>
+GET  /v1/media/sha256/<hash>
+Range: bytes=<start>-<end>
+```
+
+Authorization rules:
+
+1. the connecting UID must be the configured renderer UID;
+2. the requested hash must be part of the current prepared/active presentation capability set issued by `tilecastd`;
+3. the CAS object must already be verified;
+4. only HEAD/GET and one bounded byte range are accepted;
+5. no directory listing or arbitrary path exists.
+
+The active capability set changes transactionally with presentation activation. A compromised renderer can read bytes that the daemon explicitly made available to that presentation, but it cannot enumerate unrelated cached content or open Edge secrets.
+
+The WPE custom `tilecast://media/<hash>` scheme and the Electron compatibility adapter both proxy reads through `media.sock`. This keeps the same renderer contract across engines without giving either renderer filesystem access to `/var/lib/tilecast-edge`.
 
 ---
 
@@ -656,7 +686,9 @@ The certificate must bind:
 
 Put stable machine-readable identifiers in SAN/custom OID fields rather than relying only on display names/common names.
 
-The player installation ID is the durable node identity; the screen ID is an authorization binding at certificate issue time. If the same hardware is deliberately rebound/repaired to a different logical screen, the server revokes the old certificate and requires immediate certificate reissuance before mesh participation resumes. Peers must never treat a stale screen ID embedded in an otherwise valid certificate as current authorization.
+The player installation ID is the durable node identity; the screen ID is an authorization binding at certificate issue time. Each issued certificate also has a unique certificate serial number and public-key fingerprint.
+
+If the same hardware is deliberately rebound/repaired to a different logical screen, the server revokes the **old certificate instance** and requires immediate certificate reissuance before mesh participation resumes. The durable node ID does not become revoked merely because one certificate was replaced. Peers must never treat a stale screen ID embedded in an otherwise valid certificate as current authorization.
 
 ### 11.4 Rotation
 
@@ -666,20 +698,34 @@ Recommended initial policy:
 - renew when fewer than 30 days remain;
 - retry with bounded exponential backoff;
 - continue using the still-valid old certificate until replacement is durable;
-- atomically replace key/cert state;
+- install replacement key/certificate material as one versioned identity generation, then atomically switch the active generation;
+- retire/revoke the old certificate instance after the new generation is durable and usable;
 - report renewal failure to the server before expiration becomes imminent.
+
+A power loss must not leave a new private key paired with an old certificate or the reverse. Use versioned identity directories/files plus one atomic active-generation pointer, or an equivalent single-commit storage design.
 
 ### 11.5 Revocation
 
-If a screen/device credential is revoked or hardware is replaced, the Edge certificate must also be considered revoked.
+Use two distinct revocation scopes:
 
-Use a monotonic server-side revocation generation included in signed Edge changes. Nodes keep the current bounded revocation set/generation and reject revoked peer node IDs even if the X.509 certificate has not expired yet.
+```text
+revoked certificate instances   -> certificate serial number/fingerprint
+disabled nodes                  -> durable playerInstallationId/nodeId
+```
+
+Certificate replacement, renewal and screen rebinding revoke only the superseded certificate instance. Device compromise, explicit decommissioning or revocation of the underlying player identity can disable the durable node and therefore reject every certificate for that node.
+
+Use one monotonic server-side revocation generation included in signed Edge changes/snapshots. The signed revocation state contains both the revoked-certificate set and disabled-node set. Nodes reject a peer when either its exact certificate instance is revoked or its durable node ID is disabled.
 
 Certificate expiry remains a second safety boundary.
 
-Revocation applies to existing sessions and new handshakes. When a node learns a newer revocation generation, it must immediately reject application data from a revoked node and close any matching live Zenoh/peer-HTTPS sessions. Transport teardown may race, so application-level node checks remain mandatory until the connection is gone.
+Revocation applies to existing sessions and new handshakes. When a node learns a newer revocation generation, it must immediately reject application data from a matching certificate/node and close any matching live Zenoh/peer-HTTPS sessions. Transport teardown may race, so application-level certificate-serial/node checks remain mandatory until the connection is gone.
 
-Certificate validation must use the Clock Authority's bounded trusted-time view rather than blindly trusting a potentially stale RTC. Persist the newest trustworthy wall-clock lower bound learned from Tilecast Server/NTP/PTP and never allow validation time to move backward across restart. If Edge cannot bound current time well enough to decide certificate validity safely, peer mesh enters a visible `time_untrusted`/degraded state instead of disabling certificate expiry checks; ordinary server-backed/cached playback remains available.
+Tilecast application-level certificate checks must use the Clock Authority's bounded trusted-time view rather than blindly trusting a potentially stale RTC. Persist the newest trustworthy wall-clock lower bound learned from Tilecast Server/NTP/PTP and never allow validation time to move backward across restart.
+
+The TLS library may still perform its own X.509 time check before Tilecast application code runs. E5 must prove one of two supported implementations: inject Tilecast's trusted time into the rustls/Zenoh verifier through a supported time-provider/verifier path, or require trustworthy host wall time before enabling the mesh transport. Do not claim that Clock Authority controls TLS validity unless that integration is wired and tested.
+
+If Edge cannot bound current time well enough to decide certificate validity safely, peer mesh enters a visible `time_untrusted`/degraded state instead of disabling certificate expiry checks; ordinary server-backed/cached playback remains available.
 
 Do not implement online OCSP as an Edge availability dependency.
 
@@ -775,11 +821,20 @@ The shipped/tested configuration fixture must include the full mutual-authentica
 }
 ```
 
-`verify_name_on_connect` is deliberately false only because Edge peers are reached through changing private IP addresses while certificates bind Tilecast logical node identity, not those IP addresses. This does **not** disable certificate-chain verification or mTLS.
+`verify_name_on_connect` is deliberately false only because Edge peers are reached through changing private IP addresses while certificates bind Tilecast logical node identity, not those IP addresses. This setting must never broaden trust to public WebPKI roots.
 
-After transport authentication, every peer establishes Tilecast node identity with a bounded signed node statement containing its node ID, installation ID, certificate, protocol version and nonce/session binding. The receiving node verifies the certificate chain against the installation CA, verifies the statement with the public key in that certificate, checks the certificate's Tilecast SAN/OID identifiers against the statement, checks revocation, and then binds that logical node ID to the session. If the Zenoh API/version in use can expose an equivalently strong authenticated certificate subject binding directly, the implementation may use that instead, but E5 tests must prove the binding. A CA-valid peer must not be able to publish as another node merely by choosing that node's keyspace.
+The pinned Zenoh/rustls build must prove that outbound peer verification accepts **only** the installation Edge CA. Current Zenoh releases have had behavior where a configured private root is added to the default WebPKI roots on the connector side. If the selected version still behaves that way, Tilecast must patch/vendor the connector verifier or use another supported connector path that constructs an installation-CA-only root store. A publicly trusted non-Tilecast certificate must fail the E5 transport test even when endpoint-name verification is disabled.
 
-A node discovered over multicast is still not connected as a usable Tilecast peer until TLS mutual authentication and logical node binding both succeed.
+Do not describe an arbitrary signed nonce as a TLS channel binding. Tilecast node identity must be established by one of these tested mechanisms:
+
+1. Zenoh exposes the authenticated peer certificate/subject strongly enough for Tilecast to verify the certificate SAN/OID node identity and bind it to the transport; or
+2. every node-originated Tilecast payload carries a node-signed application envelope containing the durable node ID, active certificate serial/fingerprint, message kind/key, payload digest and replay field, and receivers verify that the keyspace identity matches the signed identity.
+
+If the transport exposes a standard TLS exporter/channel-binding value, Tilecast may include that value in a signed session statement. A random nonce without a transport exporter is not sufficient to prove that the statement belongs to that TLS session.
+
+All accepted paths verify the installation CA, certificate purpose, installation ID, durable node ID, exact certificate instance, current revocation generation and certificate validity. A CA-valid peer must not be able to publish as another node merely by choosing that node's keyspace.
+
+A node discovered over multicast is still not connected as a usable Tilecast peer until TLS mutual authentication and the selected logical-node binding both succeed.
 
 ### 13.4 Interface selection
 
@@ -899,7 +954,12 @@ Node certificates should map to authenticated subjects. Policy should allow an E
 - only server-signed payloads are accepted into authoritative `changes` processing even if a peer can relay them;
 - sensor publication keys are limited to the originating node/screen scope.
 
-Because configuration mistakes could partition the fleet, ship ACLs only after integration tests exercise the exact final keyspace. Until then, mTLS + application-level signature/scope checks remain mandatory regardless of Zenoh ACL.
+Current Zenoh ACL key expressions are static and must not be assumed to substitute the authenticated node ID into `nodes/<node-id>/...` dynamically. If the pinned Zenoh version does not provide identity-bound key templates/runtime ACL updates, do one of the following:
+
+- generate explicit per-node ACL entries and use a tested safe reload/restart strategy; or
+- treat Zenoh ACL as coarse defense-in-depth and enforce own-node keyspace at the signed application-envelope layer.
+
+Because configuration mistakes could partition the fleet, ship ACLs only after integration tests exercise the exact final keyspace. mTLS plus application-level identity/signature/scope checks remain mandatory regardless of Zenoh ACL.
 
 ### 13.11 HLC usage
 
@@ -999,32 +1059,39 @@ Range behavior must implement only valid single-range requests initially. Reject
 
 Before serving any bytes:
 
-1. TLS client certificate chains to the installation Edge CA.
-2. certificate installation ID matches local installation ID.
-3. node ID is not in the current revocation set.
-4. requested object exists and is marked `peerable`.
-5. request path hash exactly matches the stored object's validated hash.
+1. TLS client certificate chains only to the installation Edge CA.
+2. certificate purpose and installation ID are valid.
+3. exact certificate serial/fingerprint is not revoked.
+4. durable node ID is not disabled.
+5. requested object exists and is marked `peerable`.
+6. request path hash exactly matches the stored object's validated hash.
+
+For an outbound peer fetch, the client also knows the expected node ID from the authenticated object-availability reply. It must verify that the peer HTTPS certificate's SAN/OID node ID matches that expected node ID. Hostname/IP verification may be disabled for changing private addresses only when this Tilecast identity check and installation-CA-only chain validation are both enforced.
 
 A valid peer certificate grants **read access only to peerable immutable objects**, not to the local database or renderer state.
 
 ### 14.5 Fetch algorithm
 
-For an object with expected hash and size:
+For an object with expected hash and size, first acquire a per-hash single-flight transfer lease. Concurrent consumers wait for/share the same transfer result rather than writing the same partial file.
 
 ```text
 1. Check local CAS and verify metadata/integrity policy.
-2. Query Zenoh for peers that currently claim the hash.
-3. Rank candidate peers.
-4. Attempt best peer with Range resume support.
-5. On retryable failure, try next peer.
-6. If no peer works, fetch from Tilecast Server origin.
-7. Verify exact byte count and SHA-256.
-8. fsync temporary file.
-9. atomically rename into CAS.
-10. fsync the destination directory so the rename itself is durable across power loss.
-11. record metadata transaction.
-12. publish best-effort cache-add event.
+2. Acquire/join the per-hash transfer lease.
+3. Query Zenoh for peers that currently claim the hash.
+4. Rank candidate peers.
+5. Attempt best peer with Range resume support.
+6. On retryable failure, try next peer.
+7. If no peer works, fetch from Tilecast Server origin.
+8. Verify exact byte count and SHA-256.
+9. fsync temporary file.
+10. atomically rename into CAS.
+11. fsync the destination directory so the rename itself is durable across power loss.
+12. record metadata transaction.
+13. publish best-effort cache-add event.
+14. release the transfer lease and wake all waiters.
 ```
+
+On a resumed request, require a valid `206 Partial Content` response whose `Content-Range` starts at the exact local partial length and whose total size matches the expected size. If the source returns `200`, restart from byte zero. Never append a response whose range does not match the local partial state.
 
 The receiver **always verifies the final bytes**. mTLS authenticates the peer; it does not make the peer's disk infallible.
 
@@ -1124,8 +1191,10 @@ For a small school fleet, Zenoh queryables are simpler and exact:
 
 ```text
 query:  objects/has/<sha256>
-reply:  node-id + size + endpoint + current load
+reply:  signed node-id + certificate fingerprint + size + endpoint + current load
 ```
+
+The availability reply is covered by the node-authenticated application envelope when transport identity is not directly exposed by Zenoh. The requester verifies that the HTTPS certificate later presented at the advertised endpoint matches the signed node ID/certificate instance before accepting bytes.
 
 Nodes may also publish best-effort add/evict events to warm local peer indexes. A Bloom filter can be introduced later only if measurements show query fan-out is material at larger fleet sizes.
 
