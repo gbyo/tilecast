@@ -1342,7 +1342,7 @@ The existing server socket stays the fastest authoritative origin path, but inst
 ```json
 {
   "type": "edge.changes.available",
-  "latestSequence": 1234
+  "latestSequence": "1234"
 }
 ```
 
@@ -1354,7 +1354,7 @@ When one node receives and verifies sequence 1234, it announces the exact signed
 
 Other nodes:
 
-1. compare with their last contiguous applied sequence;
+1. compare with their last contiguous verified/applied feed sequence;
 2. require the incoming envelope's signed `previousSequence` to match that local position;
 3. request missing feed positions from a peer first when it does not match;
 4. verify each server signature locally;
@@ -1612,7 +1612,7 @@ A context candidate is conceptually:
     "id": "..."
   },
   "sourceId": "bell-schedule",
-  "sourceRevision": 418,
+  "sourceRevision": "418",
   "priority": 50,
   "observedAt": "2026-09-22T16:10:00-04:00",
   "expiresAt": "2026-09-22T16:55:00-04:00",
@@ -4169,7 +4169,7 @@ Server receives current mesh status through ordinary Edge status reporting.
 - multicast-blocked nodes connect using configured seed + gossip;
 - revoking one superseded certificate does not disable a newly issued certificate for the same durable node;
 - disabling a node rejects all of that node's certificate instances;
-- revocation stops new peer sessions and tears down/rejects data from already-connected revoked peers;
+- certificate-instance revocation and durable-node disablement stop new matching sessions and tear down/reject data from already-connected matching peers;
 - CA-valid certificate from one node cannot be used to publish or answer as another node ID;
 - node-originated keyspace/payload identity is verified even if Zenoh ACL cannot express a dynamic own-node rule;
 - TLS certificate validity behavior under bad host wall time matches the documented Clock Authority integration/degraded path;
