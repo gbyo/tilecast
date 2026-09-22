@@ -6,7 +6,7 @@
 **Product:** Tilecast
 **Subsystem:** Tilecast Edge (Fabric)
 **Date:** 2026-09-22
-**Repository baseline reviewed:** `gbyo/tilecast` at `main` (`191d03e558964d91fbd7523d0238de3405f1837d` during research)
+**Repository baseline reviewed:** `gbyo/tilecast` at current `main` through `aa9cdfef693abc5f84b67f98eb618038de6ed35f` during the latest deep review
 **Audience:** Tilecast maintainers and contributors implementing the Linux/Edge runtime, server support, and Tilecast Studio administration UI.
 
 > This file is the implementation plan. It is intentionally prescriptive. Where it conflicts with an older exploratory note about Tilecast Edge, this file wins unless a later ADR/RFC explicitly changes a decision.
@@ -796,45 +796,163 @@ Tilecast application-level certificate checks use the Clock Authority's bounded 
 
 Do not implement online OCSP as an Edge availability dependency.
 
-## 12. Server-side Edge secrets
+## 12. Server-side Edge trust, recovery and secrets
 
-Persist the installation Edge CA and dynamic Edge authority signing keys under the server data directory with owner-only permissions.
+Edge introduces online private trust material that the current Tilecast full-installation backup format does not contain. Treat this as a first-class recovery problem.
+
+### 12.1 Trust realm
+
+Every Edge installation has a random 128-bit/UUID `trustRealmId`.
+
+A trust realm contains:
+
+- the installation Edge CA and its private key;
+- the Edge authority signing-key chain;
+- the current `securityLineageId`;
+- the latest durable security checkpoint needed to prove that revocation/security state did not move backward.
+
+`trustRealmId` is included in every Edge certificate and every authority-signed/node-signed Edge protocol document.
+
+Losing the private trust material is not an ordinary state restore. If the trust realm cannot be recovered, Tilecast creates a new trust realm and requires Edge node re-enrollment. A peer can never transition another node into a different trust realm.
+
+### 12.2 State incarnation
+
+Ordinary configuration/content history uses an opaque random `stateIncarnationId`, not a numerically ordered recovery epoch.
+
+Normal operation keeps the same incarnation. A rollback-style server restore that may be older than state already accepted by players creates a new random incarnation.
+
+Incarnation identifiers are never compared with greater-than/less-than rules. A node moves from incarnation A to B only after a direct authenticated Tilecast Server recovery re-anchor that explicitly names:
+
+- old trusted incarnation, when known;
+- new incarnation;
+- trust realm;
+- security lineage/checkpoint;
+- first stream checkpoints/snapshots in the new incarnation.
+
+Peer relay cannot authorize an incarnation transition.
+
+Resource revisions and stream sequences are comparable only inside one state incarnation. Accepting a trusted new incarnation atomically creates a new resource-watermark namespace; a restored manifest revision 42 may therefore legitimately replace revision 100 from the previous incarnation.
+
+### 12.3 Security lineage
+
+Security state is not allowed to roll backward merely because ordinary PostgreSQL state was restored.
+
+A random `securityLineageId` identifies one continuous revocation/security history inside a trust realm. `securityGeneration` increases monotonically inside that lineage.
+
+The minimum externally recoverable security checkpoint contains:
+
+```text
+trustRealmId
+securityLineageId
+securityGeneration
+securityStateDigest
+authorityKeyringDigest
+createdAt
+```
+
+An ordinary state restore may create a new `stateIncarnationId` while preserving the same security lineage/generation or moving it forward.
+
+If the server cannot prove that the recovered security checkpoint is at least as new as the checkpoint previously issued to the fleet, it enters `edge_security_recovery_required` and does **not**:
+
+- reopen Edge mTLS enrollment;
+- publish a lower security generation;
+- accept peer mesh as healthy;
+- resurrect certificates/nodes from the restored database.
+
+Recovery then requires one of:
+
+1. import the matching/newer encrypted Edge Recovery Bundle; or
+2. explicitly reset the trust realm and re-enroll Edge nodes.
+
+This prevents a database backup from resurrecting a compromised/revoked peer.
+
+### 12.4 Crash-safe recovery publication
+
+A new state incarnation must be fully recoverable before any node can observe it.
+
+Recovery order:
+
+1. restore/validate PostgreSQL and server-managed files;
+2. recover/validate the Edge trust realm and latest security checkpoint;
+3. create a fresh `stateIncarnationId`;
+4. rebuild the materialized Edge projections and immutable objects for the new incarnation;
+5. create the initial signed stream checkpoints/snapshots and security state;
+6. fsync/atomically persist root/server recovery metadata that marks the new incarnation prepared;
+7. atomically mark that incarnation active in server recovery metadata;
+8. only then expose the recovery re-anchor/stream documents to players.
+
+If the server crashes before step 7, the previous active recovery metadata remains authoritative. If it crashes after step 7, the new incarnation's initial documents already exist durably and can be re-served byte-for-byte.
+
+Do not publish a new incarnation and then try to finish constructing the state needed to recover it.
+
+### 12.5 Edge Recovery Bundle
+
+The current Tilecast backup archive is an ordinary tar-style full-installation backup of database/media/update files. Do **not** add raw Edge CA/authority private keys to that unencrypted archive.
+
+Introduce a separate encrypted **Edge Recovery Bundle (ERB)** protected by an operator-held passphrase/recovery key that is not stored inside the bundle.
+
+Conceptual contents:
+
+```text
+formatVersion
+installationId
+trustRealmId
+Edge CA private/public material
+authority private/public keyring + transition chain
+securityLineageId
+latest security generation/checkpoint
+active state-incarnation recovery metadata
+createdAt
+bundle checksum/authentication metadata
+```
+
+Use a well-reviewed authenticated-encryption container such as age or an equivalent maintained format; do not invent custom encryption.
+
+Backup integration:
+
+- a full backup records the expected ERB fingerprint/created-at metadata;
+- ERB creation and ordinary backup creation use one documented recovery point or clearly report that the ERB is newer;
+- restore UI/CLI asks for the matching/newer ERB when Edge trust exists;
+- an ERB from a different installation/trust realm requires explicit destructive trust-realm reset handling, not automatic mixing.
+
+Restoring without a usable ERB is allowed only as an explicit `edge trust reset required` recovery path that re-enrolls Edge nodes.
+
+### 12.6 Key storage and rotation
+
+Persist live private trust material under the server data directory with owner-only permissions.
 
 Requirements:
 
-- keys generated with cryptographically secure randomness;
-- temporary write + fsync + atomic rename + directory fsync;
+- cryptographically secure key generation;
+- temporary write + fsync + atomic rename + parent-directory fsync;
 - private files mode 0600;
 - never returned through dashboard APIs;
-- no key material in logs, audit metadata, or ordinary database rows;
+- no key material in logs, audit metadata or ordinary database rows;
 - explicit authority rotation through a verifiable epoch transition chain;
-- explicit Edge CA rotation plan before accepting overlapping CA roots.
+- explicit CA rotation plan with overlapping roots before enabling it.
 
-Authority signing-key rotation does not change `stateEpoch`. Before authority epoch N+1 signs ordinary state, epoch N signs a transition object containing the new epoch number, public key/fingerprint, activation boundary and overlap policy.
+Authority signing-key rotation does not change the state incarnation or security lineage. Before authority epoch N+1 signs ordinary state, epoch N signs a domain-separated transition object containing the new public key/fingerprint, epoch, activation boundary and overlap policy.
 
-### 12.1 Control-plane state epoch
+### 12.7 Cross-installation restore
 
-`stateEpoch` is a separate recovery primitive.
+Tilecast can explicitly restore a backup whose installation ID differs from the running installation. Edge trust material makes this security-sensitive.
 
-Normal operation never increments it. It changes only when an operator deliberately restores/re-anchors authoritative database state to a history that may be older than state already observed by players.
+Never combine:
 
-The server stores state-epoch metadata in recovery/backup metadata outside the mutable feed tables so a restored database cannot silently reuse an old epoch.
+```text
+database installation B
++
+trust realm / Edge CA from installation A
+```
 
-Recovery procedure:
+without an explicit migration procedure that proves they belong together.
 
-1. detect that restored feed/resource checkpoints may be behind previously published state;
-2. stop Edge feed publication;
-3. require an explicit administrator recovery action;
-4. create a strictly newer state epoch;
-5. issue a direct authenticated state-epoch transition/re-anchor document;
-6. rebuild the first signed snapshot/security state for the new epoch;
-7. resume feed publication at sequence 1 with a new chain digest.
+A confirmed cross-installation restore must either:
 
-A node accepts a higher state epoch only from the directly authenticated Tilecast Server recovery path or an already trusted transition chain explicitly defined for disaster recovery. A peer cannot convince another node to abandon a newer state epoch.
+- import the ERB that matches the restored installation/trust realm; or
+- quarantine/remove the old Edge trust material and enter trust-realm reset/re-enrollment.
 
-Restoring PostgreSQL while retaining the same Edge authority/CA files is therefore safe: sequence/revision reuse is impossible inside the old epoch, and intentional rollback becomes an explicit new epoch.
-
-A server loss that restores PostgreSQL but loses Edge authority/CA files remains a separate visible recovery condition. Do not silently generate new keys and strand the fleet.
+The server must not issue certificates or signed Edge state while database installation identity and recovered trust realm disagree.
 
 ## 13. Zenoh fabric design
 
@@ -1347,297 +1465,425 @@ Nodes may also publish best-effort add/evict events to warm local peer indexes. 
 
 ---
 
-## 15. Fast change propagation without making every node contact the server
+## 15. Signed state distribution and stream topology
 
-The CDN solves bytes. State propagation needs two related but distinct mechanisms:
+Peer relay never creates authority. It only relays exact server-signed state and immutable bytes.
 
-1. a signed feed that proves ordered delivery/completeness; and
-2. independently versioned signed state documents that can apply urgent or newer state without waiting behind an unrelated screen's missing feed event.
+V1 fixes the stream topology **before** protocol schemas are frozen.
 
-A peer never creates authority. It only relays server-signed material.
+### 15.1 V1 streams
 
-### 15.1 State epoch
+Use three logical stream classes:
 
-Every signed Edge state item belongs to a server-managed `stateEpoch`.
+```text
+security/<installation-id>
+policy/<installation-id>
+screen/<screen-id>
+```
 
-`stateEpoch` changes only during an explicit control-plane recovery that intentionally re-anchors authoritative state, such as restoring PostgreSQL to a point older than state already accepted by nodes.
+**Security stream**
 
-This is distinct from `authorityEpoch`:
+Carries or checkpoints:
 
-- `authorityEpoch` identifies the signing-key generation.
-- `stateEpoch` identifies the authoritative control-plane history generation.
-- `feedSequence` orders published feed records inside one state epoch.
-- `subject.revision` decides freshness for one resource inside one state epoch.
+- certificate-instance revocation;
+- durable-node disablement;
+- authority/keyring transitions;
+- security-policy state that must not be delayed by another screen.
 
-A server restore must not reuse old feed/resource numbers inside the same state epoch with the same signing key. If the restored database is older than an already published checkpoint, the operator performs a direct authenticated re-anchor that creates a new state epoch. Peer relay alone cannot authorize a state-epoch change.
+**Policy stream**
 
-The server persists the current state epoch in backup/recovery metadata. The node persists the newest trusted epoch/checkpoint outside any local state that can be silently reconstructed from peer snapshots.
+Carries installation-level/shared state such as:
 
-### 15.2 Why not gossip raw manifests
+- Context definitions/rules;
+- installation Edge policy;
+- shared renderer/runtime policy that is not screen-specific.
 
-A peer must not be able to invent:
+**Screen stream**
 
-- a new screen assignment;
-- a new configuration;
-- a takeover;
-- a certificate revocation;
-- a Context definition;
-- an update authorization.
+Carries one screen's:
 
-Peers may relay signed server state and immutable content only.
+- presentation/current manifest state;
+- configuration;
+- takeover/current override;
+- other screen-scoped state.
 
-### 15.3 Server outbox and feed storage
+The server may keep a global internal audit/outbox order, but players do not consume every other screen's full payload to prove their own stream complete.
 
-Authoritative domain transactions insert an outbox row in the same PostgreSQL transaction as the domain mutation.
+Each externally consumed stream has its own cursor/digest chain, retention floor and snapshot checkpoint.
+
+### 15.2 Trust coordinates
+
+Every authority-signed stream/current-state document identifies:
+
+```text
+installationId
+trustRealmId
+stateIncarnationId
+securityLineageId
+authorityEpoch
+streamId
+```
+
+Security documents additionally carry `securityGeneration`.
+
+A peer cannot change trust realm or state incarnation. A state-incarnation transition comes only through the direct authenticated server recovery path from §12.
+
+### 15.3 Materialized Edge projection
+
+Do not build a recovery snapshot directly from arbitrary authoritative tables while asynchronous Edge object compilation is pending.
+
+Maintain a materialized Edge projection whose state advances **only** when the corresponding Edge representation is complete and durable.
+
+Conceptual server tables:
 
 ```text
 edge_change_outbox
-  id                  UUID PRIMARY KEY
-  state_epoch         BIGINT
-  organization_id     UUID
-  type                TEXT
-  target_kind         TEXT
-  target_id           UUID NULL
-  subject_kind        TEXT NULL
-  subject_id          UUID/TEXT NULL
-  subject_revision    TEXT NULL
-  object_hash         TEXT NULL
-  payload             BYTEA/JSONB
-  created_at          TIMESTAMPTZ
-  expires_at          TIMESTAMPTZ NULL
-  object_ready_at     TIMESTAMPTZ NULL
-  projected_at        TIMESTAMPTZ NULL
+  id
+  state_incarnation_id
+  stream_id
+  type
+  target_kind
+  target_id
+  subject_kind
+  subject_id
+  subject_revision
+  tombstone
+  object_hash
+  payload
+  created_at
+  expires_at
+  object_ready_at
+  projected_at
+  attempt_count
+  last_error
+  next_attempt_at
+  superseded_at
 
-edge_feed_state
-  state_epoch         BIGINT PRIMARY KEY
-  last_sequence       BIGINT
-  head_digest         BYTEA NULL
+edge_stream_state
+  state_incarnation_id
+  stream_id
+  last_sequence
+  head_digest
 
-edge_changes
-  state_epoch         BIGINT
-  sequence            BIGINT
-  previous_sequence   BIGINT NULL
-  previous_digest     BYTEA NULL
-  feed_digest         BYTEA
-  outbox_id           UUID UNIQUE
-  organization_id     UUID
-  type                TEXT
-  target_kind         TEXT
-  target_id           UUID NULL
-  subject_kind        TEXT NULL
-  subject_id          UUID/TEXT NULL
-  subject_revision    TEXT NULL
-  object_hash         TEXT NULL
-  payload             BYTEA/JSONB
-  signed_envelope     BYTEA
-  created_at          TIMESTAMPTZ
-  expires_at          TIMESTAMPTZ NULL
-  PRIMARY KEY (state_epoch, sequence)
+edge_stream_changes
+  state_incarnation_id
+  stream_id
+  sequence
+  previous_sequence
+  previous_digest
+  stream_digest
+  outbox_id
+  subject_revision
+  signed_envelope
+  created_at
+  PRIMARY KEY (state_incarnation_id, stream_id, sequence)
+
+edge_projection_state
+  state_incarnation_id
+  stream_id
+  subject_kind
+  subject_id
+  subject_revision
+  state_digest
+  tombstone
+  object_hash
+  projected_payload
+  PRIMARY KEY (state_incarnation_id, stream_id, subject_kind, subject_id)
 ```
 
-The outbox captures the exact immutable authoritative resource revision/generation. A background worker must not re-read the latest mutable resource and label it as an older event.
+The authoritative domain transaction inserts the outbox row and pins any immutable source revision needed later.
 
-If the event references an immutable Edge Object, compile/store that exact captured revision first and pin the source publication until object compilation succeeds. Only an object-ready outbox row may be signed into the feed.
+If an object is required, a compiler builds the exact captured revision and marks the row object-ready.
 
-The serialized signer-projector locks the installation feed state and, in one transaction:
+The serialized stream projector then performs, in one transaction:
 
-1. assigns the next sequence inside the current state epoch;
-2. includes the current `previousSequence` and `previousDigest`;
-3. includes the captured subject revision and already durable object hash/size;
-4. canonicalizes and signs the envelope;
-5. computes/stores the new feed digest over the canonical signed record chain;
-6. inserts `edge_changes`;
-7. advances `edge_feed_state`;
-8. marks the outbox row projected.
+1. lock `edge_stream_state` for that `streamId`;
+2. assign the next stream sequence;
+3. construct/sign the stream envelope;
+4. insert `edge_stream_changes`;
+5. update `edge_projection_state` to the exact subject revision/tombstone/object;
+6. advance stream sequence/head digest;
+7. mark the outbox row projected;
+8. release the source-publication pin when no other pending work needs it.
 
-A rollback publishes either the complete next feed position or nothing.
+A recovery snapshot reads `edge_projection_state` plus the exact `edge_stream_state` checkpoint from one transaction. It therefore cannot include an authoritative mutation whose Edge object/feed representation has not completed yet. Such a mutation appears later through the stream.
 
-### 15.4 Signed envelope
+Failed compiles/projector work has bounded retries, diagnostics and supersession. A permanently failing obsolete revision may be superseded by a newer authoritative revision without pinning source state forever; failures that still block current state raise an operator incident.
 
-Conceptual v1 envelope:
+### 15.4 Exact stream digest/signature construction
+
+Avoid circular hash/signature definitions.
+
+For each stream record define **core** as the complete logical record except `streamDigest` and `signature`.
+
+Core includes at least:
+
+```text
+schema
+installationId
+trustRealmId
+stateIncarnationId
+securityLineageId
+authorityEpoch
+streamId
+sequence
+previousSequence
+previousDigest
+type
+target
+subject
+object/payload digest
+issuedAt
+expiresAt
+```
+
+Protocol:
+
+1. Validate the object against its closed schema and reject duplicate JSON keys/malformed UTF-8.
+2. `coreBytes = JCS(core)`.
+3. Decode `previousDigest` to 32 bytes, or use 32 zero bytes for the genesis record.
+4. Compute:
+
+```text
+streamDigest =
+  SHA-256(
+    "TilecastEdge/stream-digest/v1\0" ||
+    previousDigestBytes ||
+    coreBytes
+  )
+```
+
+5. Create `signedRecord = core + {streamDigest}`.
+6. `recordBytes = JCS(signedRecord)`.
+7. Compute Ed25519 signature over:
+
+```text
+"TilecastEdge/stream-record/v1\0" || recordBytes
+```
+
+8. Attach `signature`.
+
+`streamDigest` is Base64url without padding in JSON. The signature is Base64url without padding.
+
+The first record has `previousSequence = null` and `previousDigest = null`. Later records require exact previous sequence/digest equality.
+
+This definition has one unambiguous preimage and no self-reference.
+
+### 15.5 Cryptographic domain separation
+
+Never sign bare canonical JSON with one shared prefix across message kinds.
+
+Normative signing domains include at least:
+
+```text
+TilecastEdge/stream-record/v1
+TilecastEdge/current-state/v1
+TilecastEdge/snapshot/v1
+TilecastEdge/security-state/v1
+TilecastEdge/authority-transition/v1
+TilecastEdge/recovery-reanchor/v1
+TilecastEdge/node-message/v1
+TilecastEdge/context-observation/v1
+TilecastEdge/release-manifest/v1
+```
+
+Each signing operation is:
+
+```text
+domain ASCII bytes || 0x00 || canonical message bytes
+```
+
+Golden fixtures verify that a signature valid in one domain fails in every other domain.
+
+### 15.6 Stream record example
 
 ```json
 {
   "schema": 1,
   "installationId": "...",
-  "stateEpoch": "7",
+  "trustRealmId": "...",
+  "stateIncarnationId": "...",
+  "securityLineageId": "...",
+  "authorityEpoch": 3,
+  "streamId": "screen/...",
   "sequence": "1234",
   "previousSequence": "1233",
   "previousDigest": "...",
-  "feedDigest": "...",
   "type": "screen.presentation.changed",
-  "target": {
-    "kind": "screen",
-    "id": "..."
-  },
+  "target": {"kind": "screen", "id": "..."},
   "subject": {
     "kind": "screen.manifest",
     "id": "...",
-    "revision": "42"
+    "revision": "42",
+    "stateDigest": "..."
   },
-  "object": {
-    "sha256": "...",
-    "sizeBytes": "18241"
-  },
+  "object": {"sha256": "...", "sizeBytes": "18241"},
   "issuedAt": "2026-09-22T19:00:00Z",
   "expiresAt": null,
-  "authorityEpoch": 1,
+  "streamDigest": "...",
   "signature": "..."
 }
 ```
 
-Canonicalize the envelope without `signature` using RFC 8785/JCS, sign those bytes, then attach the encoded signature.
+Every potentially 64-bit counter/revision is an unsigned decimal string.
 
-Every potentially 64-bit counter/revision is an unsigned decimal string. Duplicate JSON object keys are rejected before canonicalization. Protocol schemas define unknown-field behavior, UTF-8 requirements, Ed25519 key/signature encoding, Base64/Base64url rules and malformed-input fixtures across Go, Rust, TypeScript and C.
+### 15.7 Resource freshness and equivocation
 
-`previousDigest` makes a same-epoch fork detectable. A node that sees the same `(stateEpoch, sequence)` with a different digest reports a feed-fork incident and stops peer advancement until direct server reconciliation.
+Resource revisions are comparable only within the same `stateIncarnationId`.
 
-### 15.5 Feed order versus resource freshness
+For a given `(stateIncarnationId, subject kind, subject id)`:
 
-Feed sequence is delivery/completeness order, not semantic resource freshness.
+- higher revision supersedes lower revision;
+- lower revision at a later stream sequence is a stale no-op;
+- deletion is an explicit tombstone at a newer revision;
+- same revision + same `stateDigest` is idempotent;
+- same revision + different `stateDigest` is an equivocation/fork incident requiring direct server reconciliation.
 
-Every mutable change carries a type-specific signed subject generation. Initial mapping includes:
+Initial freshness sources include:
 
-| Change type | Subject freshness value |
+| State | Freshness value |
 | --- | --- |
-| `screen.presentation.changed` | `screen_manifest_state.manifest_version` |
-| `screen.configuration.changed` | `screen_config_state.config_revision` |
-| certificate/node revocation | revocation generation |
-| Context definition/value policy | Context resource generation |
-| authority transition | authority epoch/transition generation |
+| screen presentation/current manifest | `screen_manifest_state.manifest_version` |
+| screen configuration | `screen_config_state.config_revision` |
+| security state | `securityGeneration` in `securityLineageId` |
+| Context definition/policy | Context resource generation |
 
-If a later feed position carries an older subject revision than the node has already applied, the node records a stale no-op and still advances feed continuity.
+### 15.8 Independently retrievable current state
 
-Deletion/removal is represented by an explicit signed tombstone at a newer subject revision. A node does not need to wait for a future snapshot to learn that a mutable resource was removed.
+Every stream also exposes an authority-signed current-state checkpoint/document for fast recovery.
 
-### 15.6 Urgent independently versioned state
-
-A global contiguous feed must not delay security or urgent state behind an unrelated screen event.
-
-At minimum, the server publishes independently versioned signed state documents for:
-
-- certificate-instance revocations and durable-node disablement;
-- current screen presentation/configuration state;
-- active takeover state where urgency requires it;
-- Context definition/rule state.
-
-A node may apply a valid newer signed state document when its resource generation is newer, even if the ordinary feed cursor has a gap. The node does **not** skip the missing feed position; it separately records the newer resource watermark and continues feed recovery.
-
-Revocation state uses this path. A missing presentation event for another screen cannot delay application of a newer revocation generation.
-
-Peer `latestSequence` hints are wakeups only. They never advance `highest_seen_sequence`, state epoch, resource revision or revocation generation. Only a verified authority-signed envelope/checkpoint or direct authenticated server response can do that.
-
-### 15.7 Feed scope and scaling
-
-Do not require every node to download every other screen's payload indefinitely merely to advance its own useful state.
-
-V1 may keep one installation feed for audit/completeness, but implementations must support at least one bounded strategy before broad rollout:
-
-- compact multi-target events for one authoritative mutation that affects many screens;
-- target-aware range filtering with signed skip/checkpoint proofs; or
-- scoped feed partitions with an installation-level security stream.
-
-The chosen strategy must preserve fork/gap detection without O(N²) fleet fan-out. E7 includes a scale test using an organization-wide change across a representative fleet.
-
-### 15.8 Sequence gaps
-
-Within one state epoch, a feed gap means a published feed position is missing locally.
-
-The node tracks:
+Current-state core includes at least:
 
 ```text
-state_epoch
-last_contiguous_sequence
-last_contiguous_digest
-highest_verified_sequence
-per-resource revision watermarks
+trustRealmId
+stateIncarnationId
+securityLineageId
+streamId
+subject/stream revision
+stateDigest
+object/payload digest
+generatedAt
+authorityEpoch
 ```
 
-A gap triggers range recovery. The node does not infer loss from PostgreSQL sequence allocation because protocol positions are assigned only by the serialized signer-projector.
+Its signature uses `TilecastEdge/current-state/v1`.
 
-A same-sequence/different-digest record is not a normal gap. It is a fork and requires direct server reconciliation.
+Same coordinates/revision with a different `stateDigest` is a fork incident.
 
-### 15.9 Signed snapshot checkpoints
+A newly enrolled node or node that lost local anti-rollback state obtains its initial security/screen watermarks directly from the authenticated Tilecast Server. Peer-only current-state documents are not accepted as the first trust anchor.
 
-If a node is behind retention, the server returns an authority-signed checkpoint:
+### 15.9 Security stream
+
+Security state has an additional monotonic `securityGeneration` that never decreases within one `securityLineageId`.
+
+A missing policy/screen record cannot delay a newer valid security generation.
+
+A restored server may publish security state only when its recovered security checkpoint is at least as new as the externally trusted security checkpoint. Otherwise §12 requires security recovery/trust-realm reset.
+
+### 15.10 Snapshot checkpoints
+
+Snapshots are per stream.
+
+Conceptual checkpoint:
 
 ```json
 {
   "schema": 1,
   "installationId": "...",
-  "stateEpoch": "7",
-  "scope": {
-    "kind": "screen",
-    "id": "..."
-  },
+  "trustRealmId": "...",
+  "stateIncarnationId": "...",
+  "securityLineageId": "...",
+  "streamId": "screen/...",
   "baseSequence": "81234",
   "baseDigest": "...",
-  "authorityEpoch": 1,
-  "generatedAt": "2026-09-22T19:00:00Z",
-  "object": {
-    "sha256": "...",
-    "sizeBytes": "..."
-  },
+  "authorityEpoch": 3,
+  "projectionDigest": "...",
+  "object": {"sha256": "...", "sizeBytes": "..."},
+  "generatedAt": "...",
   "signature": "..."
 }
 ```
 
-Snapshot scope is explicit. Prefer screen-scoped snapshots for ordinary player recovery; use installation/security snapshots only for state that is truly installation-wide.
+The object is serialized from the materialized Edge projection at exactly that stream watermark.
 
-The immutable snapshot object contains the current applicable projected state and per-resource revision/generation watermarks.
+Snapshot signature domain is `TilecastEdge/snapshot/v1`.
 
-Snapshot creation uses the feed serialization lock plus a consistent PostgreSQL snapshot so:
+After destructive local-state recovery, a snapshot from a peer is not a new trust anchor. The node needs its durable trusted checkpoint or direct server recovery/enrollment state first.
 
-- every authoritative mutation visible in the snapshot has a feed position at or below `baseSequence`; and
-- every mutation not visible in the snapshot receives a feed position above `baseSequence`.
+### 15.11 Node trusted checkpoint
 
-The node verifies state epoch, authority chain, checkpoint signature, base digest and object hash before applying it.
-
-After destructive local DB recovery, peer snapshots are insufficient to establish a new trust anchor. The node first performs direct authenticated server re-anchoring or uses a separately persisted trusted checkpoint that proves the received state is not older than its previous trust state.
-
-Feed/object retention is linked. Objects referenced by the retained replay window and current recovery snapshots remain retained.
-
-### 15.10 Expiry semantics
-
-`expiresAt` is permitted only for change types whose effect is explicitly ephemeral.
-
-Durable configuration, resource tombstones, certificate/node revocation state, authority transitions and state-epoch transitions have `expiresAt = null`.
-
-For a valid ephemeral envelope that has expired, the node verifies it and advances feed continuity but does not activate its effect. If trusted-time uncertainty overlaps the expiry boundary, safety-sensitive effects stay inactive/pending until trusted time or newer signed state is available.
-
-### 15.11 Server WebSocket and peer relay
-
-The authenticated server WebSocket remains a low-latency hint path.
-
-Example hints:
+The node's non-reconstructible anti-rollback checkpoint contains at least:
 
 ```text
-edge.change.available
+installationId
+trustRealmId
+stateIncarnationId
+securityLineageId
+securityGeneration
+securityStateDigest
+authorityKeyringDigest
+per-stream { streamId, sequence, digest }
+checkpointCreatedAt
+```
+
+Persist it with atomic replace + file fsync + parent-directory fsync.
+
+When applying newer security/incarnation/stream trust state:
+
+1. verify signatures/transition rules;
+2. build the new local SQLite transaction;
+3. durably write the new trusted checkpoint;
+4. commit/activate the SQLite state that depends on it.
+
+Recovery handles a trusted checkpoint that is ahead of SQLite by replaying/rebuilding local state from server/signed objects; SQLite must never be allowed to move trust behind the durable checkpoint.
+
+### 15.12 Expiry and unknown protocol behavior
+
+`expiresAt` is valid only for explicitly ephemeral effect types.
+
+Durable configuration, tombstones, security state, authority transitions and recovery re-anchor documents have no expiry.
+
+Unknown behavior is explicit:
+
+- unknown top-level schema version: do not apply;
+- unknown signed field when schema says closed: reject;
+- unknown stream record type in a non-security stream: stop that stream at the unknown record and request compatible server state/snapshot;
+- unknown security-state type/version: disable mesh/security-sensitive peer participation and require server/upgrade resolution;
+- never advance a security cursor through semantics the node cannot understand.
+
+Protocol min/max capabilities are negotiated with the server and reported by nodes so the server can avoid publishing incompatible required state.
+
+### 15.13 Peer/server hints
+
+WebSocket/Zenoh hints are bounded wakeups only.
+
+Examples:
+
+```text
+edge.stream.available
 edge.security.changed
 edge.snapshot.available
 ```
 
-A hint carries bounded identifiers only. It does not become authoritative merely because it arrived over the socket.
+A peer hint never advances:
 
-Peers relay exact signed bytes. They do not reserialize or resign them.
+- trust realm;
+- state incarnation;
+- security lineage/generation;
+- stream sequence/digest;
+- resource revision.
 
-### 15.12 Change types
+Only verified signed state/direct authenticated server recovery does.
 
-Initial signed types include:
+### 15.14 What is not an ordinary stream record
 
-```text
-screen.presentation.changed
-screen.configuration.changed
-screen.takeover.changed
-screen.command.available          # hint only; command still server-authorized/persistent
-edge.security.changed
-edge.context.definition.changed
-edge.context.value.changed
-edge.authority.changed
-edge.state_epoch.changed
-```
+State-incarnation recovery transition/re-anchor is **not** a peer-actionable ordinary stream event.
 
-### 15.13 Secrets stay direct
+Do not include `edge.state_epoch.changed` or an equivalent in the normal relayable change-type list.
+
+Commands and update authorization also remain direct server-authorized state, not peer-created authority.
+
+### 15.15 Secrets stay direct
 
 Peer relay must not carry:
 
@@ -1645,9 +1891,10 @@ Peer relay must not carry:
 - node private keys;
 - Presentation Network passwords/PSKs;
 - integration secrets;
-- dashboard/session secrets.
+- dashboard/session secrets;
+- Edge CA/authority private keys.
 
-The server remains the direct authority for secrets and command execution authorization.
+The server remains the direct authority for secrets, recovery transitions and command/update authorization.
 
 ## 16. Immutable Edge Objects
 
