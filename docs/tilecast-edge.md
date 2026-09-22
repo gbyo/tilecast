@@ -374,7 +374,7 @@ Prefer udev rules and dedicated Unix groups for CEC, I²C/DDC, input and DRM acc
 
 PipeWire is commonly per-user/session. A system `tilecastd` must not assume that `/run/user/<uid>/pipewire-0` always exists or is reachable.
 
-For a dedicated appliance account, run PipeWire/WirePlumber as the same fixed `tilecast` user with user-service lingering or an equivalent controlled session so `tilecastd` can connect predictably.
+For a dedicated appliance, run PipeWire/WirePlumber under the controlled `tilecast-edge` service/session identity (or an equivalently isolated media-session identity) so `tilecastd` can connect predictably. If the renderer needs PipeWire audio output, grant `tilecast-renderer` access only to the required PipeWire socket/session using a deliberate ACL/group boundary; do not collapse the daemon and renderer back into one Unix account.
 
 For generic existing Linux desktops where that cannot be guaranteed, PipeWire capabilities may be `unavailable` and a later optional user-session bridge can expose only the typed operations Edge needs. Lack of PipeWire must never break playback.
 
@@ -2576,7 +2576,7 @@ For Edge-owned binaries, prefer immutable release directories:
 /opt/tilecast-edge/previous -> releases/1.3.0
 ```
 
-The running `tilecast` user should not have arbitrary write permission to `/opt/tilecast-edge`.
+Neither `tilecast-edge` nor `tilecast-renderer` should have arbitrary write permission to `/opt/tilecast-edge`.
 
 ### 30.5 Privileged promotion
 
@@ -3335,7 +3335,7 @@ Default human-readable output; `--json` emits a documented bounded JSON structur
 
 ### 37.2 Privilege
 
-Read-only status commands may be allowed to members of the `tilecast` administration group. Mutating/recovery commands require local privilege policy and still map to a fixed daemon operation.
+Read-only status commands may be allowed to members of the `tilecast-admin` group through `admin.sock`. Mutating/recovery commands require local privilege policy and still map to a fixed daemon operation.
 
 The CLI never reads the device credential or node private key directly.
 
