@@ -203,6 +203,12 @@ export function FormBuilder({
         : "saved";
 
   const keys = draft.fields.map((field) => field.key);
+  // Rows are keyed by field key so focus follows a field when it moves. Keys are
+  // editable and may briefly collide, so repeats get an occurrence suffix.
+  const rowKeys = keys.map(
+    (key, index) =>
+      `${key}#${keys.slice(0, index).filter((other) => other === key).length}`,
+  );
   const selectedField = draft.fields[selected];
 
   type FieldAction = {
@@ -339,7 +345,7 @@ export function FormBuilder({
     if (readOnly)
       return (
         <RheaItem
-          key={index}
+          key={rowKeys[index]}
           variant={index === selected ? "muted" : "outline"}
           size="sm"
         >
@@ -347,7 +353,7 @@ export function FormBuilder({
         </RheaItem>
       );
     return (
-      <RheaContextMenu key={index}>
+      <RheaContextMenu key={rowKeys[index]}>
         <ContextMenuTrigger
           render={
             <RheaItem
@@ -421,7 +427,11 @@ export function FormBuilder({
       ...current,
       fields: current.fields.filter((_, i) => i !== index),
     }));
-    setSelected((prev) => Math.max(0, Math.min(prev, draft.fields.length - 2)));
+    setSelected((prev) =>
+      index < prev
+        ? prev - 1
+        : Math.max(0, Math.min(prev, draft.fields.length - 2)),
+    );
   };
 
   const moveToEdge = (index: number, edge: "top" | "bottom") => {
@@ -637,8 +647,8 @@ export function FormBuilder({
         >
           <ResizablePanel
             id="form-fields"
-            defaultSize={26}
-            minSize={18}
+            defaultSize="26%"
+            minSize="18%"
             aria-label="Form fields"
           >
             <div className="grid min-w-0 content-start gap-3 pr-4">
@@ -651,8 +661,8 @@ export function FormBuilder({
           />
           <ResizablePanel
             id="form-preview"
-            defaultSize={readOnly ? 74 : 44}
-            minSize={30}
+            defaultSize={readOnly ? "74%" : "44%"}
+            minSize="30%"
             aria-label="Form preview"
           >
             <div className="grid min-w-0 content-start gap-3 px-4">
@@ -667,8 +677,8 @@ export function FormBuilder({
               />
               <ResizablePanel
                 id="form-inspector"
-                defaultSize={30}
-                minSize={20}
+                defaultSize="30%"
+                minSize="20%"
                 aria-label="Field settings"
               >
                 <div className="grid min-w-0 content-start gap-3 pl-4">
