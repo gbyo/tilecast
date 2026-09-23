@@ -1,4 +1,5 @@
 import { useCallback, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertDialog as RheaAlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ export type ConfirmRequest = {
  * browser chrome. Render the returned dialog next to the confirming UI.
  */
 export function useConfirm() {
+  const { t } = useTranslation("common");
   const [pending, setPending] = useState<{
     request: ConfirmRequest;
     resolve: (value: boolean) => void;
@@ -62,7 +64,7 @@ export function useConfirm() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => settle(false)}>
-            Cancel
+            {t("actions.cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             className={
@@ -72,7 +74,7 @@ export function useConfirm() {
             }
             onClick={() => settle(true)}
           >
-            {pending?.request.action ?? "Confirm"}
+            {pending?.request.action ?? t("actions.confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

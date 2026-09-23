@@ -1,4 +1,11 @@
 {
+  "a11y": {
+    "loading": "Loading",
+    "more": "More",
+    "sidebarDescription": "Displays the mobile sidebar.",
+    "sidebarTitle": "Sidebar",
+    "toggleSidebar": "Toggle Sidebar"
+  },
   "actions": {
     "back": "Back",
     "cancel": "Cancel",
@@ -7,11 +14,14 @@
     "delete": "Delete",
     "edit": "Edit",
     "next": "Next",
+    "previous": "Previous",
     "remove": "Remove",
     "retry": "Retry",
     "save": "Save",
     "saveChanges": "Save changes",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "skip": "Skip",
+    "submit": "Submit"
   },
   "status": {
     "loading": "Loading…"
