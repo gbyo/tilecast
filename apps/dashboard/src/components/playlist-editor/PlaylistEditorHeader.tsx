@@ -8,6 +8,7 @@ import {
   Trash2,
   ArrowLeft,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { Playlist } from "../../api/types";
 import { Badge } from "../ui/badge";
@@ -50,12 +51,13 @@ export function PlaylistEditorHeader({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation("playlists");
   const hasChanges = Boolean(
     playlist.hasUnpublishedChanges ||
     playlist.draftRevision !== playlist.publishedRevision,
   );
   const isPublished = !hasChanges && playlist.publishedRevision != null;
-  const duration = playlistDurationLabel(playlist.items);
+  const duration = playlistDurationLabel(playlist.items, t);
 
   return (
     <header className="flex flex-wrap items-start justify-between gap-3">
@@ -65,21 +67,23 @@ export function PlaylistEditorHeader({
           className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft size={15} aria-hidden="true" />
-          Playlists
+          {t("header.back")}
         </Link>
         <h1 className="truncate text-2xl font-semibold tracking-tight">
           {playlist.name}
         </h1>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
           <Badge variant={isPublished ? "default" : "secondary"}>
-            {isPublished ? "Published" : "Draft"}
+            {isPublished
+              ? t("header.statusPublished")
+              : t("header.statusDraft")}
           </Badge>
-          <span>{playlist.itemCount} items</span>
+          <span>{t("count.items", { count: playlist.itemCount })}</span>
           <span>{duration}</span>
-          {sourceType === "tag" && <span>Tag-driven</span>}
+          {sourceType === "tag" && <span>{t("header.sourceTag")}</span>}
           {hasChanges && (
             <span className="font-medium text-amber-600 dark:text-amber-400">
-              Unpublished changes
+              {t("header.unpublished")}
             </span>
           )}
         </p>
@@ -87,7 +91,7 @@ export function PlaylistEditorHeader({
       <div className="flex flex-wrap items-center gap-2">
         <RheaButton type="button" variant="outline" onClick={onPreview}>
           <ExternalLink size={15} aria-hidden="true" />
-          Preview
+          {t("header.preview")}
         </RheaButton>
         {canSubmit && (
           <RheaButton
@@ -97,39 +101,39 @@ export function PlaylistEditorHeader({
           >
             <Send size={15} aria-hidden="true" />
             {publishPending
-              ? "Publishing…"
+              ? t("header.publishing")
               : canPublish
-                ? "Publish"
-                : "Submit for review"}
+                ? t("header.publish")
+                : t("header.submitReview")}
           </RheaButton>
         )}
         <RheaDropdownMenu>
           <DropdownMenuTrigger
             className="inline-flex size-8 items-center justify-center rounded-xl hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
-            aria-label="More playlist actions"
+            aria-label={t("header.moreActions")}
           >
             <MoreHorizontal size={18} aria-hidden="true" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" aria-label="Playlist actions">
+          <DropdownMenuContent align="end" aria-label={t("header.actionsMenu")}>
             <DropdownMenuItem onClick={onOpenHistory}>
               <History size={16} aria-hidden="true" />
-              History
+              {t("header.history")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenDetails}>
               <Settings2 size={16} aria-hidden="true" />
-              Playlist details
+              {t("header.details")}
             </DropdownMenuItem>
             {canManage && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onDuplicate}>
                   <Copy size={16} aria-hidden="true" />
-                  Duplicate playlist
+                  {t("header.duplicate")}
                 </DropdownMenuItem>
                 {canDelete && (
                   <DropdownMenuItem variant="destructive" onClick={onDelete}>
                     <Trash2 size={16} aria-hidden="true" />
-                    Delete playlist
+                    {t("header.delete")}
                   </DropdownMenuItem>
                 )}
               </>
