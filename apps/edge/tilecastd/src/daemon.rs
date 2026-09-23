@@ -90,6 +90,9 @@ pub struct DaemonContext {
     pub revocations: RevocationSet,
     /// Wakes the server link early (mesh change hints, IPC requests).
     pub server_wake: tokio::sync::Notify,
+    /// Wakes server-manifest playback when a manifest or item boundary arrives.
+    pub manifest_wake: tokio::sync::Notify,
+    pub manifest_item_boundary: std::sync::atomic::AtomicBool,
     pub link_state: std::sync::Mutex<LinkState>,
     /// The one change-feed applier, shared by the server link and mesh
     /// hints. Created after enrollment.
@@ -264,6 +267,8 @@ impl Daemon {
             cas,
             revocations,
             server_wake: tokio::sync::Notify::new(),
+            manifest_wake: tokio::sync::Notify::new(),
+            manifest_item_boundary: std::sync::atomic::AtomicBool::new(false),
             link_state: std::sync::Mutex::new(LinkState::Unbound),
             feed: Mutex::new(None),
             mesh_state: std::sync::Mutex::new(crate::fabric::MeshState::default()),
@@ -333,6 +338,7 @@ impl Daemon {
         }
         tasks.spawn(watchdog_loop(Arc::clone(&context)));
         tasks.spawn(supervision_loop(Arc::clone(&context)));
+        tasks.spawn(crate::server_manifest::run(Arc::clone(&context)));
         tasks.spawn(capability_loop(Arc::clone(&context)));
         tasks.spawn(crate::fixture::run(Arc::clone(&context)));
         tasks.spawn(cas_maintenance_loop(Arc::clone(&context)));

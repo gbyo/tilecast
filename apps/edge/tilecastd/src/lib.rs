@@ -32,4 +32,5 @@ pub mod media_channel;
 pub mod presentation;
 pub mod schedule;
 pub mod server_link;
+pub mod server_manifest;
 pub mod supervisor;

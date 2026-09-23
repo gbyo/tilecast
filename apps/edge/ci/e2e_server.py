@@ -18,6 +18,7 @@ create databases. Usage: apps/edge/ci/e2e_server.py (from the repository root).
 """
 
 import base64
+import argparse
 import hashlib
 import http.cookiejar
 import json
@@ -146,7 +147,7 @@ def tree(root):
     return out
 
 
-def main():
+def main(args):
     work = tempfile.mkdtemp(prefix="tilecast-edge-e2e-")
     processes = []
     proxy = None
@@ -164,8 +165,16 @@ def main():
         server_bin = os.path.join(work, "tilecast")
         run("go", "build", "-o", server_bin, "./cmd/tilecast", cwd=SERVER)
         run("cargo", "build", "-q", "-p", "tilecastd", "-p", "tilecastctl", cwd=EDGE)
-        target = os.path.join(EDGE, "target", "debug")
+        target = os.path.join(os.environ.get("CARGO_TARGET_DIR", os.path.join(EDGE, "target")), "debug")
         tilecastd, tilecastctl = os.path.join(target, "tilecastd"), os.path.join(target, "tilecastctl")
+        renderer_paths = (args.renderer_bin, args.renderer_runtime, args.gst_plugin_dir)
+        renderer_enabled = any(renderer_paths)
+        if renderer_enabled and not all(renderer_paths):
+            raise AssertionError("--renderer-bin, --renderer-runtime, and --gst-plugin-dir must be supplied together")
+        if renderer_enabled:
+            for path in renderer_paths:
+                if not os.path.exists(path):
+                    raise AssertionError(f"renderer test input does not exist: {path}")
 
         # This test uploads no media, so when FFmpeg is not installed the
         # server's startup probe (`<tool> -version`) is answered by a stub
@@ -250,7 +259,10 @@ def main():
         state, runtime = os.path.join(work, "state"), os.path.join(work, "run")
         config = os.path.join(work, "edge.toml")
         with open(config, "w") as handle:
-            handle.write(f'[paths]\nstate_dir = "{state}"\nruntime_dir = "{runtime}"\n[log]\nformat = "text"\n')
+            handle.write(f'[paths]\nstate_dir = "{state}"\nruntime_dir = "{runtime}"\n')
+            if renderer_enabled:
+                handle.write(f'[renderer]\nbinary = "{args.renderer_bin}"\nstall_threshold_seconds = 60\n')
+            handle.write('[log]\nformat = "text"\n')
 
         run(tilecastd, "--config", config, "import-legacy", "--from", legacy)
         again = subprocess.run([tilecastd, "--config", config, "import-legacy", "--from", legacy],
@@ -262,6 +274,29 @@ def main():
         daemon_log = open(os.path.join(work, "tilecastd.log"), "w")
         daemon = subprocess.Popen([tilecastd, "--config", config, "run"], stdout=daemon_log, stderr=subprocess.STDOUT)
         processes.append(daemon)
+
+        renderer_process = None
+        if renderer_enabled:
+            wait_for(lambda: os.path.exists(os.path.join(runtime, "edge.sock")), "daemon IPC socket")
+            renderer_log = open(os.path.join(work, "renderer.log"), "w")
+            renderer_env = dict(os.environ)
+            renderer_env.setdefault("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1")
+            renderer_process = subprocess.Popen(
+                [
+                    args.renderer_bin,
+                    "--platform=headless",
+                    f"--socket={os.path.join(runtime, 'edge.sock')}",
+                    f"--media-socket={os.path.join(runtime, 'media.sock')}",
+                    f"--runtime-dir={args.renderer_runtime}",
+                    f"--gst-plugin-dir={args.gst_plugin_dir}",
+                    "--headless-size=1280x720",
+                    "--console",
+                ],
+                stdout=renderer_log,
+                stderr=subprocess.STDOUT,
+                env=renderer_env,
+            )
+            processes.append(renderer_process)
 
         def node_listed():
             status, nodes = client.call("GET", "/api/v1/edge/nodes")
@@ -276,7 +311,10 @@ def main():
         wait_for(player_contact, "normal player WebSocket presence")
         def manifest_prepared():
             with sqlite3.connect(os.path.join(state, "state.db")) as db:
-                row = db.execute("SELECT version, document FROM manifests WHERE stage='pending'").fetchone()
+                row = db.execute(
+                    "SELECT version, document FROM manifests WHERE stage IN ('active', 'pending') "
+                    "ORDER BY stage='active' DESC LIMIT 1"
+                ).fetchone()
                 if row is None:
                     return False
                 document = json.loads(row[1])
@@ -286,7 +324,7 @@ def main():
         # Install one deterministic image fixture in the real server's media
         # storage and catalog. FFmpeg is not required for the P0 download path;
         # the fixture starts as a ready, player-compatible variant.
-        asset_id, variant_id, playlist_id = (str(uuid.uuid4()) for _ in range(3))
+        asset_id, variant_id, playlist_id, item_id, assignment_id = (str(uuid.uuid4()) for _ in range(5))
         image = base64.b64decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR1sAAAAASUVORK5CYII="
         )
@@ -308,9 +346,9 @@ def main():
             INSERT INTO playlists (id, organization_id, name)
             VALUES ('{playlist_id}', (SELECT id FROM organization_settings LIMIT 1), 'Edge E2E playlist');
             INSERT INTO playlist_items (id, playlist_id, asset_id, position, duration_ms)
-            VALUES ('{uuid.uuid4()}', '{playlist_id}', '{asset_id}', 0, 10000);
+            VALUES ('{item_id}', '{playlist_id}', '{asset_id}', 0, 10000);
             INSERT INTO screen_playlist_assignments (id, screen_id, playlist_id)
-            VALUES ('{uuid.uuid4()}', '{screen_id}', '{playlist_id}');
+            VALUES ('{assignment_id}', '{screen_id}', '{playlist_id}');
             UPDATE screen_manifest_state SET manifest_version = manifest_version + 1,
                 changed_at = now(), change_reason = 'edge e2e assignment' WHERE screen_id = '{screen_id}';
         """
@@ -322,22 +360,47 @@ def main():
         daemon = subprocess.Popen([tilecastd, "--config", config, "run"], stdout=daemon_log, stderr=subprocess.STDOUT)
         processes.append(daemon)
 
-        def assigned_manifest_prepared():
+        def assigned_manifest_staged():
             with sqlite3.connect(os.path.join(state, "state.db")) as db:
-                row = db.execute("SELECT document FROM manifests WHERE stage='pending'").fetchone()
-                if row is None:
-                    return False
-                document = json.loads(row[0])
-                fallback = document.get("directFallbackPlaylist") or {}
-                if fallback.get("id") != playlist_id:
-                    return False
-                pin = db.execute("SELECT 1 FROM cas_pins WHERE sha256=? AND reason='pending_presentation'",
-                                 (image_hash,)).fetchone()
-                return pin is not None
-        wait_for(assigned_manifest_prepared, "real assigned manifest and pending CAS pin")
+                rows = db.execute(
+                    "SELECT stage, version, document FROM manifests WHERE stage IN ('active', 'pending') "
+                    "ORDER BY stage='active' DESC"
+                ).fetchall()
+                for stage, version, text in rows:
+                    document = json.loads(text)
+                    fallback = document.get("directFallbackPlaylist") or {}
+                    if fallback.get("id") != playlist_id:
+                        continue
+                    reason = "active_presentation" if stage == "active" else "pending_presentation"
+                    holder = f"server-manifest-v{version}" if stage == "active" else None
+                    pin = db.execute(
+                        "SELECT 1 FROM cas_pins WHERE sha256=? AND reason=? AND (? IS NULL OR holder=?)",
+                        (image_hash, reason, holder, holder),
+                    ).fetchone()
+                    if pin is not None:
+                        return stage, True
+                return False
+        wait_for(assigned_manifest_staged, "real assigned manifest and CAS pin")
         cas_path = os.path.join(state, "cas", "sha256", image_hash[:2], image_hash)
         with open(cas_path, "rb") as handle:
             assert hashlib.sha256(handle.read()).hexdigest() == image_hash, "CAS media digest mismatch"
+
+        if renderer_enabled:
+            def assigned_manifest_active():
+                staged = assigned_manifest_staged()
+                if not staged or staged[0] != "active":
+                    return False
+                with open(os.path.join(work, "tilecastd.log"), encoding="utf-8", errors="replace") as handle:
+                    return any(
+                        "evidence_accepted" in line and "image_shown" in line and item_id in line
+                        for line in handle
+                    )
+            wait_for(assigned_manifest_active, "WPE image evidence and active manifest", timeout=90)
+        else:
+            wait_for(
+                lambda: (assigned_manifest_staged() or (None, False))[0] == "pending",
+                "prepared assigned manifest awaiting renderer",
+            )
 
         def clock_sampled():
             with sqlite3.connect(os.path.join(state, "state.db")) as db:
@@ -371,10 +434,11 @@ def main():
         client.call("POST", f"/api/v1/screens/{screen_id}/revoke", {}, expect=204)
         wait_for(lambda: not os.path.exists(credential_path), "credential removal after revocation")
         assert tree(legacy) == before, "legacy state changed"
-        print("PASS: import, HTTPS Edge enrollment, player socket, assigned manifest and CAS download, server restart, disable/enable, live revocation")
+        suffix = ", WPE renderer-confirmed activation" if renderer_enabled else ""
+        print(f"PASS: import, HTTPS Edge enrollment, player socket, assigned manifest and CAS download{suffix}, server restart, disable/enable, live revocation")
         return 0
     except Exception:
-        for name in ("server.log", "tilecastd.log"):
+        for name in ("server.log", "tilecastd.log", "renderer.log"):
             path = os.path.join(work, name)
             if os.path.exists(path):
                 print(f"==== {name}", file=sys.stderr)
@@ -396,4 +460,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--renderer-bin", default=os.environ.get("TILECAST_EDGE_RENDERER"))
+    parser.add_argument("--renderer-runtime", default=os.environ.get("TILECAST_EDGE_RENDERER_RUNTIME"))
+    parser.add_argument("--gst-plugin-dir", default=os.environ.get("TILECAST_EDGE_GST_PLUGIN_DIR"))
+    sys.exit(main(parser.parse_args()))

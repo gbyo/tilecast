@@ -8,6 +8,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use edge_cas::{BlobSource, CasError, FetchError, FetchRequest, Fetcher, IngestMeta};
+use edge_protocol::bounded::{SafeText, ShortToken};
+use edge_protocol::ipc::presentation::{
+    ContentRef, ItemKind, PresentationDocument, PresentationItem, StatusSurface, content_uri,
+};
 use edge_protocol::{ScreenId, Sha256Digest};
 use edge_server::AuthenticatedServer;
 use edge_server::origin::OriginBlobSource;
@@ -17,12 +21,14 @@ use serde_json::Value;
 
 use crate::daemon::DaemonContext;
 use crate::fabric;
+use crate::schedule::{self, Selection, Source};
 
 const SCHEMA_VERSION: u32 = 11;
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;
 const AUTOMATIC_VIDEO_LIMIT_BYTES: u64 = 256 * 1024 * 1024;
+const DEFAULT_ACTIVATION_GRACE_SECONDS: u64 = 30;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Asset {
@@ -47,6 +53,14 @@ pub struct Candidate {
     pub streaming_assets: Vec<Asset>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ResolvedPresentation {
+    pub document: PresentationDocument,
+    pub content: Vec<ContentRef>,
+    pub selection: Selection,
+    pub next_transition_ms: Option<i64>,
+}
+
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum ManifestError {
     #[error("manifest structure is invalid")]
@@ -63,6 +77,77 @@ pub enum ManifestError {
     Reference,
     #[error("manifest has an unsupported delivery policy")]
     DeliveryPolicy,
+    #[error("manifest schedule is invalid")]
+    Schedule,
+    #[error("the selected presentation is not supported by this Edge renderer")]
+    UnsupportedPresentation,
+}
+
+fn availability_window(value: &Value) -> Result<(Option<i64>, Option<i64>), ManifestError> {
+    let parse = |key: &str| -> Result<Option<i64>, ManifestError> {
+        match value.get(key) {
+            None | Some(Value::Null) => Ok(None),
+            Some(Value::String(text)) => edge_protocol::Timestamp::parse(text)
+                .map(|value| Some(value.unix_millis()))
+                .map_err(|_| ManifestError::Structure),
+            _ => Err(ManifestError::Structure),
+        }
+    };
+    let from = parse("availableFrom")?;
+    let until = parse("expiresAt")?;
+    if from.zip(until).is_some_and(|(from, until)| from >= until) {
+        return Err(ManifestError::Structure);
+    }
+    Ok((from, until))
+}
+
+fn available_at(value: &Value, now_ms: i64) -> Result<bool, ManifestError> {
+    let (from, until) = availability_window(value)?;
+    Ok(from.is_none_or(|from| now_ms >= from) && until.is_none_or(|until| now_ms < until))
+}
+
+fn next_availability_transition(document: &Value, now_ms: i64) -> Result<Option<i64>, ManifestError> {
+    let mut next = None;
+    let mut observe = |value: &Value| -> Result<(), ManifestError> {
+        let (from, until) = availability_window(value)?;
+        for boundary in [from, until].into_iter().flatten().filter(|at| *at > now_ms) {
+            next = Some(next.map_or(boundary, |current: i64| current.min(boundary)));
+        }
+        Ok(())
+    };
+    if let Some(assets) = document.get("assets").and_then(Value::as_array) {
+        for asset in assets {
+            observe(asset)?;
+        }
+    }
+    for playlist in ["playlist", "directFallbackPlaylist"]
+        .into_iter()
+        .filter_map(|key| document.get(key))
+        .chain(document.get("playlists").and_then(Value::as_array).into_iter().flatten())
+    {
+        if let Some(items) = playlist.get("items").and_then(Value::as_array) {
+            for item in items {
+                observe(item)?;
+            }
+        }
+    }
+    Ok(next)
+}
+
+fn token_or(value: Option<&str>, fallback: &str) -> Result<ShortToken, ManifestError> {
+    ShortToken::new(value.unwrap_or(fallback).to_owned()).map_err(|_| ManifestError::Structure)
+}
+
+fn status_surface(title: &str, message: &str, status: &str) -> Result<PresentationDocument, ManifestError> {
+    Ok(PresentationDocument::Idle(StatusSurface {
+        title: SafeText::new(title.to_owned()).map_err(|_| ManifestError::Structure)?,
+        message: SafeText::new(message.to_owned()).map_err(|_| ManifestError::Structure)?,
+        background_color: None,
+        text_color: None,
+        logo_src: None,
+        footer_text: None,
+        status: Some(SafeText::new(status.to_owned()).map_err(|_| ManifestError::Structure)?),
+    }))
 }
 
 #[derive(Deserialize)]
@@ -263,6 +348,193 @@ impl Candidate {
             streaming_assets,
         })
     }
+
+    /// Resolves the server-compiled manifest at one corrected server instant.
+    /// The server remains the compiler: this selects the already-compiled
+    /// playlist and projects its ready image/video variants into the shared
+    /// renderer contract.
+    pub fn presentation(&self, now_ms: i64) -> Result<ResolvedPresentation, ManifestError> {
+        let selection = schedule::resolve(&self.document, now_ms).map_err(|_| ManifestError::Schedule)?;
+        let availability = next_availability_transition(&self.document, now_ms)?;
+        let next_transition_ms = match (selection.next_transition_ms, availability) {
+            (Some(schedule), Some(content)) => Some(schedule.min(content)),
+            (Some(value), None) | (None, Some(value)) => Some(value),
+            (None, None) => None,
+        };
+
+        let Some(playlist_id) = selection.playlist_id else {
+            if selection.layout_id.is_some() {
+                return Err(ManifestError::UnsupportedPresentation);
+            }
+            return Ok(ResolvedPresentation {
+                document: status_surface("Tilecast", "No content assigned.", "no_content")?,
+                content: Vec::new(),
+                selection,
+                next_transition_ms,
+            });
+        };
+        let playlist = ["playlist", "directFallbackPlaylist"]
+            .into_iter()
+            .filter_map(|key| self.document.get(key))
+            .chain(self.document.get("playlists").and_then(Value::as_array).into_iter().flatten())
+            .find(|playlist| playlist.get("id").and_then(Value::as_str) == Some(&playlist_id.to_string()))
+            .ok_or(ManifestError::Reference)?;
+        let source_items = playlist.get("items").and_then(Value::as_array).ok_or(ManifestError::Structure)?;
+        let asset_values = self.document.get("assets").and_then(Value::as_array).ok_or(ManifestError::Structure)?;
+        let mut items = Vec::with_capacity(source_items.len());
+        let mut content_by_digest = BTreeMap::new();
+        for item in source_items {
+            if !available_at(item, now_ms)? {
+                continue;
+            }
+            if item.get("layoutId").is_some_and(|id| !id.is_null()) {
+                return Err(ManifestError::UnsupportedPresentation);
+            }
+            let asset_id: uuid::Uuid = item
+                .get("assetId")
+                .and_then(Value::as_str)
+                .ok_or(ManifestError::Reference)?
+                .parse()
+                .map_err(|_| ManifestError::Reference)?;
+            let variant_id: uuid::Uuid = item
+                .get("variantId")
+                .and_then(Value::as_str)
+                .ok_or(ManifestError::Reference)?
+                .parse()
+                .map_err(|_| ManifestError::Reference)?;
+            let asset = self
+                .assets
+                .iter()
+                .find(|asset| asset.asset_id == asset_id && asset.variant_id == variant_id)
+                .ok_or(ManifestError::Reference)?;
+            let asset_value = asset_values
+                .iter()
+                .find(|value| {
+                    value.get("assetId").and_then(Value::as_str) == Some(&asset_id.to_string())
+                        && value.get("variantId").and_then(Value::as_str) == Some(&variant_id.to_string())
+                })
+                .ok_or(ManifestError::Reference)?;
+            if !available_at(asset_value, now_ms)? {
+                continue;
+            }
+            let kind = if asset.mime_type.starts_with("image/") {
+                ItemKind::Image
+            } else if asset.mime_type.starts_with("video/") {
+                ItemKind::Video
+            } else {
+                return Err(ManifestError::UnsupportedPresentation);
+            };
+            let item_id = item.get("id").and_then(Value::as_str).ok_or(ManifestError::Structure)?;
+            let duration_ms = match item.get("durationMs") {
+                Some(Value::Number(value)) => value.as_u64(),
+                None | Some(Value::Null) => None,
+                _ => return Err(ManifestError::Structure),
+            }
+            .or_else(|| (kind == ItemKind::Image).then_some(10_000));
+            let fit_mode = item
+                .get("fitMode")
+                .and_then(Value::as_str)
+                .filter(|mode| matches!(*mode, "contain" | "cover" | "stretch"))
+                .unwrap_or("contain");
+            let transition = item
+                .get("transition")
+                .and_then(Value::as_str)
+                .filter(|mode| matches!(*mode, "fade" | "crossfade"))
+                .unwrap_or("none");
+            let volume = item.get("volume").and_then(Value::as_f64).unwrap_or(0.5).clamp(0.0, 1.0);
+            let audio_enabled = item.get("audioEnabled").and_then(Value::as_bool).unwrap_or(true);
+            let item_id = SafeText::new(item_id.to_owned()).map_err(|_| ManifestError::Structure)?;
+            let src = SafeText::new(content_uri(&asset.digest)).map_err(|_| ManifestError::Structure)?;
+            let mime_type = SafeText::new(asset.mime_type.clone()).map_err(|_| ManifestError::Asset)?;
+            content_by_digest.entry(asset.digest).or_insert(ContentRef {
+                sha256: asset.digest,
+                size_bytes: asset.size_bytes,
+                mime_type,
+            });
+            let number = |key: &str| -> Result<Option<u64>, ManifestError> {
+                match item.get(key) {
+                    None | Some(Value::Null) => Ok(None),
+                    Some(Value::Number(value)) => value.as_u64().map(Some).ok_or(ManifestError::Structure),
+                    _ => Err(ManifestError::Structure),
+                }
+            };
+            items.push(PresentationItem {
+                id: item_id,
+                kind,
+                src,
+                duration_ms,
+                fit_mode: token_or(Some(fit_mode), "contain")?,
+                transition: Some(token_or(Some(transition), "none")?),
+                audio_enabled,
+                volume,
+                video_start_offset_ms: number("videoStartOffsetMs")?,
+                video_end_offset_ms: number("videoEndOffsetMs")?,
+                viewport: self.document.get("viewport").cloned(),
+                website: None,
+                widget: None,
+                layout: None,
+            });
+        }
+        if items.is_empty() {
+            return Ok(ResolvedPresentation {
+                document: PresentationDocument::Unavailable(StatusSurface {
+                    title: SafeText::new("Content unavailable".to_owned()).map_err(|_| ManifestError::Structure)?,
+                    message: SafeText::new("Assigned content is not currently available.".to_owned())
+                        .map_err(|_| ManifestError::Structure)?,
+                    background_color: None,
+                    text_color: None,
+                    logo_src: None,
+                    footer_text: None,
+                    status: Some(SafeText::new("unavailable".to_owned()).map_err(|_| ManifestError::Structure)?),
+                }),
+                content: Vec::new(),
+                selection,
+                next_transition_ms,
+            });
+        }
+        let document = PresentationDocument::Playing {
+            items,
+            takeover: selection.source == Source::Takeover,
+            generation: self.version as u64,
+            synchronized: false,
+        };
+        let content = content_by_digest.into_values().collect();
+        Ok(ResolvedPresentation { document, content, selection, next_transition_ms })
+    }
+}
+
+/// A stored candidate is usable offline only while every required object is
+/// still present and verified. Opening a suspect CAS record re-hashes it.
+pub async fn verify_cached(
+    context: &DaemonContext,
+    candidate: &Candidate,
+) -> Result<Vec<Sha256Digest>, PreparationError> {
+    let store = context.cas.clone().ok_or(PreparationError::StoreUnavailable)?;
+    let mut digests = BTreeSet::new();
+    for asset in &candidate.required_downloads {
+        let Some((_, record)) = store.open_verified(&asset.digest).await? else {
+            return Err(PreparationError::SizeMismatch);
+        };
+        if record.size_bytes != asset.size_bytes {
+            return Err(PreparationError::SizeMismatch);
+        }
+        digests.insert(asset.digest);
+    }
+    Ok(digests.into_iter().collect())
+}
+
+pub fn pin_holder(version: i64) -> String {
+    format!("server-manifest-v{version}")
+}
+
+pub fn activation_grace_ms(document: &Value) -> i64 {
+    let seconds = document
+        .get("activationGraceSeconds")
+        .and_then(Value::as_u64)
+        .filter(|seconds| *seconds > 0)
+        .unwrap_or(DEFAULT_ACTIVATION_GRACE_SECONDS)
+        .clamp(1, 3_600);
+    (seconds * 1_000) as i64
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -341,6 +613,7 @@ mod tests {
     const SCREEN: &str = "c791e841-b6ab-4e3f-a9f5-3b763cb47bd9";
     const ASSET: &str = "844f4a48-a47c-4fbd-8a84-f8d61cc64b6a";
     const VARIANT: &str = "46784d73-3daf-45cf-8ff0-7cb4a3d12852";
+    const ITEM: &str = "ca48c671-8e48-4bad-ab75-6125064d0f5c";
     const DIGEST: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     fn candidate() -> Value {
@@ -349,8 +622,11 @@ mod tests {
             "assets": [{"assetId": ASSET, "variantId": VARIANT, "sha256": DIGEST,
                 "fileSize": 100, "mimeType": "image/png",
                 "downloadPath": format!("/api/v1/player/assets/{ASSET}/variants/{VARIANT}")}],
-            "playlist": {"items": [{"assetId": ASSET, "variantId": VARIANT,
-                "assetType": "image", "deliveryPolicy": "automatic"}]},
+            "playlist": {"id": "e719e602-3b8f-4a2f-bec5-24b16e14725f", "items": [{
+                "id": ITEM, "assetId": ASSET, "variantId": VARIANT,
+                "assetType": "image", "deliveryPolicy": "automatic", "durationMs": 10000,
+                "fitMode": "cover", "transition": "fade", "audioEnabled": true, "volume": 0.8
+            }]},
             "playlists": []
         })
     }
@@ -362,6 +638,38 @@ mod tests {
         assert_eq!(parsed.assets[0].digest.to_hex(), DIGEST);
         assert_eq!(parsed.required_downloads, parsed.assets);
         assert!(parsed.streaming_assets.is_empty());
+    }
+
+    #[test]
+    fn resolves_server_playlist_into_shared_renderer_contract() {
+        let candidate = Candidate::parse(candidate(), SCREEN.parse().unwrap()).unwrap();
+        let resolved = candidate.presentation(1_000).unwrap();
+        let PresentationDocument::Playing { items, takeover, generation, .. } = resolved.document else {
+            panic!("assigned playlist should produce a playing presentation");
+        };
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id.as_str(), ITEM);
+        assert_eq!(items[0].kind, ItemKind::Image);
+        assert_eq!(items[0].src.as_str(), format!("tcmedia://sha256/{DIGEST}"));
+        assert_eq!(items[0].duration_ms, Some(10_000));
+        assert_eq!(items[0].fit_mode.as_str(), "cover");
+        assert_eq!(items[0].transition.as_ref().unwrap().as_str(), "fade");
+        assert!(!takeover);
+        assert_eq!(generation, 8);
+        assert_eq!(resolved.content.len(), 1);
+        assert_eq!(resolved.content[0].sha256.to_hex(), DIGEST);
+    }
+
+    #[test]
+    fn availability_is_half_open_and_rechecks_at_its_boundary() {
+        let mut value = candidate();
+        value["playlist"]["items"][0]["availableFrom"] = serde_json::json!("1970-01-01T00:00:02Z");
+        let candidate = Candidate::parse(value, SCREEN.parse().unwrap()).unwrap();
+        let before = candidate.presentation(1_000).unwrap();
+        assert!(matches!(before.document, PresentationDocument::Unavailable(_)));
+        assert_eq!(before.next_transition_ms, Some(2_000));
+        let at_boundary = candidate.presentation(2_000).unwrap();
+        assert!(matches!(at_boundary.document, PresentationDocument::Playing { .. }));
     }
 
     #[test]
@@ -415,5 +723,14 @@ mod tests {
         let parsed = Candidate::parse(value, SCREEN.parse().unwrap()).unwrap();
         assert_eq!(parsed.required_downloads.len(), 1);
         assert!(parsed.streaming_assets.is_empty());
+    }
+
+    #[test]
+    fn activation_grace_uses_server_default_and_clamps_to_the_player_bounds() {
+        assert_eq!(activation_grace_ms(&serde_json::json!({})), 30_000);
+        assert_eq!(activation_grace_ms(&serde_json::json!({"activationGraceSeconds": 0})), 30_000);
+        assert_eq!(activation_grace_ms(&serde_json::json!({"activationGraceSeconds": 0.5})), 30_000);
+        assert_eq!(activation_grace_ms(&serde_json::json!({"activationGraceSeconds": 9_000})), 3_600_000);
+        assert_eq!(activation_grace_ms(&serde_json::json!({"activationGraceSeconds": 1})), 1_000);
     }
 }

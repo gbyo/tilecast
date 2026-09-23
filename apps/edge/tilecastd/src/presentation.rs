@@ -50,6 +50,7 @@ use crate::supervisor::{Expectation, HealAction, SupervisorConfig, SupervisorSta
 pub enum ActivationSource {
     StatusSurface,
     Fixture,
+    ServerManifest,
     SafeMode,
 }
 
@@ -57,6 +58,8 @@ pub enum ActivationSource {
 pub struct Activation {
     pub id: ActivationId,
     pub generation: u64,
+    /// Server manifest revision for server-manifest activations.
+    pub manifest_version: Option<i64>,
     pub document: PresentationDocument,
     pub content: Vec<ContentRef>,
     pub timing: Option<SyncTiming>,
@@ -150,6 +153,8 @@ pub struct PresentationEngine {
     supervisor: SupervisorState,
     supervisor_config: SupervisorConfig,
     restart_count: u64,
+    meaningful_current: bool,
+    content_progress_current: bool,
     logged_evidence: std::collections::HashSet<(String, edge_protocol::ipc::event::EvidenceKind)>,
 }
 
@@ -178,6 +183,8 @@ impl PresentationEngine {
             supervisor: SupervisorState::new(now_ms),
             supervisor_config,
             restart_count: 0,
+            meaningful_current: false,
+            content_progress_current: false,
             logged_evidence: std::collections::HashSet::new(),
         }
     }
@@ -191,17 +198,46 @@ impl PresentationEngine {
         source: ActivationSource,
         now_ms: i64,
     ) -> Result<ActivationRef, PresentationError> {
+        self.activate_revision(document, content, timing, source, None, now_ms)
+    }
+
+    pub fn activate_server_manifest(
+        &mut self,
+        version: i64,
+        document: PresentationDocument,
+        content: Vec<ContentRef>,
+        now_ms: i64,
+    ) -> Result<ActivationRef, PresentationError> {
+        self.activate_revision(document, content, None, ActivationSource::ServerManifest, Some(version), now_ms)
+    }
+
+    fn activate_revision(
+        &mut self,
+        document: PresentationDocument,
+        content: Vec<ContentRef>,
+        timing: Option<SyncTiming>,
+        source: ActivationSource,
+        manifest_version: Option<i64>,
+        now_ms: i64,
+    ) -> Result<ActivationRef, PresentationError> {
         validate_content_references(&document, &content)?;
         let activation = Activation {
             id: ActivationId::new_random(),
             generation: self.next_generation,
+            manifest_version,
             document,
             content,
             timing,
             source,
         };
         self.next_generation += 1;
+        self.meaningful_current = false;
+        self.content_progress_current = false;
         self.logged_evidence.clear();
+        if let Some(link) = self.renderer.as_mut() {
+            link.accepted = None;
+            link.last_error_code = None;
+        }
         let reference = activation.reference();
         tracing::info!(
             component = "presentation",
@@ -218,6 +254,31 @@ impl PresentationEngine {
 
     pub fn current(&self) -> Option<&Activation> {
         self.current.as_ref()
+    }
+
+    pub fn current_manifest_version(&self) -> Option<i64> {
+        self.current.as_ref().and_then(|activation| activation.manifest_version)
+    }
+
+    pub fn current_is_server_manifest(&self) -> bool {
+        self.current.as_ref().is_some_and(|activation| activation.source == ActivationSource::ServerManifest)
+    }
+
+    pub fn current_has_meaningful_progress(&self) -> bool {
+        self.meaningful_current
+    }
+
+    pub fn current_has_activation_evidence(&self) -> bool {
+        let Some(current) = self.current.as_ref() else { return false };
+        match &current.document {
+            PresentationDocument::Playing { items, .. } if !items.is_empty() => self.content_progress_current,
+            _ => self.meaningful_current,
+        }
+    }
+
+    pub fn current_is_accepted(&self) -> bool {
+        let Some(current) = self.current.as_ref().map(Activation::reference) else { return false };
+        self.renderer.as_ref().is_some_and(|link| link.accepted == Some(current))
     }
 
     /// Digests the current activation needs pinned.
@@ -281,18 +342,37 @@ impl PresentationEngine {
         }
     }
 
-    pub fn progress(&mut self, session: &SessionHandle, report: &RendererProgress, now: Timestamp) {
+    pub fn progress(&mut self, session: &SessionHandle, report: &RendererProgress, now: Timestamp) -> bool {
         let Some(current) = self.current.as_ref() else {
-            return;
+            return false;
         };
+        if self.renderer.as_ref().is_none_or(|link| link.session.id() != session.id()) {
+            return false;
+        }
         // Evidence for a replaced activation must never count as progress.
         if report.activation != current.reference() {
-            return;
+            return false;
         }
         let expectation = current.expectation_for(report.item_id.as_ref().map(SafeText::as_str));
         if !is_meaningful(report.kind, expectation) {
-            return;
+            return false;
         }
+        let content_evidence = match expectation {
+            Expectation::Still => matches!(
+                report.kind,
+                edge_protocol::ipc::event::EvidenceKind::ItemStarted
+                    | edge_protocol::ipc::event::EvidenceKind::ItemTransition
+                    | edge_protocol::ipc::event::EvidenceKind::ImageShown
+            ),
+            Expectation::Video => matches!(
+                report.kind,
+                edge_protocol::ipc::event::EvidenceKind::ItemStarted
+                    | edge_protocol::ipc::event::EvidenceKind::ItemTransition
+                    | edge_protocol::ipc::event::EvidenceKind::VideoProgress
+                    | edge_protocol::ipc::event::EvidenceKind::FrameChanged
+            ),
+            _ => false,
+        } && report.item_id.is_some();
         // Log the first acceptance of each (item, kind) per activation: enough
         // for diagnostics and tests, bounded regardless of playback length.
         let key = (report.item_id.as_ref().map(|i| i.as_str().to_owned()).unwrap_or_default(), report.kind);
@@ -308,7 +388,10 @@ impl PresentationEngine {
         if let Some(link) = self.link_for(session) {
             link.last_progress_at = Some(now);
         }
+        self.meaningful_current = true;
+        self.content_progress_current |= content_evidence;
         self.supervisor.on_progress(now.unix_millis(), &self.supervisor_config);
+        true
     }
 
     pub fn item_error(&mut self, session: &SessionHandle, activation: ActivationRef, code: &str) {
@@ -332,7 +415,14 @@ impl PresentationEngine {
             HealAction::None => {}
             HealAction::Reactivate => {
                 if let Some(current) = self.current.take() {
-                    let _ = self.activate(current.document, current.content, current.timing, current.source, now_ms);
+                    let _ = self.activate_revision(
+                        current.document,
+                        current.content,
+                        current.timing,
+                        current.source,
+                        current.manifest_version,
+                        now_ms,
+                    );
                 }
             }
             HealAction::ReloadRenderer => self.command(RendererCommandKind::Reload),
@@ -372,6 +462,7 @@ impl PresentationEngine {
 
     pub fn clear(&mut self, reason: &str) {
         self.current = None;
+        self.meaningful_current = false;
         if let Some(link) = &self.renderer {
             let _ = link.session.send_event(Event::PresentationClear(PresentationClear {
                 reason: ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal")),

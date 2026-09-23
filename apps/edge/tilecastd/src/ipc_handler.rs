@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use edge_ipc::{IpcHandler, SessionHandle};
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ipc::Role;
-use edge_protocol::ipc::event::Event;
+use edge_protocol::ipc::event::{Event, EvidenceKind};
 use edge_protocol::ipc::message::ErrorBody;
 use edge_protocol::ipc::method::{Method, PingResult, ShowDiagnosticResult, SubmitServerUrlResult, error_codes};
 use edge_protocol::ipc::status::{
@@ -83,11 +83,23 @@ impl IpcHandler for DaemonIpc {
         let mut engine = self.context.presentation.lock().await;
         match event {
             Event::RendererReady(ready) => engine.renderer_ready(session, ready, now.unix_millis()),
-            Event::PresentationAccepted(accepted) => engine.accepted(session, accepted.activation),
+            Event::PresentationAccepted(accepted) => {
+                engine.accepted(session, accepted.activation);
+                self.context.manifest_wake.notify_one();
+            }
             Event::PresentationRejected(rejected) => {
                 engine.rejected(session, rejected.activation, rejected.code.as_str());
             }
-            Event::RendererProgress(progress) => engine.progress(session, &progress, now),
+            Event::RendererProgress(progress) => {
+                let is_boundary = progress.kind == EvidenceKind::ItemTransition;
+                let meaningful = engine.progress(session, &progress, now);
+                if is_boundary && meaningful {
+                    self.context.manifest_item_boundary.store(true, Ordering::Relaxed);
+                    self.context.manifest_wake.notify_one();
+                } else if meaningful {
+                    self.context.manifest_wake.notify_one();
+                }
+            }
             Event::ItemError(item) => {
                 tracing::warn!(
                     component = "renderer",

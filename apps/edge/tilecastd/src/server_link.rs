@@ -249,12 +249,33 @@ async fn sync_manifest(context: &DaemonContext, server: &AuthenticatedServer, bi
         return;
     };
     let mut etag = active.as_ref().map(|stored| stored.etag.as_str());
+    if let Some(stored) = &active {
+        match Candidate::parse(stored.document.clone(), binding.screen_id) {
+            Ok(candidate) => match manifest::prepare(context, server, &candidate).await {
+                Ok(digests) => {
+                    let holder = manifest::pin_holder(candidate.version);
+                    if cas.replace_pins(PinReason::ActivePresentation, &holder, digests).await.is_ok() {
+                        context.manifest_wake.notify_one();
+                    }
+                }
+                Err(error) => tracing::warn!(
+                    component = "manifest",
+                    event = "active_repair_failed",
+                    version = candidate.version,
+                    error = %error
+                ),
+            },
+            Err(error) => tracing::warn!(component = "manifest", event = "active_invalid", error = %error),
+        }
+    }
     if let Some(stored) = &pending {
         match Candidate::parse(stored.document.clone(), binding.screen_id) {
             Ok(candidate) => match manifest::prepare(context, server, &candidate).await {
                 Ok(digests) => {
-                    if cas.replace_pins(PinReason::PendingPresentation, "server-manifest", digests).await.is_ok() {
+                    let holder = manifest::pin_holder(candidate.version);
+                    if cas.replace_pins(PinReason::PendingPresentation, &holder, digests).await.is_ok() {
                         etag = Some(&stored.etag);
+                        context.manifest_wake.notify_one();
                     }
                 }
                 Err(error) => {
@@ -316,11 +337,13 @@ async fn sync_manifest(context: &DaemonContext, server: &AuthenticatedServer, bi
         tracing::warn!(component = "manifest", event = "pending_persist_failed", reason = error.reason_code());
         return;
     }
-    if let Err(error) = cas.replace_pins(PinReason::PendingPresentation, "server-manifest", digests).await {
+    let holder = manifest::pin_holder(candidate.version);
+    if let Err(error) = cas.replace_pins(PinReason::PendingPresentation, &holder, digests).await {
         tracing::warn!(component = "manifest", event = "pending_pin_failed", error = %error);
         return;
     }
     tracing::info!(component = "manifest", event = "prepared", version = candidate.version);
+    context.manifest_wake.notify_one();
 }
 
 async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {

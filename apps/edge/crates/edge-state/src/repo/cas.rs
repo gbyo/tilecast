@@ -400,6 +400,26 @@ pub fn replace_pins(
     Ok(())
 }
 
+/// Clears version-scoped server-manifest pins, optionally retaining one
+/// version holder. The caller supplies a constant prefix, never a user value.
+pub fn clear_holder_prefix(
+    connection: &Connection,
+    reason: PinReason,
+    prefix: &str,
+    keep_holder: Option<&str>,
+) -> Result<usize> {
+    let pattern = format!("{prefix}%");
+    let changed = match keep_holder {
+        Some(holder) => connection.execute(
+            "DELETE FROM cas_pins WHERE reason = ?1 AND holder LIKE ?2 AND holder <> ?3",
+            params![reason.as_str(), pattern, holder],
+        )?,
+        None => connection
+            .execute("DELETE FROM cas_pins WHERE reason = ?1 AND holder LIKE ?2", params![reason.as_str(), pattern])?,
+    };
+    Ok(changed)
+}
+
 pub fn is_pinned(connection: &Connection, digest: &Sha256Digest) -> Result<bool> {
     Ok(connection
         .query_row("SELECT 1 FROM cas_pins WHERE sha256 = ?1 LIMIT 1", params![digest.to_hex()], |_| Ok(()))
