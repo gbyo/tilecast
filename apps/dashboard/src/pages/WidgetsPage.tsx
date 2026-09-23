@@ -1,15 +1,29 @@
-import {
-  Button,
-  EmptyState,
-  Notice,
-  PageHeader,
-  Select,
-  ViewToggle,
-} from "../components/legacy-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Grid2X2, List, Plus } from "lucide-react";
 import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
+import {
+  ToggleGroup as RheaToggleGroup,
+  ToggleGroupItem,
+} from "../components/ui/toggle-group";
 import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -66,29 +80,25 @@ export function WidgetsPage() {
       void navigate(`/widgets/${widget.id}`);
     },
   });
-  const remove = useMutation({
-    mutationFn: (id: string) => api.deleteAsset(id, csrf),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["assets"] }),
-  });
-
   return (
-    <section className="content-page apps-page">
+    <section className="w-full min-w-0 space-y-5">
       <WorkspaceTabs label="Content library" tabs={contentTabs} />
-      <PageHeader
-        title="Widgets"
-        description="Reusable visual content for playlists and Layouts."
-        actions={
-          canManage ? (
-            <Button
-              variant="primary"
+      <header className="space-y-1">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold">Widgets</h1>
+          {canManage && (
+            <RheaButton
+              type="button"
               onClick={() => void navigate("/widgets/new")}
             >
               <Plus size={16} aria-hidden="true" /> Create Widget
-            </Button>
-          ) : undefined
-        }
-      />
+            </RheaButton>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Reusable visual content for playlists and Layouts.
+        </p>
+      </header>
       <DashboardListToolbar>
         <DashboardSearch
           value={search}
@@ -96,47 +106,82 @@ export function WidgetsPage() {
           label="Search Widgets"
           placeholder="Search Widgets"
         />
-        <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Filter by Widget provider"
+        <RheaSelect
           value={provider}
-          onChange={(event) => setProvider(event.target.value)}
+          onValueChange={(next) => {
+            if (typeof next === "string") setProvider(next);
+          }}
+          aria-label="Filter by Widget provider"
         >
-          <option value="">All Widget types</option>
-          {filterProviders.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </Select>
-        <ViewToggle value={view} onValueChange={setView} />
+          <SelectTrigger aria-label="Filter by Widget provider">
+            <SelectValue>
+              {filterProviders.find((item) => item.id === provider)?.name ??
+                "All Widget types"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Widget types</SelectItem>
+            {filterProviders.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </RheaSelect>
+        <RheaToggleGroup
+          aria-label="View"
+          multiple={false}
+          value={[view]}
+          onValueChange={(next) => {
+            const first = next[0];
+            if (first === "grid" || first === "list") setView(first);
+          }}
+        >
+          <ToggleGroupItem value="grid" aria-label="Grid view">
+            <Grid2X2 size={16} aria-hidden="true" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label="List view">
+            <List size={16} aria-hidden="true" />
+          </ToggleGroupItem>
+        </RheaToggleGroup>
       </DashboardListToolbar>
       {widgets.isError && (
-        <Notice variant="danger">
-          {widgets.error instanceof ApiError
-            ? widgets.error.message
-            : "Widgets could not be loaded."}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {widgets.error instanceof ApiError
+              ? widgets.error.message
+              : "Widgets could not be loaded."}
+          </AlertDescription>
+        </Alert>
       )}
       {widgets.isLoading ? (
-        <div className="table-loading">Loading Widgets...</div>
+        <div className="grid gap-2" aria-label="Loading Widgets">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
       ) : widgets.data?.items?.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<Plus size={24} aria-hidden="true" />}
-          title="No Widgets yet"
-          message="Create a reusable Widget for signage content."
-          action={
-            canManage ? (
-              <Button
-                variant="primary"
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Plus size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No Widgets yet</EmptyTitle>
+            <EmptyDescription>
+              Create a reusable Widget for signage content.
+            </EmptyDescription>
+          </EmptyHeader>
+          {canManage && (
+            <EmptyContent>
+              <RheaButton
+                type="button"
                 onClick={() => void navigate("/widgets/new")}
               >
                 Create Widget
-              </Button>
-            ) : undefined
-          }
-        />
+              </RheaButton>
+            </EmptyContent>
+          )}
+        </Empty>
       ) : (
         <>
           <AssetCollection
@@ -145,9 +190,6 @@ export function WidgetsPage() {
             onSelect={(widget) => void navigate(`/widgets/${widget.id}`)}
             canManage={canManage}
             onDuplicate={(widget) => duplicate.mutate(widget.id)}
-            onDelete={(widget) => {
-              if (confirm(`Delete ${widget.name}?`)) remove.mutate(widget.id);
-            }}
           />
           {/* Storing a capture is an editor-or-above action, so viewers browse the library without
               it and simply see the unavailable state until someone who can manage content visits. */}
@@ -229,16 +271,25 @@ export function WidgetEditorPage() {
     );
   }
   if (id && widget.isLoading)
-    return <div className="table-loading">Loading Widget...</div>;
+    return <Skeleton className="h-24" aria-label="Loading Widget" />;
   if (definitions.isLoading)
-    return <div className="table-loading">Loading Widget definition...</div>;
+    return <Skeleton className="h-24" aria-label="Loading Widget definition" />;
   if ((id && !asset) || !provider || !definition) {
     return (
-      <section className="empty-state">
-        <h2>Widget unavailable</h2>
-        <button className="button" onClick={close}>
-          Back to Widgets
-        </button>
+      <section className="w-full min-w-0 space-y-5">
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>Widget unavailable</EmptyTitle>
+            <EmptyDescription>
+              This Widget could not be loaded.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <RheaButton type="button" onClick={close}>
+              Back to Widgets
+            </RheaButton>
+          </EmptyContent>
+        </Empty>
       </section>
     );
   }

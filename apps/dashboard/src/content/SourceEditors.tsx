@@ -1,7 +1,36 @@
-import { Select } from "../components/legacy-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  AlertDialog as RheaAlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import { Button as RheaButton } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Slider } from "../components/ui/slider";
+import { Switch as RheaSwitch } from "../components/ui/switch";
+import { Textarea } from "../components/ui/textarea";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import QRCode from "qrcode";
 import { api } from "../api/client";
@@ -121,18 +150,30 @@ export function WidgetProviderGallery({
           disabled ? `widget-availability-${definition.id}` : undefined
         }
         onClick={() => onChoose(definition.id)}
+        className="grid min-w-0 gap-2 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:border-foreground/20 disabled:opacity-60"
       >
-        <WidgetThumbnail
-          name={definition.thumbnail ?? definition.id}
-          label={definition.name}
-        />
-        <strong>{definition.name}</strong>
-        <span>{definition.description}</span>
-        {disabled && (
-          <small id={`widget-availability-${definition.id}`}>
-            {definition.availability?.reason}
-          </small>
-        )}
+        <span className="grid aspect-video w-full place-items-center overflow-hidden rounded-xl bg-muted">
+          <WidgetThumbnail
+            name={definition.thumbnail ?? definition.id}
+            label={definition.name}
+          />
+        </span>
+        <span className="grid min-w-0 gap-0.5">
+          <strong className="truncate text-sm font-medium">
+            {definition.name}
+          </strong>
+          <span className="text-xs text-muted-foreground">
+            {definition.description}
+          </span>
+          {disabled && (
+            <small
+              id={`widget-availability-${definition.id}`}
+              className="text-xs text-muted-foreground"
+            >
+              {definition.availability?.reason}
+            </small>
+          )}
+        </span>
       </button>
     );
   };
@@ -143,77 +184,100 @@ export function WidgetProviderGallery({
   );
 
   return (
-    <div className="details-backdrop" role={page ? undefined : "presentation"}>
+    <div
+      className={
+        page
+          ? "w-full min-w-0 space-y-5"
+          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+      }
+      role={page ? undefined : "presentation"}
+    >
       <section
-        className="source-gallery source-gallery--catalog"
+        className={
+          page
+            ? "w-full min-w-0 space-y-5"
+            : "mx-auto w-full max-w-4xl space-y-5 rounded-2xl bg-background p-5"
+        }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
         aria-labelledby="source-gallery-title"
       >
-        <header>
-          <div>
-            <h2 id="source-gallery-title">Create Widget</h2>
-            <p>Choose an App or building block for your signage.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h2 id="source-gallery-title" className="text-xl font-semibold">
+              Create Widget
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Choose an App or building block for your signage.
+            </p>
           </div>
-          <button className="icon-button" aria-label="Close" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </header>
-        <div className="widget-catalog-toolbar">
-          <label className="widget-catalog-search">
-            <span className="sr-only">Search Widget catalog</span>
-            <input
-              type="search"
-              value={search}
-              placeholder="Search Apps and Widgets"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <X aria-hidden="true" />
+          </RheaButton>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="search"
+            value={search}
+            placeholder="Search Apps and Widgets"
+            aria-label="Search Widget catalog"
+            onChange={(event) => setSearch(event.target.value)}
+            className="max-w-xs"
+          />
           <div
-            className="widget-catalog-categories"
+            className="flex flex-wrap items-center gap-1"
             aria-label="Widget categories"
           >
             {["All", ...categories].map((name) => (
-              <button
+              <RheaButton
                 type="button"
                 key={name}
-                className={category === name ? "is-active" : ""}
+                variant={category === name ? "secondary" : "ghost"}
+                size="sm"
                 aria-pressed={category === name}
                 onClick={() => setCategory(name)}
               >
                 {name}
-              </button>
+              </RheaButton>
             ))}
           </div>
         </div>
-        <div className="source-provider-groups">
+        <div className="grid gap-6">
           {category === "All" && !needle && featured.length > 0 && (
-            <section className="source-provider-group source-provider-group--featured">
-              <header className="source-provider-group__heading">
-                <h3>Featured</h3>
-                <p>Recommended integrations for common signage needs.</p>
-              </header>
-              <div className="source-provider-grid">{featured.map(card)}</div>
+            <section className="grid gap-2">
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-semibold">Featured</h3>
+                <p className="text-sm text-muted-foreground">
+                  Recommended integrations for common signage needs.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {featured.map(card)}
+              </div>
             </section>
           )}
           {sections.map((section) => (
-            <section className="source-provider-group" key={section.name}>
-              <header className="source-provider-group__heading">
-                <h3>{section.name}</h3>
-              </header>
+            <section className="grid gap-2" key={section.name}>
+              <h3 className="text-sm font-semibold">{section.name}</h3>
               {section.items.length > 0 ? (
-                <div className="source-provider-grid">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {section.items.map(card)}
                 </div>
               ) : (
-                <p className="source-gallery__no-results">
+                <p className="text-sm text-muted-foreground">
                   No Widgets match this search.
                 </p>
               )}
             </section>
           ))}
           {visible.length === 0 && (
-            <p className="source-gallery__no-results">
+            <p className="text-sm text-muted-foreground">
               No Apps or Widgets match “{search}”.
             </p>
           )}
@@ -653,35 +717,56 @@ export function NativeAppEditor({
       ? configuration.imageAssetId
       : "";
   return (
-    <div className="details-backdrop" role={page ? undefined : "presentation"}>
+    <div
+      className={
+        page
+          ? "grid w-full min-w-0 gap-5"
+          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+      }
+      role={page ? undefined : "presentation"}
+    >
       <section
-        className="asset-details source-editor widget-editor"
+        className={
+          page
+            ? "grid w-full min-w-0 gap-5"
+            : "mx-auto grid w-full max-w-5xl gap-5 rounded-2xl bg-background p-5"
+        }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
         aria-labelledby="native-app-title"
       >
-        <header>
-          <div>
-            <h2 id="native-app-title">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h2 id="native-app-title" className="text-xl font-semibold">
               {asset ? "Edit" : "Create"}{" "}
               {provider === "qrcode"
                 ? "QR Code"
                 : provider[0]!.toUpperCase() + provider.slice(1)}{" "}
               Widget
             </h2>
-            <p>{nativeWidgetGuidance(provider)}</p>
+            <p className="text-sm text-muted-foreground">
+              {nativeWidgetGuidance(provider)}
+            </p>
           </div>
-          <button className="icon-button" aria-label="Close" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </header>
-        <div className="source-editor__body">
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <X aria-hidden="true" />
+          </RheaButton>
+        </div>
+        <div className="grid min-w-0 gap-5">
           {presetId && (
-            <div className="notice">
-              Guided preset: <strong>{presetId.replaceAll("_", " ")}</strong>.
-              This saves as a reusable {provider.replaceAll("_", " ")} Widget;
-              playback does not depend on the preset.
-            </div>
+            <Alert>
+              <AlertDescription>
+                Guided preset: <strong>{presetId.replaceAll("_", " ")}</strong>.
+                This saves as a reusable {provider.replaceAll("_", " ")} Widget;
+                playback does not depend on the preset.
+              </AlertDescription>
+            </Alert>
           )}
           <section className="widget-editor__section">
             <header>
@@ -689,28 +774,30 @@ export function NativeAppEditor({
               <p>Name this Widget so it is easy to recognize later.</p>
             </header>
             <div className="widget-editor__section-body">
-              <label className="field">
-                <span className="field__label">Widget name</span>
-                <input
+              <Field>
+                <FieldLabel htmlFor="widget-name">Widget name</FieldLabel>
+                <Input
+                  id="widget-name"
                   value={name}
                   disabled={readOnly}
                   onChange={(e) => setName(e.target.value)}
                 />
-                <small>
+                <FieldDescription>
                   Used to find this Widget in Content and playlists.
-                </small>
-              </label>
-              <label className="field">
-                <span className="field__label">Description</span>
-                <input
+                </FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="description">Description</FieldLabel>
+                <Input
+                  id="description"
                   value={description}
                   disabled={readOnly}
                   onChange={(e) => setDescription(e.target.value)}
                 />
-                <small>
+                <FieldDescription>
                   Optional notes for other people managing this installation.
-                </small>
-              </label>
+                </FieldDescription>
+              </Field>
             </div>
           </section>
           <section className="widget-editor__section">
@@ -720,9 +807,10 @@ export function NativeAppEditor({
             </header>
             <div className="widget-editor__section-body">
               {(provider === "clock" || provider === "date") && (
-                <label className="field">
-                  <span className="field__label">Timezone</span>
-                  <input
+                <Field>
+                  <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+                  <Input
+                    id="timezone"
                     value={
                       (configuration as ClockWidgetConfig | DateWidgetConfig)
                         .timezone
@@ -735,72 +823,95 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <small>
+                  <FieldDescription>
                     Use an IANA timezone such as America/New_York. Use UTC for
                     universal time.
-                  </small>
-                </label>
+                  </FieldDescription>
+                </Field>
               )}
               {provider === "clock" && (
-                <div className="form-grid form-grid--2">
-                  <label className="field">
-                    <span className="field__label">Time format</span>
-                    <Select
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="widget-time-format">
+                      Time format
+                    </FieldLabel>
+                    <RheaSelect
                       value={(configuration as ClockWidgetConfig).format}
                       disabled={readOnly}
-                      onChange={(e) =>
+                      onValueChange={(next) =>
                         setConfiguration((current) => ({
                           ...(current as ClockWidgetConfig),
-                          format: e.target.value as "12" | "24",
+                          format: next as "12" | "24",
                         }))
                       }
                     >
-                      <option value="12">12-hour</option>
-                      <option value="24">24-hour</option>
-                    </Select>
-                  </label>
-                  <label className="switch-row">
-                    <input
-                      type="checkbox"
+                      <SelectTrigger
+                        id="widget-time-format"
+                        aria-label="Time format"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="12">12-hour</SelectItem>
+                        <SelectItem value="24">24-hour</SelectItem>
+                      </SelectContent>
+                    </RheaSelect>
+                  </Field>
+                  <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                    <RheaSwitch
                       checked={(configuration as ClockWidgetConfig).showSeconds}
                       disabled={readOnly}
-                      onChange={(e) =>
+                      onCheckedChange={(checked) =>
                         setConfiguration((current) => ({
                           ...current,
-                          showSeconds: e.target.checked,
+                          showSeconds: checked === true,
                         }))
                       }
+                      aria-label="Show seconds"
                     />
                     <span>Show seconds</span>
                   </label>
                 </div>
               )}
               {provider === "date" && (
-                <label className="field">
-                  <span className="field__label">Date format</span>
-                  <Select
+                <Field>
+                  <FieldLabel htmlFor="widget-date-format">
+                    Date format
+                  </FieldLabel>
+                  <RheaSelect
                     value={(configuration as DateWidgetConfig).format}
                     disabled={readOnly}
-                    onChange={(e) =>
+                    onValueChange={(next) =>
                       setConfiguration((current) => ({
                         ...(current as DateWidgetConfig),
-                        format: e.target.value as DateWidgetConfig["format"],
+                        format: next as DateWidgetConfig["format"],
                       }))
                     }
                   >
-                    <option value="full">Full</option>
-                    <option value="long">Long</option>
-                    <option value="medium">Medium</option>
-                    <option value="short">Short</option>
-                  </Select>
-                </label>
+                    <SelectTrigger
+                      id="widget-date-format"
+                      aria-label="Date format"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full">Full</SelectItem>
+                      <SelectItem value="long">Long</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="short">Short</SelectItem>
+                    </SelectContent>
+                  </RheaSelect>
+                </Field>
               )}
               {provider === "countdown" && (
                 <>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Target date and time</span>
-                      <input
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="countdown-target">
+                        Target date and time
+                      </FieldLabel>
+                      <Input
+                        id="countdown-target"
                         type="datetime-local"
                         value={(configuration as CountdownWidgetConfig).target}
                         disabled={readOnly}
@@ -811,10 +922,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Timezone</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-timezone">
+                        Timezone
+                      </FieldLabel>
+                      <Input
+                        id="countdown-timezone"
                         value={
                           (configuration as CountdownWidgetConfig).timezone
                         }
@@ -826,32 +940,36 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Mode</span>
-                      <Select
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-mode">Mode</FieldLabel>
+                      <RheaSelect
                         value={(configuration as CountdownWidgetConfig).mode}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as CountdownWidgetConfig),
-                            mode: event.target
-                              .value as CountdownWidgetConfig["mode"],
+                            mode: next as CountdownWidgetConfig["mode"],
                             recurrence:
-                              event.target.value === "count_up"
+                              next === "count_up"
                                 ? "none"
                                 : ((current as CountdownWidgetConfig)
                                     .recurrence ?? "none"),
                           }))
                         }
                       >
-                        <option value="countdown">Count down</option>
-                        <option value="count_up">Count up</option>
-                      </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Repeat</span>
-                      <Select
+                        <SelectTrigger id="countdown-mode" aria-label="Mode">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="countdown">Count down</SelectItem>
+                          <SelectItem value="count_up">Count up</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-repeat">Repeat</FieldLabel>
+                      <RheaSelect
                         value={
                           (configuration as CountdownWidgetConfig).recurrence ??
                           "none"
@@ -861,47 +979,68 @@ export function NativeAppEditor({
                           (configuration as CountdownWidgetConfig).mode ===
                             "count_up"
                         }
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as CountdownWidgetConfig),
-                            recurrence: event.target
-                              .value as CountdownWidgetConfig["recurrence"],
+                            recurrence:
+                              next as CountdownWidgetConfig["recurrence"],
                           }))
                         }
                       >
-                        <option value="none">Does not repeat</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                      </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Layout</span>
-                      <Select
+                        <SelectTrigger
+                          id="countdown-repeat"
+                          aria-label="Repeat"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Does not repeat</SelectItem>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-layout">Layout</FieldLabel>
+                      <RheaSelect
                         value={
                           (configuration as CountdownWidgetConfig).layout ??
                           "stacked"
                         }
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as CountdownWidgetConfig),
-                            layout: event.target
-                              .value as CountdownWidgetConfig["layout"],
+                            layout: next as CountdownWidgetConfig["layout"],
                           }))
                         }
                       >
-                        <option value="stacked">Title above countdown</option>
-                        <option value="horizontal">
-                          Title beside countdown
-                        </option>
-                        <option value="countdown_only">Countdown only</option>
-                      </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Completion behavior</span>
-                      <Select
+                        <SelectTrigger
+                          id="countdown-layout"
+                          aria-label="Layout"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="stacked">
+                            Title above countdown
+                          </SelectItem>
+                          <SelectItem value="horizontal">
+                            Title beside countdown
+                          </SelectItem>
+                          <SelectItem value="countdown_only">
+                            Countdown only
+                          </SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-completion">
+                        Completion behavior
+                      </FieldLabel>
+                      <RheaSelect
                         value={
                           (configuration as CountdownWidgetConfig)
                             .completionAction
@@ -911,26 +1050,37 @@ export function NativeAppEditor({
                           ((configuration as CountdownWidgetConfig)
                             .recurrence ?? "none") !== "none"
                         }
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            completionAction: event.target
-                              .value as CountdownWidgetConfig["completionAction"],
+                            completionAction:
+                              next as CountdownWidgetConfig["completionAction"],
                           }))
                         }
                       >
-                        <option value="completed_text">
-                          Show completion text
-                        </option>
-                        <option value="hide">Hide</option>
-                        <option value="count_up">Continue counting up</option>
-                      </Select>
-                    </label>
+                        <SelectTrigger
+                          id="countdown-completion"
+                          aria-label="Completion behavior"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="completed_text">
+                            Show completion text
+                          </SelectItem>
+                          <SelectItem value="hide">Hide</SelectItem>
+                          <SelectItem value="count_up">
+                            Continue counting up
+                          </SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
                   </div>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Title</span>
-                      <input
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="countdown-title">Title</FieldLabel>
+                      <Input
+                        id="countdown-title"
                         value={
                           (configuration as CountdownWidgetConfig).label ?? ""
                         }
@@ -946,10 +1096,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Completion text</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-completion-text">
+                        Completion text
+                      </FieldLabel>
+                      <Input
+                        id="countdown-completion-text"
                         value={
                           (configuration as CountdownWidgetConfig)
                             .completionText ?? ""
@@ -966,29 +1119,34 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
-                  <fieldset>
-                    <legend>Visible units</legend>
-                    <div className="checkbox-grid">
+                  <fieldset className="grid gap-2">
+                    <legend className="text-sm font-medium">
+                      Visible units
+                    </legend>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
                       {(["Days", "Hours", "Minutes", "Seconds"] as const).map(
                         (unit) => {
                           const key =
                             `show${unit}` as keyof CountdownWidgetConfig;
                           return (
-                            <label key={unit}>
-                              <input
-                                type="checkbox"
+                            <label
+                              key={unit}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <RheaCheckbox
                                 checked={Boolean(
                                   (configuration as CountdownWidgetConfig)[key],
                                 )}
                                 disabled={readOnly}
-                                onChange={(event) =>
+                                onCheckedChange={(checked) =>
                                   setConfiguration((current) => ({
                                     ...current,
-                                    [key]: event.target.checked,
+                                    [key]: checked === true,
                                   }))
                                 }
+                                aria-label={unit}
                               />
                               <span>{unit}</span>
                             </label>
@@ -1001,9 +1159,10 @@ export function NativeAppEditor({
               )}
               {provider === "qrcode" && (
                 <>
-                  <label className="field">
-                    <span className="field__label">Text or URL</span>
-                    <textarea
+                  <Field>
+                    <FieldLabel htmlFor="qrcode-value">Text or URL</FieldLabel>
+                    <Textarea
+                      id="qrcode-value"
                       value={(configuration as QRCodeWidgetConfig).value}
                       maxLength={2048}
                       disabled={readOnly}
@@ -1014,11 +1173,12 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                  </label>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Label</span>
-                      <input
+                  </Field>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="qrcode-label">Label</FieldLabel>
+                      <Input
+                        id="qrcode-label"
                         value={
                           (configuration as QRCodeWidgetConfig).label ?? ""
                         }
@@ -1030,75 +1190,100 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Error correction</span>
-                      <Select
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="qrcode-error-correction">
+                        Error correction
+                      </FieldLabel>
+                      <RheaSelect
                         value={
                           (configuration as QRCodeWidgetConfig).errorCorrection
                         }
                         disabled={readOnly}
-                        onChange={(e) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            errorCorrection: e.target
-                              .value as QRCodeWidgetConfig["errorCorrection"],
+                            errorCorrection:
+                              next as QRCodeWidgetConfig["errorCorrection"],
                           }))
                         }
                       >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="quartile">Quartile</option>
-                        <option value="high">High</option>
-                      </Select>
-                      <small>
+                        <SelectTrigger
+                          id="qrcode-error-correction"
+                          aria-label="Error correction"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="quartile">Quartile</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                      <FieldDescription>
                         Higher correction is easier to scan if the code is
                         damaged, but makes the pattern denser.
-                      </small>
-                    </label>
+                      </FieldDescription>
+                    </Field>
                   </div>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Speed</span>
-                      <Select
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="qrcode-speed">Speed</FieldLabel>
+                      <RheaSelect
                         value={(configuration as TickerWidgetConfig).speed}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            speed: event.target
-                              .value as TickerWidgetConfig["speed"],
+                            speed: next as TickerWidgetConfig["speed"],
                           }))
                         }
                       >
-                        <option value="slow">Slow</option>
-                        <option value="normal">Normal</option>
-                        <option value="fast">Fast</option>
-                      </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Direction</span>
-                      <Select
+                        <SelectTrigger id="qrcode-speed" aria-label="Speed">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="slow">Slow</SelectItem>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="fast">Fast</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="qrcode-direction">
+                        Direction
+                      </FieldLabel>
+                      <RheaSelect
                         value={(configuration as TickerWidgetConfig).direction}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            direction: event.target
-                              .value as TickerWidgetConfig["direction"],
+                            direction: next as TickerWidgetConfig["direction"],
                           }))
                         }
                       >
-                        <option value="left">Left</option>
-                        <option value="right">Right</option>
-                      </Select>
-                    </label>
+                        <SelectTrigger
+                          id="qrcode-direction"
+                          aria-label="Direction"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">Left</SelectItem>
+                          <SelectItem value="right">Right</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
                   </div>
                   {(configuration as QRCodeWidgetConfig).value.length > 500 && (
-                    <div className="notice notice--warning">
-                      Dense QR Code. Test scanning at the intended display
-                      distance.
-                    </div>
+                    <Alert>
+                      <AlertDescription>
+                        Dense QR Code. Test scanning at the intended display
+                        distance.
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </>
               )}
@@ -1117,19 +1302,23 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
-                    <fieldset>
-                      <legend>Fields (up to three)</legend>
-                      <div className="checkbox-grid">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <fieldset className="grid gap-2">
+                      <legend className="text-sm font-medium">
+                        Fields (up to three)
+                      </legend>
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
                         {availableFields.map((field) => {
                           const config = configuration as TickerWidgetConfig;
                           const selected = (
                             config.fields ?? [config.field]
                           ).includes(field.key);
                           return (
-                            <label key={field.key}>
-                              <input
-                                type="checkbox"
+                            <label
+                              key={field.key}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <RheaCheckbox
                                 checked={selected}
                                 disabled={
                                   readOnly ||
@@ -1138,18 +1327,19 @@ export function NativeAppEditor({
                                       Boolean,
                                     ).length >= 3)
                                 }
-                                onChange={(event) =>
+                                onCheckedChange={(checked) =>
                                   setConfiguration((current) => {
                                     const ticker =
                                       current as TickerWidgetConfig;
                                     const fields = (
                                       ticker.fields ?? [ticker.field]
                                     ).filter(Boolean);
-                                    const next = event.target.checked
-                                      ? [...fields, field.key]
-                                      : fields.filter(
-                                          (item) => item !== field.key,
-                                        );
+                                    const next =
+                                      checked === true
+                                        ? [...fields, field.key]
+                                        : fields.filter(
+                                            (item) => item !== field.key,
+                                          );
                                     return {
                                       ...ticker,
                                       fields: next,
@@ -1157,6 +1347,7 @@ export function NativeAppEditor({
                                     };
                                   })
                                 }
+                                aria-label={field.label}
                               />
                               <span>{field.label}</span>
                             </label>
@@ -1164,9 +1355,12 @@ export function NativeAppEditor({
                         })}
                       </div>
                     </fieldset>
-                    <label className="field">
-                      <span className="field__label">Separator</span>
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor="ticker-separator">
+                        Separator
+                      </FieldLabel>
+                      <Input
+                        id="ticker-separator"
                         value={(configuration as TickerWidgetConfig).separator}
                         disabled={readOnly}
                         onChange={(e) =>
@@ -1176,10 +1370,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Field separator</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="ticker-field-separator">
+                        Field separator
+                      </FieldLabel>
+                      <Input
+                        id="ticker-field-separator"
                         value={
                           (configuration as TickerWidgetConfig)
                             .fieldSeparator ?? " — "
@@ -1192,7 +1389,7 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
                 </>
               )}
@@ -1211,39 +1408,47 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <fieldset>
-                    <legend>Displayed fields</legend>
+                  <fieldset className="grid gap-2">
+                    <legend className="text-sm font-medium">
+                      Displayed fields
+                    </legend>
                     {!availableFields.length ? (
-                      <small>Select a Data Source to choose its fields.</small>
+                      <p className="text-sm text-muted-foreground">
+                        Select a Data Source to choose its fields.
+                      </p>
                     ) : (
-                      <div className="checkbox-grid">
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
                         {availableFields.map((field) => {
                           const selected = (
                             configuration as DisplayWidgetConfig
                           ).fields.includes(field.key);
                           return (
-                            <label key={field.key}>
-                              <input
-                                type="checkbox"
+                            <label
+                              key={field.key}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <RheaCheckbox
                                 checked={selected}
                                 disabled={readOnly}
-                                onChange={(event) =>
+                                onCheckedChange={(checked) =>
                                   setConfiguration((current) => {
                                     const config =
                                       current as DisplayWidgetConfig;
-                                    const fields = event.target.checked
-                                      ? [
-                                          ...config.fields.filter(
+                                    const fields =
+                                      checked === true
+                                        ? [
+                                            ...config.fields.filter(
+                                              (item) => item !== field.key,
+                                            ),
+                                            field.key,
+                                          ]
+                                        : config.fields.filter(
                                             (item) => item !== field.key,
-                                          ),
-                                          field.key,
-                                        ]
-                                      : config.fields.filter(
-                                          (item) => item !== field.key,
-                                        );
+                                          );
                                     return { ...config, fields };
                                   })
                                 }
+                                aria-label={field.label}
                               />
                               <span>{field.label}</span>
                             </label>
@@ -1253,7 +1458,7 @@ export function NativeAppEditor({
                     )}
                   </fieldset>
                   {provider === "list" && (
-                    <div className="form-grid form-grid--2">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {(
                         [
                           ["primaryField", "Primary field"],
@@ -1279,49 +1484,60 @@ export function NativeAppEditor({
                           }
                         />
                       ))}
-                      <label className="switch-row">
-                        <input
-                          type="checkbox"
+                      <label className="flex items-center gap-2 text-sm">
+                        <RheaSwitch
                           checked={
                             (configuration as DisplayWidgetConfig)
                               .showDividers ?? false
                           }
                           disabled={readOnly}
-                          onChange={(event) =>
+                          onCheckedChange={(checked) =>
                             setConfiguration((current) => ({
                               ...current,
-                              showDividers: event.target.checked,
+                              showDividers: checked === true,
                             }))
                           }
+                          aria-label="Show row dividers"
                         />
                         <span>Show row dividers</span>
                       </label>
                     </div>
                   )}
                   {provider === "menu" && (
-                    <div className="form-grid form-grid--2">
-                      <label className="field">
-                        <span className="field__label">Presentation</span>
-                        <Select
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="menu-presentation">
+                          Presentation
+                        </FieldLabel>
+                        <RheaSelect
                           value={
                             (configuration as DisplayWidgetConfig).mode ??
                             "single_record"
                           }
                           disabled={readOnly}
-                          onChange={(event) =>
+                          onValueChange={(next) =>
                             setConfiguration((current) => ({
                               ...(current as DisplayWidgetConfig),
-                              mode: event.target
-                                .value as DisplayWidgetConfig["mode"],
+                              mode: next as DisplayWidgetConfig["mode"],
                             }))
                           }
                         >
-                          <option value="single_record">
-                            Fields from one record
-                          </option>
-                          <option value="records">Label and value rows</option>
-                        </Select>
-                      </label>
+                          <SelectTrigger
+                            id="menu-presentation"
+                            aria-label="Presentation"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="single_record">
+                              Fields from one record
+                            </SelectItem>
+                            <SelectItem value="records">
+                              Label and value rows
+                            </SelectItem>
+                          </SelectContent>
+                        </RheaSelect>
+                      </Field>
                       {(configuration as DisplayWidgetConfig).mode ===
                         "records" && (
                         <>
@@ -1361,44 +1577,46 @@ export function NativeAppEditor({
                   )}
                   {provider === "table" && (
                     <>
-                      <div className="checkbox-grid">
-                        <label>
-                          <input
-                            type="checkbox"
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        <label className="flex items-center gap-2 text-sm">
+                          <RheaCheckbox
                             checked={
                               (configuration as DisplayWidgetConfig)
                                 .showHeader ?? false
                             }
                             disabled={readOnly}
-                            onChange={(event) =>
+                            onCheckedChange={(checked) =>
                               setConfiguration((current) => ({
                                 ...current,
-                                showHeader: event.target.checked,
+                                showHeader: checked === true,
                               }))
                             }
+                            aria-label="Show column headers"
                           />
                           <span>Show column headers</span>
                         </label>
-                        <label>
-                          <input
-                            type="checkbox"
+                        <label className="flex items-center gap-2 text-sm">
+                          <RheaCheckbox
                             checked={
                               (configuration as DisplayWidgetConfig)
                                 .alternatingRows ?? false
                             }
                             disabled={readOnly}
-                            onChange={(event) =>
+                            onCheckedChange={(checked) =>
                               setConfiguration((current) => ({
                                 ...current,
-                                alternatingRows: event.target.checked,
+                                alternatingRows: checked === true,
                               }))
                             }
+                            aria-label="Alternate row backgrounds"
                           />
                           <span>Alternate row backgrounds</span>
                         </label>
                       </div>
-                      <fieldset>
-                        <legend>Column presentation</legend>
+                      <fieldset className="grid gap-2">
+                        <legend className="text-sm font-medium">
+                          Column presentation
+                        </legend>
                         {(configuration as DisplayWidgetConfig).fields.map(
                           (fieldKey) => {
                             const config = configuration as DisplayWidgetConfig;
@@ -1431,12 +1649,17 @@ export function NativeAppEditor({
                               });
                             return (
                               <div
-                                className="form-grid form-grid--4"
+                                className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
                                 key={fieldKey}
                               >
-                                <label className="field">
-                                  <span className="field__label">Label</span>
-                                  <input
+                                <Field>
+                                  <FieldLabel
+                                    htmlFor={`column-label-${fieldKey}`}
+                                  >
+                                    Label
+                                  </FieldLabel>
+                                  <Input
+                                    id={`column-label-${fieldKey}`}
                                     value={existing.label ?? ""}
                                     disabled={readOnly}
                                     onChange={(event) =>
@@ -1445,52 +1668,92 @@ export function NativeAppEditor({
                                       })
                                     }
                                   />
-                                </label>
-                                <label className="field">
-                                  <span className="field__label">Format</span>
-                                  <Select
+                                </Field>
+                                <Field>
+                                  <FieldLabel
+                                    htmlFor={`column-format-${fieldKey}`}
+                                  >
+                                    Format
+                                  </FieldLabel>
+                                  <RheaSelect
                                     value={existing.format ?? "text"}
                                     disabled={readOnly}
-                                    onChange={(event) =>
+                                    onValueChange={(next) =>
                                       updateColumn({
-                                        format: event.target
-                                          .value as FieldFormat["format"],
+                                        format: next as FieldFormat["format"],
                                       })
                                     }
                                   >
-                                    <option value="text">Text</option>
-                                    <option value="number">Number</option>
-                                    <option value="integer">Integer</option>
-                                    <option value="percent">Percent</option>
-                                    <option value="currency">Currency</option>
-                                    <option value="date-short">
-                                      Short date
-                                    </option>
-                                    <option value="date-long">Long date</option>
-                                  </Select>
-                                </label>
-                                <label className="field">
-                                  <span className="field__label">
+                                    <SelectTrigger
+                                      id={`column-format-${fieldKey}`}
+                                      aria-label={`Format for ${fieldKey}`}
+                                    >
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="text">Text</SelectItem>
+                                      <SelectItem value="number">
+                                        Number
+                                      </SelectItem>
+                                      <SelectItem value="integer">
+                                        Integer
+                                      </SelectItem>
+                                      <SelectItem value="percent">
+                                        Percent
+                                      </SelectItem>
+                                      <SelectItem value="currency">
+                                        Currency
+                                      </SelectItem>
+                                      <SelectItem value="date-short">
+                                        Short date
+                                      </SelectItem>
+                                      <SelectItem value="date-long">
+                                        Long date
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </RheaSelect>
+                                </Field>
+                                <Field>
+                                  <FieldLabel
+                                    htmlFor={`column-alignment-${fieldKey}`}
+                                  >
                                     Alignment
-                                  </span>
-                                  <Select
+                                  </FieldLabel>
+                                  <RheaSelect
                                     value={existing.alignment ?? "left"}
                                     disabled={readOnly}
-                                    onChange={(event) =>
+                                    onValueChange={(next) =>
                                       updateColumn({
-                                        alignment: event.target
-                                          .value as FieldFormat["alignment"],
+                                        alignment:
+                                          next as FieldFormat["alignment"],
                                       })
                                     }
                                   >
-                                    <option value="left">Left</option>
-                                    <option value="center">Center</option>
-                                    <option value="right">Right</option>
-                                  </Select>
-                                </label>
-                                <label className="field">
-                                  <span className="field__label">Width %</span>
-                                  <input
+                                    <SelectTrigger
+                                      id={`column-alignment-${fieldKey}`}
+                                      aria-label={`Alignment for ${fieldKey}`}
+                                    >
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="left">Left</SelectItem>
+                                      <SelectItem value="center">
+                                        Center
+                                      </SelectItem>
+                                      <SelectItem value="right">
+                                        Right
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </RheaSelect>
+                                </Field>
+                                <Field>
+                                  <FieldLabel
+                                    htmlFor={`column-width-${fieldKey}`}
+                                  >
+                                    Width %
+                                  </FieldLabel>
+                                  <Input
+                                    id={`column-width-${fieldKey}`}
                                     type="number"
                                     min={0}
                                     max={100}
@@ -1502,7 +1765,7 @@ export function NativeAppEditor({
                                       })
                                     }
                                   />
-                                </label>
+                                </Field>
                               </div>
                             );
                           },
@@ -1511,7 +1774,7 @@ export function NativeAppEditor({
                     </>
                   )}
                   {provider === "agenda" && (
-                    <div className="form-grid form-grid--2">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {(
                         [
                           ["dateField", "Date field"],
@@ -1540,9 +1803,12 @@ export function NativeAppEditor({
                       ))}
                     </div>
                   )}
-                  <label className="field">
-                    <span className="field__label">Maximum items</span>
-                    <input
+                  <Field>
+                    <FieldLabel htmlFor="display-maximum-items">
+                      Maximum items
+                    </FieldLabel>
+                    <Input
+                      id="display-maximum-items"
                       type="number"
                       min={1}
                       max={100}
@@ -1557,15 +1823,16 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <small>
+                    <FieldDescription>
                       Limits how many rows or events can appear at once.
-                    </small>
-                  </label>
-                  <label className="field">
-                    <span className="field__label">
+                    </FieldDescription>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="display-empty-state">
                       Message when there is no data
-                    </span>
-                    <input
+                    </FieldLabel>
+                    <Input
+                      id="display-empty-state"
                       value={
                         (configuration as DisplayWidgetConfig).emptyState ?? ""
                       }
@@ -1577,10 +1844,10 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <small>
+                    <FieldDescription>
                       Shown on screen when the source returns no usable records.
-                    </small>
-                  </label>
+                    </FieldDescription>
+                  </Field>
                 </>
               )}
               {provider === "metric" && (
@@ -1598,7 +1865,7 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <FieldSelect
                       label="Value field"
                       value={(configuration as MetricWidgetConfig).valueField}
@@ -1615,9 +1882,12 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <label className="field">
-                      <span className="field__label">Static label</span>
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor="static-label">
+                        Static label
+                      </FieldLabel>
+                      <Input
+                        id="static-label"
                         value={
                           (configuration as MetricWidgetConfig).label ?? ""
                         }
@@ -1629,7 +1899,7 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                     <FieldSelect
                       label="Label field"
                       value={
@@ -1661,28 +1931,35 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <label className="field">
-                      <span className="field__label">Format</span>
-                      <Select
+                    <Field>
+                      <FieldLabel htmlFor="metric-format">Format</FieldLabel>
+                      <RheaSelect
                         value={(configuration as MetricWidgetConfig).format}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as MetricWidgetConfig),
-                            format: event.target
-                              .value as MetricWidgetConfig["format"],
+                            format: next as MetricWidgetConfig["format"],
                           }))
                         }
                       >
-                        <option value="number">Number</option>
-                        <option value="integer">Integer</option>
-                        <option value="percent">Percent</option>
-                        <option value="currency">Currency</option>
-                      </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Decimal places</span>
-                      <input
+                        <SelectTrigger id="metric-format" aria-label="Format">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="number">Number</SelectItem>
+                          <SelectItem value="integer">Integer</SelectItem>
+                          <SelectItem value="percent">Percent</SelectItem>
+                          <SelectItem value="currency">Currency</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="metric-precision">
+                        Decimal places
+                      </FieldLabel>
+                      <Input
+                        id="metric-precision"
                         type="number"
                         min={0}
                         max={6}
@@ -1695,10 +1972,11 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Prefix</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="prefix">Prefix</FieldLabel>
+                      <Input
+                        id="prefix"
                         value={
                           (configuration as MetricWidgetConfig).prefix ?? ""
                         }
@@ -1710,10 +1988,11 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Suffix</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="suffix">Suffix</FieldLabel>
+                      <Input
+                        id="suffix"
                         value={
                           (configuration as MetricWidgetConfig).suffix ?? ""
                         }
@@ -1725,29 +2004,41 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Alignment</span>
-                      <Select
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="metric-alignment">
+                        Alignment
+                      </FieldLabel>
+                      <RheaSelect
                         value={(configuration as MetricWidgetConfig).alignment}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            alignment: event.target
-                              .value as MetricWidgetConfig["alignment"],
+                            alignment: next as MetricWidgetConfig["alignment"],
                           }))
                         }
                       >
-                        <option value="left">Left</option>
-                        <option value="center">Center</option>
-                        <option value="right">Right</option>
-                      </Select>
-                    </label>
+                        <SelectTrigger
+                          id="metric-alignment"
+                          aria-label="Alignment"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">Left</SelectItem>
+                          <SelectItem value="center">Center</SelectItem>
+                          <SelectItem value="right">Right</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
                   </div>
-                  <label className="field">
-                    <span className="field__label">Empty state</span>
-                    <input
+                  <Field>
+                    <FieldLabel htmlFor="metric-empty-state">
+                      Empty state
+                    </FieldLabel>
+                    <Input
+                      id="metric-empty-state"
                       value={
                         (configuration as TickerWidgetConfig).emptyState ?? ""
                       }
@@ -1759,7 +2050,7 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                  </label>
+                  </Field>
                 </>
               )}
               {provider === "cards" && (
@@ -1777,7 +2068,7 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <FieldSelect
                       label="Title field"
                       value={(configuration as CardsWidgetConfig).titleField}
@@ -1808,9 +2099,10 @@ export function NativeAppEditor({
                         }
                       />
                     ))}
-                    <label className="field">
-                      <span className="field__label">Columns</span>
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor="columns">Columns</FieldLabel>
+                      <Input
+                        id="columns"
                         type="number"
                         min={1}
                         max={4}
@@ -1823,10 +2115,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Maximum items</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="maximum-items">
+                        Maximum items
+                      </FieldLabel>
+                      <Input
+                        id="maximum-items"
                         type="number"
                         min={1}
                         max={12}
@@ -1841,24 +2136,30 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Density</span>
-                      <Select
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="cards-density">Density</FieldLabel>
+                      <RheaSelect
                         value={(configuration as CardsWidgetConfig).density}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            density: event.target
-                              .value as CardsWidgetConfig["density"],
+                            density: next as CardsWidgetConfig["density"],
                           }))
                         }
                       >
-                        <option value="comfortable">Comfortable</option>
-                        <option value="compact">Compact</option>
-                      </Select>
-                    </label>
+                        <SelectTrigger id="cards-density" aria-label="Density">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="comfortable">
+                            Comfortable
+                          </SelectItem>
+                          <SelectItem value="compact">Compact</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
                   </div>
                 </>
               )}
@@ -1877,7 +2178,7 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="checkbox-grid">
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
                     {[
                       ["showLocation", "Location"],
                       ["showCurrent", "Current conditions"],
@@ -1885,9 +2186,11 @@ export function NativeAppEditor({
                       ["showWind", "Wind"],
                       ["showPrecipitation", "Precipitation"],
                     ].map(([key, label]) => (
-                      <label key={key}>
-                        <input
-                          type="checkbox"
+                      <label
+                        key={key}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <RheaCheckbox
                           checked={Boolean(
                             (
                               configuration as unknown as Record<
@@ -1897,20 +2200,24 @@ export function NativeAppEditor({
                             )[key!],
                           )}
                           disabled={readOnly}
-                          onChange={(event) =>
+                          onCheckedChange={(checked) =>
                             setConfiguration((current) => ({
                               ...current,
-                              [key!]: event.target.checked,
+                              [key!]: checked === true,
                             }))
                           }
+                          aria-label={label}
                         />
                         <span>{label}</span>
                       </label>
                     ))}
                   </div>
-                  <label className="field">
-                    <span className="field__label">Forecast days</span>
-                    <input
+                  <Field>
+                    <FieldLabel htmlFor="weather-forecast-days">
+                      Forecast days
+                    </FieldLabel>
+                    <Input
+                      id="weather-forecast-days"
                       type="number"
                       min={0}
                       max={7}
@@ -1925,7 +2232,7 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                  </label>
+                  </Field>
                 </>
               )}
               {provider === "spotlight" && (
@@ -1945,7 +2252,7 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {(
                       [
                         ["titleField", "Title field", false],
@@ -1972,29 +2279,46 @@ export function NativeAppEditor({
                         }
                       />
                     ))}
-                    <label className="field">
-                      <span className="field__label">Uploaded image</span>
-                      <Select
+                    <Field>
+                      <FieldLabel htmlFor="spotlight-image">
+                        Uploaded image
+                      </FieldLabel>
+                      <RheaSelect
                         value={
                           (configuration as SpotlightWidgetConfig)
                             .imageAssetId ?? ""
                         }
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            imageAssetId: event.target.value || undefined,
+                            imageAssetId: next || undefined,
                           }))
                         }
                       >
-                        <option value="">No image</option>
-                        {(imageAssets.data?.items ?? []).map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </label>
+                        <SelectTrigger
+                          id="spotlight-image"
+                          aria-label="Uploaded image"
+                        >
+                          <SelectValue>
+                            {(imageAssets.data?.items ?? []).find(
+                              (item) =>
+                                item.id ===
+                                (configuration as SpotlightWidgetConfig)
+                                  .imageAssetId,
+                            )?.name ?? "No image"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">No image</SelectItem>
+                          {(imageAssets.data?.items ?? []).map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
                   </div>
                 </>
               )}
@@ -2013,9 +2337,10 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <label className="field">
-                    <span className="field__label">Columns</span>
-                    <input
+                  <Field>
+                    <FieldLabel htmlFor="stat-grid-columns">Columns</FieldLabel>
+                    <Input
+                      id="stat-grid-columns"
                       type="number"
                       min={1}
                       max={4}
@@ -2028,15 +2353,21 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                  </label>
+                  </Field>
                   <fieldset>
                     <legend>Metrics</legend>
                     {(configuration as StatGridWidgetConfig).metrics.map(
                       (metric, index) => (
-                        <div className="form-grid form-grid--4" key={index}>
-                          <label className="field">
-                            <span className="field__label">Label</span>
-                            <input
+                        <div
+                          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+                          key={index}
+                        >
+                          <Field>
+                            <FieldLabel htmlFor={`stat-grid-label-${index}`}>
+                              Label
+                            </FieldLabel>
+                            <Input
+                              id={`stat-grid-label-${index}`}
                               value={metric.label ?? ""}
                               disabled={readOnly}
                               onChange={(event) =>
@@ -2058,7 +2389,7 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
+                          </Field>
                           <FieldSelect
                             label="Value field"
                             value={metric.valueField}
@@ -2086,12 +2417,14 @@ export function NativeAppEditor({
                               })
                             }
                           />
-                          <label className="field">
-                            <span className="field__label">Format</span>
-                            <Select
+                          <Field>
+                            <FieldLabel htmlFor={`stat-grid-format-${index}`}>
+                              Format
+                            </FieldLabel>
+                            <RheaSelect
                               value={metric.format ?? "number"}
                               disabled={readOnly}
-                              onChange={(event) =>
+                              onValueChange={(next) =>
                                 setConfiguration((current) => {
                                   const config =
                                     current as StatGridWidgetConfig;
@@ -2102,8 +2435,8 @@ export function NativeAppEditor({
                                         itemIndex === index
                                           ? {
                                               ...item,
-                                              format: event.target
-                                                .value as typeof metric.format,
+                                              format:
+                                                next as typeof metric.format,
                                             }
                                           : item,
                                     ),
@@ -2111,15 +2444,25 @@ export function NativeAppEditor({
                                 })
                               }
                             >
-                              <option value="number">Number</option>
-                              <option value="integer">Integer</option>
-                              <option value="percent">Percent</option>
-                              <option value="currency">Currency</option>
-                            </Select>
-                          </label>
-                          <button
+                              <SelectTrigger
+                                id={`stat-grid-format-${index}`}
+                                aria-label={`Format for metric ${index + 1}`}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="number">Number</SelectItem>
+                                <SelectItem value="integer">Integer</SelectItem>
+                                <SelectItem value="percent">Percent</SelectItem>
+                                <SelectItem value="currency">
+                                  Currency
+                                </SelectItem>
+                              </SelectContent>
+                            </RheaSelect>
+                          </Field>
+                          <RheaButton
                             type="button"
-                            className="button"
+                            variant="secondary"
                             disabled={
                               readOnly ||
                               (configuration as StatGridWidgetConfig).metrics
@@ -2137,13 +2480,13 @@ export function NativeAppEditor({
                             }
                           >
                             Remove
-                          </button>
+                          </RheaButton>
                         </div>
                       ),
                     )}
-                    <button
+                    <RheaButton
                       type="button"
-                      className="button"
+                      variant="secondary"
                       disabled={
                         readOnly ||
                         (configuration as StatGridWidgetConfig).metrics
@@ -2164,7 +2507,7 @@ export function NativeAppEditor({
                       }
                     >
                       Add metric
-                    </button>
+                    </RheaButton>
                   </fieldset>
                 </>
               )}
@@ -2183,28 +2526,33 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Chart type</span>
-                      <Select
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="chart-type">Chart type</FieldLabel>
+                      <RheaSelect
                         value={(configuration as ChartWidgetConfig).chartType}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            chartType: event.target
-                              .value as ChartWidgetConfig["chartType"],
+                            chartType: next as ChartWidgetConfig["chartType"],
                           }))
                         }
                       >
-                        <option value="line">Line</option>
-                        <option value="bar">Bar</option>
-                        <option value="donut">Donut</option>
-                      </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Dataset</span>
-                      <input
+                        <SelectTrigger id="chart-type" aria-label="Chart type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="line">Line</SelectItem>
+                          <SelectItem value="bar">Bar</SelectItem>
+                          <SelectItem value="donut">Donut</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="chart-dataset">Dataset</FieldLabel>
+                      <Input
+                        id="chart-dataset"
                         value={
                           (configuration as ChartWidgetConfig).dataset ?? ""
                         }
@@ -2216,13 +2564,16 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
                   <fieldset>
                     <legend>Series</legend>
                     {(configuration as ChartWidgetConfig).series.map(
                       (series, index) => (
-                        <div className="form-grid form-grid--4" key={index}>
+                        <div
+                          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+                          key={index}
+                        >
                           <FieldSelect
                             label="Numeric field"
                             value={series.field}
@@ -2250,9 +2601,12 @@ export function NativeAppEditor({
                               })
                             }
                           />
-                          <label className="field">
-                            <span className="field__label">Label</span>
-                            <input
+                          <Field>
+                            <FieldLabel htmlFor={`chart-label-${index}`}>
+                              Label
+                            </FieldLabel>
+                            <Input
+                              id={`chart-label-${index}`}
                               value={series.label ?? ""}
                               disabled={readOnly}
                               onChange={(event) =>
@@ -2273,10 +2627,13 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
-                          <label className="field">
-                            <span className="field__label">Color</span>
-                            <input
+                          </Field>
+                          <Field>
+                            <FieldLabel htmlFor={`chart-color-${index}`}>
+                              Color
+                            </FieldLabel>
+                            <Input
+                              id={`chart-color-${index}`}
                               type="color"
                               value={series.color ?? "#4DB6FF"}
                               disabled={readOnly}
@@ -2298,10 +2655,10 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
-                          <button
+                          </Field>
+                          <RheaButton
                             type="button"
-                            className="button"
+                            variant="secondary"
                             disabled={
                               readOnly ||
                               (configuration as ChartWidgetConfig).series
@@ -2319,13 +2676,13 @@ export function NativeAppEditor({
                             }
                           >
                             Remove
-                          </button>
+                          </RheaButton>
                         </div>
                       ),
                     )}
-                    <button
+                    <RheaButton
                       type="button"
-                      className="button"
+                      variant="secondary"
                       disabled={
                         readOnly ||
                         (configuration as ChartWidgetConfig).series.length >= 4
@@ -2345,7 +2702,7 @@ export function NativeAppEditor({
                       }
                     >
                       Add series
-                    </button>
+                    </RheaButton>
                   </fieldset>
                 </>
               )}
@@ -2364,7 +2721,7 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <FieldSelect
                       label="Value field"
                       value={(configuration as ProgressWidgetConfig).valueField}
@@ -2401,9 +2758,12 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <label className="field">
-                      <span className="field__label">Static target</span>
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor="static-target">
+                        Static target
+                      </FieldLabel>
+                      <Input
+                        id="static-target"
                         type="number"
                         value={
                           (configuration as ProgressWidgetConfig)
@@ -2422,10 +2782,11 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Label</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="label-3">Label</FieldLabel>
+                      <Input
+                        id="label-3"
                         value={
                           (configuration as ProgressWidgetConfig).label ?? ""
                         }
@@ -2437,7 +2798,7 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
                 </>
               )}
@@ -2456,7 +2817,7 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {(
                       [
                         ["dateField", "Date field", false],
@@ -2482,51 +2843,73 @@ export function NativeAppEditor({
                         }
                       />
                     ))}
-                    <label className="field">
-                      <span className="field__label">Orientation</span>
-                      <Select
+                    <Field>
+                      <FieldLabel htmlFor="timeline-orientation">
+                        Orientation
+                      </FieldLabel>
+                      <RheaSelect
                         value={
                           (configuration as TimelineWidgetConfig).orientation
                         }
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            orientation: event.target
-                              .value as TimelineWidgetConfig["orientation"],
+                            orientation:
+                              next as TimelineWidgetConfig["orientation"],
                           }))
                         }
                       >
-                        <option value="vertical">Vertical</option>
-                        <option value="horizontal">Horizontal</option>
-                      </Select>
-                    </label>
+                        <SelectTrigger
+                          id="timeline-orientation"
+                          aria-label="Orientation"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="vertical">Vertical</SelectItem>
+                          <SelectItem value="horizontal">Horizontal</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
                   </div>
                 </>
               )}
               {provider === "world_clock" && (
                 <>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Time format</span>
-                      <Select
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="world-clock-format">
+                        Time format
+                      </FieldLabel>
+                      <RheaSelect
                         value={(configuration as WorldClockWidgetConfig).format}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as WorldClockWidgetConfig),
-                            format: event.target
-                              .value as WorldClockWidgetConfig["format"],
+                            format: next as WorldClockWidgetConfig["format"],
                           }))
                         }
                       >
-                        <option value="12">12-hour</option>
-                        <option value="24">24-hour</option>
-                      </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Columns</span>
-                      <input
+                        <SelectTrigger
+                          id="world-clock-format"
+                          aria-label="Time format"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="12">12-hour</SelectItem>
+                          <SelectItem value="24">24-hour</SelectItem>
+                        </SelectContent>
+                      </RheaSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="world-clock-columns">
+                        Columns
+                      </FieldLabel>
+                      <Input
+                        id="world-clock-columns"
                         type="number"
                         min={1}
                         max={4}
@@ -2541,16 +2924,19 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
-                  <fieldset>
-                    <legend>Locations</legend>
+                  <fieldset className="grid gap-2">
+                    <legend className="text-sm font-medium">Locations</legend>
                     {(configuration as WorldClockWidgetConfig).zones.map(
                       (zone, index) => (
-                        <div className="form-grid form-grid--2" key={index}>
-                          <label className="field">
-                            <span className="field__label">Label</span>
-                            <input
+                        <div className="grid gap-3 sm:grid-cols-2" key={index}>
+                          <Field>
+                            <FieldLabel htmlFor={`world-clock-label-${index}`}>
+                              Label
+                            </FieldLabel>
+                            <Input
+                              id={`world-clock-label-${index}`}
                               value={zone.label}
                               disabled={readOnly}
                               onChange={(event) =>
@@ -2572,10 +2958,15 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
-                          <label className="field">
-                            <span className="field__label">IANA timezone</span>
-                            <input
+                          </Field>
+                          <Field>
+                            <FieldLabel
+                              htmlFor={`world-clock-timezone-${index}`}
+                            >
+                              IANA timezone
+                            </FieldLabel>
+                            <Input
+                              id={`world-clock-timezone-${index}`}
                               value={zone.timezone}
                               disabled={readOnly}
                               onChange={(event) =>
@@ -2597,13 +2988,13 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
+                          </Field>
                         </div>
                       ),
                     )}
-                    <button
+                    <RheaButton
                       type="button"
-                      className="button"
+                      variant="secondary"
                       disabled={
                         readOnly ||
                         (configuration as WorldClockWidgetConfig).zones
@@ -2620,7 +3011,7 @@ export function NativeAppEditor({
                       }
                     >
                       Add location
-                    </button>
+                    </RheaButton>
                   </fieldset>
                 </>
               )}
@@ -2639,63 +3030,67 @@ export function NativeAppEditor({
                   <strong>Size and spacing</strong>
                   <p>Control how much of the Widget the content occupies.</p>
                 </header>
-                <label className="switch-row">
-                  <input
-                    type="checkbox"
+                <label className="flex items-center gap-2 text-sm">
+                  <RheaSwitch
                     checked={configuration.textScale !== undefined}
                     disabled={readOnly}
-                    onChange={(event) =>
+                    onCheckedChange={(checked) =>
                       setConfiguration((current) => {
-                        if (event.target.checked)
+                        if (checked === true)
                           return { ...current, textScale: 100 };
                         const automatic = { ...current };
                         delete automatic.textScale;
                         return automatic;
                       })
                     }
+                    aria-label="Use a custom scale"
                   />
                   <span>Use a custom scale</span>
                 </label>
                 {configuration.textScale !== undefined && (
-                  <label className="field">
-                    <span className="field__label">
-                      Scale ({configuration.textScale}%)
-                    </span>
-                    <input
-                      type="range"
+                  <Field>
+                    <FieldTitle>Scale ({configuration.textScale}%)</FieldTitle>
+                    <Slider
+                      aria-label={`Scale ${configuration.textScale} percent`}
                       min={25}
                       max={500}
                       step={25}
-                      value={configuration.textScale}
+                      value={[configuration.textScale]}
                       disabled={readOnly}
-                      onChange={(event) =>
+                      onValueChange={(next: number | readonly number[]) => {
+                        const values =
+                          typeof next === "number" ? [next] : [...next];
+                        const [first] = values;
                         setConfiguration((current) => ({
                           ...current,
-                          textScale: Number(event.target.value),
-                        }))
-                      }
+                          textScale: first ?? configuration.textScale,
+                        }));
+                      }}
                     />
-                  </label>
+                  </Field>
                 )}
-                <label className="field">
-                  <span className="field__label">
+                <Field>
+                  <FieldTitle>
                     Padding ({configuration.contentPadding ?? 10}%)
-                  </span>
-                  <input
-                    type="range"
+                  </FieldTitle>
+                  <Slider
+                    aria-label={`Padding ${configuration.contentPadding ?? 10} percent`}
                     min={0}
                     max={40}
                     step={1}
-                    value={configuration.contentPadding ?? 10}
+                    value={[configuration.contentPadding ?? 10]}
                     disabled={readOnly}
-                    onChange={(event) =>
+                    onValueChange={(next: number | readonly number[]) => {
+                      const values =
+                        typeof next === "number" ? [next] : [...next];
+                      const [first] = values;
                       setConfiguration((current) => ({
                         ...current,
-                        contentPadding: Number(event.target.value),
-                      }))
-                    }
+                        contentPadding: first ?? 10,
+                      }));
+                    }}
                   />
-                </label>
+                </Field>
                 <small>
                   By default, content uses the center 80% of the Widget. Reduce
                   padding to let it fill more space; custom scale ranges up to
@@ -2707,10 +3102,13 @@ export function NativeAppEditor({
                   <strong>Colors</strong>
                   <p>Set the foreground and background used on screen.</p>
                 </header>
-                <div className="form-grid form-grid--2">
-                  <label className="field">
-                    <span className="field__label">Text and accent color</span>
-                    <input
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="text-and-accent-color">
+                      Text and accent color
+                    </FieldLabel>
+                    <Input
+                      id="text-and-accent-color"
                       type="color"
                       value={configuration.foregroundColor}
                       disabled={readOnly}
@@ -2718,10 +3116,13 @@ export function NativeAppEditor({
                         updateColors("foregroundColor", e.target.value)
                       }
                     />
-                  </label>
-                  <label className="field">
-                    <span className="field__label">Background color</span>
-                    <input
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="background-color">
+                      Background color
+                    </FieldLabel>
+                    <Input
+                      id="background-color"
                       type="color"
                       value={configuration.backgroundColor}
                       disabled={readOnly}
@@ -2729,7 +3130,7 @@ export function NativeAppEditor({
                         updateColors("backgroundColor", e.target.value)
                       }
                     />
-                  </label>
+                  </Field>
                 </div>
               </div>
             </div>
@@ -2762,12 +3163,15 @@ export function NativeAppEditor({
               )}
             </div>
           </aside>
-          {save.error && <p className="form-error">{save.error.message}</p>}
+          {save.error && (
+            <Alert variant="destructive">
+              <AlertDescription>{save.error.message}</AlertDescription>
+            </Alert>
+          )}
         </div>
         <footer>
           {!readOnly && (
-            <button
-              className="button button--primary"
+            <RheaButton
               disabled={
                 save.isPending ||
                 !name.trim() ||
@@ -2777,7 +3181,7 @@ export function NativeAppEditor({
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save Widget"}
-            </button>
+            </RheaButton>
           )}
         </footer>
       </section>
@@ -3597,27 +4001,36 @@ function FieldSelect({
   allowEmpty?: boolean;
   onChange: (value: string) => void;
 }) {
+  const id = useId();
+  const emptyLabel = allowEmpty ? "None" : "Select a Data Source first";
   return (
-    <label className="field">
-      <span className="field__label">{label}</span>
-      <Select
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <RheaSelect
         value={value}
         disabled={disabled || fields.length === 0}
-        onChange={(event) => onChange(event.target.value)}
+        onValueChange={(next) => {
+          if (typeof next === "string") onChange(next);
+        }}
       >
-        <option value="">
-          {allowEmpty ? "None" : "Select a Data Source first"}
-        </option>
-        {fields.map((field) => (
-          <option key={field.key} value={field.key}>
-            {field.label}
-          </option>
-        ))}
-      </Select>
-      <small>
+        <SelectTrigger id={id} aria-label={label}>
+          <SelectValue>
+            {fields.find((field) => field.key === value)?.label ?? emptyLabel}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">{emptyLabel}</SelectItem>
+          {fields.map((field) => (
+            <SelectItem key={field.key} value={field.key}>
+              {field.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </RheaSelect>
+      <FieldDescription>
         Choose which field from the connected data supplies this value.
-      </small>
-    </label>
+      </FieldDescription>
+    </Field>
   );
 }
 
@@ -3701,45 +4114,66 @@ export function YouTubeSourceEditor({
       onSaved(saved);
     },
   });
-  const close = () => {
-    if (!dirty || confirm("Discard unsaved YouTube Widget changes?")) onClose();
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const requestClose = () => {
+    if (dirty) setConfirmDiscard(true);
+    else onClose();
   };
+  const close = requestClose;
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
-        if (!dirty || confirm("Discard unsaved YouTube Widget changes?"))
-          onClose();
+        if (dirty) setConfirmDiscard(true);
+        else onClose();
       }
     };
     addEventListener("keydown", escape);
     return () => removeEventListener("keydown", escape);
   }, [dirty, onClose]);
   return (
-    <div className="details-backdrop" role={page ? undefined : "presentation"}>
+    <div
+      className={
+        page
+          ? "grid w-full min-w-0 gap-5"
+          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+      }
+      role={page ? undefined : "presentation"}
+    >
       <section
-        className="asset-details source-editor"
+        className={
+          page
+            ? "grid w-full min-w-0 gap-5"
+            : "mx-auto grid w-full max-w-3xl gap-5 rounded-2xl bg-background p-5"
+        }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
         aria-labelledby="youtube-source-title"
       >
-        <header>
-          <div>
-            <h2 id="youtube-source-title">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h2 id="youtube-source-title" className="text-xl font-semibold">
               {asset ? "Edit YouTube Widget" : "Create YouTube Widget"}
             </h2>
-            <p>
+            <p className="text-sm text-muted-foreground">
               Videos and playlists play fullscreen through YouTube’s embedded
               player.
             </p>
           </div>
-          <button className="icon-button" aria-label="Close" onClick={close}>
-            <X size={18} />
-          </button>
-        </header>
-        <label className="field">
-          <span className="field__label">Name</span>
-          <input
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Close"
+            onClick={close}
+          >
+            <X aria-hidden="true" />
+          </RheaButton>
+        </div>
+        <Field>
+          <FieldLabel htmlFor="name">Name</FieldLabel>
+          <Input
+            id="name"
             disabled={readOnly}
             value={name}
             onChange={(event) => {
@@ -3747,10 +4181,11 @@ export function YouTubeSourceEditor({
               setDirty(true);
             }}
           />
-        </label>
-        <label className="field">
-          <span className="field__label">Description</span>
-          <textarea
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="youtube-description">Description</FieldLabel>
+          <Textarea
+            id="youtube-description"
             disabled={readOnly}
             value={description}
             onChange={(event) => {
@@ -3758,23 +4193,29 @@ export function YouTubeSourceEditor({
               setDirty(true);
             }}
           />
-        </label>
-        <label className="field">
-          <span className="field__label">YouTube video or playlist URL</span>
-          <input
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="youtube-url">
+            YouTube video or playlist URL
+          </FieldLabel>
+          <Input
+            id="youtube-url"
             disabled={readOnly}
             value={configuration.url}
             onChange={(event) => set("url", event.target.value)}
           />
-          <small>
+          <FieldDescription>
             Tilecast detects whether this is a video or playlist. No YouTube API
             key is required.
-          </small>
-        </label>
-        <div className="source-editor__columns">
-          <label className="field">
-            <span className="field__label">Start time (seconds)</span>
-            <input
+          </FieldDescription>
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="youtube-start">
+              Start time (seconds)
+            </FieldLabel>
+            <Input
+              id="youtube-start"
               type="number"
               min={0}
               disabled={readOnly}
@@ -3783,10 +4224,11 @@ export function YouTubeSourceEditor({
                 set("startSeconds", Number(event.target.value))
               }
             />
-          </label>
-          <label className="field">
-            <span className="field__label">End time (optional)</span>
-            <input
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="youtube-end">End time (optional)</FieldLabel>
+            <Input
+              id="youtube-end"
               type="number"
               min={1}
               disabled={readOnly}
@@ -3798,32 +4240,35 @@ export function YouTubeSourceEditor({
                 )
               }
             />
-          </label>
-          <label className="field">
-            <span className="field__label">Volume</span>
-            <div className="unit-input">
-              <input
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="youtube-volume">Volume</FieldLabel>
+            <div className="flex items-center gap-2">
+              <Input
+                id="youtube-volume"
                 type="number"
                 min={0}
                 max={100}
                 disabled={readOnly || configuration.muted}
                 value={configuration.volume}
                 onChange={(event) => set("volume", Number(event.target.value))}
+                className="max-w-28"
               />
-              <span>%</span>
+              <span className="text-sm text-muted-foreground">%</span>
             </div>
-          </label>
-          <label className="field">
-            <span className="field__label">Caption language</span>
-            <input
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="youtube-captions">Caption language</FieldLabel>
+            <Input
+              id="youtube-captions"
               disabled={readOnly || !configuration.captions}
               placeholder="en"
               value={configuration.captionLanguage}
               onChange={(event) => set("captionLanguage", event.target.value)}
             />
-          </label>
+          </Field>
         </div>
-        <div className="source-switches">
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           {(
             [
               ["loop", "Loop playback"],
@@ -3832,37 +4277,52 @@ export function YouTubeSourceEditor({
               ["controls", "Show YouTube controls"],
             ] as const
           ).map(([key, label]) => (
-            <label key={key}>
-              <input
-                type="checkbox"
+            <label key={key} className="flex items-center gap-2 text-sm">
+              <RheaSwitch
                 disabled={readOnly}
                 checked={configuration[key]}
-                onChange={(event) => set(key, event.target.checked)}
-              />{" "}
-              {label}
+                onCheckedChange={(checked) => set(key, checked === true)}
+                aria-label={label}
+              />
+              <span>{label}</span>
             </label>
           ))}
         </div>
-        <label className="field">
-          <span className="field__label">Playlist item behavior</span>
-          <Select
+        <Field>
+          <FieldLabel htmlFor="youtube-playback-mode">
+            Playlist item behavior
+          </FieldLabel>
+          <RheaSelect
             disabled={readOnly}
             value={configuration.playlistPlaybackMode}
-            onChange={(event) =>
+            onValueChange={(next) =>
               set(
                 "playlistPlaybackMode",
-                event.target.value as YouTubeConfig["playlistPlaybackMode"],
+                next as YouTubeConfig["playlistPlaybackMode"],
               )
             }
           >
-            <option value="until_end">Play until video ends</option>
-            <option value="fixed_duration">Play for a fixed duration</option>
-          </Select>
-        </label>
+            <SelectTrigger
+              id="youtube-playback-mode"
+              aria-label="Playlist item behavior"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="until_end">Play until video ends</SelectItem>
+              <SelectItem value="fixed_duration">
+                Play for a fixed duration
+              </SelectItem>
+            </SelectContent>
+          </RheaSelect>
+        </Field>
         {configuration.playlistPlaybackMode === "fixed_duration" && (
-          <label className="field">
-            <span className="field__label">Fixed duration (seconds)</span>
-            <input
+          <Field>
+            <FieldLabel htmlFor="youtube-fixed-duration">
+              Fixed duration (seconds)
+            </FieldLabel>
+            <Input
+              id="youtube-fixed-duration"
               type="number"
               min={1}
               max={86400}
@@ -3872,59 +4332,93 @@ export function YouTubeSourceEditor({
                 set("fixedDurationSeconds", Number(event.target.value))
               }
             />
-          </label>
+          </Field>
         )}
-        <label className="field">
-          <span className="field__label">Failure behavior</span>
-          <Select
+        <Field>
+          <FieldLabel htmlFor="youtube-failure">Failure behavior</FieldLabel>
+          <RheaSelect
             disabled={readOnly}
             value={configuration.failureBehavior}
-            onChange={(event) =>
-              set(
-                "failureBehavior",
-                event.target.value as YouTubeConfig["failureBehavior"],
-              )
+            onValueChange={(next) =>
+              set("failureBehavior", next as YouTubeConfig["failureBehavior"])
             }
           >
-            <option value="placeholder">Show Tilecast placeholder</option>
-            <option value="fallback_image">Show fallback image</option>
-            <option value="skip">Skip playlist item</option>
-          </Select>
-        </label>
-        <label className="field">
-          <span className="field__label">Fallback image</span>
-          <Select
+            <SelectTrigger id="youtube-failure" aria-label="Failure behavior">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="placeholder">
+                Show Tilecast placeholder
+              </SelectItem>
+              <SelectItem value="fallback_image">
+                Show fallback image
+              </SelectItem>
+              <SelectItem value="skip">Skip playlist item</SelectItem>
+            </SelectContent>
+          </RheaSelect>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="youtube-fallback">Fallback image</FieldLabel>
+          <RheaSelect
             disabled={readOnly}
             value={configuration.fallbackImageAssetId ?? ""}
-            onChange={(event) =>
-              set("fallbackImageAssetId", event.target.value || undefined)
+            onValueChange={(next) =>
+              set("fallbackImageAssetId", next || undefined)
             }
           >
-            <option value="">None</option>
-            {images.data?.items?.map((image) => (
-              <option key={image.id} value={image.id}>
-                {image.name}
-              </option>
-            ))}
-          </Select>
-        </label>
+            <SelectTrigger id="youtube-fallback" aria-label="Fallback image">
+              <SelectValue>
+                {images.data?.items?.find(
+                  (image) => image.id === configuration.fallbackImageAssetId,
+                )?.name ?? "None"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">None</SelectItem>
+              {images.data?.items?.map((image) => (
+                <SelectItem key={image.id} value={image.id}>
+                  {image.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </RheaSelect>
+        </Field>
         {save.error && (
-          <div className="notice notice--error">{save.error.message}</div>
+          <Alert variant="destructive">
+            <AlertDescription>{save.error.message}</AlertDescription>
+          </Alert>
         )}
-        <footer>
+        <footer className="flex flex-wrap items-center gap-2">
           {!readOnly && (
-            <button
-              className="button button--primary"
+            <RheaButton
               disabled={save.isPending || !name.trim()}
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save Widget"}
-            </button>
+            </RheaButton>
           )}
-          <button className="button button--quiet" onClick={close}>
+          <RheaButton type="button" variant="outline" onClick={requestClose}>
             Cancel
-          </button>
+          </RheaButton>
         </footer>
+        <RheaAlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Discard unsaved YouTube changes?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Your edits will be lost.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep editing</AlertDialogCancel>
+              <AlertDialogAction onClick={onClose}>
+                Discard changes
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </RheaAlertDialog>
       </section>
     </div>
   );

@@ -2096,7 +2096,6 @@ button.organizer-chip:disabled {
 }
 .setting-control > input,
 .setting-control > select,
-.unit-input input,
 .package-editor input,
 .color-control input[type="text"] {
   width: 100%;
@@ -2153,19 +2152,6 @@ button.organizer-chip:disabled {
 .settings-nav a:focus-visible {
   outline: 3px solid var(--tc-focus-ring-soft);
   outline-offset: 2px;
-}
-.unit-input {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-}
-.unit-input select {
-  min-width: 76px;
-}
-.unit-input > span {
-  color: var(--tc-ink-muted);
-  min-width: 68px;
 }
 .weekday-picker {
   display: grid;

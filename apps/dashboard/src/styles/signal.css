@@ -1611,11 +1611,6 @@ label > .signal-select,
   min-width: 112px;
 }
 
-.unit-input .signal-select {
-  width: 104px;
-  min-width: 104px;
-}
-
 .settings-mobile-select .signal-select,
 .setting-row .signal-select,
 .setting-control > .signal-select {
@@ -4162,26 +4157,6 @@ tbody tr {
   color: var(--tc-text-secondary);
 }
 
-.source-provider-groups {
-  display: grid;
-  gap: var(--tc-space-5);
-}
-
-.source-provider-group {
-  display: grid;
-  gap: var(--tc-space-2);
-}
-
-.source-provider-group > h3 {
-  margin: 0;
-  color: var(--tc-text-secondary);
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-
 .source-provider-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4431,20 +4406,6 @@ tbody tr {
   border-bottom: 1px solid var(--tc-border-default);
 }
 
-.source-switches {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--tc-space-2);
-  padding: var(--tc-space-3) 0;
-}
-
-.source-switches label {
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  gap: var(--tc-space-2);
-}
-
 @media (max-width: 600px) {
   .content-add-menu > div {
     right: auto;
@@ -4452,8 +4413,7 @@ tbody tr {
   }
 
   .source-provider-grid,
-  .source-editor__columns,
-  .source-switches {
+  .source-editor__columns {
     grid-template-columns: minmax(0, 1fr);
   }
   .source-mapping-row {
