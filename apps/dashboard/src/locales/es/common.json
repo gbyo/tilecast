@@ -1,0 +1,23 @@
+{
+  "actions": {
+    "back": "Atrás",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "next": "Siguiente",
+    "retry": "Reintentar",
+    "save": "Guardar",
+    "saveChanges": "Guardar cambios",
+    "saving": "Guardando…"
+  },
+  "status": {
+    "loading": "Cargando…"
+  },
+  "count": {
+    "items_one": "{{count}} elemento",
+    "items_many": "{{count}} de elementos",
+    "items_other": "{{count}} elementos"
+  }
+}

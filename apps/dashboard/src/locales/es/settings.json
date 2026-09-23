@@ -1,0 +1,7 @@
+{
+  "actionBar": {
+    "unsavedTitle": "Cambios sin guardar",
+    "unsavedDescription": "Los cambios se conservan mientras navegas por Configuración.",
+    "reload": "Recargar configuración"
+  }
+}

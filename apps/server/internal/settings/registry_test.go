@@ -18,6 +18,22 @@ func TestRegistryRejectsUnknownAndUnsafeValues(t *testing.T) {
 	}
 }
 
+func TestLanguagePreferenceAcceptsOnlyShippedLocales(t *testing.T) {
+	for _, language := range []string{"system", "en", "es", "ru"} {
+		if _, err := Validate(map[string]any{"preference.language": language}, ScopePreference); err != nil {
+			t.Fatalf("%s rejected: %v", language, err)
+		}
+	}
+	for _, language := range []string{"", "de", "en-US", "RU"} {
+		if _, err := Validate(map[string]any{"preference.language": language}, ScopePreference); err == nil {
+			t.Fatalf("%q accepted", language)
+		}
+	}
+	if _, err := Validate(map[string]any{"preference.language": "es"}, ScopeOrganization); err == nil {
+		t.Fatal("language preference accepted at organization scope")
+	}
+}
+
 func TestLegacyApprovalRequiredStillEnforcesReviewPolicy(t *testing.T) {
 	merged := mergeOrganizationDefaults(map[string]any{"content.approval_required": true})
 	if merged["content.review_policy"] != "everyone" {
