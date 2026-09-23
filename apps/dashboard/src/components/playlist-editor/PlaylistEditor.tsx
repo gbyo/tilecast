@@ -35,6 +35,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../ui/sheet";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../ui/drawer";
 import { Skeleton } from "../ui/skeleton";
 import type {
   Asset,
@@ -701,7 +708,7 @@ export function PlaylistEditorPage() {
         />
       )}
 
-      {!desktop && (
+      {desktop ? (
         <RheaSheet
           open={historyOpen}
           onOpenChange={(open) => {
@@ -727,58 +734,84 @@ export function PlaylistEditorPage() {
             </div>
           </SheetContent>
         </RheaSheet>
+      ) : (
+        <Drawer
+          open={historyOpen}
+          onOpenChange={(open) => {
+            if (!open) setHistoryOpen(false);
+          }}
+          showSwipeHandle
+        >
+          <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+            <DrawerHeader>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Playlist revisions
+              </p>
+              <DrawerTitle>History</DrawerTitle>
+              <DrawerDescription>
+                Every published revision is kept for review and restore.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+              <PlaylistRevisionsPanel
+                playlistId={id}
+                canRestore={canPublish}
+                embedded
+              />
+            </div>
+          </DrawerContent>
+        </Drawer>
       )}
 
-      {!desktop && (
-        <PlaylistDetailsDrawer
-          open={detailsOpen}
-          canManage={canManage}
-          sourceType={sourceType}
-          name={name}
-          description={description}
-          tagMatch={tagMatch}
-          tagIds={tagIds}
-          tagImageSeconds={tagImageSeconds}
-          tags={tags.data ?? []}
-          metadataDirty={metadataDirty}
-          tagRuleDirty={tagRuleDirty}
-          metadataSaving={save.isPending}
-          tagRuleSaving={saveTagRule.isPending}
-          metadataError={save.error?.message}
-          tagRuleError={saveTagRule.error?.message}
-          onClose={() => setDetailsOpen(false)}
-          onNameChange={(value) => {
-            setName(value);
-            setMetadataDirty(true);
-          }}
-          onDescriptionChange={(value) => {
-            setDescription(value);
-            setMetadataDirty(true);
-          }}
-          onSourceTypeChange={(value) => {
-            setSourceType(value);
-            setTagRuleDirty(true);
-          }}
-          onTagMatchChange={(value) => {
-            setTagMatch(value);
-            setTagRuleDirty(true);
-          }}
-          onTagToggle={(tagId) => {
-            setTagIds((current) =>
-              current.includes(tagId)
-                ? current.filter((id) => id !== tagId)
-                : [...current, tagId],
-            );
-            setTagRuleDirty(true);
-          }}
-          onTagImageSecondsChange={(value) => {
-            setTagImageSeconds(value);
-            setTagRuleDirty(true);
-          }}
-          onSaveMetadata={() => save.mutate()}
-          onSaveTagRule={() => saveTagRule.mutate()}
-        />
-      )}
+      <PlaylistDetailsDrawer
+        desktop={desktop}
+        open={detailsOpen}
+        canManage={canManage}
+        sourceType={sourceType}
+        name={name}
+        description={description}
+        tagMatch={tagMatch}
+        tagIds={tagIds}
+        tagImageSeconds={tagImageSeconds}
+        tags={tags.data ?? []}
+        metadataDirty={metadataDirty}
+        tagRuleDirty={tagRuleDirty}
+        metadataSaving={save.isPending}
+        tagRuleSaving={saveTagRule.isPending}
+        metadataError={save.error?.message}
+        tagRuleError={saveTagRule.error?.message}
+        onClose={() => setDetailsOpen(false)}
+        onNameChange={(value) => {
+          setName(value);
+          setMetadataDirty(true);
+        }}
+        onDescriptionChange={(value) => {
+          setDescription(value);
+          setMetadataDirty(true);
+        }}
+        onSourceTypeChange={(value) => {
+          setSourceType(value);
+          setTagRuleDirty(true);
+        }}
+        onTagMatchChange={(value) => {
+          setTagMatch(value);
+          setTagRuleDirty(true);
+        }}
+        onTagToggle={(tagId) => {
+          setTagIds((current) =>
+            current.includes(tagId)
+              ? current.filter((id) => id !== tagId)
+              : [...current, tagId],
+          );
+          setTagRuleDirty(true);
+        }}
+        onTagImageSecondsChange={(value) => {
+          setTagImageSeconds(value);
+          setTagRuleDirty(true);
+        }}
+        onSaveMetadata={() => save.mutate()}
+        onSaveTagRule={() => saveTagRule.mutate()}
+      />
 
       {picker && (
         <ContentPicker

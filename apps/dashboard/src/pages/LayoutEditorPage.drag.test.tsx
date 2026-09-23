@@ -29,6 +29,7 @@ const canvas: LayoutDocument["canvas"] = {
   backgroundColor: "#101820",
   safeAreaPercent: 5,
 };
+const defaultMatchMedia = window.matchMedia.bind(window);
 
 // A width/height that is not a multiple of 10 so `canvas.width - width` and
 // `canvas.height - height` are not multiples of 10 either. This is what
@@ -143,7 +144,28 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  window.matchMedia = defaultMatchMedia;
 });
+
+function mockDesktop() {
+  if (!("ResizeObserver" in window)) {
+    (window as unknown as Record<string, unknown>).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  }
+  window.matchMedia = (query) => ({
+    matches: query === "(min-width: 1024px)",
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => true,
+  });
+}
 
 describe("Layout editor drag: snap-then-clamp", () => {
   it("keeps a dragged item fully inside the canvas even when snapping would push it out of bounds", async () => {
@@ -268,6 +290,68 @@ describe("Layout editor drag: snap-then-clamp", () => {
 });
 
 describe("Layout editor layers and zoom controls", () => {
+  it("uses generated preview and history dialogs with Escape focus return", async () => {
+    mockAuth();
+    vi.spyOn(api, "layoutRevisions").mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 100,
+    });
+    renderLayoutEditor();
+    await screen.findByText("New text");
+
+    const user = userEvent.setup();
+    const preview = screen.getByRole("button", { name: "Preview" });
+    await user.click(preview);
+    expect(
+      await screen.findByRole("dialog", { name: "Preview Lobby" }),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Preview Lobby" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(preview).toHaveFocus();
+
+    const history = screen.getByRole("button", { name: "History" });
+    await user.click(history);
+    expect(
+      await screen.findByRole("dialog", { name: "Published revisions" }),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Published revisions" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(history).toHaveFocus();
+  });
+
+  it("offers the desktop editor command families without hiding the primary toolbar", async () => {
+    mockAuth();
+    mockDesktop();
+    renderLayoutEditor();
+
+    expect(
+      await screen.findByRole("menubar", { name: "Layout editor commands" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: /Select all/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+
+    expect(screen.getAllByRole("button", { name: "Text" })[0]).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
   it("toggles layer visibility with real buttons, by mouse and keyboard", async () => {
     mockAuth();
     renderLayoutEditor();
@@ -322,7 +406,7 @@ describe("Layout editor layers and zoom controls", () => {
     expect(await screen.findByText("110%")).toBeInTheDocument();
   });
 
-  it("structures the inspector in headed, collapsible sections", async () => {
+  it("keeps related inspector sections independently expandable", async () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
@@ -332,5 +416,8 @@ describe("Layout editor layers and zoom controls", () => {
     expect(await screen.findByText("Position & size")).toBeInTheDocument();
     expect(screen.getByText("Appearance")).toBeInTheDocument();
     expect(screen.getByLabelText("Layer opacity")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+    expect(screen.queryByLabelText("Layer opacity")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Layer name")).toBeInTheDocument();
   });
 });

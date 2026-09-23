@@ -549,13 +549,25 @@ p {
   border: 2px dashed rgb(255 255 255 / 45%);
 }
 
-.layout-preview-overlay {
+.layout-preview-overlay[data-slot="dialog-content"] {
   position: fixed;
   z-index: 1200;
-  inset: 0;
+  top: 0;
+  left: 0;
+  translate: none;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  transform: none;
   display: grid;
   grid-template-rows: 56px minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  border-radius: 0;
   background: #101418;
+  color: #fff;
+  box-shadow: none;
+  outline: none;
 }
 
 .layout-preview-toolbar {
@@ -724,7 +736,7 @@ p {
   white-space: nowrap;
   line-height: 1.15;
 }
-.layout-history {
+.layout-history-dialog[data-slot="dialog-content"] {
   width: min(620px, calc(100vw - 32px));
 }
 @media (max-width: 1050px) {

@@ -32,6 +32,19 @@ import {
 import { Input } from "../components/ui/input";
 import { Kbd } from "../components/ui/kbd";
 import {
+  Menubar,
+  MenubarCheckboxItem,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarSub,
+  MenubarSubContent,
+  MenubarSubTrigger,
+  MenubarTrigger,
+} from "../components/ui/menubar";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -50,6 +63,7 @@ import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -2571,6 +2585,274 @@ export function LayoutEditorPage() {
           <Pencil size={16} aria-hidden="true" />
         </Button>
         <span className="toolbar-divider" />
+        {desktop && (
+          <Menubar
+            aria-label="Layout editor commands"
+            className="shrink-0 border-0 p-0 shadow-none"
+          >
+            <MenubarMenu>
+              <MenubarTrigger>File</MenubarTrigger>
+              <MenubarContent className="min-w-52">
+                <MenubarItem
+                  disabled={rename.isPending}
+                  onClick={() =>
+                    openRename({
+                      kind: "layout",
+                      name: layoutQuery.data?.name ?? "",
+                    })
+                  }
+                >
+                  Rename layout
+                </MenubarItem>
+                <MenubarItem
+                  disabled={
+                    saveState === "saved" ||
+                    saveState === "saving" ||
+                    saveState === "conflict"
+                  }
+                  onClick={() => void save()}
+                >
+                  Save now
+                  <MenubarShortcut>Ctrl/⌘ S</MenubarShortcut>
+                </MenubarItem>
+                <MenubarSeparator />
+                <MenubarItem
+                  onClick={() => {
+                    setPreview(true);
+                    void loadLayoutPreview();
+                  }}
+                >
+                  Preview
+                </MenubarItem>
+                <MenubarItem
+                  onClick={() => {
+                    setHistoryOpen(true);
+                    void revisions.refetch();
+                  }}
+                >
+                  Published revisions
+                </MenubarItem>
+                {canSubmit && (
+                  <>
+                    <MenubarSeparator />
+                    <MenubarItem
+                      disabled={saveState !== "saved" || publish.isPending}
+                      onClick={() => publish.mutate()}
+                    >
+                      {canPublish ? "Publish" : "Submit for review"}
+                    </MenubarItem>
+                  </>
+                )}
+              </MenubarContent>
+            </MenubarMenu>
+            <MenubarMenu>
+              <MenubarTrigger>Edit</MenubarTrigger>
+              <MenubarContent className="min-w-52">
+                <MenubarItem disabled={!past.length} onClick={undo}>
+                  Undo
+                  <MenubarShortcut>Ctrl/⌘ Z</MenubarShortcut>
+                </MenubarItem>
+                <MenubarItem disabled={!future.length} onClick={redo}>
+                  Redo
+                  <MenubarShortcut>Ctrl/⌘ ⇧ Z</MenubarShortcut>
+                </MenubarItem>
+                <MenubarSeparator />
+                <MenubarItem disabled={!selection.size} onClick={copySelection}>
+                  Copy
+                  <MenubarShortcut>Ctrl/⌘ C</MenubarShortcut>
+                </MenubarItem>
+                <MenubarItem
+                  disabled={!clipboard.current.length}
+                  onClick={pasteClipboard}
+                >
+                  Paste
+                  <MenubarShortcut>Ctrl/⌘ V</MenubarShortcut>
+                </MenubarItem>
+                <MenubarItem
+                  disabled={!selection.size}
+                  onClick={duplicateSelection}
+                >
+                  Duplicate
+                  <MenubarShortcut>Ctrl/⌘ D</MenubarShortcut>
+                </MenubarItem>
+                <MenubarSeparator />
+                <MenubarItem
+                  disabled={!document.placements.length}
+                  onClick={selectAll}
+                >
+                  Select all
+                  <MenubarShortcut>Ctrl/⌘ A</MenubarShortcut>
+                </MenubarItem>
+                <MenubarItem
+                  disabled={!selection.size}
+                  onClick={() => setSelection(new Set())}
+                >
+                  Deselect
+                </MenubarItem>
+                <MenubarItem
+                  disabled={!selection.size}
+                  variant="destructive"
+                  onClick={deleteSelection}
+                >
+                  Delete selection
+                  <MenubarShortcut>Del</MenubarShortcut>
+                </MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+            <MenubarMenu>
+              <MenubarTrigger>Arrange</MenubarTrigger>
+              <MenubarContent className="min-w-52">
+                <MenubarItem
+                  disabled={selection.size < 2}
+                  onClick={groupSelection}
+                >
+                  Group selection
+                  <MenubarShortcut>Ctrl/⌘ G</MenubarShortcut>
+                </MenubarItem>
+                <MenubarItem
+                  disabled={
+                    !selected.some((item) => item.primitive?.kind === "group")
+                  }
+                  onClick={ungroupSelection}
+                >
+                  Ungroup
+                </MenubarItem>
+                <MenubarSub>
+                  <MenubarSubTrigger disabled={!selected.length}>
+                    Layer order
+                  </MenubarSubTrigger>
+                  <MenubarSubContent>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => arrangeSelection("front")}
+                    >
+                      Bring to front
+                    </MenubarItem>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => arrangeSelection("forward")}
+                    >
+                      Bring forward
+                    </MenubarItem>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => arrangeSelection("backward")}
+                    >
+                      Send backward
+                    </MenubarItem>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => arrangeSelection("back")}
+                    >
+                      Send to back
+                    </MenubarItem>
+                  </MenubarSubContent>
+                </MenubarSub>
+                <MenubarSub>
+                  <MenubarSubTrigger disabled={!selected.length}>
+                    Align selection
+                  </MenubarSubTrigger>
+                  <MenubarSubContent>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => alignSelection("left")}
+                    >
+                      Align left
+                    </MenubarItem>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => alignSelection("hcenter")}
+                    >
+                      Horizontal centres
+                    </MenubarItem>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => alignSelection("right")}
+                    >
+                      Align right
+                    </MenubarItem>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => alignSelection("top")}
+                    >
+                      Align top
+                    </MenubarItem>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => alignSelection("vmiddle")}
+                    >
+                      Vertical centres
+                    </MenubarItem>
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={() => alignSelection("bottom")}
+                    >
+                      Align bottom
+                    </MenubarItem>
+                    <MenubarSeparator />
+                    <MenubarItem
+                      disabled={selected.length < 3}
+                      onClick={() => distributeSelection("horizontal")}
+                    >
+                      Distribute horizontally
+                    </MenubarItem>
+                    <MenubarItem
+                      disabled={selected.length < 3}
+                      onClick={() => distributeSelection("vertical")}
+                    >
+                      Distribute vertically
+                    </MenubarItem>
+                    <MenubarSeparator />
+                    <MenubarItem
+                      disabled={!selected.length}
+                      onClick={fillCanvas}
+                    >
+                      Fill canvas
+                    </MenubarItem>
+                  </MenubarSubContent>
+                </MenubarSub>
+                <MenubarSeparator />
+                <MenubarItem
+                  disabled={!selected.length}
+                  onClick={() => toggleSelectionFlag("locked")}
+                >
+                  {selected.some((item) => item.locked) ? "Unlock" : "Lock"}{" "}
+                  selection
+                </MenubarItem>
+                <MenubarItem
+                  disabled={!selected.length}
+                  onClick={() => toggleSelectionFlag("visible")}
+                >
+                  {selected.some((item) => !item.visible)
+                    ? "Show selection"
+                    : "Hide selection"}
+                </MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+            <MenubarMenu>
+              <MenubarTrigger>View</MenubarTrigger>
+              <MenubarContent className="min-w-52">
+                <MenubarCheckboxItem
+                  checked={snap}
+                  onCheckedChange={(checked) => setSnap(checked)}
+                >
+                  Snap to grid
+                </MenubarCheckboxItem>
+                <MenubarCheckboxItem
+                  checked={safeArea}
+                  onCheckedChange={(checked) => setSafeArea(checked)}
+                >
+                  Show safe area
+                </MenubarCheckboxItem>
+                <MenubarSeparator />
+                <MenubarItem onClick={zoomOut}>Zoom out</MenubarItem>
+                <MenubarItem onClick={zoomIn}>Zoom in</MenubarItem>
+                <MenubarItem onClick={fitZoom}>Fit canvas to view</MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+          </Menubar>
+        )}
+        <span className="toolbar-divider" />
         <Tooltip>
           <TooltipTrigger
             render={
@@ -2806,8 +3088,19 @@ export function LayoutEditorPage() {
           onClose={() => setPicker(undefined)}
         />
       )}
-      {preview && (
-        <div className="layout-preview-overlay" role="dialog" aria-modal="true">
+      <Dialog open={preview} onOpenChange={setPreview}>
+        <DialogContent
+          className="layout-preview-overlay"
+          showCloseButton={false}
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>
+              Preview {layoutQuery.data?.name ?? "Layout"}
+            </DialogTitle>
+            <DialogDescription>
+              Playback preview of the current Layout.
+            </DialogDescription>
+          </DialogHeader>
           <div className="layout-preview-toolbar">
             <strong>{layoutQuery.data?.name}</strong>
             <span>
@@ -2879,69 +3172,63 @@ export function LayoutEditorPage() {
                   />
                 ))}
           </div>
-        </div>
-      )}
-      {historyOpen && (
-        <div className="details-backdrop">
-          <section
-            className="asset-details layout-history"
-            role="dialog"
-            aria-modal="true"
-          >
-            <header>
-              <div>
-                <h2>Published revisions</h2>
-                <p>Restoring creates a new editable draft.</p>
-              </div>
-            </header>
-            <div className="source-editor__body">
-              {revisions.isLoading ? (
-                <p>Loading history…</p>
-              ) : revisions.data?.items?.length ? (
-                <ItemGroup className="gap-0 divide-y divide-border">
-                  {revisions.data.items.map((revision) => (
-                    <Item
-                      key={revision.id}
-                      size="sm"
-                      className="rounded-none px-0"
-                    >
-                      <ItemContent>
-                        <ItemTitle>Revision {revision.revision}</ItemTitle>
-                        <ItemDescription>
-                          {new Date(revision.publishedAt).toLocaleString()}·
-                          digest {revision.documentSha256.slice(0, 12)}
-                        </ItemDescription>
-                      </ItemContent>
-                      <ItemActions>
-                        <Button
-                          variant="secondary"
-                          onClick={() => restore.mutate(revision.id)}
-                        >
-                          Restore as draft
-                        </Button>
-                      </ItemActions>
-                    </Item>
-                  ))}
-                </ItemGroup>
-              ) : (
-                <Empty className="border-0 py-6">
-                  <EmptyHeader>
-                    <EmptyTitle>No published revisions yet</EmptyTitle>
-                    <EmptyDescription>
-                      Publish this Layout to start a revision history.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              )}
-            </div>
-            <footer>
-              <Button variant="secondary" onClick={() => setHistoryOpen(false)}>
-                Close
-              </Button>
-            </footer>
-          </section>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="layout-history-dialog max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Published revisions</DialogTitle>
+            <DialogDescription>
+              Restoring creates a new editable draft.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="source-editor__body">
+            {revisions.isLoading ? (
+              <p>Loading history…</p>
+            ) : revisions.data?.items?.length ? (
+              <ItemGroup className="gap-0 divide-y divide-border">
+                {revisions.data.items.map((revision) => (
+                  <Item
+                    key={revision.id}
+                    size="sm"
+                    className="rounded-none px-0"
+                  >
+                    <ItemContent>
+                      <ItemTitle>Revision {revision.revision}</ItemTitle>
+                      <ItemDescription>
+                        {new Date(revision.publishedAt).toLocaleString()}·
+                        digest {revision.documentSha256.slice(0, 12)}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Button
+                        variant="secondary"
+                        onClick={() => restore.mutate(revision.id)}
+                      >
+                        Restore as draft
+                      </Button>
+                    </ItemActions>
+                  </Item>
+                ))}
+              </ItemGroup>
+            ) : (
+              <Empty className="border-0 py-6">
+                <EmptyHeader>
+                  <EmptyTitle>No published revisions yet</EmptyTitle>
+                  <EmptyDescription>
+                    Publish this Layout to start a revision history.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setHistoryOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

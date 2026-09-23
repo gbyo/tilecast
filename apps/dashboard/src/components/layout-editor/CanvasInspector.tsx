@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { Accordion } from "../ui/accordion";
 import { InspectorSection, NumberField } from "./PlacementInspector";
 
 const canvasPresetOptions = [
@@ -27,7 +28,11 @@ export function CanvasInspector({
 }) {
   const presetValue = `${document.canvas.width}x${document.canvas.height}`;
   return (
-    <div className="grid gap-4">
+    <Accordion
+      multiple
+      defaultValue={["Canvas size", "Background & safe area"]}
+      className="grid gap-0"
+    >
       <InspectorSection title="Canvas size">
         <Field>
           <FieldLabel htmlFor="canvas-preset">Canvas preset</FieldLabel>
@@ -122,6 +127,6 @@ export function CanvasInspector({
           </span>
         </div>
       </InspectorSection>
-    </div>
+    </Accordion>
   );
 }

@@ -152,7 +152,44 @@ describe("PlaylistEditor panes", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("falls back to a stacked layout with a Sheet inspector on narrow screens", async () => {
+  it("opens playlist details and history in desktop side sheets", async () => {
+    mockDesktop();
+    mockServer();
+    vi.spyOn(api, "playlistRevisions").mockResolvedValue({
+      items: [],
+      kept: 0,
+    });
+    renderEditor();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Playlist details" }),
+    );
+    const details = await screen.findByRole("dialog");
+    expect(details).toHaveAccessibleName("Playlist details");
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Updated lobby loop" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close playlist details" }),
+    );
+
+    await screen.findByRole("button", { name: "Playlist details" });
+    fireEvent.click(screen.getByRole("button", { name: "Playlist details" }));
+    expect(await screen.findByLabelText("Name")).toHaveValue(
+      "Updated lobby loop",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close playlist details" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    expect(
+      await screen.findByRole("heading", { name: "History" }),
+    ).toBeInTheDocument();
+  });
+
+  it("uses the swipeable inspector on narrow screens", async () => {
     mockServer();
     renderEditor();
 

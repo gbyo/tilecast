@@ -129,8 +129,8 @@ type InspectorProps = {
   onDelete: () => void;
 };
 
-// PlaylistItemInspectorBody is the Sheet-free inspector content. The playlist
-// editor renders it inline in the desktop inspector pane and inside the Sheet
+// PlaylistItemInspectorBody is the surface-free inspector content. The
+// playlist editor renders it inline in the desktop pane and inside the Drawer
 // above on narrow screens.
 export function PlaylistItemInspectorBody({
   item,
