@@ -45,6 +45,7 @@ http = "1"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["http1", "server", "client"] }
 hyper-util = { version = "0.1", features = ["tokio", "http1", "server", "client-legacy"] }
+jiff = "0.2"
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring", "pem"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-manual-roots-no-provider", "stream", "json", "http2"] }
 ring = "0.17"

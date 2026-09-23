@@ -16,9 +16,10 @@ place for rollback.
 
 > **Status.** Edge enrolls, reconciles the signed change feed, reports Edge
 > status and runs the peer fabric. It holds the normal player WebSocket with an
-> HTTP heartbeat fallback, but does not yet fetch the server manifest or run
-> commands. Studio shows online presence, and the screen does not play server
-> content. Do not migrate a production screen until those work packages in
+> HTTP heartbeat fallback. It fetches and prepares server manifests into the
+> verified CAS, but does not yet activate them or run commands. Studio shows
+> online presence, and the screen does not play server content. Do not migrate
+> a production screen until those work packages in
 > [`docs/tilecast-edge-next.md`](../../../docs/tilecast-edge-next.md) are
 > complete.
 

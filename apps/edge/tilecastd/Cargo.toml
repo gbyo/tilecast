@@ -21,6 +21,7 @@ edge-platform.workspace = true
 edge-protocol.workspace = true
 edge-server.workspace = true
 edge-state.workspace = true
+jiff.workspace = true
 nix = { version = "0.31", default-features = false, features = ["net"] }
 rustix = { workspace = true, features = ["process"] }
 serde.workspace = true

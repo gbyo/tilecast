@@ -163,9 +163,12 @@ separate worker, uses peer-first/origin-second CAS preparation for the required
 download variants, and stores a prepared candidate as pending. Streaming
 variants currently fail preparation explicitly. SQLite has binding-scoped
 pending, active and previous records with atomic promotion; promotion is not
-yet called. Scheduling, renderer media capabilities and activation remain
-open. The final RFC requires replacing the foundation's raw digest media
-URI/CAS-root access before real server content is activated.
+yet called. A timezone-aware selector now resolves direct assignments,
+one-time and weekly schedules, quick presents and takeovers with the existing
+Linux player's half-open and DST rules; it is not yet wired into activation.
+Renderer media capabilities and activation remain open. The final RFC requires
+replacing the foundation's raw digest media URI/CAS-root access before real
+server content is activated.
 
 - **Use:**
   - `edge_cas::Fetcher` with sources in this order:
@@ -190,8 +193,9 @@ URI/CAS-root access before real server content is activated.
   inside the transactions that change assignments. Only `edge.node.revoked` is
   published today.
 - **Do not change:** RFC §52.1: do not build a second presentation compiler.
-  Content URIs stay `tcmedia://sha256/<hex>` and every referenced digest is in
-  `content[]`.
+  The current `main` RFC §9.5 supersedes the old raw-digest media URI in this
+  handoff: WPE must use daemon-backed `tcmedia://cap/<opaque-capability>` and
+  must not receive the CAS root.
 
 ### W3 (P0) Commands
 

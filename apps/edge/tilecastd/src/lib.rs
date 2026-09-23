@@ -28,5 +28,6 @@ pub mod legacy_import;
 pub mod logging;
 pub mod manifest;
 pub mod presentation;
+pub mod schedule;
 pub mod server_link;
 pub mod supervisor;

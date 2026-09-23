@@ -3003,6 +3003,7 @@ dependencies = [
  "edge-protocol",
  "edge-server",
  "edge-state",
+ "jiff",
  "nix",
  "rustix",
  "serde",
