@@ -1633,6 +1633,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bytes",
  "clap",
  "edge-cas",
  "edge-ipc",
@@ -1640,6 +1641,9 @@ dependencies = [
  "edge-protocol",
  "edge-server",
  "edge-state",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "jiff",
  "ring",
  "rustix",

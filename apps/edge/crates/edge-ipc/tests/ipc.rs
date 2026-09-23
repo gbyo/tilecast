@@ -390,4 +390,3 @@ async fn bind_replaces_stale_socket_but_never_other_files() {
     ));
     assert_eq!(std::fs::read(&regular).unwrap(), b"important");
 }
-
