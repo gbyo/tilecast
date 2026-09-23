@@ -5,18 +5,37 @@ import { api } from "../api/client";
 import type {
   PresentationNetwork,
   PresentationNetworkInput,
-  PresentationNetworkSecurity,
   Screen,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button as RheaButton } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
 import {
-  Button,
-  Checkbox,
-  Dialog,
-  Field,
-  Select,
-  Textarea,
-} from "../components/legacy-ui";
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Spinner } from "../components/ui/spinner";
+import { Textarea } from "../components/ui/textarea";
 
 type NetworkDraft = Omit<PresentationNetworkInput, "secret"> & {
   identity: string;
@@ -44,6 +63,13 @@ function safeError(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim()
     ? error.message
     : fallback;
+}
+
+function securityLabel(
+  options: { value: string; label: string }[] | undefined,
+  value: string,
+) {
+  return options?.find((option) => option.value === value)?.label ?? value;
 }
 
 export function PresentationNetworksPanel({
@@ -169,92 +195,116 @@ export function PresentationNetworksPanel({
 
   if (!canManage)
     return (
-      <div className="notice">
-        Only Owners and Administrators may manage Presentation Networks.
-      </div>
+      <Alert role="status">
+        <AlertDescription>
+          Only Owners and Administrators may manage Presentation Networks.
+        </AlertDescription>
+      </Alert>
     );
 
   const unavailable = networks.data?.credentialsAvailable === false;
 
   return (
-    <section className="presentation-networks-settings">
-      <div className="settings-subsection presentation-networks-settings__intro">
-        <header>
-          <h3>Temporary Wi-Fi for local presentation</h3>
-          <p>
+    <section className="grid gap-4">
+      <div className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">
+            Temporary Wi-Fi for local presentation
+          </h3>
+          <p className="text-sm text-muted-foreground">
             Presentation Networks let supported Linux players join Wi-Fi only
             while an AirPlay session needs it. Ethernet remains the normal path
             for Tilecast traffic, downloads, and group video fan-out.
           </p>
         </header>
         {unavailable && (
-          <div className="notice notice--warning" role="alert">
-            <strong>Credentials are unavailable on this server.</strong>
-            <p>
-              {networks.data?.credentialsUnavailableReason ??
-                "Configure the Presentation Network encryption key before saving a network."}
-            </p>
-          </div>
+          <Alert role="status">
+            <AlertDescription className="grid gap-1">
+              <strong>Credentials are unavailable on this server.</strong>
+              <p>
+                {networks.data?.credentialsUnavailableReason ??
+                  "Configure the Presentation Network encryption key before saving a network."}
+              </p>
+            </AlertDescription>
+          </Alert>
         )}
         {networks.error && (
-          <div className="notice notice--error" role="alert">
-            Could not load Presentation Networks. {networks.error.message}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>
+              Could not load Presentation Networks. {networks.error.message}
+            </AlertDescription>
+          </Alert>
         )}
       </div>
 
-      <div className="presentation-networks-settings__toolbar">
-        <div>
-          <h3>Presentation Networks</h3>
-          <p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <h3 className="text-base font-semibold">Presentation Networks</h3>
+          <p className="text-sm text-muted-foreground">
             Credentials are write-only. Editing a network without entering a new
             credential keeps the saved one.
           </p>
         </div>
-        <Button
-          variant="primary"
+        <RheaButton
+          variant="default"
           onClick={() => open("new")}
           disabled={unavailable}
         >
           <Plus size={16} aria-hidden="true" /> Add network
-        </Button>
+        </RheaButton>
       </div>
 
-      {notice && <div className="notice notice--info">{notice}</div>}
+      {notice && (
+        <Alert role="status">
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      )}
       {networks.isLoading ? (
-        <div className="table-loading">Loading Presentation Networks…</div>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner aria-hidden="true" />
+          Loading Presentation Networks…
+        </p>
       ) : !networks.data?.items.length ? (
-        <div className="presentation-networks-empty">
-          <Wifi size={25} aria-hidden="true" />
-          <h3>No Presentation Networks yet</h3>
-          <p>
-            Add a staff, guest, or event Wi-Fi network when AirPlay senders
-            cannot reach a player over Ethernet alone.
-          </p>
-          <Button
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Wifi size={25} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No Presentation Networks yet</EmptyTitle>
+            <EmptyDescription>
+              Add a staff, guest, or event Wi-Fi network when AirPlay senders
+              cannot reach a player over Ethernet alone.
+            </EmptyDescription>
+          </EmptyHeader>
+          <RheaButton
             variant="secondary"
             onClick={() => open("new")}
             disabled={unavailable}
           >
             Add the first network
-          </Button>
-        </div>
+          </RheaButton>
+        </Empty>
       ) : (
-        <div className="presentation-network-list">
+        <div className="grid gap-2">
           {networks.data.items.map((network) => (
-            <article className="presentation-network-row" key={network.id}>
+            <article
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"
+              key={network.id}
+            >
               <span
-                className="presentation-network-row__icon"
+                className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted"
                 aria-hidden="true"
               >
                 <LockKeyhole size={17} />
               </span>
-              <span className="presentation-network-row__details">
-                <strong>{network.name}</strong>
-                <span>
+              <span className="grid min-w-0 flex-1 gap-0.5">
+                <strong className="text-sm font-semibold">
+                  {network.name}
+                </strong>
+                <span className="text-sm text-muted-foreground">
                   {network.ssid} · {network.securityLabel}
                 </span>
-                <small>
+                <small className="text-xs text-muted-foreground">
                   {network.credentialSet
                     ? "Credential saved"
                     : "Credential missing"}{" "}
@@ -263,13 +313,17 @@ export function PresentationNetworksPanel({
                   {network.configRevision}
                 </small>
               </span>
-              <span className="presentation-network-row__actions">
-                <Button compact onClick={() => open(network)}>
+              <span className="flex flex-wrap items-center gap-2">
+                <RheaButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => open(network)}
+                >
                   <Pencil size={14} aria-hidden="true" /> Edit
-                </Button>
-                <Button
-                  compact
-                  variant="danger"
+                </RheaButton>
+                <RheaButton
+                  variant="destructive"
+                  size="sm"
                   disabled={remove.isPending}
                   onClick={() => {
                     const warning = network.assignedScreens
@@ -279,7 +333,7 @@ export function PresentationNetworksPanel({
                   }}
                 >
                   <Trash2 size={14} aria-hidden="true" /> Delete
-                </Button>
+                </RheaButton>
               </span>
             </article>
           ))}
@@ -287,256 +341,321 @@ export function PresentationNetworksPanel({
       )}
 
       {remove.error && (
-        <div className="notice notice--error" role="alert">
-          {safeError(
-            remove.error,
-            "The Presentation Network could not be deleted.",
-          )}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {safeError(
+              remove.error,
+              "The Presentation Network could not be deleted.",
+            )}
+          </AlertDescription>
+        </Alert>
       )}
 
-      <Dialog
+      <RheaDialog
         open={Boolean(editing)}
-        title={
-          editing === "new"
-            ? "Add Presentation Network"
-            : "Edit Presentation Network"
-        }
-        onClose={() => {
-          if (!save.isPending) setEditing(undefined);
+        onOpenChange={(open) => {
+          if (!open && !save.isPending) setEditing(undefined);
         }}
-        className="presentation-network-dialog"
       >
-        {editing && editing !== "new" && detail.isLoading ? (
-          <div className="table-loading">Loading network details…</div>
-        ) : (
-          <form
-            className="presentation-network-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSaveError(undefined);
-              save.mutate();
-            }}
-          >
-            <div className="form-grid">
-              <Field
-                label="Display name"
-                description="A name operators will recognize in Studio."
-                required
-              >
-                <input
-                  value={draft.name}
-                  maxLength={120}
-                  required
-                  autoFocus
-                  onChange={(event) =>
-                    setDraft({ ...draft, name: event.target.value })
-                  }
-                />
-              </Field>
-              <Field
-                label="SSID"
-                description="The Wi-Fi name, not the Studio display name."
-                required
-              >
-                <input
-                  value={draft.ssid}
-                  maxLength={32}
-                  required
-                  onChange={(event) =>
-                    setDraft({ ...draft, ssid: event.target.value })
-                  }
-                />
-              </Field>
-            </div>
-            <div className="form-grid">
-              <Field label="Authentication" required>
-                <Select
-                  value={draft.security}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      security: event.target
-                        .value as PresentationNetworkSecurity,
-                    })
-                  }
-                >
-                  {(networks.data?.supportedSecurity ?? []).map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <div className="presentation-network-form__checkbox">
-                <Checkbox
-                  label="Hidden SSID"
-                  checked={draft.hidden}
-                  onChange={(event) =>
-                    setDraft({ ...draft, hidden: event.target.checked })
-                  }
-                />
-              </div>
-            </div>
-
-            <Field
-              label={
-                draft.security === "wpa_psk"
-                  ? "Wi-Fi password / PSK"
-                  : "Enterprise password"
-              }
-              description={
-                editing === "new"
-                  ? "Write-only. It is encrypted before it is stored."
-                  : detail.data?.network.credentialSet
-                    ? "A credential is saved. Leave this blank to keep it, or enter a new one to rotate it."
-                    : "No credential is saved yet; enter one to enable provisioning."
-              }
-              required={editing === "new"}
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editing === "new"
+                ? "Add Presentation Network"
+                : "Edit Presentation Network"}
+            </DialogTitle>
+          </DialogHeader>
+          {editing && editing !== "new" && detail.isLoading ? (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner aria-hidden="true" />
+              Loading network details…
+            </p>
+          ) : (
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setSaveError(undefined);
+                save.mutate();
+              }}
             >
-              <input
-                type="password"
-                value={secret}
-                autoComplete="new-password"
-                required={editing === "new"}
-                onChange={(event) => setSecret(event.target.value)}
-              />
-            </Field>
-
-            {draft.security === "wpa_eap_peap_mschapv2" && (
-              <>
-                <div className="form-grid">
-                  <Field label="Enterprise identity" required>
-                    <input
-                      value={draft.identity}
-                      autoComplete="off"
-                      required
-                      onChange={(event) =>
-                        setDraft({ ...draft, identity: event.target.value })
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="presentation-network-name">
+                    Display name
+                  </FieldLabel>
+                  <Input
+                    id="presentation-network-name"
+                    value={draft.name}
+                    maxLength={120}
+                    required
+                    autoFocus
+                    onChange={(event) =>
+                      setDraft({ ...draft, name: event.target.value })
+                    }
+                  />
+                  <FieldDescription>
+                    A name operators will recognize in Studio.
+                  </FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="presentation-network-ssid">
+                    SSID
+                  </FieldLabel>
+                  <Input
+                    id="presentation-network-ssid"
+                    value={draft.ssid}
+                    maxLength={32}
+                    required
+                    onChange={(event) =>
+                      setDraft({ ...draft, ssid: event.target.value })
+                    }
+                  />
+                  <FieldDescription>
+                    The Wi-Fi name, not the Studio display name.
+                  </FieldDescription>
+                </Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="presentation-network-security">
+                    Authentication
+                  </FieldLabel>
+                  <RheaSelect
+                    name="security"
+                    value={draft.security}
+                    onValueChange={(next) => {
+                      if (next)
+                        setDraft({
+                          ...draft,
+                          security: next,
+                        });
+                    }}
+                  >
+                    <SelectTrigger
+                      id="presentation-network-security"
+                      aria-label="Authentication"
+                    >
+                      <SelectValue>
+                        {securityLabel(
+                          networks.data?.supportedSecurity,
+                          draft.security,
+                        )}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(networks.data?.supportedSecurity ?? []).map(
+                        (option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </RheaSelect>
+                </Field>
+                <div className="flex items-end pb-2">
+                  {/* The wrapping label names the checkbox; no extra aria-label. */}
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <RheaCheckbox
+                      checked={draft.hidden}
+                      onCheckedChange={(checked) =>
+                        setDraft({ ...draft, hidden: checked === true })
                       }
                     />
+                    <span>Hidden SSID</span>
+                  </label>
+                </div>
+              </div>
+
+              <Field>
+                <FieldLabel htmlFor="presentation-network-secret">
+                  {draft.security === "wpa_psk"
+                    ? "Wi-Fi password / PSK"
+                    : "Enterprise password"}
+                </FieldLabel>
+                <Input
+                  id="presentation-network-secret"
+                  type="password"
+                  value={secret}
+                  autoComplete="new-password"
+                  required={editing === "new"}
+                  onChange={(event) => setSecret(event.target.value)}
+                />
+                <FieldDescription>
+                  {editing === "new"
+                    ? "Write-only. It is encrypted before it is stored."
+                    : detail.data?.network.credentialSet
+                      ? "A credential is saved. Leave this blank to keep it, or enter a new one to rotate it."
+                      : "No credential is saved yet; enter one to enable provisioning."}
+                </FieldDescription>
+              </Field>
+
+              {draft.security === "wpa_eap_peap_mschapv2" && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="presentation-network-identity">
+                        Enterprise identity
+                      </FieldLabel>
+                      <Input
+                        id="presentation-network-identity"
+                        value={draft.identity}
+                        autoComplete="off"
+                        required
+                        onChange={(event) =>
+                          setDraft({ ...draft, identity: event.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="presentation-network-anonymous">
+                        Anonymous identity
+                      </FieldLabel>
+                      <Input
+                        id="presentation-network-anonymous"
+                        value={draft.anonymousIdentity}
+                        autoComplete="off"
+                        onChange={(event) =>
+                          setDraft({
+                            ...draft,
+                            anonymousIdentity: event.target.value,
+                          })
+                        }
+                      />
+                      <FieldDescription>
+                        Optional outer identity for the RADIUS server.
+                      </FieldDescription>
+                    </Field>
+                  </div>
+                  <Field>
+                    <FieldLabel htmlFor="presentation-network-ca">
+                      CA certificate
+                    </FieldLabel>
+                    <Textarea
+                      id="presentation-network-ca"
+                      value={draft.caCertificatePem}
+                      rows={5}
+                      spellCheck={false}
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          caCertificatePem: event.target.value,
+                        })
+                      }
+                    />
+                    <FieldDescription>
+                      Optional public CA certificate in PEM form. It is used to
+                      validate the RADIUS server.
+                    </FieldDescription>
                   </Field>
-                  <Field
-                    label="Anonymous identity"
-                    description="Optional outer identity for the RADIUS server."
-                  >
-                    <input
-                      value={draft.anonymousIdentity}
+                  <Field>
+                    <FieldLabel htmlFor="presentation-network-domain">
+                      Expected server domain
+                    </FieldLabel>
+                    <Input
+                      id="presentation-network-domain"
+                      value={draft.domainSuffixMatch}
                       autoComplete="off"
                       onChange={(event) =>
                         setDraft({
                           ...draft,
-                          anonymousIdentity: event.target.value,
+                          domainSuffixMatch: event.target.value,
                         })
                       }
                     />
+                    <FieldDescription>
+                      Requires a CA certificate when set.
+                    </FieldDescription>
                   </Field>
-                </div>
-                <Field
-                  label="CA certificate"
-                  description="Optional public CA certificate in PEM form. It is used to validate the RADIUS server."
-                >
-                  <Textarea
-                    value={draft.caCertificatePem}
-                    rows={5}
-                    spellCheck={false}
-                    onChange={(event) =>
-                      setDraft({
-                        ...draft,
-                        caCertificatePem: event.target.value,
-                      })
-                    }
-                  />
-                </Field>
-                <Field
-                  label="Expected server domain"
-                  description="Requires a CA certificate when set."
-                >
-                  <input
-                    value={draft.domainSuffixMatch}
-                    autoComplete="off"
-                    onChange={(event) =>
-                      setDraft({
-                        ...draft,
-                        domainSuffixMatch: event.target.value,
-                      })
-                    }
-                  />
-                </Field>
-              </>
-            )}
-
-            <fieldset className="presentation-network-assignments">
-              <legend>Assigned Linux players</legend>
-              <p>
-                Only the selected gateway joins this network during a group
-                AirPlay session. Followers stay on Ethernet.
-              </p>
-              {screens.isLoading ? (
-                <span className="field__hint">Loading Linux players…</span>
-              ) : linuxScreens.length ? (
-                <div className="presentation-network-assignments__list">
-                  {linuxScreens.map((screen) => (
-                    <Checkbox
-                      key={screen.id}
-                      label={`${screen.name} · ${screen.location || "No location"}`}
-                      checked={assignmentIds.includes(screen.id)}
-                      onChange={(event) =>
-                        setAssignmentIds((current) =>
-                          event.target.checked
-                            ? [...new Set([...current, screen.id])]
-                            : current.filter((id) => id !== screen.id),
-                        )
-                      }
-                    />
-                  ))}
-                </div>
-              ) : (
-                <span className="field__hint">
-                  No Linux players are available for assignment.
-                </span>
+                </>
               )}
-            </fieldset>
 
-            {detail.error && (
-              <div className="notice notice--error" role="alert">
-                Could not load this network.{" "}
-                {safeError(detail.error, "Try again.")}
-              </div>
-            )}
-            {saveError && (
-              <div className="notice notice--error" role="alert">
-                {saveError}
-              </div>
-            )}
-            <footer className="dialog-actions">
-              <Button
-                variant="quiet"
-                type="button"
-                onClick={() => setEditing(undefined)}
-                disabled={save.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                type="submit"
-                loading={save.isPending}
-                disabled={
-                  !draft.name.trim() ||
-                  !draft.ssid.trim() ||
-                  (editing === "new" && !secret) ||
-                  (draft.security === "wpa_eap_peap_mschapv2" &&
-                    !draft.identity.trim()) ||
-                  Boolean(unavailable && editing === "new")
-                }
-              >
-                Save network
-              </Button>
-            </footer>
-          </form>
-        )}
-      </Dialog>
+              <fieldset className="grid gap-2 rounded-xl border border-border p-4">
+                <legend className="px-1 text-sm font-medium">
+                  Assigned Linux players
+                </legend>
+                <p className="text-sm text-muted-foreground">
+                  Only the selected gateway joins this network during a group
+                  AirPlay session. Followers stay on Ethernet.
+                </p>
+                {screens.isLoading ? (
+                  <span className="text-sm text-muted-foreground">
+                    Loading Linux players…
+                  </span>
+                ) : linuxScreens.length ? (
+                  <div className="grid gap-2">
+                    {linuxScreens.map((screen) => (
+                      <label
+                        key={screen.id}
+                        className="flex cursor-pointer items-center gap-2 text-sm"
+                      >
+                        <RheaCheckbox
+                          checked={assignmentIds.includes(screen.id)}
+                          onCheckedChange={(checked) =>
+                            setAssignmentIds((current) =>
+                              checked === true
+                                ? [...new Set([...current, screen.id])]
+                                : current.filter((id) => id !== screen.id),
+                            )
+                          }
+                        />
+                        <span>
+                          {screen.name} · {screen.location || "No location"}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    No Linux players are available for assignment.
+                  </span>
+                )}
+              </fieldset>
+
+              {detail.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    Could not load this network.{" "}
+                    {safeError(detail.error, "Try again.")}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {saveError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{saveError}</AlertDescription>
+                </Alert>
+              )}
+              <DialogFooter>
+                <RheaButton
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setEditing(undefined)}
+                  disabled={save.isPending}
+                >
+                  Cancel
+                </RheaButton>
+                <RheaButton
+                  variant="default"
+                  type="submit"
+                  disabled={
+                    save.isPending ||
+                    !draft.name.trim() ||
+                    !draft.ssid.trim() ||
+                    (editing === "new" && !secret) ||
+                    (draft.security === "wpa_eap_peap_mschapv2" &&
+                      !draft.identity.trim()) ||
+                    Boolean(unavailable && editing === "new")
+                  }
+                >
+                  {save.isPending && <Spinner />}
+                  Save network
+                </RheaButton>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </RheaDialog>
     </section>
   );
 }

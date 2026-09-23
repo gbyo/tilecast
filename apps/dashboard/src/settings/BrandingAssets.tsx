@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button as RheaButton } from "../components/ui/button";
 import {
   clearLoginBackground,
   getLoginBackground,
@@ -9,7 +11,6 @@ import {
 } from "../api/loginBackground";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import "./BrandingAssets.css";
 
 const chunkSize = 5 * 1024 * 1024;
 
@@ -43,15 +44,15 @@ export function BrandingAssets({
   });
 
   return (
-    <section className="settings-subsection">
-      <header>
-        <h3>Organization images</h3>
-        <p>
+    <section className="grid gap-4 rounded-xl border border-border p-4">
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">Organization images</h3>
+        <p className="text-sm text-muted-foreground">
           Upload images from this device. Tilecast stores the selected asset
           internally.
         </p>
       </header>
-      <div className="branding-asset-grid">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <BrandingAssetUpload
           title="Logo"
           description="A wide organization logo for Tilecast Studio and supported player screens."
@@ -193,28 +194,42 @@ function BrandingAssetUpload({
   const imageUrl = previewUrl || asset?.thumbnailUrl || fallbackImageUrl;
   const busy = uploading || pending;
   return (
-    <article className="branding-asset-card">
+    <article className="grid gap-4 rounded-xl border border-border bg-card p-4">
       <div
-        className={`branding-asset-card__preview branding-asset-card__preview--${previewMode}`}
+        className={`grid min-h-28 place-items-center overflow-hidden rounded-xl border border-border bg-muted${previewMode === "cover" ? " aspect-[16/10]" : ""}`}
       >
         {imageUrl ? (
-          <img src={imageUrl} alt={`${title} preview`} />
+          <img
+            src={imageUrl}
+            alt={`${title} preview`}
+            className={
+              previewMode === "cover"
+                ? "h-full w-full object-cover"
+                : "h-full w-full object-contain"
+            }
+          />
         ) : (
-          <span aria-hidden="true">{title}</span>
+          <span aria-hidden="true" className="text-sm text-muted-foreground">
+            {title}
+          </span>
         )}
       </div>
-      <div className="branding-asset-card__body">
-        <div>
-          <strong>{title}</strong>
-          <p>{description}</p>
-          {asset && <small>{asset.name || asset.originalFilename}</small>}
+      <div className="grid min-w-0 content-between gap-3">
+        <div className="grid gap-1">
+          <strong className="text-sm font-semibold">{title}</strong>
+          <p className="text-sm text-muted-foreground">{description}</p>
+          {asset && (
+            <small className="text-xs text-muted-foreground">
+              {asset.name || asset.originalFilename}
+            </small>
+          )}
           {value && !asset && !existing.isLoading && (
-            <small className="field-error">
+            <small className="text-sm text-destructive">
               The selected image is unavailable. Upload a replacement.
             </small>
           )}
         </div>
-        <div className="branding-asset-card__actions">
+        <div className="flex flex-wrap gap-2">
           <input
             ref={input}
             type="file"
@@ -227,9 +242,9 @@ function BrandingAssetUpload({
               event.target.value = "";
             }}
           />
-          <button
+          <RheaButton
             type="button"
-            className="button button--primary"
+            variant="default"
             disabled={!editable || busy}
             onClick={() => input.current?.click()}
           >
@@ -238,11 +253,11 @@ function BrandingAssetUpload({
               : value
                 ? "Replace image"
                 : "Upload image"}
-          </button>
+          </RheaButton>
           {value && (
-            <button
+            <RheaButton
               type="button"
-              className="button button--quiet"
+              variant="ghost"
               disabled={!editable || busy}
               onClick={() => {
                 void Promise.resolve(onRemove())
@@ -255,13 +270,13 @@ function BrandingAssetUpload({
               }}
             >
               Remove
-            </button>
+            </RheaButton>
           )}
         </div>
         {(error || actionError) && (
-          <div className="notice notice--error" role="alert">
-            {error ?? actionError}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{error ?? actionError}</AlertDescription>
+          </Alert>
         )}
       </div>
     </article>

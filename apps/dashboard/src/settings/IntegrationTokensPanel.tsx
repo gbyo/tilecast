@@ -4,6 +4,18 @@ import { Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { IntegrationScope, IntegrationToken } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
 
 const scopeLabels: Record<IntegrationScope, string> = {
   "data_source:write": "Write Manual Table rows",
@@ -122,59 +134,84 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
 
   if (!owner)
     return (
-      <div className="notice">
-        Only the Owner may manage integration tokens.
-      </div>
+      <Alert role="status">
+        <AlertDescription>
+          Only the Owner may manage integration tokens.
+        </AlertDescription>
+      </Alert>
     );
 
   return (
-    <div className="settings-sections">
-      <section className="settings-subsection">
-        <header>
-          <h3>Integration tokens</h3>
-          <p>Grant selected integrations without sharing a Studio password.</p>
+    <div className="grid gap-4">
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Integration tokens</h3>
+          <p className="text-sm text-muted-foreground">
+            Grant selected integrations without sharing a Studio password.
+          </p>
         </header>
 
         {secret && (
-          <div className="notice" role="status">
-            <strong>Copy this token now.</strong> Shown once.
-            <pre className="secret-value">{secret}</pre>
-            {notice}
-            <div>
-              <button
-                className="button button--quiet"
-                onClick={() => {
-                  setSecret(undefined);
-                  setNotice(undefined);
-                }}
-              >
-                I have copied it
-              </button>
-            </div>
-          </div>
+          <Alert role="status">
+            <AlertDescription className="grid gap-2">
+              <span>
+                <strong>Copy this token now.</strong> Shown once.
+              </span>
+              <pre className="overflow-x-auto rounded-xl border border-border bg-muted p-3 font-mono text-xs break-all">
+                {secret}
+              </pre>
+              {notice}
+              <div>
+                <RheaButton
+                  variant="ghost"
+                  onClick={() => {
+                    setSecret(undefined);
+                    setNotice(undefined);
+                  }}
+                >
+                  I have copied it
+                </RheaButton>
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         {tokens.isLoading ? (
-          <div className="table-loading">Loading tokens…</div>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Spinner aria-hidden="true" />
+            Loading tokens…
+          </p>
         ) : !tokens.data?.length ? (
-          <div className="empty-card">No integration tokens exist.</div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No tokens</EmptyTitle>
+              <EmptyDescription>No integration tokens exist.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <div className="backup-list">
+          <div className="grid gap-2">
             {tokens.data.map((token) => (
-              <article className="backup-row" key={token.id}>
-                <div className="backup-row__details">
-                  <strong>{token.name}</strong>
-                  <span>
+              <article
+                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
+                key={token.id}
+              >
+                <div className="grid min-w-0 flex-1 gap-1">
+                  <strong className="text-sm font-semibold">
+                    {token.name}
+                  </strong>
+                  <span className="text-sm text-muted-foreground">
                     {token.scopes
                       .map((scope) => scopeLabels[scope])
                       .join(" · ")}
                   </span>
-                  <span>
-                    <span
-                      className={`status-badge status-badge--${status(token) === "Active" ? "online" : "offline"}`}
+                  <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <Badge
+                      variant={
+                        status(token) === "Active" ? "default" : "secondary"
+                      }
                     >
                       {status(token)}
-                    </span>
+                    </Badge>
                     {" · "}
                     {token.lastUsedAt
                       ? `Last used ${new Date(token.lastUsedAt).toLocaleString()}`
@@ -185,15 +222,15 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                       : ""}
                   </span>
                 </div>
-                <div className="backup-row__actions">
+                <div className="flex flex-wrap items-center gap-2">
                   {!token.revokedAt && (
-                    <button
-                      className="button button--danger"
+                    <RheaButton
+                      variant="destructive"
                       onClick={() => revoke.mutate(token)}
                       aria-label={`Revoke ${token.name}`}
                     >
-                      <Trash2 size={15} /> Revoke
-                    </button>
+                      <Trash2 size={15} aria-hidden="true" /> Revoke
+                    </RheaButton>
                   )}
                 </div>
               </article>
@@ -201,33 +238,36 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
           </div>
         )}
         {revoke.error && !(revoke.error instanceof CancelledAction) && (
-          <div className="notice notice--error" role="alert">
-            {revoke.error.message}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{revoke.error.message}</AlertDescription>
+          </Alert>
         )}
       </section>
 
-      <section className="settings-subsection">
-        <header>
-          <h3>Create a token</h3>
+      <section className="grid gap-4 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Create a token</h3>
         </header>
         <form
+          className="grid gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             setSecret(undefined);
             create.mutate();
           }}
         >
-          <div className="setting-row">
-            <div className="setting-copy">
-              <label htmlFor="token-name">Name</label>
-              <p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid content-start gap-1">
+              <label htmlFor="token-name" className="text-sm font-medium">
+                Name
+              </label>
+              <p className="text-sm text-muted-foreground">
                 Name the system that will use it, so the delivery record and the
                 audit log say who did what.
               </p>
             </div>
-            <div className="setting-control">
-              <input
+            <div className="grid content-start gap-2">
+              <Input
                 id="token-name"
                 value={name}
                 required
@@ -237,44 +277,50 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
             </div>
           </div>
 
-          <div className="setting-row">
-            <div className="setting-copy">
-              <label>Capabilities</label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid content-start gap-1">
+              <label className="text-sm font-medium">Capabilities</label>
             </div>
-            <div className="setting-control setting-control--checks">
+            <div className="grid content-start gap-2">
               {allScopes.map((scope) => (
-                <label key={scope} className="check-option">
-                  <input
-                    type="checkbox"
+                <label
+                  key={scope}
+                  className="flex cursor-pointer items-start gap-2 text-sm"
+                >
+                  <RheaCheckbox
                     checked={scopes.includes(scope)}
-                    onChange={(event) =>
+                    onCheckedChange={(checked) =>
                       setScopes(
-                        event.target.checked
+                        checked === true
                           ? [...scopes, scope]
                           : scopes.filter((item) => item !== scope),
                       )
                     }
                   />
-                  <span>
+                  <span className="grid gap-0.5">
                     {scopeLabels[scope]}
-                    <small>{scopeDescriptions[scope]}</small>
+                    <small className="text-xs text-muted-foreground">
+                      {scopeDescriptions[scope]}
+                    </small>
                   </span>
                 </label>
               ))}
             </div>
           </div>
 
-          <div className="setting-row">
-            <div className="setting-copy">
-              <label htmlFor="token-expires">Expires on</label>
-              <p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid content-start gap-1">
+              <label htmlFor="token-expires" className="text-sm font-medium">
+                Expires on
+              </label>
+              <p className="text-sm text-muted-foreground">
                 The token stops working at the end of this day. Leave it empty
                 for a token that never expires, and revoke it when the system
                 using it is retired.
               </p>
             </div>
-            <div className="setting-control">
-              <input
+            <div className="grid content-start gap-2">
+              <Input
                 id="token-expires"
                 type="date"
                 value={expiresOn}
@@ -287,38 +333,42 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
           </div>
 
           {scopes.includes("data_source:write") && (
-            <div className="setting-row">
-              <div className="setting-copy">
-                <label>Limit to Data Sources</label>
-                <p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid content-start gap-1">
+                <label className="text-sm font-medium">
+                  Limit to Data Sources
+                </label>
+                <p className="text-sm text-muted-foreground">
                   Select none to allow every Manual Table Data Source. Naming
                   them is the safer default.
                 </p>
               </div>
-              <div className="setting-control setting-control--checks">
+              <div className="grid content-start gap-2">
                 {sources.isLoading ? (
-                  <span className="setting-dependency">
+                  <span className="text-xs text-muted-foreground">
                     Loading Data Sources…
                   </span>
                 ) : !sources.data?.items?.length ? (
-                  <span className="setting-dependency">
+                  <span className="text-xs text-muted-foreground">
                     No Manual Table Data Sources exist yet.
                   </span>
                 ) : (
                   sources.data.items.map((source) => (
-                    <label key={source.id} className="check-option">
-                      <input
-                        type="checkbox"
+                    <label
+                      key={source.id}
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <RheaCheckbox
                         checked={sourceIds.includes(source.id)}
-                        onChange={(event) =>
+                        onCheckedChange={(checked) =>
                           setSourceIds(
-                            event.target.checked
+                            checked === true
                               ? [...sourceIds, source.id]
                               : sourceIds.filter((id) => id !== source.id),
                           )
                         }
                       />
-                      {source.name}
+                      <span>{source.name}</span>
                     </label>
                   ))
                 )}
@@ -327,20 +377,19 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
           )}
 
           {create.error && (
-            <div className="notice notice--error" role="alert">
-              {create.error.message}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>{create.error.message}</AlertDescription>
+            </Alert>
           )}
 
-          <div className="settings-subsection__action">
-            <div />
-            <button
-              className="button button--primary"
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <RheaButton
+              variant="default"
               type="submit"
               disabled={create.isPending || scopes.length === 0}
             >
               {create.isPending ? "Creating…" : "Create token"}
-            </button>
+            </RheaButton>
           </div>
         </form>
       </section>

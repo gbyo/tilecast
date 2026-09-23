@@ -1,12 +1,24 @@
+import { StatusDot, ViewTabs } from "../components/legacy-ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
 import {
-  Button,
-  Dialog,
-  Notice,
-  Select,
-  StatusDot,
-  TableContainer,
-  ViewTabs,
-} from "../components/legacy-ui";
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { Field, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Spinner } from "../components/ui/spinner";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -91,24 +103,35 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
   });
   if (!canManage)
     return (
-      <div className="notice">Owner or Administrator access is required.</div>
+      <Alert role="status">
+        <AlertDescription>
+          Owner or Administrator access is required.
+        </AlertDescription>
+      </Alert>
     );
   const s = query.data;
   return (
-    <div className="settings-sections">
-      <section className="settings-subsection">
-        <header>
-          <h3>Diagnostics</h3>
-          <p>Runtime status without secrets or sensitive paths.</p>
+    <div className="grid gap-4">
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Diagnostics</h3>
+          <p className="text-sm text-muted-foreground">
+            Runtime status without secrets or sensitive paths.
+          </p>
         </header>
         {query.error ? (
-          <div className="notice notice--error" role="alert">
-            System diagnostics could not be loaded. {query.error.message}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>
+              System diagnostics could not be loaded. {query.error.message}
+            </AlertDescription>
+          </Alert>
         ) : !s ? (
-          <div className="table-loading">Loading diagnostics…</div>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Spinner aria-hidden="true" />
+            Loading diagnostics…
+          </p>
         ) : (
-          <dl className="system-settings-grid">
+          <dl className="my-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Item
               label="Tilecast"
               value={`${s.tilecastVersion} · ${s.buildCommit}`}
@@ -138,20 +161,30 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
           </dl>
         )}
       </section>
-      <section className="settings-subsection">
-        <header>
-          <h3>Maintenance</h3>
-          <p>Run approved maintenance tasks.</p>
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Maintenance</h3>
+          <p className="text-sm text-muted-foreground">
+            Run approved maintenance tasks.
+          </p>
         </header>
-        <div className="maintenance-list">
+        <div className="grid gap-2">
           {maintenanceActions.map((action) => (
-            <div key={action.id}>
-              <span>
-                <strong>{action.label}</strong>
-                <small>{action.description}</small>
+            <div
+              key={action.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3"
+            >
+              <span className="grid gap-0.5">
+                <strong className="text-sm font-semibold">
+                  {action.label}
+                </strong>
+                <small className="text-xs text-muted-foreground">
+                  {action.description}
+                </small>
               </span>
-              <button
-                className="button button--quiet"
+              <RheaButton
+                variant="ghost"
+
                 disabled={maintenance.isPending}
                 onClick={() => {
                   if (!action.confirm || confirm(`${action.label}?`))
@@ -161,19 +194,19 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
                 {maintenance.isPending && maintenance.variables === action.id
                   ? "Running…"
                   : "Run"}
-              </button>
+              </RheaButton>
             </div>
           ))}
         </div>
         {maintenance.isSuccess && (
-          <div className="notice notice--success" role="status">
-            Maintenance action completed.
-          </div>
+          <Alert role="status">
+            <AlertDescription>Maintenance action completed.</AlertDescription>
+          </Alert>
         )}
         {maintenance.error && (
-          <div className="notice notice--error" role="alert">
-            {maintenance.error.message}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{maintenance.error.message}</AlertDescription>
+          </Alert>
         )}
       </section>
     </div>
@@ -181,9 +214,9 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
 }
 function Item({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
+    <div className="grid gap-0.5 rounded-xl border border-border p-3">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="text-sm font-medium break-all">{value}</dd>
     </div>
   );
 }
@@ -207,40 +240,46 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
   });
   if (!owner)
     return (
-      <div className="notice">
-        Only the Owner may import or export settings.
-      </div>
+      <Alert role="status">
+        <AlertDescription>
+          Only the Owner may import or export settings.
+        </AlertDescription>
+      </Alert>
     );
   return (
-    <div className="settings-sections">
-      <section className="settings-subsection">
-        <header>
-          <h3>Export settings</h3>
-          <p>
+    <div className="grid gap-4">
+      <section className="grid content-start gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Export settings</h3>
+          <p className="text-sm text-muted-foreground">
             Download organization settings and policy metadata without
             credentials, secrets, or media files.
           </p>
         </header>
-        <button
-          className="button button--primary"
-          onClick={() => void exportSettings()}
-        >
-          Export non-secret settings
-        </button>
+        <div>
+          <RheaButton
+            variant="default"
+
+            onClick={() => void exportSettings()}
+          >
+            Export non-secret settings
+          </RheaButton>
+        </div>
       </section>
-      <section className="settings-subsection">
-        <header>
-          <h3>Import settings</h3>
-          <p>
+      <section className="grid content-start gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Import settings</h3>
+          <p className="text-sm text-muted-foreground">
             Tilecast validates the document and shows a preview before anything
             changes.
           </p>
         </header>
-        <label className="file-input">
+        <label className="grid gap-1 text-sm font-medium">
           Settings file
           <input
             type="file"
             accept="application/json"
+            className="text-sm font-normal"
             onChange={(event) =>
               void (async () => {
                 const file = event.target.files?.[0];
@@ -251,33 +290,41 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
             }
           />
         </label>
-        <button
-          className="button button--quiet"
-          disabled={!document || previewMutation.isPending}
-          onClick={() => previewMutation.mutate()}
-        >
-          {previewMutation.isPending ? "Validating…" : "Validate and preview"}
-        </button>
+        <div>
+          <RheaButton
+            variant="ghost"
+
+            disabled={!document || previewMutation.isPending}
+            onClick={() => previewMutation.mutate()}
+          >
+            {previewMutation.isPending ? "Validating…" : "Validate and preview"}
+          </RheaButton>
+        </div>
         {preview && (
-          <div className="notice">
-            <strong>
-              {preview.changedKeys.length} setting keys are valid.
-            </strong>
-            <p>
-              {preview.groupPolicyCount} group policies and{" "}
-              {preview.screenPolicyCount} screen policies are present.
-            </p>
-            <button
-              className="button button--primary"
-              disabled={apply.isPending}
-              onClick={() => {
-                if (confirm("Apply this validated settings document?"))
-                  apply.mutate();
-              }}
-            >
-              Apply imported settings
-            </button>
-          </div>
+          <Alert role="status">
+            <AlertDescription className="grid gap-2">
+              <strong>
+                {preview.changedKeys.length} setting keys are valid.
+              </strong>
+              <p>
+                {preview.groupPolicyCount} group policies and{" "}
+                {preview.screenPolicyCount} screen policies are present.
+              </p>
+              <div>
+                <RheaButton
+                  variant="default"
+
+                  disabled={apply.isPending}
+                  onClick={() => {
+                    if (confirm("Apply this validated settings document?"))
+                      apply.mutate();
+                  }}
+                >
+                  Apply imported settings
+                </RheaButton>
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
       </section>
     </div>
@@ -530,9 +577,8 @@ export function PlayerUpdatesPanel({
   const selectionCount = screenIds.length + groupIds.length;
   const windowMissing = mode === "maintenance_window" && !windowStart;
   return (
-    <div className="settings-sections player-updates">
+    <div className="grid gap-4">
       <ViewTabs
-        className="player-updates__platform-tabs"
         label="Player platform"
         value={platform}
         items={[
@@ -554,43 +600,51 @@ export function PlayerUpdatesPanel({
           setOpenDeployment(undefined);
         }}
       />
-      <section className="settings-subsection player-updates__releases">
-        <header className="settings-subsection__action">
-          <div>
-            <h3>Available {platformLabel} releases</h3>
-            <p>
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid gap-1">
+            <h3 className="text-base font-semibold">
+              Available {platformLabel} releases
+            </h3>
+            <p className="text-sm text-muted-foreground">
               Upload a signed release directly or optionally synchronize from{" "}
               <code>Gibsonmb71/tilecast</code>.
             </p>
           </div>
           {owner && (
-            <div className="settings-inline-actions">
-              <Button
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <RheaButton
                 variant="secondary"
-                loading={check.isPending}
+                disabled={check.isPending}
                 onClick={() => check.mutate()}
               >
-                {!check.isPending && <RefreshCw size={16} aria-hidden="true" />}
+                {check.isPending ? (
+                  <Spinner />
+                ) : (
+                  <RefreshCw size={16} aria-hidden="true" />
+                )}
                 {check.isPending ? "Synchronizing…" : "Sync from GitHub"}
-              </Button>
-              <Button
-                variant="primary"
+              </RheaButton>
+              <RheaButton
+                variant="default"
                 aria-expanded={showUpload}
                 onClick={() => setShowUpload((visible) => !visible)}
               >
                 <Upload size={16} aria-hidden="true" />
                 Upload release
-              </Button>
+              </RheaButton>
             </div>
           )}
         </header>
         {releases.data && (
-          <div className="github-auth">
-            <div className="github-auth__summary">
+          <div className="grid gap-3 rounded-xl border border-border p-4">
+            <div className="flex items-center gap-3">
               <Github size={20} aria-hidden="true" />
-              <div>
-                <strong>GitHub connection</strong>
-                <span>
+              <div className="grid gap-0.5">
+                <strong className="text-sm font-semibold">
+                  GitHub connection
+                </strong>
+                <span className="text-sm text-muted-foreground">
                   {releases.data.githubAuth.connected
                     ? releases.data.githubAuth.login
                       ? `Authorized as @${releases.data.githubAuth.login}`
@@ -599,7 +653,7 @@ export function PlayerUpdatesPanel({
                 </span>
               </div>
             </div>
-            <div className="github-auth__actions">
+            <div className="flex flex-wrap items-center gap-2">
               <StatusDot
                 tone={
                   releases.data.githubAuth.connected ? "success" : "neutral"
@@ -613,40 +667,50 @@ export function PlayerUpdatesPanel({
               {owner &&
                 !githubFlow &&
                 (releases.data.githubAuth.canDisconnect ? (
-                  <Button
-                    variant="quiet"
-                    loading={disconnectGitHub.isPending}
+                  <RheaButton
+                    variant="ghost"
+                    disabled={disconnectGitHub.isPending}
                     onClick={() => disconnectGitHub.mutate()}
                   >
-                    {!disconnectGitHub.isPending && (
+                    {disconnectGitHub.isPending ? (
+                      <Spinner />
+                    ) : (
                       <LogOut size={16} aria-hidden="true" />
                     )}
                     {disconnectGitHub.isPending
                       ? "Disconnecting…"
                       : "Disconnect"}
-                  </Button>
+                  </RheaButton>
                 ) : !releases.data.githubAuth.connected ? (
-                  <Button
+                  <RheaButton
                     variant="secondary"
-                    disabled={!releases.data.githubAuth.available}
-                    loading={startGitHubAuth.isPending}
+                    disabled={
+                      !releases.data.githubAuth.available ||
+                      startGitHubAuth.isPending
+                    }
                     onClick={() => startGitHubAuth.mutate()}
                   >
-                    {!startGitHubAuth.isPending && (
+                    {startGitHubAuth.isPending ? (
+                      <Spinner />
+                    ) : (
                       <Github size={16} aria-hidden="true" />
                     )}
                     {startGitHubAuth.isPending ? "Starting…" : "Connect GitHub"}
-                  </Button>
+                  </RheaButton>
                 ) : null)}
             </div>
             {githubFlow && (
-              <div className="github-auth__device" role="status">
-                <div>
-                  <span>One-time code</span>
-                  <strong className="technical">{githubFlow.userCode}</strong>
+              <div className="flex flex-wrap items-center gap-3" role="status">
+                <div className="grid gap-0.5">
+                  <span className="text-sm text-muted-foreground">
+                    One-time code
+                  </span>
+                  <strong className="font-mono text-sm">
+                    {githubFlow.userCode}
+                  </strong>
                 </div>
                 <a
-                  className="button button--primary"
+                  className={buttonVariants({ variant: "default" })}
                   href={githubFlow.verificationUri}
                   target="_blank"
                   rel="noreferrer"
@@ -654,21 +718,23 @@ export function PlayerUpdatesPanel({
                   <ExternalLink size={16} aria-hidden="true" />
                   Open GitHub
                 </a>
-                <Button variant="quiet" onClick={() => setGitHubFlow(null)}>
+                <RheaButton variant="ghost" onClick={() => setGitHubFlow(null)}>
                   Cancel
-                </Button>
-                <small>Waiting for authorization…</small>
+                </RheaButton>
+                <small className="text-xs text-muted-foreground">
+                  Waiting for authorization…
+                </small>
               </div>
             )}
             {!releases.data.githubAuth.available &&
               !releases.data.githubAuth.connected && (
-                <small className="github-auth__configuration">
+                <small className="text-xs text-muted-foreground">
                   Configure <code>TILECAST_GITHUB_CLIENT_ID</code> with a
                   device-flow-enabled GitHub OAuth App to enable sign-in.
                 </small>
               )}
             {githubAuthMessage && (
-              <small className="github-auth__message" role="status">
+              <small className="text-xs text-muted-foreground" role="status">
                 {githubAuthMessage}
               </small>
             )}
@@ -683,39 +749,49 @@ export function PlayerUpdatesPanel({
             }}
           />
         )}
-        <div className="player-updates__notices">
+        <div className="mt-4 grid gap-3">
           {releases.data && !releases.data.manifestKeyConfigured && (
-            <Notice
-              variant="danger"
-              title="Player update verification is not configured."
-            >
-              Set <code>TILECAST_UPDATE_MANIFEST_PUBLIC_KEY</code> on the
-              Tilecast server to the public Ed25519 key used by the Player
-              release workflow, then restart the server.
-            </Notice>
+            <Alert variant="destructive">
+              <AlertTitle>
+                Player update verification is not configured.
+              </AlertTitle>
+              <AlertDescription>
+                Set <code>TILECAST_UPDATE_MANIFEST_PUBLIC_KEY</code> on the
+                Tilecast server to the public Ed25519 key used by the Player
+                release workflow, then restart the server.
+              </AlertDescription>
+            </Alert>
           )}
           {(check.error || releases.data?.providerError) && (
-            <Notice
-              variant="danger"
-              title="GitHub releases could not be synchronized."
-            >
-              {check.error?.message ?? releases.data?.providerError}
-            </Notice>
+            <Alert variant="destructive">
+              <AlertTitle>
+                GitHub releases could not be synchronized.
+              </AlertTitle>
+              <AlertDescription>
+                {check.error?.message ?? releases.data?.providerError}
+              </AlertDescription>
+            </Alert>
           )}
           {cache.error && (
-            <Notice variant="danger" title="The release could not be cached.">
-              {mutationError(cache.error)}
-            </Notice>
+            <Alert variant="destructive">
+              <AlertTitle>The release could not be cached.</AlertTitle>
+              <AlertDescription>{mutationError(cache.error)}</AlertDescription>
+            </Alert>
           )}
           {purge.error && (
-            <Notice variant="danger" title="The release could not be removed.">
-              {mutationError(purge.error)}
-            </Notice>
+            <Alert variant="destructive">
+              <AlertTitle>The release could not be removed.</AlertTitle>
+              <AlertDescription>{mutationError(purge.error)}</AlertDescription>
+            </Alert>
           )}
-          {purgeNotice && <Notice variant="success">{purgeNotice}</Notice>}
+          {purgeNotice && (
+            <Alert role="status">
+              <AlertDescription>{purgeNotice}</AlertDescription>
+            </Alert>
+          )}
         </div>
         {releaseItems.length === 0 ? (
-          <div className="player-updates__empty">
+          <div className="mt-4 rounded-xl border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
             {releases.isLoading
               ? "Loading releases…"
               : releases.error
@@ -724,55 +800,79 @@ export function PlayerUpdatesPanel({
           </div>
         ) : (
           <>
-            <TableContainer className="table-container player-updates-table-wrap">
-              <table className="player-updates-table">
-                <caption className="visually-hidden">
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <table className="w-full min-w-[48rem] text-sm">
+                <caption className="sr-only">
                   Available {platformLabel} Player releases
                 </caption>
                 <thead>
-                  <tr>
-                    <th scope="col">Version</th>
-                    <th scope="col">Source</th>
-                    <th scope="col">Published</th>
-                    <th scope="col">Size</th>
-                    <th scope="col">Status</th>
-                    {owner && <th scope="col" aria-label="Actions" />}
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th scope="col" className="px-3 py-2 font-medium">
+                      Version
+                    </th>
+                    <th scope="col" className="px-3 py-2 font-medium">
+                      Source
+                    </th>
+                    <th scope="col" className="px-3 py-2 font-medium">
+                      Published
+                    </th>
+                    <th scope="col" className="px-3 py-2 font-medium">
+                      Size
+                    </th>
+                    <th scope="col" className="px-3 py-2 font-medium">
+                      Status
+                    </th>
+                    {owner && (
+                      <th
+                        scope="col"
+                        aria-label="Actions"
+                        className="px-3 py-2"
+                      />
+                    )}
                   </tr>
                 </thead>
                 <tbody id="player-releases-table-body">
                   {visibleReleaseItems.map((release) => {
                     const readiness = releaseReadiness(release);
                     return (
-                      <tr key={release.id}>
-                        <th scope="row">
-                          <span className="player-updates__version">
-                            <strong>{release.versionName}</strong>
-                            <span
-                              className={`player-updates__channel player-updates__channel--${release.channel}`}
-                            >
+                      <tr
+                        key={release.id}
+                        className="border-b border-border last:border-0"
+                      >
+                        <th
+                          scope="row"
+                          className="px-3 py-2 text-left font-normal"
+                        >
+                          <span className="flex flex-wrap items-center gap-2">
+                            <strong className="font-semibold">
+                              {release.versionName}
+                            </strong>
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                               {release.channel === "beta" ? "Beta" : "Stable"}
                             </span>
                           </span>
-                          <small className="technical">
+                          <small className="font-mono text-xs text-muted-foreground">
                             Code {release.versionCode}
                           </small>
                         </th>
-                        <td>
+                        <td className="px-3 py-2">
                           {release.source === "upload"
                             ? "Direct upload"
                             : "GitHub"}
                         </td>
-                        <td>
+                        <td className="px-3 py-2 whitespace-nowrap">
                           {new Date(release.publishedAt).toLocaleDateString()}
                         </td>
-                        <td>{formatBytes(release.apkSizeBytes)}</td>
-                        <td>
+                        <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                          {formatBytes(release.apkSizeBytes)}
+                        </td>
+                        <td className="px-3 py-2">
                           <StatusDot
                             tone={readiness.tone}
                             label={readiness.label}
                           />
                           {release.cacheStatus === "downloading" && (
-                            <span className="player-release-cache-progress">
+                            <span className="player-release-cache-progress grid gap-1">
                               <progress
                                 aria-label={`Caching ${release.versionName}: ${formatBytes(
                                   release.downloadedBytes,
@@ -782,20 +882,23 @@ export function PlayerUpdatesPanel({
                                   release.apkSizeBytes,
                                 )}
                                 max={release.apkSizeBytes}
+                                className="w-full"
                               />
-                              <small>
+                              <small className="text-xs text-muted-foreground">
                                 {formatBytes(release.downloadedBytes)} of{" "}
                                 {formatBytes(release.apkSizeBytes)}
                               </small>
                             </span>
                           )}
                           {readiness.detail && (
-                            <small>{readiness.detail}</small>
+                            <small className="text-xs text-muted-foreground">
+                              {readiness.detail}
+                            </small>
                           )}
                         </td>
                         {owner && (
-                          <td>
-                            <div className="player-updates__row-actions">
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               {readiness.cacheable && (
                                 <ReleaseCacheButton
                                   downloading={
@@ -806,25 +909,30 @@ export function PlayerUpdatesPanel({
                                 />
                               )}
                               {purgeAction(release) && (
-                                <Button
-                                  variant="quiet"
-                                  compact
+                                <RheaButton
+                                  variant="ghost"
+                                  size="sm"
                                   title={
                                     purgeAction(release) === "delete"
                                       ? "Delete this release and free its cached file"
                                       : "Free the cached file and keep the deployment history"
                                   }
-                                  loading={
+                                  disabled={
                                     purge.isPending &&
                                     purge.variables?.id === release.id
                                   }
                                   onClick={() => setPurging(release)}
                                 >
-                                  <Trash2 size={15} aria-hidden="true" />
+                                  {purge.isPending &&
+                                  purge.variables?.id === release.id ? (
+                                    <Spinner />
+                                  ) : (
+                                    <Trash2 size={15} aria-hidden="true" />
+                                  )}
                                   {purgeAction(release) === "delete"
                                     ? "Delete"
                                     : "Free file"}
-                                </Button>
+                                </RheaButton>
                               )}
                             </div>
                           </td>
@@ -834,16 +942,16 @@ export function PlayerUpdatesPanel({
                   })}
                 </tbody>
               </table>
-            </TableContainer>
+            </div>
             {releaseItems.length > defaultVisibleReleaseCount && (
-              <div className="player-updates__release-list-controls">
-                <span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm text-muted-foreground">
                   Showing {visibleReleaseItems.length} of {releaseItems.length}{" "}
                   releases, newest first.
                 </span>
-                <Button
-                  variant="quiet"
-                  compact
+                <RheaButton
+                  variant="ghost"
+                  size="sm"
                   aria-controls="player-releases-table-body"
                   aria-expanded={showAllReleases}
                   onClick={() => setShowAllReleases((visible) => !visible)}
@@ -851,115 +959,179 @@ export function PlayerUpdatesPanel({
                   {showAllReleases
                     ? "Show fewer releases"
                     : `Show all ${releaseItems.length} releases`}
-                </Button>
+                </RheaButton>
               </div>
             )}
           </>
         )}
-        <Dialog
+        <RheaDialog
           open={Boolean(purging)}
-          title={
-            purging && purgeAction(purging) === "delete"
-              ? "Delete this release?"
-              : "Free this cached file?"
-          }
-          onClose={() => setPurging(undefined)}
+          onOpenChange={(open) => {
+            if (!open) setPurging(undefined);
+          }}
         >
-          {purging && (
-            <>
-              <p>
-                {purging.versionName} ({purging.versionCode}) frees{" "}
-                {formatBytes(purging.apkSizeBytes)} of server storage.
-              </p>
-              {purgeAction(purging) === "delete" ? (
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {purging && purgeAction(purging) === "delete"
+                  ? "Delete this release?"
+                  : "Free this cached file?"}
+              </DialogTitle>
+            </DialogHeader>
+            {purging && (
+              <div className="grid gap-3 text-sm">
                 <p>
-                  It has never been deployed, so the release and its cached file
-                  are both removed.
+                  {purging.versionName} ({purging.versionCode}) frees{" "}
+                  {formatBytes(purging.apkSizeBytes)} of server storage.
                 </p>
-              ) : (
-                <p>
-                  {purging.deploymentCount}{" "}
-                  {purging.deploymentCount === 1
-                    ? "deployment references"
-                    : "deployments reference"}{" "}
-                  this release, so it stays listed for that history and only the
-                  cached file is removed.
-                </p>
-              )}
-              {purgeAction(purging) === "free" &&
-                purging.source === "upload" && (
-                  <Notice
-                    variant="warning"
-                    title="This release was uploaded directly."
-                  >
-                    Tilecast cannot download it again. Deploying it later
-                    requires uploading the same signed release once more.
-                  </Notice>
+                {purgeAction(purging) === "delete" ? (
+                  <p>
+                    It has never been deployed, so the release and its cached
+                    file are both removed.
+                  </p>
+                ) : (
+                  <p>
+                    {purging.deploymentCount}{" "}
+                    {purging.deploymentCount === 1
+                      ? "deployment references"
+                      : "deployments reference"}{" "}
+                    this release, so it stays listed for that history and only
+                    the cached file is removed.
+                  </p>
                 )}
-              <footer className="player-updates-deploy-dialog__actions">
-                <Button variant="quiet" onClick={() => setPurging(undefined)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="danger"
+                {purgeAction(purging) === "free" &&
+                  purging.source === "upload" && (
+                    <Alert role="status">
+                      <AlertTitle>
+                        This release was uploaded directly.
+                      </AlertTitle>
+                      <AlertDescription>
+                        Tilecast cannot download it again. Deploying it later
+                        requires uploading the same signed release once more.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+              </div>
+            )}
+            <DialogFooter>
+              <RheaButton variant="ghost" onClick={() => setPurging(undefined)}>
+                Cancel
+              </RheaButton>
+              {purging && (
+                <RheaButton
+                  variant="destructive"
                   disabled={purge.isPending}
                   onClick={() => purge.mutate(purging)}
                 >
-                  <Trash2 size={16} aria-hidden="true" />
+                  {purge.isPending ? (
+                    <Spinner />
+                  ) : (
+                    <Trash2 size={16} aria-hidden="true" />
+                  )}
                   {purgeAction(purging) === "delete"
                     ? "Delete release"
                     : "Free cached file"}
-                </Button>
-              </footer>
-            </>
-          )}
-        </Dialog>
+                </RheaButton>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </RheaDialog>
       </section>
       {manageable && (
-        <section className="settings-subsection player-updates__deployment">
-          <header>
-            <h3>New deployment</h3>
-            <p>
+        <section className="grid gap-4 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">New deployment</h3>
+            <p className="text-sm text-muted-foreground">
               Choose a cached, verified release and target {platformLabel}{" "}
               screens or Display Groups.
             </p>
           </header>
-          <div className="deployment-fields deployment-fields--primary">
-            <label className="deployment-field deployment-field--release">
-              Verified release
-              <Select
-                value={releaseId}
-                onChange={(event) => setReleaseId(event.target.value)}
+          <div className="grid gap-4 border-b border-border pb-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="deployment-release">
+                Verified release
+              </FieldLabel>
+              <RheaSelect
+                name="release"
+                value={releaseId || "none"}
+                onValueChange={(next) =>
+                  setReleaseId(!next || next === "none" ? "" : next)
+                }
                 disabled={!deployableReleases.length}
               >
-                <option value="">
-                  {deployableReleases.length
-                    ? "Select a release"
-                    : "No release is ready to deploy"}
-                </option>
-                {deployableReleases.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.versionName} · {item.channel}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="deployment-field deployment-field--mode">
-              Deployment mode
-              <Select
+                <SelectTrigger
+                  id="deployment-release"
+                  aria-label="Verified release"
+                >
+                  <SelectValue>
+                    {releaseId
+                      ? (() => {
+                          const selected = deployableReleases.find(
+                            (item) => item.id === releaseId,
+                          );
+                          return selected
+                            ? `${selected.versionName} · ${selected.channel}`
+                            : releaseId;
+                        })()
+                      : deployableReleases.length
+                        ? "Select a release"
+                        : "No release is ready to deploy"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    {deployableReleases.length
+                      ? "Select a release"
+                      : "No release is ready to deploy"}
+                  </SelectItem>
+                  {deployableReleases.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.versionName} · {item.channel}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </RheaSelect>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="deployment-mode">Deployment mode</FieldLabel>
+              <RheaSelect
+                name="mode"
                 value={mode}
-                onChange={(event) => setMode(event.target.value)}
+                onValueChange={(next) => {
+                  if (next) setMode(next);
+                }}
               >
-                <option value="download_only">Download only</option>
-                <option value="install_now">
-                  Download and request installation
-                </option>
-                <option value="maintenance_window">Maintenance window</option>
-              </Select>
-            </label>
-            <label className="deployment-field deployment-field--canary">
-              Canary screens
-              <input
+                <SelectTrigger
+                  id="deployment-mode"
+                  aria-label="Deployment mode"
+                >
+                  <SelectValue>
+                    {mode === "download_only"
+                      ? "Download only"
+                      : mode === "install_now"
+                        ? "Download and request installation"
+                        : mode === "maintenance_window"
+                          ? "Maintenance window"
+                          : mode}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="download_only">Download only</SelectItem>
+                  <SelectItem value="install_now">
+                    Download and request installation
+                  </SelectItem>
+                  <SelectItem value="maintenance_window">
+                    Maintenance window
+                  </SelectItem>
+                </SelectContent>
+              </RheaSelect>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="deployment-canary">
+                Canary screens
+              </FieldLabel>
+              <Input
+                id="deployment-canary"
                 type="number"
                 min="0"
                 max="50"
@@ -968,48 +1140,61 @@ export function PlayerUpdatesPanel({
                   setCanarySize(Math.max(0, Number(event.target.value)))
                 }
               />
-              <small>
+              <small className="text-xs text-muted-foreground">
                 Remaining targets wait until every canary reconnects. Use 0 to
                 deploy to all targets at once.
               </small>
-            </label>
+            </Field>
             {mode === "maintenance_window" && (
-              <label className="deployment-field deployment-field--window">
-                Maintenance window
-                <input
+              <Field>
+                <FieldLabel htmlFor="deployment-window">
+                  Maintenance window
+                </FieldLabel>
+                <Input
+                  id="deployment-window"
                   type="datetime-local"
                   value={windowStart}
                   onChange={(event) => setWindowStart(event.target.value)}
                 />
-                <small>
+                <small className="text-xs text-muted-foreground">
                   Players install at or after this local time on each screen.
                 </small>
-              </label>
+              </Field>
             )}
           </div>
-          <div className="deployment-targets">
-            <label className="target-search">
-              <span>Target screens and Display Groups</span>
-              <span className="target-search__control">
-                <Search size={16} aria-hidden="true" />
-                <input
+          <div className="grid gap-2 overflow-hidden rounded-xl border border-border bg-card p-4">
+            <label className="grid gap-1">
+              <span className="text-sm font-medium">
+                Target screens and Display Groups
+              </span>
+              <span className="flex items-center gap-2 rounded-2xl border border-transparent bg-input/50 px-3 py-2">
+                <Search
+                  size={16}
+                  aria-hidden="true"
+                  className="shrink-0 text-muted-foreground"
+                />
+                <Input
                   type="search"
                   value={targetSearch}
                   onChange={(event) => setTargetSearch(event.target.value)}
                   placeholder="Search by name"
+                  className="border-0 bg-transparent p-0"
                 />
               </span>
             </label>
             <div
-              className="target-picker"
+              className="grid gap-4 sm:grid-cols-2"
               role="group"
               aria-label="Deployment targets"
             >
-              <div className="target-picker__column">
-                <h4>
-                  {platformLabel} screens <span>{matchingScreens.length}</span>
+              <div className="grid content-start gap-2">
+                <h4 className="text-sm font-semibold">
+                  {platformLabel} screens{" "}
+                  <span className="font-normal text-muted-foreground">
+                    {matchingScreens.length}
+                  </span>
                 </h4>
-                <div className="target-picker__list">
+                <div className="grid max-h-64 gap-1 overflow-y-auto">
                   {matchingScreens.map((screen) => (
                     <Target
                       key={screen.id}
@@ -1026,7 +1211,7 @@ export function PlayerUpdatesPanel({
                     />
                   ))}
                   {!matchingScreens.length && (
-                    <p className="target-picker__empty">
+                    <p className="text-sm text-muted-foreground">
                       {platformScreens.length
                         ? "No screen matches this search."
                         : `No ${platformLabel} screens are enrolled.`}
@@ -1034,11 +1219,14 @@ export function PlayerUpdatesPanel({
                   )}
                 </div>
               </div>
-              <div className="target-picker__column">
-                <h4>
-                  Display Groups <span>{matchingGroups.length}</span>
+              <div className="grid content-start gap-2">
+                <h4 className="text-sm font-semibold">
+                  Display Groups{" "}
+                  <span className="font-normal text-muted-foreground">
+                    {matchingGroups.length}
+                  </span>
                 </h4>
-                <div className="target-picker__list">
+                <div className="grid max-h-64 gap-1 overflow-y-auto">
                   {matchingGroups.map((group) => (
                     <Target
                       key={group.id}
@@ -1055,7 +1243,7 @@ export function PlayerUpdatesPanel({
                     />
                   ))}
                   {!matchingGroups.length && (
-                    <p className="target-picker__empty">
+                    <p className="text-sm text-muted-foreground">
                       {groups.data?.items?.length
                         ? "No Display Group matches this search."
                         : "No Display Groups exist yet."}
@@ -1066,113 +1254,153 @@ export function PlayerUpdatesPanel({
             </div>
           </div>
           {(deploy.error || deploySuccess) && (
-            <div className="player-updates__notices">
-              <Notice variant={deploy.error ? "danger" : "success"}>
-                {deploy.error ? mutationError(deploy.error) : deploySuccess}
-              </Notice>
+            <div className="mt-4 grid gap-3">
+              <Alert
+                variant={deploy.error ? "destructive" : "default"}
+                role={deploy.error ? undefined : "status"}
+              >
+                <AlertDescription>
+                  {deploy.error ? mutationError(deploy.error) : deploySuccess}
+                </AlertDescription>
+              </Alert>
             </div>
           )}
-          <div className="deployment-submit">
-            <div className="target-summary">
-              <strong>
+          <div className="mt-3 flex min-h-14 flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <strong className="text-sm font-semibold text-foreground">
                 {selectedScreens.length}{" "}
                 {selectedScreens.length === 1 ? "screen" : "screens"} selected
               </strong>
-              {offlineTargets > 0 && <span>{offlineTargets} offline</span>}
+              {offlineTargets > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {offlineTargets} offline
+                </span>
+              )}
               {selectionCount > 0 && (
-                <Button
-                  variant="quiet"
-                  compact
+                <RheaButton
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setScreenIds([]);
                     setGroupIds([]);
                   }}
                 >
                   Clear selection
-                </Button>
+                </RheaButton>
               )}
             </div>
-            <Button
-              variant="primary"
-              disabled={!releaseId || !selectedScreens.length || windowMissing}
-              loading={deploy.isPending}
+            <RheaButton
+              variant="default"
+              disabled={
+                !releaseId ||
+                !selectedScreens.length ||
+                windowMissing ||
+                deploy.isPending
+              }
               onClick={() => setConfirmDeploy(true)}
             >
-              <Rocket size={16} aria-hidden="true" />
-              {deploy.isPending ? "Creating deployment…" : "Deploy update"}
-            </Button>
-          </div>
-          <Dialog
-            className="player-updates-deploy-dialog"
-            open={confirmDeploy}
-            title="Deploy this Player update?"
-            onClose={() => setConfirmDeploy(false)}
-          >
-            <p>
-              {selectedScreens.length}{" "}
-              {selectedScreens.length === 1 ? "screen" : "screens"} will receive{" "}
-              {releaseItems.find((item) => item.id === releaseId)
-                ?.versionName ?? "this release"}{" "}
-              using {humanize(mode).toLowerCase()}.
-            </p>
-            <p>
-              {platform === "android"
-                ? "Android may require installation approval on each TV."
-                : "Each Linux player restarts into the new version."}
-            </p>
-            {offlineTargets > 0 && (
-              <p>
-                {offlineTargets} selected{" "}
-                {offlineTargets === 1 ? "screen is" : "screens are"} offline and
-                will update after reconnecting.
-              </p>
-            )}
-            <footer className="player-updates-deploy-dialog__actions">
-              <Button variant="quiet" onClick={() => setConfirmDeploy(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                disabled={deploy.isPending}
-                onClick={() => deploy.mutate()}
-              >
+              {deploy.isPending ? (
+                <Spinner />
+              ) : (
                 <Rocket size={16} aria-hidden="true" />
-                Deploy update
-              </Button>
-            </footer>
-          </Dialog>
+              )}
+              {deploy.isPending ? "Creating deployment…" : "Deploy update"}
+            </RheaButton>
+          </div>
+          <RheaDialog
+            open={confirmDeploy}
+            onOpenChange={(open) => {
+              if (!open) setConfirmDeploy(false);
+            }}
+          >
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Deploy this Player update?</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-3 text-sm">
+                <p>
+                  {selectedScreens.length}{" "}
+                  {selectedScreens.length === 1 ? "screen" : "screens"} will
+                  receive{" "}
+                  {releaseItems.find((item) => item.id === releaseId)
+                    ?.versionName ?? "this release"}{" "}
+                  using {humanize(mode).toLowerCase()}.
+                </p>
+                <p>
+                  {platform === "android"
+                    ? "Android may require installation approval on each TV."
+                    : "Each Linux player restarts into the new version."}
+                </p>
+                {offlineTargets > 0 && (
+                  <p>
+                    {offlineTargets} selected{" "}
+                    {offlineTargets === 1 ? "screen is" : "screens are"} offline
+                    and will update after reconnecting.
+                  </p>
+                )}
+              </div>
+              <DialogFooter>
+                <RheaButton
+                  variant="ghost"
+                  onClick={() => setConfirmDeploy(false)}
+                >
+                  Cancel
+                </RheaButton>
+                <RheaButton
+                  variant="default"
+                  disabled={deploy.isPending}
+                  onClick={() => deploy.mutate()}
+                >
+                  {deploy.isPending ? (
+                    <Spinner />
+                  ) : (
+                    <Rocket size={16} aria-hidden="true" />
+                  )}
+                  Deploy update
+                </RheaButton>
+              </DialogFooter>
+            </DialogContent>
+          </RheaDialog>
         </section>
       )}
-      <section className="settings-subsection player-updates__history">
-        <header>
-          <h3>Deployment history</h3>
-          <p>
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Deployment history</h3>
+          <p className="text-sm text-muted-foreground">
             Open a deployment to read the status of each screen it reaches.
             Waiting for approval means the TV still needs someone to accept the
             installer; it is not a failure.
           </p>
         </header>
         {deployments.error && (
-          <div className="player-updates__notices">
-            <Notice
-              variant="danger"
-              title="Deployment history could not be loaded."
-            >
-              {mutationError(deployments.error)}
-            </Notice>
+          <div className="mt-4 grid gap-3">
+            <Alert variant="destructive">
+              <AlertTitle>Deployment history could not be loaded.</AlertTitle>
+              <AlertDescription>
+                {mutationError(deployments.error)}
+              </AlertDescription>
+            </Alert>
           </div>
         )}
-        <TableContainer className="table-container player-updates-table-wrap">
-          <table className="player-updates-table">
-            <caption className="visually-hidden">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[48rem] text-sm">
+            <caption className="sr-only">
               {platformLabel} Player deployment history
             </caption>
             <thead>
-              <tr>
-                <th scope="col">Deployment</th>
-                <th scope="col">Status</th>
-                <th scope="col">Screens</th>
-                <th scope="col">What this needs</th>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th scope="col" className="px-3 py-2 font-medium">
+                  Deployment
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  Status
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  Screens
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  What this needs
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -1183,46 +1411,57 @@ export function PlayerUpdatesPanel({
                   item.waitingForUserCount > 0 ||
                   item.status === "paused";
                 return (
-                  <tr key={item.id}>
-                    <th scope="row">
-                      <strong>{item.name}</strong>
-                      <small className="technical">
+                  <tr
+                    key={item.id}
+                    className="border-b border-border last:border-0"
+                  >
+                    <th scope="row" className="px-3 py-2 text-left font-normal">
+                      <strong className="font-semibold">{item.name}</strong>
+                      <small className="block font-mono text-xs text-muted-foreground">
                         {item.versionName} ({item.versionCode}) ·{" "}
                         {humanize(item.mode)}
                       </small>
                     </th>
-                    <td>
+                    <td className="px-3 py-2">
                       <UpdateStatus value={item.status} />
-                      <small>{rolloutSummary(item)}</small>
+                      <small className="block text-xs text-muted-foreground">
+                        {rolloutSummary(item)}
+                      </small>
                     </td>
-                    <td>
+                    <td className="px-3 py-2">
                       <DeploymentMeter compact {...item} />
-                      <small>{outstandingSummary(item)}</small>
+                      <small className="text-xs text-muted-foreground">
+                        {outstandingSummary(item)}
+                      </small>
                     </td>
-                    <td>
+                    <td className="px-3 py-2">
                       <span
                         className={
-                          needsAttention ? "deployment-attention" : undefined
+                          needsAttention
+                            ? "text-xs font-semibold text-destructive"
+                            : "text-sm"
                         }
                       >
                         {headline}
                       </span>
                       {item.lastFailure && (
-                        <small>Last failure: {item.lastFailure}</small>
+                        <small className="block text-xs text-muted-foreground">
+                          Last failure: {item.lastFailure}
+                        </small>
                       )}
                       {/* The way in sits with the sentence that gives a reason
                           to take it, which also keeps this table at four
                           columns: a column of its own for one button forced a
                           horizontal scroll in a narrow settings pane. */}
-                      <Button
+                      <RheaButton
                         variant="secondary"
-                        compact
+                        size="sm"
                         onClick={() => setOpenDeployment(item.id)}
                       >
                         <ListChecks size={15} aria-hidden="true" />
                         {item.targetCount}{" "}
                         {item.targetCount === 1 ? "screen" : "screens"}
-                      </Button>
+                      </RheaButton>
                     </td>
                   </tr>
                 );
@@ -1231,15 +1470,17 @@ export function PlayerUpdatesPanel({
                 !deployments.error &&
                 platformDeployments.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="table-empty-state">
-                      <CheckCircle2 size={18} aria-hidden="true" />
-                      No {platformLabel} Player deployments have been created.
+                    <td colSpan={4} className="px-3 py-4 text-center">
+                      <span className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        <CheckCircle2 size={18} aria-hidden="true" />
+                        No {platformLabel} Player deployments have been created.
+                      </span>
                     </td>
                   </tr>
                 )}
             </tbody>
           </table>
-        </TableContainer>
+        </div>
       </section>
       {openDeployment && (
         <UpdateDeploymentDrawer
@@ -1274,16 +1515,16 @@ function ReleaseCacheButton({
   onDownload: () => void;
 }) {
   return (
-    <Button
-      variant="quiet"
-      compact
+    <RheaButton
+      variant="ghost"
+      size="sm"
       title="Download and verify this release"
-      loading={downloading}
+      disabled={downloading}
       onClick={onDownload}
     >
-      {!downloading && <Download size={15} aria-hidden="true" />}
+      {downloading ? <Spinner /> : <Download size={15} aria-hidden="true" />}
       {downloading ? "Downloading…" : "Download"}
-    </Button>
+    </RheaButton>
   );
 }
 
@@ -1433,26 +1674,30 @@ function PlayerReleaseUpload({
   };
   const ready = releaseFileNames.every((name) => files[name]) && !clientError;
   return (
-    <div className="player-release-upload">
-      <div>
-        <h4>
+    <div className="grid gap-3 rounded-xl border border-border p-4">
+      <div className="grid gap-1">
+        <h4 className="text-sm font-semibold">
           Upload signed {platform === "android" ? "Android" : "Linux"} release
         </h4>
-        <p>
+        <p className="text-sm text-muted-foreground">
           All three files are verified before the {artifactLabel} enters
           Tilecast&apos;s private update cache.
         </p>
       </div>
       <label
-        className="player-release-dropzone"
+        className="grid gap-1 rounded-xl border border-dashed border-border p-4 text-center"
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
           selectFiles(event.dataTransfer.files);
         }}
       >
-        <strong>Drop the release files here</strong>
-        <span>or choose all three files</span>
+        <strong className="text-sm font-semibold">
+          Drop the release files here
+        </strong>
+        <span className="text-sm text-muted-foreground">
+          or choose all three files
+        </span>
         <input
           type="file"
           multiple
@@ -1462,29 +1707,28 @@ function PlayerReleaseUpload({
           disabled={upload.isPending}
         />
       </label>
-      <div
-        className="player-release-files"
-        aria-label="Release file validation"
-      >
+      <div className="grid gap-1" aria-label="Release file validation">
         {releaseFileNames.map((name) => (
-          <div key={name}>
+          <div key={name} className="flex flex-wrap items-center gap-2 text-sm">
             <span aria-hidden="true">{files[name] ? "✓" : "○"}</span>
-            <strong>{name}</strong>
-            <small>
+            <strong className="font-mono text-xs">{name}</strong>
+            <small className="text-xs text-muted-foreground">
               {files[name] ? formatBytes(files[name].size) : "Required"}
             </small>
           </div>
         ))}
       </div>
       {(clientError || upload.error) && (
-        <div className="notice notice--danger" role="alert">
-          {clientError || (upload.error as Error).message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {clientError || (upload.error as Error).message}
+          </AlertDescription>
+        </Alert>
       )}
       {phase !== "selecting" && (
-        <div className="player-release-progress" aria-live="polite">
-          <div>
-            <strong>
+        <div className="grid gap-1" aria-live="polite">
+          <div className="grid gap-0.5">
+            <strong className="text-sm font-semibold">
               {phase === "uploading"
                 ? `Uploading… ${progress}%`
                 : phase === "verifying"
@@ -1494,7 +1738,7 @@ function PlayerReleaseUpload({
                   : "Release verified and cached"}
             </strong>
             {upload.data && (
-              <span>
+              <span className="text-sm text-muted-foreground">
                 Version {upload.data.versionName} ·{" "}
                 {upload.data.channel === "beta" ? "Beta" : "Stable"} ·{" "}
                 {formatBytes(upload.data.apkSizeBytes)}
@@ -1505,21 +1749,28 @@ function PlayerReleaseUpload({
             <progress
               value={phase === "verifying" ? undefined : progress}
               max="100"
+              className="w-full"
             />
           )}
-          {upload.data?.releaseNotes && <p>{upload.data.releaseNotes}</p>}
+          {upload.data?.releaseNotes && (
+            <p className="text-sm text-muted-foreground">
+              {upload.data.releaseNotes}
+            </p>
+          )}
         </div>
       )}
-      <div className="settings-inline-actions">
-        <button
-          className="button button--primary"
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <RheaButton
+          variant="default"
+
           disabled={!ready || upload.isPending || phase === "complete"}
           onClick={() => upload.mutate()}
         >
           {upload.isPending ? "Importing release…" : "Upload and verify"}
-        </button>
-        <button
-          className="button button--quiet"
+        </RheaButton>
+        <RheaButton
+          variant="ghost"
+
           disabled={upload.isPending}
           onClick={() => {
             setFiles({});
@@ -1529,7 +1780,7 @@ function PlayerReleaseUpload({
           }}
         >
           Clear files
-        </button>
+        </RheaButton>
       </div>
     </div>
   );
@@ -1546,15 +1797,15 @@ function Target({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="target-option">
-      <input
-        type="checkbox"
+    // The wrapping label names the checkbox; no extra aria-label.
+    <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border p-2 text-sm">
+      <RheaCheckbox
         checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
+        onCheckedChange={(next) => onChange(next === true)}
       />
-      <span>
-        <strong>{label}</strong>
-        <small>{detail}</small>
+      <span className="grid gap-0.5">
+        <strong className="font-medium">{label}</strong>
+        <small className="text-xs text-muted-foreground">{detail}</small>
       </span>
     </label>
   );

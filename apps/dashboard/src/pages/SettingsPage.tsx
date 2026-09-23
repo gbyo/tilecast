@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Spinner } from "../components/ui/spinner";
 import { api, ApiError } from "../api/client";
 import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -125,7 +127,11 @@ export function SettingsPage() {
     void settings.refetch();
   };
   if (settings.isLoading)
-    return <div className="table-loading">Loading settings…</div>;
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner aria-hidden="true" /> Loading settings…
+      </p>
+    );
   return (
     <SettingsShell
       active={active}
@@ -238,11 +244,11 @@ function Destination({
           editable={manageable}
           onChange={onChange}
         />
-        <div className="settings-sections">
-          <section className="settings-subsection">
-            <header>
-              <h3>The review queue</h3>
-              <p>
+        <div className="grid">
+          <section className="border-b border-border py-6 pr-0 pb-2 pl-0 last:border-b-0">
+            <header className="mb-2">
+              <h3 className="text-sm font-semibold">The review queue</h3>
+              <p className="mt-1.5 max-w-[760px] text-sm text-muted-foreground">
                 Content waiting for review is listed under Content review in the
                 main navigation.
               </p>
@@ -263,15 +269,15 @@ function Destination({
   // What is left here is the policy for a Takeover a person starts by hand.
   if (active === "takeover")
     before = (
-      <div className="notice notice--info">
-        <strong>Automatic weather alerts moved to Plugins.</strong>
-        <p>
+      <Alert>
+        <AlertTitle>Automatic weather alerts moved to Plugins.</AlertTitle>
+        <AlertDescription>
           NWS monitoring, alert rules, and active emergencies are configured in
           the <Link to="/plugins/emergency-alerts">Emergency Alerts</Link>{" "}
           plugin. The defaults below apply to a Takeover started by hand and to
           player commands.
-        </p>
-      </div>
+        </AlertDescription>
+      </Alert>
     );
   if (active === "branding")
     before = (
@@ -286,14 +292,14 @@ function Destination({
     );
   if (active === "accessibility")
     before = (
-      <div className="notice notice--info">
-        <strong>Local setup is required on every player.</strong>
-        <p>
+      <Alert>
+        <AlertTitle>Local setup is required on every player.</AlertTitle>
+        <AlertDescription>
           Accessibility Control Assist must be enabled manually in Android
           Accessibility Settings. Enabling policy here does not grant Android
           permission.
-        </p>
-      </div>
+        </AlertDescription>
+      </Alert>
     );
   if (active === "security") before = <MFAPolicyNotice values={values} />;
   if (
@@ -302,10 +308,12 @@ function Destination({
     values["power.active_hours_start"] === values["power.active_hours_end"]
   )
     before = (
-      <div className="notice notice--warning" role="alert">
-        Start and end times are identical. Choose a distinct range; an earlier
-        end time is treated as overnight.
-      </div>
+      <Alert>
+        <AlertDescription role="alert">
+          Start and end times are identical. Choose a distinct range; an earlier
+          end time is treated as overnight.
+        </AlertDescription>
+      </Alert>
     );
   const visibleDefinitions =
     active === "branding"
@@ -343,29 +351,31 @@ function MFAPolicyNotice({ values }: { values: Record<string, unknown> }) {
   return (
     <>
       {scope !== "none" && (
-        <div className="notice notice--info">
-          <strong>
+        <Alert>
+          <AlertTitle>
             {scope === "all"
               ? "Every account must enroll a second factor."
               : "Owners and Administrators must enroll a second factor."}
-          </strong>
-          <p>
+          </AlertTitle>
+          <AlertDescription>
             Nobody is signed out. An account in scope that has not enrolled is
             asked to set up an authenticator app or a passkey at its next
             sign-in, and cannot use the rest of Studio until it does. An Owner
             or Administrator can clear a locked-out account’s factors from
             Settings → Users.
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
       {auth.status?.passkeysAvailable === false && (
-        <div className="notice notice--info">
-          <strong>Passkeys are unavailable on this installation.</strong>
-          <p>
+        <Alert>
+          <AlertTitle>
+            Passkeys are unavailable on this installation.
+          </AlertTitle>
+          <AlertDescription>
             {auth.status.passkeysUnavailableReason} Authenticator apps and
             recovery codes work regardless.
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
     </>
   );
@@ -373,11 +383,11 @@ function MFAPolicyNotice({ values }: { values: Record<string, unknown> }) {
 
 function BrandingPreview({ values }: { values: Record<string, unknown> }) {
   return (
-    <div className="branding-workspace">
+    <div className="grid grid-cols-[minmax(280px,1fr)_minmax(200px,0.6fr)] items-end gap-6 px-0 pt-6 pb-1 max-[850px]:grid-cols-1">
       <div>
-        <h3>Player preview</h3>
+        <h3 className="m-0 mb-2 text-sm font-semibold">Player preview</h3>
         <div
-          className="branding-preview"
+          className="m-0 grid min-h-[170px] place-content-center gap-2 border border-border p-6 text-center"
           style={{
             background: signalColors.playerBackground,
             color: signalColors.playerText,
@@ -395,7 +405,7 @@ function BrandingPreview({ values }: { values: Record<string, unknown> }) {
           <small>{text(values["branding.footer_text"], "Tilecast")}</small>
         </div>
       </div>
-      <p>
+      <p className="m-0 text-[13px] text-muted-foreground">
         Takeover keeps Tilecast’s fixed high-contrast treatment regardless of
         custom branding.
       </p>

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api, ApiError } from "../api/client";
 import type { Passkey, SecurityStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -12,30 +12,62 @@ import {
 } from "../auth/webauthn";
 import { FormField } from "../components/FormField";
 import { SecurityQr } from "../components/SecurityQr";
-import { Button, Panel, SectionHeader } from "../components/legacy-ui";
-import "./SecurityPage.css";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { Spinner } from "../components/ui/spinner";
 
 export const securityKey = ["me", "security"] as const;
 
 export function SecurityPage() {
   const security = useQuery({ queryKey: securityKey, queryFn: api.security });
   if (security.isLoading)
-    return <div className="table-loading">Loading sign-in security…</div>;
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner aria-hidden="true" /> Loading sign-in security…
+      </p>
+    );
   if (!security.data)
     return (
-      <div className="notice notice--error" role="alert">
-        Sign-in security could not be loaded.
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription role="alert">
+          Sign-in security could not be loaded.
+        </AlertDescription>
+      </Alert>
     );
   return <SecurityPanels status={security.data} />;
 }
 
 export function SecurityPanels({ status }: { status: SecurityStatus }) {
   return (
-    <section className="security-page">
+    <section className="grid gap-4">
       <AuthenticatorPanel status={status} />
       <PasskeyPanel status={status} />
       <RecoveryCodePanel status={status} />
+    </section>
+  );
+}
+
+function PanelSection({
+  title,
+  description,
+  actions,
+  children,
+}: {
+  title: string;
+  description: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-0.5">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        {actions}
+      </header>
+      {children}
     </section>
   );
 }
@@ -81,34 +113,33 @@ function AuthenticatorPanel({ status }: { status: SecurityStatus }) {
   });
 
   return (
-    <Panel>
-      <SectionHeader
-        title="Authenticator app"
-        level={3}
-        description="A six-digit code from an app such as Aegis, Google Authenticator, or 1Password."
-        actions={
-          status.totpEnrolled ? (
-            <Button
-              variant="danger"
-              onClick={() => setRemoving((open) => !open)}
-            >
-              Remove
-            </Button>
-          ) : (
-            <Button
-              variant="primary"
-              loading={begin.isPending}
-              onClick={() => begin.mutate()}
-            >
-              Set up
-            </Button>
-          )
-        }
-      />
-      <p className="security-status">
+    <PanelSection
+      title="Authenticator app"
+      description="A six-digit code from an app such as Aegis, Google Authenticator, or 1Password."
+      actions={
+        status.totpEnrolled ? (
+          <Button
+            variant="destructive"
+            onClick={() => setRemoving((open) => !open)}
+          >
+            Remove
+          </Button>
+        ) : (
+          <Button
+            variant="default"
+            disabled={begin.isPending}
+            onClick={() => begin.mutate()}
+          >
+            {begin.isPending && <Spinner aria-hidden="true" />}
+            Set up
+          </Button>
+        )
+      }
+    >
+      <p className="m-0 text-sm text-muted-foreground">
         {status.totpEnrolled ? (
           <>
-            <strong>Enrolled</strong>
+            <strong className="font-semibold text-foreground">Enrolled</strong>
             {status.totpConfirmedAt &&
               ` — added ${new Date(status.totpConfirmedAt).toLocaleDateString()}`}
           </>
@@ -119,16 +150,18 @@ function AuthenticatorPanel({ status }: { status: SecurityStatus }) {
       {errorNotice(begin.error ?? confirm.error ?? remove.error)}
 
       {enrolling && begin.data && (
-        <div className="security-enroll">
+        <div className="grid gap-5 border-t border-border pt-4 sm:grid-cols-[auto_minmax(0,1fr)]">
           <SecurityQr uri={begin.data.provisioningUri} />
-          <div className="security-enroll__steps">
-            <p>
+          <div className="grid content-start gap-3">
+            <p className="m-0 text-sm">
               Scan the code with your authenticator app, then enter the
               six-digit code it shows.
             </p>
-            <p className="security-enroll__secret">
+            <p className="m-0 grid gap-1 text-sm text-muted-foreground">
               Cannot scan? Enter this key by hand:
-              <code>{begin.data.secret}</code>
+              <code className="rounded-md bg-muted px-2 py-1.5 font-mono text-sm tracking-wider break-all">
+                {begin.data.secret}
+              </code>
             </p>
             <FormField
               id="totp-code"
@@ -138,15 +171,16 @@ function AuthenticatorPanel({ status }: { status: SecurityStatus }) {
               value={code}
               onChange={(event) => setCode(event.target.value)}
             />
-            <div className="security-actions">
+            <div className="flex gap-2">
               <Button
-                variant="primary"
-                loading={confirm.isPending}
+                variant="default"
+                disabled={confirm.isPending}
                 onClick={() => confirm.mutate()}
               >
+                {confirm.isPending && <Spinner aria-hidden="true" />}
                 Confirm
               </Button>
-              <Button variant="quiet" onClick={() => setEnrolling(false)}>
+              <Button variant="ghost" onClick={() => setEnrolling(false)}>
                 Cancel
               </Button>
             </div>
@@ -165,7 +199,7 @@ function AuthenticatorPanel({ status }: { status: SecurityStatus }) {
           onCancel={() => setRemoving(false)}
         />
       )}
-    </Panel>
+    </PanelSection>
   );
 }
 
@@ -230,34 +264,39 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
   });
 
   return (
-    <Panel>
-      <SectionHeader
-        title="Passkeys"
-        level={3}
-        description="Sign in with a fingerprint, face, screen lock, or security key. A passkey signs you in on its own and counts as two-step verification."
-        actions={
-          status.passkeysAvailable &&
-          supported && (
-            <Button
-              variant="primary"
-              loading={register.isPending}
-              onClick={() => register.mutate()}
-            >
-              Add a passkey
-            </Button>
-          )
-        }
-      />
+    <PanelSection
+      title="Passkeys"
+      description="Sign in with a fingerprint, face, screen lock, or security key. A passkey signs you in on its own and counts as two-step verification."
+      actions={
+        status.passkeysAvailable &&
+        supported && (
+          <Button
+            variant="default"
+            disabled={register.isPending}
+            onClick={() => register.mutate()}
+          >
+            {register.isPending && <Spinner aria-hidden="true" />}
+            Add a passkey
+          </Button>
+        )
+      }
+    >
       {!status.passkeysAvailable && (
-        <div className="notice notice--info">
-          <strong>Passkeys are unavailable on this installation.</strong>
-          <p>{status.passkeysUnavailableReason}</p>
-        </div>
+        <Alert>
+          <AlertTitle>
+            Passkeys are unavailable on this installation.
+          </AlertTitle>
+          <AlertDescription>
+            {status.passkeysUnavailableReason}
+          </AlertDescription>
+        </Alert>
       )}
       {status.passkeysAvailable && !supported && (
-        <div className="notice notice--info">
-          This browser does not support passkeys.
-        </div>
+        <Alert>
+          <AlertDescription>
+            This browser does not support passkeys.
+          </AlertDescription>
+        </Alert>
       )}
       {errorNotice(
         isPasskeyCancellation(register.error) ? null : register.error,
@@ -266,21 +305,25 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
       {errorNotice(remove.error)}
 
       {status.passkeys.length === 0 ? (
-        <p className="security-status">No passkeys</p>
+        <p className="m-0 text-sm text-muted-foreground">No passkeys</p>
       ) : (
-        <ul className="security-list">
+        <ul className="m-0 grid list-none gap-2 p-0">
           {status.passkeys.map((passkey) => (
-            <li key={passkey.id}>
-              <span className="security-list__name">{passkey.name}</span>
-              <span className="security-list__meta">
+            <li
+              key={passkey.id}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 rounded-md border border-border px-3 py-2.5"
+            >
+              <span className="text-sm font-semibold">{passkey.name}</span>
+              <span className="col-start-1 text-xs text-muted-foreground">
                 Added {new Date(passkey.createdAt).toLocaleDateString()}
                 {passkey.lastUsedAt
                   ? ` · Last used ${new Date(passkey.lastUsedAt).toLocaleDateString()}`
                   : " · Never used"}
               </span>
-              <span className="security-list__actions">
+              <span className="col-start-2 flex gap-1.5 row-span-2">
                 <Button
-                  compact
+                  variant="secondary"
+                  size="sm"
                   onClick={() => {
                     setRenaming(passkey);
                     setName(passkey.name);
@@ -289,8 +332,8 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
                   Rename
                 </Button>
                 <Button
-                  variant="danger"
-                  compact
+                  variant="destructive"
+                  size="sm"
                   onClick={() => setRemoving(passkey)}
                 >
                   Remove
@@ -302,7 +345,7 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
       )}
 
       {renaming && (
-        <div className="security-enroll security-enroll--stacked">
+        <div className="grid max-w-md gap-3 border-t border-border pt-4">
           <FormField
             id="passkey-name"
             label={`Rename “${renaming.name}”`}
@@ -310,15 +353,16 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          <div className="security-actions">
+          <div className="flex gap-2">
             <Button
-              variant="primary"
-              loading={rename.isPending}
+              variant="default"
+              disabled={rename.isPending}
               onClick={() => rename.mutate()}
             >
+              {rename.isPending && <Spinner aria-hidden="true" />}
               Save
             </Button>
-            <Button variant="quiet" onClick={() => setRenaming(undefined)}>
+            <Button variant="ghost" onClick={() => setRenaming(undefined)}>
               Cancel
             </Button>
           </div>
@@ -336,7 +380,7 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
           onCancel={() => setRemoving(undefined)}
         />
       )}
-    </Panel>
+    </PanelSection>
   );
 }
 
@@ -359,18 +403,19 @@ function RecoveryCodePanel({ status }: { status: SecurityStatus }) {
   });
 
   return (
-    <Panel>
-      <SectionHeader
-        title="Recovery codes"
-        level={3}
-        description="Single-use codes that let you sign in when you cannot reach your authenticator or passkey."
-        actions={
-          <Button onClick={() => setConfirming((open) => !open)}>
-            {status.recoveryCodesRemaining > 0 ? "Regenerate" : "Generate"}
-          </Button>
-        }
-      />
-      <p className="security-status">
+    <PanelSection
+      title="Recovery codes"
+      description="Single-use codes that let you sign in when you cannot reach your authenticator or passkey."
+      actions={
+        <Button
+          variant="secondary"
+          onClick={() => setConfirming((open) => !open)}
+        >
+          {status.recoveryCodesRemaining > 0 ? "Regenerate" : "Generate"}
+        </Button>
+      }
+    >
+      <p className="m-0 text-sm text-muted-foreground">
         {status.recoveryCodesRemaining > 0
           ? `${status.recoveryCodesRemaining} unused ${status.recoveryCodesRemaining === 1 ? "code" : "codes"} remaining`
           : "No recovery codes"}
@@ -391,36 +436,39 @@ function RecoveryCodePanel({ status }: { status: SecurityStatus }) {
       )}
 
       {codes && (
-        <div className="security-codes">
-          <div className="notice notice--warning">
-            <strong>These codes are shown once.</strong>
-            <p>
+        <div className="grid gap-3 border-t border-border pt-4">
+          <Alert>
+            <AlertTitle>These codes are shown once.</AlertTitle>
+            <AlertDescription>
               Save them somewhere safe now. Tilecast stores only their hashes
               and cannot show them again.
-            </p>
-          </div>
-          <ul>
+            </AlertDescription>
+          </Alert>
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-1.5 p-0">
             {codes.map((code) => (
               <li key={code}>
-                <code>{code}</code>
+                <code className="block rounded-md border border-border bg-muted px-2 py-1.5 text-center font-mono text-sm tracking-wide">
+                  {code}
+                </code>
               </li>
             ))}
           </ul>
-          <div className="security-actions">
+          <div className="flex gap-2">
             <Button
+              variant="secondary"
               onClick={() =>
                 void navigator.clipboard?.writeText(codes.join("\n"))
               }
             >
               Copy all
             </Button>
-            <Button variant="quiet" onClick={() => setCodes(undefined)}>
+            <Button variant="ghost" onClick={() => setCodes(undefined)}>
               I have saved them
             </Button>
           </div>
         </div>
       )}
-    </Panel>
+    </PanelSection>
   );
 }
 
@@ -444,7 +492,7 @@ function PasswordConfirm({
   onCancel: () => void;
 }) {
   return (
-    <div className="security-enroll security-enroll--stacked">
+    <div className="grid max-w-md gap-3 border-t border-border pt-4">
       <FormField
         id={id}
         label={label}
@@ -454,11 +502,12 @@ function PasswordConfirm({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
-      <div className="security-actions">
-        <Button variant="primary" loading={pending} onClick={onConfirm}>
+      <div className="flex gap-2">
+        <Button variant="default" disabled={pending} onClick={onConfirm}>
+          {pending && <Spinner aria-hidden="true" />}
           Confirm
         </Button>
-        <Button variant="quiet" onClick={onCancel}>
+        <Button variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
       </div>
@@ -473,8 +522,8 @@ function errorNotice(error: Error | null | undefined) {
       ? error.message
       : "Tilecast could not complete the request.";
   return (
-    <div className="notice notice--error" role="alert">
-      {message}
-    </div>
+    <Alert variant="destructive">
+      <AlertDescription role="alert">{message}</AlertDescription>
+    </Alert>
   );
 }

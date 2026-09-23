@@ -1,9 +1,7 @@
 import { useAuth } from "../auth/AuthProvider";
-import { PageHeader, Panel } from "../components/legacy-ui";
 import { PreferencesPage } from "./PreferencesPage";
 import { SecurityPage } from "./SecurityPage";
 import type { User } from "../api/types";
-import "./MyAccountPage.css";
 
 const roleLabels: Record<User["role"], string> = {
   owner: "Owner",
@@ -29,38 +27,49 @@ export function MyAccountPage() {
   const user = status?.user;
 
   return (
-    <div className="my-account-page">
-      <PageHeader
-        title="My Account"
-        description="Settings that belong to you rather than to the organization."
-        actions={user && <SignedInAs user={user} />}
-      />
+    <div className="grid max-w-[900px] gap-8 max-sm:gap-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid gap-1">
+          <h1 className="text-xl font-semibold tracking-tight">My Account</h1>
+          <p className="text-sm text-muted-foreground">
+            Settings that belong to you rather than to the organization.
+          </p>
+        </div>
+        {user && <SignedInAs user={user} />}
+      </header>
 
       <section
         id="preferences"
-        className="my-account-group"
+        className="grid scroll-mt-6 gap-4"
         aria-labelledby="account-preferences-title"
       >
-        <div className="my-account-group__heading">
-          <h2 id="account-preferences-title">Preferences</h2>
-          <p>
+        <div className="grid gap-1">
+          <h2
+            id="account-preferences-title"
+            className="text-base font-semibold"
+          >
+            Preferences
+          </h2>
+          <p className="mt-0 max-w-[74ch] text-sm text-muted-foreground">
             Appearance and workflow settings, stored with your account rather
             than this browser.
           </p>
         </div>
-        <Panel className="my-account-preferences">
+        <div className="grid content-start gap-4">
           <PreferencesPage />
-        </Panel>
+        </div>
       </section>
 
       <section
         id="security"
-        className="my-account-group"
+        className="grid scroll-mt-6 gap-4"
         aria-labelledby="account-security-title"
       >
-        <div className="my-account-group__heading">
-          <h2 id="account-security-title">Sign-in security</h2>
-          <p>
+        <div className="grid gap-1">
+          <h2 id="account-security-title" className="text-base font-semibold">
+            Sign-in security
+          </h2>
+          <p className="mt-0 max-w-[74ch] text-sm text-muted-foreground">
             Whether a second factor is required is an organization setting. What
             you use to satisfy it is your choice.
           </p>
@@ -78,14 +87,17 @@ export function MyAccountPage() {
  */
 function SignedInAs({ user }: { user: User }) {
   return (
-    <p className="my-account-identity">
-      <span className="my-account-identity__avatar" aria-hidden="true">
+    <p className="m-0 flex items-center gap-3">
+      <span
+        className="grid size-9 flex-none place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground"
+        aria-hidden="true"
+      >
         {user.name.trim().slice(0, 1).toUpperCase() || "?"}
       </span>
-      <span className="my-account-identity__copy">
-        <span className="visually-hidden">Signed in as </span>
-        <strong>{user.name}</strong>
-        <small>
+      <span className="grid min-w-0 gap-px">
+        <span className="sr-only">Signed in as </span>
+        <strong className="text-sm font-semibold">{user.name}</strong>
+        <small className="text-xs text-muted-foreground">
           {user.username} · {roleLabels[user.role]}
         </small>
       </span>
