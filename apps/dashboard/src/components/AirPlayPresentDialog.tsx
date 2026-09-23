@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Airplay, Radio, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { AirplaySession, ReliabilityStatus } from "../api/types";
 import { airplayCapabilityBlockDetail } from "./airplayCapability";
@@ -126,6 +126,8 @@ export function AirPlayPresentDialog({
   const [session, setSession] = useState<AirplaySession | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const targetKey = `${targetType}:${targetId}`;
+  const previousTargetKey = useRef(targetKey);
 
   useEffect(() => {
     if (!open) return;
@@ -189,11 +191,13 @@ export function AirPlayPresentDialog({
     },
   });
   useEffect(() => {
-    if (!open) {
+    const targetChanged = previousTargetKey.current !== targetKey;
+    previousTargetKey.current = targetKey;
+    if (!open || targetChanged) {
       setSession(null);
       setSessionId(null);
     }
-  }, [open, targetId]);
+  }, [open, targetKey]);
   const live = current.data ?? session;
   const capabilitiesComplete =
     displayCount > 0 && allCapabilities.length === displayCount;
