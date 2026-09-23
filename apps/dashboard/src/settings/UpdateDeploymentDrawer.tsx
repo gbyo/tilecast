@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Search, XCircle } from "lucide-react";
+import { StatusDot, ViewTabs } from "../components/legacy-ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import {
-  Button,
-  Drawer,
-  Notice,
-  Spinner,
-  StatusBadge,
-  StatusDot,
-  ViewTabs,
-} from "../components/legacy-ui";
+  Sheet as RheaSheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
+import { Spinner } from "../components/ui/spinner";
 import { api } from "../api/client";
 import type { Screen, UpdateDeploymentScreen } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -90,134 +95,174 @@ export function UpdateDeploymentDrawer({
     deployment?.status === "active" || deployment?.status === "paused";
 
   return (
-    <Drawer
-      className="deployment-drawer"
-      eyebrow={
-        deployment
-          ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
-          : "Player deployment"
-      }
-      title={deployment?.name ?? "Deployment"}
-      onClose={onClose}
-      footer={
-        manageable && active ? (
-          <div className="deployment-drawer__footer">
-            <span>
-              Cancelling stops every screen that has not finished. Screens
-              already updated stay on the new release.
-            </span>
-            <Button
-              variant="danger"
-              loading={cancel.isPending}
-              onClick={() => cancel.mutate()}
-            >
-              {!cancel.isPending && <XCircle size={16} aria-hidden="true" />}
-              Cancel deployment
-            </Button>
-          </div>
-        ) : undefined
-      }
+    <RheaSheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      {detail.isLoading && <Spinner label="Loading screen statuses" />}
-      {detail.error && (
-        <Notice variant="danger" title="Screen statuses could not be loaded.">
-          {errorMessage(detail.error)}
-        </Notice>
-      )}
-      {actionError && <Notice variant="danger">{actionError}</Notice>}
-      {deployment && (
-        <>
-          <dl className="deployment-drawer__facts">
-            <div>
-              <dt>Status</dt>
-              <dd>
-                <StatusDot
-                  tone={
-                    deployment.status === "completed"
-                      ? "success"
-                      : deployment.status === "cancelled"
-                        ? "neutral"
-                        : deployment.status === "paused"
-                          ? "warning"
-                          : "info"
-                  }
-                  label={humanize(deployment.status)}
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+        <SheetHeader>
+          <SheetDescription>
+            {deployment
+              ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
+              : "Player deployment"}
+          </SheetDescription>
+          <SheetTitle>{deployment?.name ?? "Deployment"}</SheetTitle>
+        </SheetHeader>
+        <div className="grid gap-4 px-6 pb-6">
+          {detail.isLoading && (
+            <span className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner />
+              Loading screen statuses
+            </span>
+          )}
+          {detail.error && (
+            <Alert variant="destructive">
+              <AlertTitle>Screen statuses could not be loaded.</AlertTitle>
+              <AlertDescription>{errorMessage(detail.error)}</AlertDescription>
+            </Alert>
+          )}
+          {actionError && (
+            <Alert variant="destructive">
+              <AlertDescription>{actionError}</AlertDescription>
+            </Alert>
+          )}
+          {deployment && (
+            <>
+              <dl className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
+                <div className="grid gap-0.5">
+                  <dt className="text-xs text-muted-foreground">Status</dt>
+                  <dd>
+                    <StatusDot
+                      tone={
+                        deployment.status === "completed"
+                          ? "success"
+                          : deployment.status === "cancelled"
+                            ? "neutral"
+                            : deployment.status === "paused"
+                              ? "warning"
+                              : "info"
+                      }
+                      label={humanize(deployment.status)}
+                    />
+                  </dd>
+                </div>
+                <div className="grid gap-0.5">
+                  <dt className="text-xs text-muted-foreground">Mode</dt>
+                  <dd className="text-sm font-medium">
+                    {humanize(deployment.mode)}
+                  </dd>
+                </div>
+                <div className="grid gap-0.5">
+                  <dt className="text-xs text-muted-foreground">Rollout</dt>
+                  <dd className="text-sm font-medium">
+                    {deployment.rolloutMode === "canary"
+                      ? `${deployment.canarySize} canary first · ${humanize(deployment.rolloutPhase)}`
+                      : "All screens at once"}
+                  </dd>
+                </div>
+                <div className="grid gap-0.5">
+                  <dt className="text-xs text-muted-foreground">Started</dt>
+                  <dd className="text-sm font-medium">
+                    {new Date(deployment.createdAt).toLocaleString()}
+                  </dd>
+                </div>
+              </dl>
+              {deployment.pauseReason && (
+                <Alert role="status">
+                  <AlertTitle>Rollout paused</AlertTitle>
+                  <AlertDescription>
+                    {deployment.pauseReason} Remaining screens stay on their
+                    current version until the deployment is cancelled and
+                    re-created.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <DeploymentMeter {...screenStateCounts(allScreens)} />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <ViewTabs
+                  label="Screen status filter"
+                  value={filter}
+                  items={[
+                    { value: "all", label: `All ${allScreens.length}` },
+                    {
+                      value: "attention",
+                      label: `Needs attention ${counts.attention}`,
+                    },
+                    {
+                      value: "progress",
+                      label: `In progress ${counts.progress}`,
+                    },
+                    { value: "done", label: `Finished ${counts.done}` },
+                  ]}
+                  onValueChange={(value) => setFilter(value)}
                 />
-              </dd>
-            </div>
-            <div>
-              <dt>Mode</dt>
-              <dd>{humanize(deployment.mode)}</dd>
-            </div>
-            <div>
-              <dt>Rollout</dt>
-              <dd>
-                {deployment.rolloutMode === "canary"
-                  ? `${deployment.canarySize} canary first · ${humanize(deployment.rolloutPhase)}`
-                  : "All screens at once"}
-              </dd>
-            </div>
-            <div>
-              <dt>Started</dt>
-              <dd>{new Date(deployment.createdAt).toLocaleString()}</dd>
-            </div>
-          </dl>
-          {deployment.pauseReason && (
-            <Notice variant="warning" title="Rollout paused">
-              {deployment.pauseReason} Remaining screens stay on their current
-              version until the deployment is cancelled and re-created.
-            </Notice>
+                <label className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2">
+                  <span className="sr-only">Search screens</span>
+                  <Search
+                    size={16}
+                    aria-hidden="true"
+                    className="shrink-0 text-muted-foreground"
+                  />
+                  <Input
+                    type="search"
+                    value={search}
+                    placeholder="Search screens"
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="w-40 border-0 bg-transparent px-0 py-[5px]"
+                  />
+                </label>
+              </div>
+              <ul className="grid gap-0 divide-y divide-border rounded-xl border border-border">
+                {visible.map((item) => (
+                  <DeploymentScreenRow
+                    key={item.screenId}
+                    screen={item}
+                    artifactSizeBytes={deployment.artifactSizeBytes}
+                    reachability={reachability.get(item.screenId)}
+                    manageable={manageable}
+                    retrying={
+                      retry.isPending && retry.variables === item.screenId
+                    }
+                    onRetry={() => retry.mutate(item.screenId)}
+                  />
+                ))}
+              </ul>
+              {!visible.length && (
+                <p className="rounded-xl border border-border bg-muted p-5 text-center text-sm text-muted-foreground">
+                  {allScreens.length
+                    ? "No screen matches this filter."
+                    : "This deployment reaches no screens you can see."}
+                </p>
+              )}
+            </>
           )}
-          <DeploymentMeter {...screenStateCounts(allScreens)} />
-          <div className="deployment-drawer__controls">
-            <ViewTabs
-              label="Screen status filter"
-              value={filter}
-              items={[
-                { value: "all", label: `All ${allScreens.length}` },
-                {
-                  value: "attention",
-                  label: `Needs attention ${counts.attention}`,
-                },
-                { value: "progress", label: `In progress ${counts.progress}` },
-                { value: "done", label: `Finished ${counts.done}` },
-              ]}
-              onValueChange={(value) => setFilter(value)}
-            />
-            <label className="deployment-drawer__search">
-              <span className="visually-hidden">Search screens</span>
-              <Search size={16} aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                placeholder="Search screens"
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-          </div>
-          <ul className="deployment-screen-list">
-            {visible.map((item) => (
-              <DeploymentScreenRow
-                key={item.screenId}
-                screen={item}
-                artifactSizeBytes={deployment.artifactSizeBytes}
-                reachability={reachability.get(item.screenId)}
-                manageable={manageable}
-                retrying={retry.isPending && retry.variables === item.screenId}
-                onRetry={() => retry.mutate(item.screenId)}
-              />
-            ))}
-          </ul>
-          {!visible.length && (
-            <p className="deployment-drawer__empty">
-              {allScreens.length
-                ? "No screen matches this filter."
-                : "This deployment reaches no screens you can see."}
-            </p>
-          )}
-        </>
-      )}
-    </Drawer>
+        </div>
+        {manageable && active && (
+          <SheetFooter className="border-t border-border">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="flex-1 basis-60 text-sm text-muted-foreground">
+                Cancelling stops every screen that has not finished. Screens
+                already updated stay on the new release.
+              </span>
+              <RheaButton
+                variant="destructive"
+                disabled={cancel.isPending}
+                onClick={() => cancel.mutate()}
+              >
+                {cancel.isPending ? (
+                  <Spinner />
+                ) : (
+                  <XCircle size={16} aria-hidden="true" />
+                )}
+                Cancel deployment
+              </RheaButton>
+            </div>
+          </SheetFooter>
+        )}
+      </SheetContent>
+    </RheaSheet>
   );
 }
 
@@ -240,24 +285,28 @@ function DeploymentScreenRow({
   const detail = screenUpdateDetail(screen);
   const percent = screenDownloadPercent(screen, artifactSizeBytes);
   return (
-    <li className={`deployment-screen deployment-screen--${meaning.bucket}`}>
-      <div className="deployment-screen__identity">
-        <strong>{screen.screenName}</strong>
-        <small>
+    <li
+      className={`grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]${meaning.bucket === "attention" ? " shadow-[inset_3px_0_0_var(--tc-status-warning)] has-[.status-dot-label--danger]:shadow-[inset_3px_0_0_var(--tc-status-danger)]" : ""}`}
+    >
+      <div className="deployment-screen__identity grid gap-0.5">
+        <strong className="text-sm font-semibold">{screen.screenName}</strong>
+        <small className="text-xs text-muted-foreground">
           {screen.previousVersionCode
             ? `${screen.previousVersionCode} → ${screen.expectedVersionCode}`
             : `First install · ${screen.expectedVersionCode}`}
           {reachability && ` · ${humanize(reachability)}`}
         </small>
       </div>
-      <div className="deployment-screen__status">
+      <div className="deployment-screen__status grid justify-items-start gap-1">
         <StatusDot tone={meaning.tone} label={meaning.label} />
-        {screen.isCanary && <StatusBadge tone="info" label="Canary" />}
-        {detail && <small>{detail}</small>}
+        {screen.isCanary && <Badge variant="secondary">Canary</Badge>}
+        {detail && (
+          <small className="text-xs text-muted-foreground">{detail}</small>
+        )}
         {percent !== null && (
-          <span className="deployment-screen__download">
-            <progress value={percent} max={100} />
-            <small>
+          <span className="grid w-full gap-0.5">
+            <progress value={percent} max={100} className="w-full" />
+            <small className="text-xs text-muted-foreground">
               {percent}% of {formatBytes(artifactSizeBytes)}
             </small>
           </span>
@@ -268,23 +317,28 @@ function DeploymentScreenRow({
           <StageTrail stage={meaning.stage} />
         )}
       </div>
-      <div className="deployment-screen__actions">
+      <div className="flex flex-col items-end gap-1.5 max-sm:flex-row max-sm:items-center max-sm:justify-between">
         <time
           dateTime={screen.updatedAt}
           title={new Date(screen.updatedAt).toLocaleString()}
+          className="text-xs text-muted-foreground"
         >
           {formatRelative(screen.updatedAt)}
         </time>
         {manageable && screen.state === "failed" && (
-          <Button
+          <RheaButton
             variant="secondary"
-            compact
-            loading={retrying}
+            size="sm"
+            disabled={retrying}
             onClick={onRetry}
           >
-            {!retrying && <RefreshCw size={14} aria-hidden="true" />}
+            {retrying ? (
+              <Spinner />
+            ) : (
+              <RefreshCw size={14} aria-hidden="true" />
+            )}
             Retry
-          </Button>
+          </RheaButton>
         )}
       </div>
     </li>
@@ -295,16 +349,16 @@ function DeploymentScreenRow({
 // step knows a real percentage.
 function StageTrail({ stage }: { stage: number }) {
   return (
-    <ol className="deployment-stage-trail" aria-label="Update progress">
+    <ol className="flex flex-wrap gap-2" aria-label="Update progress">
       {screenUpdateStages.map((label, index) => (
         <li
           key={label}
           className={
             index < stage
-              ? "is-complete"
+              ? "is-complete text-xs font-medium"
               : index === stage
-                ? "is-current"
-                : "is-pending"
+                ? "is-current text-xs font-medium text-primary"
+                : "is-pending text-xs text-muted-foreground"
           }
           aria-current={index === stage ? "step" : undefined}
         >
@@ -337,11 +391,13 @@ export function DeploymentMeter({
   }).filter((segment) => segment.count > 0);
   const total = Math.max(1, targetCount);
   return (
-    <div
-      className={`deployment-meter${compact ? " deployment-meter--compact" : ""}`}
-    >
+    <div className="grid gap-1.5">
       <div
-        className="deployment-meter__track"
+        className={
+          compact
+            ? "flex h-1.5 overflow-hidden rounded-full border border-border bg-muted"
+            : "flex h-2 overflow-hidden rounded-full border border-border bg-muted"
+        }
         role="img"
         aria-label={
           targetCount
@@ -354,21 +410,39 @@ export function DeploymentMeter({
         {segments.map((segment) => (
           <span
             key={segment.key}
-            className={`deployment-meter__fill deployment-meter__fill--${segment.tone}`}
+            className={segmentFillClass(segment.tone)}
             style={{ width: `${(segment.count / total) * 100}%` }}
           />
         ))}
       </div>
-      <ul className="deployment-meter__legend">
-        {segments.map((segment) => (
-          <li key={segment.key}>
-            <StatusDot tone={segment.tone} label={`${segment.count}`} />
-            {segment.label}
-          </li>
-        ))}
-      </ul>
+      {!compact && (
+        <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+          {segments.map((segment) => (
+            <li
+              key={segment.key}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+            >
+              <StatusDot tone={segment.tone} label={`${segment.count}`} />
+              {segment.label}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
+}
+
+function segmentFillClass(tone: string) {
+  switch (tone) {
+    case "success":
+      return "bg-[var(--tc-status-success)]";
+    case "warning":
+      return "bg-[var(--tc-status-warning)]";
+    case "danger":
+      return "bg-[var(--tc-status-danger)]";
+    default:
+      return "bg-[var(--tc-status-neutral)]";
+  }
 }
 
 function errorMessage(error: unknown) {

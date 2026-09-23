@@ -12,7 +12,25 @@ import {
 } from "lucide-react";
 import type { User } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Dialog, Select } from "../components/legacy-ui";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Spinner } from "../components/ui/spinner";
 
 type UserRole = User["role"];
 type UserInput = {
@@ -114,9 +132,11 @@ export function UsersPage() {
 
   if (!canManage) {
     return (
-      <div className="notice notice--error">
-        Owner or Administrator access is required to manage Studio users.
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>
+          Owner or Administrator access is required to manage Studio users.
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -125,56 +145,74 @@ export function UsersPage() {
     : ["editor", "contributor", "viewer"];
 
   return (
-    <section className="user-management">
+    <section className="grid content-start gap-4">
       <section
-        className="user-management__form"
+        className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:p-5"
         aria-labelledby="add-user-title"
       >
-        <h3 id="add-user-title">Add a user</h3>
-        <p>Passwords must contain at least 12 characters.</p>
-        <div className="user-management__fields">
-          <label>
-            Name
-            <input
+        <div className="grid gap-0.5">
+          <h2 id="add-user-title" className="text-sm font-semibold">
+            Add a user
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Passwords must contain at least 12 characters.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="users-add-name">Name</FieldLabel>
+            <Input
+              id="users-add-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
-          </label>
-          <label>
-            Username
-            <input
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="users-add-username">Username</FieldLabel>
+            <Input
+              id="users-add-username"
               value={username}
               autoCapitalize="none"
               autoCorrect="off"
               onChange={(event) => setUsername(event.target.value)}
             />
-          </label>
-          <label>
-            Temporary password
-            <input
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="users-add-password">
+              Temporary password
+            </FieldLabel>
+            <Input
+              id="users-add-password"
               type="password"
               value={password}
               autoComplete="new-password"
               onChange={(event) => setPassword(event.target.value)}
             />
-          </label>
-          <label>
-            Role
-            <Select
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="users-add-role">Role</FieldLabel>
+            <RheaSelect
               value={role}
-              onChange={(event) => setRole(event.target.value as UserRole)}
+              onValueChange={(value) => setRole(value ?? "viewer")}
             >
-              {allowedRoles.map((value) => (
-                <option key={value} value={value}>
-                  {roleLabels[value]}
-                </option>
-              ))}
-            </Select>
-            <small className="role-description">{roleDescriptions[role]}</small>
-          </label>
-          <button
+              <SelectTrigger id="users-add-role">
+                <SelectValue>{roleLabels[role]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {allowedRoles.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {roleLabels[value]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </RheaSelect>
+            <FieldDescription>{roleDescriptions[role]}</FieldDescription>
+          </Field>
+        </div>
+        <div>
+          <Button
             type="button"
-            className="button button--primary"
+            variant="default"
             disabled={
               create.isPending ||
               name.trim().length < 2 ||
@@ -190,45 +228,62 @@ export function UsersPage() {
               })
             }
           >
-            <Plus size={16} /> {create.isPending ? "Adding…" : "Add user"}
-          </button>
+            <Plus size={16} aria-hidden="true" />{" "}
+            {create.isPending ? "Adding…" : "Add user"}
+          </Button>
         </div>
         {create.error && (
-          <div className="notice notice--error" role="alert">
-            {create.error.message}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription role="alert">
+              {create.error.message}
+            </AlertDescription>
+          </Alert>
         )}
       </section>
 
       {users.isLoading ? (
-        <div className="table-loading">Loading users…</div>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner aria-hidden="true" /> Loading users…
+        </p>
       ) : users.error ? (
-        <div className="notice notice--error" role="alert">
-          {users.error.message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription role="alert">
+            {users.error.message}
+          </AlertDescription>
+        </Alert>
       ) : (
-        <div className="user-management__list">
+        <div className="grid gap-2">
           {users.data?.items?.map((user) => {
             const canEdit =
               currentUser?.role === "owner" ||
               (currentUser?.role === "administrator" &&
                 ["editor", "contributor", "viewer"].includes(user.role));
             return (
-              <article className="user-list-row" key={user.id}>
-                <span className="avatar" aria-hidden="true">
+              <article
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
+                key={user.id}
+              >
+                <span
+                  className="grid size-9 flex-none place-items-center rounded-full bg-muted text-sm font-semibold"
+                  aria-hidden="true"
+                >
                   {user.name.slice(0, 1).toUpperCase()}
                 </span>
-                <div className="user-list-row__identity">
-                  <strong>{user.name}</strong>
-                  <span>{user.username}</span>
-                  <small>
+                <div className="grid min-w-0 flex-1 gap-px">
+                  <strong className="truncate text-sm font-semibold">
+                    {user.name}
+                  </strong>
+                  <span className="truncate text-sm text-muted-foreground">
+                    {user.username}
+                  </span>
+                  <small className="text-xs text-muted-foreground">
                     {roleLabels[user.role]} ·{" "}
                     {user.active ? "Active" : "Inactive"}
                     {user.lastLoginAt
                       ? ` · Last signed in ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(user.lastLoginAt))}`
                       : " · Never signed in"}
                   </small>
-                  <small className="user-list-row__mfa">
+                  <small className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                     {user.mfaEnrolled ? (
                       <>
                         <ShieldCheck size={13} aria-hidden="true" /> Two-step
@@ -247,14 +302,15 @@ export function UsersPage() {
                     )}
                   </small>
                 </div>
-                <button
+                <Button
                   type="button"
-                  className="button button--secondary button--compact"
+                  variant="secondary"
+                  size="sm"
                   disabled={!canEdit}
                   onClick={() => setEditing(user)}
                 >
-                  <Pencil size={15} /> Edit
-                </button>
+                  <Pencil size={15} aria-hidden="true" /> Edit
+                </Button>
               </article>
             );
           })}
@@ -348,168 +404,194 @@ function UserEditorDialog({
   const isSelf = user.id === currentUser.id;
 
   return (
-    <Dialog open title={`Edit ${user.name}`} onClose={onClose}>
-      <form
-        className="user-edit-dialog"
-        onSubmit={(event) => {
-          event.preventDefault();
-          update.mutate();
-        }}
-      >
-        <div className="user-edit-dialog__fields">
-          <label className="field">
-            <span className="field__label">Name</span>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Username</span>
-            <input
-              value={username}
-              autoCapitalize="none"
-              autoCorrect="off"
-              onChange={(event) => setUsername(event.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Role</span>
-            <Select
-              value={role}
-              onChange={(event) => setRole(event.target.value as UserRole)}
-            >
-              {allowedRoles.map((value) => (
-                <option key={value} value={value}>
-                  {roleLabels[value]}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="field">
-            <span className="field__label">New password</span>
-            <input
-              type="password"
-              value={password}
-              placeholder="Leave unchanged"
-              autoComplete="new-password"
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <span className="field__hint">At least 12 characters.</span>
-          </label>
-          <label className="checkbox-control">
+    <RheaDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit {user.name}</DialogTitle>
+        </DialogHeader>
+        <form
+          className="grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            update.mutate();
+          }}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="users-edit-name">Name</FieldLabel>
+              <Input
+                id="users-edit-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="users-edit-username">Username</FieldLabel>
+              <Input
+                id="users-edit-username"
+                value={username}
+                autoCapitalize="none"
+                autoCorrect="off"
+                onChange={(event) => setUsername(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="users-edit-role">Role</FieldLabel>
+              <RheaSelect
+                value={role}
+                onValueChange={(value) => setRole(value ?? user.role)}
+              >
+                <SelectTrigger id="users-edit-role">
+                  <SelectValue>{roleLabels[role]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {allowedRoles.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {roleLabels[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </RheaSelect>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="users-edit-password">
+                New password
+              </FieldLabel>
+              <Input
+                id="users-edit-password"
+                type="password"
+                value={password}
+                placeholder="Leave unchanged"
+                autoComplete="new-password"
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <FieldDescription>At least 12 characters.</FieldDescription>
+            </Field>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
+              className="size-4 shrink-0 accent-primary"
               checked={active}
               disabled={isSelf}
               onChange={(event) => setActive(event.target.checked)}
             />
             <span>Account active</span>
           </label>
-        </div>
-        <section className="user-edit-dialog__security">
-          <div>
-            <strong>Two-step verification</strong>
-            <p>
-              {user.mfaEnrolled
-                ? "This account has an authenticator app or a passkey enrolled."
-                : "This account has no second factor enrolled."}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="button button--danger-quiet"
-            disabled={!user.mfaEnrolled || resetSecurity.isPending}
-            onClick={() => {
-              if (
-                confirm(
-                  `Clear every authenticator, passkey, and recovery code for ${user.name}? They will be signed out everywhere and must enroll again.`,
-                )
-              )
-                resetSecurity.mutate();
-            }}
-          >
-            <ShieldOff size={15} />
-            {resetSecurity.isPending ? "Resetting…" : "Reset"}
-          </button>
-        </section>
-        {(update.error ||
-          deactivate.error ||
-          permanentlyDelete.error ||
-          resetSecurity.error) && (
-          <div className="notice notice--error" role="alert">
-            {
-              (
-                update.error ??
-                deactivate.error ??
-                permanentlyDelete.error ??
-                resetSecurity.error
-              )?.message
-            }
-          </div>
-        )}
-        <section className="user-edit-dialog__scope">
-          <h4>Screen scope</h4>
-          <ScreenScopeEditor
-            userId={user.id}
-            userRole={role}
-            csrf={csrf}
-            disabled={role === "owner"}
-          />
-        </section>
-        <footer className="user-edit-dialog__actions">
-          {user.active ? (
-            <button
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 p-4">
+            <div className="grid gap-0.5">
+              <strong className="text-sm font-semibold">
+                Two-step verification
+              </strong>
+              <p className="text-sm text-muted-foreground">
+                {user.mfaEnrolled
+                  ? "This account has an authenticator app or a passkey enrolled."
+                  : "This account has no second factor enrolled."}
+              </p>
+            </div>
+            <Button
               type="button"
-              className="button button--danger-quiet"
-              disabled={isSelf || deactivate.isPending}
-              onClick={() => {
-                if (confirm(`Deactivate ${user.name}?`)) deactivate.mutate();
-              }}
-            >
-              <UserRoundX size={15} />
-              {deactivate.isPending ? "Deactivating…" : "Deactivate"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="button button--danger-quiet"
-              disabled={isSelf || permanentlyDelete.isPending}
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              disabled={!user.mfaEnrolled || resetSecurity.isPending}
               onClick={() => {
                 if (
                   confirm(
-                    `Permanently delete ${user.name}? This removes their login, preferences, and security credentials. This cannot be undone.`,
+                    `Clear every authenticator, passkey, and recovery code for ${user.name}? They will be signed out everywhere and must enroll again.`,
                   )
                 )
-                  permanentlyDelete.mutate();
+                  resetSecurity.mutate();
               }}
             >
-              <Trash2 size={15} />
-              {permanentlyDelete.isPending ? "Deleting…" : "Delete permanently"}
-            </button>
+              <ShieldOff size={15} aria-hidden="true" />
+              {resetSecurity.isPending ? "Resetting…" : "Reset"}
+            </Button>
+          </section>
+          {(update.error ||
+            deactivate.error ||
+            permanentlyDelete.error ||
+            resetSecurity.error) && (
+            <Alert variant="destructive">
+              <AlertDescription role="alert">
+                {
+                  (
+                    update.error ??
+                    deactivate.error ??
+                    permanentlyDelete.error ??
+                    resetSecurity.error
+                  )?.message
+                }
+              </AlertDescription>
+            </Alert>
           )}
-          <span />
-          <button
-            type="button"
-            className="button button--quiet"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="button button--primary"
-            disabled={
-              update.isPending ||
-              name.trim().length < 2 ||
-              username.trim().length < 3 ||
-              (password.length > 0 && password.length < 12)
-            }
-          >
-            <Save size={15} /> {update.isPending ? "Saving…" : "Save changes"}
-          </button>
-        </footer>
-      </form>
-    </Dialog>
+          <section className="grid gap-2 border-t border-border py-3">
+            <h4 className="text-[13px] font-semibold">Screen scope</h4>
+            <ScreenScopeEditor
+              userId={user.id}
+              userRole={role}
+              csrf={csrf}
+              disabled={role === "owner"}
+            />
+          </section>
+          <DialogFooter className="flex-wrap">
+            {user.active ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mr-auto text-destructive hover:text-destructive"
+                disabled={isSelf || deactivate.isPending}
+                onClick={() => {
+                  if (confirm(`Deactivate ${user.name}?`)) deactivate.mutate();
+                }}
+              >
+                <UserRoundX size={15} aria-hidden="true" />
+                {deactivate.isPending ? "Deactivating…" : "Deactivate"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mr-auto text-destructive hover:text-destructive"
+                disabled={isSelf || permanentlyDelete.isPending}
+                onClick={() => {
+                  if (
+                    confirm(
+                      `Permanently delete ${user.name}? This removes their login, preferences, and security credentials. This cannot be undone.`,
+                    )
+                  )
+                    permanentlyDelete.mutate();
+                }}
+              >
+                <Trash2 size={15} aria-hidden="true" />
+                {permanentlyDelete.isPending
+                  ? "Deleting…"
+                  : "Delete permanently"}
+              </Button>
+            )}
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="default"
+              disabled={
+                update.isPending ||
+                name.trim().length < 2 ||
+                username.trim().length < 3 ||
+                (password.length > 0 && password.length < 12)
+              }
+            >
+              <Save size={15} aria-hidden="true" />{" "}
+              {update.isPending ? "Saving…" : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </RheaDialog>
   );
 }

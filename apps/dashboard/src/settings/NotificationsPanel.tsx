@@ -4,6 +4,18 @@ import { Send, Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { NotificationCategory, NotificationWebhook } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
 
 const categoryLabels: Record<NotificationCategory, string> = {
   incident: "Screen problems",
@@ -90,58 +102,66 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
   const emailConfigured = status.data?.emailConfigured ?? false;
 
   return (
-    <div className="settings-sections">
-      <section className="settings-subsection">
-        <header>
-          <h3>Email delivery</h3>
-          <p>
+    <div className="grid gap-4">
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Email delivery</h3>
+          <p className="text-sm text-muted-foreground">
             Tilecast sends through an SMTP relay configured on the server, not
             through an account in Studio.
           </p>
         </header>
         {status.isLoading ? (
-          <div className="table-loading">Checking notification delivery…</div>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Spinner aria-hidden="true" />
+            Checking notification delivery…
+          </p>
         ) : emailConfigured ? (
-          <p className="backup-summary">
-            <span className="status-badge status-badge--online">Available</span>{" "}
-            An SMTP relay is configured. Each account chooses what it receives
-            under My Account → Preferences.
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <Badge variant="default">Available</Badge> An SMTP relay is
+            configured. Each account chooses what it receives under My Account →
+            Preferences.
           </p>
         ) : (
-          <div className="notice">
-            <strong>Email is unavailable.</strong>{" "}
-            {status.data?.emailUnavailableReason}
-            <br />
-            Set <code>TILECAST_SMTP_HOST</code> (and{" "}
-            <code>TILECAST_SMTP_PORT</code>, <code>TILECAST_SMTP_USERNAME</code>
-            , <code>TILECAST_SMTP_PASSWORD</code> where the relay needs them),
-            then restart the server.
-          </div>
+          <Alert role="status">
+            <AlertDescription>
+              <strong>Email is unavailable.</strong>{" "}
+              {status.data?.emailUnavailableReason}
+              <br />
+              Set <code>TILECAST_SMTP_HOST</code> (and{" "}
+              <code>TILECAST_SMTP_PORT</code>,{" "}
+              <code>TILECAST_SMTP_USERNAME</code>,{" "}
+              <code>TILECAST_SMTP_PASSWORD</code> where the relay needs them),
+              then restart the server.
+            </AlertDescription>
+          </Alert>
         )}
-        <div className="settings-subsection__action">
-          <div>
-            <p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid gap-1">
+            <p className="text-sm text-muted-foreground">
               A test goes to your own notification address and ignores quiet
               hours and subscriptions.
             </p>
           </div>
-          <button
-            className="button"
+          <RheaButton
+            variant="secondary"
             disabled={!emailConfigured || sendTest.isPending}
             onClick={() => {
               setTestResult(undefined);
               sendTest.mutate();
             }}
           >
-            <Send size={15} />{" "}
+            <Send size={15} aria-hidden="true" />{" "}
             {sendTest.isPending ? "Sending…" : "Send a test to myself"}
-          </button>
+          </RheaButton>
         </div>
-        {testResult && <p className="backup-summary">{testResult}</p>}
+        {testResult && (
+          <p className="text-sm text-muted-foreground">{testResult}</p>
+        )}
         {sendTest.error && (
-          <div className="notice notice--error" role="alert">
-            {sendTest.error.message}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{sendTest.error.message}</AlertDescription>
+          </Alert>
         )}
       </section>
 
@@ -170,33 +190,46 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
             onRemove={(webhook) => removeWebhook.mutate(webhook)}
           />
 
-          <section className="settings-subsection">
-            <header>
-              <h3>Recent deliveries</h3>
-              <p>
+          <section className="grid gap-3 rounded-xl border border-border p-4">
+            <header className="grid gap-1">
+              <h3 className="text-base font-semibold">Recent deliveries</h3>
+              <p className="text-sm text-muted-foreground">
                 What Tilecast tried to send, and what happened. A failure here
                 means the message did not arrive.
               </p>
             </header>
             {deliveries.isLoading ? (
-              <div className="table-loading">Loading deliveries…</div>
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner aria-hidden="true" />
+                Loading deliveries…
+              </p>
             ) : !deliveries.data?.length ? (
-              <div className="empty-card">
-                Nothing has been sent yet. Deliveries appear here when a
-                condition is reported.
-              </div>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>No deliveries</EmptyTitle>
+                  <EmptyDescription>
+                    Nothing has been sent yet. Deliveries appear here when a
+                    condition is reported.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
-              <div className="backup-job-list">
+              <div className="grid gap-2">
                 {deliveries.data.map((delivery) => (
-                  <div key={delivery.id}>
-                    <span>
-                      <strong>{delivery.subject || delivery.eventKey}</strong>
-                      <small>
+                  <div
+                    key={delivery.id}
+                    className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-3"
+                  >
+                    <span className="grid gap-0.5">
+                      <strong className="text-sm font-semibold">
+                        {delivery.subject || delivery.eventKey}
+                      </strong>
+                      <small className="text-xs text-muted-foreground">
                         {formatDate(delivery.createdAt)} · {delivery.channel} ·{" "}
                         {delivery.target}
                       </small>
                     </span>
-                    <span className="backup-job-status">
+                    <span className="text-sm text-muted-foreground">
                       {delivery.status}
                       {delivery.attempts > 1
                         ? ` after ${delivery.attempts} attempts`
@@ -250,49 +283,71 @@ function WebhookSection({
   const [categories, setCategories] = useState<NotificationCategory[]>([]);
 
   return (
-    <section className="settings-subsection">
-      <header>
-        <h3>Webhooks</h3>
-        <p>
+    <section className="grid gap-3 rounded-xl border border-border p-4">
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">Webhooks</h3>
+        <p className="text-sm text-muted-foreground">
           Tilecast posts signed JSON to a URL you control. Use a relay to reach
           a chat service; Tilecast has no per-service integrations.
         </p>
       </header>
 
       {newSecret && (
-        <div className="notice" role="status">
-          <strong>Copy this signing secret now.</strong> Tilecast does not show
-          it again, and there is no way to read it back.
-          <pre className="secret-value">{newSecret}</pre>
-          Verify a request by computing{" "}
-          <code>HMAC-SHA256(secret, timestamp + "." + body)</code> and comparing
-          it with the <code>X-Tilecast-Signature</code> header. Reject a request
-          whose <code>X-Tilecast-Timestamp</code> is not recent.
-          <div>
-            <button className="button button--quiet" onClick={onDismissSecret}>
-              I have copied it
-            </button>
-          </div>
-        </div>
+        <Alert role="status">
+          <AlertDescription className="grid gap-2">
+            <span>
+              <strong>Copy this signing secret now.</strong> Tilecast does not
+              show it again, and there is no way to read it back.
+            </span>
+            <pre className="overflow-x-auto rounded-xl border border-border bg-muted p-3 font-mono text-xs break-all">
+              {newSecret}
+            </pre>
+            <span>
+              Verify a request by computing{" "}
+              <code>HMAC-SHA256(secret, timestamp + "." + body)</code> and
+              comparing it with the <code>X-Tilecast-Signature</code> header.
+              Reject a request whose <code>X-Tilecast-Timestamp</code> is not
+              recent.
+            </span>
+            <div>
+              <RheaButton variant="ghost" onClick={onDismissSecret}>
+                I have copied it
+              </RheaButton>
+            </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {loading ? (
-        <div className="table-loading">Loading webhooks…</div>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner aria-hidden="true" />
+          Loading webhooks…
+        </p>
       ) : !webhooks.length ? (
-        <div className="empty-card">No webhooks are configured.</div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No webhooks</EmptyTitle>
+            <EmptyDescription>No webhooks are configured.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="backup-list">
+        <div className="grid gap-2">
           {webhooks.map((webhook) => (
-            <article className="backup-row" key={webhook.id}>
-              <div className="backup-row__details">
-                <strong>{webhook.name}</strong>
-                <span>{webhook.url}</span>
-                <span>
-                  <span
-                    className={`status-badge status-badge--${webhook.enabled ? "online" : "offline"}`}
-                  >
+            <article
+              className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
+              key={webhook.id}
+            >
+              <div className="grid min-w-0 flex-1 gap-1">
+                <strong className="text-sm font-semibold">
+                  {webhook.name}
+                </strong>
+                <span className="text-sm text-muted-foreground break-all">
+                  {webhook.url}
+                </span>
+                <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <Badge variant={webhook.enabled ? "default" : "secondary"}>
                     {webhook.enabled ? "Enabled" : "Disabled"}
-                  </span>
+                  </Badge>
                   {" · "}
                   {webhook.categories.length
                     ? webhook.categories
@@ -304,31 +359,25 @@ function WebhookSection({
                     : " · Never delivered"}
                 </span>
                 {webhook.lastError && (
-                  <span className="setting-dependency">
+                  <span className="text-xs text-muted-foreground">
                     Last error: {webhook.lastError}
                   </span>
                 )}
               </div>
-              <div className="backup-row__actions">
-                <button
-                  className="button button--quiet"
-                  onClick={() => onTest(webhook.id)}
-                >
-                  <Send size={15} /> Test
-                </button>
-                <button
-                  className="button button--quiet"
-                  onClick={() => onToggle(webhook)}
-                >
+              <div className="flex flex-wrap items-center gap-2">
+                <RheaButton variant="ghost" onClick={() => onTest(webhook.id)}>
+                  <Send size={15} aria-hidden="true" /> Test
+                </RheaButton>
+                <RheaButton variant="ghost" onClick={() => onToggle(webhook)}>
                   {webhook.enabled ? "Disable" : "Enable"}
-                </button>
-                <button
-                  className="button button--danger"
+                </RheaButton>
+                <RheaButton
+                  variant="destructive"
                   onClick={() => onRemove(webhook)}
                   aria-label={`Remove ${webhook.name}`}
                 >
-                  <Trash2 size={15} /> Remove
-                </button>
+                  <Trash2 size={15} aria-hidden="true" /> Remove
+                </RheaButton>
               </div>
             </article>
           ))}
@@ -336,18 +385,18 @@ function WebhookSection({
       )}
 
       {testError && (
-        <div className="notice notice--error" role="alert">
-          {testError}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{testError}</AlertDescription>
+        </Alert>
       )}
       {actionError && (
-        <div className="notice notice--error" role="alert">
-          {actionError}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{actionError}</AlertDescription>
+        </Alert>
       )}
 
       <form
-        className="webhook-form"
+        className="grid gap-4 border-t border-border pt-2"
         onSubmit={(event) => {
           event.preventDefault();
           onCreate({ name: name.trim(), url: url.trim(), categories });
@@ -356,13 +405,17 @@ function WebhookSection({
           setCategories([]);
         }}
       >
-        <div className="setting-row">
-          <div className="setting-copy">
-            <label htmlFor="webhook-name">Name</label>
-            <p>How this receiver is identified in the delivery log.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid content-start gap-1">
+            <label htmlFor="webhook-name" className="text-sm font-medium">
+              Name
+            </label>
+            <p className="text-sm text-muted-foreground">
+              How this receiver is identified in the delivery log.
+            </p>
           </div>
-          <div className="setting-control">
-            <input
+          <div className="grid content-start gap-2">
+            <Input
               id="webhook-name"
               value={name}
               required
@@ -371,15 +424,17 @@ function WebhookSection({
             />
           </div>
         </div>
-        <div className="setting-row">
-          <div className="setting-copy">
-            <label htmlFor="webhook-url">URL</label>
-            <p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid content-start gap-1">
+            <label htmlFor="webhook-url" className="text-sm font-medium">
+              URL
+            </label>
+            <p className="text-sm text-muted-foreground">
               HTTPS is required unless the receiver is on the local network.
             </p>
           </div>
-          <div className="setting-control">
-            <input
+          <div className="grid content-start gap-2">
+            <Input
               id="webhook-url"
               type="url"
               value={url}
@@ -388,44 +443,43 @@ function WebhookSection({
             />
           </div>
         </div>
-        <div className="setting-row">
-          <div className="setting-copy">
-            <label>Categories</label>
-            <p>Select none to receive every category.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid content-start gap-1">
+            <label className="text-sm font-medium">Categories</label>
+            <p className="text-sm text-muted-foreground">
+              Select none to receive every category.
+            </p>
           </div>
-          <div className="setting-control setting-control--checks">
+          <div className="grid content-start gap-2">
             {allCategories.map((category) => (
-              <label key={category} className="check-option">
-                <input
-                  type="checkbox"
+              <label
+                key={category}
+                className="flex cursor-pointer items-center gap-2 text-sm"
+              >
+                <RheaCheckbox
                   checked={categories.includes(category)}
-                  onChange={(event) =>
+                  onCheckedChange={(checked) =>
                     setCategories(
-                      event.target.checked
+                      checked === true
                         ? [...categories, category]
                         : categories.filter((item) => item !== category),
                     )
                   }
                 />
-                {categoryLabels[category]}
+                <span>{categoryLabels[category]}</span>
               </label>
             ))}
           </div>
         </div>
         {createError && (
-          <div className="notice notice--error" role="alert">
-            {createError}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{createError}</AlertDescription>
+          </Alert>
         )}
-        <div className="settings-subsection__action">
-          <div />
-          <button
-            className="button button--primary"
-            type="submit"
-            disabled={creating}
-          >
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <RheaButton variant="default" type="submit" disabled={creating}>
             {creating ? "Adding…" : "Add webhook"}
-          </button>
+          </RheaButton>
         </div>
       </form>
     </section>

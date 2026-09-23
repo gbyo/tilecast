@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useAuth } from "../auth/AuthProvider";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button as RheaButton } from "../components/ui/button";
+import { Field, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
 import { activityRequest } from "../pages/ActivityShared";
-import "./ActivityRetentionPanel.css";
 
 type Retention = {
   rawEventDays: number;
@@ -132,57 +135,68 @@ export function ActivityRetentionPanel({
   const errors = checked && !checked.ok ? checked.errors : {};
 
   return (
-    <section className="retention-panel" aria-busy={query.isPending}>
-      <header>
-        <div>
-          <h3>Activity retention</h3>
-          <p>
+    <section
+      className="min-w-0 overflow-hidden rounded-xl border border-border bg-card"
+      aria-busy={query.isPending}
+    >
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+        <div className="grid gap-1">
+          <h3 className="text-base font-semibold">Activity retention</h3>
+          <p className="text-sm text-muted-foreground">
             Cleanup runs in bounded background batches and respects deployment
             hard limits.
           </p>
         </div>
         {value && (
-          <button
-            className="button button--primary"
+          <RheaButton
+            variant="default"
             type="button"
             disabled={save.isPending || !dirty || !checked?.ok}
             onClick={() => checked?.ok && save.mutate(checked.payload)}
           >
             {save.isPending ? "Saving…" : "Save retention"}
-          </button>
+          </RheaButton>
         )}
       </header>
 
       {query.isPending && (
-        <p className="retention-panel__status">Loading retention settings…</p>
+        <p className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm text-muted-foreground">
+          Loading retention settings…
+        </p>
       )}
       {query.error && (
-        <div className="notice notice--error retention-panel__status">
-          <span>
-            {query.error instanceof Error
-              ? query.error.message
-              : "Retention settings could not be loaded."}
-          </span>
-          <button
-            type="button"
-            className="button button--secondary button--compact"
-            onClick={() => void query.refetch()}
-            disabled={query.isFetching}
-          >
-            {query.isFetching ? "Retrying…" : "Try again"}
-          </button>
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {query.error instanceof Error
+                ? query.error.message
+                : "Retention settings could not be loaded."}
+            </span>
+            <RheaButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => void query.refetch()}
+              disabled={query.isFetching}
+            >
+              {query.isFetching ? "Retrying…" : "Try again"}
+            </RheaButton>
+          </AlertDescription>
+        </Alert>
       )}
       {save.error && (
-        <div className="notice notice--error">{save.error.message}</div>
+        <Alert variant="destructive">
+          <AlertDescription>{save.error.message}</AlertDescription>
+        </Alert>
       )}
 
       {value && (
-        <div className="retention-panel__grid">
+        <div className="grid gap-3 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5">
           {fields.map(([key, label, min, max]) => (
-            <label key={key}>
-              <span>{label}</span>
-              <input
+            <Field key={key}>
+              <FieldLabel htmlFor={`retention-${key}`}>{label}</FieldLabel>
+              <Input
+                id={`retention-${key}`}
                 type="number"
                 inputMode="numeric"
                 min={min}
@@ -194,10 +208,17 @@ export function ActivityRetentionPanel({
                   setDraft({ ...value, [key]: event.target.value })
                 }
               />
-              <small id={`retention-${key}-hint`}>
+              <small
+                id={`retention-${key}-hint`}
+                className={
+                  errors[key]
+                    ? "text-sm text-destructive"
+                    : "text-sm text-muted-foreground"
+                }
+              >
                 {errors[key] ?? `${min}–${max} days`}
               </small>
-            </label>
+            </Field>
           ))}
         </div>
       )}

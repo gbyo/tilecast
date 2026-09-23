@@ -4,7 +4,25 @@ import { MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { Location, LocationInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Button, Dialog } from "../components/legacy-ui";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
 
 const emptyLocation: LocationInput = {
   name: "",
@@ -97,60 +115,79 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
     );
   };
   return (
-    <section className="locations-settings">
-      <div className="locations-settings__toolbar">
-        <label className="location-search">
-          <Search size={16} />
-          <span className="visually-hidden">Search locations</span>
-          <input
+    <section className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-transparent bg-input/50 px-3 py-2">
+          <Search size={16} aria-hidden="true" className="shrink-0" />
+          <span className="sr-only">Search locations</span>
+          <Input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by name or address"
+            className="border-0 bg-transparent p-0"
           />
         </label>
         {canManage && (
-          <Button variant="primary" onClick={() => open("new")}>
-            <Plus size={16} /> Add location
-          </Button>
+          <RheaButton variant="default" onClick={() => open("new")}>
+            <Plus size={16} aria-hidden="true" /> Add location
+          </RheaButton>
         )}
       </div>
-      {notice && <div className="notice notice--info">{notice}</div>}
+      {notice && (
+        <Alert role="status">
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      )}
       {query.isError && (
-        <div className="notice notice--error" role="alert">
-          Location data failed to load. {query.error.message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            Location data failed to load. {query.error.message}
+          </AlertDescription>
+        </Alert>
       )}
       {query.isLoading ? (
-        <div className="table-loading">Loading locations…</div>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner aria-hidden="true" />
+          Loading locations…
+        </p>
       ) : (
-        <div className="location-list">
+        <div className="grid gap-2">
           {matches.map((location) => (
-            <article className="location-list__row" key={location.id}>
-              <span className="location-list__icon">
-                <MapPin size={17} />
+            <article
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"
+              key={location.id}
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
+                <MapPin size={17} aria-hidden="true" />
               </span>
-              <span>
-                <strong>{location.name}</strong>
-                <small>
+              <span className="grid min-w-0 flex-1 gap-0.5">
+                <strong className="text-sm font-semibold">
+                  {location.name}
+                </strong>
+                <small className="text-xs text-muted-foreground">
                   {formatLocationAddress(location) || "No address set"}
                 </small>
               </span>
-              <span className="location-list__count">
+              <span className="text-sm text-muted-foreground tabular-nums">
                 {location.screenCount} screen
                 {location.screenCount === 1 ? "" : "s"}
               </span>
               {canManage && (
-                <span className="location-list__actions">
-                  <button
+                <span className="flex items-center gap-1">
+                  <RheaButton
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     aria-label={`Edit ${location.name}`}
                     onClick={() => open(location)}
                   >
-                    <Pencil size={16} />
-                  </button>
-                  <button
+                    <Pencil size={16} aria-hidden="true" />
+                  </RheaButton>
+                  <RheaButton
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     aria-label={`Delete ${location.name}`}
                     disabled={remove.isPending}
                     onClick={() => {
@@ -165,131 +202,158 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                         remove.mutate(location);
                     }}
                   >
-                    <Trash2 size={16} />
-                  </button>
+                    <Trash2 size={16} aria-hidden="true" />
+                  </RheaButton>
                 </span>
               )}
             </article>
           ))}
           {!matches.length && (
-            <div className="screen-empty screen-empty--compact">
-              <MapPin size={24} />
-              <h3>{search ? "No locations match" : "No locations yet"}</h3>
-              <p>
-                {search
-                  ? "Try a different name or address."
-                  : "Add a building or campus to assign it to screens."}
-              </p>
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <MapPin size={24} aria-hidden="true" />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {search ? "No locations match" : "No locations yet"}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {search
+                    ? "Try a different name or address."
+                    : "Add a building or campus to assign it to screens."}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
         </div>
       )}
-      <Dialog
+      <RheaDialog
         open={Boolean(editing)}
-        title={editing === "new" ? "Add location" : "Edit location"}
-        onClose={() => setEditing(undefined)}
+        onOpenChange={(open) => {
+          if (!open) setEditing(undefined);
+        }}
       >
-        <form
-          className="location-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            save.mutate();
-          }}
-        >
-          <LocationField
-            label="Location name"
-            required
-            value={form.name}
-            onChange={(name) => setForm({ ...form, name })}
-          />
-          <LocationField
-            label="Address line 1"
-            value={form.addressLine1}
-            onChange={(addressLine1) => setForm({ ...form, addressLine1 })}
-          />
-          <LocationField
-            label="Address line 2"
-            value={form.addressLine2}
-            onChange={(addressLine2) => setForm({ ...form, addressLine2 })}
-          />
-          <div className="location-form__row">
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editing === "new" ? "Add location" : "Edit location"}
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              save.mutate();
+            }}
+          >
             <LocationField
-              label="City"
-              value={form.city}
-              onChange={(city) => setForm({ ...form, city })}
+              id="location-name"
+              label="Location name"
+              required
+              value={form.name}
+              onChange={(name) => setForm({ ...form, name })}
             />
             <LocationField
-              label="State"
-              value={form.state}
-              onChange={(state) => setForm({ ...form, state })}
+              id="location-address-1"
+              label="Address line 1"
+              value={form.addressLine1}
+              onChange={(addressLine1) => setForm({ ...form, addressLine1 })}
             />
             <LocationField
-              label="ZIP / postal code"
-              value={form.postalCode}
-              onChange={(postalCode) => setForm({ ...form, postalCode })}
+              id="location-address-2"
+              label="Address line 2"
+              value={form.addressLine2}
+              onChange={(addressLine2) => setForm({ ...form, addressLine2 })}
             />
-          </div>
-          <LocationField
-            label="Country"
-            value={form.country}
-            onChange={(country) => setForm({ ...form, country })}
-          />
-          <div className="location-form__row">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <LocationField
+                id="location-city"
+                label="City"
+                value={form.city}
+                onChange={(city) => setForm({ ...form, city })}
+              />
+              <LocationField
+                id="location-state"
+                label="State"
+                value={form.state}
+                onChange={(state) => setForm({ ...form, state })}
+              />
+              <LocationField
+                id="location-postal-code"
+                label="ZIP / postal code"
+                value={form.postalCode}
+                onChange={(postalCode) => setForm({ ...form, postalCode })}
+              />
+            </div>
             <LocationField
-              label="Latitude"
-              type="number"
-              value={form.latitude ?? ""}
-              onChange={(value) =>
-                setForm({
-                  ...form,
-                  latitude: value === "" ? undefined : Number(value),
-                })
-              }
+              id="location-country"
+              label="Country"
+              value={form.country}
+              onChange={(country) => setForm({ ...form, country })}
             />
-            <LocationField
-              label="Longitude"
-              type="number"
-              value={form.longitude ?? ""}
-              onChange={(value) =>
-                setForm({
-                  ...form,
-                  longitude: value === "" ? undefined : Number(value),
-                })
-              }
-            />
-          </div>
-          {save.error && (
-            <div className="notice notice--error">{save.error.message}</div>
-          )}
-          <footer className="dialog-actions">
-            <Button
-              variant="quiet"
-              type="button"
-              onClick={() => setEditing(undefined)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={!form.name.trim() || save.isPending}
-            >
-              {save.isPending ? "Saving…" : "Save location"}
-            </Button>
-          </footer>
-        </form>
-      </Dialog>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <LocationField
+                id="location-latitude"
+                label="Latitude"
+                type="number"
+                value={form.latitude ?? ""}
+                onChange={(value) =>
+                  setForm({
+                    ...form,
+                    latitude: value === "" ? undefined : Number(value),
+                  })
+                }
+              />
+              <LocationField
+                id="location-longitude"
+                label="Longitude"
+                type="number"
+                value={form.longitude ?? ""}
+                onChange={(value) =>
+                  setForm({
+                    ...form,
+                    longitude: value === "" ? undefined : Number(value),
+                  })
+                }
+              />
+            </div>
+            {save.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{save.error.message}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <RheaButton
+                variant="ghost"
+                type="button"
+                onClick={() => setEditing(undefined)}
+              >
+                Cancel
+              </RheaButton>
+              <RheaButton
+                variant="default"
+                type="submit"
+                disabled={!form.name.trim() || save.isPending}
+              >
+                {save.isPending ? "Saving…" : "Save location"}
+              </RheaButton>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </RheaDialog>
     </section>
   );
 }
 
 function LocationField({
+  id,
   label,
   value,
   onChange,
   required,
   type = "text",
 }: {
+  id: string;
   label: string;
   value: string | number;
   onChange: (value: string) => void;
@@ -297,15 +361,16 @@ function LocationField({
   type?: "text" | "number";
 }) {
   return (
-    <label className="field">
-      <span>{label}</span>
-      <input
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Input
+        id={id}
         type={type}
         step={type === "number" ? "any" : undefined}
         required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
-    </label>
+    </Field>
   );
 }

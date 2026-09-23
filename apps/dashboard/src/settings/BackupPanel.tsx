@@ -3,6 +3,16 @@ import { Download, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { BackupArchive, BackupJob } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Spinner } from "../components/ui/spinner";
 
 export function BackupPanel({ owner }: { owner: boolean }) {
   const auth = useAuth();
@@ -61,14 +71,25 @@ export function BackupPanel({ owner }: { owner: boolean }) {
     onSuccess: refresh,
   });
   if (!owner)
-    return <div className="notice">Only the Owner may manage backups.</div>;
+    return (
+      <Alert role="status">
+        <AlertDescription>Only the Owner may manage backups.</AlertDescription>
+      </Alert>
+    );
   if (query.isLoading)
-    return <div className="table-loading">Loading backups…</div>;
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner aria-hidden="true" />
+        Loading backups…
+      </p>
+    );
   if (query.error)
     return (
-      <div className="notice notice--error" role="alert">
-        Backups could not be loaded. {query.error.message}
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>
+          Backups could not be loaded. {query.error.message}
+        </AlertDescription>
+      </Alert>
     );
   const data = query.data;
   const busy = Boolean(data?.currentJob);
@@ -79,26 +100,26 @@ export function BackupPanel({ owner }: { owner: boolean }) {
     remove.error,
   ].find((error) => error && !(error instanceof CancelledAction));
   return (
-    <div className="settings-sections backup-settings">
-      <section className="settings-subsection">
-        <div className="settings-subsection__action">
-          <div>
-            <h3>Installation backups</h3>
-            <p>
+    <div className="grid gap-4">
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid gap-1">
+            <h3 className="text-base font-semibold">Installation backups</h3>
+            <p className="text-sm text-muted-foreground">
               Full backups include the database, media files, thumbnails,
               variants, and cached player updates.
             </p>
           </div>
-          <button
-            className="button button--primary"
+          <RheaButton
+            variant="default"
             disabled={busy || create.isPending}
             onClick={() => create.mutate()}
           >
             {create.isPending ? "Queuing…" : "Create backup"}
-          </button>
+          </RheaButton>
         </div>
         {data?.lastSuccessful && (
-          <p className="backup-summary">
+          <p className="text-sm text-muted-foreground">
             Last successful backup: {formatDate(data.lastSuccessful.createdAt)}
             {data.schedule.nextRunAt
               ? ` · Next scheduled: ${formatDate(data.schedule.nextRunAt)}`
@@ -107,69 +128,87 @@ export function BackupPanel({ owner }: { owner: boolean }) {
         )}
         {data?.currentJob && <JobProgress job={data.currentJob} />}
         {actionError && (
-          <div className="notice notice--error" role="alert">
-            {actionError.message}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{actionError.message}</AlertDescription>
+          </Alert>
         )}
       </section>
-      <section className="settings-subsection">
-        <header>
-          <h3>Available backups</h3>
-          <p>Verify an archive before relying on it or starting a restore.</p>
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Available backups</h3>
+          <p className="text-sm text-muted-foreground">
+            Verify an archive before relying on it or starting a restore.
+          </p>
         </header>
         {!data?.backups.length ? (
-          <div className="empty-card">No backups have been created yet.</div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No backups</EmptyTitle>
+              <EmptyDescription>
+                No backups have been created yet.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <div className="backup-list">
+          <div className="grid gap-2">
             {data.backups.map((archive) => (
-              <article className="backup-row" key={archive.id}>
-                <div className="backup-row__details">
-                  <strong>{archive.fileName}</strong>
-                  <span>
+              <article
+                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
+                key={archive.id}
+              >
+                <div className="grid min-w-0 flex-1 gap-1">
+                  <strong className="text-sm font-semibold break-all">
+                    {archive.fileName}
+                  </strong>
+                  <span className="text-sm text-muted-foreground">
                     {formatDate(archive.createdAt)} ·{" "}
                     {formatBytes(archive.sizeBytes)} · {archive.kind}
                   </span>
-                  <span>
-                    <span
-                      className={`status-badge status-badge--${archive.verification === "verified" ? "online" : "recent"}`}
+                  <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <Badge
+                      variant={
+                        archive.verification === "verified"
+                          ? "default"
+                          : "secondary"
+                      }
                     >
                       {archive.verification === "verified"
                         ? "Verified"
                         : archive.verification}
-                    </span>
+                    </Badge>
                     {" · "}Tilecast {archive.tilecastVersion} · schema{" "}
                     {archive.schemaVersion}
                   </span>
                 </div>
-                <div className="backup-row__actions">
-                  <button
-                    className="button button--quiet"
+                <div className="flex flex-wrap items-center gap-2">
+                  <RheaButton
+                    variant="ghost"
                     disabled={busy}
                     onClick={() => verify.mutate(archive.id)}
                   >
-                    <ShieldCheck size={15} /> Verify
-                  </button>
+                    <ShieldCheck size={15} aria-hidden="true" /> Verify
+                  </RheaButton>
                   <a
-                    className="button button--quiet"
+                    className={buttonVariants({ variant: "ghost" })}
                     href={`/api/v1/system/backups/${archive.id}/download`}
                   >
-                    <Download size={15} /> Download
+                    <Download size={15} aria-hidden="true" /> Download
                   </a>
-                  <button
-                    className="button button--quiet"
+                  <RheaButton
+                    variant="ghost"
                     disabled={busy}
                     onClick={() => restore.mutate(archive)}
                   >
-                    <RotateCcw size={15} /> Restore
-                  </button>
-                  <button
-                    className="button button--danger"
+                    <RotateCcw size={15} aria-hidden="true" /> Restore
+                  </RheaButton>
+                  <RheaButton
+                    variant="destructive"
                     disabled={busy}
                     onClick={() => remove.mutate(archive)}
                     aria-label={`Delete ${archive.fileName}`}
                   >
-                    <Trash2 size={15} /> Delete
-                  </button>
+                    <Trash2 size={15} aria-hidden="true" /> Delete
+                  </RheaButton>
                 </div>
               </article>
             ))}
@@ -177,20 +216,25 @@ export function BackupPanel({ owner }: { owner: boolean }) {
         )}
       </section>
       {!!data?.recentJobs.length && (
-        <section className="settings-subsection">
+        <section className="grid gap-3 rounded-xl border border-border p-4">
           <header>
-            <h3>Recent backup activity</h3>
+            <h3 className="text-base font-semibold">Recent backup activity</h3>
           </header>
-          <div className="backup-job-list">
+          <div className="grid gap-2">
             {data.recentJobs.slice(0, 5).map((job) => (
-              <div key={job.id}>
-                <span>
-                  <strong>{title(job.kind)}</strong>
-                  <small>
+              <div
+                key={job.id}
+                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-3"
+              >
+                <span className="grid gap-0.5">
+                  <strong className="text-sm font-semibold">
+                    {title(job.kind)}
+                  </strong>
+                  <small className="text-xs text-muted-foreground">
                     {formatDate(job.createdAt)} · {job.trigger}
                   </small>
                 </span>
-                <span className="backup-job-status">
+                <span className="text-sm text-muted-foreground">
                   {job.status}
                   {job.errorMessage ? ` — ${job.errorMessage}` : ""}
                 </span>
@@ -205,14 +249,19 @@ export function BackupPanel({ owner }: { owner: boolean }) {
 
 function JobProgress({ job }: { job: BackupJob }) {
   return (
-    <div className="backup-progress" role="status">
-      <div>
-        <strong>{title(job.kind)} in progress</strong>
-        <span>
+    <div
+      className="grid gap-2 rounded-xl border border-border p-3"
+      role="status"
+    >
+      <div className="grid gap-0.5">
+        <strong className="text-sm font-semibold">
+          {title(job.kind)} in progress
+        </strong>
+        <span className="text-sm text-muted-foreground">
           {job.phase || job.status} · {job.progressPercent}%
         </span>
       </div>
-      <progress max={100} value={job.progressPercent} />
+      <progress max={100} value={job.progressPercent} className="w-full" />
     </div>
   );
 }
