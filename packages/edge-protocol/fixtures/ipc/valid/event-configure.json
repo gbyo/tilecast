@@ -4,9 +4,9 @@
     "seq": 1,
     "event": "renderer.configure",
     "data": {
-      "contentStore": {
-        "layout": "cas-sha256-v1",
-        "root": "/var/lib/tilecast-edge/cas"
+      "mediaChannel": {
+        "protocol": "daemon-cap-v1",
+        "socket": "/run/tilecast-edge/media.sock"
       },
       "kiosk": {
         "preventDisplaySleep": true,

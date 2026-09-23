@@ -13,7 +13,7 @@
       },
       "content": [
         {
-          "sha256": "../../etc/passwd",
+          "uri": "tcmedia://cap/../../etc/passwd",
           "sizeBytes": 1,
           "mimeType": "image/png"
         }
