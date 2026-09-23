@@ -9,7 +9,6 @@ import "./styles.css";
 import "./styles/layout-fonts.css";
 import "./styles/signal.css";
 // Page-specific refinements intentionally load after shared Signal styles.
-import "./styles/reliability.css";
 import "./styles/screens.css";
 import "./styles/sync-groups.css";
 import "./styles/issue-fixes.css";

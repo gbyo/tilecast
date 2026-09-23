@@ -1,6 +1,12 @@
 import { Navigate, useParams, useSearchParams } from "react-router";
+import { ChevronDown } from "lucide-react";
 import { LivePreviewPanel } from "../components/LivePreviewPanel";
 import { SnapshotHistoryPanel } from "../components/SnapshotHistoryPanel";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
 import { ScreenDetailPage, normalizeScreenDetailTab } from "./ScreensPage";
 
 export function ScreenDetailWithPreviewPage() {
@@ -19,20 +25,21 @@ export function ScreenDetailWithPreviewPage() {
       {tab === "overview" && (
         <>
           <LivePreviewPanel screenId={id} />
-          <details
+          <Collapsible
+            defaultOpen={searchParams.get("tab") === "snapshots"}
             className="border-t border-border pt-4"
-            open={searchParams.get("tab") === "snapshots"}
           >
-            <summary className="cursor-pointer text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
               Snapshot history
-            </summary>
-            <div className="mt-3 space-y-2">
+              <ChevronDown size={16} aria-hidden="true" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 space-y-2">
               <p className="text-sm text-muted-foreground">
                 Previously captured frames reported by this player.
               </p>
               <SnapshotHistoryPanel screenId={id} />
-            </div>
-          </details>
+            </CollapsibleContent>
+          </Collapsible>
         </>
       )}
     </div>

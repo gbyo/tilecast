@@ -135,17 +135,6 @@ html[data-reduced-motion="true"] *::after {
   padding-top: 18px;
   border-top: 1px solid var(--tc-border-default);
 }
-.policy-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 10px;
-  margin: 12px 0 16px;
-}
-.policy-grid label {
-  display: grid;
-  gap: 5px;
-  color: var(--muted);
-}
 .command-history {
   margin-top: 14px;
   display: grid;
@@ -1578,9 +1567,6 @@ button.organizer-chip:disabled {
     max-width: none;
   }
 }
-.policy-editor {
-  margin: 20px 0;
-}
 .branding-preview {
   min-height: 150px;
   padding: 24px;
@@ -1590,34 +1576,6 @@ button.organizer-chip:disabled {
   text-align: center;
   gap: 8px;
   border: 1px solid var(--tc-border);
-}
-.policy-editor > label {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.policy-fields {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
-}
-.policy-field {
-  padding: 11px;
-  border: 1px solid var(--border);
-  display: grid;
-  gap: 8px;
-}
-.policy-field > label {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.policy-field .setting-row {
-  border: 0;
-  padding: 0;
-}
-.policy-field > small {
-  color: var(--muted);
 }
 .website-editor {
   width: min(760px, calc(100vw - 40px));
@@ -2192,7 +2150,6 @@ button.organizer-chip:disabled {
 }
 .setting-switch:focus-visible,
 .weekday-picker button:focus-visible,
-.policy-section-toggle:focus-visible,
 .settings-nav a:focus-visible {
   outline: 3px solid var(--tc-focus-ring-soft);
   outline-offset: 2px;
@@ -2478,72 +2435,6 @@ button.organizer-chip:disabled {
   padding: 0;
   margin: 0;
 }
-.snapshot-history {
-  display: grid;
-  gap: 6px;
-  padding: var(--tc-space-5) var(--tc-space-6) var(--tc-space-6);
-}
-.snapshot-history > .notice {
-  margin: 0;
-}
-/* This panel is already inside .snapshot-history-card, so the slot states drop
-   their own surface rather than drawing a second card inside the first. */
-.snapshot-history > .table-loading,
-.snapshot-history > .empty-card {
-  padding: var(--tc-space-5);
-  background: transparent;
-  border: 0;
-}
-.snapshot-history-card {
-  max-width: 1000px;
-  margin-top: var(--tc-space-5);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-  background: var(--tc-bg-surface);
-}
-.snapshot-history-card > header {
-  padding: var(--tc-space-4) var(--tc-space-6);
-  border-bottom: 1px solid var(--tc-border-default);
-}
-.snapshot-history-card > header h3,
-.snapshot-history-card > header p {
-  margin: 0;
-}
-.snapshot-history-card > header h3 {
-  font-size: 15px;
-}
-.snapshot-history-card > header p {
-  margin-top: var(--tc-space-1);
-  color: var(--tc-text-secondary);
-  font-size: 13px;
-}
-.snapshot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-}
-.snapshot-grid figure {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-}
-.snapshot-grid figcaption {
-  color: var(--tc-ink-muted);
-  font-size: 11px;
-}
-.snapshot-thumb {
-  padding: 0;
-  border: 1px solid var(--tc-border);
-  border-radius: 4px;
-  background: none;
-  cursor: pointer;
-  overflow: hidden;
-}
-.snapshot-thumb img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
 .role-description,
 .review-note .field__label {
   color: var(--tc-ink-muted);
@@ -2801,49 +2692,6 @@ button.organizer-chip:disabled {
   font-size: 12px;
   font-weight: 650;
 }
-.policy-editor {
-  padding: 20px 0;
-}
-.policy-editor__heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-}
-.policy-editor__heading h3,
-.policy-editor__heading p {
-  margin: 0 0 6px;
-}
-.policy-summary {
-  min-width: 210px;
-  display: grid;
-  gap: 3px;
-  color: var(--tc-ink-muted);
-  font-size: 12px;
-}
-.policy-summary strong {
-  color: var(--tc-ink);
-}
-.policy-priority {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) 120px;
-  margin: 22px 0;
-  padding: 14px 0;
-  border-block: 1px solid var(--tc-border);
-}
-.policy-priority span {
-  display: grid;
-  gap: 3px;
-}
-.policy-priority small {
-  color: var(--tc-ink-muted);
-}
-.policy-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 18px 0 8px;
-}
 .segmented-control {
   display: flex;
 }
@@ -2860,61 +2708,6 @@ button.organizer-chip:disabled {
   background: var(--tc-brand-soft);
   color: var(--tc-ink);
   font-weight: 650;
-}
-.policy-sections > section {
-  border-bottom: 1px solid var(--tc-border);
-}
-.policy-section-toggle {
-  width: 100%;
-  min-height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 9px 0;
-  border: 0;
-  background: transparent;
-  color: var(--tc-ink);
-  text-align: left;
-}
-.policy-section-toggle span {
-  color: var(--tc-ink-muted);
-  font-size: 12px;
-}
-.policy-row {
-  padding: 13px 0 13px 14px;
-  border-top: 1px solid color-mix(in srgb, var(--tc-border) 60%, transparent);
-}
-.policy-row__summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
-.policy-row__summary > div {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-}
-.policy-row__summary small,
-.policy-inherited,
-.policy-revision {
-  color: var(--tc-ink-muted);
-}
-.source-badge {
-  width: max-content;
-  max-width: 100%;
-  padding: 2px 6px;
-  border: 1px solid var(--tc-border);
-  font-size: 11px;
-  overflow-wrap: anywhere;
-}
-.policy-row__control {
-  max-width: 360px;
-  margin: 12px 0 0;
-}
-.policy-inherited {
-  margin: 7px 0 0;
-  font-size: 12px;
 }
 .settings-actions--separated {
   justify-content: space-between;
@@ -2994,22 +2787,6 @@ button.organizer-chip:disabled {
   .settings-table-wrap {
     max-width: calc(100vw - 38px);
     overflow-x: auto;
-  }
-  .policy-editor__heading,
-  .policy-row__summary {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .policy-summary {
-    min-width: 0;
-  }
-  .policy-priority {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 9px;
-  }
-  .policy-toolbar {
-    align-items: stretch;
-    flex-direction: column;
   }
 }
 .timeline-website-icon {

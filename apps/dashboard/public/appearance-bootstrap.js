@@ -1,3 +1,7 @@
+// First-paint appearance only. Runtime theme updates (including
+// prefers-color-scheme changes) are owned by the React ThemeProvider;
+// this script must not install a permanent media-query listener that
+// competes with it.
 (() => {
   const root = document.documentElement;
   const applyClass = (appearance) => {
@@ -9,15 +13,7 @@
   };
   try {
     const value = localStorage.getItem("tilecast.appearance");
-    const appearance = ["light", "dark", "system"].includes(value)
-      ? value
-      : "system";
-    applyClass(appearance);
-    window
-      .matchMedia("(prefers-color-scheme: dark)")
-      .addEventListener("change", () => {
-        applyClass(appearance);
-      });
+    applyClass(["light", "dark", "system"].includes(value) ? value : "system");
   } catch {
     applyClass("system");
   }

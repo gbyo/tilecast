@@ -63,6 +63,11 @@ import { Badge } from "../components/ui/badge";
 import { Button as RheaButton, buttonVariants } from "../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import {
   AlertDialog as RheaAlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -1116,7 +1121,6 @@ export function ScreenListContent({
   csrfToken?: string;
   onRefresh?: () => Promise<unknown>;
 }) {
-  const navigate = useNavigate();
   const [search, setSearch] = useStoredState<string>(
     "tilecast.screens.search",
     "",
@@ -1749,7 +1753,6 @@ export function ScreenListContent({
                           else next.delete(screen.id);
                           setSelected(next);
                         }}
-                        onOpen={() => void navigate(`/screens/${screen.id}`)}
                       />
                     ))}
                   </div>
@@ -2050,7 +2053,6 @@ export function ScreenGridCard({
   canManage,
   showLocation,
   onSelect,
-  onOpen,
 }: {
   screen: Screen;
   csrfToken: string;
@@ -2058,8 +2060,8 @@ export function ScreenGridCard({
   canManage: boolean;
   showLocation: boolean;
   onSelect: (checked: boolean) => void;
-  onOpen: () => void;
 }) {
+  const detailHref = `/screens/${screen.id}`;
   const ref = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
   const [now, setNow] = useState(Date.now);
@@ -2125,57 +2127,54 @@ export function ScreenGridCard({
   return (
     <article
       ref={ref}
-      className={`group min-w-0 overflow-hidden rounded-2xl border bg-card outline-none transition-colors hover:border-foreground/20 focus-visible:ring-3 focus-visible:ring-ring/30 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
-      role="link"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
+      className={`group min-w-0 overflow-hidden rounded-2xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
     >
-      <div
-        className={`relative grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
-        style={{
-          aspectRatio: `${screen.screenWidth || 16} / ${screen.screenHeight || 9}`,
-        }}
+      <Link
+        to={detailHref}
+        aria-label={`Open ${screen.name}`}
+        className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
       >
-        {preview.isLoading && visible ? (
-          <Skeleton
-            className="absolute inset-0 min-h-32"
-            aria-label="Loading preview"
-          />
-        ) : image ? (
-          <>
-            <img
-              className="h-full w-full object-contain"
-              src={image}
-              alt={`Latest preview from ${screen.name}`}
+        <div
+          className={`relative grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
+          style={{
+            aspectRatio: `${screen.screenWidth || 16} / ${screen.screenHeight || 9}`,
+          }}
+        >
+          {preview.isLoading && visible ? (
+            <Skeleton
+              className="absolute inset-0 min-h-32"
+              aria-label="Loading preview"
             />
-            {age && (
-              <Badge
-                variant="secondary"
-                className="pointer-events-none absolute right-2 bottom-2 border-white/10 bg-black/60 text-white"
-                aria-label={`Snapshot captured ${age.label}`}
-                title={`Captured ${new Date(
-                  preview.data?.capturedAt ?? "",
-                ).toLocaleString()}`}
-              >
-                {age.label}
-              </Badge>
-            )}
-          </>
-        ) : (
-          <span className="grid min-h-32 place-items-center gap-1 text-center text-xs text-slate-300">
-            <Monitor className="size-6" aria-hidden="true" />
-            {screen.status === "offline"
-              ? "Screen offline"
-              : "Preview unavailable"}
-          </span>
-        )}
-      </div>
+          ) : image ? (
+            <>
+              <img
+                className="h-full w-full object-contain"
+                src={image}
+                alt={`Latest preview from ${screen.name}`}
+              />
+              {age && (
+                <Badge
+                  variant="secondary"
+                  className="pointer-events-none absolute right-2 bottom-2 border-white/10 bg-black/60 text-white"
+                  aria-label={`Snapshot captured ${age.label}`}
+                  title={`Captured ${new Date(
+                    preview.data?.capturedAt ?? "",
+                  ).toLocaleString()}`}
+                >
+                  {age.label}
+                </Badge>
+              )}
+            </>
+          ) : (
+            <span className="grid min-h-32 place-items-center gap-1 text-center text-xs text-slate-300">
+              <Monitor className="size-6" aria-hidden="true" />
+              {screen.status === "offline"
+                ? "Screen offline"
+                : "Preview unavailable"}
+            </span>
+          )}
+        </div>
+      </Link>
       <div className="grid gap-3 p-3">
         <header className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
           {canManage && (
@@ -2183,24 +2182,22 @@ export function ScreenGridCard({
               aria-label={`Select ${screen.name}`}
               checked={selected}
               onCheckedChange={(checked) => onSelect(checked === true)}
-              onClick={(event) => event.stopPropagation()}
             />
           )}
           <span className="grid min-w-0 gap-0.5">
-            <strong className="truncate text-sm font-medium">
+            <Link
+              to={detailHref}
+              className="truncate text-sm font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
               {screen.name}
-            </strong>
+            </Link>
             <small className="truncate text-xs text-muted-foreground">
               {[showLocation ? screen.location : "", roomLabel(screen)]
                 .filter(Boolean)
                 .join(" · ") || "Unassigned"}
             </small>
           </span>
-          <div
-            className="shrink-0"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-          >
+          <div className="shrink-0">
             <RheaDropdownMenu>
               <DropdownMenuTrigger
                 render={<RheaButton variant="ghost" size="icon-sm" />}
@@ -3018,10 +3015,17 @@ export function ScreenDetailPage() {
   const listedScreen = screens.data?.items?.find((screen) => screen.id === id);
   const screen = resolveScreenDetail(query.data, listedScreen);
   if (query.isLoading && !screen)
-    return <div className="table-loading">Loading screen…</div>;
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-56" />
+        <p className="text-sm text-muted-foreground">Loading screen…</p>
+      </div>
+    );
   if (!screen)
     return (
-      <div className="notice notice--error">Screen could not be loaded.</div>
+      <Alert variant="destructive">
+        <AlertDescription>Screen could not be loaded.</AlertDescription>
+      </Alert>
     );
   const displayCapabilities =
     reliability.data?.displayControlCapabilities ?? {};
@@ -3608,93 +3612,96 @@ export function ScreenDetailPage() {
                   }
                 />
               </dl>
-              <details className="group border-t border-border pt-3">
-                <summary className="cursor-pointer text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Collapsible className="border-t border-border pt-3">
+                <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   Playback diagnostics
-                </summary>
-                <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <OverviewFact
-                    label="Server manifest"
-                    value={`Version ${assignment.data?.manifestVersion ?? 1}`}
-                  />
-                  <OverviewFact
-                    label="Player configuration"
-                    value={
-                      assignment.data?.activeConfigRevision != null
-                        ? `Revision ${assignment.data.activeConfigRevision}`
-                        : "Not reported"
-                    }
-                  />
-                  <OverviewFact
-                    label="Player manifest"
-                    value={
-                      assignment.data?.playerActiveManifestVersion != null
-                        ? `Version ${assignment.data.playerActiveManifestVersion}`
-                        : "Not reported"
-                    }
-                  />
-                  <OverviewFact
-                    label="Synchronization"
-                    value={
-                      assignment.data?.synchronizationStatus?.replaceAll(
-                        "_",
-                        " ",
-                      ) ?? "Not reported"
-                    }
-                  />
-                  <OverviewFact
-                    label="Device clock difference"
-                    value={
-                      assignment.data?.deviceClockOffsetSeconds != null
-                        ? `${Math.abs(assignment.data.deviceClockOffsetSeconds)} seconds`
-                        : "Not reported"
-                    }
-                  />
-                  <OverviewFact
-                    label="Downloads"
-                    value={
-                      assignment.data?.downloadQueueCount != null
-                        ? `${assignment.data.downloadQueueCount} queued · ${assignment.data.downloadedBytes ?? 0} of ${assignment.data.requiredBytes ?? 0} bytes`
-                        : "Not reported"
-                    }
-                  />
-                  <OverviewFact
-                    label="Website playback"
-                    value={
-                      assignment.data?.websiteState
-                        ? `${assignment.data.websiteState?.replaceAll("_", " ") ?? "Not reported"}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
-                        : "Not active"
-                    }
-                  />
-                  <OverviewFact
-                    label="Blocked website navigation"
-                    value={
-                      assignment.data?.websiteBlockedNavigationCount ??
-                      "Not reported"
-                    }
-                  />
-                  <OverviewFact
-                    label="Playback"
-                    value={assignment.data?.playbackState ?? "Not reported"}
-                  />
-                  <OverviewFact
-                    label="Takeover"
-                    value={
-                      assignment.data?.activeTakeoverId
-                        ? `${assignment.data.takeoverState ?? "pending"} · ${assignment.data.takeoverPreparationProgress ?? 0}% prepared`
-                        : "No active takeover"
-                    }
-                  />
-                  <OverviewFact
-                    label="Cache"
-                    value={
-                      assignment.data?.cacheUsedBytes != null
-                        ? `${assignment.data.cacheUsedBytes} of ${assignment.data.cacheLimitBytes ?? 0} bytes`
-                        : "Not reported"
-                    }
-                  />
-                </dl>
-              </details>
+                  <ChevronDown size={16} aria-hidden="true" />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <OverviewFact
+                      label="Server manifest"
+                      value={`Version ${assignment.data?.manifestVersion ?? 1}`}
+                    />
+                    <OverviewFact
+                      label="Player configuration"
+                      value={
+                        assignment.data?.activeConfigRevision != null
+                          ? `Revision ${assignment.data.activeConfigRevision}`
+                          : "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Player manifest"
+                      value={
+                        assignment.data?.playerActiveManifestVersion != null
+                          ? `Version ${assignment.data.playerActiveManifestVersion}`
+                          : "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Synchronization"
+                      value={
+                        assignment.data?.synchronizationStatus?.replaceAll(
+                          "_",
+                          " ",
+                        ) ?? "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Device clock difference"
+                      value={
+                        assignment.data?.deviceClockOffsetSeconds != null
+                          ? `${Math.abs(assignment.data.deviceClockOffsetSeconds)} seconds`
+                          : "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Downloads"
+                      value={
+                        assignment.data?.downloadQueueCount != null
+                          ? `${assignment.data.downloadQueueCount} queued · ${assignment.data.downloadedBytes ?? 0} of ${assignment.data.requiredBytes ?? 0} bytes`
+                          : "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Website playback"
+                      value={
+                        assignment.data?.websiteState
+                          ? `${assignment.data.websiteState?.replaceAll("_", " ") ?? "Not reported"}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
+                          : "Not active"
+                      }
+                    />
+                    <OverviewFact
+                      label="Blocked website navigation"
+                      value={
+                        assignment.data?.websiteBlockedNavigationCount ??
+                        "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Playback"
+                      value={assignment.data?.playbackState ?? "Not reported"}
+                    />
+                    <OverviewFact
+                      label="Takeover"
+                      value={
+                        assignment.data?.activeTakeoverId
+                          ? `${assignment.data.takeoverState ?? "pending"} · ${assignment.data.takeoverPreparationProgress ?? 0}% prepared`
+                          : "No active takeover"
+                      }
+                    />
+                    <OverviewFact
+                      label="Cache"
+                      value={
+                        assignment.data?.cacheUsedBytes != null
+                          ? `${assignment.data.cacheUsedBytes} of ${assignment.data.cacheLimitBytes ?? 0} bytes`
+                          : "Not reported"
+                      }
+                    />
+                  </dl>
+                </CollapsibleContent>
+              </Collapsible>
               {assignment.error && (
                 <Alert variant="destructive">
                   <CircleAlert aria-hidden="true" />
@@ -3813,11 +3820,13 @@ export function ScreenDetailPage() {
 
             {manageSection === "health" && (
               <section
-                className="operations"
+                className="space-y-3"
                 aria-labelledby="reliability-heading"
               >
-                <h3 id="reliability-heading">Health &amp; recovery</h3>
-                <p>
+                <h3 id="reliability-heading" className="text-sm font-semibold">
+                  Health &amp; recovery
+                </h3>
+                <p className="text-sm text-muted-foreground">
                   Configured behavior is reported separately from capabilities
                   confirmed by this device. Platform-specific controls appear
                   only when the player reports support.
@@ -4077,45 +4086,54 @@ export function ScreenDetailPage() {
                   </div>
                 </dl>
                 {reliabilityCapabilityWarning(reliability.data) && (
-                  <div className="notice notice--warning">
-                    {reliabilityCapabilityWarning(reliability.data)}
-                  </div>
+                  <Alert>
+                    <AlertDescription>
+                      {reliabilityCapabilityWarning(reliability.data)}
+                    </AlertDescription>
+                  </Alert>
                 )}
                 {autostartWarning(reliability.data) && (
-                  <div className="notice notice--warning">
-                    {autostartWarning(reliability.data)}
-                  </div>
+                  <Alert>
+                    <AlertDescription>
+                      {autostartWarning(reliability.data)}
+                    </AlertDescription>
+                  </Alert>
                 )}
                 {canManageScreens(auth.status?.user) && (
                   <>
                     <section
-                      className="reliability-controls"
+                      className="overflow-hidden rounded-xl border border-border"
                       aria-labelledby="reliability-controls-title"
                     >
-                      <header className="reliability-section-heading">
-                        <div>
-                          <h4 id="reliability-controls-title">
+                      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-3">
+                        <div className="space-y-0.5">
+                          <h4
+                            id="reliability-controls-title"
+                            className="text-sm font-medium"
+                          >
                             Player controls
                           </h4>
-                          <p>
+                          <p className="text-sm text-muted-foreground">
                             Run a focused recovery action without leaving this
                             screen.
                           </p>
                         </div>
-                        {command.isPending && (
-                          <span className="status-badge">Sending…</span>
-                        )}
+                        {command.isPending && <Badge>Sending…</Badge>}
                       </header>
-                      <div className="reliability-control-groups">
+                      <div className="grid gap-3 p-4 md:grid-cols-2">
                         {isAndroidScreen(screen.platform) && (
-                          <div className="reliability-control-group">
-                            <div>
-                              <h5>Power Assist</h5>
-                              <p>Test Android sleep and wake behavior.</p>
+                          <div className="space-y-3 rounded-xl border border-border p-4">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                Power Assist
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
+                                Test Android sleep and wake behavior.
+                              </p>
                             </div>
-                            <div className="reliability-button-grid">
-                              <button
-                                className="button button--secondary"
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              <RheaButton
+                                variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
                                   command.mutate({
@@ -4125,9 +4143,9 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Test sleep
-                              </button>
-                              <button
-                                className="button button--secondary"
+                              </RheaButton>
+                              <RheaButton
+                                variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
                                   command.mutate({
@@ -4137,21 +4155,21 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Test wake
-                              </button>
+                              </RheaButton>
                             </div>
                           </div>
                         )}
-                        <div className="reliability-control-group">
-                          <div>
-                            <h5>Recovery</h5>
-                            <p>
+                        <div className="space-y-3 rounded-xl border border-border p-4">
+                          <div className="space-y-0.5">
+                            <h5 className="text-sm font-medium">Recovery</h5>
+                            <p className="text-sm text-muted-foreground">
                               Retry recovery or leave safe mode after resolving
                               a fault.
                             </p>
                           </div>
-                          <div className="reliability-button-grid">
-                            <button
-                              className="button button--secondary"
+                          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                            <RheaButton
+                              variant="outline"
                               disabled={command.isPending}
                               onClick={() =>
                                 command.mutate({
@@ -4161,9 +4179,9 @@ export function ScreenDetailPage() {
                               }
                             >
                               Retry recovery
-                            </button>
-                            <button
-                              className="button button--secondary"
+                            </RheaButton>
+                            <RheaButton
+                              variant="outline"
                               disabled={
                                 command.isPending || !reliability.data?.safeMode
                               }
@@ -4175,14 +4193,16 @@ export function ScreenDetailPage() {
                               }
                             >
                               Exit safe mode
-                            </button>
+                            </RheaButton>
                           </div>
                         </div>
                         {reportsAutostart(reliability.data) && (
-                          <div className="reliability-control-group">
-                            <div>
-                              <h5>Linux autostart</h5>
-                              <p>
+                          <div className="space-y-3 rounded-xl border border-border p-4">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                Linux autostart
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
                                 Installs the player's own systemd user service
                                 so it starts with the graphical session and
                                 restarts after any exit. Setting up is safe
@@ -4199,9 +4219,9 @@ export function ScreenDetailPage() {
                                 operating-system setup.
                               </p>
                             </div>
-                            <div className="reliability-button-grid">
-                              <button
-                                className="button button--secondary"
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              <RheaButton
+                                variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
                                   command.mutate({
@@ -4211,9 +4231,9 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Set up autostart
-                              </button>
-                              <button
-                                className="button button--secondary"
+                              </RheaButton>
+                              <RheaButton
+                                variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
                                   requestScreenCommand({
@@ -4229,15 +4249,17 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Remove autostart
-                              </button>
+                              </RheaButton>
                             </div>
                           </div>
                         )}
                         {screen.platform.toLowerCase() === "linux" && (
-                          <div className="reliability-control-group reliability-control-group--wide">
-                            <div>
-                              <h5>Display Control</h5>
-                              <p>
+                          <div className="space-y-3 rounded-xl border border-border p-4 md:col-span-2">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                Display Control
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
                                 Player connectivity and display power are
                                 separate states. Controls appear only for
                                 capabilities reported by this player; provider
@@ -4245,11 +4267,11 @@ export function ScreenDetailPage() {
                                 sent without a confirmed panel state.
                               </p>
                             </div>
-                            <div className="reliability-button-grid reliability-button-grid--wide">
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 lg:grid-cols-4 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
                               {displayCapabilities.power && (
                                 <>
-                                  <button
-                                    className="button button--secondary"
+                                  <RheaButton
+                                    variant="outline"
                                     disabled={command.isPending}
                                     onClick={() =>
                                       command.mutate({
@@ -4259,9 +4281,9 @@ export function ScreenDetailPage() {
                                     }
                                   >
                                     Power on display
-                                  </button>
-                                  <button
-                                    className="button button--secondary"
+                                  </RheaButton>
+                                  <RheaButton
+                                    variant="outline"
                                     disabled={command.isPending}
                                     onClick={() =>
                                       command.mutate({
@@ -4271,12 +4293,12 @@ export function ScreenDetailPage() {
                                     }
                                   >
                                     Power off display
-                                  </button>
+                                  </RheaButton>
                                 </>
                               )}
                               {displayCapabilities.input && (
-                                <button
-                                  className="button button--secondary"
+                                <RheaButton
+                                  variant="outline"
                                   disabled={command.isPending}
                                   onClick={() =>
                                     requestScreenCommand({
@@ -4296,11 +4318,11 @@ export function ScreenDetailPage() {
                                   }
                                 >
                                   Set display input
-                                </button>
+                                </RheaButton>
                               )}
                               {displayCapabilities.volume && (
-                                <button
-                                  className="button button--secondary"
+                                <RheaButton
+                                  variant="outline"
                                   disabled={command.isPending}
                                   onClick={() =>
                                     requestScreenCommand({
@@ -4321,12 +4343,12 @@ export function ScreenDetailPage() {
                                   }
                                 >
                                   Set display volume
-                                </button>
+                                </RheaButton>
                               )}
                               {displayCapabilities.mute && (
                                 <>
-                                  <button
-                                    className="button button--secondary"
+                                  <RheaButton
+                                    variant="outline"
                                     disabled={command.isPending}
                                     onClick={() =>
                                       command.mutate({
@@ -4336,9 +4358,9 @@ export function ScreenDetailPage() {
                                     }
                                   >
                                     Mute display
-                                  </button>
-                                  <button
-                                    className="button button--secondary"
+                                  </RheaButton>
+                                  <RheaButton
+                                    variant="outline"
                                     disabled={command.isPending}
                                     onClick={() =>
                                       command.mutate({
@@ -4348,12 +4370,12 @@ export function ScreenDetailPage() {
                                     }
                                   >
                                     Unmute display
-                                  </button>
+                                  </RheaButton>
                                 </>
                               )}
                               {displayCapabilities.brightness && (
-                                <button
-                                  className="button button--secondary"
+                                <RheaButton
+                                  variant="outline"
                                   disabled={command.isPending}
                                   onClick={() =>
                                     requestScreenCommand({
@@ -4376,10 +4398,10 @@ export function ScreenDetailPage() {
                                   }
                                 >
                                   Set display brightness
-                                </button>
+                                </RheaButton>
                               )}
-                              <button
-                                className="button button--secondary"
+                              <RheaButton
+                                variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
                                   command.mutate({
@@ -4389,9 +4411,9 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Probe display capabilities
-                              </button>
+                              </RheaButton>
                               {!hasDisplayControl && (
-                                <span className="field__hint">
+                                <span className="text-sm text-muted-foreground">
                                   No HDMI-CEC or DDC/CI capability is currently
                                   reported.
                                 </span>
@@ -4400,18 +4422,20 @@ export function ScreenDetailPage() {
                           </div>
                         )}
                         {screen.platform.toLowerCase() === "linux" && (
-                          <div className="reliability-control-group">
-                            <div>
-                              <h5>AirPlay diagnostics</h5>
-                              <p>
+                          <div className="space-y-3 rounded-xl border border-border p-4">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                AirPlay diagnostics
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
                                 Probe UxPlay, GStreamer, VA-API, audio, and
                                 local Avahi support without advertising a
                                 receiver.
                               </p>
                             </div>
-                            <div className="reliability-button-grid">
-                              <button
-                                className="button button--secondary"
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              <RheaButton
+                                variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
                                   command.mutate({
@@ -4421,19 +4445,21 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Test AirPlay support
-                              </button>
+                              </RheaButton>
                             </div>
                           </div>
                         )}
-                        <div className="reliability-control-group reliability-control-group--wide">
-                          <div>
-                            <h5>Playback and player</h5>
-                            <p>
+                        <div className="space-y-3 rounded-xl border border-border p-4 md:col-span-2">
+                          <div className="space-y-0.5">
+                            <h5 className="text-sm font-medium">
+                              Playback and player
+                            </h5>
+                            <p className="text-sm text-muted-foreground">
                               Use the least disruptive action that matches the
                               problem.
                             </p>
                           </div>
-                          <div className="reliability-button-grid reliability-button-grid--wide">
+                          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 lg:grid-cols-4 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
                             {(
                               [
                                 ["retry_current_item", "Retry item"],
@@ -4449,16 +4475,16 @@ export function ScreenDetailPage() {
                                 ["run_player_self_test", "Run self-test"],
                               ] as const
                             ).map(([type, label]) => (
-                              <button
+                              <RheaButton
+                                variant="outline"
                                 key={type}
-                                className="button button--secondary"
                                 disabled={command.isPending}
                                 onClick={() =>
                                   command.mutate({ type, payload: {} })
                                 }
                               >
                                 {label}
-                              </button>
+                              </RheaButton>
                             ))}
                           </div>
                         </div>
@@ -4472,31 +4498,31 @@ export function ScreenDetailPage() {
 
             {manageSection === "maintenance" &&
               canManageScreens(auth.status?.user) && (
-                <section className="operations">
-                  <h3>Maintenance</h3>
-                  <p>
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold">Maintenance</h3>
+                  <p className="text-sm text-muted-foreground">
                     Commands remain pending during brief disconnections and
                     expire automatically.
                   </p>
-                  <div className="heading-actions">
-                    <button
-                      className="button button--secondary"
+                  <div className="flex flex-wrap items-center gap-2">
+                    <RheaButton
+                      variant="outline"
                       onClick={() =>
                         command.mutate({ type: "sync_now", payload: {} })
                       }
                     >
                       Sync now
-                    </button>
-                    <button
-                      className="button button--secondary"
+                    </RheaButton>
+                    <RheaButton
+                      variant="outline"
                       onClick={() =>
                         command.mutate({ type: "reload_playback", payload: {} })
                       }
                     >
                       Reload playback
-                    </button>
-                    <button
-                      className="button button--secondary"
+                    </RheaButton>
+                    <RheaButton
+                      variant="outline"
                       onClick={() =>
                         command.mutate({
                           type: "identify_screen",
@@ -4505,9 +4531,9 @@ export function ScreenDetailPage() {
                       }
                     >
                       Identify screen
-                    </button>
-                    <button
-                      className="button button--danger-quiet"
+                    </RheaButton>
+                    <RheaButton
+                      variant="destructive"
                       onClick={() =>
                         requestScreenCommand({
                           kind: "confirm",
@@ -4522,9 +4548,9 @@ export function ScreenDetailPage() {
                       }
                     >
                       Clear media cache
-                    </button>
-                    <button
-                      className="button button--danger-quiet"
+                    </RheaButton>
+                    <RheaButton
+                      variant="destructive"
                       onClick={() =>
                         requestScreenCommand({
                           kind: "confirm",
@@ -4539,9 +4565,9 @@ export function ScreenDetailPage() {
                       }
                     >
                       Clear website data
-                    </button>
-                    <button
-                      className="button button--danger-quiet"
+                    </RheaButton>
+                    <RheaButton
+                      variant="destructive"
                       onClick={() => {
                         const disabling = !assignment.data?.playbackDisabled;
                         if (!disabling) {
@@ -4566,24 +4592,29 @@ export function ScreenDetailPage() {
                       {assignment.data?.playbackDisabled
                         ? "Enable playback"
                         : "Disable playback"}
-                    </button>
+                    </RheaButton>
                   </div>
                   {command.isSuccess && (
-                    <p>Command queued; this does not mean it has completed.</p>
+                    <p className="text-sm text-muted-foreground">
+                      Command queued; this does not mean it has completed.
+                    </p>
                   )}
-                  <div className="command-history">
+                  <div className="grid gap-2">
                     {commands.data?.items?.map((c) => (
-                      <div key={c.id}>
-                        <strong>
+                      <div
+                        key={c.id}
+                        className="space-y-0.5 rounded-lg border border-border px-3 py-2"
+                      >
+                        <p className="text-sm font-medium">
                           {c.type?.replaceAll("_", " ") ?? "Unknown command"}
-                        </strong>
-                        <span>
+                        </p>
+                        <p className="text-sm text-muted-foreground">
                           {c.state} · {new Date(c.createdAt).toLocaleString()}
-                        </span>
-                        <small>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
                           {c.resultCode?.replaceAll("_", " ") ??
                             "No result yet"}
-                        </small>
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -4591,29 +4622,37 @@ export function ScreenDetailPage() {
               )}
             {manageSection === "maintenance" &&
               !canManageScreens(auth.status?.user) && (
-                <section className="operations">
-                  <h3>Recent operations</h3>
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold">Recent operations</h3>
                   {commands.isLoading ? (
-                    <div className="table-loading">Loading operations…</div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-56" />
+                      <p className="text-sm text-muted-foreground">
+                        Loading operations…
+                      </p>
+                    </div>
                   ) : (commands.data?.items?.length ?? 0) === 0 ? (
                     <p>
                       No maintenance commands have been sent to this screen. An
                       Owner or Administrator can send them.
                     </p>
                   ) : (
-                    <div className="command-history">
+                    <div className="grid gap-2">
                       {commands.data?.items?.map((c) => (
-                        <div key={c.id}>
-                          <strong>
+                        <div
+                          key={c.id}
+                          className="space-y-0.5 rounded-lg border border-border px-3 py-2"
+                        >
+                          <p className="text-sm font-medium">
                             {c.type?.replaceAll("_", " ") ?? "Unknown command"}
-                          </strong>
-                          <span>
+                          </p>
+                          <p className="text-sm text-muted-foreground">
                             {c.state} · {new Date(c.createdAt).toLocaleString()}
-                          </span>
-                          <small>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
                             {c.resultCode?.replaceAll("_", " ") ??
                               "No result yet"}
-                          </small>
+                          </p>
                         </div>
                       ))}
                     </div>

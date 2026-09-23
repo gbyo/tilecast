@@ -112,7 +112,7 @@ export function OperationsDashboard() {
       )}
 
       {screens.isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }, (_, index) => (
             <div key={index} className="rounded-xl border bg-card p-4">
               <Skeleton className="h-7 w-20" />
@@ -122,7 +122,7 @@ export function OperationsDashboard() {
         </div>
       ) : !screens.isError && !emptyInstallation ? (
         <section
-          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
           aria-label="Current status"
         >
           <Summary
@@ -359,7 +359,7 @@ function PlayerUpdates({
         </div>
         <Link
           className="shrink-0 text-sm underline underline-offset-4"
-          to="/settings/player-updates"
+          to="/settings/player/updates"
         >
           Update center
         </Link>

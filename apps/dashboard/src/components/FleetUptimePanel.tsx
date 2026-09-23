@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { CircleAlert, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  ChevronDown,
+  CircleAlert,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { api } from "../api/client";
 import type {
   UptimeBucket,
@@ -14,12 +19,19 @@ import type {
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from "./ui/chart";
 import { Skeleton } from "./ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
 
 const windows: { key: UptimeWindow; label: string }[] = [
   { key: "24h", label: "24 hours" },
@@ -136,10 +148,12 @@ export function FleetUptimePanel({
 }
 
 function UptimeBody({ report }: { report: UptimeReport }) {
+  const [screensOpen, setScreensOpen] = useState(false);
   const chartData = report.buckets.map((bucket) => ({
     ...bucket,
     tick: bucket.start,
   }));
+  const hasChartData = chartData.length > 0;
   return (
     <>
       <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
@@ -165,96 +179,110 @@ function UptimeBody({ report }: { report: UptimeReport }) {
         </dl>
       </div>
 
-      <ChartContainer
-        config={chartConfig}
-        className="h-48 w-full aspect-auto"
-        initialDimension={{ width: 720, height: 192 }}
-        role="img"
-        aria-label={chartDescription(report)}
-      >
-        <BarChart data={chartData} accessibilityLayer>
-          <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey="tick"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            interval="preserveStartEnd"
-            tickFormatter={(value: string) => formatAxis(value, report.window)}
-          />
-          <YAxis
-            domain={[0, 100]}
-            tickLine={false}
-            axisLine={false}
-            width={34}
-            tickFormatter={(value: number) => `${value}%`}
-          />
-          <ChartTooltip
-            cursor={false}
-            content={
-              <ChartTooltipContent
-                labelFormatter={(_label, payload) => {
-                  const start = readString(
-                    payload?.[0]?.payload as unknown,
-                    "start",
-                  );
-                  return typeof start === "string"
-                    ? formatRange(start, report.bucketSeconds)
-                    : report.windowLabel;
-                }}
-                formatter={(value, name) => (
-                  <span className="flex items-center justify-between gap-4">
-                    <span>
-                      {chartConfig[String(name) as keyof typeof chartConfig]
-                        ?.label ?? String(name)}
-                    </span>
-                    <span className="font-mono font-medium tabular-nums">
-                      {Number(value).toFixed(1)}%
-                    </span>
-                  </span>
-                )}
+      {hasChartData ? (
+        <>
+          <ChartContainer
+            config={chartConfig}
+            className="h-48 w-full aspect-auto"
+            initialDimension={{ width: 720, height: 192 }}
+            role="img"
+            aria-label={chartDescription(report)}
+          >
+            <BarChart data={chartData} accessibilityLayer>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="tick"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                interval="preserveStartEnd"
+                tickFormatter={(value: string) =>
+                  formatAxis(value, report.window)
+                }
               />
-            }
-          />
-          <Bar dataKey="upPercent" stackId="health" fill="var(--color-up)" />
-          <Bar
-            dataKey="impairedPercent"
-            stackId="health"
-            fill="var(--color-impaired)"
-          />
-          <Bar
-            dataKey="downPercent"
-            stackId="health"
-            fill="var(--color-down)"
-          />
-          <Bar
-            dataKey="unknownPercent"
-            stackId="health"
-            fill="var(--color-unknown)"
-          />
-        </BarChart>
-      </ChartContainer>
+              <YAxis
+                domain={[0, 100]}
+                tickLine={false}
+                axisLine={false}
+                width={34}
+                tickFormatter={(value: number) => `${value}%`}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(_label, payload) => {
+                      const start = readString(
+                        payload?.[0]?.payload as unknown,
+                        "start",
+                      );
+                      return typeof start === "string"
+                        ? formatRange(start, report.bucketSeconds)
+                        : report.windowLabel;
+                    }}
+                    formatter={(value, name) => (
+                      <span className="flex items-center justify-between gap-4">
+                        <span>
+                          {chartConfig[String(name) as keyof typeof chartConfig]
+                            ?.label ?? String(name)}
+                        </span>
+                        <span className="font-mono font-medium tabular-nums">
+                          {formatTooltipPercent(value)}
+                        </span>
+                      </span>
+                    )}
+                  />
+                }
+              />
+              <Bar
+                dataKey="upPercent"
+                name="up"
+                stackId="health"
+                fill="var(--color-up)"
+              />
+              <Bar
+                dataKey="impairedPercent"
+                name="impaired"
+                stackId="health"
+                fill="var(--color-impaired)"
+              />
+              <Bar
+                dataKey="downPercent"
+                name="down"
+                stackId="health"
+                fill="var(--color-down)"
+              />
+              <Bar
+                dataKey="unknownPercent"
+                name="unknown"
+                stackId="health"
+                fill="var(--color-unknown)"
+              />
+              <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+            </BarChart>
+          </ChartContainer>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Not enough interval data to chart yet. The figures above reflect
+          reported state.
+        </p>
+      )}
 
-      <div
-        className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
-        aria-label="Chart legend"
+      <Collapsible
+        open={screensOpen}
+        onOpenChange={setScreensOpen}
+        className="border-t border-border pt-3"
       >
-        {(Object.keys(stateLabels) as UptimeState[]).map((state) => (
-          <span key={state} className="inline-flex items-center gap-1.5">
-            <span
-              className={`size-2 rounded-full ${stateClass[state]}`}
-              aria-hidden="true"
-            />
-            {stateLabels[state]}
-          </span>
-        ))}
-      </div>
-
-      <details className="border-t border-border pt-3">
-        <summary className="cursor-pointer text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          Per screen · {screenBreakdown(report)}
-        </summary>
-        <div className="mt-3 divide-y divide-border">
+        <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span>Per screen · {screenBreakdown(report)}</span>
+          <ChevronDown
+            size={16}
+            aria-hidden="true"
+            className={screensOpen ? "rotate-180" : undefined}
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-3 divide-y divide-border">
           {report.screens.map((screen) => (
             <ScreenRow
               key={screen.screenId}
@@ -263,14 +291,14 @@ function UptimeBody({ report }: { report: UptimeReport }) {
               buckets={report.buckets}
             />
           ))}
-        </div>
+        </CollapsibleContent>
         {report.screens.length < report.screensTracked && (
           <p className="mt-2 text-xs text-muted-foreground">
             Showing the lowest {report.screens.length} of{" "}
             {report.screensTracked} screens.
           </p>
         )}
-      </details>
+      </Collapsible>
     </>
   );
 }
@@ -400,11 +428,17 @@ function formatAxis(start: string, window: UptimeWindow) {
 }
 
 function formatPercent(value: number | null) {
-  if (value === null) return "—";
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
   return value === 100 ? "100%" : `${value.toFixed(1)}%`;
 }
 
+function formatTooltipPercent(value: unknown) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${numeric.toFixed(1)}%` : "—";
+}
+
 function formatSeconds(seconds: number) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds)) return "—";
   if (seconds <= 0) return "None";
   const days = Math.floor(seconds / 86_400);
   const hours = Math.floor((seconds % 86_400) / 3600);

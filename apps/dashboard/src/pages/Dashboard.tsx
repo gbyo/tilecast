@@ -56,6 +56,22 @@ export function DashboardShell() {
       // The built-in sidebar still works when browser storage is unavailable.
     }
   }, [sidebarCompact]);
+  const serverAppearance =
+    typeof preferences.data?.values?.["preference.appearance"] === "string"
+      ? String(preferences.data.values["preference.appearance"])
+      : null;
+  useEffect(() => {
+    // Keep the first-paint bootstrap value in sync with the resolved server
+    // preference so reloads do not briefly flash a stale local appearance.
+    if (!serverAppearance) return;
+    try {
+      if (window.localStorage.getItem(appearanceKey) !== serverAppearance) {
+        window.localStorage.setItem(appearanceKey, serverAppearance);
+      }
+    } catch {
+      // Preference state remains available from the server when storage is disabled.
+    }
+  }, [serverAppearance]);
   useEffect(() => {
     if (!auth.isLoading && !auth.status?.authenticated) {
       void navigate(
@@ -85,10 +101,7 @@ export function DashboardShell() {
   }
 
   const values = preferences.data?.values;
-  const appearance =
-    typeof values?.["preference.appearance"] === "string"
-      ? String(values["preference.appearance"])
-      : readAppearance();
+  const appearance = serverAppearance ?? readAppearance();
   const density =
     typeof values?.["preference.density"] === "string"
       ? String(values["preference.density"])

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
@@ -97,6 +98,9 @@ describe("FleetUptimePanel", () => {
     expect(screen.getByText("15m")).toBeTruthy();
     expect(screen.getByText("1 of 2")).toBeTruthy();
     expect(screen.getByText("+5.0 points vs previous window")).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: /^Per screen · / }),
+    );
     // The worst screen keeps the order the server ranked it in.
     const links = screen
       .getAllByRole("link")
@@ -105,6 +109,10 @@ describe("FleetUptimePanel", () => {
     expect(links).toEqual(["Library", "Cafeteria"]);
     expect(screen.getByText("30m down")).toBeTruthy();
     expect(screen.getByText("No interruptions")).toBeTruthy();
+    // The chart legend names each series in text, not colour alone.
+    for (const label of ["Up", "Impaired", "Down", "No data"]) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
   });
 
   it("keeps the per-screen strips collapsed so the overview stays short", async () => {
@@ -113,8 +121,11 @@ describe("FleetUptimePanel", () => {
     );
     renderPanel();
 
-    const disclosure = await screen.findByText(/^Per screen · /);
-    expect(disclosure.closest("details")?.hasAttribute("open")).toBe(false);
+    const disclosure = await screen.findByRole("button", {
+      name: /^Per screen · /,
+    });
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Library")).toBeNull();
     // A player that has not reported state yet is counted, not hidden.
     expect(disclosure.textContent).toBe(
       "Per screen · 3 screens · 1 with downtime · 1 not measured yet",
@@ -143,6 +154,40 @@ describe("FleetUptimePanel", () => {
 
     await waitFor(() => expect(screen.getByText("91.5%")).toBeTruthy());
     expect(fleetUptime).toHaveBeenCalledWith("7d");
+  });
+
+  it("renders measured figures without NaN or an empty chart when buckets are sparse", async () => {
+    vi.spyOn(api, "fleetUptime").mockResolvedValue(
+      report({
+        buckets: [],
+        screensUnmeasured: 1,
+        screens: [
+          {
+            screenId: "screen-new",
+            screenName: "New screen",
+            uptimePercent: null,
+            trackedSeconds: 0,
+            upSeconds: 0,
+            impairedSeconds: 0,
+            downSeconds: 0,
+            buckets: [],
+          },
+        ],
+      }),
+    );
+    renderPanel();
+
+    expect(await screen.findByText("81.3%")).toBeTruthy();
+    expect(screen.queryByText(/NaN/)).toBeNull();
+    expect(screen.queryByLabelText("Chart legend")).toBeNull();
+    expect(
+      screen.getByText(/Not enough interval data to chart yet/),
+    ).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: /^Per screen · / }),
+    );
+    expect(screen.queryByText(/NaN/)).toBeNull();
+    expect(screen.getByText("Not reporting yet")).toBeTruthy();
   });
 
   it("says so plainly when no player state has been recorded yet", async () => {

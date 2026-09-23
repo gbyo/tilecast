@@ -70,7 +70,9 @@ describe("screen management", () => {
         <ScreenListContent screens={[]} loading={false} canManage />
       </MemoryRouter>,
     );
-    expect(screen.getByText("No screens paired")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "No screens paired" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Pair screen" })).toHaveAttribute(
       "href",
       "/screens/pair",
@@ -241,7 +243,6 @@ describe("screen management", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    const open = vi.fn();
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -253,7 +254,6 @@ describe("screen management", () => {
             canManage={false}
             showLocation
             onSelect={vi.fn()}
-            onOpen={open}
           />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -268,6 +268,14 @@ describe("screen management", () => {
     expect(
       screen.getByAltText("Latest preview from Lobby"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Lobby" })).toHaveAttribute(
+      "href",
+      "/screens/screen-1",
+    );
+    expect(screen.getByRole("link", { name: "Open Lobby" })).toHaveAttribute(
+      "href",
+      "/screens/screen-1",
+    );
     const interaction = userEvent.setup();
     await interaction.click(
       screen.getByRole("button", { name: "Actions for Lobby" }),
@@ -275,7 +283,55 @@ describe("screen management", () => {
     expect(
       await screen.findByRole("menuitem", { name: "Open screen" }),
     ).toBeTruthy();
-    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("keeps card selection separate from navigation links", async () => {
+    const item = {
+      id: "screen-2",
+      name: "Hallway",
+      screenWidth: 1920,
+      screenHeight: 1080,
+      status: "online",
+      lastContactAt: new Date().toISOString(),
+    } as Screen;
+    const onSelect = vi.fn();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    class SilentIntersectionObserver {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+      takeRecords() {
+        return [];
+      }
+      readonly root = null;
+      readonly rootMargin = "0px";
+      readonly thresholds = [0];
+    }
+    vi.stubGlobal("IntersectionObserver", SilentIntersectionObserver);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ScreenGridCard
+            screen={item}
+            csrfToken=""
+            selected={false}
+            canManage
+            showLocation
+            onSelect={onSelect}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const checkbox = screen.getByRole("checkbox", { name: "Select Hallway" });
+    expect(checkbox.closest("a")).toBeNull();
+    const interaction = userEvent.setup();
+    checkbox.focus();
+    await interaction.keyboard(" ");
+    expect(onSelect).toHaveBeenCalledWith(true);
   });
 
   it("does not confuse requested Managed Kiosk with effective capability", () => {

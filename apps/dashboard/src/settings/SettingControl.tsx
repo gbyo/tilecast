@@ -1,4 +1,3 @@
-import { Select } from "../components/legacy-ui";
 import { useId, useMemo, useState } from "react";
 import { signalColors } from "@tilecast/design-tokens/values";
 import type { SettingDefinition } from "../api/types";
@@ -9,6 +8,18 @@ import {
   timezoneLabel,
   timezoneOptions,
 } from "./settingValues";
+import { Button } from "../components/ui/button";
+import { FieldError } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Switch } from "../components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 const weekdays = [
   [1, "Mon"],
@@ -34,49 +45,50 @@ export function SettingControl({
   onChange: (value: unknown) => void;
 }) {
   const id = useId();
-  if (definition.type === "bool")
+  if (definition.type === "bool") {
+    const checked = Boolean(value);
     return (
-      <Switch
-        id={id}
-        label={definition.title}
-        checked={Boolean(value)}
-        disabled={disabled}
-        onChange={onChange}
-      />
+      <span className="inline-flex items-center gap-2">
+        <Switch
+          id={id}
+          aria-label={definition.title}
+          checked={checked}
+          disabled={disabled}
+          onCheckedChange={(next) => onChange(next)}
+        />
+        <span aria-hidden="true" className="text-sm text-muted-foreground">
+          {checked ? "On" : "Off"}
+        </span>
+      </span>
     );
+  }
   if (definition.type === "timezone") {
     const timezone = normalizeTimezone(value);
     return (
-      <Select
-        id={id}
-        aria-label={definition.title}
+      <SettingSelect
+        label={definition.title}
         value={timezone}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {timezoneOptions(timezone).map((option) => (
-          <option key={option} value={option}>
-            {timezoneLabel(option)}
-          </option>
-        ))}
-      </Select>
+        onChange={(next) => onChange(next)}
+        options={timezoneOptions(timezone).map((option) => ({
+          value: option,
+          label: timezoneLabel(option),
+        }))}
+      />
     );
   }
   if (definition.type === "enum")
     return (
-      <Select
-        id={id}
-        aria-label={definition.title}
+      <SettingSelect
+        label={definition.title}
         value={String(value)}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {definition.allowed?.map((option) => (
-          <option key={option} value={option}>
-            {enumLabel(option)}
-          </option>
-        ))}
-      </Select>
+        onChange={(next) => onChange(next)}
+        options={(definition.allowed ?? []).map((option) => ({
+          value: option,
+          label: enumLabel(option),
+        }))}
+      />
     );
   if (definition.type === "weekday_list")
     return (
@@ -138,7 +150,7 @@ export function SettingControl({
     );
   if (definition.type === "local_time")
     return (
-      <input
+      <Input
         id={id}
         aria-label={definition.title}
         type="time"
@@ -150,7 +162,7 @@ export function SettingControl({
     );
   const numeric = ["int", "int64", "float"].includes(definition.type);
   return (
-    <input
+    <Input
       id={id}
       aria-label={definition.title}
       type={
@@ -178,33 +190,40 @@ export function SettingControl({
   );
 }
 
-function Switch({
-  id,
+function SettingSelect({
   label,
-  checked,
+  value,
   disabled,
   onChange,
+  options,
 }: {
-  id: string;
   label: string;
-  checked: boolean;
+  value: string;
   disabled?: boolean;
-  onChange: (value: boolean) => void;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
 }) {
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label ?? value;
   return (
-    <button
-      id={id}
-      aria-label={label}
-      type="button"
-      role="switch"
-      aria-checked={checked}
+    <Select
+      value={value}
       disabled={disabled}
-      className="setting-switch"
-      onClick={() => onChange(!checked)}
+      onValueChange={(next) => {
+        if (typeof next === "string") onChange(next);
+      }}
     >
-      <span aria-hidden="true" />
-      <strong>{checked ? "On" : "Off"}</strong>
-    </button>
+      <SelectTrigger aria-label={label}>
+        <SelectValue>{selectedLabel}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 function WeekdayPicker({
@@ -216,26 +235,24 @@ function WeekdayPicker({
   disabled?: boolean;
   onChange: (value: unknown) => void;
 }) {
-  const selected = new Set(Array.isArray(value) ? value.map(Number) : []);
+  const selected = Array.isArray(value) ? value.map((day) => String(day)) : [];
   return (
-    <div className="weekday-picker" aria-label="Active days">
+    <ToggleGroup
+      multiple
+      aria-label="Active days"
+      value={selected}
+      disabled={disabled}
+      onValueChange={(next) => {
+        const days = next.map(Number).sort((a, b) => a - b);
+        if (days.length > 0) onChange(days);
+      }}
+    >
       {weekdays.map(([day, label]) => (
-        <button
-          key={day}
-          type="button"
-          aria-pressed={selected.has(day)}
-          disabled={disabled}
-          onClick={() => {
-            const next = new Set(selected);
-            if (next.has(day) && next.size > 1) next.delete(day);
-            else next.add(day);
-            onChange([...next].sort());
-          }}
-        >
+        <ToggleGroupItem key={day} value={String(day)} aria-label={label}>
           {label}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }
 function PackageList({
@@ -251,18 +268,19 @@ function PackageList({
   const [entry, setEntry] = useState("");
   const invalid = entry.length > 0 && !packagePattern.test(entry.trim());
   return (
-    <div className="package-editor">
-      <div>
-        <input
+    <div className="grid gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
           aria-label="Android package name"
           value={entry}
           disabled={disabled}
           placeholder="com.android.settings"
           onChange={(event) => setEntry(event.target.value)}
         />
-        <button
+        <Button
           type="button"
-          className="button button--quiet"
+          variant="outline"
+          size="sm"
           disabled={
             disabled ||
             invalid ||
@@ -275,25 +293,29 @@ function PackageList({
           }}
         >
           Add
-        </button>
+        </Button>
       </div>
       {invalid && (
-        <small className="field-error">
+        <FieldError>
           Enter an Android package name such as com.android.settings.
-        </small>
+        </FieldError>
       )}
-      <ul>
+      <ul className="grid gap-1">
         {values.map((item) => (
-          <li key={item}>
-            <code>{item}</code>
-            <button
+          <li key={item} className="flex flex-wrap items-center gap-2 text-sm">
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+              {item}
+            </code>
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               aria-label={`Remove ${item}`}
               disabled={disabled}
               onClick={() => onChange(values.filter((value) => value !== item))}
             >
               Remove
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
@@ -317,8 +339,8 @@ function ByteInput({
   );
   const [unit, setUnit] = useState<keyof typeof byteUnits>(initial);
   return (
-    <div className="unit-input">
-      <input
+    <div className="flex flex-wrap items-center gap-2">
+      <Input
         aria-label={definition.title}
         type="number"
         min={definition.min ? definition.min / byteUnits[unit] : undefined}
@@ -330,18 +352,16 @@ function ByteInput({
           onChange(Math.round(Number(event.target.value) * byteUnits[unit]))
         }
       />
-      <Select
-        aria-label={`${definition.title} unit`}
+      <SettingSelect
+        label={`${definition.title} unit`}
         value={unit}
         disabled={disabled}
-        onChange={(event) =>
-          setUnit(event.target.value as keyof typeof byteUnits)
-        }
-      >
-        {Object.keys(byteUnits).map((item) => (
-          <option key={item}>{item}</option>
-        ))}
-      </Select>
+        onChange={(next) => setUnit(next as keyof typeof byteUnits)}
+        options={Object.keys(byteUnits).map((item) => ({
+          value: item,
+          label: item,
+        }))}
+      />
     </div>
   );
 }
@@ -361,8 +381,8 @@ function UnitInput({
   onChange: (value: unknown) => void;
 }) {
   return (
-    <div className="unit-input">
-      <input
+    <div className="flex flex-wrap items-center gap-2">
+      <Input
         aria-label={definition.title}
         type="number"
         min={definition.min ? definition.min / multiplier : undefined}
@@ -373,7 +393,7 @@ function UnitInput({
           onChange(Math.round(Number(event.target.value) * multiplier))
         }
       />
-      <span>{unit}</span>
+      <span className="text-sm text-muted-foreground">{unit}</span>
     </div>
   );
 }
@@ -398,8 +418,8 @@ function DurationInput({
   const [unit, setUnit] = useState<keyof typeof units>(initial);
   const multiplier = units[unit];
   return (
-    <div className="unit-input">
-      <input
+    <div className="flex flex-wrap items-center gap-2">
+      <Input
         aria-label={definition.title}
         type="number"
         min={definition.min != null ? definition.min / multiplier : undefined}
@@ -411,16 +431,16 @@ function DurationInput({
           onChange(Math.round(Number(event.target.value) * multiplier))
         }
       />
-      <Select
-        aria-label={`${definition.title} unit`}
+      <SettingSelect
+        label={`${definition.title} unit`}
         value={unit}
         disabled={disabled}
-        onChange={(event) => setUnit(event.target.value as keyof typeof units)}
-      >
-        {Object.keys(units).map((option) => (
-          <option key={option}>{option}</option>
-        ))}
-      </Select>
+        onChange={(next) => setUnit(next as keyof typeof units)}
+        options={Object.keys(units).map((option) => ({
+          value: option,
+          label: option,
+        }))}
+      />
     </div>
   );
 }
@@ -437,15 +457,16 @@ function ColorInput({
 }) {
   const valid = /^#[0-9A-Fa-f]{6}$/.test(value);
   return (
-    <div className="color-control">
+    <div className="flex flex-wrap items-center gap-2">
       <input
         aria-label="Color picker"
         type="color"
+        className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         value={valid ? value : signalColors.colorInputFallback}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value.toUpperCase())}
       />
-      <input
+      <Input
         id={id}
         aria-label="Hex color"
         value={value}
@@ -453,9 +474,7 @@ function ColorInput({
         aria-invalid={!valid}
         onChange={(event) => onChange(event.target.value.toUpperCase())}
       />
-      {!valid && (
-        <small className="field-error">Use a six-digit hex color.</small>
-      )}
+      {!valid && <FieldError>Use a six-digit hex color.</FieldError>}
     </div>
   );
 }

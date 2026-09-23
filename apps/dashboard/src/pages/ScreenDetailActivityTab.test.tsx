@@ -190,7 +190,7 @@ describe("screen detail tabs", () => {
 
     expect(await screen.findByTestId("preview")).toBeTruthy();
     expect(
-      screen.getByText("Snapshot history", { selector: "summary" }),
+      screen.getByRole("button", { name: "Snapshot history" }),
     ).toBeTruthy();
     expect(
       await screen.findByRole("heading", { name: "Overview", level: 2 }),

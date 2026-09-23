@@ -2,6 +2,16 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { api } from "../api/client";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { buttonVariants } from "./ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "./ui/empty";
+import { Skeleton } from "./ui/skeleton";
 
 export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
   const history = useQuery({
@@ -12,57 +22,63 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
 
   if (history.isLoading)
     return (
-      <div className="snapshot-history">
-        <div className="table-loading">Loading snapshot history…</div>
+      <div className="space-y-2" aria-label="Snapshot history">
+        <Skeleton className="aspect-video w-full max-w-sm" />
+        <p className="text-sm text-muted-foreground">
+          Loading snapshot history…
+        </p>
       </div>
     );
   if (history.error)
     return (
-      <div className="snapshot-history">
-        <div className="notice notice--error" role="alert">
-          {history.error.message}
-        </div>
-      </div>
+      <Alert variant="destructive">
+        <AlertTitle>Snapshot history failed to load</AlertTitle>
+        <AlertDescription>{history.error.message}</AlertDescription>
+      </Alert>
     );
 
   const data = history.data;
   if (!data?.enabled)
     return (
-      <div className="snapshot-history">
-        <div className="empty-card">
-          <strong>Snapshot history is off.</strong>
-          <p>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>Snapshot history is off.</EmptyTitle>
+          <EmptyDescription>
             Tilecast is not keeping images of what this screen showed. An Owner
             or Administrator can turn it on under{" "}
             <Link to="/settings/snapshots">Settings, Snapshot history</Link>.
-          </p>
-        </div>
-      </div>
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
 
   if (!data.items.length)
     return (
-      <div className="snapshot-history">
-        <div className="empty-card">
-          No snapshots yet. Tilecast captures a frame on a schedule from screens
-          that are reporting.
-        </div>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>No snapshots yet</EmptyTitle>
+          <EmptyDescription>
+            Tilecast captures a frame on a schedule from screens that are
+            reporting.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
 
   return (
-    <div className="snapshot-history">
-      <p className="role-description">
+    <div className="space-y-3" aria-label="Snapshot history">
+      <p className="text-sm text-muted-foreground">
         Retains up to {data.maxPerScreen} per screen for {data.retentionDays}{" "}
         days.
       </p>
-      <div className="snapshot-grid">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {data.items.map((snapshot) => (
-          <figure key={snapshot.id}>
+          <figure key={snapshot.id} className="min-w-0 space-y-1">
             <button
               type="button"
-              className="snapshot-thumb"
+              className="block w-full overflow-hidden rounded-xl border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={`View the snapshot from ${new Date(snapshot.capturedAt).toLocaleString()}`}
+              aria-expanded={openId === snapshot.id}
               onClick={() =>
                 setOpenId(openId === snapshot.id ? undefined : snapshot.id)
               }
@@ -71,21 +87,24 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
                 src={`/api/v1/screens/${screenId}/snapshots/${snapshot.id}/image`}
                 alt={`Screen at ${new Date(snapshot.capturedAt).toLocaleString()}`}
                 loading="lazy"
+                className="aspect-video w-full object-cover"
               />
             </button>
-            <figcaption>
+            <figcaption className="text-xs text-muted-foreground">
               {new Date(snapshot.capturedAt).toLocaleString()}
               {snapshot.trigger === "manual" ? " · manual" : ""}
             </figcaption>
             {openId === snapshot.id && (
-              <a
-                className="button button--quiet button--compact"
-                href={`/api/v1/screens/${screenId}/snapshots/${snapshot.id}/image`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open full size
-              </a>
+              <EmptyContent className="items-start">
+                <a
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                  href={`/api/v1/screens/${screenId}/snapshots/${snapshot.id}/image`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open full size
+                </a>
+              </EmptyContent>
             )}
           </figure>
         ))}
