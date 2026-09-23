@@ -13,6 +13,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -214,18 +215,18 @@ export function FleetBulkPage() {
                 const isSelected = selected.includes(item.id);
                 return (
                   <label
-                    className={`checkbox-control bulk-picker__option${
+                    className={`bulk-picker__option${
                       isSelected ? " bulk-picker__option--selected" : ""
                     }`}
                     key={item.id}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={isSelected}
-                      onChange={(event) => {
+                      aria-label={`Select ${item.name}`}
+                      onCheckedChange={(checked) => {
                         setPreview(undefined);
                         setSelected((ids) =>
-                          event.target.checked
+                          checked === true
                             ? [...ids, item.id]
                             : ids.filter((id) => id !== item.id),
                         );

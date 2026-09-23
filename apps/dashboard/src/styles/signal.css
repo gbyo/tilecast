@@ -104,11 +104,39 @@ p {
 
 .layout-editor {
   display: grid;
-  grid-template: 48px minmax(0, 1fr) / 320px minmax(420px, 1fr);
+  grid-template: 48px minmax(0, 1fr) / minmax(0, 1fr);
   height: calc(100vh - 56px);
   margin: calc(var(--tc-space-8) * -1);
   overflow: hidden;
   background: var(--tc-bg-subtle);
+}
+
+/* Desktop Resizable panes: library/layers | canvas | inspector. The narrow
+   stacked fallback renders the same panels without this wrapper. */
+.layout-editor-panes {
+  min-width: 0;
+  min-height: 0;
+}
+
+.layout-editor-pane {
+  min-width: 0;
+  min-height: 0;
+}
+
+.layout-editor-pane > .layout-editor-left,
+.layout-editor-pane > .layout-stage {
+  height: 100%;
+}
+
+.layout-inspector-pane {
+  display: grid;
+  gap: var(--tc-space-3);
+  align-content: start;
+  height: 100%;
+  padding: var(--tc-space-3);
+  overflow-y: auto;
+  background: var(--tc-bg-surface);
+  border-left: 1px solid var(--tc-border-default);
 }
 
 .layout-editor-toolbar {
@@ -391,28 +419,49 @@ p {
   overflow-wrap: anywhere;
 }
 
-.layout-layers > button {
+.layout-layers .layout-layer-row {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
   align-items: center;
   min-height: 36px;
   padding: 4px 6px;
   color: var(--tc-text-primary);
-  text-align: left;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--tc-radius-control);
 }
 
-.layout-layers > button.is-selected {
+.layout-layers .layout-layer-row.is-selected {
   background: var(--tc-sidebar-active);
   border-color: var(--tc-action-primary);
+}
+
+/* The select control is a real button; the visibility/lock toggles beside it
+   are siblings, never nested buttons. */
+.layout-layer-select {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
 }
 
 .layout-layer-actions {
   display: flex;
   gap: 5px;
+}
+
+/* Visibility/lock are real icon buttons; keep them row-sized. */
+.layout-layer-actions .layout-layer-toggle {
+  flex: none;
 }
 
 .layout-stage {
@@ -777,12 +826,33 @@ p {
 }
 
 @media (max-width: 1050px) {
+  .layout-editor-left {
+    grid-template-columns: 82px minmax(0, 1fr);
+  }
+}
+
+/* Narrow stacked fallback: library above, canvas below, page scrolls. */
+@media (max-width: 1023px) {
   .layout-editor {
-    grid-template-columns: 280px minmax(360px, 1fr);
+    grid-template: 48px auto auto / minmax(0, 1fr);
+    height: auto;
+    min-height: calc(100vh - 56px);
+    overflow: visible;
   }
 
   .layout-editor-left {
-    grid-template-columns: 82px minmax(0, 1fr);
+    max-height: 60vh;
+    border-right: none;
+    border-bottom: 1px solid var(--tc-border-default);
+  }
+
+  .layout-stage {
+    min-height: 70vh;
+    overflow: visible;
+  }
+
+  .layout-stage-scroll {
+    min-height: 70vh;
   }
 }
 
@@ -832,44 +902,6 @@ p {
   }
 }
 
-.button {
-  height: var(--tc-control-height);
-  min-height: var(--tc-control-height);
-  gap: var(--tc-space-2);
-  margin: 0;
-  padding: 0 14px;
-  border-radius: var(--tc-radius-control);
-  font: var(--tc-text-control-secondary);
-  text-decoration: none;
-  transition:
-    background var(--tc-motion-fast),
-    border-color var(--tc-motion-fast),
-    color var(--tc-motion-fast),
-    transform 100ms ease;
-}
-
-.button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.button:active:not(:disabled),
-.icon-button:active:not(:disabled) {
-  transform: translateY(1px) scale(0.985);
-}
-
-.button svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 15px;
-}
-
-.button > span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--tc-space-2);
-}
-
 input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
 select,
 textarea {
@@ -911,71 +943,9 @@ textarea:disabled {
   cursor: not-allowed;
 }
 
-label > .signal-select,
-.field > .signal-select,
-.form-grid .signal-select,
-.source-mapping-row .signal-select,
-.setting-control > .signal-select,
-.assignment-controls .signal-select,
-.timeline-item .signal-select {
-  width: 100%;
-}
-
-.signal-select__menu > button:hover:not(:disabled),
-.signal-select__menu > button.is-active {
-  background: var(--tc-table-row-hover);
-}
-
-.content-toolbar > .signal-select,
-.content-organizer__bulk .signal-select,
-.content-picker-toolbar > .signal-select {
-  flex: 0 0 auto;
-}
-
-.settings-mobile-select .signal-select,
-.setting-row .signal-select,
-.setting-control > .signal-select {
-  width: 100%;
-}
-
-@media (max-width: 680px) {
-  .content-picker-toolbar > .signal-select,
-  .content-toolbar > .signal-select,
-  .assignment-controls .signal-select {
-    width: 100%;
-    min-width: 0;
-  }
-}
-
 .field__error,
 .field-error {
   color: var(--tc-status-danger);
-}
-
-.checkbox-control,
-.switch-control {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  gap: var(--tc-space-3);
-  cursor: pointer;
-}
-
-.radio-group {
-  display: grid;
-  gap: var(--tc-space-2);
-  padding: 0;
-  border: 0;
-}
-
-.radio-group legend {
-  margin-bottom: var(--tc-space-2);
-  font: var(--tc-text-label);
-}
-
-.panel {
-  padding: var(--tc-space-6);
-  border: 1px solid var(--tc-border-default);
 }
 
 .section-header,
@@ -984,19 +954,6 @@ label > .signal-select,
   align-items: center;
   justify-content: space-between;
   gap: var(--tc-space-4);
-}
-
-.panel,
-.settings-panel,
-.detail-panel,
-.foundation__intro,
-.system-list,
-.empty-state {
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-surface);
-  border-color: var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-  box-shadow: none;
 }
 
 .view-tabs {
@@ -1069,111 +1026,13 @@ label > .signal-select,
   font: var(--tc-text-supporting);
 }
 
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--tc-space-3);
-  margin-top: var(--tc-space-4);
-}
-
-.toggle-group {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  background: var(--tc-bg-subtle);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-control);
-}
-
-.toggle-group button {
-  min-height: 32px;
-  padding: 5px 10px;
-  color: var(--tc-text-secondary);
-  background: transparent;
-  border: 0;
-  border-radius: calc(var(--tc-radius-control) - 2px);
-  cursor: pointer;
-  font: var(--tc-text-label);
-}
-
-.toggle-group button:hover:not(:disabled) {
-  color: var(--tc-text-primary);
-}
-
-.toggle-group button[aria-pressed="true"] {
-  color: var(--tc-action-primary);
-  background: var(--tc-bg-surface);
-  box-shadow: 0 0 0 1px var(--tc-border-default);
-}
-
-.toggle-group button:disabled {
-  color: var(--tc-text-disabled);
-  cursor: not-allowed;
-}
-
-@media (max-width: 680px) {
-  .pagination {
-    justify-content: space-between;
-  }
-}
-
-.notice {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--tc-space-3);
-  margin: 0;
-  padding: var(--tc-space-3) var(--tc-space-4);
-  color: var(--tc-status-neutral);
-  background: var(--tc-status-neutral-bg);
-  border-color: var(--tc-status-neutral-border);
-  border-radius: var(--tc-radius-control);
-}
-
-.notice > span {
-  display: grid;
-  gap: 2px;
-  flex: 1;
-}
-
-.notice--warning {
-  color: var(--tc-status-warning);
-  background: var(--tc-notice-warning-bg);
-  border-color: var(--tc-status-warning-border);
-}
-
-.notice--error,
-.notice--danger {
-  color: var(--tc-status-danger);
-  background: var(--tc-notice-danger-bg);
-  border-color: var(--tc-status-danger-border);
-}
-
-.status-badge,
-.status-chip,
-.source-badge {
+.status-badge {
   min-height: 24px;
   padding: 2px 8px;
   border-radius: var(--tc-radius-pill);
   font-size: 12px;
   letter-spacing: 0;
   text-transform: none;
-}
-
-/* .status-chip only ever declared its size and radius, so every StatusBadge
-   rendered as bare inline text with no box. .status-badge and .source-badge
-   already carry their own box, which is why this went unnoticed. */
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--tc-space-1);
-  width: max-content;
-  max-width: 100%;
-  border: 1px solid transparent;
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .status-dot-label {
@@ -1197,21 +1056,14 @@ label > .signal-select,
 /* Tone groups accept both the semantic name StatusBadge passes (success, warning,
    danger, info, neutral) and the domain names pages use. The semantic aliases were
    missing, so `<StatusBadge tone="warning">` had no tone at all. */
-.status-badge,
-.status-chip--success,
-.status-chip--online,
-.status-chip--recent,
-.status-chip--verified,
-.status-chip--succeeded,
-.status-chip--completed {
+.status-badge {
   color: var(--tc-status-success);
   background: var(--tc-status-success-bg);
   border-color: var(--tc-status-success-border);
 }
 
 .table-wrap,
-.table-container,
-.data-table {
+.table-container {
   overflow-x: auto;
   background: var(--tc-bg-surface);
   border: 1px solid var(--tc-border-default);
@@ -1980,8 +1832,7 @@ tbody tr {
   padding: 0;
 }
 
-.schedule-timezone__menu > label,
-.schedule-picker-search {
+.schedule-timezone__menu > label {
   display: flex;
   align-items: center;
   gap: var(--tc-space-2);
@@ -1989,12 +1840,31 @@ tbody tr {
   border-bottom: 1px solid var(--tc-border-default);
 }
 
-.schedule-timezone__menu input,
-.schedule-picker-search input {
+.schedule-timezone__menu input {
   width: 100%;
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+/* The timezone menu label wraps a borderless filter input; keep it flush
+   with the menu surface (relocated from the retired issue-fixes sheet). */
+.schedule-timezone__menu
+  > label
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.schedule-timezone__menu > label input:hover:not(:disabled),
+.schedule-timezone__menu > label input:focus {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  color: var(--tc-input-text);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  box-shadow: none;
+  appearance: none;
 }
 
 .schedule-timezone__menu > div {
@@ -2348,17 +2218,10 @@ tbody tr {
     justify-content: flex-start;
   }
 
-  .content-picker__primary-actions .icon-button {
-    position: absolute;
-    top: var(--tc-space-3);
-    right: var(--tc-space-3);
-  }
-
   .content-picker-toolbar {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .content-picker-toolbar .search-control,
   .content-picker-filters {
     grid-column: 1 / -1;
   }

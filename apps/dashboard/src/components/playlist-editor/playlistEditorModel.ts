@@ -182,6 +182,21 @@ export function movePlaylistItem(
   return ids;
 }
 
+export function movePlaylistItemToEdge(
+  items: PlaylistItem[],
+  itemId: string,
+  edge: "top" | "bottom",
+) {
+  const ids = items.map((item) => item.id);
+  const from = ids.indexOf(itemId);
+  if (from < 0) return ids;
+  const to = edge === "top" ? 0 : ids.length - 1;
+  if (from === to) return ids;
+  const [moved] = ids.splice(from, 1);
+  if (moved) ids.splice(to, 0, moved);
+  return ids;
+}
+
 export function reorderPlaylistItems(
   items: PlaylistItem[],
   draggedId: string,

@@ -1,6 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useBlocker } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowDown,
+  ArrowDownToLine,
+  ArrowUp,
+  ArrowUpToLine,
+  MoreHorizontal,
+  Trash2,
+} from "lucide-react";
 import type {
   FormDataSource,
   FormField,
@@ -10,14 +26,53 @@ import type {
 import { api, ApiError } from "../api/client";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button as RheaButton } from "../components/ui/button";
+import {
+  ContextMenu as RheaContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "../components/ui/context-menu";
+import {
+  DropdownMenu as RheaDropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import {
+  Item as RheaItem,
+  ItemActions as RheaItemActions,
+  ItemGroup as RheaItemGroup,
+} from "../components/ui/item";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "../components/ui/resizable";
+import { Separator } from "../components/ui/separator";
+import {
+  Sheet as RheaSheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
 import { Spinner } from "../components/ui/spinner";
 import { Textarea } from "../components/ui/textarea";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { FormFieldEditor, type FieldLock } from "./FormFieldEditor";
 import { FormFieldPalette } from "./FormFieldPalette";
 import { FormRenderer } from "./FormRenderer";
-import { newField, publishedOutputKeys, schemasEquivalent } from "./formSchema";
+import {
+  controlMeta,
+  newField,
+  publishedOutputKeys,
+  schemasEquivalent,
+} from "./formSchema";
 import { RESERVED_FIELD_KEYS } from "./formKeys";
 
 type SaveState = "saved" | "dirty" | "saving" | "error";
@@ -46,6 +101,8 @@ export function FormBuilder({
   const [saveError, setSaveError] = useState("");
   const [showPublish, setShowPublish] = useState(false);
   const [publishError, setPublishError] = useState("");
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const desktop = useDesktopLayout();
 
   const dirty = JSON.stringify(draft) !== baseline;
   const dirtyRef = useRef(dirty);
@@ -146,7 +203,190 @@ export function FormBuilder({
         : "saved";
 
   const keys = draft.fields.map((field) => field.key);
+  // Rows are keyed by field key so focus follows a field when it moves. Keys are
+  // editable and may briefly collide, so repeats get an occurrence suffix.
+  const rowKeys = keys.map(
+    (key, index) =>
+      `${key}#${keys.slice(0, index).filter((other) => other === key).length}`,
+  );
   const selectedField = draft.fields[selected];
+
+  type FieldAction = {
+    key: string;
+    label: string;
+    icon: ReactNode;
+    shortcut?: string;
+    disabled: boolean;
+    danger?: boolean;
+    run: () => void;
+  };
+
+  const fieldActions = (index: number, field: FormField): FieldAction[] => {
+    const last = draft.fields.length - 1;
+    return [
+      {
+        key: "up",
+        label: "Move up",
+        icon: <ArrowUp size={14} aria-hidden="true" />,
+        shortcut: "Alt+↑",
+        disabled: index === 0,
+        run: () => move(index, -1),
+      },
+      {
+        key: "down",
+        label: "Move down",
+        icon: <ArrowDown size={14} aria-hidden="true" />,
+        shortcut: "Alt+↓",
+        disabled: index === last,
+        run: () => move(index, 1),
+      },
+      {
+        key: "top",
+        label: "Move to top",
+        icon: <ArrowUpToLine size={14} aria-hidden="true" />,
+        shortcut: "Alt+Home",
+        disabled: index === 0,
+        run: () => moveToEdge(index, "top"),
+      },
+      {
+        key: "bottom",
+        label: "Move to bottom",
+        icon: <ArrowDownToLine size={14} aria-hidden="true" />,
+        shortcut: "Alt+End",
+        disabled: index === last,
+        run: () => moveToEdge(index, "bottom"),
+      },
+      {
+        key: "delete",
+        label: "Delete field",
+        icon: <Trash2 size={14} aria-hidden="true" />,
+        disabled: lockFor(field).deleteLocked,
+        danger: true,
+        run: () => removeField(index),
+      },
+    ];
+  };
+
+  // Alt+Arrow reorders without leaving the row; Alt+Home/End jumps to an edge.
+  const onRowKeyDown = (event: KeyboardEvent, index: number) => {
+    if (readOnly || !event.altKey) return;
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      move(index, -1);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      move(index, 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      moveToEdge(index, "top");
+    } else if (event.key === "End") {
+      event.preventDefault();
+      moveToEdge(index, "bottom");
+    }
+  };
+
+  const renderFieldRow = (field: FormField, index: number) => {
+    const name = field.label || field.key;
+    const rowLabel = `Edit ${name}`;
+    const menuLabel = `Actions for ${name}`;
+    const actions = readOnly ? [] : fieldActions(index, field);
+    const selectButton = (
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
+        onClick={() => selectField(index)}
+        aria-current={index === selected}
+        aria-label={rowLabel}
+      >
+        <span className="truncate text-sm font-medium">{name}</span>
+        <span className="text-xs text-muted-foreground">
+          {controlMeta(field.control).label}
+        </span>
+      </button>
+    );
+    const rowActions = !readOnly ? (
+      <RheaItemActions>
+        <RheaDropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <RheaButton
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={menuLabel}
+              >
+                <MoreHorizontal size={15} aria-hidden="true" />
+              </RheaButton>
+            }
+          />
+          <DropdownMenuContent align="end" aria-label={menuLabel}>
+            {actions.map((action) => (
+              <Fragment key={action.key}>
+                {action.danger && <DropdownMenuSeparator />}
+                <DropdownMenuItem
+                  variant={action.danger ? "destructive" : "default"}
+                  disabled={action.disabled}
+                  onClick={action.run}
+                >
+                  {action.icon}
+                  {action.label}
+                  {action.shortcut && (
+                    <DropdownMenuShortcut>
+                      {action.shortcut}
+                    </DropdownMenuShortcut>
+                  )}
+                </DropdownMenuItem>
+              </Fragment>
+            ))}
+          </DropdownMenuContent>
+        </RheaDropdownMenu>
+      </RheaItemActions>
+    ) : null;
+    if (readOnly)
+      return (
+        <RheaItem
+          key={rowKeys[index]}
+          variant={index === selected ? "muted" : "outline"}
+          size="sm"
+        >
+          {selectButton}
+        </RheaItem>
+      );
+    return (
+      <RheaContextMenu key={rowKeys[index]}>
+        <ContextMenuTrigger
+          render={
+            <RheaItem
+              variant={index === selected ? "muted" : "outline"}
+              size="sm"
+              onKeyDown={(event) => onRowKeyDown(event, index)}
+            />
+          }
+        >
+          {selectButton}
+          {rowActions}
+        </ContextMenuTrigger>
+        <ContextMenuContent aria-label={menuLabel}>
+          {actions.map((action) => (
+            <Fragment key={action.key}>
+              {action.danger && <ContextMenuSeparator />}
+              <ContextMenuItem
+                variant={action.danger ? "destructive" : "default"}
+                disabled={action.disabled}
+                onClick={action.run}
+              >
+                {action.icon}
+                {action.label}
+                {action.shortcut && (
+                  <ContextMenuShortcut>{action.shortcut}</ContextMenuShortcut>
+                )}
+              </ContextMenuItem>
+            </Fragment>
+          ))}
+        </ContextMenuContent>
+      </RheaContextMenu>
+    );
+  };
 
   const mutateField = (index: number, next: FormField) => {
     setDraft((current) => {
@@ -187,7 +427,31 @@ export function FormBuilder({
       ...current,
       fields: current.fields.filter((_, i) => i !== index),
     }));
-    setSelected((prev) => Math.max(0, Math.min(prev, draft.fields.length - 2)));
+    setSelected((prev) =>
+      index < prev
+        ? prev - 1
+        : Math.max(0, Math.min(prev, draft.fields.length - 2)),
+    );
+  };
+
+  const moveToEdge = (index: number, edge: "top" | "bottom") => {
+    const target = edge === "top" ? 0 : draft.fields.length - 1;
+    if (target === index || target < 0) return;
+    setDraft((current) => {
+      const fields = [...current.fields];
+      const [moving] = fields.splice(index, 1);
+      if (moving === undefined) return current;
+      fields.splice(target, 0, moving);
+      return { ...current, fields };
+    });
+    setSelected(target);
+  };
+
+  // Selecting a row always selects the field; on narrow screens it also opens
+  // the inspector Sheet (the desktop pane is already visible there).
+  const selectField = (index: number) => {
+    setSelected(index);
+    if (!desktop && !readOnly) setInspectorOpen(true);
   };
 
   const lockFor = (field: FormField): FieldLock => {
@@ -198,6 +462,85 @@ export function FormBuilder({
       deleteLocked: published,
     };
   };
+
+  const fieldsPanel = (
+    <section className="grid content-start gap-3" aria-label="Form fields">
+      {draft.fields.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No fields yet. Add the first one below.
+        </p>
+      ) : (
+        <RheaItemGroup>
+          {draft.fields.map((field, index) => renderFieldRow(field, index))}
+        </RheaItemGroup>
+      )}
+      {!readOnly && <FormFieldPalette onAdd={addField} />}
+    </section>
+  );
+
+  const previewPanel = (
+    <section className="grid content-start gap-3" aria-label="Form preview">
+      {!readOnly && (
+        <div className="grid gap-3">
+          <Field>
+            <FieldLabel htmlFor="form-builder-title">Form title</FieldLabel>
+            <Input
+              id="form-builder-title"
+              value={draft.title ?? ""}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
+              }
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="form-builder-description">
+              Form description
+            </FieldLabel>
+            <Textarea
+              id="form-builder-description"
+              rows={2}
+              value={draft.description ?? ""}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  description: event.target.value,
+                }))
+              }
+            />
+          </Field>
+        </div>
+      )}
+      <FormRenderer schema={draft} readOnly />
+    </section>
+  );
+
+  const inspectorPanel = !readOnly ? (
+    <aside className="grid content-start gap-4" aria-label="Field settings">
+      <div className="grid gap-1">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Inspector
+        </p>
+        <h3 className="text-base font-semibold">Field settings</h3>
+      </div>
+      <Separator />
+      {selectedField ? (
+        <FormFieldEditor
+          field={selectedField}
+          allKeys={keys}
+          lock={lockFor(selectedField)}
+          readOnly={readOnly}
+          onChange={(next) => mutateField(selected, next)}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Select a field to edit its settings.
+        </p>
+      )}
+    </aside>
+  ) : null;
 
   return (
     <div className="grid gap-4">
@@ -296,109 +639,79 @@ export function FormBuilder({
         </Alert>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,17rem)]">
-        <section className="grid content-start gap-3" aria-label="Form fields">
-          <ol className="grid gap-2">
-            {draft.fields.map((field, index) => (
-              <li key={index}>
-                <div
-                  className={`rounded-xl border px-3 py-2 ${index === selected ? "border-primary" : "border-border"}`}
-                >
-                  <button
-                    type="button"
-                    className="flex w-full flex-col gap-0.5 text-left"
-                    onClick={() => setSelected(index)}
-                    aria-current={index === selected}
-                  >
-                    <strong className="text-sm">
-                      {field.label || field.key}
-                    </strong>
-                    <span className="text-xs text-muted-foreground">
-                      {field.control}
-                    </span>
-                  </button>
-                  {!readOnly && (
-                    <div className="mt-1 flex gap-1">
-                      <button
-                        type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                        aria-label={`Move ${field.label || field.key} up`}
-                        disabled={index === 0}
-                        onClick={() => move(index, -1)}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                        aria-label={`Move ${field.label || field.key} down`}
-                        disabled={index === draft.fields.length - 1}
-                        onClick={() => move(index, 1)}
-                      >
-                        ↓
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                        aria-label={`Delete ${field.label || field.key}`}
-                        disabled={lockFor(field).deleteLocked}
-                        onClick={() => removeField(index)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
-          {!readOnly && <FormFieldPalette onAdd={addField} />}
-        </section>
-
-        <section className="grid content-start gap-3" aria-label="Form preview">
-          {!readOnly && (
-            <div className="grid gap-3">
-              <Field>
-                <FieldLabel htmlFor="form-builder-title">Form title</FieldLabel>
-                <Input
-                  id="form-builder-title"
-                  value={draft.title ?? ""}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      title: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="form-builder-description">
-                  Form description
-                </FieldLabel>
-                <Textarea
-                  id="form-builder-description"
-                  rows={2}
-                  value={draft.description ?? ""}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
-            </div>
-          )}
-          <FormRenderer schema={draft} readOnly />
-        </section>
-
-        {!readOnly && (
-          <aside
-            className="grid content-start gap-3 rounded-xl border border-border p-4"
-            aria-label="Field settings"
+      {desktop ? (
+        <ResizablePanelGroup
+          orientation="horizontal"
+          role="group"
+          aria-label="Form fields, preview, and inspector"
+        >
+          <ResizablePanel
+            id="form-fields"
+            defaultSize="26%"
+            minSize="18%"
+            aria-label="Form fields"
           >
-            <h3 className="text-base font-semibold">Field settings</h3>
-            {selectedField ? (
+            <div className="grid min-w-0 content-start gap-3 pr-4">
+              {fieldsPanel}
+            </div>
+          </ResizablePanel>
+          <ResizableHandle
+            withHandle
+            aria-label="Resize fields and preview panes"
+          />
+          <ResizablePanel
+            id="form-preview"
+            defaultSize={readOnly ? "74%" : "44%"}
+            minSize="30%"
+            aria-label="Form preview"
+          >
+            <div className="grid min-w-0 content-start gap-3 px-4">
+              {previewPanel}
+            </div>
+          </ResizablePanel>
+          {!readOnly && (
+            <>
+              <ResizableHandle
+                withHandle
+                aria-label="Resize preview and inspector panes"
+              />
+              <ResizablePanel
+                id="form-inspector"
+                defaultSize="30%"
+                minSize="20%"
+                aria-label="Field settings"
+              >
+                <div className="grid min-w-0 content-start gap-3 pl-4">
+                  {inspectorPanel}
+                </div>
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
+      ) : (
+        <div className="grid gap-4">
+          {fieldsPanel}
+          {previewPanel}
+        </div>
+      )}
+
+      {!readOnly && selectedField && (
+        <RheaSheet
+          open={inspectorOpen && !desktop}
+          onOpenChange={(open) => {
+            if (!open) setInspectorOpen(false);
+          }}
+        >
+          <SheetContent side="right" className="overflow-y-auto">
+            <SheetHeader>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Field settings
+              </p>
+              <SheetTitle>
+                {selectedField.label || selectedField.key}
+              </SheetTitle>
+            </SheetHeader>
+            <div className="px-4 pb-4">
               <FormFieldEditor
                 field={selectedField}
                 allKeys={keys}
@@ -406,14 +719,10 @@ export function FormBuilder({
                 readOnly={readOnly}
                 onChange={(next) => mutateField(selected, next)}
               />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Select a field to edit its settings.
-              </p>
-            )}
-          </aside>
-        )}
-      </div>
+            </div>
+          </SheetContent>
+        </RheaSheet>
+      )}
     </div>
   );
 }

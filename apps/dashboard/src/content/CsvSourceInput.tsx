@@ -1,7 +1,7 @@
 import { ClipboardPaste, Link, RotateCcw, UploadCloud } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { StructuredSourceConfig } from "../api/types";
-import { ToggleGroup } from "../components/ToggleGroup";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import {
   Alert,
   AlertAction,
@@ -177,39 +177,24 @@ export function CsvSourceInput({
       <legend>CSV connection</legend>
       <ToggleGroup
         className="csv-source-input__modes"
-        label="CSV connection type"
-        value={mode}
-        onValueChange={switchMode}
-        items={[
-          {
-            value: "upload",
-            label: (
-              <>
-                <UploadCloud size={15} /> Upload
-              </>
-            ),
-            disabled: readOnly,
-          },
-          {
-            value: "url",
-            label: (
-              <>
-                <Link size={15} /> Hosted URL
-              </>
-            ),
-            disabled: readOnly,
-          },
-          {
-            value: "paste",
-            label: (
-              <>
-                <ClipboardPaste size={15} /> Paste data
-              </>
-            ),
-            disabled: readOnly,
-          },
-        ]}
-      />
+        aria-label="CSV connection type"
+        multiple={false}
+        value={[mode]}
+        onValueChange={(next) => {
+          const first = next[0] as CsvInputMode | undefined;
+          if (first !== undefined) switchMode(first);
+        }}
+      >
+        <ToggleGroupItem value="upload" disabled={readOnly}>
+          <UploadCloud size={15} aria-hidden="true" /> Upload
+        </ToggleGroupItem>
+        <ToggleGroupItem value="url" disabled={readOnly}>
+          <Link size={15} aria-hidden="true" /> Hosted URL
+        </ToggleGroupItem>
+        <ToggleGroupItem value="paste" disabled={readOnly}>
+          <ClipboardPaste size={15} aria-hidden="true" /> Paste data
+        </ToggleGroupItem>
+      </ToggleGroup>
 
       {mode === "upload" && !configuration.uploaded && (
         <div

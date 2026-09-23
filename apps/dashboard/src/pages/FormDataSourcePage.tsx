@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import type {
   DataSourceDetail,
   FormDataSource,
@@ -13,6 +13,21 @@ import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import {
+  Sheet as RheaSheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
+import {
+  Table as RheaTable,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 import {
   Empty,
   EmptyDescription,
@@ -223,6 +238,7 @@ function ResponsesTab({
   const [sort, setSort] =
     useState<NonNullable<FormRecordListParams["sort"]>>("updated");
   const [page, setPage] = useState(1);
+  const [searchParams] = useSearchParams();
 
   // States that carry an outstanding review/approve decision, derived from the workflow.
   const needsReviewStates = useMemo(
@@ -260,31 +276,18 @@ function ResponsesTab({
       }),
   });
 
-  if (selectedRecordId) {
-    return (
-      <div className="grid content-start gap-4">
-        <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onSelectRecord(null)}
-          >
-            ← Back to responses
-          </Button>
-        </div>
-        <RecordReview
-          form={form}
-          recordId={selectedRecordId}
-          csrf={csrf}
-          onAfterTransition={() => void records.refetch()}
-        />
-      </div>
-    );
-  }
-
   const total = records.data?.total ?? 0;
   const items = records.data?.items ?? [];
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Record rows are real links to the same responses URL the row click used,
+  // so a submission can be opened in a new tab like any other destination.
+  const recordHref = (recordId: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", "responses");
+    next.set("record", recordId);
+    return `?${next.toString()}`;
+  };
 
   const stateOptions = [
     { value: "needs_review", label: "Needs review" },
@@ -390,52 +393,33 @@ function ResponsesTab({
       ) : (
         <>
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[48rem] text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Submission
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Submitter
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    State
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Priority
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Updated
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Display window
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+            <RheaTable className="min-w-[48rem]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">Submission</TableHead>
+                  <TableHead scope="col">Submitter</TableHead>
+                  <TableHead scope="col">State</TableHead>
+                  <TableHead scope="col">Priority</TableHead>
+                  <TableHead scope="col">Updated</TableHead>
+                  <TableHead scope="col">Display window</TableHead>
+                  <TableHead scope="col">
+                    <span className="sr-only">Review</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items.map((record) => (
-                  <tr
-                    key={record.id}
-                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted"
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Review ${record.displayTitle || "untitled submission"}`}
-                    onClick={() => onSelectRecord(record.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onSelectRecord(record.id);
-                      }
-                    }}
-                  >
-                    <td className="px-3 py-2">
-                      {record.displayTitle || "Untitled submission"}
-                    </td>
-                    <td className="px-3 py-2">
-                      {record.submitterName || "Unknown"}
-                    </td>
-                    <td className="px-3 py-2">
+                  <TableRow key={record.id} className="hover:bg-muted">
+                    <TableCell>
+                      <Link
+                        to={recordHref(record.id)}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {record.displayTitle || "Untitled submission"}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{record.submitterName || "Unknown"}</TableCell>
+                    <TableCell>
                       <Badge
                         {...formToneBadgeProps(
                           stateTone(form.workflow, record.state),
@@ -443,18 +427,27 @@ function ResponsesTab({
                       >
                         {stateLabel(form.workflow, record.state)}
                       </Badge>
-                    </td>
-                    <td className="px-3 py-2">{record.priority}</td>
-                    <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                    </TableCell>
+                    <TableCell>{record.priority}</TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums">
                       {new Date(record.updatedAt).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {displayWindow(record.displayAt, record.expiresAt)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        to={recordHref(record.id)}
+                        aria-label={`Review ${record.displayTitle || "untitled submission"}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        Review
+                      </Link>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </RheaTable>
           </div>
           <Pagination
             label="Responses pages"
@@ -465,6 +458,48 @@ function ResponsesTab({
             nextDisabled={page >= totalPages}
           />
         </>
+      )}
+      {selectedRecordId && (
+        <RheaSheet
+          open
+          onOpenChange={(open) => {
+            if (!open) onSelectRecord(null);
+          }}
+        >
+          <SheetContent
+            side="right"
+            className="overflow-y-auto sm:max-w-xl"
+            aria-label="Response detail"
+          >
+            <SheetHeader>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Response
+              </p>
+              <SheetTitle>Review submission</SheetTitle>
+              <SheetDescription>
+                The list stays in place behind this panel; closing returns to
+                it.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid content-start gap-4 px-4 pb-4">
+              <div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSelectRecord(null)}
+                >
+                  ← Back to responses
+                </Button>
+              </div>
+              <RecordReview
+                form={form}
+                recordId={selectedRecordId}
+                csrf={csrf}
+                onAfterTransition={() => void records.refetch()}
+              />
+            </div>
+          </SheetContent>
+        </RheaSheet>
       )}
     </div>
   );

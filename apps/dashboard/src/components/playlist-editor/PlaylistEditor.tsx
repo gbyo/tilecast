@@ -15,6 +15,12 @@ import {
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button as RheaButton } from "../ui/button";
 import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "../ui/resizable";
+import { Separator } from "../ui/separator";
+import {
   Dialog as RheaDialog,
   DialogContent,
   DialogDescription,
@@ -41,14 +47,19 @@ import { useAuth } from "../../auth/AuthProvider";
 import { ContentPicker, type ContentPickerResult } from "../content-picker";
 import { UsedByPanel } from "../../content/UsedByPanel";
 import { PlaylistRevisionsPanel } from "../PlaylistRevisionsPanel";
+import { useDesktopLayout } from "../../hooks/use-desktop-layout";
 import { PlaylistDetailsDrawer } from "./PlaylistDetailsDrawer";
 import { PlaylistEditorHeader } from "./PlaylistEditorHeader";
-import { PlaylistItemInspector } from "./PlaylistItemInspector";
+import {
+  PlaylistItemInspector,
+  PlaylistItemInspectorBody,
+} from "./PlaylistItemInspector";
 import { PlaylistPlaybackDefaults } from "./PlaylistPlaybackDefaults";
 import { PlaylistTimeline } from "./PlaylistTimeline";
 import {
   canManagePlaylists,
   movePlaylistItem,
+  movePlaylistItemToEdge,
   openPlaylistPreview,
   playlistAuthoringDefaults,
   playlistImageDuration,
@@ -88,6 +99,7 @@ export function PlaylistEditorPage() {
   const [tagMatch, setTagMatch] = useState<"any" | "all">("any");
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tagImageSeconds, setTagImageSeconds] = useState(10);
+  const desktop = useDesktopLayout();
   const [addFailure, setAddFailure] = useState("");
   const [editorError, setEditorError] = useState("");
   const [playbackMessage, setPlaybackMessage] = useState("");
@@ -386,6 +398,89 @@ export function PlaylistEditorPage() {
     setEditorError("");
   };
 
+  const sequence = (
+    <>
+      <PlaylistPlaybackDefaults
+        items={items}
+        sourceType={sourceType}
+        canManage={canManage}
+        transition={commonTransition}
+        imageDuration={imageDuration}
+        transitionPending={bulkUpdate.isPending}
+        imageDurationPending={bulkUpdate.isPending}
+        onTransitionChange={(transition) => {
+          setPlaybackMessage("");
+          bulkUpdate.mutate({ transition });
+        }}
+        onImageDurationChange={(seconds) => {
+          setPlaybackMessage("");
+          bulkUpdate.mutate({ durationMs: Math.round(seconds * 1000) });
+        }}
+        onOpenDetails={openDetails}
+      />
+      <PlaylistTimeline
+        items={items}
+        sourceType={sourceType}
+        canManage={editableTimeline}
+        selectedItemId={selectedItemId}
+        playlistTransition={commonTransition}
+        draggedItemId={draggedItemId}
+        onSelect={selectItem}
+        onMove={(itemId, offset) => {
+          if (!editableTimeline) return;
+          commitOrder(movePlaylistItem(items, itemId, offset));
+        }}
+        onMoveToEdge={(itemId, edge) => {
+          if (!editableTimeline) return;
+          commitOrder(movePlaylistItemToEdge(items, itemId, edge));
+        }}
+        onDragStart={setDraggedItemId}
+        onDragEnd={() => setDraggedItemId(undefined)}
+        onDrop={handleDrop}
+        onAddContent={() => {
+          setAddFailure("");
+          setPicker(true);
+        }}
+        onAddLayout={() => {
+          setAddFailure("");
+          setLayoutPicker(true);
+        }}
+      />
+      <div className="grid min-w-0 gap-4">
+        <UsedByPanel
+          compact
+          emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."
+          groups={[
+            {
+              label: "Layouts",
+              items: (playlist.layoutUsage ?? []).map((layout) => ({
+                id: layout.id,
+                name: layout.name,
+                hint: layout.published ? "Published" : "Draft",
+              })),
+              to: (layoutId) => `/layouts/${layoutId}`,
+            },
+            {
+              label: "Screens",
+              items: playlist.usage?.screens ?? [],
+              to: (screenId) => `/screens/${screenId}`,
+            },
+            {
+              label: "Schedules",
+              items: playlist.usage?.schedules ?? [],
+              to: (scheduleId) => `/schedules/${scheduleId}`,
+            },
+            {
+              label: "Campaigns",
+              items: playlist.usage?.campaigns ?? [],
+              to: (campaignId) => `/campaigns/${campaignId}`,
+            },
+          ]}
+        />
+      </div>
+    </>
+  );
+
   return (
     <section className="grid gap-4">
       <PlaylistEditorHeader
@@ -440,84 +535,130 @@ export function PlaylistEditorPage() {
         )}
       </div>
 
-      <PlaylistPlaybackDefaults
-        items={items}
-        sourceType={sourceType}
-        canManage={canManage}
-        transition={commonTransition}
-        imageDuration={imageDuration}
-        transitionPending={bulkUpdate.isPending}
-        imageDurationPending={bulkUpdate.isPending}
-        onTransitionChange={(transition) => {
-          setPlaybackMessage("");
-          bulkUpdate.mutate({ transition });
-        }}
-        onImageDurationChange={(seconds) => {
-          setPlaybackMessage("");
-          bulkUpdate.mutate({ durationMs: Math.round(seconds * 1000) });
-        }}
-        onOpenDetails={openDetails}
-      />
+      {desktop ? (
+        <ResizablePanelGroup
+          orientation="horizontal"
+          role="group"
+          aria-label="Playlist sequence and inspector"
+        >
+          <ResizablePanel
+            defaultSize="62%"
+            minSize="35%"
+            id="playlist-sequence"
+            aria-label="Playlist sequence"
+          >
+            <div className="grid min-w-0 content-start gap-6 pr-4">
+              {sequence}
+            </div>
+          </ResizablePanel>
+          <ResizableHandle
+            withHandle
+            aria-label="Resize sequence and inspector panes"
+          />
+          <ResizablePanel
+            defaultSize="38%"
+            minSize="25%"
+            id="playlist-inspector"
+            aria-label="Inspector"
+          >
+            <div className="grid min-w-0 content-start gap-4 pl-4">
+              {selectedItem ? (
+                <aside aria-label="Item inspector" className="grid gap-4">
+                  <div className="grid gap-1">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      {`Item ${items.findIndex((item) => item.id === selectedItem.id) + 1} · ${selectedItem.assetType}`}
+                    </p>
+                    <h2 className="text-lg font-semibold tracking-tight">
+                      {selectedItem.assetName}
+                    </h2>
+                  </div>
+                  <Separator />
+                  <PlaylistItemInspectorBody
+                    item={selectedItem}
+                    index={items.findIndex(
+                      (item) => item.id === selectedItem.id,
+                    )}
+                    canManage={editableTimeline}
+                    playlistTransition={commonTransition}
+                    saving={updateItem.isPending || deleteItem.isPending}
+                    error={
+                      updateItem.error?.message || deleteItem.error?.message
+                    }
+                    onClose={() => setSelectedItemId(undefined)}
+                    onChange={(input) => {
+                      setEditorError("");
+                      updateItem.mutate({ itemId: selectedItem.id, input });
+                    }}
+                    onDelete={() => deleteItem.mutate(selectedItem.id)}
+                  />
+                </aside>
+              ) : (
+                <aside aria-label="Inspector" className="grid gap-4">
+                  <div className="grid gap-1">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      Inspector
+                    </p>
+                    <h2 className="text-lg font-semibold tracking-tight">
+                      Playlist settings
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Select a timeline row to edit that item. Nothing is
+                      selected.
+                    </p>
+                  </div>
+                  <Separator />
+                  <dl className="grid gap-2 text-sm">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <dt className="text-muted-foreground">Name</dt>
+                      <dd className="min-w-0 truncate font-medium">{name}</dd>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <dt className="text-muted-foreground">Source</dt>
+                      <dd className="font-medium">
+                        {sourceType === "tag" ? "Tag-driven" : "Static"}
+                      </dd>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <dt className="text-muted-foreground">Items</dt>
+                      <dd className="font-medium tabular-nums">
+                        {items.length}
+                      </dd>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <dt className="text-muted-foreground">Transition</dt>
+                      <dd className="font-medium">
+                        {transitionLabel(commonTransition)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="flex flex-wrap gap-2">
+                    <RheaButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openDetails}
+                    >
+                      Playlist details
+                    </RheaButton>
+                    <RheaButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openHistory}
+                    >
+                      History
+                    </RheaButton>
+                  </div>
+                </aside>
+              )}
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        sequence
+      )}
 
-      <PlaylistTimeline
-        items={items}
-        sourceType={sourceType}
-        canManage={editableTimeline}
-        selectedItemId={selectedItemId}
-        playlistTransition={commonTransition}
-        draggedItemId={draggedItemId}
-        onSelect={selectItem}
-        onMove={(itemId, offset) => {
-          if (!editableTimeline) return;
-          commitOrder(movePlaylistItem(items, itemId, offset));
-        }}
-        onDragStart={setDraggedItemId}
-        onDragEnd={() => setDraggedItemId(undefined)}
-        onDrop={handleDrop}
-        onAddContent={() => {
-          setAddFailure("");
-          setPicker(true);
-        }}
-        onAddLayout={() => {
-          setAddFailure("");
-          setLayoutPicker(true);
-        }}
-      />
-
-      <div className="grid min-w-0 gap-4">
-        <UsedByPanel
-          compact
-          emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."
-          groups={[
-            {
-              label: "Layouts",
-              items: (playlist.layoutUsage ?? []).map((layout) => ({
-                id: layout.id,
-                name: layout.name,
-                hint: layout.published ? "Published" : "Draft",
-              })),
-              to: (layoutId) => `/layouts/${layoutId}`,
-            },
-            {
-              label: "Screens",
-              items: playlist.usage?.screens ?? [],
-              to: (screenId) => `/screens/${screenId}`,
-            },
-            {
-              label: "Schedules",
-              items: playlist.usage?.schedules ?? [],
-              to: (scheduleId) => `/schedules/${scheduleId}`,
-            },
-            {
-              label: "Campaigns",
-              items: playlist.usage?.campaigns ?? [],
-              to: (campaignId) => `/campaigns/${campaignId}`,
-            },
-          ]}
-        />
-      </div>
-
-      {selectedItem && (
+      {!desktop && selectedItem && (
         <PlaylistItemInspector
           item={selectedItem}
           index={items.findIndex((item) => item.id === selectedItem.id)}

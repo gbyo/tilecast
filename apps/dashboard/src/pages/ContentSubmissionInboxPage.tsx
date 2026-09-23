@@ -1,15 +1,54 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  createColumnHelper,
+  tableFeatures,
+  useTable,
+} from "@tanstack/react-table";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { Check, Clock3, Send, Undo2 } from "lucide-react";
+import { Check, Clock3, Inbox, Send, Undo2 } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "../api/client";
 import type { ContentSubmission, SubmissionStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
 import { ViewTabs } from "../components/ViewTabs";
+import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import { Textarea } from "../components/ui/textarea";
 
 const filters: { value: "" | SubmissionStatus; label: string }[] = [
   { value: "in_review", label: "Needs review" },
@@ -20,6 +59,9 @@ const filters: { value: "" | SubmissionStatus; label: string }[] = [
   { value: "published", label: "Published" },
   { value: "", label: "All history" },
 ];
+
+const features = tableFeatures({});
+const columnHelper = createColumnHelper<typeof features, ContentSubmission>();
 
 export function ContentSubmissionInboxPage() {
   const auth = useAuth();
@@ -32,6 +74,9 @@ export function ContentSubmissionInboxPage() {
   const [filter, setFilter] = useState<"" | SubmissionStatus>("in_review");
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState<Record<string, string>>({});
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
   const query = useQuery({
     queryKey: ["content-submissions", filter],
     queryFn: () => api.contentSubmissions(filter),
@@ -43,17 +88,41 @@ export function ContentSubmissionInboxPage() {
   const approve = useMutation({
     mutationFn: (item: ContentSubmission) =>
       api.approveContentSubmission(item.id, notes[item.id] ?? "", csrf),
-    onSuccess: invalidate,
+    onSuccess: (_data, item) => {
+      invalidate();
+      setNotes((current) => ({ ...current, [item.id]: "" }));
+      if (selectedId === item.id) setSelectedId(null);
+      toast.success("Submission approved.");
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Could not approve."),
   });
   const requestChanges = useMutation({
     mutationFn: (item: ContentSubmission) =>
-      api.requestContentChanges(item.id, notes[item.id] ?? "", csrf),
-    onSuccess: invalidate,
+      api.requestContentChanges(item.id, rejectNote, csrf),
+    onSuccess: (_data, item) => {
+      invalidate();
+      setNotes((current) => ({ ...current, [item.id]: "" }));
+      setRejectId(null);
+      setRejectNote("");
+      if (selectedId === item.id) setSelectedId(null);
+      toast.success("Changes requested.");
+    },
+    onError: (err) =>
+      toast.error(
+        err instanceof Error ? err.message : "Could not request changes.",
+      ),
   });
   const publish = useMutation({
     mutationFn: (item: ContentSubmission) =>
       api.publishContentSubmission(item.id, csrf),
-    onSuccess: invalidate,
+    onSuccess: (_data, item) => {
+      invalidate();
+      if (selectedId === item.id) setSelectedId(null);
+      toast.success("Submission published.");
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Could not publish."),
   });
   const schedulePublication = useMutation({
     mutationFn: (item: ContentSubmission) =>
@@ -62,12 +131,26 @@ export function ContentSubmissionInboxPage() {
         new Date(schedule[item.id] ?? "").toISOString(),
         csrf,
       ),
-    onSuccess: invalidate,
+    onSuccess: (_data, item) => {
+      invalidate();
+      setSchedule((current) => ({ ...current, [item.id]: "" }));
+      if (selectedId === item.id) setSelectedId(null);
+      toast.success("Publication scheduled.");
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Could not schedule."),
   });
   const cancelSchedule = useMutation({
     mutationFn: (item: ContentSubmission) =>
       api.cancelContentSchedule(item.id, csrf),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success("Schedule cancelled.");
+    },
+    onError: (err) =>
+      toast.error(
+        err instanceof Error ? err.message : "Could not cancel the schedule.",
+      ),
   });
   const error =
     approve.error ||
@@ -76,9 +159,85 @@ export function ContentSubmissionInboxPage() {
     schedulePublication.error ||
     cancelSchedule.error;
   const items = query.data?.items ?? [];
+  const selected = items.find((item) => item.id === selectedId) ?? null;
+  const rejectItem = items.find((item) => item.id === rejectId) ?? null;
+  const busy =
+    approve.isPending ||
+    requestChanges.isPending ||
+    publish.isPending ||
+    schedulePublication.isPending ||
+    cancelSchedule.isPending;
+
+  const columns = useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.display({
+          id: "submission",
+          header: "Submission",
+          cell: ({ row }) => {
+            const item = row.original;
+            return (
+              <div className="grid min-w-0 gap-0.5">
+                <Link
+                  to={contentHref(item)}
+                  className="truncate font-medium text-primary hover:underline"
+                >
+                  {item.contentName || item.contentType} ·{" "}
+                  {item.contentId.slice(0, 8)}
+                </Link>
+                <span className="text-xs text-muted-foreground">
+                  Draft revision {item.workingRevision} · submitted{" "}
+                  {new Date(item.submittedAt).toLocaleString()}{" "}
+                  {item.submitterName ? `by ${item.submitterName}` : ""}
+                </span>
+              </div>
+            );
+          },
+        }),
+        columnHelper.display({
+          id: "status",
+          header: "Status",
+          cell: ({ row }) => <SubmissionBadge status={row.original.status} />,
+        }),
+        columnHelper.display({
+          id: "impact",
+          header: "Impact",
+          cell: ({ row }) => {
+            const item = row.original;
+            return (
+              <span className="text-muted-foreground">
+                Published revision {item.currentPublishedRevision ?? "none"} ·{" "}
+                {item.affectedScreenCount} screens across{" "}
+                {item.affectedLocationCount} locations
+              </span>
+            );
+          },
+        }),
+        columnHelper.display({
+          id: "review",
+          header: "",
+          cell: ({ row }) => (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setSelectedId(row.original.id)}
+            >
+              Review
+            </Button>
+          ),
+        }),
+      ]),
+    [],
+  );
+  const table = useTable({
+    features,
+    columns,
+    data: items,
+    getRowId: (row) => row.id,
+  });
 
   return (
-    <section>
+    <section className="grid gap-4">
       <PageHeader
         title="Content review"
         description="Every submission freezes the exact draft a reviewer saw. Publishing creates a new immutable runtime revision; later edits stay private until submitted again."
@@ -118,39 +277,48 @@ export function ContentSubmissionInboxPage() {
           <AlertDescription>{query.error.message}</AlertDescription>
         </Alert>
       ) : !items.length ? (
-        <div className="empty-card">No submissions match this view.</div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Inbox size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No submissions match this view</EmptyTitle>
+            <EmptyDescription>
+              Submissions appear here once content is submitted for review.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="backup-list">
-          {items.map((item) => (
-            <SubmissionRow
-              key={item.id}
-              item={item}
-              canReview={canReview}
-              canPublish={
-                item.contentType === "campaign"
-                  ? canPublishCampaign
-                  : canPublish
-              }
-              note={notes[item.id] ?? ""}
-              schedule={schedule[item.id] ?? ""}
-              onNote={(value) => setNotes({ ...notes, [item.id]: value })}
-              onSchedule={(value) =>
-                setSchedule({ ...schedule, [item.id]: value })
-              }
-              approve={() => approve.mutate(item)}
-              requestChanges={() => requestChanges.mutate(item)}
-              publish={() => publish.mutate(item)}
-              schedulePublication={() => schedulePublication.mutate(item)}
-              cancelSchedule={() => cancelSchedule.mutate(item)}
-              disabled={
-                approve.isPending ||
-                requestChanges.isPending ||
-                publish.isPending ||
-                schedulePublication.isPending ||
-                cancelSchedule.isPending
-              }
-            />
-          ))}
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <Table className="min-w-[48rem]">
+            <TableHeader>
+              {table.getHeaderGroups().map((group) => (
+                <TableRow key={group.id} className="hover:bg-transparent">
+                  {group.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="bg-muted/40 text-xs text-muted-foreground"
+                    >
+                      {header.isPlaceholder ? null : (
+                        <table.FlexRender header={header} />
+                      )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getAllCells().map((cell) => (
+                    <TableCell key={cell.id} className="px-2.5 py-2">
+                      <table.FlexRender cell={cell} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
       {error && (
@@ -158,143 +326,268 @@ export function ContentSubmissionInboxPage() {
           <AlertDescription>{error.message}</AlertDescription>
         </Alert>
       )}
+      <Sheet
+        open={selected !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedId(null);
+        }}
+      >
+        {selected && (
+          <SheetContent className="grid gap-4 overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>
+                {selected.contentName || selected.contentType} ·{" "}
+                {selected.contentId.slice(0, 8)}
+              </SheetTitle>
+              <SheetDescription>
+                Draft revision {selected.workingRevision} · submitted{" "}
+                {new Date(selected.submittedAt).toLocaleString()}{" "}
+                {selected.submitterName ? `by ${selected.submitterName}` : ""}
+              </SheetDescription>
+            </SheetHeader>
+            <dl className="grid gap-2 text-sm">
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-muted-foreground">Status</dt>
+                <dd>
+                  <SubmissionBadge status={selected.status} />
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-muted-foreground">Published revision</dt>
+                <dd>{selected.currentPublishedRevision ?? "none"}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-muted-foreground">Impact</dt>
+                <dd>
+                  {selected.affectedScreenCount} screens across{" "}
+                  {selected.affectedLocationCount} locations
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-muted-foreground">Snapshot SHA-256</dt>
+                <dd>
+                  <code className="text-xs break-all">
+                    {selected.snapshotSha256}
+                  </code>
+                </dd>
+              </div>
+              {selected.newerWorkingDraft && (
+                <p className="text-sm text-muted-foreground">
+                  A newer private draft exists.
+                </p>
+              )}
+              {selected.reviewNote && (
+                <p className="text-sm text-muted-foreground">
+                  Review note: {selected.reviewNote}
+                </p>
+              )}
+            </dl>
+            <details>
+              <summary className="cursor-pointer text-sm font-medium">
+                View exact submitted snapshot
+              </summary>
+              <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
+                {JSON.stringify(selected.snapshot, null, 2)}
+              </pre>
+            </details>
+            {canReview && selected.status === "in_review" && (
+              <div className="grid gap-2">
+                <Field>
+                  <FieldLabel htmlFor="submission-review-note">
+                    Review note
+                  </FieldLabel>
+                  <Textarea
+                    id="submission-review-note"
+                    rows={2}
+                    value={notes[selected.id] ?? ""}
+                    placeholder="Optional note recorded with approval"
+                    onChange={(event) =>
+                      setNotes({ ...notes, [selected.id]: event.target.value })
+                    }
+                  />
+                </Field>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    disabled={busy}
+                    onClick={() => approve.mutate(selected)}
+                  >
+                    <Check size={15} aria-hidden="true" /> Approve
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setRejectNote(notes[selected.id] ?? "");
+                      setRejectId(selected.id);
+                    }}
+                  >
+                    <Undo2 size={15} aria-hidden="true" /> Request changes
+                  </Button>
+                </div>
+              </div>
+            )}
+            {selected.contentType === "campaign"
+              ? canPublishCampaign &&
+                selected.status === "approved" && (
+                  <PublishActions
+                    item={selected}
+                    schedule={schedule[selected.id] ?? ""}
+                    onSchedule={(value) =>
+                      setSchedule({ ...schedule, [selected.id]: value })
+                    }
+                    publish={() => publish.mutate(selected)}
+                    schedulePublication={() =>
+                      schedulePublication.mutate(selected)
+                    }
+                    disabled={busy}
+                  />
+                )
+              : canPublish &&
+                selected.status === "approved" && (
+                  <PublishActions
+                    item={selected}
+                    schedule={schedule[selected.id] ?? ""}
+                    onSchedule={(value) =>
+                      setSchedule({ ...schedule, [selected.id]: value })
+                    }
+                    publish={() => publish.mutate(selected)}
+                    schedulePublication={() =>
+                      schedulePublication.mutate(selected)
+                    }
+                    disabled={busy}
+                  />
+                )}
+            {(selected.contentType === "campaign"
+              ? canPublishCampaign
+              : canPublish) &&
+              selected.status === "scheduled" && (
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => cancelSchedule.mutate(selected)}
+                >
+                  Cancel schedule
+                </Button>
+              )}
+            <p className="text-sm">
+              <Link
+                to={contentHref(selected)}
+                className="font-medium text-primary hover:underline"
+              >
+                Open content
+              </Link>
+            </p>
+          </SheetContent>
+        )}
+      </Sheet>
+      <Dialog
+        open={rejectItem !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectId(null);
+            setRejectNote("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request changes</DialogTitle>
+            <DialogDescription>
+              A reason is required so the author knows what to fix.
+            </DialogDescription>
+          </DialogHeader>
+          <Field>
+            <FieldLabel htmlFor="submission-reject-note">
+              Reason for sending back
+            </FieldLabel>
+            <Textarea
+              id="submission-reject-note"
+              rows={3}
+              value={rejectNote}
+              placeholder="What must change before this can be approved?"
+              onChange={(event) => setRejectNote(event.target.value)}
+            />
+            <FieldDescription>
+              Recorded with the decision and shown to the author.
+            </FieldDescription>
+          </Field>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              disabled={requestChanges.isPending}
+              onClick={() => {
+                setRejectId(null);
+                setRejectNote("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={requestChanges.isPending || !rejectNote.trim()}
+              onClick={() => {
+                if (rejectItem) requestChanges.mutate(rejectItem);
+              }}
+            >
+              <Undo2 size={15} aria-hidden="true" /> Send back
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
-function SubmissionRow({
-  item,
-  canReview,
-  canPublish,
-  note,
+function PublishActions({
   schedule,
-  onNote,
   onSchedule,
-  approve,
-  requestChanges,
   publish,
   schedulePublication,
-  cancelSchedule,
   disabled,
 }: {
   item: ContentSubmission;
-  canReview: boolean;
-  canPublish: boolean;
-  note: string;
   schedule: string;
-  onNote: (value: string) => void;
   onSchedule: (value: string) => void;
-  approve: () => void;
-  requestChanges: () => void;
   publish: () => void;
   schedulePublication: () => void;
-  cancelSchedule: () => void;
   disabled: boolean;
 }) {
-  const href =
-    item.contentType === "playlist"
-      ? `/playlists/${item.contentId}`
-      : item.contentType === "layout"
-        ? `/layouts/${item.contentId}`
-        : `/campaigns/${item.contentId}`;
-  const requiresNote = item.status === "in_review";
   return (
-    <article className="backup-row">
-      <div className="backup-row__details">
-        <strong>
-          <Link to={href}>
-            {item.contentName || item.contentType} ·{" "}
-            {item.contentId.slice(0, 8)}
-          </Link>
-        </strong>
-        <span>
-          Draft revision {item.workingRevision} · submitted{" "}
-          {new Date(item.submittedAt).toLocaleString()}{" "}
-          {item.submitterName ? `by ${item.submitterName}` : ""}
-        </span>
-        <span>
-          <SubmissionBadge status={item.status} />
-          {item.newerWorkingDraft && " · A newer private draft exists"}
-        </span>
-        <span>
-          Published revision {item.currentPublishedRevision ?? "none"} ·{" "}
-          {item.affectedScreenCount} screens across {item.affectedLocationCount}{" "}
-          locations
-        </span>
-        <span>
-          Snapshot SHA-256 <code>{item.snapshotSha256}</code>
-        </span>
-        {item.reviewNote && (
-          <span className="setting-dependency">
-            Review note: {item.reviewNote}
-          </span>
-        )}
-        <details>
-          <summary>View exact submitted snapshot</summary>
-          <pre className="submission-snapshot">
-            {JSON.stringify(item.snapshot, null, 2)}
-          </pre>
-        </details>
+    <div className="grid gap-2">
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={disabled} onClick={publish}>
+          <Send size={15} aria-hidden="true" /> Publish now
+        </Button>
       </div>
-      <div className="backup-row__actions review-actions">
-        {canReview && item.status === "in_review" && (
-          <>
-            <label className="review-note">
-              <span className="text-xs font-medium">Review note</span>
-              <input
-                value={note}
-                onChange={(event) => onNote(event.target.value)}
-                placeholder={
-                  requiresNote ? "Required when sending back" : "Optional note"
-                }
-              />
-            </label>
-            <Button disabled={disabled} onClick={approve}>
-              <Check size={15} /> Approve
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={disabled || !note.trim()}
-              onClick={requestChanges}
-            >
-              <Undo2 size={15} /> Request changes
-            </Button>
-          </>
-        )}
-        {canPublish && item.status === "approved" && (
-          <>
-            <Button disabled={disabled} onClick={publish}>
-              <Send size={15} /> Publish now
-            </Button>
-            <label className="review-note">
-              <span className="text-xs font-medium">Publish at</span>
-              <input
-                type="datetime-local"
-                value={schedule}
-                onChange={(event) => onSchedule(event.target.value)}
-              />
-            </label>
-            <Button
-              variant="secondary"
-              disabled={disabled || !schedule}
-              onClick={schedulePublication}
-            >
-              <Clock3 size={15} /> Schedule
-            </Button>
-          </>
-        )}
-        {canPublish && item.status === "scheduled" && (
-          <Button
-            variant="secondary"
-            disabled={disabled}
-            onClick={cancelSchedule}
-          >
-            Cancel schedule
-          </Button>
-        )}
+      <Field>
+        <FieldLabel htmlFor="submission-publish-at">Publish at</FieldLabel>
+        <DateTimeInput
+          id="submission-publish-at"
+          value={schedule}
+          onChange={onSchedule}
+        />
+        <FieldDescription>
+          Schedule publication for a future date and time.
+        </FieldDescription>
+      </Field>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          disabled={disabled || !schedule}
+          onClick={schedulePublication}
+        >
+          <Clock3 size={15} aria-hidden="true" /> Schedule
+        </Button>
       </div>
-    </article>
+    </div>
   );
+}
+
+function contentHref(item: ContentSubmission) {
+  return item.contentType === "playlist"
+    ? `/playlists/${item.contentId}`
+    : item.contentType === "layout"
+      ? `/layouts/${item.contentId}`
+      : `/campaigns/${item.contentId}`;
 }
 
 function statusLabel(status: SubmissionStatus) {

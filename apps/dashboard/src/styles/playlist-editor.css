@@ -42,15 +42,6 @@
   flex: 0 0 auto;
 }
 
-.playlist-editor-v2__notices {
-  display: grid;
-  gap: var(--tc-space-2);
-}
-
-.playlist-editor-v2__notices .notice {
-  margin: 0;
-}
-
 .playlist-editor-eyebrow {
   margin: 0;
   color: var(--tc-text-secondary);
@@ -94,10 +85,6 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--tc-space-4);
-}
-
-.playlist-playback__controls .field {
-  min-width: 0;
 }
 
 .playlist-playback__duration-control,
@@ -624,10 +611,6 @@
   font: var(--tc-text-supporting);
 }
 
-.playlist-history-panel .notice {
-  margin: 0 0 var(--tc-space-3);
-}
-
 .playlist-history-panel .backup-job-list {
   display: grid;
   gap: var(--tc-space-2);
@@ -695,10 +678,6 @@
   gap: var(--tc-space-2);
   max-height: 360px;
   overflow-y: auto;
-}
-
-.playlist-editor-layout-picker .button {
-  justify-content: flex-start;
 }
 
 @media (max-width: 760px) {
