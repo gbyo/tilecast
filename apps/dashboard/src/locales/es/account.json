@@ -1,0 +1,20 @@
+{
+  "preferences": {
+    "loading": "Cargando preferencias…",
+    "saved": "Preferencias guardadas.",
+    "leaveWarning": "¿Salir de Mi cuenta con cambios de preferencias sin guardar?",
+    "conflict": "Estas preferencias cambiaron en otro lugar. Recarga las preferencias más recientes antes de guardar.",
+    "appearance": {
+      "title": "Apariencia",
+      "description": "Sigue este navegador o fuerza Studio en modo claro u oscuro.",
+      "system": "Sistema",
+      "light": "Claro",
+      "dark": "Oscuro"
+    },
+    "language": {
+      "title": "Idioma",
+      "description": "El idioma que Studio usa para ti. Los nombres, el contenido y los mensajes de los reproductores no se traducen.",
+      "system": "Predeterminado del navegador ({{language}})"
+    }
+  }
+}

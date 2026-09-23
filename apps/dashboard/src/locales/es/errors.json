@@ -1,0 +1,7 @@
+{
+  "generic": "Algo salió mal. Inténtalo de nuevo.",
+  "codes": {
+    "forbidden": "Tu rol no permite esta acción.",
+    "rate_limited": "Demasiados intentos. Espera un momento e inténtalo de nuevo."
+  }
+}

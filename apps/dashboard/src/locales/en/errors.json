@@ -1,0 +1,7 @@
+{
+  "generic": "Something went wrong. Try again.",
+  "codes": {
+    "forbidden": "Your role does not allow this action.",
+    "rate_limited": "Too many attempts. Wait a moment and try again."
+  }
+}

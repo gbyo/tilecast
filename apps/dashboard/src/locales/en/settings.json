@@ -1,0 +1,7 @@
+{
+  "actionBar": {
+    "unsavedTitle": "Unsaved changes",
+    "unsavedDescription": "Changes are kept while you browse Settings.",
+    "reload": "Reload settings"
+  }
+}

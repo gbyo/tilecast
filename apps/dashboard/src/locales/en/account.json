@@ -1,0 +1,20 @@
+{
+  "preferences": {
+    "loading": "Loading preferences…",
+    "saved": "Preferences saved.",
+    "leaveWarning": "Leave My Account with unsaved preference changes?",
+    "conflict": "These preferences changed elsewhere. Reload the latest preferences before saving.",
+    "appearance": {
+      "title": "Appearance",
+      "description": "Follow this browser, or force Studio light or dark.",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "language": {
+      "title": "Language",
+      "description": "The language Studio uses for you. Names, content, and messages from Players are not translated.",
+      "system": "Browser default ({{language}})"
+    }
+  }
+}

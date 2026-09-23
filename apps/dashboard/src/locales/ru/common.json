@@ -1,0 +1,24 @@
+{
+  "actions": {
+    "back": "Назад",
+    "cancel": "Отмена",
+    "close": "Закрыть",
+    "confirm": "Подтвердить",
+    "delete": "Удалить",
+    "edit": "Изменить",
+    "next": "Далее",
+    "retry": "Повторить",
+    "save": "Сохранить",
+    "saveChanges": "Сохранить изменения",
+    "saving": "Сохранение…"
+  },
+  "status": {
+    "loading": "Загрузка…"
+  },
+  "count": {
+    "items_one": "{{count}} элемент",
+    "items_few": "{{count}} элемента",
+    "items_many": "{{count}} элементов",
+    "items_other": "{{count}} элемента"
+  }
+}
