@@ -1,14 +1,24 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type {
   FormAvailableTransition,
   FormDataSource,
   FormRecordDetail,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
+import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
@@ -118,6 +128,8 @@ function RecordReviewBody({
     rfc3339ToLocalDateTime(detail.expiresAt ?? ""),
   );
   const [note, setNote] = useState("");
+  const [pendingTransition, setPendingTransition] =
+    useState<FormAvailableTransition | null>(null);
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -208,9 +220,12 @@ function RecordReviewBody({
     }
   }
 
-  async function runTransition(transition: FormAvailableTransition) {
+  async function runTransition(
+    transition: FormAvailableTransition,
+    noteText: string,
+  ) {
     setError("");
-    if (transition.requiresNote && note.trim() === "") {
+    if (transition.requiresNote && noteText.trim() === "") {
       setError(`A note is required to ${transition.label.toLowerCase()}.`);
       return;
     }
@@ -224,13 +239,15 @@ function RecordReviewBody({
         detail.id,
         {
           toState: transition.to,
-          note: note.trim() || undefined,
+          note: noteText.trim() || undefined,
           version: currentVersion,
         },
         csrf,
       );
       setVersion(record.version);
       setNote("");
+      setPendingTransition(null);
+      toast.success("Decision recorded.");
       onChanged();
     } catch (err) {
       // On a conflict, fully refresh from the server (values, metadata, images, state, version) and
@@ -319,10 +336,6 @@ function RecordReviewBody({
     }
   }
 
-  const requiresNoteTransition = detail.availableTransitions.some(
-    (t) => t.requiresNote,
-  );
-
   return (
     <div className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-2">
@@ -393,27 +406,26 @@ function RecordReviewBody({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="record-review-display-at">
+            <FieldLabel htmlFor="record-review-display-at-date">
               Display from
             </FieldLabel>
-            <Input
+            <DateTimeInput
               id="record-review-display-at"
-              type="datetime-local"
               value={displayAt}
               disabled={!canEdit}
-              onChange={(event) => setDisplayAt(event.target.value)}
+              onChange={setDisplayAt}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="record-review-expires-at">
+            <FieldLabel htmlFor="record-review-expires-at-date">
               Expires at
             </FieldLabel>
-            <Input
+            <DateTimeInput
               id="record-review-expires-at"
-              type="datetime-local"
               value={expiresAt}
+              min={displayAt}
               disabled={!canEdit}
-              onChange={(event) => setExpiresAt(event.target.value)}
+              onChange={setExpiresAt}
             />
           </Field>
         </div>
@@ -436,28 +448,19 @@ function RecordReviewBody({
           aria-label="Decision"
         >
           <h3 className="text-base font-semibold">Decision</h3>
-          {requiresNoteTransition && (
-            <Field>
-              <FieldLabel htmlFor="record-review-note">Note</FieldLabel>
-              <Textarea
-                id="record-review-note"
-                rows={2}
-                value={note}
-                aria-label="Note"
-                onChange={(event) => setNote(event.target.value)}
-              />
-              <FieldDescription>
-                Required when requesting changes.
-              </FieldDescription>
-            </Field>
-          )}
           <div className="flex flex-wrap gap-2">
             {detail.availableTransitions.map((transition) => (
               <RheaButton
                 key={`${transition.to}`}
                 variant={transition.requiresNote ? "secondary" : "default"}
                 disabled={busy}
-                onClick={() => void runTransition(transition)}
+                onClick={() => {
+                  if (transition.requiresNote) {
+                    setPendingTransition(transition);
+                  } else {
+                    void runTransition(transition, note);
+                  }
+                }}
               >
                 {transition.label}
               </RheaButton>
@@ -465,6 +468,66 @@ function RecordReviewBody({
           </div>
         </section>
       )}
+
+      <Dialog
+        open={pendingTransition !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingTransition(null);
+            setNote("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingTransition
+                ? `${pendingTransition.label} this submission`
+                : "Record a decision"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingTransition
+                ? `A note is required to ${pendingTransition.label.toLowerCase()}.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <Field>
+            <FieldLabel htmlFor="record-review-note">Note</FieldLabel>
+            <Textarea
+              id="record-review-note"
+              rows={3}
+              value={note}
+              aria-label="Note"
+              placeholder="What changed or what must the author fix?"
+              onChange={(event) => setNote(event.target.value)}
+            />
+            <FieldDescription>
+              Recorded with the decision and shown in history.
+            </FieldDescription>
+          </Field>
+          <DialogFooter>
+            <RheaButton
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setPendingTransition(null);
+                setNote("");
+              }}
+            >
+              Cancel
+            </RheaButton>
+            <RheaButton
+              disabled={busy || note.trim() === ""}
+              onClick={() => {
+                if (pendingTransition)
+                  void runTransition(pendingTransition, note);
+              }}
+            >
+              {pendingTransition?.label ?? "Confirm"}
+            </RheaButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <section
         className="grid gap-3 rounded-xl border border-border p-4"

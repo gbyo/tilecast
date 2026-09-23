@@ -4,7 +4,7 @@ import type {
   ContentFolder,
   ContentTag,
 } from "../../api/types";
-import { ToggleGroup } from "../ToggleGroup";
+import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -115,13 +115,22 @@ export function ContentPickerToolbar({
       />
       <ToggleGroup
         className="content-picker-filters"
-        label="Content type"
-        value={filter}
-        onValueChange={onFilter}
-        items={filters
+        aria-label="Content type"
+        multiple={false}
+        value={[filter]}
+        onValueChange={(next) => {
+          const first = next[0] as ContentPickerFilter | undefined;
+          if (first !== undefined) onFilter(first);
+        }}
+      >
+        {filters
           .filter(({ type }) => !type || allowed.has(type))
-          .map(({ value, label }) => ({ value, label }))}
-      />
+          .map(({ value, label }) => (
+            <ToggleGroupItem key={value} value={value}>
+              {label}
+            </ToggleGroupItem>
+          ))}
+      </ToggleGroup>
       {folders.length > 0 && onFolderFilter && (
         <PickerSelect
           label="Filter by folder"
@@ -173,20 +182,21 @@ export function ContentPickerToolbar({
         ]}
       />
       <ToggleGroup
-        label="Content view"
-        value={view}
-        onValueChange={onView}
-        items={[
-          {
-            value: "grid",
-            label: <Grid2X2 size={16} aria-label="Grid view" />,
-          },
-          {
-            value: "list",
-            label: <List size={16} aria-label="List view" />,
-          },
-        ]}
-      />
+        aria-label="Content view"
+        multiple={false}
+        value={[view]}
+        onValueChange={(next) => {
+          const first = next[0] as "grid" | "list" | undefined;
+          if (first !== undefined) onView(first);
+        }}
+      >
+        <ToggleGroupItem value="grid" aria-label="Grid view">
+          <Grid2X2 size={16} aria-hidden="true" />
+        </ToggleGroupItem>
+        <ToggleGroupItem value="list" aria-label="List view">
+          <List size={16} aria-hidden="true" />
+        </ToggleGroupItem>
+      </ToggleGroup>
     </div>
   );
 }
