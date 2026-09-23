@@ -218,7 +218,7 @@ paths:
       parameters:
         - name: window
           in: query
-          schema: { type: string, enum: [24h, 7d], default: 24h }
+          schema: { type: string, enum: [24h, 7d, 30d], default: 24h }
       responses:
         "200":
           description: Fleet totals, one bucket per interval, and per-screen strips

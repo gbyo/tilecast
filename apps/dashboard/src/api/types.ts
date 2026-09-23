@@ -741,7 +741,7 @@ export type AirplaySession = {
   endReason?: string;
   screens: AirplaySessionScreenState[];
 };
-export type UptimeWindow = "24h" | "7d";
+export type UptimeWindow = "24h" | "7d" | "30d";
 /** A screen spends every measured second in exactly one of these states. */
 export type UptimeState = "up" | "impaired" | "down" | "unknown";
 export type UptimeBucket = {

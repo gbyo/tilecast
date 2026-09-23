@@ -1,7 +1,12 @@
 import { Navigate, useParams, useSearchParams } from "react-router";
+import { ChevronDown } from "lucide-react";
 import { LivePreviewPanel } from "../components/LivePreviewPanel";
 import { SnapshotHistoryPanel } from "../components/SnapshotHistoryPanel";
-import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
 import { ScreenDetailPage, normalizeScreenDetailTab } from "./ScreensPage";
 
 export function ScreenDetailWithPreviewPage() {
@@ -9,35 +14,34 @@ export function ScreenDetailWithPreviewPage() {
   const [searchParams] = useSearchParams();
   if (!id) return <Navigate to="/screens" replace />;
 
-  const tab = normalizeScreenDetailTab(searchParams.get("tab"));
-  if (tab === "overview") {
-    return (
-      <div className="screen-detail-preview-layout">
-        <div className="screen-detail-preview-layout__detail">
-          <ScreenDetailPage />
-        </div>
-        <LivePreviewPanel screenId={id} />
-      </div>
-    );
-  }
-  // The detail page renders only the selected tab's panel, so each extra panel
-  // simply follows it. No wrapper hides Overview any more.
+  const tab = normalizeScreenDetailTab(
+    searchParams.get("tab"),
+    searchParams.get("section"),
+  );
+
   return (
-    <>
+    <div className="w-full min-w-0 space-y-5">
       <ScreenDetailPage />
-      {tab === "snapshots" && (
-        <section
-          className="snapshot-history-card"
-          aria-labelledby="snapshot-history-title"
-        >
-          <header>
-            <h3 id="snapshot-history-title">Snapshot history</h3>
-            <p>Previously captured frames reported by this player.</p>
-          </header>
-          <SnapshotHistoryPanel screenId={id} />
-        </section>
+      {tab === "overview" && (
+        <>
+          <LivePreviewPanel screenId={id} />
+          <Collapsible
+            defaultOpen={searchParams.get("tab") === "snapshots"}
+            className="border-t border-border pt-4"
+          >
+            <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Snapshot history
+              <ChevronDown size={16} aria-hidden="true" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Previously captured frames reported by this player.
+              </p>
+              <SnapshotHistoryPanel screenId={id} />
+            </CollapsibleContent>
+          </Collapsible>
+        </>
       )}
-      {tab === "activity" && <ScreenActivityPanel screenId={id} />}
-    </>
+    </div>
   );
 }

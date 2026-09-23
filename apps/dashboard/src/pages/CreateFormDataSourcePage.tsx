@@ -11,7 +11,7 @@ import {
   Notice,
   PageHeader,
   Textarea,
-} from "../components/ui";
+} from "../components/legacy-ui";
 
 // CreateFormDataSourcePage collects the form name/description and the initial form
 // title/description, then creates the Form (which the server publishes as its first revision) and

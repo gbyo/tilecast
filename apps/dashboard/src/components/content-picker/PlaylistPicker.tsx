@@ -3,7 +3,17 @@ import { Check, LayoutTemplate, ListVideo, Tags } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client";
 import type { LayoutSummary, Playlist } from "../../api/types";
-import { Button, Dialog } from "../ui";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import { Skeleton } from "../ui/skeleton";
 import { DashboardSearch } from "../DashboardListToolbar";
 import { LayoutPreview, PlaylistPreview } from "../PresentationPreview";
 
@@ -100,116 +110,126 @@ export function PlaylistPicker({
   return (
     <Dialog
       open={open}
-      title={title ?? defaultTitle}
-      onClose={onClose}
-      className="playlist-picker"
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
     >
-      {description && (
-        <p className="playlist-picker__description">{description}</p>
-      )}
-      <DashboardSearch
-        autoFocus
-        value={search}
-        onValueChange={setSearch}
-        label={`Search ${noun}`}
-        placeholder={`Search ${noun}`}
-      />
-      <div className="playlist-picker__results">
-        {loading ? (
-          <p className="status-copy">Loading {noun}…</p>
-        ) : failed ? (
-          <div className="notice notice--error">
-            <strong>
-              {noun.charAt(0).toUpperCase() + noun.slice(1)} could not be
-              loaded.
-            </strong>
-            <button
-              className="button button--quiet"
-              onClick={() => {
-                if (canChoosePlaylists) void playlists.refetch();
-                if (canChooseLayouts) void layouts.refetch();
-              }}
-            >
-              Try again
-            </button>
-          </div>
-        ) : !choices.length ? (
-          <p className="status-copy">
-            {search
-              ? `No ${noun} match this search.`
-              : `No ${noun} yet. Create one first.`}
-          </p>
-        ) : (
-          choices.map((choice) => {
-            const id = idOf(choice);
-            const tagDriven =
-              choice.kind === "playlist" &&
-              choice.playlist.sourceType === "tag";
-            return (
-              <button
-                type="button"
-                key={`${choice.kind}-${id}`}
-                className={id === chosen ? "is-selected" : ""}
-                aria-pressed={id === chosen}
-                onClick={() => setChosen(id)}
-                onDoubleClick={() => onConfirm(choice)}
-              >
-                <span
-                  className="playlist-picker__preview"
-                  data-orientation={
-                    choice.kind === "layout"
-                      ? choice.layout.orientation
-                      : undefined
-                  }
-                  aria-hidden="true"
+      <DialogContent className="flex max-h-[min(90vh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>{title ?? defaultTitle}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        <DashboardSearch
+          autoFocus
+          value={search}
+          onValueChange={setSearch}
+          label={`Search ${noun}`}
+          placeholder={`Search ${noun}`}
+        />
+        <div className="playlist-picker__results">
+          {loading ? (
+            <div className="space-y-2" aria-label={`Loading ${noun}`}>
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          ) : failed ? (
+            <Alert variant="destructive">
+              <AlertTitle>
+                {noun.charAt(0).toUpperCase() + noun.slice(1)} could not be
+                loaded.
+              </AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span>Retry the library request.</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (canChoosePlaylists) void playlists.refetch();
+                    if (canChooseLayouts) void layouts.refetch();
+                  }}
                 >
-                  {choice.kind === "layout" ? (
-                    <LayoutPreview layout={choice.layout} />
-                  ) : (
-                    <PlaylistPreview playlist={choice.playlist} />
-                  )}
-                </span>
-                <span className="playlist-picker__icon" aria-hidden="true">
-                  {choice.kind === "layout" ? (
-                    <LayoutTemplate size={17} />
-                  ) : tagDriven ? (
-                    <Tags size={17} />
-                  ) : (
-                    <ListVideo size={17} />
-                  )}
-                </span>
-                <span className="playlist-picker__label">
-                  <strong>
-                    {choice.kind === "playlist"
-                      ? choice.playlist.name
-                      : choice.layout.name}
-                  </strong>
-                  <small>
-                    {choice.kind === "layout"
-                      ? `Layout · revision ${choice.layout.publishedRevision}`
-                      : `${choice.playlist.itemCount} item${
-                          choice.playlist.itemCount === 1 ? "" : "s"
-                        }${tagDriven ? " · tag-driven" : ""}`}
-                  </small>
-                </span>
-                {id === chosen && <Check size={17} aria-hidden="true" />}
-              </button>
-            );
-          })
-        )}
-      </div>
-      <footer className="playlist-picker__footer">
-        <Button variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          variant="primary"
-          disabled={!selected}
-          onClick={() => selected && onConfirm(selected)}
-        >
-          {confirmLabel}
-        </Button>
-      </footer>
+                  Try again
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : !choices.length ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {search
+                ? `No ${noun} match this search.`
+                : `No ${noun} yet. Create one first.`}
+            </p>
+          ) : (
+            choices.map((choice) => {
+              const id = idOf(choice);
+              const tagDriven =
+                choice.kind === "playlist" &&
+                choice.playlist.sourceType === "tag";
+              return (
+                <button
+                  type="button"
+                  key={`${choice.kind}-${id}`}
+                  className={id === chosen ? "is-selected" : ""}
+                  aria-pressed={id === chosen}
+                  onClick={() => setChosen(id)}
+                  onDoubleClick={() => onConfirm(choice)}
+                >
+                  <span
+                    className="playlist-picker__preview"
+                    data-orientation={
+                      choice.kind === "layout"
+                        ? choice.layout.orientation
+                        : undefined
+                    }
+                    aria-hidden="true"
+                  >
+                    {choice.kind === "layout" ? (
+                      <LayoutPreview layout={choice.layout} />
+                    ) : (
+                      <PlaylistPreview playlist={choice.playlist} />
+                    )}
+                  </span>
+                  <span className="playlist-picker__icon" aria-hidden="true">
+                    {choice.kind === "layout" ? (
+                      <LayoutTemplate size={17} />
+                    ) : tagDriven ? (
+                      <Tags size={17} />
+                    ) : (
+                      <ListVideo size={17} />
+                    )}
+                  </span>
+                  <span className="playlist-picker__label">
+                    <strong>
+                      {choice.kind === "playlist"
+                        ? choice.playlist.name
+                        : choice.layout.name}
+                    </strong>
+                    <small>
+                      {choice.kind === "layout"
+                        ? `Layout · revision ${choice.layout.publishedRevision}`
+                        : `${choice.playlist.itemCount} item${
+                            choice.playlist.itemCount === 1 ? "" : "s"
+                          }${tagDriven ? " · tag-driven" : ""}`}
+                    </small>
+                  </span>
+                  {id === chosen && <Check size={17} aria-hidden="true" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+        <DialogFooter className="border-t border-border pt-3">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="default"
+            disabled={!selected}
+            onClick={() => selected && onConfirm(selected)}
+          >
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }

@@ -38,7 +38,7 @@ import type {
   DependencyNode,
   DependencyNodeType,
 } from "../api/types";
-import { EmptyState, Notice, PageHeader, Panel } from "../components/ui";
+import { EmptyState, Notice, PageHeader, Panel } from "../components/legacy-ui";
 import "./DependencyGraphPage.css";
 
 type TypePresentation = {

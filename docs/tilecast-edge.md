@@ -159,30 +159,30 @@ Tilecast Edge is successful only if these properties survive the migration.
 
 ### 4.2 Existing modules and their future owner
 
-| Current code | Current role | Future owner |
-| --- | --- | --- |
-| `core/pairing.ts` | installation ID, enrollment, credential | `tilecastd` identity/server modules |
-| `core/api.ts` | authenticated server REST | `tilecastd` server client |
-| `core/socket.ts` | server WebSocket/liveness | `tilecastd` server client |
-| `core/manifest.ts` | manifest reconciliation/preparation | `tilecastd` presentation sync |
-| `core/config.ts` | player configuration | `tilecastd` configuration |
-| `core/download.ts` | verified/resumable downloads | Edge CAS/download manager |
-| `core/storage.ts` | JSON files + media cache | Edge SQLite + CAS |
-| `core/clock.ts` | server clock correction | Edge Clock Authority |
-| `core/schedule.ts` / selection | local playback selection | Edge presentation engine |
-| `core/commands.ts` | idempotent persistent commands | `tilecastd` command engine |
-| `core/self-update.ts` | AppImage update | Edge update manager |
-| `core/supervisor.ts` | recovery ladder/safe mode | `tilecastd` renderer supervisor |
-| `core/system-probe.ts` | diagnostics/network | Edge platform providers |
-| `core/telemetry.ts` | bounded player metrics | Edge telemetry |
-| `main/discovery.ts` | JS Bonjour discovery | Edge Avahi provider |
-| `main/display-control.ts` | CEC/DDC host calls | Edge display provider |
-| `main/presentation-network.ts` | network helper client | Edge NetworkManager provider |
-| `main/airplay.ts` | UxPlay host lifecycle | Edge external-presentation provider |
-| `main/hardware.ts` | Electron-specific tuning | legacy reference only; WPE host qualification replaces it |
-| `preload.ts` synchronization | timeline projection | `tilecastd` presentation engine |
-| `renderer/renderer.ts` | browser presentation surface | behavioral source for the trusted WPE web runtime |
-| `renderer/noise-meter.ts` | browser microphone measurement | migrate to Edge PipeWire input |
+| Current code                   | Current role                            | Future owner                                              |
+| ------------------------------ | --------------------------------------- | --------------------------------------------------------- |
+| `core/pairing.ts`              | installation ID, enrollment, credential | `tilecastd` identity/server modules                       |
+| `core/api.ts`                  | authenticated server REST               | `tilecastd` server client                                 |
+| `core/socket.ts`               | server WebSocket/liveness               | `tilecastd` server client                                 |
+| `core/manifest.ts`             | manifest reconciliation/preparation     | `tilecastd` presentation sync                             |
+| `core/config.ts`               | player configuration                    | `tilecastd` configuration                                 |
+| `core/download.ts`             | verified/resumable downloads            | Edge CAS/download manager                                 |
+| `core/storage.ts`              | JSON files + media cache                | Edge SQLite + CAS                                         |
+| `core/clock.ts`                | server clock correction                 | Edge Clock Authority                                      |
+| `core/schedule.ts` / selection | local playback selection                | Edge presentation engine                                  |
+| `core/commands.ts`             | idempotent persistent commands          | `tilecastd` command engine                                |
+| `core/self-update.ts`          | AppImage update                         | Edge update manager                                       |
+| `core/supervisor.ts`           | recovery ladder/safe mode               | `tilecastd` renderer supervisor                           |
+| `core/system-probe.ts`         | diagnostics/network                     | Edge platform providers                                   |
+| `core/telemetry.ts`            | bounded player metrics                  | Edge telemetry                                            |
+| `main/discovery.ts`            | JS Bonjour discovery                    | Edge Avahi provider                                       |
+| `main/display-control.ts`      | CEC/DDC host calls                      | Edge display provider                                     |
+| `main/presentation-network.ts` | network helper client                   | Edge NetworkManager provider                              |
+| `main/airplay.ts`              | UxPlay host lifecycle                   | Edge external-presentation provider                       |
+| `main/hardware.ts`             | Electron-specific tuning                | legacy reference only; WPE host qualification replaces it |
+| `preload.ts` synchronization   | timeline projection                     | `tilecastd` presentation engine                           |
+| `renderer/renderer.ts`         | browser presentation surface            | behavioral source for the trusted WPE web runtime         |
+| `renderer/noise-meter.ts`      | browser microphone measurement          | migrate to Edge PipeWire input                            |
 
 ### 4.3 What stays on the central server
 
@@ -749,13 +749,13 @@ This distinction is required because the current player-update private key inten
 
 ### 10.4 Key classes
 
-| Key | Private key location | Purpose |
-| --- | --- | --- |
-| Existing player release signing key | CI/offline release environment only | Player/Edge release manifests |
-| Edge authority signing key | Tilecast Server persistent data volume | Dynamic signed Edge change envelopes/objects |
-| Edge installation CA key | Tilecast Server persistent data volume | Node mTLS certificates |
-| Edge node key | Generated/stored only on node | Node certificate and peer identity |
-| Player device credential | Node only; hash on server | Central player API authentication |
+| Key                                 | Private key location                   | Purpose                                      |
+| ----------------------------------- | -------------------------------------- | -------------------------------------------- |
+| Existing player release signing key | CI/offline release environment only    | Player/Edge release manifests                |
+| Edge authority signing key          | Tilecast Server persistent data volume | Dynamic signed Edge change envelopes/objects |
+| Edge installation CA key            | Tilecast Server persistent data volume | Node mTLS certificates                       |
+| Edge node key                       | Generated/stored only on node          | Node certificate and peer identity           |
+| Player device credential            | Node only; hash on server              | Central player API authentication            |
 
 Do not reuse one key solely because all are Ed25519-capable identities.
 
@@ -1123,12 +1123,12 @@ QUIC remains a benchmark-driven future option.
 
 Recommended ports:
 
-| Purpose | Protocol | Default |
-| --- | --- | ---: |
-| Zenoh multicast scouting | UDP multicast | 7446 |
-| Zenoh peer session | TCP + mTLS | 7447 |
-| Edge peer blob service | HTTPS + mTLS | 7448 |
-| mDNS/Avahi | UDP multicast | 5353 |
+| Purpose                  | Protocol      | Default |
+| ------------------------ | ------------- | ------: |
+| Zenoh multicast scouting | UDP multicast |    7446 |
+| Zenoh peer session       | TCP + mTLS    |    7447 |
+| Edge peer blob service   | HTTPS + mTLS  |    7448 |
+| mDNS/Avahi               | UDP multicast |    5353 |
 
 All ports must be configurable because schools may have policy conflicts.
 
@@ -1319,16 +1319,16 @@ Define a fixed mapping rather than letting every feature choose ad hoc prioritie
 
 Suggested classes:
 
-| Edge message | Reliability | Priority intent | Congestion behavior |
-| --- | --- | --- | --- |
-| certificate revocation hint | reliable | Control | block/bounded retry |
-| takeover/change-available hint | reliable | Control | block/bounded retry |
-| configuration/change-feed hint | reliable | Interactive high | block/bounded retry |
-| context effective-value change | reliable | Data high | bounded retry |
-| node/capability summary | reliable | Data | replace/coalesce |
-| cache add/evict announcement | best effort | Data low | drop |
-| frequent sensor gauge | best effort | Real-time/data | drop/coalesce |
-| diagnostics trace hint | best effort | Background | drop |
+| Edge message                   | Reliability | Priority intent  | Congestion behavior |
+| ------------------------------ | ----------- | ---------------- | ------------------- |
+| certificate revocation hint    | reliable    | Control          | block/bounded retry |
+| takeover/change-available hint | reliable    | Control          | block/bounded retry |
+| configuration/change-feed hint | reliable    | Interactive high | block/bounded retry |
+| context effective-value change | reliable    | Data high        | bounded retry       |
+| node/capability summary        | reliable    | Data             | replace/coalesce    |
+| cache add/evict announcement   | best effort | Data low         | drop                |
+| frequent sensor gauge          | best effort | Real-time/data   | drop/coalesce       |
+| diagnostics trace hint         | best effort | Background       | drop                |
 
 The signed/durable object itself is never considered delivered merely because the hint was delivered. Hints wake reconciliation; state remains independently retrievable.
 
@@ -2397,7 +2397,7 @@ A candidate is conceptually:
   "key": "school.phase",
   "type": "string",
   "value": "lunch",
-  "scope": {"kind": "organization", "id": "..."},
+  "scope": { "kind": "organization", "id": "..." },
   "sourceId": "bell-schedule",
   "sourceEpoch": "...",
   "sourceRevision": "418",
@@ -2764,7 +2764,7 @@ Example:
 {
   "renderer": "wpe",
   "release": "1.4.0",
-  "ipcProtocol": {"min": 1, "max": 2},
+  "ipcProtocol": { "min": 1, "max": 2 },
   "presentationSchemas": [1],
   "nativeCapabilities": {
     "content.image": 1,
@@ -5843,47 +5843,47 @@ A server upgrade must not strand older players; when older Edge software cannot 
 
 ## 45. Failure-mode contract
 
-| Failure | Correct behavior |
-| --- | --- |
-| Tilecast Server unreachable | Continue trusted cached schedules, eligible mesh/CDN and local Context. |
-| All peers disappear | Continue standalone; origin when reachable. |
-| Multicast blocked | Validated seeds/manual config or standalone. |
-| Zenoh unavailable | Playback/server path continues; mesh degraded. |
-| Peer advertises unsafe endpoint | Reject without connecting. |
-| Peer sends corrupt bytes | Hash reject, penalize, refetch. |
-| Target grant invalid/expired/stale | Refuse peer bytes even if hash exists. |
-| Same hash has confidential + permissive live refs | Effective hash policy is the stricter policy; do not OR-open it. |
-| Renderer/remote page knows CAS hash | Hash grants no media read; daemon requires current opaque presentation capability. |
-| Disk full | Preserve every live pin owner; stop new preparation. |
-| SQLite corrupt, trusted checkpoint intact | Rebuild local state without rolling trust backward. |
-| SQLite + trusted checkpoint lost | Direct secure server bootstrap/recovery required. |
-| Node cert expires | Server playback may continue; mesh disabled until safe renewal. |
-| Certificate generation below security minimum | Reject even if CA signature is valid. |
-| Trust realm mismatch | Refuse peer/state; no auto-trust. |
-| Security generation arrives while screen uses old ordinary incarnation | Accept security update when trust realm/lineage are valid; ordinary incarnation is independent. |
-| Policy/screen stream gap | Recover that stream; independent streams continue. |
-| Same stream coordinate, different digest | Fork incident; direct server reconciliation. |
-| Same resource revision, different state digest | Equivocation incident. |
-| Multi-subject same-stream change set partially ready | Publish/apply none until complete. |
-| DB restored behind fleet + current ERB | Overlay full security state, create fresh ordinary incarnation, re-anchor screens lazily. |
-| DB resurrects revoked player bearer | Security credential overlay rejects it; repair/re-pair if current secret row is absent. |
-| DB restored without current security proof | `edge_security_recovery_required`; no lower security publication. |
-| Complete VM/disk rollback with no external witness | Cannot be auto-detected; require administrator/external witness before claiming rollback-safe Edge recovery. |
-| Cross-installation restore + old local trust | Quarantine; matching ERB or trust reset. |
-| Retired authority signs fresh state | Reject above retirement boundary. |
-| Unknown security schema/type | Disable mesh/security-sensitive participation; require upgrade/server. |
-| Presentation Network becomes forbidden | Withdraw advertisement/listeners and close existing sessions on interface. |
-| Renderer crashes | Recreate bound WPE renderer. |
-| WPE repeatedly crashes | Bounded WPE recovery then safe mode; no Electron runtime fallback. |
-| Migration preflight finds incompatible assigned content | Abort before credential cutover; restart unchanged Electron. |
-| Staged migration candidate dies/expires | Revoke candidate credential, unfence legacy credential. |
-| Migration confirmation response lost | Candidate credential already durable/active; retry succeeds, old legacy bearer remains revoked. |
-| Old Electron starts after confirmation | Its preserved credential is rejected. |
-| Candidate Edge release crashes | Stable watchdog rolls back complete Edge release set. |
-| Previous Edge release cannot write candidate-expanded schema | Do not arm/perform automatic binary rollback. |
-| Privileged helper too old | Deployment incompatible; no activation. |
-| Restored old disruptive command/update pending | Do not execute until explicitly reauthorized in current ordinary incarnation. |
-| LAN partition | Continue trusted local state and reconcile after heal without peer authority. |
+| Failure                                                                | Correct behavior                                                                                             |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Tilecast Server unreachable                                            | Continue trusted cached schedules, eligible mesh/CDN and local Context.                                      |
+| All peers disappear                                                    | Continue standalone; origin when reachable.                                                                  |
+| Multicast blocked                                                      | Validated seeds/manual config or standalone.                                                                 |
+| Zenoh unavailable                                                      | Playback/server path continues; mesh degraded.                                                               |
+| Peer advertises unsafe endpoint                                        | Reject without connecting.                                                                                   |
+| Peer sends corrupt bytes                                               | Hash reject, penalize, refetch.                                                                              |
+| Target grant invalid/expired/stale                                     | Refuse peer bytes even if hash exists.                                                                       |
+| Same hash has confidential + permissive live refs                      | Effective hash policy is the stricter policy; do not OR-open it.                                             |
+| Renderer/remote page knows CAS hash                                    | Hash grants no media read; daemon requires current opaque presentation capability.                           |
+| Disk full                                                              | Preserve every live pin owner; stop new preparation.                                                         |
+| SQLite corrupt, trusted checkpoint intact                              | Rebuild local state without rolling trust backward.                                                          |
+| SQLite + trusted checkpoint lost                                       | Direct secure server bootstrap/recovery required.                                                            |
+| Node cert expires                                                      | Server playback may continue; mesh disabled until safe renewal.                                              |
+| Certificate generation below security minimum                          | Reject even if CA signature is valid.                                                                        |
+| Trust realm mismatch                                                   | Refuse peer/state; no auto-trust.                                                                            |
+| Security generation arrives while screen uses old ordinary incarnation | Accept security update when trust realm/lineage are valid; ordinary incarnation is independent.              |
+| Policy/screen stream gap                                               | Recover that stream; independent streams continue.                                                           |
+| Same stream coordinate, different digest                               | Fork incident; direct server reconciliation.                                                                 |
+| Same resource revision, different state digest                         | Equivocation incident.                                                                                       |
+| Multi-subject same-stream change set partially ready                   | Publish/apply none until complete.                                                                           |
+| DB restored behind fleet + current ERB                                 | Overlay full security state, create fresh ordinary incarnation, re-anchor screens lazily.                    |
+| DB resurrects revoked player bearer                                    | Security credential overlay rejects it; repair/re-pair if current secret row is absent.                      |
+| DB restored without current security proof                             | `edge_security_recovery_required`; no lower security publication.                                            |
+| Complete VM/disk rollback with no external witness                     | Cannot be auto-detected; require administrator/external witness before claiming rollback-safe Edge recovery. |
+| Cross-installation restore + old local trust                           | Quarantine; matching ERB or trust reset.                                                                     |
+| Retired authority signs fresh state                                    | Reject above retirement boundary.                                                                            |
+| Unknown security schema/type                                           | Disable mesh/security-sensitive participation; require upgrade/server.                                       |
+| Presentation Network becomes forbidden                                 | Withdraw advertisement/listeners and close existing sessions on interface.                                   |
+| Renderer crashes                                                       | Recreate bound WPE renderer.                                                                                 |
+| WPE repeatedly crashes                                                 | Bounded WPE recovery then safe mode; no Electron runtime fallback.                                           |
+| Migration preflight finds incompatible assigned content                | Abort before credential cutover; restart unchanged Electron.                                                 |
+| Staged migration candidate dies/expires                                | Revoke candidate credential, unfence legacy credential.                                                      |
+| Migration confirmation response lost                                   | Candidate credential already durable/active; retry succeeds, old legacy bearer remains revoked.              |
+| Old Electron starts after confirmation                                 | Its preserved credential is rejected.                                                                        |
+| Candidate Edge release crashes                                         | Stable watchdog rolls back complete Edge release set.                                                        |
+| Previous Edge release cannot write candidate-expanded schema           | Do not arm/perform automatic binary rollback.                                                                |
+| Privileged helper too old                                              | Deployment incompatible; no activation.                                                                      |
+| Restored old disruptive command/update pending                         | Do not execute until explicitly reauthorized in current ordinary incarnation.                                |
+| LAN partition                                                          | Continue trusted local state and reconcile after heal without peer authority.                                |
 
 ## 46. Performance and resource targets
 
@@ -6053,29 +6053,29 @@ During the explicitly supported migration window, a failed Edge installation may
 
 ## 49. Final technical decision table
 
-| Area | Decision | Do not do |
-| --- | --- | --- |
-| Edge daemon | Rust `tilecastd` | Grow Electron main process |
-| Renderer host | stable tested WPE 2.54.x WPEPlatform C/GLib | Unqualified arbitrary newer WPE/Cog architecture |
-| Legacy Linux transition | one-time read-only Electron-state import, then WPE-only Edge | dual-active/renderer fallback architecture |
-| Display modes | WPE headless test, Wayland qualified, DRM/KMS dedicated | desktop/Electron dependency on dedicated hosts |
-| Local persistence | SQLite WAL + CAS + durable trusted checkpoint | Reconstruct anti-rollback trust from peers |
-| Trust recovery | encrypted ERB or explicit trust-realm reset/re-enrollment | Put raw CA keys in ordinary unencrypted backup |
-| Ordinary restore | fresh opaque state incarnation after rollback restore | Numerically decrement/reuse recovery epoch |
-| Security recovery | independent security lineage/generation | Let DB restore resurrect revocations |
-| Streams | fixed security, policy and per-screen streams | One global player payload feed/O(N²) fan-out |
-| Stream integrity | sequence + previous/stream digest + domain-separated signature | Circular/self-hashed envelope |
-| Resource freshness | revision + state digest inside one incarnation | Compare revisions across incarnations |
-| Snapshots | materialized Edge projection at exact stream watermark | Snapshot arbitrary DB while async compilation pending |
-| Host runtime ownership | WPE preflight + migration session/fence + two-phase credential replacement + local mutual exclusion | Trust stop/disable alone or preserve a still-valid Electron bearer |
-| Commands/updates | authorization bound to incarnation | Re-execute restored pending disruptive work |
-| CAS auth | blob identity + reference sharing class/object grant | Hash means every node may read |
-| Mesh security | trust-realm mTLS, CA-only outbound trust, no v1 resumption/0-RTT | LAN/public-WebPKI trust |
-| Updates | signed atomic release sets + stable external watchdog | Independently flip incompatible components |
-| WPE website security | sandbox + local trusted schemes + egress/proxy/storage policy | Only URL/CORS checks |
-| Context precedence | source-local newest, then configured source priority/order | Compare revision counters from different sources |
-| Context safety | definition-bound signed observations + deterministic scalar formats + CEL cost bounds | Arbitrary JSON/unbounded expressions |
-| Studio UI | canonical shadcn Base UI + Rhea | Spectrum/second shell |
+| Area                    | Decision                                                                                            | Do not do                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Edge daemon             | Rust `tilecastd`                                                                                    | Grow Electron main process                                         |
+| Renderer host           | stable tested WPE 2.54.x WPEPlatform C/GLib                                                         | Unqualified arbitrary newer WPE/Cog architecture                   |
+| Legacy Linux transition | one-time read-only Electron-state import, then WPE-only Edge                                        | dual-active/renderer fallback architecture                         |
+| Display modes           | WPE headless test, Wayland qualified, DRM/KMS dedicated                                             | desktop/Electron dependency on dedicated hosts                     |
+| Local persistence       | SQLite WAL + CAS + durable trusted checkpoint                                                       | Reconstruct anti-rollback trust from peers                         |
+| Trust recovery          | encrypted ERB or explicit trust-realm reset/re-enrollment                                           | Put raw CA keys in ordinary unencrypted backup                     |
+| Ordinary restore        | fresh opaque state incarnation after rollback restore                                               | Numerically decrement/reuse recovery epoch                         |
+| Security recovery       | independent security lineage/generation                                                             | Let DB restore resurrect revocations                               |
+| Streams                 | fixed security, policy and per-screen streams                                                       | One global player payload feed/O(N²) fan-out                       |
+| Stream integrity        | sequence + previous/stream digest + domain-separated signature                                      | Circular/self-hashed envelope                                      |
+| Resource freshness      | revision + state digest inside one incarnation                                                      | Compare revisions across incarnations                              |
+| Snapshots               | materialized Edge projection at exact stream watermark                                              | Snapshot arbitrary DB while async compilation pending              |
+| Host runtime ownership  | WPE preflight + migration session/fence + two-phase credential replacement + local mutual exclusion | Trust stop/disable alone or preserve a still-valid Electron bearer |
+| Commands/updates        | authorization bound to incarnation                                                                  | Re-execute restored pending disruptive work                        |
+| CAS auth                | blob identity + reference sharing class/object grant                                                | Hash means every node may read                                     |
+| Mesh security           | trust-realm mTLS, CA-only outbound trust, no v1 resumption/0-RTT                                    | LAN/public-WebPKI trust                                            |
+| Updates                 | signed atomic release sets + stable external watchdog                                               | Independently flip incompatible components                         |
+| WPE website security    | sandbox + local trusted schemes + egress/proxy/storage policy                                       | Only URL/CORS checks                                               |
+| Context precedence      | source-local newest, then configured source priority/order                                          | Compare revision counters from different sources                   |
+| Context safety          | definition-bound signed observations + deterministic scalar formats + CEL cost bounds               | Arbitrary JSON/unbounded expressions                               |
+| Studio UI               | canonical shadcn Base UI + Rhea                                                                     | Spectrum/second shell                                              |
 
 ## 50. Decisions deliberately deferred
 

@@ -4,8 +4,24 @@ import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { AirplaySession, ReliabilityStatus } from "../api/types";
 import { airplayCapabilityBlockDetail } from "./airplayCapability";
-import { Button, Dialog, Field, Select } from "./ui";
-import "./AirPlayPresentDialog.css";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 function countdown(expiresAt: string, now: number) {
   const remaining = Math.max(0, Date.parse(expiresAt) - now);
@@ -269,193 +285,257 @@ export function AirPlayPresentDialog({
   return (
     <Dialog
       open={open}
-      title={`Present with AirPlay · ${destinationName}`}
-      onClose={onClose}
-      className="airplay-present-dialog"
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
     >
-      {!live && sessionId ? (
-        <>
-          <div className="airplay-present-dialog__readiness">
-            <Radio size={17} aria-hidden="true" />
-            <span>
-              {current.error
-                ? "Tilecast could not load the active AirPlay session. Refresh and try again."
-                : "Loading the active AirPlay session…"}
-            </span>
-          </div>
-          <footer className="dialog-actions">
-            <Button onClick={onClose}>Close</Button>
-          </footer>
-        </>
-      ) : !live ? (
-        <>
-          <div className="airplay-present-dialog__intro">
-            <Airplay size={28} aria-hidden="true" />
-            <div>
-              <strong>{destinationName}</strong>
-              <span>
-                {displayCount} display{displayCount === 1 ? "" : "s"} ·
-                temporary external presentation
-              </span>
-            </div>
-          </div>
-          <div className="airplay-present-dialog__readiness">
-            <ShieldCheck size={17} aria-hidden="true" />
-            <span>{capabilityText}</span>
-          </div>
-          {capability?.externalPresentationState &&
-            capability.externalPresentationState !== "none" && (
-              <div className="notice notice--warning">
-                An AirPlay presentation is already reported on this screen. Stop
-                it before starting another.
+      <DialogContent className="max-h-[min(90vh,54rem)] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Present with AirPlay · {destinationName}</DialogTitle>
+          <DialogDescription>
+            Start and monitor a temporary external AirPlay session.
+          </DialogDescription>
+        </DialogHeader>
+        {!live && sessionId ? (
+          <>
+            <Alert>
+              <Radio size={17} aria-hidden="true" />
+              <AlertDescription>
+                {current.error
+                  ? "Tilecast could not load the active AirPlay session. Refresh and try again."
+                  : "Loading the active AirPlay session…"}
+              </AlertDescription>
+            </Alert>
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+            </DialogFooter>
+          </>
+        ) : !live ? (
+          <>
+            <div className="flex items-center gap-3">
+              <Airplay
+                className="size-7 shrink-0 text-primary"
+                aria-hidden="true"
+              />
+              <div className="grid min-w-0 gap-1">
+                <strong className="text-sm">{destinationName}</strong>
+                <span className="text-sm text-muted-foreground">
+                  {displayCount} display{displayCount === 1 ? "" : "s"} ·
+                  temporary external presentation
+                </span>
               </div>
-            )}
-          <div className="airplay-present-dialog__fields">
-            <Field label="Duration">
-              <Select
-                value={durationMinutes}
-                onChange={(event) =>
-                  setDurationMinutes(
-                    Number(event.target.value) as 0 | 15 | 30 | 60,
-                  )
-                }
-              >
-                <option value={15}>15 minutes</option>
-                <option value={30}>30 minutes</option>
-                <option value={60}>1 hour</option>
-                <option value={0}>
-                  Until stopped (24-hour safety deadline)
-                </option>
-              </Select>
-            </Field>
-            <Field
-              label="Video transport"
-              description="Auto uses unicast for 1–4 displays and multicast only when validated."
-            >
-              <Select
-                value={transport}
-                onChange={(event) =>
-                  setTransport(event.target.value as typeof transport)
-                }
-              >
-                <option value="auto">Auto</option>
-                <option value="unicast">Unicast fan-out</option>
-                <option value="multicast">
-                  Multicast (falls back to unicast)
-                </option>
-              </Select>
-            </Field>
-            <Field
-              label="Audio display"
-              description={
-                audioDisplayName
-                  ? `Primary audio: ${audioDisplayName}`
-                  : "Primary audio uses the selected or automatically chosen gateway."
-              }
-            >
-              <Select
-                value={audioMode}
-                onChange={(event) =>
-                  setAudioMode(event.target.value as typeof audioMode)
-                }
-              >
-                <option value="gateway_only">
-                  Gateway / primary display only
-                </option>
-                <option value="none">No AirPlay audio</option>
-              </Select>
-            </Field>
-          </div>
-          {create.error && (
-            <div className="notice notice--error">
-              {airplayCreateError(create.error)}
             </div>
-          )}
-          <footer className="dialog-actions">
-            <Button onClick={onClose}>Cancel</Button>
-            <Button
-              variant="primary"
-              loading={create.isPending}
-              disabled={!canEnable || Boolean(sessionId)}
-              onClick={() => create.mutate()}
-            >
-              Enable AirPlay
-            </Button>
-          </footer>
-        </>
-      ) : (
-        <>
-          <div
-            className={`airplay-present-dialog__status airplay-present-dialog__status--${live.status}`}
-          >
-            <Radio size={18} aria-hidden="true" />
-            <strong>
-              {presentationNetworkProgress(live) ?? sessionStatus(live)}
-            </strong>
-          </div>
-          <div className="airplay-present-dialog__pin-card">
-            <span>AirPlay receiver</span>
-            <strong>{live.receiverName}</strong>
-            <small>PIN</small>
-            <code>{live.pin ?? "----"}</code>
-            <p>
-              On iPhone, iPad, or Mac, open Screen Mirroring / AirPlay and
-              choose this receiver.
-            </p>
-          </div>
-          <dl className="airplay-present-dialog__summary">
-            <div>
-              <dt>Profile</dt>
-              <dd>{live.videoProfile} H.264</dd>
-            </div>
-            <div>
-              <dt>Transport</dt>
-              <dd>{live.transport}</dd>
-            </div>
-            <div>
-              <dt>Audio</dt>
-              <dd>
-                {live.audioMode === "none"
-                  ? "None"
-                  : `${audioDisplayName ?? "Gateway / primary display"} only`}
-              </dd>
-            </div>
-            <div>
-              <dt>Expires in</dt>
-              <dd>{countdown(live.expiresAt, now)}</dd>
-            </div>
-          </dl>
-          <div className="airplay-present-dialog__states">
-            {live.screens.map((screen) => (
-              <span
-                key={screen.screenId}
-                className={`airplay-screen-state airplay-screen-state--${screen.state}`}
-              >
-                {screen.screenName}: {screen.state.replaceAll("_", " ")}
-                {screen.presentationNetworkState
-                  ? ` · Wi-Fi ${screen.presentationNetworkState.replaceAll("_", " ")}`
-                  : ""}
-              </span>
-            ))}
-          </div>
-          {stop.error && (
-            <div className="notice notice--error">{stop.error.message}</div>
-          )}
-          <footer className="dialog-actions">
-            <Button onClick={onClose}>Close</Button>
-            <Button
-              variant="danger"
-              loading={stop.isPending}
-              disabled={["stopping", "ended", "expired", "failed"].includes(
-                live.status,
+            <Alert>
+              <ShieldCheck size={17} aria-hidden="true" />
+              <AlertDescription>{capabilityText}</AlertDescription>
+            </Alert>
+            {capability?.externalPresentationState &&
+              capability.externalPresentationState !== "none" && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    An AirPlay presentation is already reported on this screen.
+                    Stop it before starting another.
+                  </AlertDescription>
+                </Alert>
               )}
-              onClick={() => stop.mutate()}
-            >
-              Stop AirPlay
-            </Button>
-          </footer>
-        </>
-      )}
+            <div className="grid gap-4">
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span>Duration</span>
+                <Select
+                  value={String(durationMinutes)}
+                  onValueChange={(value) => {
+                    if (value) {
+                      setDurationMinutes(Number(value) as 0 | 15 | 30 | 60);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full" aria-label="Duration">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15 minutes</SelectItem>
+                    <SelectItem value="30">30 minutes</SelectItem>
+                    <SelectItem value="60">1 hour</SelectItem>
+                    <SelectItem value="0">
+                      Until stopped (24-hour safety deadline)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span>Video transport</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  Auto uses unicast for 1–4 displays and multicast only when
+                  validated.
+                </span>
+                <Select
+                  value={transport}
+                  onValueChange={(value) => {
+                    if (
+                      value === "auto" ||
+                      value === "unicast" ||
+                      value === "multicast"
+                    ) {
+                      setTransport(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger
+                    className="w-full"
+                    aria-label="Video transport"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="unicast">Unicast fan-out</SelectItem>
+                    <SelectItem value="multicast">
+                      Multicast (falls back to unicast)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span>Audio display</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {audioDisplayName
+                    ? `Primary audio: ${audioDisplayName}`
+                    : "Primary audio uses the selected or automatically chosen gateway."}
+                </span>
+                <Select
+                  value={audioMode}
+                  onValueChange={(value) => {
+                    if (value === "gateway_only" || value === "none") {
+                      setAudioMode(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full" aria-label="Audio display">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gateway_only">
+                      Gateway / primary display only
+                    </SelectItem>
+                    <SelectItem value="none">No AirPlay audio</SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+            </div>
+            {create.error && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {airplayCreateError(create.error)}
+                </AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter className="border-t border-border pt-4">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                disabled={!canEnable || Boolean(sessionId)}
+                onClick={() => create.mutate()}
+              >
+                {create.isPending ? "Enabling…" : "Enable AirPlay"}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <Radio size={18} aria-hidden="true" />
+              <strong className="text-sm">
+                {presentationNetworkProgress(live) ?? sessionStatus(live)}
+              </strong>
+            </div>
+            <div className="grid gap-1 rounded-xl border border-slate-700 bg-slate-950 p-5 text-center text-slate-100">
+              <span className="text-xs uppercase tracking-widest text-slate-400">
+                AirPlay receiver
+              </span>
+              <strong>{live.receiverName}</strong>
+              <small className="text-xs uppercase tracking-widest text-slate-400">
+                PIN
+              </small>
+              <code className="my-1 text-5xl font-extrabold tracking-[0.18em] sm:text-6xl">
+                {live.pin ?? "----"}
+              </code>
+              <p className="mx-auto mt-2 max-w-[390px] text-sm text-slate-300">
+                On iPhone, iPad, or Mac, open Screen Mirroring / AirPlay and
+                choose this receiver.
+              </p>
+            </div>
+            <dl className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs text-muted-foreground">Profile</dt>
+                <dd className="mt-1 text-sm font-medium">
+                  {live.videoProfile} H.264
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Transport</dt>
+                <dd className="mt-1 text-sm font-medium">{live.transport}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Audio</dt>
+                <dd className="mt-1 text-sm font-medium">
+                  {live.audioMode === "none"
+                    ? "None"
+                    : `${audioDisplayName ?? "Gateway / primary display"} only`}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Expires in</dt>
+                <dd className="mt-1 text-sm font-medium">
+                  {countdown(live.expiresAt, now)}
+                </dd>
+              </div>
+            </dl>
+            <div className="grid max-h-40 gap-1.5 overflow-y-auto">
+              {live.screens.map((screen) => (
+                <Badge
+                  key={screen.screenId}
+                  variant={
+                    screen.state === "failed" || screen.state === "degraded"
+                      ? "destructive"
+                      : screen.state === "connected"
+                        ? "outline"
+                        : "secondary"
+                  }
+                  className="h-auto w-full justify-start whitespace-normal px-2.5 py-1.5 text-left"
+                >
+                  {screen.screenName}: {screen.state.replaceAll("_", " ")}
+                  {screen.presentationNetworkState
+                    ? ` · Wi-Fi ${screen.presentationNetworkState.replaceAll("_", " ")}`
+                    : ""}
+                </Badge>
+              ))}
+            </div>
+            {stop.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{stop.error.message}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter className="border-t border-border pt-4">
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={["stopping", "ended", "expired", "failed"].includes(
+                  live.status,
+                )}
+                onClick={() => stop.mutate()}
+              >
+                {stop.isPending ? "Stopping…" : "Stop AirPlay"}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
     </Dialog>
   );
 }

@@ -15,16 +15,20 @@ import { api } from "../api/client";
 import { previewApi } from "../api/previews";
 import { useAuth } from "../auth/AuthProvider";
 import { LiveStreamDialog } from "./LiveStreamDialog";
-import { Button } from "./ui";
+import { Button } from "./ui/button";
 import {
   livePreviewState,
   previewAge,
   previewUnavailableMessage,
 } from "./livePreviewState";
-import "./LivePreviewPanel.css";
 
 const LEASE_RENEWAL_MILLIS = 30_000;
 const METADATA_REFRESH_MILLIS = 5_000;
+const captureAgeToneClasses = {
+  fresh: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
+  aging: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
+  old: "bg-destructive/10 text-destructive",
+} as const;
 
 export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const auth = useAuth();
@@ -99,36 +103,42 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   }, [preview.data?.capturedAt]);
 
   return (
-    <aside className="live-preview-panel" aria-label="Live preview">
-      <header className="live-preview-panel__header">
+    <aside
+      className="live-preview-panel grid gap-4 rounded-xl border border-border bg-card p-4"
+      aria-label="Live preview"
+    >
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="live-preview-panel__eyebrow">On demand</span>
-          <h2>Live preview</h2>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            On demand
+          </span>
+          <h2 className="mt-0.5 text-base font-semibold">Live preview</h2>
         </div>
-        <div className="live-preview-panel__actions">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
-            compact
-            variant="quiet"
+            size="sm"
+            variant="outline"
             onClick={() => manualRefresh.mutate()}
-            loading={manualRefresh.isPending}
+            disabled={manualRefresh.isPending}
           >
-            <RefreshCw size={15} aria-hidden="true" />
-            Refresh
+            <RefreshCw aria-hidden="true" />
+            {manualRefresh.isPending ? "Refreshing…" : "Refresh"}
           </Button>
           <Button
-            compact
+            size="sm"
             onClick={() => setWatchingLive(true)}
             disabled={screen.data?.status !== "online" || !csrfToken}
           >
-            <Video size={15} aria-hidden="true" />
+            <Video aria-hidden="true" />
             Watch live
           </Button>
         </div>
       </header>
 
-      <div className={`live-preview-frame live-preview-frame--${state}`}>
+      <div className="relative grid aspect-video overflow-hidden rounded-xl border border-border bg-[#080b0f]">
         {(state === "live" || state === "stale") && imageUrl ? (
           <img
+            className="size-full bg-black object-contain"
             src={imageUrl}
             alt={`Current Tilecast output for ${screen.data?.name ?? "screen"}`}
           />
@@ -140,7 +150,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
         )}
         {imageUrl && captureAge && (
           <span
-            className={`live-preview-frame__banner live-preview-frame__banner--${captureAge.tone}`}
+            className={`absolute right-2 bottom-2 rounded-md px-2 py-1 text-xs font-semibold ${captureAgeToneClasses[captureAge.tone]}`}
             title={
               capturedAt ? `Captured ${capturedAt.toLocaleString()}` : undefined
             }
@@ -150,35 +160,42 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
         )}
       </div>
 
-      <div className="live-preview-panel__status" aria-live="polite">
-        <strong>{stateLabel(state)}</strong>
-        <span>{stateDescription(state, renewalError)}</span>
+      <div className="grid gap-1" aria-live="polite">
+        <strong className="text-sm font-medium">{stateLabel(state)}</strong>
+        <span className="text-sm text-muted-foreground">
+          {stateDescription(state, renewalError)}
+        </span>
       </div>
 
-      <dl className="live-preview-panel__meta">
-        <div>
+      <dl className="grid gap-3 border-y border-border py-3 text-xs sm:grid-cols-3">
+        <div className="grid gap-1">
           <dt>Last capture</dt>
-          <dd>{capturedAt ? capturedAt.toLocaleString() : "Not captured"}</dd>
+          <dd className="m-0 break-words text-muted-foreground">
+            {capturedAt ? capturedAt.toLocaleString() : "Not captured"}
+          </dd>
         </div>
-        <div>
+        <div className="grid gap-1">
           <dt>Player</dt>
-          <dd>
+          <dd className="m-0 break-words text-muted-foreground">
             {preview.data?.playerVersion ||
               screen.data?.playerVersion ||
               "Unknown"}
           </dd>
         </div>
-        <div>
+        <div className="grid gap-1">
           <dt>Image</dt>
-          <dd>
+          <dd className="m-0 break-words text-muted-foreground">
             {preview.data?.width && preview.data?.height
               ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize ?? 0)}`
               : "No image"}
           </dd>
         </div>
       </dl>
-      <div className="live-preview-panel__privacy">
-        <ShieldCheck size={15} aria-hidden="true" />
+      <div className="flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+        <ShieldCheck
+          className="size-4 text-emerald-700 dark:text-emerald-400"
+          aria-hidden="true"
+        />
         <span>Protected screens are not captured.</span>
       </div>
       {csrfToken && (
@@ -213,9 +230,17 @@ function PreviewState({
     live: [Monitor, "Live preview is ready."],
   } as const;
   const [Icon, message] = content[state] ?? [ImageOff, "Preview unavailable."];
+  const stateClasses =
+    state === "capture-error"
+      ? "bg-destructive/10 text-destructive"
+      : state === "offline" || state === "unavailable"
+        ? "bg-muted"
+        : "";
   return (
-    <div className="live-preview-frame__empty">
-      <Icon size={28} aria-hidden="true" />
+    <div
+      className={`grid place-content-center justify-items-center gap-2 p-4 text-center text-muted-foreground ${stateClasses}`}
+    >
+      <Icon className="size-7" aria-hidden="true" />
       <span>{message}</span>
     </div>
   );

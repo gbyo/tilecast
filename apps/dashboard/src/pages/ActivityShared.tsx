@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { CheckCircle2 } from "lucide-react";
-import { Pagination } from "../components/ui";
+import { Pagination } from "../components/legacy-ui";
 
 export type ActivityResult =
   | "playing"

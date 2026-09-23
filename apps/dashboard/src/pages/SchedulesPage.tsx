@@ -7,7 +7,7 @@ import {
   SectionHeader,
   Select,
   StatusBadge,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import {
   useMutation,
   useQueries,
@@ -95,7 +95,7 @@ export function GroupsPage() {
           ) : undefined
         }
       />
-      <ScreenManagementTabs current="groups" className="sync-groups-tabs" />
+      <ScreenManagementTabs className="sync-groups-tabs" />
       {q.isError && (
         <div className="notice notice--error" role="alert">
           Display Groups could not be loaded. Try refreshing the page.
@@ -353,7 +353,7 @@ export function GroupDetailPage() {
         csrfToken={csrf}
         onClose={() => setQuickPresentOpen(false)}
       />
-      <ScreenManagementTabs current="groups" className="sync-groups-tabs" />
+      <ScreenManagementTabs className="sync-groups-tabs" />
 
       <Panel className="sync-group-overview">
         <dl>

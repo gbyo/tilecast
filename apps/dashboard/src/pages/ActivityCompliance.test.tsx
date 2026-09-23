@@ -11,7 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompliancePanel } from "./ActivityCompliance";
-import type { ResolvedTimeRange } from "../components/ui";
+import type { ResolvedTimeRange } from "../components/legacy-ui";
 
 const range: ResolvedTimeRange = {
   from: "2026-07-26T00:00:00.000Z",

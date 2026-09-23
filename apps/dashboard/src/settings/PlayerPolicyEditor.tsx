@@ -7,6 +7,30 @@ import { useAuth } from "../auth/AuthProvider";
 import { SettingControl } from "./SettingControl";
 import { descriptionFor, enumLabel } from "./settingDisplay";
 import { normalizeSettingValues } from "./settingValues";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import {
+  AlertDialog as RheaAlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../components/ui/input-group";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import { Switch as RheaSwitch } from "../components/ui/switch";
 
 const policyGroups = [
   {
@@ -83,6 +107,7 @@ export function PlayerPolicyEditor({
   const [priority, setPriority] = useState(0);
   const [search, setSearch] = useState("");
   const [overriddenOnly, setOverriddenOnly] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const initializedRevision = useRef<number | null>(null);
 
@@ -184,87 +209,102 @@ export function PlayerPolicyEditor({
   };
 
   return (
-    <section className="policy-editor" aria-labelledby="player-policy-title">
-      <header className="policy-editor__heading">
-        <div>
-          <h2 id="player-policy-title">
-            {target === "screen" ? "Screen behavior" : "Player policy"}
-          </h2>
-          <p>
-            {target === "group"
-              ? "Override organization defaults for this Display Group."
-              : "Override inherited playback and device behavior for this screen only."}
-          </p>
-        </div>
+    <section className="space-y-4" aria-labelledby="player-policy-title">
+      <header className="space-y-1">
+        <h2 id="player-policy-title" className="text-lg font-medium">
+          {target === "screen" ? "Screen behavior" : "Player policy"}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {target === "group"
+            ? "Override organization defaults for this Display Group."
+            : "Override inherited playback and device behavior for this screen only."}
+        </p>
       </header>
 
-      <div className="policy-toolbar">
-        <label className="policy-search">
-          <Search size={16} aria-hidden="true" />
-          <input
+      <div className="flex flex-wrap items-center gap-2">
+        <InputGroup className="w-64">
+          <InputGroupAddon>
+            <Search aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
             type="search"
             value={search}
             placeholder="Search settings"
             aria-label="Search player settings"
             onChange={(event) => setSearch(event.target.value)}
           />
+        </InputGroup>
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+          <RheaSwitch
+            checked={overriddenOnly}
+            onCheckedChange={setOverriddenOnly}
+            aria-label="Overridden only"
+          />
+          Overridden only
         </label>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={overriddenOnly}
-          className="setting-switch policy-filter-switch"
-          onClick={() => setOverriddenOnly((current) => !current)}
-        >
-          <span aria-hidden="true" />
-          <strong>Overridden only</strong>
-        </button>
-        <span className="policy-override-count">
-          <strong>{overrideCount}</strong>{" "}
-          {overrideCount === 1 ? "override" : "overrides"}
-        </span>
+        <Badge variant="secondary">
+          {overrideCount} {overrideCount === 1 ? "override" : "overrides"}
+        </Badge>
         {manageable && (
           <>
-            <button
+            <RheaButton
               type="button"
-              className="button button--danger-quiet button--compact"
+              variant="destructive"
+              size="sm"
               disabled={!overrideCount || reset.isPending}
-              onClick={() => {
-                if (
-                  confirm(
-                    "Reset every player-setting override for this target? This cannot be undone.",
-                  )
-                )
-                  reset.mutate();
-              }}
+              onClick={() => setConfirmReset(true)}
             >
               Reset all overrides
-            </button>
-            <button
+            </RheaButton>
+            <RheaButton
               type="button"
-              className="button button--primary button--compact"
+              size="sm"
               disabled={!dirty || save.isPending}
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save changes"}
-            </button>
+            </RheaButton>
           </>
         )}
       </div>
+      <RheaAlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Reset every player-setting override?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This clears every player-setting override for this target. This
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep overrides</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reset.isPending}
+              onClick={() => reset.mutate()}
+            >
+              {reset.isPending ? "Resetting…" : "Reset all overrides"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
 
       {save.isError && (
-        <div className="notice notice--error" role="alert">
-          Settings could not be saved. Reload the current policy if another
-          administrator changed it.
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Settings could not be saved</AlertTitle>
+          <AlertDescription>
+            Reload the current policy if another administrator changed it.
+          </AlertDescription>
+        </Alert>
       )}
       {save.isSuccess && !dirty && (
-        <p className="policy-save-status" role="status">
+        <p className="text-sm text-muted-foreground" role="status">
           Player settings saved.
         </p>
       )}
 
-      <div className="policy-sections">
+      <div className="grid gap-3">
         {grouped.map((group) => {
           const definitionsToShow = overriddenOnly
             ? group.definitions.filter((definition) =>
@@ -281,10 +321,13 @@ export function PlayerPolicyEditor({
             overriddenOnly && sectionOverrideCount === 0 && !normalizedSearch;
           if (hiddenByFilter) return null;
           return (
-            <section className="policy-section" key={group.title}>
+            <section
+              className="rounded-xl border border-border"
+              key={group.title}
+            >
               <button
                 type="button"
-                className="policy-section-toggle"
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-expanded={open}
                 onClick={() =>
                   setExpanded((current) => {
@@ -295,18 +338,26 @@ export function PlayerPolicyEditor({
                   })
                 }
               >
-                <span>
-                  <strong>{group.title}</strong>
-                  <small>{group.description}</small>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">
+                    {group.title}
+                  </span>
+                  <span className="block truncate text-sm text-muted-foreground">
+                    {group.description}
+                  </span>
                 </span>
-                <span className="policy-section-toggle__meta">
+                <span className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
                   {sectionOverrideCount}{" "}
                   {sectionOverrideCount === 1 ? "override" : "overrides"}
-                  <ChevronDown size={18} aria-hidden="true" />
+                  <ChevronDown
+                    size={18}
+                    aria-hidden="true"
+                    className={open ? "rotate-180" : undefined}
+                  />
                 </span>
               </button>
               {open && (
-                <div className="policy-section__rows">
+                <div className="grid gap-1 border-t border-border px-4 py-3">
                   {definitionsToShow.length ? (
                     definitionsToShow.map((definition) => (
                       <PolicyRow
@@ -347,7 +398,7 @@ export function PlayerPolicyEditor({
                       />
                     ))
                   ) : (
-                    <p className="policy-section__empty">
+                    <p className="py-2 text-sm text-muted-foreground">
                       {normalizedSearch
                         ? "No matching settings in this section."
                         : "No screen-level settings are available in this section."}
@@ -361,34 +412,41 @@ export function PlayerPolicyEditor({
       </div>
 
       {effective.data && (
-        <details className="policy-advanced">
-          <summary>Advanced details</summary>
-          Effective configuration revision {
-            effective.data.configRevision
-          } · <code>{effective.data.hash.slice(0, 12)}</code>
-        </details>
+        <Collapsible>
+          <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            Advanced details
+            <ChevronDown size={16} aria-hidden="true" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Effective configuration revision {effective.data.configRevision} ·{" "}
+              <code>{effective.data.hash.slice(0, 12)}</code>
+            </p>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {manageable && dirty && (
-        <div className="policy-action-bar">
-          <strong>Unsaved player-setting changes</strong>
-          <div>
-            <button
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <strong className="text-sm font-medium">
+            Unsaved player-setting changes
+          </strong>
+          <div className="flex flex-wrap items-center gap-2">
+            <RheaButton
               type="button"
-              className="button button--secondary"
+              variant="outline"
               disabled={save.isPending}
               onClick={cancelChanges}
             >
               Cancel
-            </button>
-            <button
+            </RheaButton>
+            <RheaButton
               type="button"
-              className="button button--primary"
               disabled={save.isPending}
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save changes"}
-            </button>
+            </RheaButton>
           </div>
         </div>
       )}
@@ -421,46 +479,57 @@ function PolicyRow({
   const source = inherited?.source ?? "Organization default";
   const effectiveValue = overridden ? value : inheritedValue;
   return (
-    <div className={`policy-row${overridden ? " policy-row--overridden" : ""}`}>
-      <div className="policy-row__identity">
-        <strong>{definition.title}</strong>
-        <small>{descriptionFor(definition)}</small>
-        <details className="policy-row__advanced">
-          <summary>Advanced details</summary>
-          <code>{definition.key}</code>
-        </details>
+    <div
+      className={`grid gap-2 rounded-lg px-2 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start ${
+        overridden ? "bg-muted/50" : ""
+      }`}
+    >
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm font-medium">{definition.title}</p>
+        <p className="text-sm text-muted-foreground">
+          {descriptionFor(definition)}
+        </p>
+        <Collapsible>
+          <CollapsibleTrigger className="cursor-pointer text-xs text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            Advanced details
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <code className="text-xs">{definition.key}</code>
+          </CollapsibleContent>
+        </Collapsible>
+        <p className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium">
+            {formatSettingValue(definition, effectiveValue)}
+          </span>
+          <Badge variant="secondary">
+            {overridden ? overrideSource : source}
+          </Badge>
+        </p>
       </div>
-      <div className="policy-row__effective">
-        <strong>{formatSettingValue(definition, effectiveValue)}</strong>
-        <span className="source-badge">
-          {overridden ? overrideSource : source}
-        </span>
-      </div>
-      <div className="policy-row__override">
-        <button
-          type="button"
-          role="switch"
-          aria-label={`Override ${definition.title}`}
-          aria-checked={overridden}
-          className="setting-switch setting-switch--compact"
-          disabled={!manageable}
-          onClick={() => onToggle(!overridden)}
-        >
-          <span aria-hidden="true" />
-          <strong>{overridden ? "Override on" : "Override"}</strong>
-        </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+          <RheaSwitch
+            size="sm"
+            aria-label={`Override ${definition.title}`}
+            checked={overridden}
+            disabled={!manageable}
+            onCheckedChange={(next) => onToggle(next)}
+          />
+          {overridden ? "Override on" : "Override"}
+        </label>
         {overridden && (
-          <button
+          <RheaButton
             type="button"
-            className="policy-revert"
+            variant="ghost"
+            size="sm"
             onClick={() => onToggle(false)}
           >
             Revert
-          </button>
+          </RheaButton>
         )}
       </div>
       {overridden && (
-        <div className="policy-row__control">
+        <div className="sm:col-span-2">
           <SettingControl
             definition={definition}
             value={value ?? definition.default}

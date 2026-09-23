@@ -8,7 +8,13 @@ import type {
   FormSchema,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
-import { Button, Field, Input, Notice, Textarea } from "../components/ui";
+import {
+  Button,
+  Field,
+  Input,
+  Notice,
+  Textarea,
+} from "../components/legacy-ui";
 import { FormFieldEditor, type FieldLock } from "./FormFieldEditor";
 import { FormFieldPalette } from "./FormFieldPalette";
 import { FormRenderer } from "./FormRenderer";

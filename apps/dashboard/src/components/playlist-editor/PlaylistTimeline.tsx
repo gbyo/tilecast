@@ -10,7 +10,7 @@ import {
   Volume2,
 } from "lucide-react";
 import type { DragEvent } from "react";
-import { Button, EmptyState, IconButton } from "../ui";
+import { Button, EmptyState, IconButton } from "../legacy-ui";
 import type { PlaylistItem } from "../../api/types";
 import {
   formatItemDuration,

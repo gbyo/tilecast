@@ -1,4 +1,4 @@
-import { Select } from "../components/ui";
+import { Select } from "../components/legacy-ui";
 import {
   useMutation,
   useQuery,

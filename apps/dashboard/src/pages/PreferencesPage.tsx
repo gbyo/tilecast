@@ -105,10 +105,20 @@ function errorMessage(error: Error | null | undefined) {
 }
 function applyPreferences(values: Record<string, unknown>) {
   const root = document.documentElement;
-  root.dataset.theme =
+  const appearance =
     typeof values["preference.appearance"] === "string"
       ? String(values["preference.appearance"])
       : "system";
+  try {
+    window.localStorage.setItem("tilecast.appearance", appearance);
+  } catch {
+    // Preference state remains available from the server when storage is disabled.
+  }
+  const dark =
+    appearance === "dark" ||
+    (appearance === "system" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  root.classList.toggle("dark", dark);
   root.dataset.density =
     typeof values["preference.density"] === "string"
       ? String(values["preference.density"])

@@ -7,8 +7,25 @@ import {
   PlaylistPicker,
   type PlaylistPickerChoice,
 } from "./content-picker";
-import { Button, Checkbox, Dialog, Field, Select, ToggleGroup } from "./ui";
-import "./QuickPresentDialog.css";
+import { Button } from "./ui/button";
+import { Checkbox } from "./ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import { Alert, AlertDescription } from "./ui/alert";
 
 type QuickPresentContentType = "playlist" | "layout" | "asset";
 
@@ -108,95 +125,131 @@ export function QuickPresentDialog({
     <>
       <Dialog
         open={open && !pickerOpen}
-        title="Show now"
-        onClose={() => {
-          if (!pickerOpen) onClose();
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !pickerOpen) onClose();
         }}
-        className="quick-present-dialog"
       >
-        <div className="quick-present-dialog__body">
-          <p className="quick-present-dialog__intro">
-            Temporarily show content on <strong>{destinationName}</strong>.
-            <span>
+        <DialogContent className="max-h-[min(90vh,54rem)] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Show now</DialogTitle>
+            <DialogDescription>
+              Temporarily show content on <strong>{destinationName}</strong>.
               Normal content resumes when this session ends. Emergency Takeovers
               and AirPlay remain higher priority.
-            </span>
-          </p>
-          <Field label="Content" required>
-            <ToggleGroup
-              className="quick-present-dialog__content-type"
-              label="Content type"
-              value={contentType}
-              items={contentTypes}
-              onValueChange={changeContentType}
-            />
-            {selectedForType ? (
-              <div className="quick-present-dialog__content-selection">
-                <span className="quick-present-dialog__content-selection-copy">
-                  <strong>{selectedForType.name}</strong>
-                  <small>{selectedForType.detail}</small>
-                </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-2 text-sm font-medium">
+              <span>Content</span>
+              <ToggleGroup
+                aria-label="Content type"
+                className="grid w-full grid-cols-1 gap-1 sm:grid-cols-3"
+                value={[contentType]}
+                onValueChange={(values) => {
+                  const value = values[0];
+                  if (
+                    value === "playlist" ||
+                    value === "layout" ||
+                    value === "asset"
+                  ) {
+                    changeContentType(value);
+                  }
+                }}
+                multiple={false}
+                variant="outline"
+                size="sm"
+                spacing={1}
+              >
+                {contentTypes.map((type) => (
+                  <ToggleGroupItem
+                    key={type.value}
+                    value={type.value}
+                    className="min-w-0"
+                  >
+                    {type.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              {selectedForType ? (
+                <div className="flex min-h-10 items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2">
+                  <span className="grid min-w-0 gap-0.5">
+                    <strong className="truncate text-sm">
+                      {selectedForType.name}
+                    </strong>
+                    <small className="truncate text-xs text-muted-foreground">
+                      {selectedForType.detail}
+                    </small>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPicker(contentType)}
+                    disabled={present.isPending}
+                  >
+                    Change
+                  </Button>
+                </div>
+              ) : (
                 <Button
                   type="button"
-                  variant="quiet"
-                  compact
+                  variant="outline"
                   onClick={() => setPicker(contentType)}
                   disabled={present.isPending}
                 >
-                  Change
+                  Choose {contentTypeLabel}
                 </Button>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setPicker(contentType)}
-                disabled={present.isPending}
-              >
-                Choose {contentTypeLabel}
-              </Button>
-            )}
-          </Field>
-          <Field label="Duration">
-            <Select
-              value={durationMinutes}
-              onChange={(event) =>
-                setDurationMinutes(
-                  Number(event.target.value) as 0 | 5 | 15 | 30 | 60,
-                )
-              }
-            >
-              <option value={5}>5 minutes</option>
-              <option value={15}>15 minutes</option>
-              <option value={30}>30 minutes</option>
-              <option value={60}>1 hour</option>
-              <option value={0}>Until stopped</option>
-            </Select>
-          </Field>
-          <Checkbox
-            label="Wake display if needed"
-            checked={wakeDisplay}
-            onChange={(event) => setWakeDisplay(event.target.checked)}
-          />
-          {present.error && (
-            <div className="notice notice--error" role="alert">
-              {present.error.message}
+              )}
             </div>
-          )}
-        </div>
-        <footer className="form-actions quick-present-dialog__actions">
-          <Button type="button" variant="quiet" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            disabled={present.isPending || !contentId}
-            onClick={() => present.mutate()}
-          >
-            {present.isPending ? "Showing…" : "Show now"}
-          </Button>
-        </footer>
+            <div className="grid gap-2 text-sm font-medium">
+              <span>Duration</span>
+              <Select
+                value={String(durationMinutes)}
+                onValueChange={(value) => {
+                  if (value) {
+                    setDurationMinutes(Number(value) as 0 | 5 | 15 | 30 | 60);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full" aria-label="Duration">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 minutes</SelectItem>
+                  <SelectItem value="15">15 minutes</SelectItem>
+                  <SelectItem value="30">30 minutes</SelectItem>
+                  <SelectItem value="60">1 hour</SelectItem>
+                  <SelectItem value="0">Until stopped</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={wakeDisplay}
+                onCheckedChange={(checked) => setWakeDisplay(checked === true)}
+              />
+              Wake display if needed
+            </label>
+            {present.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{present.error.message}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter className="border-t border-border pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              disabled={present.isPending || !contentId}
+              onClick={() => present.mutate()}
+            >
+              {present.isPending ? "Showing…" : "Show now"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
       {open && picker === "playlist" && (
         <PlaylistPicker

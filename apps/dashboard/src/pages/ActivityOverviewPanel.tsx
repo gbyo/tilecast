@@ -13,7 +13,7 @@ import {
   type MetricDelta,
   type MetricDirection,
   type ResolvedTimeRange,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
 import {
   activityParams,

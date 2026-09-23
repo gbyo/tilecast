@@ -1,4 +1,4 @@
-import { Popover, Select } from "./ui";
+import { Popover, Select } from "./legacy-ui";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Filter, RotateCcw } from "lucide-react";

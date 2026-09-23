@@ -7,7 +7,7 @@ import type {
   DataSourceDefinition,
   DataSourceField,
 } from "../api/types";
-import { Select } from "../components/ui";
+import { Select } from "../components/legacy-ui";
 import { DataSourcePicker, type DataFormatGuide } from "./DataSourcePicker";
 
 type Values = Record<string, unknown>;

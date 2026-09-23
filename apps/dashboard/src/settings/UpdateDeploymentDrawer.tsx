@@ -9,7 +9,7 @@ import {
   StatusBadge,
   StatusDot,
   ViewTabs,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { api } from "../api/client";
 import type { Screen, UpdateDeploymentScreen } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";

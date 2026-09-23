@@ -29,6 +29,7 @@ type uptimeWindowSpec struct {
 var uptimeWindowSpecs = map[string]uptimeWindowSpec{
 	"24h": {Key: "24h", Bucket: time.Hour, BucketCount: 24, Label: "Last 24 hours"},
 	"7d":  {Key: "7d", Bucket: 6 * time.Hour, BucketCount: 28, Label: "Last 7 days"},
+	"30d": {Key: "30d", Bucket: 24 * time.Hour, BucketCount: 30, Label: "Last 30 days"},
 }
 
 type uptimeRow struct {
@@ -103,7 +104,7 @@ func (s *server) activityUptime(w http.ResponseWriter, r *http.Request) {
 	}
 	spec, ok := uptimeWindowSpecs[key]
 	if !ok {
-		writeError(w, http.StatusUnprocessableEntity, "uptime_window_invalid", "Window must be 24h or 7d.")
+		writeError(w, http.StatusUnprocessableEntity, "uptime_window_invalid", "Window must be 24h, 7d, or 30d.")
 		return
 	}
 	to := time.Now().UTC()

@@ -1,17 +1,3 @@
-import {
-  Button,
-  ContextMenu,
-  Dialog,
-  HoldButton,
-  Notice,
-  PageHeader,
-  Popover,
-  Select,
-  ToggleGroup,
-  ViewTabs,
-  useContextMenu,
-  type ContextMenuItem,
-} from "../components/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -25,22 +11,24 @@ import {
   MoreHorizontal,
   Monitor,
   Pencil,
+  Play,
   RefreshCw,
   ShieldAlert,
   ShieldOff,
   Search,
   SlidersHorizontal,
-  TriangleAlert,
   Wifi,
   WifiOff,
   X,
+  Plus,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { useForm } from "react-hook-form";
@@ -68,6 +56,85 @@ import { formatLocationAddress } from "../settings/LocationsPanel";
 import { isAndroidScreen } from "../playerPlatform";
 import { previewApi } from "../api/previews";
 import { previewAge } from "../components/livePreviewState";
+import { ScreenFleetTable } from "../components/ScreenFleetTable";
+import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import {
+  AlertDialog as RheaAlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  DropdownMenu as RheaDropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import {
+  Popover as RheaPopover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  ToggleGroup as RheaToggleGroup,
+  ToggleGroupItem,
+} from "../components/ui/toggle-group";
+import { Skeleton } from "../components/ui/skeleton";
+import {
+  Tabs as RheaTabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 
 const GRID_PREVIEW_LEASE_RENEWAL_MILLIS = 30_000;
 const GRID_PREVIEW_METADATA_REFRESH_MILLIS = 10_000;
@@ -90,34 +157,73 @@ export function normalizeScreenManageSection(
   requestedTab: string,
   requestedSection: string | null,
 ): ScreenManageSection {
-  if (requestedTab === "player-settings") return "settings";
+  if (requestedTab === "player-settings" || requestedTab === "settings")
+    return "settings";
   if (requestedTab === "reliability") return "health";
   if (requestedTab === "commands") return "maintenance";
+  if (requestedTab === "device" && !requestedSection) return "device";
   return screenManageSections.includes(requestedSection as ScreenManageSection)
     ? (requestedSection as ScreenManageSection)
     : "settings";
 }
 
 export type ScreenDetailTab =
-  "overview" | "snapshots" | "content" | "activity" | "manage";
+  "overview" | "content" | "activity" | "device" | "settings";
+type ScreenTabDestination = {
+  tab: ScreenDetailTab;
+  section?: ScreenManageSection;
+};
+type ScreenCommandAction =
+  | {
+      kind: "confirm";
+      title: string;
+      description: string;
+      confirmLabel: string;
+      destructive?: boolean;
+      commandType: string;
+      payload: Record<string, unknown>;
+    }
+  | {
+      kind: "input";
+      title: string;
+      description: string;
+      confirmLabel: string;
+      input: {
+        label: string;
+        type: "text" | "number";
+        min?: number;
+        max?: number;
+        placeholder?: string;
+      };
+      commandType: string;
+      createPayload: (value: string | number) => Record<string, unknown>;
+    };
 
 const screenDetailTabs: readonly ScreenDetailTab[] = [
   "overview",
-  "snapshots",
   "content",
   "activity",
-  "manage",
+  "device",
+  "settings",
 ];
 
-// Legacy tabs collapsed into Manage; each maps to a section via
-// normalizeScreenManageSection.
+// Legacy URLs remain valid while the resource view gets the new tab names.
 const legacyManageTabs = ["player-settings", "reliability", "commands"];
 
 export function normalizeScreenDetailTab(
   requestedTab: string | null,
+  requestedSection: string | null = null,
 ): ScreenDetailTab {
-  if (!requestedTab) return "overview";
-  if (legacyManageTabs.includes(requestedTab)) return "manage";
+  if (!requestedTab || requestedTab === "snapshots") return "overview";
+  if (requestedTab === "manage") {
+    return normalizeScreenManageSection(requestedTab, requestedSection) ===
+      "settings"
+      ? "settings"
+      : "device";
+  }
+  if (legacyManageTabs.includes(requestedTab)) {
+    return requestedTab === "player-settings" ? "settings" : "device";
+  }
   return screenDetailTabs.includes(requestedTab as ScreenDetailTab)
     ? (requestedTab as ScreenDetailTab)
     : "overview";
@@ -281,27 +387,36 @@ function LocationPicker({
 }) {
   const selected = locations.find((location) => location.id === value);
   return (
-    <label className="field">
-      <span className="field__label">Location (optional)</span>
-      <Select
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value || undefined)}
+    <label className="grid gap-2 text-sm font-medium">
+      <span>Location (optional)</span>
+      <RheaSelect
+        value={value ?? "__unassigned__"}
+        onValueChange={(next) =>
+          onChange(next === "__unassigned__" || !next ? undefined : next)
+        }
       >
-        <option value="">Unassigned</option>
-        {locations.map((location) => (
-          <option key={location.id} value={location.id}>
-            {location.name}
-            {formatLocationAddress(location)
-              ? ` — ${formatLocationAddress(location)}`
-              : ""}
-          </option>
-        ))}
-      </Select>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Unassigned" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__unassigned__">Unassigned</SelectItem>
+          {locations.map((location) => (
+            <SelectItem key={location.id} value={location.id}>
+              {location.name}
+              {formatLocationAddress(location)
+                ? ` — ${formatLocationAddress(location)}`
+                : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </RheaSelect>
       {selected && formatLocationAddress(selected) && (
-        <small>{formatLocationAddress(selected)}</small>
+        <small className="text-xs text-muted-foreground">
+          {formatLocationAddress(selected)}
+        </small>
       )}
       <Link
-        className="text-link location-picker__create"
+        className="w-fit text-xs underline underline-offset-4"
         to="/settings/locations"
       >
         Create new location
@@ -350,15 +465,29 @@ export function ScreensPage() {
     queryFn: api.locations,
   });
   return (
-    <div className="screens-page">
-      <PageHeader
-        title="Screens"
-        description="Pair and monitor the players driving every screen in this installation."
-        actions={
-          manageable && <TakeoverAction screens={screens.data?.items ?? []} />
-        }
-      />
-      <ScreenManagementTabs current="screens" />
+    <div className="w-full min-w-0 space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Screens</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {screens.isLoading
+              ? "Loading screen inventory…"
+              : screenInventorySummary(screens.data?.items ?? [])}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {manageable && (
+            <Link
+              className={buttonVariants({ variant: "default", size: "sm" })}
+              to="/screens/pair"
+            >
+              <Plus aria-hidden="true" /> Pair screen
+            </Link>
+          )}
+          {manageable && <TakeoverAction screens={screens.data?.items ?? []} />}
+        </div>
+      </header>
+      <ScreenManagementTabs />
       <ActiveTakeoverBanners canManage={manageable} />
       {screens.isError && (
         <div className="notice notice--error">{screens.error.message}</div>
@@ -397,53 +526,206 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const takeovers = useTakeovers();
+  const [canceling, setCanceling] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const cancel = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       api.cancelTakeover(id, reason, auth.status?.csrfToken ?? ""),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["takeovers"] }),
+    onSuccess: async () => {
+      setCanceling(null);
+      setCancelReason("");
+      await queryClient.invalidateQueries({ queryKey: ["takeovers"] });
+    },
   });
   const active = (takeovers.data?.items ?? []).filter(
     (item) => item.status === "active",
   );
   if (active.length === 0) return null;
   return (
-    <div className="takeover-banners">
-      {active.map((item) => (
-        <Notice
-          key={item.id}
-          variant="danger"
-          title={`Takeover active — ${item.name}`}
-          action={
-            canManage ? (
-              <button
-                className="button button--danger"
+    <>
+      <div className="space-y-2">
+        {active.map((item) => (
+          <Alert
+            key={item.id}
+            variant="destructive"
+            className="flex flex-wrap items-start gap-x-3 gap-y-2"
+          >
+            <ShieldAlert
+              className="mt-0.5 size-4 shrink-0"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1 space-y-1">
+              <AlertTitle>Takeover active — {item.name}</AlertTitle>
+              <AlertDescription>
+                {item.playlistName} is overriding scheduled and fallback content
+                until {new Date(item.expiresAt).toLocaleString()}.
+              </AlertDescription>
+              <ul className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
+                <li>{item.activeCount} playing</li>
+                <li>{item.preparingCount} preparing</li>
+                <li>{item.failedCount} failed</li>
+                <li>{item.affectedCount} targeted</li>
+              </ul>
+            </div>
+            {canManage && (
+              <RheaButton
+                variant="destructive"
+                size="sm"
                 type="button"
                 onClick={() => {
-                  if (
-                    !confirm(
-                      "Cancel this takeover and restore current scheduled or fallback playback?",
-                    )
-                  )
-                    return;
-                  const reason = prompt("Optional cancellation reason") ?? "";
-                  cancel.mutate({ id: item.id, reason });
+                  setCancelReason("");
+                  setCanceling({ id: item.id, name: item.name });
                 }}
               >
                 End takeover
-              </button>
-            ) : undefined
-          }
-        >
-          {item.playlistName} is overriding scheduled and fallback content until{" "}
-          {new Date(item.expiresAt).toLocaleString()}.
-          <ul className="takeover-banner__counts">
-            <li>{item.activeCount} playing</li>
-            <li>{item.preparingCount} preparing</li>
-            <li>{item.failedCount} failed</li>
-            <li>{item.affectedCount} targeted</li>
-          </ul>
-        </Notice>
-      ))}
+              </RheaButton>
+            )}
+          </Alert>
+        ))}
+      </div>
+      <RheaDialog
+        open={canceling !== null}
+        onOpenChange={(open) => {
+          if (!open) setCanceling(null);
+        }}
+      >
+        <DialogContent>
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (canceling) {
+                cancel.mutate({
+                  id: canceling.id,
+                  reason: cancelReason.trim(),
+                });
+              }
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>End takeover for {canceling?.name}?</DialogTitle>
+              <DialogDescription>
+                Scheduled or fallback playback will resume. Add an optional
+                reason to the cancellation record.
+              </DialogDescription>
+            </DialogHeader>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>Cancellation reason (optional)</span>
+              <Input
+                value={cancelReason}
+                maxLength={500}
+                onChange={(event) => setCancelReason(event.target.value)}
+              />
+            </label>
+            <DialogFooter>
+              <RheaButton
+                variant="outline"
+                type="button"
+                onClick={() => setCanceling(null)}
+              >
+                Keep takeover active
+              </RheaButton>
+              <RheaButton
+                variant="destructive"
+                type="submit"
+                disabled={!canceling || cancel.isPending}
+              >
+                {cancel.isPending ? "Ending…" : "End takeover"}
+              </RheaButton>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </RheaDialog>
+    </>
+  );
+}
+
+function FleetHoldButton({
+  holdMs = 3000,
+  onHoldComplete,
+  children,
+  holdingLabel,
+  hint,
+  disabled,
+}: {
+  holdMs?: number;
+  onHoldComplete: () => void;
+  children: ReactNode;
+  holdingLabel?: ReactNode;
+  hint?: ReactNode;
+  disabled?: boolean;
+}) {
+  const [progress, setProgress] = useState(0);
+  const [holding, setHolding] = useState(false);
+  const frame = useRef<number | null>(null);
+  const hintId = useId();
+
+  const stop = useCallback(() => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    setHolding(false);
+    setProgress(0);
+  }, []);
+  useEffect(() => stop, [stop]);
+
+  const start = useCallback(() => {
+    if (disabled || frame.current !== null) return;
+    const started = performance.now();
+    setHolding(true);
+    const tick = () => {
+      const ratio = Math.min(1, (performance.now() - started) / holdMs);
+      setProgress(ratio);
+      if (ratio < 1) {
+        frame.current = requestAnimationFrame(tick);
+        return;
+      }
+      frame.current = null;
+      setHolding(false);
+      setProgress(0);
+      onHoldComplete();
+    };
+    frame.current = requestAnimationFrame(tick);
+  }, [disabled, holdMs, onHoldComplete]);
+
+  return (
+    <div className="grid justify-items-start gap-1.5">
+      <RheaButton
+        variant="destructive"
+        type="button"
+        disabled={disabled}
+        aria-describedby={hint ? hintId : undefined}
+        className="relative isolate overflow-hidden"
+        onPointerDown={(event) => {
+          if (event.button === 0) start();
+        }}
+        onPointerUp={stop}
+        onPointerCancel={stop}
+        onPointerLeave={stop}
+        onBlur={stop}
+        onKeyDown={(event) => {
+          if (event.key !== " " && event.key !== "Enter") return;
+          event.preventDefault();
+          start();
+        }}
+        onKeyUp={(event) => {
+          if (event.key === " " || event.key === "Enter") stop();
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-0 -z-10 bg-destructive/20"
+          style={{ width: `${progress * 100}%` }}
+        />
+        {holding && holdingLabel ? holdingLabel : children}
+      </RheaButton>
+      {hint && (
+        <span id={hintId} className="text-xs text-muted-foreground">
+          {hint}
+        </span>
+      )}
     </div>
   );
 }
@@ -452,6 +734,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [activationPassword, setActivationPassword] = useState("");
   const [name, setName] = useState("");
   const [playlistId, setPlaylistId] = useState("");
   const [screenIds, setScreenIds] = useState<string[]>([]);
@@ -492,6 +777,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
       ),
     onSuccess: async () => {
       setOpen(false);
+      setPasswordOpen(false);
+      setConfirmationOpen(false);
+      setActivationPassword("");
       setName("");
       setPlaylistId("");
       setScreenIds([]);
@@ -511,28 +799,26 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
   const ready = Boolean(
     name && playlistId && (screenIds.length > 0 || groupIds.length > 0),
   );
-  const beginActivation = (confirmed: boolean) => {
-    const requiresPassword = Boolean(
-      runtimeSettings.data?.values["takeover.reauthentication_required"],
-    );
-    const password = requiresPassword
-      ? (prompt("Confirm your current password") ?? "")
-      : "";
-    if (requiresPassword && !password) return;
-    // A completed three-second hold already is the confirmation, so it does not
-    // also raise a dialog.
-    if (
-      confirmed ||
-      confirm(
-        "Activate the selected playlist for these targets? Existing overlapping takeovers will be replaced.",
-      )
-    )
-      activate.mutate(password);
+  const requiresPassword = Boolean(
+    runtimeSettings.data?.values["takeover.reauthentication_required"],
+  );
+  const continueActivation = () => {
+    if (requiresPassword) {
+      setActivationPassword("");
+      setPasswordOpen(true);
+    } else {
+      activate.mutate("");
+    }
+  };
+  const beginActivation = (heldForAllScreens: boolean) => {
+    // A completed three-second hold already confirms a fleet-wide takeover.
+    if (heldForAllScreens) continueActivation();
+    else setConfirmationOpen(true);
   };
   return (
     <>
-      <button
-        className="button button--danger-quiet takeover-trigger"
+      <RheaButton
+        variant="outline"
         type="button"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
@@ -540,172 +826,280 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
         <ShieldAlert size={16} aria-hidden="true" />
         Takeover
         {activeCount > 0 && (
-          <span className="takeover-trigger__count">{activeCount} active</span>
+          <Badge variant="secondary">{activeCount} active</Badge>
         )}
-      </button>
-      <Dialog
-        open={open}
-        title="Takeover"
-        className="takeover-dialog"
-        onClose={() => setOpen(false)}
-      >
-        <p className="takeover-dialog__lede">
-          Temporarily override schedules and fallback content on the selected
-          screens. Existing overlapping takeovers are replaced.
-        </p>
-        <div className="takeover-form">
-          <label className="field">
-            <span className="field__label">Takeover name</span>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              maxLength={180}
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Playlist</span>
-            <Select
-              value={playlistId}
-              onChange={(event) => setPlaylistId(event.target.value)}
-            >
-              <option value="">Select playlist</option>
-              {playlists.data?.items?.map((playlist) => (
-                <option key={playlist.id} value={playlist.id}>
-                  {playlist.name}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="field">
-            <span className="field__label">Expires in</span>
-            <Select
-              value={minutes}
-              onChange={(event) => setMinutes(Number(event.target.value))}
-            >
-              <option value={15}>15 minutes</option>
-              <option value={60}>1 hour</option>
-              <option value={240}>4 hours</option>
-              <option value={1440}>24 hours</option>
-            </Select>
-          </label>
-          <fieldset className="takeover-form__targets">
-            <legend>Target screens</legend>
-            <div className="takeover-form__targets-actions">
-              <button
-                className="button button--quiet button--compact"
-                type="button"
-                aria-pressed={everyScreenSelected}
-                disabled={screens.length === 0}
-                onClick={() =>
-                  setScreenIds(
-                    everyScreenSelected ? [] : screens.map((item) => item.id),
-                  )
-                }
+      </RheaButton>
+      <RheaDialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[min(90vh,54rem)] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Takeover</DialogTitle>
+            <DialogDescription>
+              Temporarily override schedules and fallback content on the
+              selected screens. Existing overlapping takeovers are replaced.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <label className="grid gap-2 text-sm font-medium">
+              <span>Takeover name</span>
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={180}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>Playlist</span>
+              <RheaSelect
+                value={playlistId || null}
+                onValueChange={(value) => setPlaylistId(value ?? "")}
               >
-                All screens
-              </button>
-              <span>
-                {screens.length} screen{screens.length === 1 ? "" : "s"} in the
-                fleet
-              </span>
-            </div>
-            <div>
-              {screens.map((item) => (
-                <label className="checkbox-control" key={item.id}>
-                  <input
-                    type="checkbox"
-                    checked={screenIds.includes(item.id)}
-                    onChange={(event) =>
-                      setScreenIds((ids) =>
-                        event.target.checked
-                          ? [...ids, item.id]
-                          : ids.filter((id) => id !== item.id),
-                      )
-                    }
-                  />
-                  <span>
-                    {item.name}
-                    <small>{statusLabel(item.status)}</small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <fieldset className="takeover-form__targets">
-            <legend>Target Display Groups</legend>
-            <div>
-              {groups.data?.items?.map((group) => (
-                <label className="checkbox-control" key={group.id}>
-                  <input
-                    type="checkbox"
-                    checked={groupIds.includes(group.id)}
-                    onChange={(event) =>
-                      setGroupIds((ids) =>
-                        event.target.checked
-                          ? [...ids, group.id]
-                          : ids.filter((id) => id !== group.id),
-                      )
-                    }
-                  />
-                  <span>
-                    {group.name}
-                    <small>{group.membershipCount} screens</small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        </div>
-        <footer className="takeover-dialog__footer">
-          <p>
-            {everyScreenSelected ? (
-              <strong>
-                Every screen in the fleet ({screens.length}) is selected
-              </strong>
-            ) : (
-              `${screenIds.length} screen${screenIds.length === 1 ? "" : "s"} selected`
-            )}{" "}
-            and {groupIds.length} Display Group
-            {groupIds.length === 1 ? "" : "s"} selected
-            {offlineSelected > 0
-              ? ` · ${offlineSelected} selected screen${offlineSelected === 1 ? " is" : "s are"} not online`
-              : ""}
-            .
-          </p>
-          <div className="takeover-dialog__actions">
-            <button
-              className="button button--quiet"
-              type="button"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </button>
-            {everyScreenSelected ? (
-              <HoldButton
-                className="button--danger"
-                holdMs={3000}
-                disabled={!ready || activate.isPending}
-                holdingLabel="Keep holding…"
-                hint="Hold for 3 seconds to take over every screen."
-                onHoldComplete={() => beginActivation(true)}
+                <SelectTrigger className="w-full" aria-label="Playlist">
+                  <SelectValue placeholder="Select playlist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {playlists.data?.items?.map((playlist) => (
+                    <SelectItem key={playlist.id} value={playlist.id}>
+                      {playlist.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </RheaSelect>
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>Expires in</span>
+              <RheaSelect
+                value={String(minutes)}
+                onValueChange={(value) => {
+                  if (value) setMinutes(Number(value));
+                }}
               >
-                {activate.isPending
-                  ? "Activating…"
-                  : "Hold to activate takeover"}
-              </HoldButton>
-            ) : (
-              <button
-                className="button button--danger"
-                type="button"
-                disabled={!ready || activate.isPending}
-                onClick={() => beginActivation(false)}
-              >
-                {activate.isPending ? "Activating…" : "Activate takeover"}
-              </button>
-            )}
+                <SelectTrigger className="w-full" aria-label="Expires in">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15 minutes</SelectItem>
+                  <SelectItem value="60">1 hour</SelectItem>
+                  <SelectItem value="240">4 hours</SelectItem>
+                  <SelectItem value="1440">24 hours</SelectItem>
+                </SelectContent>
+              </RheaSelect>
+            </label>
+            <fieldset className="grid gap-3 border-t border-border pt-4">
+              <legend className="text-sm font-semibold">Target screens</legend>
+              <div className="flex flex-wrap items-center gap-3">
+                <RheaButton
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  aria-pressed={everyScreenSelected}
+                  disabled={screens.length === 0}
+                  onClick={() =>
+                    setScreenIds(
+                      everyScreenSelected ? [] : screens.map((item) => item.id),
+                    )
+                  }
+                >
+                  All screens
+                </RheaButton>
+                <span className="text-sm text-muted-foreground">
+                  {screens.length} screen{screens.length === 1 ? "" : "s"} in
+                  the fleet
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {screens.map((item) => (
+                  <label
+                    className="flex min-w-0 items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                    key={item.id}
+                  >
+                    <RheaCheckbox
+                      className="mt-0.5"
+                      checked={screenIds.includes(item.id)}
+                      onCheckedChange={(checked) =>
+                        setScreenIds((ids) =>
+                          checked
+                            ? [...ids, item.id]
+                            : ids.filter((id) => id !== item.id),
+                        )
+                      }
+                    />
+                    <span className="grid min-w-0 gap-0.5">
+                      {item.name}
+                      <small className="text-xs text-muted-foreground">
+                        {statusLabel(item.status)}
+                      </small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="grid gap-3 border-t border-border pt-4">
+              <legend className="text-sm font-semibold">
+                Target Display Groups
+              </legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {groups.data?.items?.map((group) => (
+                  <label
+                    className="flex min-w-0 items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                    key={group.id}
+                  >
+                    <RheaCheckbox
+                      className="mt-0.5"
+                      checked={groupIds.includes(group.id)}
+                      onCheckedChange={(checked) =>
+                        setGroupIds((ids) =>
+                          checked
+                            ? [...ids, group.id]
+                            : ids.filter((id) => id !== group.id),
+                        )
+                      }
+                    />
+                    <span className="grid min-w-0 gap-0.5">
+                      {group.name}
+                      <small className="text-xs text-muted-foreground">
+                        {group.membershipCount} screens
+                      </small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           </div>
-        </footer>
-      </Dialog>
+          {activate.error && !passwordOpen && (
+            <Alert variant="destructive">
+              <CircleAlert aria-hidden="true" />
+              <AlertTitle>Takeover could not be activated</AlertTitle>
+              <AlertDescription>{activate.error.message}</AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter className="border-t border-border pt-4 sm:justify-between">
+            <p className="text-sm text-muted-foreground sm:mr-auto">
+              {everyScreenSelected ? (
+                <strong>
+                  Every screen in the fleet ({screens.length}) is selected
+                </strong>
+              ) : (
+                `${screenIds.length} screen${screenIds.length === 1 ? "" : "s"} selected`
+              )}{" "}
+              and {groupIds.length} Display Group
+              {groupIds.length === 1 ? "" : "s"} selected
+              {offlineSelected > 0
+                ? ` · ${offlineSelected} selected screen${offlineSelected === 1 ? " is" : "s are"} not online`
+                : ""}
+              .
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <RheaButton
+                variant="outline"
+                type="button"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </RheaButton>
+              {everyScreenSelected ? (
+                <FleetHoldButton
+                  holdMs={3000}
+                  disabled={!ready || activate.isPending}
+                  holdingLabel="Keep holding…"
+                  hint="Hold for 3 seconds to take over every screen."
+                  onHoldComplete={() => beginActivation(true)}
+                >
+                  {activate.isPending
+                    ? "Activating…"
+                    : "Hold to activate takeover"}
+                </FleetHoldButton>
+              ) : (
+                <RheaButton
+                  variant="destructive"
+                  type="button"
+                  disabled={!ready || activate.isPending}
+                  onClick={() => beginActivation(false)}
+                >
+                  {activate.isPending ? "Activating…" : "Activate takeover"}
+                </RheaButton>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </RheaDialog>
+      <RheaAlertDialog
+        open={confirmationOpen}
+        onOpenChange={setConfirmationOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Activate this takeover?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The selected playlist will replace overlapping schedules and
+              fallback content for the selected screens and groups.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Review targets</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                setConfirmationOpen(false);
+                continueActivation();
+              }}
+            >
+              Activate takeover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
+      <RheaDialog open={passwordOpen} onOpenChange={setPasswordOpen}>
+        <DialogContent>
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!activationPassword) return;
+              activate.mutate(activationPassword);
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Confirm your password</DialogTitle>
+              <DialogDescription>
+                This installation requires your current password before a
+                takeover can start.
+              </DialogDescription>
+            </DialogHeader>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>Current password</span>
+              <Input
+                type="password"
+                autoComplete="current-password"
+                autoFocus
+                value={activationPassword}
+                onChange={(event) => setActivationPassword(event.target.value)}
+              />
+            </label>
+            {activate.error && (
+              <Alert variant="destructive">
+                <CircleAlert aria-hidden="true" />
+                <AlertTitle>Takeover could not be activated</AlertTitle>
+                <AlertDescription>{activate.error.message}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <RheaButton
+                variant="outline"
+                type="button"
+                onClick={() => setPasswordOpen(false)}
+              >
+                Cancel
+              </RheaButton>
+              <RheaButton
+                type="submit"
+                disabled={!activationPassword || activate.isPending}
+              >
+                {activate.isPending ? "Activating…" : "Confirm takeover"}
+              </RheaButton>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </RheaDialog>
     </>
   );
 }
@@ -727,8 +1121,6 @@ export function ScreenListContent({
   csrfToken?: string;
   onRefresh?: () => Promise<unknown>;
 }) {
-  const navigate = useNavigate();
-  const menu = useContextMenu<Screen>();
   const [search, setSearch] = useStoredState<string>(
     "tilecast.screens.search",
     "",
@@ -933,362 +1325,364 @@ export function ScreenListContent({
     setSelected(new Set());
     await onRefresh?.();
   };
-  const actionsFor = (screen: Screen): ContextMenuItem[] => [
-    {
-      label: "Preview",
-      icon: <Monitor size={15} />,
-      onSelect: () => void navigate(`/screens/${screen.id}`),
-    },
-    {
-      label: "Open details",
-      onSelect: () => void navigate(`/screens/${screen.id}`),
-    },
-    ...(canManage
-      ? [
-          {
-            label: "Restart player",
-            onSelect: () =>
-              void api.createScreenCommand(
-                screen.id,
-                "restart_player_process",
-                {},
-                csrfToken,
-              ),
-          },
-          {
-            label: "Edit",
-            icon: <Pencil size={15} />,
-            onSelect: () => navigate(`/screens/${screen.id}?edit=details`),
-          },
-          {
-            label: "Assign content",
-            onSelect: () => navigate(`/screens/${screen.id}?tab=content`),
-          },
-          {
-            label: "Show now",
-            onSelect: () => navigate(`/screens/${screen.id}?present=1`),
-          },
-          {
-            label: screen.syncGroupId
-              ? "Open Display Group"
-              : "Add to Display Group",
-            onSelect: () =>
-              navigate(
-                screen.syncGroupId
-                  ? `/groups/${screen.syncGroupId}`
-                  : "/groups",
-              ),
-          },
-        ]
-      : []),
-  ];
-  if (loading) return <div className="table-loading">Loading screens…</div>;
+  if (loading)
+    return (
+      <div className="space-y-2" aria-label="Loading screens">
+        {Array.from({ length: 5 }, (_, index) => (
+          <Skeleton key={index} className="h-14 w-full" />
+        ))}
+      </div>
+    );
   if (screens.length === 0)
     return (
-      <section className="screen-empty">
-        <span className="empty-illustration">
-          <Monitor size={29} />
-        </span>
-        <h3>No screens paired</h3>
-        <p>
-          Install Tilecast Player on a TV device, connect it to this server,
-          then enter the pairing code shown on the TV.
-        </p>
-        {canManage ? (
-          <Link className="button button--primary" to="/screens/pair">
-            Pair your first screen
-          </Link>
-        ) : (
-          <p className="permission-note">
-            An Owner or Administrator can approve new screens.
-          </p>
-        )}
-      </section>
+      <Empty className="min-h-56 border-y border-dashed px-5 py-8">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Monitor aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle role="heading" aria-level={2}>
+            No screens paired
+          </EmptyTitle>
+          <EmptyDescription>
+            Install Tilecast Player on a TV device and enter the pairing code
+            shown on the player.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          {canManage ? (
+            <Link
+              className={buttonVariants({ variant: "default", size: "sm" })}
+              to="/screens/pair"
+            >
+              Pair screen
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              An Owner or Administrator can approve new screens.
+            </p>
+          )}
+        </EmptyContent>
+      </Empty>
     );
   return (
-    <section className="screen-workspace" aria-label="Paired screens">
+    <section className="min-w-0 space-y-4" aria-label="Paired screens">
       <ScreenSummary screens={screens} status={status} onStatus={setStatus} />
-      {/* One controls block, three deliberate bands: filters on the left, presentation
-          utilities right-aligned, then the active-filter chips underneath. Filtering and
-          presentation used to be interleaved, which is why the row order matters here. */}
-      <div className="screen-controls">
+      <div className="space-y-3">
         <div
-          className="screen-toolbar"
+          className="flex flex-wrap items-center gap-2"
           role="group"
           aria-label="Filter screens"
         >
-          <label className="screen-search">
-            <Search size={16} aria-hidden="true" />
-            <span className="visually-hidden">Filter screens</span>
-            <input
+          <div className="relative min-w-56 flex-1 sm:max-w-md">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              aria-label="Search screens"
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name, room, location, or content"
+              placeholder="Search screens…"
+              className="pl-9"
             />
-          </label>
-          <FilterSelect label="Status" value={status} onChange={setStatus}>
-            <option value="">All statuses</option>
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
-            <option value="attention">Needs attention</option>
-            <option value="updating">Updating</option>
-            <option value="syncing">Syncing</option>
-          </FilterSelect>
-          <FilterSelect
+          </div>
+          <FleetFilterSelect
+            label="Status"
+            value={status}
+            onChange={setStatus}
+            options={[
+              { value: "", label: "All statuses" },
+              { value: "online", label: "Online" },
+              { value: "offline", label: "Offline" },
+              { value: "attention", label: "Needs attention" },
+              { value: "updating", label: "Updating" },
+              { value: "syncing", label: "Syncing" },
+            ]}
+          />
+          <FleetFilterSelect
             label="Location"
             value={location}
             onChange={setLocation}
-          >
-            <option value="">All locations</option>
-            {locationItems.map((item) => (
-              <option value={item.id} key={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </FilterSelect>
-          <FilterSelect
+            options={[
+              { value: "", label: "All locations" },
+              ...locationItems.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            ]}
+          />
+          <FleetFilterSelect
             label="Platform"
             value={platform}
             onChange={setPlatform}
-          >
-            <option value="">All platforms</option>
-            {[...new Set(screens.map((item) => item.platform))]
-              .sort()
-              .map((item) => (
-                <option value={item} key={item}>
-                  {platformLabel(item)}
-                </option>
-              ))}
-          </FilterSelect>
-          <FilterSelect
+            options={[
+              { value: "", label: "All platforms" },
+              ...[...new Set(screens.map((item) => item.platform))]
+                .sort()
+                .map((item) => ({ value: item, label: platformLabel(item) })),
+            ]}
+          />
+          <FleetFilterSelect
             label="Now playing"
             value={playing}
             onChange={setPlaying}
-          >
-            <option value="">Any content</option>
-            <option value="presentation">Presentation</option>
-            <option value="playlist">Playlist</option>
-            <option value="nothing">Nothing assigned</option>
-          </FilterSelect>
-          <Popover
-            label="More screen filters"
-            className="screen-more-filters"
-            width="16rem"
-            align="end"
-            trigger={(props) => (
-              <button
-                type="button"
-                className="signal-popover__filter-trigger"
-                {...props}
-              >
-                <SlidersHorizontal size={15} aria-hidden="true" />
-                More filters
-                {advancedFilterCount > 0 && (
-                  <span className="signal-popover__count">
-                    {advancedFilterCount}
-                  </span>
-                )}
-              </button>
-            )}
-          >
-            <FilterSelect
-              label="Display Group"
-              value={syncGroup}
-              onChange={setSyncGroup}
-              block
-            >
-              <option value="">All screens</option>
-              <option value="any">In any Display Group</option>
-              <option value="none">Not in a Display Group</option>
-              {[
-                ...new Map(
-                  screens
-                    .filter((item) => item.syncGroupId)
-                    .map((item) => [item.syncGroupId, item.syncGroupName]),
-                ).entries(),
-              ].map(([id, name]) => (
-                <option value={id} key={id}>
-                  {name}
-                </option>
-              ))}
-            </FilterSelect>
-            <FilterSelect
-              label="Orientation"
-              value={orientation}
-              onChange={setOrientation}
-              block
-            >
-              <option value="">Any orientation</option>
-              <option value="landscape">Landscape</option>
-              <option value="portrait">Portrait</option>
-            </FilterSelect>
-            <FilterSelect
-              label="Software update"
-              value={update}
-              onChange={setUpdate}
-              block
-            >
-              <option value="">Any update status</option>
-              <option value="current">Current</option>
-              <option value="downloading">Downloading</option>
-              <option value="attention">Needs attention</option>
-            </FilterSelect>
-          </Popover>
-        </div>
-        {anyFilterActive && (
-          <div className="screen-filter-chips">
-            <span className="screen-filter-chips__label">
-              {filtered.length} of {screens.length} screens
-            </span>
-            {chippedFilters.map((filter) => (
-              <button
-                type="button"
-                className="filter-chip"
-                key={filter.facet}
-                aria-label={`Remove filter ${filter.facet}: ${filter.value}`}
-                onClick={filter.remove}
-              >
-                <strong>{filter.facet}:</strong>
-                <span>{filter.value}</span>
-                <X size={13} aria-hidden="true" />
-              </button>
-            ))}
-            <button
-              type="button"
-              className="screen-filter-clear"
-              onClick={clearFilters}
-            >
-              Clear all
-            </button>
-          </div>
-        )}
-        <div
-          className="screen-view-controls"
-          role="group"
-          aria-label="Presentation"
-        >
-          <FilterSelect label="Group by" value={groupBy} onChange={setGroupBy}>
-            <option value="location">Group by location</option>
-            <option value="status">Group by status</option>
-            <option value="sync">Group by Display Group</option>
-            <option value="none">No grouping</option>
-          </FilterSelect>
-          <FilterSelect label="Sort" value={sort} onChange={setSort}>
-            <option value="name-asc">Screen name · A–Z</option>
-            <option value="name-desc">Screen name · Z–A</option>
-            <option value="location-asc">Location · A–Z</option>
-            <option value="status-asc">Status</option>
-            <option value="contact-desc">Last contact · newest</option>
-            <option value="contact-asc">Last contact · oldest</option>
-            <option value="added-desc">Date added · newest</option>
-            <option value="platform-asc">Platform</option>
-          </FilterSelect>
-          <ToggleGroup
-            label="Screen view"
-            value={view}
-            onValueChange={setView}
-            items={[
-              {
-                value: "table",
-                label: (
-                  <>
-                    <List size={16} aria-hidden="true" /> Table
-                  </>
-                ),
-              },
-              {
-                value: "grid",
-                label: (
-                  <>
-                    <Grid2X2 size={16} aria-hidden="true" /> Previews
-                  </>
-                ),
-              },
+            options={[
+              { value: "", label: "Any content" },
+              { value: "presentation", label: "Presentation" },
+              { value: "playlist", label: "Playlist" },
+              { value: "nothing", label: "Nothing assigned" },
             ]}
           />
+          <RheaPopover>
+            <PopoverTrigger
+              render={<RheaButton variant="outline" size="sm" />}
+              aria-label={`More screen filters${advancedFilterCount ? `, ${advancedFilterCount} active` : ""}`}
+            >
+              <SlidersHorizontal aria-hidden="true" /> More filters
+              {advancedFilterCount > 0 && (
+                <Badge variant="secondary">{advancedFilterCount}</Badge>
+              )}
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 gap-3">
+              <h3 className="text-sm font-medium">More filters</h3>
+              <FleetFilterSelect
+                label="Display Group"
+                value={syncGroup}
+                onChange={setSyncGroup}
+                className="w-full"
+                options={[
+                  { value: "", label: "All screens" },
+                  { value: "any", label: "In any Display Group" },
+                  { value: "none", label: "Not in a Display Group" },
+                  ...[
+                    ...new Map(
+                      screens
+                        .filter((item) => item.syncGroupId)
+                        .map(
+                          (item) =>
+                            [
+                              item.syncGroupId ?? "",
+                              item.syncGroupName ?? "Display Group",
+                            ] as const,
+                        ),
+                    ).entries(),
+                  ].map(([id, name]) => ({ value: id, label: name })),
+                ]}
+              />
+              <FleetFilterSelect
+                label="Orientation"
+                value={orientation}
+                onChange={setOrientation}
+                className="w-full"
+                options={[
+                  { value: "", label: "Any orientation" },
+                  { value: "landscape", label: "Landscape" },
+                  { value: "portrait", label: "Portrait" },
+                ]}
+              />
+              <FleetFilterSelect
+                label="Software update"
+                value={update}
+                onChange={setUpdate}
+                className="w-full"
+                options={[
+                  { value: "", label: "Any update status" },
+                  { value: "current", label: "Current" },
+                  { value: "downloading", label: "Downloading" },
+                  { value: "attention", label: "Needs attention" },
+                ]}
+              />
+            </PopoverContent>
+          </RheaPopover>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {anyFilterActive ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-xs text-muted-foreground">
+                {filtered.length} of {screens.length} screens
+              </span>
+              {chippedFilters.map((filter) => (
+                <Badge
+                  key={filter.facet}
+                  variant="secondary"
+                  className="gap-1.5"
+                >
+                  <span>
+                    {filter.facet}: {filter.value}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Remove filter ${filter.facet}: ${filter.value}`}
+                    onClick={filter.remove}
+                    className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <X className="size-3" aria-hidden="true" />
+                  </button>
+                </Badge>
+              ))}
+              <RheaButton variant="ghost" size="xs" onClick={clearFilters}>
+                Clear filters
+              </RheaButton>
+            </div>
+          ) : (
+            <span />
+          )}
+
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <FleetFilterSelect
+              label="Group by"
+              value={groupBy}
+              onChange={setGroupBy}
+              options={[
+                { value: "location", label: "Location" },
+                { value: "status", label: "Status" },
+                { value: "sync", label: "Display Group" },
+                { value: "none", label: "No grouping" },
+              ]}
+            />
+            <FleetFilterSelect
+              label="Sort screens"
+              value={sort}
+              onChange={setSort}
+              options={[
+                { value: "name-asc", label: "Name · A–Z" },
+                { value: "name-desc", label: "Name · Z–A" },
+                { value: "location-asc", label: "Location · A–Z" },
+                { value: "status-asc", label: "Status" },
+                { value: "contact-desc", label: "Last contact · newest" },
+                { value: "contact-asc", label: "Last contact · oldest" },
+                { value: "added-desc", label: "Date added · newest" },
+                { value: "platform-asc", label: "Platform" },
+              ]}
+            />
+            <RheaToggleGroup
+              value={[view]}
+              multiple={false}
+              onValueChange={(values) => {
+                const selectedView = values[0];
+                if (selectedView === "table" || selectedView === "grid") {
+                  setView(selectedView);
+                }
+              }}
+              aria-label="Screen view"
+              variant="outline"
+              size="sm"
+              spacing={0}
+            >
+              <ToggleGroupItem value="table" aria-label="Table view">
+                <List aria-hidden="true" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="grid" aria-label="Preview grid view">
+                <Grid2X2 aria-hidden="true" />
+              </ToggleGroupItem>
+            </RheaToggleGroup>
+          </div>
         </div>
       </div>
       {view === "grid" && (
-        <p className="screen-results-hint">
+        <p className="text-xs text-muted-foreground">
           Previews show the latest snapshot reported by each player and refresh
           about every 30 seconds.
         </p>
       )}
       {selected.size > 0 && canManage && (
-        <div className="screen-bulk-bar">
-          <strong>{selected.size} selected</strong>
-          <button type="button" onClick={() => void restartSelected()}>
-            Restart
-          </button>
-          <FilterSelect
+        <div className="flex flex-wrap items-center gap-2 border-l-2 border-primary bg-muted/50 px-3 py-2">
+          <strong className="mr-2 text-sm">{selected.size} selected</strong>
+          <RheaButton
+            variant="outline"
+            size="sm"
+            onClick={() => void restartSelected()}
+          >
+            <RefreshCw aria-hidden="true" /> Restart
+          </RheaButton>
+          <FleetFilterSelect
             label="Move selected screens to location"
             value={bulkLocation}
             onChange={setBulkLocation}
+            options={[
+              { value: "", label: "Unassigned" },
+              ...locationItems.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            ]}
+          />
+          <RheaButton
+            variant="secondary"
+            size="sm"
+            onClick={() => void changeSelectedLocation()}
           >
-            <option value="">Unassigned</option>
-            {locationItems.map((item) => (
-              <option value={item.id} key={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </FilterSelect>
-          <button type="button" onClick={() => void changeSelectedLocation()}>
-            Change location
-          </button>
-          <button type="button" onClick={() => setSelected(new Set())}>
+            Move to location
+          </RheaButton>
+          <RheaButton
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelected(new Set())}
+          >
             Clear selection
-          </button>
+          </RheaButton>
         </div>
       )}
       {locationsError && (
-        <div className="notice notice--error">
-          Location data failed to load. Screen names remain available.
-        </div>
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle>Locations could not be loaded</AlertTitle>
+          <AlertDescription>
+            Screen names and player details remain available.
+          </AlertDescription>
+        </Alert>
       )}
       {filtered.length === 0 ? (
-        <div className="screen-empty screen-empty--compact">
-          <Search size={24} />
-          <h3>No screens match the current filters</h3>
-          <p>Remove one or more filters to see screens again.</p>
-          <button
-            className="button button--quiet"
-            type="button"
-            onClick={clearFilters}
-          >
-            Clear filters
-          </button>
-        </div>
+        <Empty className="min-h-48 border-y border-dashed px-4 py-7">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Search aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No screens match these filters</EmptyTitle>
+            <EmptyDescription>
+              Clear one or more filters to see the fleet again.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <RheaButton variant="outline" size="sm" onClick={clearFilters}>
+              Clear filters
+            </RheaButton>
+          </EmptyContent>
+        </Empty>
       ) : visibleGroups.every((group) => collapsed.has(group.key)) ? (
-        <div className="screen-empty screen-empty--compact">
-          <h3>All groups are collapsed</h3>
-          <button
-            className="button button--quiet"
-            type="button"
-            onClick={() => {
-              setCollapsed(new Set());
-              storageSet("session", "tilecast.screens.collapsed", "[]");
-            }}
-          >
-            Expand all groups
-          </button>
-        </div>
+        <Empty className="min-h-40 border-y border-dashed py-6">
+          <EmptyHeader>
+            <EmptyTitle>All groups are collapsed</EmptyTitle>
+          </EmptyHeader>
+          <EmptyContent>
+            <RheaButton
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCollapsed(new Set());
+                storageSet("session", "tilecast.screens.collapsed", "[]");
+              }}
+            >
+              Expand all groups
+            </RheaButton>
+          </EmptyContent>
+        </Empty>
       ) : (
-        <div className={`screen-results screen-results--${view}`}>
+        <div className="space-y-4">
           {visibleGroups.map((group) => {
             const isCollapsed = collapsed.has(group.key);
             const groupSelected = group.screens.every((screen) =>
               selected.has(screen.id),
             );
             return (
-              <section className="screen-location-group" key={group.key}>
+              <section className="min-w-0 space-y-2" key={group.key}>
                 {groupBy !== "none" && (
-                  <header className="screen-group-header">
-                    {/* The disclosure comes first so the chevron reads as "open this
-                        group" rather than as a menu or a sort control on the title. */}
-                    <button
-                      className="screen-group-header__disclosure"
-                      type="button"
+                  <header className="flex flex-wrap items-center gap-2 border-b border-border py-2">
+                    <RheaButton
+                      variant="ghost"
+                      size="icon-sm"
                       aria-expanded={!isCollapsed}
                       aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${group.label}`}
                       onClick={() => toggleCollapsed(group.key)}
@@ -1298,73 +1692,53 @@ export function ScreenListContent({
                       ) : (
                         <ChevronDown size={16} aria-hidden="true" />
                       )}
-                    </button>
+                    </RheaButton>
                     {canManage && (
-                      <input
-                        type="checkbox"
+                      <RheaCheckbox
                         aria-label={`Select all screens in ${group.label}`}
                         checked={groupSelected}
-                        onChange={(event) => {
+                        onCheckedChange={(checked) => {
                           const next = new Set(selected);
                           for (const screen of group.screens) {
-                            if (event.target.checked) next.add(screen.id);
+                            if (checked === true) next.add(screen.id);
                             else next.delete(screen.id);
                           }
                           setSelected(next);
                         }}
                       />
                     )}
-                    <span className="screen-group-header__title">
-                      <strong>{group.label}</strong>
-                      <span className="screen-group-header__count">
-                        {group.screens.length}
-                        <span className="visually-hidden">
-                          {" "}
-                          screen{group.screens.length === 1 ? "" : "s"}
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                      <strong className="truncate text-sm">
+                        {group.label}
+                      </strong>
+                      <Badge variant="secondary">{group.screens.length}</Badge>
+                      {group.description && (
+                        <span className="text-xs text-muted-foreground">
+                          {group.description}
                         </span>
-                      </span>
-                      {group.description && <small>{group.description}</small>}
-                    </span>
+                      )}
+                    </div>
                     <GroupHealth screens={group.screens} />
                   </header>
                 )}
                 {!isCollapsed && view === "table" && (
-                  <div className="screen-table">
-                    {/* "Actions" and the selection column carry visually hidden
-                        labels: their text used to be wider than the columns that
-                        hold them, which clipped the heading at desktop width. */}
-                    <div className="screen-table__header">
-                      <span>
-                        <span className="visually-hidden">Select</span>
-                      </span>
-                      <span>Screen</span>
-                      <span>Now playing</span>
-                      <span>Status</span>
-                      <span>
-                        <span className="visually-hidden">Actions</span>
-                      </span>
-                    </div>
-                    {group.screens.map((screen) => (
-                      <ScreenTableRow
-                        key={screen.id}
-                        screen={screen}
-                        selected={selected.has(screen.id)}
-                        canManage={canManage}
-                        showLocation={groupBy !== "location"}
-                        onSelect={(checked) => {
-                          const next = new Set(selected);
-                          if (checked) next.add(screen.id);
-                          else next.delete(screen.id);
-                          setSelected(next);
-                        }}
-                        onOpen={() => void navigate(`/screens/${screen.id}`)}
-                        onMenu={(event) => menu.open(event, screen)}
-                      />
-                    ))}
+                  <div className="min-w-0">
+                    <ScreenFleetTable
+                      screens={group.screens}
+                      canManage={canManage}
+                      selectedIds={selected}
+                      csrfToken={csrfToken}
+                      onSelectionChange={(id, checked) => {
+                        const next = new Set(selected);
+                        if (checked) next.add(id);
+                        else next.delete(id);
+                        setSelected(next);
+                      }}
+                    />
                   </div>
                 )}
                 {!isCollapsed && view === "grid" && (
-                  <div className="screen-grid">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-4 pt-3">
                     {group.screens.map((screen) => (
                       <ScreenGridCard
                         key={screen.id}
@@ -1379,8 +1753,6 @@ export function ScreenListContent({
                           else next.delete(screen.id);
                           setSelected(next);
                         }}
-                        onOpen={() => void navigate(`/screens/${screen.id}`)}
-                        onMenu={(event) => menu.open(event, screen)}
                       />
                     ))}
                   </div>
@@ -1389,15 +1761,6 @@ export function ScreenListContent({
             );
           })}
         </div>
-      )}
-      {menu.anchor && (
-        <ContextMenu
-          x={menu.anchor.x}
-          y={menu.anchor.y}
-          label={`Actions for ${menu.anchor.target.name}`}
-          items={actionsFor(menu.anchor.target)}
-          onClose={menu.close}
-        />
       )}
     </section>
   );
@@ -1434,28 +1797,52 @@ function storageSet(kind: "local" | "session", key: string, value: string) {
   }
 }
 
-function FilterSelect({
+const noFleetFilter = "__tilecast_all__";
+
+function FleetFilterSelect({
   label,
   value,
   onChange,
-  block,
-  children,
+  options,
+  className,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  block?: boolean;
-  children: ReactNode;
+  options: readonly { value: string; label: string }[];
+  className?: string;
 }) {
+  const selectedValue = value || noFleetFilter;
+
   return (
-    <Select
-      className={`screen-filter-select${block ? " screen-filter-select--block" : ""}`}
-      aria-label={label}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
+    <RheaSelect
+      value={selectedValue}
+      onValueChange={(next) =>
+        onChange(!next || next === noFleetFilter ? "" : next)
+      }
     >
-      {children}
-    </Select>
+      <SelectTrigger
+        size="sm"
+        aria-label={label}
+        className={`max-w-52 ${className ?? ""}`.trim()}
+      >
+        <SelectValue placeholder={label}>
+          {options.find(
+            (option) => (option.value || noFleetFilter) === selectedValue,
+          )?.label ?? label}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent align="start" alignItemWithTrigger={false}>
+        {options.map((option) => (
+          <SelectItem
+            key={option.value || noFleetFilter}
+            value={option.value || noFleetFilter}
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </RheaSelect>
   );
 }
 
@@ -1473,37 +1860,32 @@ function ScreenSummary({
   const locations = new Set(
     screens.map((item) => item.locationId).filter(Boolean),
   ).size;
-  // .summary-bar is the shared segmented metric readout. In a tile the count reads
-  // as a measure rather than the sentence "0 need attention" ever did.
   return (
     <div
-      className="summary-bar screen-summary"
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-border py-2"
       role="group"
       aria-label="Fleet summary"
     >
-      <div className="summary-bar__item">
-        <strong>{screens.length}</strong> <span>Screens</span>
-      </div>
-      <button
-        className="summary-bar__item"
-        type="button"
+      <span className="mr-2 text-sm text-muted-foreground">
+        {screens.length} screen{screens.length === 1 ? "" : "s"} · {locations}{" "}
+        location{locations === 1 ? "" : "s"}
+      </span>
+      <RheaButton
+        variant={status === "online" ? "secondary" : "ghost"}
+        size="sm"
         aria-pressed={status === "online"}
         onClick={() => onStatus(status === "online" ? "" : "online")}
       >
-        <strong>{online}</strong> <span>Online</span>
-      </button>
-      <button
-        className={`summary-bar__item${attention > 0 ? " summary-bar__item--urgent" : ""}`}
-        type="button"
+        <strong className="tabular-nums">{online}</strong> Online
+      </RheaButton>
+      <RheaButton
+        variant={status === "attention" ? "secondary" : "ghost"}
+        size="sm"
         aria-pressed={status === "attention"}
         onClick={() => onStatus(status === "attention" ? "" : "attention")}
       >
-        <strong>{attention}</strong> <span>Needs attention</span>
-      </button>
-      <div className="summary-bar__item">
-        <strong>{locations}</strong>{" "}
-        <span>Location{locations === 1 ? "" : "s"}</span>
-      </div>
+        <strong className="tabular-nums">{attention}</strong> Needs attention
+      </RheaButton>
     </div>
   );
 }
@@ -1515,23 +1897,21 @@ function GroupHealth({ screens }: { screens: Screen[] }) {
     screens.map((item) => item.syncGroupName).filter(Boolean),
   );
   return (
-    <span className="screen-group-header__health">
-      <span
-        className={`screen-group-health screen-group-health--${online === screens.length ? "healthy" : "partial"}`}
-      >
+    <span className="flex flex-wrap items-center justify-end gap-1.5">
+      <Badge variant={online === screens.length ? "outline" : "secondary"}>
         {online} of {screens.length} online
-      </span>
+      </Badge>
       {attention > 0 && (
-        <span className="screen-group-health screen-group-health--attention">
-          <CircleAlert size={13} aria-hidden="true" />
+        <Badge variant="destructive">
+          <CircleAlert aria-hidden="true" />
           {attention} {attention === 1 ? "needs" : "need"} attention
-        </span>
+        </Badge>
       )}
       {syncGroups.size === 1 && (
-        <span className="screen-group-health">
-          <Link2 size={13} aria-hidden="true" />
+        <Badge variant="outline">
+          <Link2 aria-hidden="true" />
           {[...syncGroups][0]}
-        </span>
+        </Badge>
       )}
     </span>
   );
@@ -1544,6 +1924,15 @@ function syncGroupFilterLabel(value: string, screens: Screen[]) {
     screens.find((item) => item.syncGroupId === value)?.syncGroupName ??
     "Selected"
   );
+}
+
+function screenInventorySummary(screens: Screen[]) {
+  const locationCount = new Set(
+    screens
+      .map((screen) => screen.locationId || screen.location)
+      .filter(Boolean),
+  ).size;
+  return `${screens.length} player${screens.length === 1 ? "" : "s"} across ${locationCount} location${locationCount === 1 ? "" : "s"}`;
 }
 
 function updateLabel(value: string) {
@@ -1657,112 +2046,6 @@ function buildScreenGroups(
   );
 }
 
-function screenMetadata(screen: Screen, showLocation: boolean) {
-  return [
-    showLocation ? screen.location : "",
-    roomLabel(screen),
-    platformLabel(screen.platform),
-    `${screen.screenWidth}×${screen.screenHeight}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-function ScreenTableRow({
-  screen,
-  selected,
-  canManage,
-  showLocation,
-  onSelect,
-  onOpen,
-  onMenu,
-}: {
-  screen: Screen;
-  selected: boolean;
-  canManage: boolean;
-  showLocation: boolean;
-  onSelect: (checked: boolean) => void;
-  onOpen: () => void;
-  onMenu: (event: ReactMouseEvent<HTMLElement>) => void;
-}) {
-  return (
-    <article
-      className={`screen-row${needsAttention(screen) ? " screen-row--attention" : ""}`}
-      onClick={onOpen}
-      onContextMenu={onMenu}
-    >
-      <span onClick={(event) => event.stopPropagation()}>
-        {canManage && (
-          <input
-            type="checkbox"
-            aria-label={`Select ${screen.name}`}
-            checked={selected}
-            onChange={(event) => onSelect(event.target.checked)}
-          />
-        )}
-      </span>
-      {/* Only the name is a link. The metadata line used to sit inside the anchor,
-          so location, platform, and resolution all rendered underlined as if each
-          were separately clickable. */}
-      <span className="screen-identity">
-        <span className="screen-icon" aria-hidden="true">
-          <Monitor size={16} />
-        </span>
-        <span className="screen-identity__copy">
-          <Link
-            className="screen-name"
-            to={`/screens/${screen.id}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {screen.name}
-          </Link>
-          <small>{screenMetadata(screen, showLocation)}</small>
-        </span>
-        {screen.syncGroupName && (
-          <span className="screen-sync-chip">
-            <Link2 size={12} aria-hidden="true" />
-            {screen.syncGroupName}
-          </span>
-        )}
-      </span>
-      <span className="screen-row__playing">
-        <strong>{screen.nowPlayingName || "Nothing assigned"}</strong>
-        <small>
-          {screen.nowPlayingName
-            ? screen.nowPlayingType === "playlist"
-              ? "Playlist"
-              : "Presentation"
-            : "No fallback content"}
-        </small>
-      </span>
-      {/* Status and last contact are one column: apart, each left a wide empty
-          cell and the reader had to join them up anyway. */}
-      <span className="screen-row__status">
-        <StatusLabel status={screen.status} />
-        <small>{formatContact(screen.lastContactAt)}</small>
-        {screen.updateError && (
-          <span className="screen-row__flag">
-            <TriangleAlert size={12} aria-hidden="true" />
-            Update failed
-          </span>
-        )}
-      </span>
-      <span
-        className="screen-row__actions"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <button
-          type="button"
-          aria-label={`Actions for ${screen.name}`}
-          onClick={(event) => onMenu(event)}
-        >
-          <MoreHorizontal size={17} />
-        </button>
-      </span>
-    </article>
-  );
-}
-
 export function ScreenGridCard({
   screen,
   csrfToken,
@@ -1770,8 +2053,6 @@ export function ScreenGridCard({
   canManage,
   showLocation,
   onSelect,
-  onOpen,
-  onMenu,
 }: {
   screen: Screen;
   csrfToken: string;
@@ -1779,9 +2060,8 @@ export function ScreenGridCard({
   canManage: boolean;
   showLocation: boolean;
   onSelect: (checked: boolean) => void;
-  onOpen: () => void;
-  onMenu: (event: ReactMouseEvent<HTMLElement>) => void;
 }) {
+  const detailHref = `/screens/${screen.id}`;
   const ref = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
   const [now, setNow] = useState(Date.now);
@@ -1847,93 +2127,160 @@ export function ScreenGridCard({
   return (
     <article
       ref={ref}
-      className={`screen-card${needsAttention(screen) ? " screen-card--attention" : ""}`}
-      role="link"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
-      onContextMenu={onMenu}
+      className={`group min-w-0 overflow-hidden rounded-2xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
     >
-      <div
-        className={`screen-card__preview${portrait ? " screen-card__preview--portrait" : ""}`}
-        style={{
-          aspectRatio: `${screen.screenWidth || 16} / ${screen.screenHeight || 9}`,
-        }}
+      <Link
+        to={detailHref}
+        aria-label={`Open ${screen.name}`}
+        className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
       >
-        {preview.isLoading && visible ? (
-          <span
-            className="screen-preview-skeleton"
-            aria-label="Loading preview"
-          />
-        ) : image ? (
-          <>
-            <img src={image} alt={`Latest preview from ${screen.name}`} />
-            {age && (
-              <span
-                className={`screen-card__preview-age screen-card__preview-age--${age.tone}`}
-                aria-label={`Snapshot captured ${age.label}`}
-                title={`Captured ${new Date(
-                  preview.data?.capturedAt ?? "",
-                ).toLocaleString()}`}
-              >
-                {age.label}
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="screen-preview-empty">
-            <Monitor size={24} />
-            {screen.status === "offline"
-              ? "Screen offline"
-              : "Preview unavailable"}
-          </span>
-        )}
-      </div>
-      <div className="screen-card__body">
-        <header>
+        <div
+          className={`relative grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
+          style={{
+            aspectRatio: `${screen.screenWidth || 16} / ${screen.screenHeight || 9}`,
+          }}
+        >
+          {preview.isLoading && visible ? (
+            <Skeleton
+              className="absolute inset-0 min-h-32"
+              aria-label="Loading preview"
+            />
+          ) : image ? (
+            <>
+              <img
+                className="h-full w-full object-contain"
+                src={image}
+                alt={`Latest preview from ${screen.name}`}
+              />
+              {age && (
+                <Badge
+                  variant="secondary"
+                  className="pointer-events-none absolute right-2 bottom-2 border-white/10 bg-black/60 text-white"
+                  aria-label={`Snapshot captured ${age.label}`}
+                  title={`Captured ${new Date(
+                    preview.data?.capturedAt ?? "",
+                  ).toLocaleString()}`}
+                >
+                  {age.label}
+                </Badge>
+              )}
+            </>
+          ) : (
+            <span className="grid min-h-32 place-items-center gap-1 text-center text-xs text-slate-300">
+              <Monitor className="size-6" aria-hidden="true" />
+              {screen.status === "offline"
+                ? "Screen offline"
+                : "Preview unavailable"}
+            </span>
+          )}
+        </div>
+      </Link>
+      <div className="grid gap-3 p-3">
+        <header className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
           {canManage && (
-            <input
-              type="checkbox"
+            <RheaCheckbox
               aria-label={`Select ${screen.name}`}
               checked={selected}
-              onClick={(event) => event.stopPropagation()}
-              onChange={(event) => onSelect(event.target.checked)}
+              onCheckedChange={(checked) => onSelect(checked === true)}
             />
           )}
-          <span>
-            <strong>{screen.name}</strong>
-            <small>
+          <span className="grid min-w-0 gap-0.5">
+            <Link
+              to={detailHref}
+              className="truncate text-sm font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {screen.name}
+            </Link>
+            <small className="truncate text-xs text-muted-foreground">
               {[showLocation ? screen.location : "", roomLabel(screen)]
                 .filter(Boolean)
                 .join(" · ") || "Unassigned"}
             </small>
           </span>
-          <button
-            type="button"
-            aria-label={`Actions for ${screen.name}`}
-            onClick={(event) => onMenu(event)}
-          >
-            <MoreHorizontal size={17} />
-          </button>
+          <div className="shrink-0">
+            <RheaDropdownMenu>
+              <DropdownMenuTrigger
+                render={<RheaButton variant="ghost" size="icon-sm" />}
+                aria-label={`Actions for ${screen.name}`}
+              >
+                <MoreHorizontal aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  render={<Link to={`/screens/${screen.id}`} />}
+                >
+                  <Monitor aria-hidden="true" /> Open screen
+                </DropdownMenuItem>
+                {canManage && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        void api.createScreenCommand(
+                          screen.id,
+                          "restart_player_process",
+                          {},
+                          csrfToken,
+                        )
+                      }
+                    >
+                      <RefreshCw aria-hidden="true" /> Restart player
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      render={
+                        <Link to={`/screens/${screen.id}?edit=details`} />
+                      }
+                    >
+                      <Pencil aria-hidden="true" /> Edit details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      render={<Link to={`/screens/${screen.id}?tab=content`} />}
+                    >
+                      Assign content
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      render={<Link to={`/screens/${screen.id}?present=1`} />}
+                    >
+                      <Play aria-hidden="true" /> Show now
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      render={
+                        <Link
+                          to={
+                            screen.syncGroupId
+                              ? `/groups/${screen.syncGroupId}`
+                              : "/groups"
+                          }
+                        />
+                      }
+                    >
+                      {screen.syncGroupId
+                        ? "Open Display Group"
+                        : "Add to Display Group"}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </RheaDropdownMenu>
+          </div>
         </header>
-        <div className="screen-card__facts">
+        <div className="flex flex-wrap items-center gap-2">
           <StatusLabel status={screen.status} />
-          <span>{formatContact(screen.lastContactAt)}</span>
+          <span className="text-xs text-muted-foreground">
+            {formatContact(screen.lastContactAt)}
+          </span>
         </div>
-        <dl className="screen-card__meta">
-          <dt>Now playing</dt>
-          <dd>{screen.nowPlayingName || "Nothing assigned"}</dd>
+        <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs">
+          <dt className="text-muted-foreground">Now playing</dt>
+          <dd className="truncate font-medium">
+            {screen.nowPlayingName || "Nothing assigned"}
+          </dd>
         </dl>
         {screen.syncGroupName && (
-          <span className="screen-card__sync">
-            <Link2 size={12} aria-hidden="true" />
-            {screen.syncGroupName}
-          </span>
+          <Badge variant="outline" className="max-w-full justify-start gap-1.5">
+            <Link2 aria-hidden="true" />
+            <span className="truncate">{screen.syncGroupName}</span>
+          </Badge>
         )}
       </div>
     </article>
@@ -1949,47 +2296,53 @@ function PendingPairings({
 }) {
   if (requests.length === 0) return null;
   return (
-    <section className="pending-panel">
-      <header>
-        <span className="pending-panel__icon" aria-hidden="true">
-          <RefreshCw size={16} />
-        </span>
-        <div>
-          <h3>Waiting for approval</h3>
-          <p>
-            {requests.length} player{requests.length === 1 ? "" : "s"} requested
-            pairing.
-          </p>
-        </div>
-      </header>
-      {requests.map((request) => (
-        <div className="pending-row" key={request.id}>
-          <span>
-            <strong>
-              {request.metadata.manufacturer} {request.metadata.model}
-            </strong>
-            <small>
-              {platformLabel(request.metadata.platform)} ·{" "}
-              {request.metadata.screenWidth}×{request.metadata.screenHeight}
-            </small>
-          </span>
-          <span className="pending-row__expiry">
-            Expires{" "}
-            {new Date(request.expiresAt).toLocaleTimeString([], {
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </span>
-          {canManage && (
-            <Link
-              className="button button--quiet"
-              to={`/screens/pair/request/${request.id}`}
-            >
-              Review
-            </Link>
-          )}
-        </div>
-      ))}
+    <section className="space-y-2" aria-label="Pending pairing requests">
+      <Alert>
+        <RefreshCw aria-hidden="true" />
+        <AlertTitle className="flex items-center gap-2">
+          Waiting for approval{" "}
+          <Badge variant="secondary">{requests.length}</Badge>
+        </AlertTitle>
+        <AlertDescription>
+          {requests.length} player{requests.length === 1 ? "" : "s"} requested
+          pairing.
+        </AlertDescription>
+      </Alert>
+      <ItemGroup className="gap-1.5">
+        {requests.map((request) => (
+          <Item
+            key={request.id}
+            size="xs"
+            variant="outline"
+            render={<div role="listitem" />}
+          >
+            <ItemContent className="min-w-0">
+              <ItemTitle>
+                {request.metadata.manufacturer} {request.metadata.model}
+              </ItemTitle>
+              <ItemDescription>
+                {platformLabel(request.metadata.platform)} ·{" "}
+                {request.metadata.screenWidth}×{request.metadata.screenHeight} ·
+                Expires{" "}
+                {new Date(request.expiresAt).toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </ItemDescription>
+            </ItemContent>
+            {canManage && (
+              <ItemActions>
+                <Link
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                  to={`/screens/pair/request/${request.id}`}
+                >
+                  Review
+                </Link>
+              </ItemActions>
+            )}
+          </Item>
+        ))}
+      </ItemGroup>
     </section>
   );
 }
@@ -2112,6 +2465,12 @@ function ApprovalPanel({
   const [destination, setDestination] =
     useState<PairingDestination>(defaultDestination);
   const [replacementScreenId, setReplacementScreenId] = useState("");
+  const [approvalError, setApprovalError] = useState("");
+  const [approvalConfirmation, setApprovalConfirmation] = useState<{
+    values: ApprovalForm;
+    title: string;
+    description: string;
+  } | null>(null);
   const form = useForm<ApprovalForm>({
     resolver: zodResolver(approvalSchema),
     defaultValues: {
@@ -2135,30 +2494,16 @@ function ApprovalPanel({
   });
   const approve = useMutation({
     mutationFn: (values: ApprovalForm) => {
-      const repair = destination === "credential_repair";
       if (destination === "replace_hardware" && !replacementScreenId)
         throw new Error(
           "Choose the existing screen whose hardware is being replaced.",
         );
-      if (
-        repair &&
-        !window.confirm(
-          `Repair pairing for “${request.existingScreenName}” and replace its credential after this player enrolls?`,
-        )
-      )
-        throw new Error("Pairing repair was cancelled.");
       if (destination === "replace_hardware") {
         const target = screens.data?.items.find(
           (screen) => screen.id === replacementScreenId,
         );
         if (!target)
           throw new Error("The replacement screen could not be found.");
-        if (
-          !window.confirm(
-            `Replace the hardware for “${target.name}”? Its name, group membership, assignments, schedules, policies, and history will stay on the same logical screen.`,
-          )
-        )
-          throw new Error("Hardware replacement was cancelled.");
       }
       return api.approvePairing(
         request.id,
@@ -2188,6 +2533,37 @@ function ApprovalPanel({
       ),
     onSuccess: () => onDone(),
   });
+  const requestApproval = (values: ApprovalForm) => {
+    setApprovalError("");
+    if (destination === "credential_repair") {
+      setApprovalConfirmation({
+        values,
+        title: `Repair pairing for “${request.existingScreenName}”?`,
+        description:
+          "This preserves the existing screen. Its previous device credential is replaced after the new player completes enrollment.",
+      });
+      return;
+    }
+    if (destination === "replace_hardware") {
+      const target = screens.data?.items.find(
+        (screen) => screen.id === replacementScreenId,
+      );
+      if (!target) {
+        setApprovalError(
+          "Choose the existing screen whose hardware is being replaced.",
+        );
+        return;
+      }
+      setApprovalConfirmation({
+        values,
+        title: `Replace hardware for “${target.name}”?`,
+        description:
+          "The logical screen, Display Group membership, content assignments, schedules, policies, and history will stay in place. The old credential is retired only after enrollment succeeds.",
+      });
+      return;
+    }
+    approve.mutate(values);
+  };
   const metadata = request.metadata;
   return (
     <section className="approval-card">
@@ -2295,23 +2671,27 @@ function ApprovalPanel({
           </span>
         </label>
         {destination === "replace_hardware" && (
-          <label className="field pairing-destination__picker">
-            <span className="field__label">Existing screen</span>
-            <Select
-              value={replacementScreenId}
-              onChange={(event) => setReplacementScreenId(event.target.value)}
+          <label className="grid gap-2 text-sm font-medium">
+            <span>Existing screen</span>
+            <RheaSelect
+              value={replacementScreenId || null}
+              onValueChange={(value) => setReplacementScreenId(value ?? "")}
             >
-              <option value="">Choose a screen</option>
-              {(screens.data?.items ?? [])
-                .filter((screen) => screen.id !== request.existingScreenId)
-                .map((screen) => (
-                  <option key={screen.id} value={screen.id}>
-                    {screen.name}
-                    {screen.location ? ` — ${screen.location}` : ""}
-                  </option>
-                ))}
-            </Select>
-            <small>
+              <SelectTrigger className="w-full" aria-label="Existing screen">
+                <SelectValue placeholder="Choose a screen" />
+              </SelectTrigger>
+              <SelectContent>
+                {(screens.data?.items ?? [])
+                  .filter((screen) => screen.id !== request.existingScreenId)
+                  .map((screen) => (
+                    <SelectItem key={screen.id} value={screen.id}>
+                      {screen.name}
+                      {screen.location ? ` — ${screen.location}` : ""}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </RheaSelect>
+            <small className="text-xs text-muted-foreground">
               The old credential is retired only after this player successfully
               enrolls.
             </small>
@@ -2330,15 +2710,13 @@ function ApprovalPanel({
           </p>
         </div>
       )}
-      {(approve.error || reject.error) && (
+      {(approvalError || approve.error || reject.error) && (
         <div className="notice notice--error">
-          {(approve.error ?? reject.error)?.message}
+          {approvalError || (approve.error ?? reject.error)?.message}
         </div>
       )}
       <form
-        onSubmit={(event) =>
-          void form.handleSubmit((values) => approve.mutateAsync(values))(event)
-        }
+        onSubmit={(event) => void form.handleSubmit(requestApproval)(event)}
       >
         <FormField
           id="screenName"
@@ -2391,6 +2769,39 @@ function ApprovalPanel({
           </button>
         </div>
       </form>
+      <RheaAlertDialog
+        open={approvalConfirmation !== null}
+        onOpenChange={(open) => {
+          if (!open) setApprovalConfirmation(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {approvalConfirmation?.title ?? "Confirm pairing change"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {approvalConfirmation?.description ??
+                "Review this pairing change before continuing."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={approve.isPending}>
+              Go back
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!approvalConfirmation || approve.isPending}
+              onClick={() => {
+                if (!approvalConfirmation) return;
+                approve.mutate(approvalConfirmation.values);
+                setApprovalConfirmation(null);
+              }}
+            >
+              Confirm pairing
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
     </section>
   );
 }
@@ -2403,11 +2814,17 @@ export function ScreenDetailPage() {
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
   const [policyDirty, setPolicyDirty] = useState(false);
+  const [pendingDestination, setPendingDestination] =
+    useState<ScreenTabDestination | null>(null);
   const [selectedPresentation, setSelectedPresentation] = useState("");
   const [airplayOpen, setAirplayOpen] = useState(false);
   const [quickPresentOpen, setQuickPresentOpen] = useState(
     () => searchParams.get("present") === "1",
   );
+  const [screenCommandAction, setScreenCommandAction] =
+    useState<ScreenCommandAction | null>(null);
+  const [screenCommandInput, setScreenCommandInput] = useState("");
+  const [screenCommandError, setScreenCommandError] = useState("");
   useEffect(() => {
     if (searchParams.get("edit") === "details") setEditingDetails(true);
   }, [searchParams]);
@@ -2557,100 +2974,168 @@ export function ScreenDetailPage() {
       });
     },
   });
+  const requestScreenCommand = (action: ScreenCommandAction) => {
+    setScreenCommandInput("");
+    setScreenCommandError("");
+    setScreenCommandAction(action);
+  };
+  const confirmScreenCommand = () => {
+    if (!screenCommandAction) return;
+    let payload: Record<string, unknown>;
+    if (screenCommandAction.kind === "input") {
+      const value = screenCommandInput.trim();
+      if (!value) {
+        setScreenCommandError("Enter a value before continuing.");
+        return;
+      }
+      if (screenCommandAction.input.type === "number") {
+        const numberValue = Number(value);
+        if (
+          !Number.isInteger(numberValue) ||
+          (screenCommandAction.input.min != null &&
+            numberValue < screenCommandAction.input.min) ||
+          (screenCommandAction.input.max != null &&
+            numberValue > screenCommandAction.input.max)
+        ) {
+          setScreenCommandError(
+            `Enter a whole number from ${screenCommandAction.input.min ?? "−∞"} to ${screenCommandAction.input.max ?? "∞"}.`,
+          );
+          return;
+        }
+        payload = screenCommandAction.createPayload(numberValue);
+      } else {
+        payload = screenCommandAction.createPayload(value);
+      }
+    } else {
+      payload = screenCommandAction.payload;
+    }
+    command.mutate({ type: screenCommandAction.commandType, payload });
+    setScreenCommandAction(null);
+  };
   const listedScreen = screens.data?.items?.find((screen) => screen.id === id);
   const screen = resolveScreenDetail(query.data, listedScreen);
   if (query.isLoading && !screen)
-    return <div className="table-loading">Loading screen…</div>;
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-56" />
+        <p className="text-sm text-muted-foreground">Loading screen…</p>
+      </div>
+    );
   if (!screen)
     return (
-      <div className="notice notice--error">Screen could not be loaded.</div>
+      <Alert variant="destructive">
+        <AlertDescription>Screen could not be loaded.</AlertDescription>
+      </Alert>
     );
   const displayCapabilities =
     reliability.data?.displayControlCapabilities ?? {};
   const hasDisplayControl = Object.keys(displayCapabilities).length > 0;
   const requestedTab = searchParams.get("tab") ?? "overview";
-  const tab = normalizeScreenDetailTab(requestedTab);
+  const requestedSection = searchParams.get("section");
+  const tab = normalizeScreenDetailTab(requestedTab, requestedSection);
   const manageSection = normalizeScreenManageSection(
     requestedTab,
-    searchParams.get("section"),
+    requestedSection,
   );
-  const selectTab = (nextTab: string) => {
-    if (policyDirty && tab === "manage") {
-      if (!confirm("Leave Manage without saving your changes?")) return;
-      setPolicyDirty(false);
-    }
+  const commitDestination = (destination: ScreenTabDestination) => {
     const next = new URLSearchParams(searchParams);
-    if (nextTab === "overview") next.delete("tab");
-    else next.set("tab", nextTab);
-    if (nextTab !== "manage") next.delete("section");
-    setSearchParams(next);
-  };
-  const selectManageSection = (nextSection: ScreenManageSection) => {
+    if (destination.tab === "overview") next.delete("tab");
+    else next.set("tab", destination.tab);
+    next.delete("section");
     if (
-      policyDirty &&
-      manageSection === "settings" &&
-      nextSection !== "settings"
+      destination.tab === "device" &&
+      destination.section &&
+      destination.section !== "device"
     ) {
-      if (!confirm("Leave Settings without saving your changes?")) return;
-      setPolicyDirty(false);
+      next.set("section", destination.section);
     }
-    const next = new URLSearchParams(searchParams);
-    next.set("tab", "manage");
-    if (nextSection === "settings") next.delete("section");
-    else next.set("section", nextSection);
     setSearchParams(next);
+    setPendingDestination(null);
+    setPolicyDirty(false);
+  };
+  const selectTab = (nextTab: string) => {
+    if (!screenDetailTabs.includes(nextTab as ScreenDetailTab)) return;
+    const destination: ScreenTabDestination = {
+      tab: nextTab as ScreenDetailTab,
+    };
+    if (destination.tab === tab) return;
+    if (policyDirty && tab === "settings" && destination.tab !== "settings") {
+      setPendingDestination(destination);
+      return;
+    }
+    commitDestination(destination);
   };
   return (
-    <div
-      className={`screen-detail${tab === "manage" ? " screen-detail--manage" : ""}`}
-    >
-      <PageHeader
-        className="screen-detail__page-header"
-        title={
-          <span className="screen-detail__title">
-            <span>{screen.name}</span>
+    <div className="w-full min-w-0 space-y-5">
+      <ScreenManagementTabs />
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {screen.name}
+            </h1>
             <StatusLabel status={screen.status} />
-          </span>
-        }
-        description={
-          [screen.location, roomLabel(screen)].filter(Boolean).join(" · ") ||
-          "No location set"
-        }
-        actions={
-          <>
-            {canManageScreens(auth.status?.user) && (
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => setEditingDetails((editing) => !editing)}
-              >
-                <Pencil size={15} aria-hidden="true" />
-                {editingDetails ? "Close editor" : "Edit details"}
-              </button>
-            )}
-            {canManageScreens(auth.status?.user) &&
-              screen.platform.toLowerCase() === "linux" && (
-                <button
-                  type="button"
-                  className="button button--primary"
-                  onClick={() => setAirplayOpen(true)}
-                >
-                  <Airplay size={15} aria-hidden="true" />
-                  AirPlay
-                </button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {[
+              platformLabel(screen.platform),
+              [screen.deviceManufacturer, screen.deviceModel]
+                .filter(Boolean)
+                .join(" "),
+              screen.playerVersion
+                ? `Player ${screen.playerVersion}`
+                : "Player version not reported",
+              [screen.location, roomLabel(screen)]
+                .filter(Boolean)
+                .join(" · ") || "No location set",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canManageScreens(auth.status?.user) && (
+            <RheaButton size="sm" onClick={() => setQuickPresentOpen(true)}>
+              <Play aria-hidden="true" /> Present
+            </RheaButton>
+          )}
+          {canManageScreens(auth.status?.user) && (
+            <RheaButton
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                command.mutate({ type: "restart_player_process", payload: {} })
+              }
+            >
+              <RefreshCw aria-hidden="true" /> Restart
+            </RheaButton>
+          )}
+          <RheaDropdownMenu>
+            <DropdownMenuTrigger
+              render={<RheaButton variant="outline" size="icon-sm" />}
+              aria-label="More screen actions"
+            >
+              <MoreHorizontal aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canManageScreens(auth.status?.user) && (
+                <DropdownMenuItem onClick={() => setEditingDetails(true)}>
+                  <Pencil aria-hidden="true" /> Edit screen details
+                </DropdownMenuItem>
               )}
-            {canManageScreens(auth.status?.user) && (
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => setQuickPresentOpen(true)}
-              >
-                Show now
-              </button>
-            )}
-          </>
-        }
-      />
+              {canManageScreens(auth.status?.user) &&
+                screen.platform.toLowerCase() === "linux" && (
+                  <DropdownMenuItem onClick={() => setAirplayOpen(true)}>
+                    <Airplay aria-hidden="true" /> AirPlay
+                  </DropdownMenuItem>
+                )}
+              <DropdownMenuItem onClick={() => selectTab("content")}>
+                <Monitor aria-hidden="true" /> View content
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </RheaDropdownMenu>
+        </div>
+      </header>
       <AirPlayPresentDialog
         open={airplayOpen}
         targetType="screen"
@@ -2672,35 +3157,48 @@ export function ScreenDetailPage() {
         csrfToken={auth.status?.csrfToken ?? ""}
         onClose={() => setQuickPresentOpen(false)}
       />
-      {editingDetails && (
-        <section
-          className="screen-details-editor"
-          aria-labelledby="screen-details-editor-title"
-        >
-          <header>
-            <div>
-              <h3 id="screen-details-editor-title">Player details</h3>
-            </div>
-          </header>
-          {updateDetails.error && (
-            <div className="notice notice--error" role="alert">
-              {updateDetails.error.message}
-            </div>
-          )}
+      <RheaDialog open={editingDetails} onOpenChange={setEditingDetails}>
+        <DialogContent className="max-w-2xl">
           <form
+            className="space-y-5"
             onSubmit={(event) =>
               void detailsForm.handleSubmit((values) =>
                 updateDetails.mutateAsync(values),
               )(event)
             }
           >
-            <FormField
-              id="editScreenName"
-              label="Screen name"
-              autoFocus
-              error={detailsForm.formState.errors.name?.message}
-              {...detailsForm.register("name")}
-            />
+            <DialogHeader>
+              <DialogTitle>Edit screen details</DialogTitle>
+              <DialogDescription>
+                Update the name and location shown throughout Tilecast Studio.
+              </DialogDescription>
+            </DialogHeader>
+            {updateDetails.error && (
+              <Alert variant="destructive">
+                <CircleAlert aria-hidden="true" />
+                <AlertTitle>Screen details could not be saved</AlertTitle>
+                <AlertDescription>
+                  {updateDetails.error.message}
+                </AlertDescription>
+              </Alert>
+            )}
+            <label
+              className="grid gap-2 text-sm font-medium"
+              htmlFor="editScreenName"
+            >
+              <span>Screen name</span>
+              <Input
+                id="editScreenName"
+                autoFocus
+                aria-invalid={Boolean(detailsForm.formState.errors.name)}
+                {...detailsForm.register("name")}
+              />
+              {detailsForm.formState.errors.name?.message && (
+                <span className="text-xs text-destructive">
+                  {detailsForm.formState.errors.name.message}
+                </span>
+              )}
+            </label>
             <LocationPicker
               locations={locations.data?.items ?? []}
               value={detailsForm.watch("locationId")}
@@ -2710,1383 +3208,1796 @@ export function ScreenDetailPage() {
                 })
               }
             />
-            <div className="screen-room-fields">
-              <FormField
-                id="editScreenRoomName"
-                label="Room name (optional)"
-                {...detailsForm.register("roomName")}
-              />
-              <FormField
-                id="editScreenRoomNumber"
-                label="Room number (optional)"
-                {...detailsForm.register("roomNumber")}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label
+                className="grid gap-2 text-sm font-medium"
+                htmlFor="editScreenRoomName"
+              >
+                <span>Room name (optional)</span>
+                <Input
+                  id="editScreenRoomName"
+                  {...detailsForm.register("roomName")}
+                />
+              </label>
+              <label
+                className="grid gap-2 text-sm font-medium"
+                htmlFor="editScreenRoomNumber"
+              >
+                <span>Room number (optional)</span>
+                <Input
+                  id="editScreenRoomNumber"
+                  {...detailsForm.register("roomNumber")}
+                />
+              </label>
             </div>
             <label
-              className="field screen-details-editor__description"
+              className="grid gap-2 text-sm font-medium"
               htmlFor="editScreenDescription"
             >
-              <span className="field__label">Description (optional)</span>
-              <textarea
+              <span>Description (optional)</span>
+              <Textarea
                 id="editScreenDescription"
                 {...detailsForm.register("description")}
               />
               {detailsForm.formState.errors.description?.message && (
-                <span className="field__error">
+                <span className="text-xs text-destructive">
                   {detailsForm.formState.errors.description.message}
                 </span>
               )}
             </label>
-            <div className="screen-details-editor__actions">
-              <button
+            <DialogFooter>
+              <RheaButton
+                variant="outline"
                 type="button"
-                className="button button--secondary"
                 onClick={() => setEditingDetails(false)}
               >
                 Cancel
-              </button>
-              <button
-                type="submit"
-                className="button button--primary"
-                disabled={updateDetails.isPending}
-              >
+              </RheaButton>
+              <RheaButton type="submit" disabled={updateDetails.isPending}>
                 {updateDetails.isPending ? "Saving…" : "Save details"}
-              </button>
-            </div>
+              </RheaButton>
+            </DialogFooter>
           </form>
-        </section>
-      )}
-      <ViewTabs
-        className="screen-detail-tabs"
-        label="Screen details"
+        </DialogContent>
+      </RheaDialog>
+      <RheaTabs
         value={tab}
         onValueChange={selectTab}
-        items={[
-          { value: "overview", label: "Overview" },
-          { value: "snapshots", label: "Snapshots" },
-          { value: "content", label: "Content" },
-          { value: "activity", label: "Activity" },
-          {
-            value: "manage",
-            label: "Manage",
-            marker: policyDirty ? "Unsaved" : undefined,
-          },
-        ]}
-      />
-
-      {tab === "overview" && (
-        <section
-          className="screen-overview"
-          aria-labelledby="screen-overview-title"
+        className="w-full min-w-0 gap-4"
+      >
+        <TabsList
+          aria-label="Screen details"
+          variant="line"
+          className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
         >
-          <header>
-            <h3 id="screen-overview-title">Screen overview</h3>
-            <p>Current player state and the settings that affect it.</p>
-          </header>
-          {reliability.data?.externalPresentationState &&
-            reliability.data.externalPresentationState !== "none" && (
-              <div className="notice notice--info">
-                <strong>AIRPLAY ACTIVE</strong> · This screen is showing an
-                external presentation
-                {reliability.data.airplayConnected
-                  ? " and is receiving mirrored video."
-                  : "; it is waiting for a sender."}{" "}
-                Preview capture is disabled while AirPlay is active.
-              </div>
-            )}
-          <dl className="screen-overview__grid">
-            <div>
-              <dt>Online status</dt>
-              <dd>
-                <StatusLabel status={screen.status} />
-              </dd>
-            </div>
-            <div>
-              <dt>Current content</dt>
-              <dd>
-                {assignment.data?.playbackState ??
-                  assignment.data?.playlistName ??
-                  "No content"}
-              </dd>
-            </div>
-            <div>
-              <dt>Synchronization</dt>
-              <dd>
-                {assignment.data?.synchronizationStatus?.replaceAll("_", " ") ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Player version</dt>
-              <dd>{screen.playerVersion || "Not reported"}</dd>
-            </div>
-            <div>
-              <dt>Reliability mode</dt>
-              <dd>
-                {reliability.data?.effectiveMode?.replaceAll("_", " ") ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Active hours</dt>
-              <dd>
-                {reliability.data?.activeHoursState?.replaceAll("_", " ") ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Player-setting overrides</dt>
-              <dd>
-                <Link to={`?tab=manage`}>
-                  {Object.keys(screenPolicy.data?.values ?? {}).length}{" "}
-                  configured · Manage screen
-                </Link>
-              </dd>
-            </div>
-          </dl>
-          <div className="screen-overview__links">
-            <button type="button" onClick={() => selectTab("content")}>
-              View content
-            </button>
-            <button type="button" onClick={() => selectTab("manage")}>
-              Manage screen
-            </button>
-          </div>
-          <section
-            className="screen-hardware-history"
-            aria-labelledby="screen-hardware-history-title"
+          <TabsTrigger value="overview" className="flex-none px-2">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="content" className="flex-none px-2">
+            Content
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="flex-none px-2">
+            Activity
+          </TabsTrigger>
+          <TabsTrigger value="device" className="flex-none px-2">
+            Device
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex-none px-2">
+            Settings {policyDirty && <Badge variant="secondary">Unsaved</Badge>}
+          </TabsTrigger>
+        </TabsList>
+
+        {tab === "overview" && (
+          <TabsContent
+            value="overview"
+            className="min-w-0 space-y-4 outline-none"
           >
-            <header>
-              <h3 id="screen-hardware-history-title">Hardware history</h3>
-              <p>The logical screen stays stable when hardware is replaced.</p>
-            </header>
-            {playerHistory.data?.items.length ? (
-              <div className="screen-hardware-history__list">
-                {playerHistory.data.items.map((hardware) => (
-                  <article
-                    key={hardware.id}
-                    className={
-                      hardware.retiredAt
-                        ? "screen-hardware-history__item screen-hardware-history__item--retired"
-                        : "screen-hardware-history__item"
-                    }
-                  >
-                    <div className="screen-hardware-history__identity">
-                      <strong>
-                        {hardware.manufacturer} {hardware.model}
-                      </strong>
-                      <span className="screen-hardware-history__specs">
-                        {hardware.platform} · {hardware.playerVersion} ·{" "}
-                        {hardware.screenWidth}×{hardware.screenHeight}
-                      </span>
-                    </div>
-                    <div className="screen-hardware-history__lifecycle">
-                      <span className="screen-hardware-history__state">
-                        <span aria-hidden="true" />
-                        {hardware.retiredAt
-                          ? `Retired ${new Date(hardware.retiredAt).toLocaleDateString()}`
-                          : "Current hardware"}
-                      </span>
-                      <small className="screen-hardware-history__meta">
-                        <span>
-                          Paired{" "}
-                          {new Date(hardware.pairedAt).toLocaleDateString()}
-                        </span>
-                        {hardware.retirementReason ? (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <span>{hardware.retirementReason}</span>
-                          </>
-                        ) : null}
-                      </small>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : playerHistory.isLoading ? (
-              <p className="table-loading">Loading hardware history…</p>
-            ) : (
-              <p className="empty-state__message">
-                No hardware history recorded.
-              </p>
-            )}
-          </section>
-        </section>
-      )}
-
-      {tab === "content" && (
-        <section className="detail-card assignment-card">
-          <h3>Playback and scheduling</h3>
-          {assignment.data?.groups?.[0] && (
-            <div className="notice notice--info">
-              This player belongs to the{" "}
-              <Link to={`/groups/${assignment.data.groups[0].id}`}>
-                {assignment.data.groups[0].name}
-              </Link>{" "}
-              Display Group. Content and schedules apply to every member.
-            </div>
-          )}
-          {canManageScreens(auth.status?.user) ? (
-            <div className="assignment-controls">
-              <Select
-                aria-label="Assigned presentation"
-                value={selectedPresentation}
-                onChange={(event) =>
-                  setSelectedPresentation(event.target.value)
-                }
-              >
-                <option value="">No presentation assigned</option>
-                <optgroup label="Playlists">
-                  {playlists.data?.items?.map((playlist) => (
-                    <option key={playlist.id} value={`playlist:${playlist.id}`}>
-                      {playlist.name}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Published Layouts">
-                  {layouts.data?.items
-                    .filter((layout) => layout.publishedRevision)
-                    .map((layout) => (
-                      <option key={layout.id} value={`layout:${layout.id}`}>
-                        {layout.name}
-                      </option>
-                    ))}
-                </optgroup>
-              </Select>
-              <button
-                className="button button--primary"
-                disabled={
-                  assign.isPending ||
-                  selectedPresentation ===
-                    (assignment.data?.layoutId
-                      ? `layout:${assignment.data.layoutId}`
-                      : assignment.data?.playlistId
-                        ? `playlist:${assignment.data.playlistId}`
-                        : "")
-                }
-                onClick={() => assign.mutate()}
-              >
-                {assignment.data?.groups?.[0]
-                  ? "Apply to Display Group"
-                  : "Apply assignment"}
-              </button>
-            </div>
-          ) : (
-            <p>{assignment.data?.playlistName ?? "No playlist assigned"}</p>
-          )}
-          <ScreenContentChain assignment={assignment.data} />
-          <dl className="detail-list">
-            <div>
-              <dt>Direct fallback</dt>
-              <dd>
-                {assignment.data?.layoutName ??
-                  assignment.data?.playlistName ??
-                  "No fallback assigned"}
-              </dd>
-            </div>
-            <div>
-              <dt>Current selection</dt>
-              <dd>
-                {assignment.data?.selectionSource === "takeover"
-                  ? "Takeover"
-                  : assignment.data?.selectionSource === "schedule"
-                    ? `Scheduled${assignment.data.currentScheduleId ? ` · ${(assignment.data.relevantSchedules ?? []).find((s) => s.id === assignment.data?.currentScheduleId)?.name ?? "schedule"}` : ""}`
-                    : assignment.data?.selectionSource === "direct_fallback"
-                      ? "Direct fallback"
-                      : "No content"}
-              </dd>
-            </div>
-            <div>
-              <dt>Next scheduled change</dt>
-              <dd>
-                {assignment.data?.nextTransitionAt
-                  ? new Date(assignment.data.nextTransitionAt).toLocaleString()
-                  : "None reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Server manifest</dt>
-              <dd>Version {assignment.data?.manifestVersion ?? 1}</dd>
-            </div>
-            <div>
-              <dt>Player configuration</dt>
-              <dd>
-                {assignment.data?.activeConfigRevision != null
-                  ? `Revision ${assignment.data.activeConfigRevision}`
-                  : "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Player manifest</dt>
-              <dd>
-                {assignment.data?.playerActiveManifestVersion != null
-                  ? `Version ${assignment.data.playerActiveManifestVersion}`
-                  : "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Synchronization</dt>
-              <dd>
-                {assignment.data?.synchronizationStatus?.replaceAll("_", " ") ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Display Group</dt>
-              <dd>
-                {(assignment.data?.groups ?? [])
-                  .map((g) => g.name)
-                  .join(", ") || "Not grouped"}
-              </dd>
-            </div>
-            <div>
-              <dt>Relevant schedules</dt>
-              <dd>
-                {(assignment.data?.relevantSchedules ?? [])
-                  .map((s) => `${s.name} (${s.priority})`)
-                  .join(", ") || "No schedules"}
-              </dd>
-            </div>
-            <div>
-              <dt>Device clock difference</dt>
-              <dd>
-                {assignment.data?.deviceClockOffsetSeconds != null
-                  ? `${Math.abs(assignment.data.deviceClockOffsetSeconds)} seconds`
-                  : "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Downloads</dt>
-              <dd>
-                {assignment.data?.downloadQueueCount != null
-                  ? `${assignment.data.downloadQueueCount} queued · ${assignment.data.downloadedBytes ?? 0} of ${assignment.data.requiredBytes ?? 0} bytes`
-                  : "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Website playback</dt>
-              <dd>
-                {assignment.data?.websiteState
-                  ? `${assignment.data.websiteState?.replaceAll("_", " ") ?? "Not reported"}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
-                  : "Not active"}
-              </dd>
-            </div>
-            <div>
-              <dt>Blocked website navigation</dt>
-              <dd>
-                {assignment.data?.websiteBlockedNavigationCount ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Playback</dt>
-              <dd>{assignment.data?.playbackState ?? "Not reported"}</dd>
-            </div>
-            <div>
-              <dt>Takeover</dt>
-              <dd>
-                {assignment.data?.activeTakeoverId
-                  ? `${assignment.data.takeoverState ?? "pending"} · ${assignment.data.takeoverPreparationProgress ?? 0}% prepared`
-                  : "No active takeover"}
-              </dd>
-            </div>
-            <div>
-              <dt>Cache</dt>
-              <dd>
-                {assignment.data?.cacheUsedBytes != null
-                  ? `${assignment.data.cacheUsedBytes} of ${assignment.data.cacheLimitBytes ?? 0} bytes`
-                  : "Not reported"}
-              </dd>
-            </div>
-          </dl>
-          {assignment.data?.lastSynchronizationError && (
-            <div className="notice notice--error">
-              Synchronization: {assignment.data.lastSynchronizationError}
-            </div>
-          )}
-          {assignment.data?.lastPlaybackError && (
-            <div className="notice notice--error">
-              Playback: {assignment.data.lastPlaybackError}
-            </div>
-          )}
-          {assignment.data?.configurationError && (
-            <div className="notice notice--error">
-              Configuration: {assignment.data.configurationError}
-            </div>
-          )}
-          {Math.abs(assignment.data?.deviceClockOffsetSeconds ?? 0) >
-            (assignment.data?.clockSkewWarningSeconds ?? 300) && (
-            <div className="notice notice--warning">
-              The player clock differs from server time by more than five
-              minutes. Offline schedule changes may occur at the wrong time.
-            </div>
-          )}
-          {assignment.data?.scheduleEvaluationError && (
-            <div className="notice notice--error">
-              Schedule evaluation: {assignment.data.scheduleEvaluationError}
-            </div>
-          )}
-          {assignment.data?.websiteFailureCategory &&
-            ["failed", "timed_out", "blocked", "showing_fallback"].includes(
-              assignment.data.websiteState ?? "",
-            ) && (
-              <div className="notice notice--error">
-                Website:{" "}
-                {assignment.data.websiteFailureCategory?.replaceAll("_", " ") ??
-                  "Unknown website failure"}
-              </div>
-            )}
-        </section>
-      )}
-
-      {tab === "manage" && (
-        <section
-          className="screen-manage__navigation"
-          aria-labelledby="screen-manage-title"
-        >
-          <div className="screen-manage__navigation-copy">
-            <div>
-              <h2 id="screen-manage-title">Manage screen</h2>
-              <p>Choose an area to configure, inspect, or maintain.</p>
-            </div>
-            <StatusLabel status={screen.status} />
-          </div>
-          <ViewTabs
-            className="screen-manage-tabs"
-            label="Manage screen sections"
-            value={manageSection}
-            onValueChange={selectManageSection}
-            items={[
-              { value: "settings", label: "Settings" },
-              { value: "health", label: "Health" },
-              { value: "maintenance", label: "Maintenance" },
-              { value: "device", label: "Device & access" },
-            ]}
-          />
-        </section>
-      )}
-
-      {tab === "manage" && manageSection === "settings" && (
-        <PlayerPolicyEditor
-          target="screen"
-          id={id}
-          onDirtyChange={setPolicyDirty}
-        />
-      )}
-
-      {tab === "manage" && manageSection === "health" && (
-        <section className="operations" aria-labelledby="reliability-heading">
-          <h3 id="reliability-heading">Health &amp; recovery</h3>
-          <p>
-            Configured behavior is reported separately from capabilities
-            confirmed by this device. Platform-specific controls appear only
-            when the player reports support.
-          </p>
-          <div className="readiness-panel">
-            <div className="readiness-panel__heading">
-              <div>
-                <h4>Zero-Touch Readiness</h4>
-                <p>
-                  Commissioning and current device capabilities required for
-                  unattended recovery.
+            <section
+              className="space-y-4"
+              aria-labelledby="screen-overview-title"
+            >
+              <header>
+                <h2
+                  id="screen-overview-title"
+                  className="text-base font-semibold"
+                >
+                  Overview
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Current playback, connection, and player reliability.
                 </p>
+              </header>
+              {reliability.data?.externalPresentationState &&
+                reliability.data.externalPresentationState !== "none" && (
+                  <Alert>
+                    <Airplay aria-hidden="true" />
+                    <AlertTitle>External presentation active</AlertTitle>
+                    <AlertDescription>
+                      {reliability.data.airplayConnected
+                        ? "This screen is receiving mirrored video."
+                        : "This screen is waiting for a sender."}{" "}
+                      Preview capture is disabled while AirPlay is active.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-4">
+                <OverviewFact
+                  label="Connection"
+                  value={<StatusLabel status={screen.status} />}
+                />
+                <OverviewFact
+                  label="Now playing"
+                  value={
+                    assignment.data?.layoutName ??
+                    assignment.data?.playlistName ??
+                    "No content assigned"
+                  }
+                />
+                <OverviewFact
+                  label="Location"
+                  value={
+                    [screen.location, roomLabel(screen)]
+                      .filter(Boolean)
+                      .join(" · ") || "Not set"
+                  }
+                />
+                <OverviewFact
+                  label="Last contact"
+                  value={formatContact(screen.lastContactAt)}
+                />
+                <OverviewFact
+                  label="Player update"
+                  value={
+                    screen.updateError
+                      ? "Update failed"
+                      : (screen.updateState?.replaceAll("_", " ") ??
+                        "No active deployment")
+                  }
+                />
+                <OverviewFact
+                  label="Reliability"
+                  value={
+                    reliability.data?.effectiveMode?.replaceAll("_", " ") ??
+                    "Not reported"
+                  }
+                />
+                <OverviewFact
+                  label="Next schedule change"
+                  value={
+                    assignment.data?.nextTransitionAt
+                      ? new Date(
+                          assignment.data.nextTransitionAt,
+                        ).toLocaleString()
+                      : "None scheduled"
+                  }
+                />
+                <OverviewFact
+                  label="Player settings"
+                  value={
+                    <Link
+                      to="?tab=settings"
+                      className="underline underline-offset-4"
+                    >
+                      {Object.keys(screenPolicy.data?.values ?? {}).length}{" "}
+                      overrides · Settings
+                    </Link>
+                  }
+                />
+              </dl>
+              <div className="flex flex-wrap gap-2">
+                <RheaButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectTab("content")}
+                >
+                  View content
+                </RheaButton>
+                <RheaButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => selectTab("activity")}
+                >
+                  View activity
+                </RheaButton>
               </div>
-              <span className="status-badge">
-                {zeroTouchReadiness(reliability.data)}
-              </span>
-            </div>
-            <dl className="detail-list">
-              <div>
-                <dt>Commissioning</dt>
-                <dd>
-                  {formatReportedStatus(
-                    reliability.data?.commissioningState,
-                    "Not started",
-                  )}
-                  {typeof reliability.data?.commissioningStep === "string" &&
-                  reliability.data.commissioningStep.trim()
-                    ? ` · ${formatReportedStatus(reliability.data.commissioningStep, "")}`
-                    : ""}
-                </dd>
-              </div>
-              <div>
-                <dt>Accessibility return</dt>
-                <dd>
-                  {formatReportedStatus(
-                    reliability.data?.accessibilityServiceState,
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Launch after boot</dt>
-                <dd>
-                  {reliability.data?.bootLaunchVerified
-                    ? "Verified"
-                    : reportsAutostart(reliability.data)
-                      ? // Linux has no boot-attempt counter; the autostart row
-                        // below carries the detail.
-                        "Not yet verified"
-                      : `${formatReportedCount(reliability.data?.bootAttemptCount)} attempts · not verified`}
-                </dd>
-              </div>
-              {reportsAutostart(reliability.data) && (
-                <div>
-                  <dt>Autostart (systemd)</dt>
-                  <dd>{autostartSummary(reliability.data)}</dd>
-                </div>
-              )}
-              <div>
-                <dt>Cached fallback</dt>
-                <dd>
-                  {reliability.data?.cachedFallbackAvailable
-                    ? "Available"
-                    : "Not confirmed"}
-                </dd>
-              </div>
-              {isAndroidScreen(screen.platform) && (
-                <div>
-                  <dt>Install permission</dt>
-                  <dd>
-                    {formatReportedStatus(screen.installPermissionStatus)}
-                  </dd>
-                </div>
-              )}
-              <div>
-                <dt>Free storage</dt>
-                <dd>
-                  {screen.availableStorageBytes == null
-                    ? "Not reported"
-                    : formatBytes(screen.availableStorageBytes)}
-                </dd>
-              </div>
-              <div>
-                <dt>Last healthy playback</dt>
-                <dd>
-                  {reliability.data?.lastHealthyPlaybackAt
-                    ? new Date(
-                        reliability.data.lastHealthyPlaybackAt,
-                      ).toLocaleString()
-                    : "Not reported"}
-                </dd>
-              </div>
-              <div>
-                <dt>Update readiness</dt>
-                <dd>
-                  {formatReportedStatus(reliability.data?.updateReadiness)}
-                </dd>
-              </div>
-              {screen.platform.toLowerCase() === "linux" && (
-                <>
-                  <div>
-                    <dt>Display Control</dt>
-                    <dd>
-                      {reliability.data?.displayControlProvider
-                        ? `${reliability.data.displayControlProvider} · ${Object.keys(reliability.data.displayControlCapabilities ?? {}).length} capabilities`
-                        : "Not reported"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Display state</dt>
-                    <dd>
-                      {formatReportedStatus(
-                        reliability.data?.displayPowerState,
-                      )}
-                      {reliability.data?.displayControlLastCommandResult ===
-                        "display_command_sent" &&
-                      reliability.data?.displayPowerStateConfirmed === false
-                        ? " · command sent, not confirmed"
-                        : ""}
-                      {reliability.data?.displayControlPolicyState ===
-                      "powered_off_by_policy"
-                        ? " · powered off by policy"
-                        : ""}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Last display command</dt>
-                    <dd>
-                      {reliability.data?.displayControlLastCommandState
-                        ? `${formatReportedStatus(reliability.data.displayControlLastCommandState)}${reliability.data.displayControlLastCommandResult ? ` · ${reliability.data.displayControlLastCommandResult}` : ""}`
-                        : "Not reported"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>AirPlay Present</dt>
-                    <dd>
-                      {reliability.data?.airplaySupported
-                        ? `Ready · ${reliability.data.airplayMaxProfile ?? "profile pending"}`
-                        : "Not ready"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>AirPlay decoder</dt>
-                    <dd>
-                      {reliability.data?.airplayDecoder ?? "Not reported"}
-                      {reliability.data?.airplayHardwareDecode
-                        ? " · hardware"
-                        : " · software-limited"}
-                    </dd>
-                  </div>
-                </>
-              )}
-            </dl>
-          </div>
-          {screen.platform.toLowerCase() === "linux" && (
-            <ScreenPresentationNetworkPanel
-              screen={screen}
-              canManage={canManageScreens(auth.status?.user)}
-              csrfToken={auth.status?.csrfToken ?? ""}
-            />
-          )}
-          <dl className="detail-list">
-            <div>
-              <dt>Reliability mode</dt>
-              <dd>
-                {formatReportedStatus(reliability.data?.configuredMode)}{" "}
-                configured ·{" "}
-                {formatReportedStatus(reliability.data?.effectiveMode)}{" "}
-                effective
-              </dd>
-            </div>
-            <div>
-              <dt>Foreground</dt>
-              <dd>{formatReportedStatus(reliability.data?.foregroundState)}</dd>
-            </div>
-            <div>
-              <dt>Boot recovery</dt>
-              <dd>
-                {formatReportedStatus(reliability.data?.bootRecoveryResult)}
-              </dd>
-            </div>
-            <div>
-              <dt>Immersive / keep awake</dt>
-              <dd>
-                {reliability.data?.immersiveModeActive
-                  ? "Immersive"
-                  : "Not immersive"}{" "}
-                ·{" "}
-                {reliability.data?.keepScreenOn
-                  ? "Kept awake"
-                  : "Wake lock released"}
-              </dd>
-            </div>
-            {isAndroidScreen(screen.platform) && (
-              <>
-                <div>
-                  <dt>Managed Kiosk</dt>
-                  <dd>
-                    {formatReportedStatus(
-                      reliability.data?.managedKioskCapability,
-                    )}{" "}
-                    · lock task{" "}
-                    {formatReportedStatus(
-                      reliability.data?.lockTaskState,
-                      "unknown",
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Accessibility Control</dt>
-                  <dd>
-                    {formatReportedStatus(
-                      reliability.data?.accessibilityServiceState,
-                    )}
-                  </dd>
-                </div>
-              </>
-            )}
-            <div>
-              <dt>Active hours</dt>
-              <dd>
-                {formatReportedStatus(reliability.data?.activeHoursState)}
-              </dd>
-            </div>
-            <div>
-              <dt>Sleep support</dt>
-              <dd>{formatReportedStatus(reliability.data?.sleepCapability)}</dd>
-            </div>
-            <div>
-              <dt>Recovery</dt>
-              <dd>
-                Level {formatReportedCount(reliability.data?.recoveryLevel)} ·{" "}
-                {formatReportedCount(reliability.data?.recoveryCount)} recent ·
-                safe mode {reliability.data?.safeMode ? "active" : "inactive"}
-              </dd>
-            </div>
-            <div>
-              <dt>Maintenance session</dt>
-              <dd>
-                {reliability.data?.maintenanceSessionExpiresAt
-                  ? `Until ${new Date(reliability.data.maintenanceSessionExpiresAt).toLocaleString()}`
-                  : "Inactive"}
-              </dd>
-            </div>
-          </dl>
-          {reliabilityCapabilityWarning(reliability.data) && (
-            <div className="notice notice--warning">
-              {reliabilityCapabilityWarning(reliability.data)}
-            </div>
-          )}
-          {autostartWarning(reliability.data) && (
-            <div className="notice notice--warning">
-              {autostartWarning(reliability.data)}
-            </div>
-          )}
-          {canManageScreens(auth.status?.user) && (
-            <>
               <section
-                className="reliability-controls"
-                aria-labelledby="reliability-controls-title"
+                className="space-y-2"
+                aria-labelledby="screen-hardware-history-title"
               >
-                <header className="reliability-section-heading">
-                  <div>
-                    <h4 id="reliability-controls-title">Player controls</h4>
-                    <p>
-                      Run a focused recovery action without leaving this screen.
-                    </p>
-                  </div>
-                  {command.isPending && (
-                    <span className="status-badge">Sending…</span>
-                  )}
+                <header>
+                  <h3
+                    id="screen-hardware-history-title"
+                    className="text-sm font-semibold"
+                  >
+                    Hardware history
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    The logical screen stays stable when hardware is replaced.
+                  </p>
                 </header>
-                <div className="reliability-control-groups">
-                  {isAndroidScreen(screen.platform) && (
-                    <div className="reliability-control-group">
-                      <div>
-                        <h5>Power Assist</h5>
-                        <p>Test Android sleep and wake behavior.</p>
-                      </div>
-                      <div className="reliability-button-grid">
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "power_assist_sleep",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Test sleep
-                        </button>
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "power_assist_wake",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Test wake
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="reliability-control-group">
-                    <div>
-                      <h5>Recovery</h5>
-                      <p>
-                        Retry recovery or leave safe mode after resolving a
-                        fault.
-                      </p>
-                    </div>
-                    <div className="reliability-button-grid">
-                      <button
-                        className="button button--secondary"
-                        disabled={command.isPending}
-                        onClick={() =>
-                          command.mutate({
-                            type: "retry_player_recovery",
-                            payload: {},
-                          })
-                        }
+                {playerHistory.data?.items.length ? (
+                  <ItemGroup className="gap-0 divide-y divide-border">
+                    {playerHistory.data.items.map((hardware) => (
+                      <Item
+                        key={hardware.id}
+                        size="xs"
+                        render={<div role="listitem" />}
+                        className="rounded-none px-0"
                       >
-                        Retry recovery
-                      </button>
-                      <button
-                        className="button button--secondary"
-                        disabled={
-                          command.isPending || !reliability.data?.safeMode
-                        }
-                        onClick={() =>
-                          command.mutate({
-                            type: "exit_safe_mode",
-                            payload: {},
-                          })
-                        }
-                      >
-                        Exit safe mode
-                      </button>
-                    </div>
-                  </div>
-                  {reportsAutostart(reliability.data) && (
-                    <div className="reliability-control-group">
-                      <div>
-                        <h5>Linux autostart</h5>
-                        <p>
-                          Installs the player's own systemd user service so it
-                          starts with the graphical session and restarts after
-                          any exit. Setting up is safe while the player is
-                          running: Tilecast captures this AppImage's display,
-                          data directory, and server address, writes and enables
-                          the service, and does not start a duplicate process.
-                          The current manual process keeps running until the
-                          next controlled restart, session restart, or reboot,
-                          when systemd takes ownership. A service file you wrote
-                          yourself is never overwritten. A graphical session
-                          that begins at boot (auto-login or a kiosk compositor)
-                          remains operating-system setup.
-                        </p>
-                      </div>
-                      <div className="reliability-button-grid">
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "install_autostart",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Set up autostart
-                        </button>
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() => {
-                            if (
-                              confirm(
-                                "Remove the autostart service? This screen will keep playing now, but will not return on its own after a reboot or a player update.",
-                              )
-                            )
-                              command.mutate({
-                                type: "remove_autostart",
-                                payload: {},
-                              });
-                          }}
-                        >
-                          Remove autostart
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {screen.platform.toLowerCase() === "linux" && (
-                    <div className="reliability-control-group reliability-control-group--wide">
-                      <div>
-                        <h5>Display Control</h5>
-                        <p>
-                          Player connectivity and display power are separate
-                          states. Controls appear only for capabilities reported
-                          by this player; provider commands have a bounded
-                          timeout and may report sent without a confirmed panel
-                          state.
-                        </p>
-                      </div>
-                      <div className="reliability-button-grid reliability-button-grid--wide">
-                        {displayCapabilities.power && (
-                          <>
-                            <button
-                              className="button button--secondary"
-                              disabled={command.isPending}
-                              onClick={() =>
-                                command.mutate({
-                                  type: "display_power_on",
-                                  payload: {},
-                                })
-                              }
-                            >
-                              Power on display
-                            </button>
-                            <button
-                              className="button button--secondary"
-                              disabled={command.isPending}
-                              onClick={() =>
-                                command.mutate({
-                                  type: "display_power_off",
-                                  payload: {},
-                                })
-                              }
-                            >
-                              Power off display
-                            </button>
-                          </>
-                        )}
-                        {displayCapabilities.input && (
-                          <button
-                            className="button button--secondary"
-                            disabled={command.isPending}
-                            onClick={() => {
-                              const input = window.prompt(
-                                "CEC physical address (for example 1.0.0.0)",
-                              );
-                              if (input?.trim())
-                                command.mutate({
-                                  type: "display_set_input",
-                                  payload: { input: input.trim() },
-                                });
-                            }}
-                          >
-                            Set display input
-                          </button>
-                        )}
-                        {displayCapabilities.volume && (
-                          <button
-                            className="button button--secondary"
-                            disabled={command.isPending}
-                            onClick={() => {
-                              const value = window.prompt(
-                                "Display volume, from 0 to 100",
-                              );
-                              const volume =
-                                value == null ? NaN : Number(value);
-                              if (
-                                Number.isInteger(volume) &&
-                                volume >= 0 &&
-                                volume <= 100
-                              )
-                                command.mutate({
-                                  type: "display_set_volume",
-                                  payload: { volume },
-                                });
-                            }}
-                          >
-                            Set display volume
-                          </button>
-                        )}
-                        {displayCapabilities.mute && (
-                          <>
-                            <button
-                              className="button button--secondary"
-                              disabled={command.isPending}
-                              onClick={() =>
-                                command.mutate({
-                                  type: "display_mute",
-                                  payload: {},
-                                })
-                              }
-                            >
-                              Mute display
-                            </button>
-                            <button
-                              className="button button--secondary"
-                              disabled={command.isPending}
-                              onClick={() =>
-                                command.mutate({
-                                  type: "display_unmute",
-                                  payload: {},
-                                })
-                              }
-                            >
-                              Unmute display
-                            </button>
-                          </>
-                        )}
-                        {displayCapabilities.brightness && (
-                          <button
-                            className="button button--secondary"
-                            disabled={command.isPending}
-                            onClick={() => {
-                              const value = window.prompt(
-                                "Display brightness, from 0 to 100",
-                              );
-                              const brightness =
-                                value == null ? NaN : Number(value);
-                              if (
-                                Number.isInteger(brightness) &&
-                                brightness >= 0 &&
-                                brightness <= 100
-                              )
-                                command.mutate({
-                                  type: "display_set_brightness",
-                                  payload: { brightness },
-                                });
-                            }}
-                          >
-                            Set display brightness
-                          </button>
-                        )}
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "display_probe",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Probe display capabilities
-                        </button>
-                        {!hasDisplayControl && (
-                          <span className="field__hint">
-                            No HDMI-CEC or DDC/CI capability is currently
-                            reported.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {screen.platform.toLowerCase() === "linux" && (
-                    <div className="reliability-control-group">
-                      <div>
-                        <h5>AirPlay diagnostics</h5>
-                        <p>
-                          Probe UxPlay, GStreamer, VA-API, audio, and local
-                          Avahi support without advertising a receiver.
-                        </p>
-                      </div>
-                      <div className="reliability-button-grid">
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "test_airplay_support",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Test AirPlay support
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="reliability-control-group reliability-control-group--wide">
-                    <div>
-                      <h5>Playback and player</h5>
-                      <p>
-                        Use the least disruptive action that matches the
-                        problem.
-                      </p>
-                    </div>
-                    <div className="reliability-button-grid reliability-button-grid--wide">
-                      {(
-                        [
-                          ["retry_current_item", "Retry item"],
-                          ["skip_current_item", "Skip item"],
-                          ["recreate_renderer", "Recreate renderer"],
-                          ["recreate_playback_session", "Recreate session"],
-                          ["restart_activity", "Restart activity"],
-                          ["restart_player_process", "Restart player"],
-                          ["resynchronize_player", "Resynchronize"],
-                          ["run_player_self_test", "Run self-test"],
-                        ] as const
-                      ).map(([type, label]) => (
-                        <button
-                          key={type}
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() => command.mutate({ type, payload: {} })}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                        <ItemContent className="min-w-0">
+                          <ItemTitle>
+                            {hardware.manufacturer} {hardware.model}
+                          </ItemTitle>
+                          <ItemDescription>
+                            {hardware.platform} · {hardware.playerVersion} ·{" "}
+                            {hardware.screenWidth}×{hardware.screenHeight} ·
+                            Paired{" "}
+                            {new Date(hardware.pairedAt).toLocaleDateString()}
+                            {hardware.retiredAt
+                              ? ` · Retired ${new Date(hardware.retiredAt).toLocaleDateString()}`
+                              : " · Current hardware"}
+                            {hardware.retirementReason
+                              ? ` · ${hardware.retirementReason}`
+                              : ""}
+                          </ItemDescription>
+                        </ItemContent>
+                      </Item>
+                    ))}
+                  </ItemGroup>
+                ) : playerHistory.isLoading ? (
+                  <Skeleton className="h-12 w-full" />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No hardware history recorded.
+                  </p>
+                )}
               </section>
-            </>
-          )}
-          <FireTvAccessibilityAdbPanel screenId={id} />
-        </section>
-      )}
+            </section>
+          </TabsContent>
+        )}
 
-      {tab === "manage" &&
-        manageSection === "maintenance" &&
-        canManageScreens(auth.status?.user) && (
-          <section className="operations">
-            <h3>Maintenance</h3>
-            <p>
-              Commands remain pending during brief disconnections and expire
-              automatically.
-            </p>
-            <div className="heading-actions">
-              <button
-                className="button button--secondary"
-                onClick={() =>
-                  command.mutate({ type: "sync_now", payload: {} })
-                }
-              >
-                Sync now
-              </button>
-              <button
-                className="button button--secondary"
-                onClick={() =>
-                  command.mutate({ type: "reload_playback", payload: {} })
-                }
-              >
-                Reload playback
-              </button>
-              <button
-                className="button button--secondary"
-                onClick={() =>
-                  command.mutate({
-                    type: "identify_screen",
-                    payload: { durationSeconds: 30 },
-                  })
-                }
-              >
-                Identify screen
-              </button>
-              <button
-                className="button button--danger-quiet"
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Clear media not protected by active or pending playback?",
-                    )
-                  )
-                    command.mutate({ type: "clear_media_cache", payload: {} });
-                }}
-              >
-                Clear media cache
-              </button>
-              <button
-                className="button button--danger-quiet"
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Clear cookies, cache, DOM storage, and WebView state?",
-                    )
-                  )
-                    command.mutate({ type: "clear_website_data", payload: {} });
-                }}
-              >
-                Clear website data
-              </button>
-              <button
-                className="button button--danger-quiet"
-                onClick={() => {
-                  const disabling = !assignment.data?.playbackDisabled;
-                  if (
-                    !disabling ||
-                    confirm(
-                      "Disable ordinary playback while keeping this player paired and connected?",
-                    )
-                  )
-                    command.mutate({
-                      type: disabling ? "disable_playback" : "enable_playback",
-                      payload: {},
-                    });
-                }}
-              >
-                {assignment.data?.playbackDisabled
-                  ? "Enable playback"
-                  : "Disable playback"}
-              </button>
-            </div>
-            {command.isSuccess && (
-              <p>Command queued; this does not mean it has completed.</p>
-            )}
-            <div className="command-history">
-              {commands.data?.items?.map((c) => (
-                <div key={c.id}>
-                  <strong>
-                    {c.type?.replaceAll("_", " ") ?? "Unknown command"}
-                  </strong>
-                  <span>
-                    {c.state} · {new Date(c.createdAt).toLocaleString()}
-                  </span>
-                  <small>
-                    {c.resultCode?.replaceAll("_", " ") ?? "No result yet"}
-                  </small>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-      {tab === "manage" &&
-        manageSection === "maintenance" &&
-        !canManageScreens(auth.status?.user) && (
-          <section className="operations">
-            <h3>Recent operations</h3>
-            {commands.isLoading ? (
-              <div className="table-loading">Loading operations…</div>
-            ) : (commands.data?.items?.length ?? 0) === 0 ? (
-              <p>
-                No maintenance commands have been sent to this screen. An Owner
-                or Administrator can send them.
-              </p>
-            ) : (
-              <div className="command-history">
-                {commands.data?.items?.map((c) => (
-                  <div key={c.id}>
-                    <strong>
-                      {c.type?.replaceAll("_", " ") ?? "Unknown command"}
-                    </strong>
-                    <span>
-                      {c.state} · {new Date(c.createdAt).toLocaleString()}
-                    </span>
-                    <small>
-                      {c.resultCode?.replaceAll("_", " ") ?? "No result yet"}
-                    </small>
+        {tab === "content" && (
+          <TabsContent value="content" className="min-w-0 outline-none">
+            <section
+              className="min-w-0 space-y-5 rounded-xl border border-border p-4 sm:p-5"
+              aria-labelledby="screen-playback-title"
+            >
+              <header>
+                <h2
+                  id="screen-playback-title"
+                  className="text-base font-semibold"
+                >
+                  Playback and scheduling
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Review the content assigned to this screen and the schedule
+                  that currently selects it.
+                </p>
+              </header>
+              {assignment.data?.groups?.[0] && (
+                <Alert>
+                  <Monitor aria-hidden="true" />
+                  <AlertTitle>Managed by a Display Group</AlertTitle>
+                  <AlertDescription>
+                    This player belongs to the{" "}
+                    <Link to={`/groups/${assignment.data.groups[0].id}`}>
+                      {assignment.data.groups[0].name}
+                    </Link>{" "}
+                    Display Group. Content and schedules apply to every member.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {canManageScreens(auth.status?.user) ? (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
+                    <RheaSelect
+                      value={selectedPresentation || "__none__"}
+                      onValueChange={(value) =>
+                        setSelectedPresentation(
+                          value === "__none__" ? "" : (value ?? ""),
+                        )
+                      }
+                    >
+                      <SelectTrigger
+                        aria-label="Assigned presentation"
+                        className="w-full"
+                      >
+                        <SelectValue placeholder="No presentation assigned" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">
+                          No presentation assigned
+                        </SelectItem>
+                        <SelectGroup>
+                          <SelectLabel>Playlists</SelectLabel>
+                          {playlists.data?.items?.map((playlist) => (
+                            <SelectItem
+                              key={playlist.id}
+                              value={`playlist:${playlist.id}`}
+                            >
+                              {playlist.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Published layouts</SelectLabel>
+                          {layouts.data?.items
+                            .filter((layout) => layout.publishedRevision)
+                            .map((layout) => (
+                              <SelectItem
+                                key={layout.id}
+                                value={`layout:${layout.id}`}
+                              >
+                                {layout.name}
+                              </SelectItem>
+                            ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </RheaSelect>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
+                  <RheaButton
+                    disabled={
+                      assign.isPending ||
+                      selectedPresentation ===
+                        (assignment.data?.layoutId
+                          ? `layout:${assignment.data.layoutId}`
+                          : assignment.data?.playlistId
+                            ? `playlist:${assignment.data.playlistId}`
+                            : "")
+                    }
+                    onClick={() => assign.mutate()}
+                  >
+                    {assign.isPending
+                      ? "Applying…"
+                      : assignment.data?.groups?.[0]
+                        ? "Apply to Display Group"
+                        : "Apply assignment"}
+                  </RheaButton>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {assignment.data?.layoutName ??
+                    assignment.data?.playlistName ??
+                    "No presentation assigned"}
+                </p>
+              )}
+              <ScreenContentChain assignment={assignment.data} />
+              <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-3">
+                <OverviewFact
+                  label="Direct fallback"
+                  value={
+                    assignment.data?.layoutName ??
+                    assignment.data?.playlistName ??
+                    "No fallback assigned"
+                  }
+                />
+                <OverviewFact
+                  label="Current selection"
+                  value={
+                    assignment.data?.selectionSource === "takeover"
+                      ? "Takeover"
+                      : assignment.data?.selectionSource === "schedule"
+                        ? `Scheduled${assignment.data.currentScheduleId ? ` · ${(assignment.data.relevantSchedules ?? []).find((s) => s.id === assignment.data?.currentScheduleId)?.name ?? "schedule"}` : ""}`
+                        : assignment.data?.selectionSource === "direct_fallback"
+                          ? "Direct fallback"
+                          : "No content"
+                  }
+                />
+                <OverviewFact
+                  label="Next scheduled change"
+                  value={
+                    assignment.data?.nextTransitionAt
+                      ? new Date(
+                          assignment.data.nextTransitionAt,
+                        ).toLocaleString()
+                      : "None reported"
+                  }
+                />
+                <OverviewFact
+                  label="Display Group"
+                  value={
+                    (assignment.data?.groups ?? [])
+                      .map((group) => group.name)
+                      .join(", ") || "Not grouped"
+                  }
+                />
+                <OverviewFact
+                  label="Relevant schedules"
+                  value={
+                    (assignment.data?.relevantSchedules ?? [])
+                      .map(
+                        (schedule) => `${schedule.name} (${schedule.priority})`,
+                      )
+                      .join(", ") || "No schedules"
+                  }
+                />
+              </dl>
+              <Collapsible className="border-t border-border pt-3">
+                <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  Playback diagnostics
+                  <ChevronDown size={16} aria-hidden="true" />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <OverviewFact
+                      label="Server manifest"
+                      value={`Version ${assignment.data?.manifestVersion ?? 1}`}
+                    />
+                    <OverviewFact
+                      label="Player configuration"
+                      value={
+                        assignment.data?.activeConfigRevision != null
+                          ? `Revision ${assignment.data.activeConfigRevision}`
+                          : "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Player manifest"
+                      value={
+                        assignment.data?.playerActiveManifestVersion != null
+                          ? `Version ${assignment.data.playerActiveManifestVersion}`
+                          : "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Synchronization"
+                      value={
+                        assignment.data?.synchronizationStatus?.replaceAll(
+                          "_",
+                          " ",
+                        ) ?? "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Device clock difference"
+                      value={
+                        assignment.data?.deviceClockOffsetSeconds != null
+                          ? `${Math.abs(assignment.data.deviceClockOffsetSeconds)} seconds`
+                          : "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Downloads"
+                      value={
+                        assignment.data?.downloadQueueCount != null
+                          ? `${assignment.data.downloadQueueCount} queued · ${assignment.data.downloadedBytes ?? 0} of ${assignment.data.requiredBytes ?? 0} bytes`
+                          : "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Website playback"
+                      value={
+                        assignment.data?.websiteState
+                          ? `${assignment.data.websiteState?.replaceAll("_", " ") ?? "Not reported"}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
+                          : "Not active"
+                      }
+                    />
+                    <OverviewFact
+                      label="Blocked website navigation"
+                      value={
+                        assignment.data?.websiteBlockedNavigationCount ??
+                        "Not reported"
+                      }
+                    />
+                    <OverviewFact
+                      label="Playback"
+                      value={assignment.data?.playbackState ?? "Not reported"}
+                    />
+                    <OverviewFact
+                      label="Takeover"
+                      value={
+                        assignment.data?.activeTakeoverId
+                          ? `${assignment.data.takeoverState ?? "pending"} · ${assignment.data.takeoverPreparationProgress ?? 0}% prepared`
+                          : "No active takeover"
+                      }
+                    />
+                    <OverviewFact
+                      label="Cache"
+                      value={
+                        assignment.data?.cacheUsedBytes != null
+                          ? `${assignment.data.cacheUsedBytes} of ${assignment.data.cacheLimitBytes ?? 0} bytes`
+                          : "Not reported"
+                      }
+                    />
+                  </dl>
+                </CollapsibleContent>
+              </Collapsible>
+              {assignment.error && (
+                <Alert variant="destructive">
+                  <CircleAlert aria-hidden="true" />
+                  <AlertTitle>
+                    Playback assignment could not be loaded
+                  </AlertTitle>
+                  <AlertDescription>
+                    {assignment.error.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {[
+                ["Synchronization", assignment.data?.lastSynchronizationError],
+                ["Playback", assignment.data?.lastPlaybackError],
+                ["Configuration", assignment.data?.configurationError],
+              ].map(
+                ([label, message]) =>
+                  message && (
+                    <Alert key={label} variant="destructive">
+                      <CircleAlert aria-hidden="true" />
+                      <AlertTitle>{label} error</AlertTitle>
+                      <AlertDescription>{message}</AlertDescription>
+                    </Alert>
+                  ),
+              )}
+              {Math.abs(assignment.data?.deviceClockOffsetSeconds ?? 0) >
+                (assignment.data?.clockSkewWarningSeconds ?? 300) && (
+                <Alert>
+                  <CircleAlert aria-hidden="true" />
+                  <AlertTitle>
+                    Player clock is outside the warning threshold
+                  </AlertTitle>
+                  <AlertDescription>
+                    The player clock differs from server time by more than five
+                    minutes. Offline schedule changes may occur at the wrong
+                    time.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {assignment.data?.scheduleEvaluationError && (
+                <Alert variant="destructive">
+                  <CircleAlert aria-hidden="true" />
+                  <AlertTitle>Schedule evaluation failed</AlertTitle>
+                  <AlertDescription>
+                    {assignment.data.scheduleEvaluationError}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {assignment.data?.websiteFailureCategory &&
+                ["failed", "timed_out", "blocked", "showing_fallback"].includes(
+                  assignment.data.websiteState ?? "",
+                ) && (
+                  <Alert variant="destructive">
+                    <CircleAlert aria-hidden="true" />
+                    <AlertTitle>Website playback issue</AlertTitle>
+                    <AlertDescription>
+                      {assignment.data.websiteFailureCategory?.replaceAll(
+                        "_",
+                        " ",
+                      ) ?? "Unknown website failure"}
+                    </AlertDescription>
+                  </Alert>
+                )}
+            </section>
+          </TabsContent>
         )}
-      {tab === "manage" && manageSection === "device" && (
-        <>
-          <section className="detail-grid">
-            <div className="detail-card">
-              <h3>Device</h3>
-              <dl className="detail-list">
-                <div>
-                  <dt>Hardware</dt>
-                  <dd>
-                    {screen.deviceManufacturer} {screen.deviceModel}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Platform</dt>
-                  <dd>
-                    {screen.platform === "linux"
-                      ? "Linux"
-                      : `${formatReportedStatus(screen.platform)} ${
-                          screen.androidVersion ?? ""
-                        }`.trim()}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Player version</dt>
-                  <dd>
-                    {screen.playerVersion}
-                    {screen.playerVersionCode
-                      ? ` (code ${screen.playerVersionCode})`
-                      : ""}
-                  </dd>
-                </div>
-                {isAndroidScreen(screen.platform) && (
-                  <>
-                    <div>
-                      <dt>Android SDK</dt>
-                      <dd>{screen.androidSdk ?? "Not reported"}</dd>
+
+        {tab === "activity" && (
+          <TabsContent value="activity" className="min-w-0 outline-none">
+            <ScreenActivityPanel screenId={id} />
+          </TabsContent>
+        )}
+
+        {tab === "device" && (
+          <TabsContent
+            value="device"
+            className="min-w-0 space-y-4 outline-none"
+          >
+            <section className="space-y-3" aria-labelledby="device-heading">
+              <header>
+                <h2 id="device-heading" className="text-base font-semibold">
+                  Device
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Player health, device details, and operational controls.
+                </p>
+              </header>
+              <nav
+                aria-label="Device sections"
+                className="flex flex-wrap gap-1 border-b border-border"
+              >
+                {(
+                  [
+                    ["device", "Device details"],
+                    ["health", "Health"],
+                    ["maintenance", "Maintenance"],
+                  ] as const
+                ).map(([section, label]) => (
+                  <Link
+                    key={section}
+                    to={
+                      section === "device"
+                        ? "?tab=device"
+                        : `?tab=device&section=${section}`
+                    }
+                    aria-current={
+                      manageSection === section ? "page" : undefined
+                    }
+                    className={`border-b-2 px-2 py-2 text-sm ${manageSection === section ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            </section>
+
+            {manageSection === "health" && (
+              <section
+                className="space-y-3"
+                aria-labelledby="reliability-heading"
+              >
+                <h3 id="reliability-heading" className="text-sm font-semibold">
+                  Health &amp; recovery
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Configured behavior is reported separately from capabilities
+                  confirmed by this device. Platform-specific controls appear
+                  only when the player reports support.
+                </p>
+                <section className="min-w-0 space-y-3 rounded-xl border border-border border-l-4 border-l-primary bg-muted/20">
+                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4">
+                    <div className="min-w-0 space-y-1">
+                      <h4 className="text-sm font-semibold">
+                        Zero-Touch Readiness
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        Commissioning and current device capabilities required
+                        for unattended recovery.
+                      </p>
                     </div>
+                    <Badge variant="outline">
+                      {zeroTouchReadiness(reliability.data)}
+                    </Badge>
+                  </div>
+                  <dl className="grid gap-3 px-4 pb-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:break-words [&_dd]:text-sm [&_dt]:text-xs [&_dt]:text-muted-foreground">
                     <div>
-                      <dt>Installer source</dt>
-                      <dd>{screen.installerSource ?? "Not reported"}</dd>
-                    </div>
-                    <div>
-                      <dt>Install permission</dt>
+                      <dt>Commissioning</dt>
                       <dd>
-                        {screen.installPermissionStatus?.replaceAll("_", " ") ??
-                          "Unknown"}
+                        {formatReportedStatus(
+                          reliability.data?.commissioningState,
+                          "Not started",
+                        )}
+                        {typeof reliability.data?.commissioningStep ===
+                          "string" && reliability.data.commissioningStep.trim()
+                          ? ` · ${formatReportedStatus(reliability.data.commissioningStep, "")}`
+                          : ""}
                       </dd>
                     </div>
+                    <div>
+                      <dt>Accessibility return</dt>
+                      <dd>
+                        {formatReportedStatus(
+                          reliability.data?.accessibilityServiceState,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Launch after boot</dt>
+                      <dd>
+                        {reliability.data?.bootLaunchVerified
+                          ? "Verified"
+                          : reportsAutostart(reliability.data)
+                            ? // Linux has no boot-attempt counter; the autostart row
+                              // below carries the detail.
+                              "Not yet verified"
+                            : `${formatReportedCount(reliability.data?.bootAttemptCount)} attempts · not verified`}
+                      </dd>
+                    </div>
+                    {reportsAutostart(reliability.data) && (
+                      <div>
+                        <dt>Autostart (systemd)</dt>
+                        <dd>{autostartSummary(reliability.data)}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt>Cached fallback</dt>
+                      <dd>
+                        {reliability.data?.cachedFallbackAvailable
+                          ? "Available"
+                          : "Not confirmed"}
+                      </dd>
+                    </div>
+                    {isAndroidScreen(screen.platform) && (
+                      <div>
+                        <dt>Install permission</dt>
+                        <dd>
+                          {formatReportedStatus(screen.installPermissionStatus)}
+                        </dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt>Free storage</dt>
+                      <dd>
+                        {screen.availableStorageBytes == null
+                          ? "Not reported"
+                          : formatBytes(screen.availableStorageBytes)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Last healthy playback</dt>
+                      <dd>
+                        {reliability.data?.lastHealthyPlaybackAt
+                          ? new Date(
+                              reliability.data.lastHealthyPlaybackAt,
+                            ).toLocaleString()
+                          : "Not reported"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Update readiness</dt>
+                      <dd>
+                        {formatReportedStatus(
+                          reliability.data?.updateReadiness,
+                        )}
+                      </dd>
+                    </div>
+                    {screen.platform.toLowerCase() === "linux" && (
+                      <>
+                        <div>
+                          <dt>Display Control</dt>
+                          <dd>
+                            {reliability.data?.displayControlProvider
+                              ? `${reliability.data.displayControlProvider} · ${Object.keys(reliability.data.displayControlCapabilities ?? {}).length} capabilities`
+                              : "Not reported"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Display state</dt>
+                          <dd>
+                            {formatReportedStatus(
+                              reliability.data?.displayPowerState,
+                            )}
+                            {reliability.data
+                              ?.displayControlLastCommandResult ===
+                              "display_command_sent" &&
+                            reliability.data?.displayPowerStateConfirmed ===
+                              false
+                              ? " · command sent, not confirmed"
+                              : ""}
+                            {reliability.data?.displayControlPolicyState ===
+                            "powered_off_by_policy"
+                              ? " · powered off by policy"
+                              : ""}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Last display command</dt>
+                          <dd>
+                            {reliability.data?.displayControlLastCommandState
+                              ? `${formatReportedStatus(reliability.data.displayControlLastCommandState)}${reliability.data.displayControlLastCommandResult ? ` · ${reliability.data.displayControlLastCommandResult}` : ""}`
+                              : "Not reported"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>AirPlay Present</dt>
+                          <dd>
+                            {reliability.data?.airplaySupported
+                              ? `Ready · ${reliability.data.airplayMaxProfile ?? "profile pending"}`
+                              : "Not ready"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>AirPlay decoder</dt>
+                          <dd>
+                            {reliability.data?.airplayDecoder ?? "Not reported"}
+                            {reliability.data?.airplayHardwareDecode
+                              ? " · hardware"
+                              : " · software-limited"}
+                          </dd>
+                        </div>
+                      </>
+                    )}
+                  </dl>
+                </section>
+                {screen.platform.toLowerCase() === "linux" && (
+                  <ScreenPresentationNetworkPanel
+                    screen={screen}
+                    canManage={canManageScreens(auth.status?.user)}
+                    csrfToken={auth.status?.csrfToken ?? ""}
+                  />
+                )}
+                <dl className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:break-words [&_dd]:text-sm [&_dt]:text-xs [&_dt]:text-muted-foreground">
+                  <div>
+                    <dt>Reliability mode</dt>
+                    <dd>
+                      {formatReportedStatus(reliability.data?.configuredMode)}{" "}
+                      configured ·{" "}
+                      {formatReportedStatus(reliability.data?.effectiveMode)}{" "}
+                      effective
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Foreground</dt>
+                    <dd>
+                      {formatReportedStatus(reliability.data?.foregroundState)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Boot recovery</dt>
+                    <dd>
+                      {formatReportedStatus(
+                        reliability.data?.bootRecoveryResult,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Immersive / keep awake</dt>
+                    <dd>
+                      {reliability.data?.immersiveModeActive
+                        ? "Immersive"
+                        : "Not immersive"}{" "}
+                      ·{" "}
+                      {reliability.data?.keepScreenOn
+                        ? "Kept awake"
+                        : "Wake lock released"}
+                    </dd>
+                  </div>
+                  {isAndroidScreen(screen.platform) && (
+                    <>
+                      <div>
+                        <dt>Managed Kiosk</dt>
+                        <dd>
+                          {formatReportedStatus(
+                            reliability.data?.managedKioskCapability,
+                          )}{" "}
+                          · lock task{" "}
+                          {formatReportedStatus(
+                            reliability.data?.lockTaskState,
+                            "unknown",
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Accessibility Control</dt>
+                        <dd>
+                          {formatReportedStatus(
+                            reliability.data?.accessibilityServiceState,
+                          )}
+                        </dd>
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <dt>Active hours</dt>
+                    <dd>
+                      {formatReportedStatus(reliability.data?.activeHoursState)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Sleep support</dt>
+                    <dd>
+                      {formatReportedStatus(reliability.data?.sleepCapability)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Recovery</dt>
+                    <dd>
+                      Level{" "}
+                      {formatReportedCount(reliability.data?.recoveryLevel)} ·{" "}
+                      {formatReportedCount(reliability.data?.recoveryCount)}{" "}
+                      recent · safe mode{" "}
+                      {reliability.data?.safeMode ? "active" : "inactive"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Maintenance session</dt>
+                    <dd>
+                      {reliability.data?.maintenanceSessionExpiresAt
+                        ? `Until ${new Date(reliability.data.maintenanceSessionExpiresAt).toLocaleString()}`
+                        : "Inactive"}
+                    </dd>
+                  </div>
+                </dl>
+                {reliabilityCapabilityWarning(reliability.data) && (
+                  <Alert>
+                    <AlertDescription>
+                      {reliabilityCapabilityWarning(reliability.data)}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {autostartWarning(reliability.data) && (
+                  <Alert>
+                    <AlertDescription>
+                      {autostartWarning(reliability.data)}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {canManageScreens(auth.status?.user) && (
+                  <>
+                    <section
+                      className="overflow-hidden rounded-xl border border-border"
+                      aria-labelledby="reliability-controls-title"
+                    >
+                      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-3">
+                        <div className="space-y-0.5">
+                          <h4
+                            id="reliability-controls-title"
+                            className="text-sm font-medium"
+                          >
+                            Player controls
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            Run a focused recovery action without leaving this
+                            screen.
+                          </p>
+                        </div>
+                        {command.isPending && <Badge>Sending…</Badge>}
+                      </header>
+                      <div className="grid gap-3 p-4 md:grid-cols-2">
+                        {isAndroidScreen(screen.platform) && (
+                          <div className="space-y-3 rounded-xl border border-border p-4">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                Power Assist
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
+                                Test Android sleep and wake behavior.
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              <RheaButton
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "power_assist_sleep",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                Test sleep
+                              </RheaButton>
+                              <RheaButton
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "power_assist_wake",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                Test wake
+                              </RheaButton>
+                            </div>
+                          </div>
+                        )}
+                        <div className="space-y-3 rounded-xl border border-border p-4">
+                          <div className="space-y-0.5">
+                            <h5 className="text-sm font-medium">Recovery</h5>
+                            <p className="text-sm text-muted-foreground">
+                              Retry recovery or leave safe mode after resolving
+                              a fault.
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                            <RheaButton
+                              variant="outline"
+                              disabled={command.isPending}
+                              onClick={() =>
+                                command.mutate({
+                                  type: "retry_player_recovery",
+                                  payload: {},
+                                })
+                              }
+                            >
+                              Retry recovery
+                            </RheaButton>
+                            <RheaButton
+                              variant="outline"
+                              disabled={
+                                command.isPending || !reliability.data?.safeMode
+                              }
+                              onClick={() =>
+                                command.mutate({
+                                  type: "exit_safe_mode",
+                                  payload: {},
+                                })
+                              }
+                            >
+                              Exit safe mode
+                            </RheaButton>
+                          </div>
+                        </div>
+                        {reportsAutostart(reliability.data) && (
+                          <div className="space-y-3 rounded-xl border border-border p-4">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                Linux autostart
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
+                                Installs the player's own systemd user service
+                                so it starts with the graphical session and
+                                restarts after any exit. Setting up is safe
+                                while the player is running: Tilecast captures
+                                this AppImage's display, data directory, and
+                                server address, writes and enables the service,
+                                and does not start a duplicate process. The
+                                current manual process keeps running until the
+                                next controlled restart, session restart, or
+                                reboot, when systemd takes ownership. A service
+                                file you wrote yourself is never overwritten. A
+                                graphical session that begins at boot
+                                (auto-login or a kiosk compositor) remains
+                                operating-system setup.
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              <RheaButton
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "install_autostart",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                Set up autostart
+                              </RheaButton>
+                              <RheaButton
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  requestScreenCommand({
+                                    kind: "confirm",
+                                    title: "Remove player autostart?",
+                                    description:
+                                      "This screen will keep playing now, but will not return on its own after a reboot or a player update.",
+                                    confirmLabel: "Remove autostart",
+                                    destructive: true,
+                                    commandType: "remove_autostart",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                Remove autostart
+                              </RheaButton>
+                            </div>
+                          </div>
+                        )}
+                        {screen.platform.toLowerCase() === "linux" && (
+                          <div className="space-y-3 rounded-xl border border-border p-4 md:col-span-2">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                Display Control
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
+                                Player connectivity and display power are
+                                separate states. Controls appear only for
+                                capabilities reported by this player; provider
+                                commands have a bounded timeout and may report
+                                sent without a confirmed panel state.
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 lg:grid-cols-4 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              {displayCapabilities.power && (
+                                <>
+                                  <RheaButton
+                                    variant="outline"
+                                    disabled={command.isPending}
+                                    onClick={() =>
+                                      command.mutate({
+                                        type: "display_power_on",
+                                        payload: {},
+                                      })
+                                    }
+                                  >
+                                    Power on display
+                                  </RheaButton>
+                                  <RheaButton
+                                    variant="outline"
+                                    disabled={command.isPending}
+                                    onClick={() =>
+                                      command.mutate({
+                                        type: "display_power_off",
+                                        payload: {},
+                                      })
+                                    }
+                                  >
+                                    Power off display
+                                  </RheaButton>
+                                </>
+                              )}
+                              {displayCapabilities.input && (
+                                <RheaButton
+                                  variant="outline"
+                                  disabled={command.isPending}
+                                  onClick={() =>
+                                    requestScreenCommand({
+                                      kind: "input",
+                                      title: "Set display input",
+                                      description:
+                                        "Enter the CEC physical address reported by the display, for example 1.0.0.0.",
+                                      confirmLabel: "Set input",
+                                      input: {
+                                        label: "CEC physical address",
+                                        type: "text",
+                                        placeholder: "1.0.0.0",
+                                      },
+                                      commandType: "display_set_input",
+                                      createPayload: (input) => ({ input }),
+                                    })
+                                  }
+                                >
+                                  Set display input
+                                </RheaButton>
+                              )}
+                              {displayCapabilities.volume && (
+                                <RheaButton
+                                  variant="outline"
+                                  disabled={command.isPending}
+                                  onClick={() =>
+                                    requestScreenCommand({
+                                      kind: "input",
+                                      title: "Set display volume",
+                                      description:
+                                        "Choose a whole-number volume from 0 to 100.",
+                                      confirmLabel: "Set volume",
+                                      input: {
+                                        label: "Volume",
+                                        type: "number",
+                                        min: 0,
+                                        max: 100,
+                                      },
+                                      commandType: "display_set_volume",
+                                      createPayload: (volume) => ({ volume }),
+                                    })
+                                  }
+                                >
+                                  Set display volume
+                                </RheaButton>
+                              )}
+                              {displayCapabilities.mute && (
+                                <>
+                                  <RheaButton
+                                    variant="outline"
+                                    disabled={command.isPending}
+                                    onClick={() =>
+                                      command.mutate({
+                                        type: "display_mute",
+                                        payload: {},
+                                      })
+                                    }
+                                  >
+                                    Mute display
+                                  </RheaButton>
+                                  <RheaButton
+                                    variant="outline"
+                                    disabled={command.isPending}
+                                    onClick={() =>
+                                      command.mutate({
+                                        type: "display_unmute",
+                                        payload: {},
+                                      })
+                                    }
+                                  >
+                                    Unmute display
+                                  </RheaButton>
+                                </>
+                              )}
+                              {displayCapabilities.brightness && (
+                                <RheaButton
+                                  variant="outline"
+                                  disabled={command.isPending}
+                                  onClick={() =>
+                                    requestScreenCommand({
+                                      kind: "input",
+                                      title: "Set display brightness",
+                                      description:
+                                        "Choose a whole-number brightness from 0 to 100.",
+                                      confirmLabel: "Set brightness",
+                                      input: {
+                                        label: "Brightness",
+                                        type: "number",
+                                        min: 0,
+                                        max: 100,
+                                      },
+                                      commandType: "display_set_brightness",
+                                      createPayload: (brightness) => ({
+                                        brightness,
+                                      }),
+                                    })
+                                  }
+                                >
+                                  Set display brightness
+                                </RheaButton>
+                              )}
+                              <RheaButton
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "display_probe",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                Probe display capabilities
+                              </RheaButton>
+                              {!hasDisplayControl && (
+                                <span className="text-sm text-muted-foreground">
+                                  No HDMI-CEC or DDC/CI capability is currently
+                                  reported.
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {screen.platform.toLowerCase() === "linux" && (
+                          <div className="space-y-3 rounded-xl border border-border p-4">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                AirPlay diagnostics
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
+                                Probe UxPlay, GStreamer, VA-API, audio, and
+                                local Avahi support without advertising a
+                                receiver.
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              <RheaButton
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "test_airplay_support",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                Test AirPlay support
+                              </RheaButton>
+                            </div>
+                          </div>
+                        )}
+                        <div className="space-y-3 rounded-xl border border-border p-4 md:col-span-2">
+                          <div className="space-y-0.5">
+                            <h5 className="text-sm font-medium">
+                              Playback and player
+                            </h5>
+                            <p className="text-sm text-muted-foreground">
+                              Use the least disruptive action that matches the
+                              problem.
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 lg:grid-cols-4 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                            {(
+                              [
+                                ["retry_current_item", "Retry item"],
+                                ["skip_current_item", "Skip item"],
+                                ["recreate_renderer", "Recreate renderer"],
+                                [
+                                  "recreate_playback_session",
+                                  "Recreate session",
+                                ],
+                                ["restart_activity", "Restart activity"],
+                                ["restart_player_process", "Restart player"],
+                                ["resynchronize_player", "Resynchronize"],
+                                ["run_player_self_test", "Run self-test"],
+                              ] as const
+                            ).map(([type, label]) => (
+                              <RheaButton
+                                variant="outline"
+                                key={type}
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({ type, payload: {} })
+                                }
+                              >
+                                {label}
+                              </RheaButton>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
                   </>
                 )}
-                <div>
-                  <dt>Player update</dt>
-                  <dd>
-                    {screen.updateState?.replaceAll("_", " ") ??
-                      "No active deployment"}
-                    {screen.updateExpectedBytes
-                      ? ` · ${Math.round(((screen.updateDownloadedBytes ?? 0) / screen.updateExpectedBytes) * 100)}%`
-                      : ""}
-                    {screen.updateError ? ` · ${screen.updateError}` : ""}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Resolution</dt>
-                  <dd>
-                    {screen.screenWidth} × {screen.screenHeight}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Locale</dt>
-                  <dd>{screen.locale}</dd>
-                </div>
-                <div>
-                  <dt>Timezone</dt>
-                  <dd>{screen.timezone}</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="detail-card">
-              <h3>Connection</h3>
-              <dl className="detail-list">
-                <div>
-                  <dt>Last contact</dt>
-                  <dd>{formatContact(screen.lastContactAt)}</dd>
-                </div>
-                <div>
-                  <dt>Network address</dt>
-                  <dd>{screen.lastKnownIp || "Not reported"}</dd>
-                </div>
-                <div>
-                  <dt>Credential</dt>
-                  <dd>{screen.hasActiveCredential ? "Active" : "Revoked"}</dd>
-                </div>
-              </dl>
-            </div>
-          </section>
-          {canManageScreens(auth.status?.user) && (
-            <section className="danger-zone">
-              <h3>Player access</h3>
-              <div>
-                <span>
-                  <strong>
-                    {screen.enabled ? "Disable screen" : "Enable screen"}
-                  </strong>
-                  <small>
-                    {screen.enabled
-                      ? "Temporarily blocks operation while retaining the pairing."
-                      : "Allow the paired player to reconnect."}
-                  </small>
-                </span>
-                <button
-                  className="button button--quiet"
-                  onClick={() => stateMutation.mutate(!screen.enabled)}
-                >
-                  {screen.enabled ? "Disable" : "Enable"}
-                </button>
-              </div>
-              <div>
-                <span>
-                  <strong>Revoke pairing</strong>
-                  <small>
-                    Permanently invalidates the device credential. The player
-                    must pair again.
-                  </small>
-                </span>
-                <button
-                  className="button button--danger"
-                  onClick={() => setConfirmRevoke(true)}
-                  disabled={!screen.hasActiveCredential}
-                >
-                  Revoke pairing
-                </button>
-              </div>
-            </section>
-          )}
-        </>
-      )}
-      <Dialog
-        open={confirmRevoke}
-        title={`Revoke pairing for ${screen.name}?`}
-        onClose={() => setConfirmRevoke(false)}
+                <FireTvAccessibilityAdbPanel screenId={id} />
+              </section>
+            )}
+
+            {manageSection === "maintenance" &&
+              canManageScreens(auth.status?.user) && (
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold">Maintenance</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Commands remain pending during brief disconnections and
+                    expire automatically.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <RheaButton
+                      variant="outline"
+                      onClick={() =>
+                        command.mutate({ type: "sync_now", payload: {} })
+                      }
+                    >
+                      Sync now
+                    </RheaButton>
+                    <RheaButton
+                      variant="outline"
+                      onClick={() =>
+                        command.mutate({ type: "reload_playback", payload: {} })
+                      }
+                    >
+                      Reload playback
+                    </RheaButton>
+                    <RheaButton
+                      variant="outline"
+                      onClick={() =>
+                        command.mutate({
+                          type: "identify_screen",
+                          payload: { durationSeconds: 30 },
+                        })
+                      }
+                    >
+                      Identify screen
+                    </RheaButton>
+                    <RheaButton
+                      variant="destructive"
+                      onClick={() =>
+                        requestScreenCommand({
+                          kind: "confirm",
+                          title: "Clear unprotected media?",
+                          description:
+                            "Tilecast will remove cached media that active or pending playback does not protect.",
+                          confirmLabel: "Clear media cache",
+                          destructive: true,
+                          commandType: "clear_media_cache",
+                          payload: {},
+                        })
+                      }
+                    >
+                      Clear media cache
+                    </RheaButton>
+                    <RheaButton
+                      variant="destructive"
+                      onClick={() =>
+                        requestScreenCommand({
+                          kind: "confirm",
+                          title: "Clear website data?",
+                          description:
+                            "This clears cookies, cache, DOM storage, and WebView state for this player.",
+                          confirmLabel: "Clear website data",
+                          destructive: true,
+                          commandType: "clear_website_data",
+                          payload: {},
+                        })
+                      }
+                    >
+                      Clear website data
+                    </RheaButton>
+                    <RheaButton
+                      variant="destructive"
+                      onClick={() => {
+                        const disabling = !assignment.data?.playbackDisabled;
+                        if (!disabling) {
+                          command.mutate({
+                            type: "enable_playback",
+                            payload: {},
+                          });
+                        } else {
+                          requestScreenCommand({
+                            kind: "confirm",
+                            title: "Disable ordinary playback?",
+                            description:
+                              "The player will remain paired and connected, but ordinary scheduled playback will stop.",
+                            confirmLabel: "Disable playback",
+                            destructive: true,
+                            commandType: "disable_playback",
+                            payload: {},
+                          });
+                        }
+                      }}
+                    >
+                      {assignment.data?.playbackDisabled
+                        ? "Enable playback"
+                        : "Disable playback"}
+                    </RheaButton>
+                  </div>
+                  {command.isSuccess && (
+                    <p className="text-sm text-muted-foreground">
+                      Command queued; this does not mean it has completed.
+                    </p>
+                  )}
+                  <div className="grid gap-2">
+                    {commands.data?.items?.map((c) => (
+                      <div
+                        key={c.id}
+                        className="space-y-0.5 rounded-lg border border-border px-3 py-2"
+                      >
+                        <p className="text-sm font-medium">
+                          {c.type?.replaceAll("_", " ") ?? "Unknown command"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {c.state} · {new Date(c.createdAt).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {c.resultCode?.replaceAll("_", " ") ??
+                            "No result yet"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            {manageSection === "maintenance" &&
+              !canManageScreens(auth.status?.user) && (
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold">Recent operations</h3>
+                  {commands.isLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-56" />
+                      <p className="text-sm text-muted-foreground">
+                        Loading operations…
+                      </p>
+                    </div>
+                  ) : (commands.data?.items?.length ?? 0) === 0 ? (
+                    <p>
+                      No maintenance commands have been sent to this screen. An
+                      Owner or Administrator can send them.
+                    </p>
+                  ) : (
+                    <div className="grid gap-2">
+                      {commands.data?.items?.map((c) => (
+                        <div
+                          key={c.id}
+                          className="space-y-0.5 rounded-lg border border-border px-3 py-2"
+                        >
+                          <p className="text-sm font-medium">
+                            {c.type?.replaceAll("_", " ") ?? "Unknown command"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {c.state} · {new Date(c.createdAt).toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {c.resultCode?.replaceAll("_", " ") ??
+                              "No result yet"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+            {manageSection === "device" && (
+              <>
+                <section className="grid gap-x-8 gap-y-6 border-y border-border py-4 md:grid-cols-2">
+                  <section
+                    className="space-y-3"
+                    aria-labelledby="device-facts-title"
+                  >
+                    <h3
+                      id="device-facts-title"
+                      className="text-sm font-semibold"
+                    >
+                      Device details
+                    </h3>
+                    <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                      <OverviewFact
+                        label="Hardware"
+                        value={
+                          `${screen.deviceManufacturer ?? ""} ${screen.deviceModel ?? ""}`.trim() ||
+                          "Not reported"
+                        }
+                      />
+                      <OverviewFact
+                        label="Platform"
+                        value={
+                          screen.platform === "linux"
+                            ? "Linux"
+                            : `${formatReportedStatus(screen.platform)} ${screen.androidVersion ?? ""}`.trim()
+                        }
+                      />
+                      <OverviewFact
+                        label="Player version"
+                        value={`${screen.playerVersion ?? "Not reported"}${screen.playerVersionCode ? ` (code ${screen.playerVersionCode})` : ""}`}
+                      />
+                      {isAndroidScreen(screen.platform) && (
+                        <>
+                          <OverviewFact
+                            label="Android SDK"
+                            value={screen.androidSdk ?? "Not reported"}
+                          />
+                          <OverviewFact
+                            label="Installer source"
+                            value={screen.installerSource ?? "Not reported"}
+                          />
+                          <OverviewFact
+                            label="Install permission"
+                            value={
+                              screen.installPermissionStatus?.replaceAll(
+                                "_",
+                                " ",
+                              ) ?? "Unknown"
+                            }
+                          />
+                        </>
+                      )}
+                      <OverviewFact
+                        label="Player update"
+                        value={`${screen.updateState?.replaceAll("_", " ") ?? "No active deployment"}${screen.updateExpectedBytes ? ` · ${Math.round(((screen.updateDownloadedBytes ?? 0) / screen.updateExpectedBytes) * 100)}%` : ""}${screen.updateError ? ` · ${screen.updateError}` : ""}`}
+                      />
+                      <OverviewFact
+                        label="Resolution"
+                        value={`${screen.screenWidth ?? "Not reported"} × ${screen.screenHeight ?? "Not reported"}`}
+                      />
+                      <OverviewFact
+                        label="Locale"
+                        value={screen.locale || "Not reported"}
+                      />
+                      <OverviewFact
+                        label="Timezone"
+                        value={screen.timezone || "Not reported"}
+                      />
+                    </dl>
+                  </section>
+                  <section
+                    className="space-y-3"
+                    aria-labelledby="connection-facts-title"
+                  >
+                    <h3
+                      id="connection-facts-title"
+                      className="text-sm font-semibold"
+                    >
+                      Connection
+                    </h3>
+                    <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                      <OverviewFact
+                        label="Status"
+                        value={<StatusLabel status={screen.status} />}
+                      />
+                      <OverviewFact
+                        label="Last contact"
+                        value={formatContact(screen.lastContactAt)}
+                      />
+                      <OverviewFact
+                        label="Network address"
+                        value={screen.lastKnownIp || "Not reported"}
+                      />
+                      <OverviewFact
+                        label="Credential"
+                        value={
+                          screen.hasActiveCredential ? "Active" : "Revoked"
+                        }
+                      />
+                    </dl>
+                  </section>
+                </section>
+                {canManageScreens(auth.status?.user) && (
+                  <section
+                    className="space-y-4 border-t border-border pt-4"
+                    aria-labelledby="player-access-title"
+                  >
+                    <header>
+                      <h3
+                        id="player-access-title"
+                        className="text-sm font-semibold"
+                      >
+                        Player access
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Control whether this player may operate and whether its
+                        credential remains valid.
+                      </p>
+                    </header>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {screen.enabled
+                            ? "Screen enabled"
+                            : "Screen disabled"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {screen.enabled
+                            ? "Disabling temporarily blocks operation and keeps the pairing."
+                            : "Enabling allows the paired player to reconnect."}
+                        </p>
+                      </div>
+                      <RheaButton
+                        variant="outline"
+                        onClick={() => stateMutation.mutate(!screen.enabled)}
+                        disabled={stateMutation.isPending}
+                      >
+                        {stateMutation.isPending
+                          ? "Saving…"
+                          : screen.enabled
+                            ? "Disable"
+                            : "Enable"}
+                      </RheaButton>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                      <div>
+                        <p className="text-sm font-medium">Revoke pairing</p>
+                        <p className="text-sm text-muted-foreground">
+                          Permanently invalidates the device credential. The
+                          player must pair again.
+                        </p>
+                      </div>
+                      <RheaButton
+                        variant="destructive"
+                        onClick={() => setConfirmRevoke(true)}
+                        disabled={!screen.hasActiveCredential}
+                      >
+                        Revoke pairing
+                      </RheaButton>
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+          </TabsContent>
+        )}
+
+        {tab === "settings" && (
+          <TabsContent value="settings" className="min-w-0 outline-none">
+            <PlayerPolicyEditor
+              target="screen"
+              id={id}
+              onDirtyChange={setPolicyDirty}
+            />
+          </TabsContent>
+        )}
+      </RheaTabs>
+      <RheaDialog
+        open={pendingDestination !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDestination(null);
+        }}
       >
-        <p>
-          The player will disconnect immediately and cannot reconnect without a
-          new pairing approval.
-        </p>
-        <div className="form-actions">
-          <Button variant="quiet" onClick={() => setConfirmRevoke(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            loading={revoke.isPending}
-            onClick={() => revoke.mutate()}
-          >
-            Revoke pairing
-          </Button>
-        </div>
-      </Dialog>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Discard unsaved screen settings?</DialogTitle>
+            <DialogDescription>
+              Your screen policy edits have not been saved. Discard them and
+              continue?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <RheaButton
+              variant="outline"
+              onClick={() => setPendingDestination(null)}
+            >
+              Keep editing
+            </RheaButton>
+            <RheaButton
+              variant="destructive"
+              onClick={() => {
+                if (pendingDestination) commitDestination(pendingDestination);
+              }}
+            >
+              Discard changes
+            </RheaButton>
+          </DialogFooter>
+        </DialogContent>
+      </RheaDialog>
+      <RheaAlertDialog open={confirmRevoke} onOpenChange={setConfirmRevoke}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Revoke pairing for {screen.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The player will disconnect immediately and cannot reconnect
+              without a new pairing approval.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={revoke.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={revoke.isPending}
+              onClick={() => revoke.mutate()}
+            >
+              Revoke pairing
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
+      <RheaAlertDialog
+        open={screenCommandAction?.kind === "confirm"}
+        onOpenChange={(open) => {
+          if (!open && screenCommandAction?.kind === "confirm") {
+            setScreenCommandAction(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {screenCommandAction?.kind === "confirm"
+                ? screenCommandAction.title
+                : "Confirm action"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {screenCommandAction?.kind === "confirm"
+                ? screenCommandAction.description
+                : "Review this action before continuing."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={command.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant={
+                screenCommandAction?.kind === "confirm" &&
+                screenCommandAction.destructive
+                  ? "destructive"
+                  : "default"
+              }
+              disabled={command.isPending}
+              onClick={confirmScreenCommand}
+            >
+              {screenCommandAction?.kind === "confirm"
+                ? screenCommandAction.confirmLabel
+                : "Continue"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
+      <RheaDialog
+        open={screenCommandAction?.kind === "input"}
+        onOpenChange={(open) => {
+          if (!open && screenCommandAction?.kind === "input") {
+            setScreenCommandAction(null);
+            setScreenCommandError("");
+          }
+        }}
+      >
+        <DialogContent>
+          {screenCommandAction?.kind === "input" && (
+            <form
+              className="space-y-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                confirmScreenCommand();
+              }}
+            >
+              <DialogHeader>
+                <DialogTitle>{screenCommandAction.title}</DialogTitle>
+                <DialogDescription>
+                  {screenCommandAction.description}
+                </DialogDescription>
+              </DialogHeader>
+              <label className="grid gap-2 text-sm font-medium">
+                <span>{screenCommandAction.input.label}</span>
+                <Input
+                  autoFocus
+                  aria-label={screenCommandAction.input.label}
+                  type={screenCommandAction.input.type}
+                  min={screenCommandAction.input.min}
+                  max={screenCommandAction.input.max}
+                  placeholder={screenCommandAction.input.placeholder}
+                  value={screenCommandInput}
+                  onChange={(event) => {
+                    setScreenCommandInput(event.target.value);
+                    setScreenCommandError("");
+                  }}
+                />
+              </label>
+              {screenCommandError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {screenCommandError}
+                </p>
+              )}
+              <DialogFooter>
+                <RheaButton
+                  variant="outline"
+                  type="button"
+                  onClick={() => setScreenCommandAction(null)}
+                >
+                  Cancel
+                </RheaButton>
+                <RheaButton type="submit" disabled={command.isPending}>
+                  {screenCommandAction.confirmLabel}
+                </RheaButton>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </RheaDialog>
     </div>
   );
 }
@@ -4096,16 +5007,29 @@ export function StatusLabel({ status }: { status: ScreenStatus }) {
     label: "Unknown",
     Icon: CircleAlert,
   };
-  // Every ScreenStatus has a matching tone group on the shared .status-chip, so no
-  // page-local status styling is needed.
-  const statusClass = statusContent[status] ? status : "unknown";
+  const variant =
+    status === "offline" || status === "stale"
+      ? "destructive"
+      : status === "recent"
+        ? "secondary"
+        : "outline";
   return (
-    <span className={`status-chip status-chip--${statusClass}`}>
-      <Icon size={13} aria-hidden="true" />
+    <Badge variant={variant} className="gap-1.5">
+      <Icon aria-hidden="true" />
       {label}
-    </span>
+    </Badge>
   );
 }
+
+function OverviewFact({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="break-words text-sm font-medium">{value}</dd>
+    </div>
+  );
+}
+
 function formatContact(value?: string) {
   if (!value) return "Never";
   const seconds = Math.max(

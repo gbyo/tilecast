@@ -12,7 +12,7 @@ import {
 } from "../auth/webauthn";
 import { FormField } from "../components/FormField";
 import { SecurityQr } from "../components/SecurityQr";
-import { Button, Panel, SectionHeader } from "../components/ui";
+import { Button, Panel, SectionHeader } from "../components/legacy-ui";
 import "./SecurityPage.css";
 
 export const securityKey = ["me", "security"] as const;

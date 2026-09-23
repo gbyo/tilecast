@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { MetricTile, type ResolvedTimeRange } from "../components/ui";
+import { MetricTile, type ResolvedTimeRange } from "../components/legacy-ui";
 import {
   activityParams,
   activityRequest,

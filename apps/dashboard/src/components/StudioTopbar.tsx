@@ -1,27 +1,19 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Command } from "cmdk";
 import {
-  Bell,
-  Blocks,
   CalendarClock,
-  ChevronDown,
   ChevronRight,
-  Database,
   FileSliders,
   Image,
   Layers3,
   ListVideo,
   Monitor,
   MonitorCheck,
-  Plus,
-  Search,
   Settings,
   Upload,
   UserRound,
 } from "lucide-react";
 import { useEffect, useState, type ComponentType } from "react";
 import {
-  Link,
   matchRoutes,
   useLocation,
   useNavigate,
@@ -29,17 +21,24 @@ import {
 } from "react-router";
 import { api } from "../api/client";
 import type { Screen, ScreenStatus, User } from "../api/types";
-import {
-  useNotifications,
-  type NotificationPriority,
-} from "../notifications/useNotifications";
+import { useNotifications } from "../notifications/useNotifications";
 import {
   studioRouteHandle,
   useStudioRoutes,
   type BreadcrumbResource,
 } from "../navigation/studioRoutes";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command";
+import { Kbd } from "./ui/kbd";
+import { SiteHeader } from "./studio/SiteHeader";
 import { UploadContentDialog } from "./content-picker/UploadContentDialog";
-import { Button, Dialog, IconButton, Popover } from "./ui";
 
 type CommandGroupName =
   | "Quick actions"
@@ -82,13 +81,6 @@ const statusLabels: Record<ScreenStatus, string> = {
   disabled: "Disabled",
   revoked: "Pairing revoked",
 };
-
-const notificationGroups: { priority: NotificationPriority; label: string }[] =
-  [
-    { priority: "critical", label: "Critical" },
-    { priority: "warning", label: "Needs attention" },
-    { priority: "info", label: "Info" },
-  ];
 
 const commandGroupOrder: CommandGroupName[] = [
   "Quick actions",
@@ -400,41 +392,12 @@ function useBreadcrumbs(routes: readonly RouteObject[], pathname: string) {
   });
 }
 
-function BreadcrumbTrail({ items }: { items: Breadcrumb[] }) {
-  return (
-    <nav className="topbar__breadcrumbs" aria-label="Breadcrumb">
-      <ol>
-        {items.map((item, index) => {
-          const current = index === items.length - 1;
-          return (
-            <li key={`${item.to}:${item.label}`}>
-              {index > 0 && (
-                <span className="topbar__breadcrumb-separator" aria-hidden>
-                  /
-                </span>
-              )}
-              {current ? (
-                <span aria-current="page">{item.label}</span>
-              ) : (
-                <Link to={item.to}>{item.label}</Link>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
-  );
-}
-
 function isModalTextInput(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
-  const textInput =
-    target.matches(
-      'input:not([type="button"]):not([type="submit"]), textarea',
-    ) || target.isContentEditable;
   return (
-    textInput &&
-    Boolean(target.closest('dialog, [role="dialog"], .modal, .drawer'))
+    target.matches(
+      'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]',
+    ) || target.isContentEditable
   );
 }
 
@@ -477,69 +440,72 @@ function CommandPalette({
   };
 
   return (
-    <Dialog
+    <CommandDialog
       open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
       title="Search Tilecast"
-      className="command-palette-dialog"
-      onClose={onClose}
+      description="Find a workspace, screen, or quick action."
+      className="w-[min(42rem,calc(100vw-2rem))]"
     >
       <Command
-        className="command-palette"
+        className="min-h-72 rounded-2xl p-1"
         label="Search Tilecast"
         loop
         shouldFilter={false}
       >
-        <label className="command-palette__input">
-          <Search size={18} aria-hidden="true" />
-          <Command.Input
-            autoFocus
-            value={query}
-            onValueChange={setQuery}
-            placeholder="Search screens, media, playlists…"
-            aria-label="Search Tilecast"
-          />
-          <kbd>{platformShortcut()}</kbd>
-        </label>
-        <Command.List
-          className="command-palette__results"
-          label="Search results"
-        >
-          <Command.Empty className="command-palette__empty">
+        <CommandInput
+          autoFocus
+          value={query}
+          onValueChange={setQuery}
+          placeholder="Search screens, media, playlists…"
+          aria-label="Search Tilecast"
+        />
+        <CommandList label="Search results" className="max-h-[min(65vh,28rem)]">
+          <CommandEmpty>
             {query.trim()
               ? `No results for “${query.trim()}”.`
               : "No destinations available."}
-          </Command.Empty>
+          </CommandEmpty>
           {groups.map((group) => (
-            <Command.Group
-              className="command-palette__group"
-              heading={group.name}
-              key={group.name}
-            >
+            <CommandGroup heading={group.name} key={group.name}>
               {group.results.map((result) => (
-                <Command.Item
-                  className="command-palette__result"
+                <CommandItem
                   key={result.id}
                   value={result.id}
                   onSelect={() => select(result)}
+                  className="min-h-11"
                 >
-                  <result.Icon size={18} aria-hidden="true" />
-                  <span>
-                    <strong>{result.label}</strong>
-                    <small>{result.description}</small>
+                  <result.Icon aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">
+                      {result.label}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {result.description}
+                    </span>
                   </span>
-                  <ChevronRight size={16} aria-hidden="true" />
-                </Command.Item>
+                  <ChevronRight aria-hidden="true" />
+                </CommandItem>
               ))}
-            </Command.Group>
+            </CommandGroup>
           ))}
-        </Command.List>
-        <footer className="command-palette__footer">
-          <span>↑↓ Move</span>
-          <span>Enter Open</span>
-          <span>Esc Close</span>
-        </footer>
+        </CommandList>
+        <div className="flex items-center gap-3 border-t px-3 py-2 text-xs text-muted-foreground">
+          <span>
+            <Kbd>↑</Kbd> <Kbd>↓</Kbd> move
+          </span>
+          <span>
+            <Kbd>Enter</Kbd> open
+          </span>
+          <span>
+            <Kbd>Esc</Kbd> close
+          </span>
+          <span className="ml-auto">{platformShortcut()}</span>
+        </div>
       </Command>
-    </Dialog>
+    </CommandDialog>
   );
 }
 
@@ -586,155 +552,12 @@ export function StudioTopbar({
   }, [location.pathname]);
 
   return (
-    <header className="topbar">
-      <div className="topbar__left">
-        {/* A single crumb is just the page title repeated above the page's own <h1>,
-            so the trail only appears once it actually describes a path. */}
-        {breadcrumbs.length > 1 && <BreadcrumbTrail items={breadcrumbs} />}
-      </div>
-      <button
-        className="topbar__search"
-        type="button"
-        aria-label="Search Tilecast"
-        aria-haspopup="dialog"
-        onClick={() => setPaletteOpen(true)}
-      >
-        <Search size={17} aria-hidden="true" />
-        {/* Deliberately not "Search screens…": pages carry their own list filter,
-            and two controls promising to search screens read as competitors. */}
-        <span className="topbar__search-placeholder">Search Tilecast…</span>
-        <kbd>{platformShortcut()}</kbd>
-      </button>
-      <div className="topbar__utilities">
-        {/* Not a menu: the panel carries a heading, a count, and labelled
-            groups, none of which an ARIA menu may contain — a screen reader
-            drops them and announces a bare item count. It is a labelled surface
-            holding grouped lists of links. */}
-        <Popover
-          label="Notifications"
-          className="topbar__notifications"
-          panelClassName="topbar__alerts"
-          width="22rem"
-          align="end"
-          trigger={(props) => (
-            <IconButton label="Notifications" {...props}>
-              <Bell size={18} aria-hidden="true" />
-              {notifications.count > 0 && (
-                <span
-                  className={`topbar__notification-badge topbar__notification-badge--${notifications.topPriority}`}
-                  aria-hidden="true"
-                >
-                  {notifications.count > 99 ? "99+" : notifications.count}
-                </span>
-              )}
-            </IconButton>
-          )}
-        >
-          <header>
-            <strong>Notifications</strong>
-            <span>{notifications.count || "No"} active</span>
-          </header>
-          {notifications.count === 0 ? (
-            <p>You&rsquo;re all caught up.</p>
-          ) : (
-            <div className="topbar__alert-groups">
-              {notificationGroups.map((group) => {
-                const groupItems = notifications.items.filter(
-                  (item) => item.priority === group.priority,
-                );
-                if (groupItems.length === 0) return null;
-                return (
-                  <div className="topbar__alert-group" key={group.priority}>
-                    <p
-                      className="topbar__alert-group-label"
-                      id={`topbar-alert-group-${group.priority}`}
-                    >
-                      {group.label}
-                      <span>{groupItems.length}</span>
-                    </p>
-                    <ul
-                      className="topbar__alert-list"
-                      aria-labelledby={`topbar-alert-group-${group.priority}`}
-                    >
-                      {groupItems.map((item) => (
-                        <li key={item.id}>
-                          <Link to={item.to}>
-                            <span
-                              className={`topbar__alert-marker topbar__alert-marker--${item.priority}`}
-                              aria-hidden
-                            />
-                            <span>
-                              <strong>{item.title}</strong>
-                              <small>{item.detail}</small>
-                            </span>
-                            <ChevronRight size={15} aria-hidden="true" />
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Popover>
-        <span className="topbar__divider" aria-hidden="true" />
-        {canPair && (
-          <Link
-            className="button button--secondary topbar__pair"
-            to="/screens/pair"
-            aria-label="Pair screen"
-          >
-            <MonitorCheck size={16} aria-hidden="true" />
-            <span>Pair screen</span>
-          </Link>
-        )}
-        {canCreate && (
-          <Popover
-            label="Create"
-            mode="menu"
-            className="topbar__create"
-            panelClassName="topbar__create-menu"
-            align="end"
-            trigger={(props) => (
-              <Button variant="primary" {...props}>
-                <Plus size={16} aria-hidden="true" /> Create
-                <ChevronDown size={15} aria-hidden="true" />
-              </Button>
-            )}
-          >
-            {(close) => (
-              <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    close();
-                    setUploadOpen(true);
-                  }}
-                >
-                  <Upload size={16} aria-hidden="true" /> Upload media
-                </button>
-                <Link role="menuitem" to="/widgets/new" onClick={close}>
-                  <Blocks size={16} aria-hidden="true" /> Create widget
-                </Link>
-                <Link role="menuitem" to="/data-sources/new" onClick={close}>
-                  <Database size={16} aria-hidden="true" /> Create data source
-                </Link>
-                <Link role="menuitem" to="/playlists?create=1" onClick={close}>
-                  <ListVideo size={16} aria-hidden="true" /> Create playlist
-                </Link>
-                <Link role="menuitem" to="/layouts?create=1" onClick={close}>
-                  <Layers3 size={16} aria-hidden="true" /> Create layout
-                </Link>
-                <Link role="menuitem" to="/schedules/new" onClick={close}>
-                  <CalendarClock size={16} aria-hidden="true" /> Create schedule
-                </Link>
-              </>
-            )}
-          </Popover>
-        )}
-      </div>
+    <>
+      <SiteHeader
+        breadcrumbs={breadcrumbs}
+        notifications={notifications}
+        onSearch={() => setPaletteOpen(true)}
+      />
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
@@ -754,6 +577,6 @@ export function StudioTopbar({
           onClose={() => setUploadOpen(false)}
         />
       )}
-    </header>
+    </>
   );
 }

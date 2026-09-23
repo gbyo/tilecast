@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api } from "../api/client";
+import { Button } from "./ui/button";
 
 const ACCESSIBILITY_COMPONENT =
   "org.tilecast.player/org.tilecast.player.reliability.TilecastAccessibilityService";
@@ -66,20 +67,22 @@ export function FireTvAccessibilityAdbPanel({
   const commandPanelId = `fire-tv-accessibility-commands-${screenId}`;
   return (
     <section
-      className="detail-card"
+      className="space-y-3 border-t border-border pt-4"
       aria-labelledby="fire-tv-accessibility-title"
     >
-      <h3 id="fire-tv-accessibility-title">
-        Optional Fire TV Accessibility Control
-      </h3>
-      <p>
-        Fire OS does not expose Tilecast in its normal Accessibility menu.
-        Commissioning can continue without this feature, or an administrator can
-        enable Tilecast’s accessibility service manually through ADB.
-      </p>
-      <button
+      <div>
+        <h3 id="fire-tv-accessibility-title" className="text-sm font-medium">
+          Optional Fire TV Accessibility Control
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Fire OS does not expose Tilecast in its normal Accessibility menu.
+          Commissioning can continue without this feature, or an administrator
+          can enable Tilecast’s accessibility service manually through ADB.
+        </p>
+      </div>
+      <Button
         type="button"
-        className="button button--quiet"
+        variant="ghost"
         aria-expanded={showCommand}
         aria-controls={commandPanelId}
         onClick={() => {
@@ -88,31 +91,37 @@ export function FireTvAccessibilityAdbPanel({
         }}
       >
         {showCommand ? "Hide ADB commands" : "Show ADB commands"}
-      </button>
+      </Button>
       {showCommand && (
-        <div id={commandPanelId}>
-          <p>
+        <div id={commandPanelId} className="space-y-3">
+          <p className="text-sm text-muted-foreground">
             Enable ADB debugging on the Fire TV first. These commands use the
             player’s last reported address when available.
           </p>
-          <pre>
+          <pre className="overflow-x-auto rounded-xl border border-border bg-muted p-3 text-xs">
             <code>{commands.combined}</code>
           </pre>
-          <button
-            type="button"
-            className="button button--quiet"
-            onClick={() => void copyCommands()}
-          >
-            {copyState === "copied" ? "Copied" : "Copy commands"}
-          </button>
-          <span role="status" aria-live="polite">
-            {copyState === "error"
-              ? " Clipboard access failed. Select and copy the commands manually."
-              : copyState === "copied"
-                ? " Commands copied."
-                : ""}
-          </span>
-          <p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void copyCommands()}
+            >
+              {copyState === "copied" ? "Copied" : "Copy commands"}
+            </Button>
+            <span
+              role="status"
+              aria-live="polite"
+              className="text-sm text-muted-foreground"
+            >
+              {copyState === "error"
+                ? "Clipboard access failed. Select and copy the commands manually."
+                : copyState === "copied"
+                  ? "Commands copied."
+                  : ""}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">
             Run both commands, reopen Tilecast Player, and choose Verify again.
             The enable command preserves other accessibility services.
           </p>

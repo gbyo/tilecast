@@ -1,4 +1,4 @@
-import { Select } from "../components/ui";
+import { Select } from "../components/legacy-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";

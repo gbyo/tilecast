@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SettingDefinition } from "../api/types";
 import { SettingControl } from "./SettingControl";
@@ -60,9 +61,10 @@ describe("settings presentation", () => {
     expect(change).toHaveBeenCalledWith(true);
   });
 
-  it("keeps enum storage values while showing human labels", () => {
+  it("keeps enum storage values while showing human labels", async () => {
     expect(enumLabel("managed_kiosk")).toBe("Managed Kiosk");
     const change = vi.fn();
+    const user = userEvent.setup();
     render(
       <SettingControl
         definition={definition({
@@ -76,9 +78,9 @@ describe("settings presentation", () => {
     );
     const control = screen.getByRole("combobox", { name: "Cookie policy" });
     expect(control).toHaveTextContent("First-party cookies");
-    fireEvent.click(control);
-    fireEvent.click(
-      screen.getByRole("option", {
+    await user.click(control);
+    await user.click(
+      await screen.findByRole("option", {
         name: "First- and third-party cookies",
       }),
     );
@@ -158,7 +160,7 @@ describe("settings presentation", () => {
     expect(change).toHaveBeenCalledWith(600);
   });
 
-  it("normalizes minute-precision local times and uses canonical timezone options", () => {
+  it("normalizes minute-precision local times and uses canonical timezone options", async () => {
     const timeChange = vi.fn();
     render(
       <SettingControl
@@ -194,15 +196,14 @@ describe("settings presentation", () => {
       name: "Default timezone",
     });
     expect(timezone).toHaveTextContent("Eastern Time");
-    expect(document.querySelector(".signal-select__native")).toHaveValue(
-      "America/New_York",
-    );
 
-    fireEvent.click(timezone);
-    const timezoneListbox = screen.getByRole("listbox");
-    fireEvent.scroll(timezoneListbox);
-    expect(screen.getByRole("listbox")).toBeInTheDocument();
-    fireEvent.scroll(window);
+    const user = userEvent.setup();
+    await user.click(timezone);
+    expect(await screen.findByRole("listbox")).toBeInTheDocument();
+    await user.click(
+      await screen.findByRole("option", { name: "Pacific Time" }),
+    );
+    expect(timezoneChange).toHaveBeenCalledWith("America/Los_Angeles");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 
     expect(

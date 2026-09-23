@@ -1,5 +1,5 @@
 import { useAuth } from "../auth/AuthProvider";
-import { PageHeader, Panel } from "../components/ui";
+import { PageHeader, Panel } from "../components/legacy-ui";
 import { PreferencesPage } from "./PreferencesPage";
 import { SecurityPage } from "./SecurityPage";
 import type { User } from "../api/types";

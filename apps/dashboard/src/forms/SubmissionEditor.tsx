@@ -11,7 +11,7 @@ import type {
   FormSchema,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
-import { Button, Notice } from "../components/ui";
+import { Button, Notice } from "../components/legacy-ui";
 import {
   FormRenderer,
   fieldControlId,

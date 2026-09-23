@@ -355,6 +355,37 @@ func TestUptimeExcludesDisabledRevokedAndRemovedScreens(t *testing.T) {
 	})
 }
 
+func TestUptimeUsesThirtyDailyBuckets(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		ctx := context.Background()
+		now := time.Now().UTC()
+		pairUptimeScreen(t, env.pool, env.screenID, false)
+		if _, err := env.pool.Exec(ctx, `UPDATE screens SET last_heartbeat_at=$2 WHERE id=$1`, env.screenID, now); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := env.pool.Exec(ctx, `INSERT INTO screen_state_intervals(id,screen_id,state,started_at) VALUES($1,$2,'healthy',$3)`, uuid.New(), env.screenID, now.Add(-31*24*time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/uptime?window=30d", nil)
+		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		response := httptest.NewRecorder()
+		env.server.activityUptime(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("unexpected status %d: %s", response.Code, response.Body.String())
+		}
+		var payload struct {
+			Data uptimeReport `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Data.Window != "30d" || len(payload.Data.Buckets) != 30 {
+			t.Fatalf("expected thirty daily buckets, got window %q with %d", payload.Data.Window, len(payload.Data.Buckets))
+		}
+	})
+}
+
 func TestUptimeRejectsUnsupportedWindow(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/uptime?window=90d", nil)
 	response := httptest.NewRecorder()

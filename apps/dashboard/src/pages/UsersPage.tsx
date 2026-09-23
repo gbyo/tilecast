@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { User } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Dialog, Select } from "../components/ui";
+import { Dialog, Select } from "../components/legacy-ui";
 
 type UserRole = User["role"];
 type UserInput = {

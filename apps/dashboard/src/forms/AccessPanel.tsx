@@ -17,7 +17,7 @@ import {
   Spinner,
   StatusBadge,
   TableContainer,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { expandCapabilities } from "./capabilities";
 
 // Grantable capabilities in lattice order (broadest first), each with a plain-language implication.

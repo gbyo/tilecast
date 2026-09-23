@@ -17,7 +17,7 @@ import {
   Select,
   StatusBadge,
   TableContainer,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { slugifyKey } from "./formKeys";
 
 const CAPABILITY_OPTIONS: { value: FormCapability; label: string }[] = [

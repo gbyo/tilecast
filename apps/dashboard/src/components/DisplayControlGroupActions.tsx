@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { DisplayControlGroupPreview } from "../api/types";
-import { Button, Panel, SectionHeader } from "./ui";
+import { Button, Panel, SectionHeader } from "./legacy-ui";
 import "./DisplayControlGroupActions.css";
 
 type GroupDisplayCommand = DisplayControlGroupPreview["commandType"];

@@ -5,7 +5,7 @@ import {
   PageHeader,
   Select,
   ViewToggle,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useState } from "react";

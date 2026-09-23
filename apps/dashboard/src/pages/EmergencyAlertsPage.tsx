@@ -8,7 +8,7 @@ import { z } from "zod";
 import { api, ApiError } from "../api/client";
 import type { NWSAlertRule, NWSAlertRuleInput, Playlist } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Notice, PageHeader } from "../components/ui";
+import { Notice, PageHeader } from "../components/legacy-ui";
 
 const emptyRule: NWSAlertRuleInput = {
   name: "",

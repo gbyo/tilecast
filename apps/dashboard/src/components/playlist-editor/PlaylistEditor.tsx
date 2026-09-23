@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PanelsTopLeft } from "lucide-react";
 import { useEffect, useState, type DragEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { Button, Dialog, Drawer, Notice } from "../ui";
+import { Button, Dialog, Drawer, Notice } from "../legacy-ui";
 import type {
   Asset,
   Playlist,

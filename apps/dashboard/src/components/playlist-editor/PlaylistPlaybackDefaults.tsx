@@ -1,6 +1,6 @@
 import { Info, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button, Field, Select } from "../ui";
+import { Button, Field, Select } from "../legacy-ui";
 import type { PlaylistItem } from "../../api/types";
 import {
   type ImageDurationSummary,

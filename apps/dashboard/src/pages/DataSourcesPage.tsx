@@ -8,7 +8,7 @@ import {
   ViewToggle,
   useContextMenu,
   type ContextMenuItem,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, EllipsisVertical, SquarePen, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";

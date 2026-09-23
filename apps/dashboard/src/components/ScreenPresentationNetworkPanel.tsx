@@ -3,7 +3,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Wifi, WifiOff } from "lucide-react";
 import { api } from "../api/client";
 import type { PresentationNetworkReadiness, Screen } from "../api/types";
-import { Button, Field, Select } from "./ui";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Skeleton } from "./ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 function statusLabel(status: PresentationNetworkReadiness["status"]) {
   switch (status) {
@@ -32,13 +42,6 @@ function statusLabel(status: PresentationNetworkReadiness["status"]) {
     default:
       return "Presentation Network not applicable";
   }
-}
-
-function statusTone(status: PresentationNetworkReadiness["status"]) {
-  if (status === "ready" || status === "connected") return "online";
-  if (status === "failed" || status === "unsupported") return "offline";
-  if (status === "unassigned") return "unknown";
-  return "recent";
 }
 
 export function ScreenPresentationNetworkPanel({
@@ -118,39 +121,56 @@ export function ScreenPresentationNetworkPanel({
   const disabled = !canManage || assignment.isPending;
   return (
     <section
-      className="readiness-panel screen-presentation-network-panel"
+      className="min-w-0 space-y-4 rounded-xl border border-border border-l-4 border-l-primary bg-muted/20 p-4"
       aria-labelledby="presentation-network-readiness-heading"
     >
-      <div className="readiness-panel__heading">
-        <div>
-          <h4 id="presentation-network-readiness-heading">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
+        <div className="min-w-0 space-y-1">
+          <h4
+            id="presentation-network-readiness-heading"
+            className="text-sm font-semibold"
+          >
             Presentation Network
           </h4>
-          <p>
+          <p className="text-sm text-muted-foreground">
             Temporary Wi-Fi is used only by this Linux player when it is the
             AirPlay gateway. Group followers remain on Ethernet.
           </p>
         </div>
-        <span
-          className={`status-badge status-badge--${statusTone(data?.status ?? "reporting_pending")}`}
+        <Badge
+          variant={
+            data?.status === "failed" || data?.status === "unsupported"
+              ? "destructive"
+              : data?.status === "ready" || data?.status === "connected"
+                ? "outline"
+                : "secondary"
+          }
         >
           {statusLabel(data?.status ?? "reporting_pending")}
-        </span>
+        </Badge>
       </div>
       {readiness.isLoading ? (
-        <div className="table-loading">
-          Loading Presentation Network status…
+        <div
+          className="space-y-2"
+          aria-label="Loading Presentation Network status"
+        >
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
         </div>
       ) : readiness.error ? (
-        <div className="notice notice--error" role="alert">
-          Could not load Presentation Network status. {readiness.error.message}
-        </div>
+        <Alert variant="destructive">
+          <WifiOff aria-hidden="true" />
+          <AlertTitle>Could not load Presentation Network status</AlertTitle>
+          <AlertDescription>{readiness.error.message}</AlertDescription>
+        </Alert>
       ) : (
         <>
-          <dl className="detail-list">
+          <dl className="grid gap-3 sm:grid-cols-2">
             <div>
-              <dt>Assigned network</dt>
-              <dd>
+              <dt className="text-xs text-muted-foreground">
+                Assigned network
+              </dt>
+              <dd className="mt-1 break-words text-sm">
                 {data?.presentationNetworkName ?? "None"}
                 {assignedNetwork && !assignedNetwork.credentialSet
                   ? " · credential missing"
@@ -158,12 +178,14 @@ export function ScreenPresentationNetworkPanel({
               </dd>
             </div>
             <div>
-              <dt>Player status</dt>
-              <dd>{data?.detail ?? "Waiting for player status."}</dd>
+              <dt className="text-xs text-muted-foreground">Player status</dt>
+              <dd className="mt-1 break-words text-sm">
+                {data?.detail ?? "Waiting for player status."}
+              </dd>
             </div>
             <div>
-              <dt>Wi-Fi adapter</dt>
-              <dd>
+              <dt className="text-xs text-muted-foreground">Wi-Fi adapter</dt>
+              <dd className="mt-1 text-sm">
                 {data?.wifiAdapterPresent == null
                   ? "Not reported"
                   : data.wifiAdapterPresent
@@ -172,8 +194,8 @@ export function ScreenPresentationNetworkPanel({
               </dd>
             </div>
             <div>
-              <dt>Ethernet IPv4</dt>
-              <dd>
+              <dt className="text-xs text-muted-foreground">Ethernet IPv4</dt>
+              <dd className="mt-1 break-words text-sm">
                 {data?.wiredIpv4
                   ? `${data.wiredIpv4}${data.wiredInterfaceAvailable === false ? " · interface unavailable" : ""}`
                   : data?.wiredInterfaceAvailable === false
@@ -183,80 +205,101 @@ export function ScreenPresentationNetworkPanel({
             </div>
           </dl>
           {data?.limitation && (
-            <p className="field__hint">
-              Capability limitation: {data.limitation}
-            </p>
+            <Alert>
+              <AlertDescription>
+                Capability limitation: {data.limitation}
+              </AlertDescription>
+            </Alert>
           )}
         </>
       )}
       {canManage && (
-        <div className="screen-presentation-network-panel__controls">
-          <Field
-            label="Assigned Presentation Network"
-            description="Assignment is durable; the player joins Wi-Fi only for an AirPlay gateway session."
-          >
+        <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+            <span>Assigned Presentation Network</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              Assignment is durable; the player joins Wi-Fi only for an AirPlay
+              gateway session.
+            </span>
             <Select
-              value={selected}
-              disabled={networks.isLoading || assignment.isPending}
-              onChange={(event) => setSelected(event.target.value)}
+              value={selected || "__unassigned__"}
+              onValueChange={(value) =>
+                setSelected(value === "__unassigned__" ? "" : (value ?? ""))
+              }
             >
-              <option value="">No Presentation Network</option>
-              {(networks.data?.items ?? []).map((network) => (
-                <option key={network.id} value={network.id}>
-                  {network.name} · {network.ssid}
-                </option>
-              ))}
+              <SelectTrigger
+                className="w-full"
+                aria-label="Assigned Presentation Network"
+                disabled={networks.isLoading || assignment.isPending}
+              >
+                <SelectValue placeholder="No Presentation Network" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__unassigned__">
+                  No Presentation Network
+                </SelectItem>
+                {(networks.data?.items ?? []).map((network) => (
+                  <SelectItem key={network.id} value={network.id}>
+                    {network.name} · {network.ssid}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-          </Field>
-          <div className="screen-presentation-network-panel__actions">
+          </label>
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             <Button
-              variant="primary"
+              variant="default"
               disabled={
                 disabled || selected === (data?.presentationNetworkId ?? "")
               }
-              loading={assignment.isPending}
               onClick={() => {
                 setNotice(undefined);
                 assignment.mutate();
               }}
             >
-              Save assignment
+              {assignment.isPending ? "Saving…" : "Save assignment"}
             </Button>
             {data?.presentationNetworkId && (
               <Button
-                compact
+                variant="outline"
+                size="sm"
                 disabled={test.isPending || data.status === "connected"}
-                loading={test.isPending}
                 onClick={() => {
                   setNotice(undefined);
                   test.mutate();
                 }}
               >
-                Test connection
+                {test.isPending ? "Testing…" : "Test connection"}
               </Button>
             )}
           </div>
         </div>
       )}
-      {notice && <div className="notice notice--info">{notice}</div>}
+      {notice && (
+        <Alert>
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      )}
       {(assignment.error || test.error) && (
-        <div className="notice notice--error" role="alert">
-          {(assignment.error ?? test.error)?.message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {(assignment.error ?? test.error)?.message}
+          </AlertDescription>
+        </Alert>
       )}
       {!canManage && (
-        <p className="field__hint">
+        <p className="text-sm text-muted-foreground">
           An Owner or Administrator can change this assignment.
         </p>
       )}
       {data?.status === "unassigned" && (
-        <p className="field__hint">
+        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <WifiOff size={14} aria-hidden="true" /> AirPlay remains Ethernet-only
           until a network is assigned.
         </p>
       )}
       {(data?.status === "ready" || data?.status === "connected") && (
-        <p className="field__hint">
+        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Wifi size={14} aria-hidden="true" /> Ethernet remains the default
           Tilecast route.
         </p>
