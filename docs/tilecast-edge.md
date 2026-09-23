@@ -1712,47 +1712,63 @@ The server may keep a global internal audit/outbox order, but players do not con
 
 Each externally consumed stream has its own cursor/digest chain, retention floor and snapshot checkpoint.
 
-### 15.2 Trust coordinates
+### 15.2 Stream history coordinates
 
-Every authority-signed stream/current-state document identifies:
+Security and ordinary streams deliberately use different history coordinates.
+
+**Security stream**
+
+```text
+installationId
+trustRealmId
+securityLineageId
+streamId = security/<installation-id>
+sequence = securityGeneration
+authorityEpoch
+```
+
+The security stream has **no `stateIncarnationId`**.
+
+**Policy/screen streams**
 
 ```text
 installationId
 trustRealmId
 stateIncarnationId
 securityLineageId
-authorityEpoch
+securityGenerationAtIssue
 streamId
+sequence
+authorityEpoch
 ```
 
-Security documents additionally carry `securityGeneration`.
+`securityGenerationAtIssue` identifies the accepted authority/keyring state under which the ordinary document was signed.
 
-A peer cannot change trust realm or state incarnation. A state-incarnation transition comes only through the direct authenticated server recovery path from §12.
+A peer cannot change trust realm or ordinary state incarnation. Ordinary incarnation transition comes only through the authenticated recovery re-anchor.
 
-### 15.3 Materialized Edge projection
+### 15.3 Materialized Edge projection and atomic mutation sets
 
-Do not build a recovery snapshot directly from arbitrary authoritative tables while asynchronous Edge object compilation is pending.
+Do not build a recovery snapshot directly from mutable authoritative tables while async Edge compilation is pending.
 
-Maintain a materialized Edge projection whose state advances **only** when the corresponding Edge representation is complete and durable.
+Maintain a materialized Edge projection that advances only when the exact Edge representation is durable.
 
-Conceptual server tables:
+Conceptual server model:
 
 ```text
 edge_change_outbox
   id
-  state_incarnation_id
   stream_id
+  history_kind            # security_lineage | state_incarnation
+  history_id              # securityLineageId or stateIncarnationId
+  change_set_id
+  mutation_index
   type
-  target_kind
-  target_id
   subject_kind
   subject_id
   subject_revision
   tombstone
   object_hash
   payload
-  created_at
-  expires_at
   object_ready_at
   projected_at
   attempt_count
@@ -1761,27 +1777,30 @@ edge_change_outbox
   superseded_at
 
 edge_stream_state
-  state_incarnation_id
   stream_id
+  history_kind
+  history_id
   last_sequence
   head_digest
+  PRIMARY KEY (stream_id, history_kind, history_id)
 
 edge_stream_changes
-  state_incarnation_id
   stream_id
+  history_kind
+  history_id
   sequence
   previous_sequence
   previous_digest
   stream_digest
-  outbox_id
-  subject_revision
+  change_set_id
   signed_envelope
   created_at
-  PRIMARY KEY (state_incarnation_id, stream_id, sequence)
+  PRIMARY KEY (stream_id, history_kind, history_id, sequence)
 
 edge_projection_state
-  state_incarnation_id
   stream_id
+  history_kind
+  history_id
   subject_kind
   subject_id
   subject_revision
@@ -1789,61 +1808,80 @@ edge_projection_state
   tombstone
   object_hash
   projected_payload
-  PRIMARY KEY (state_incarnation_id, stream_id, subject_kind, subject_id)
+  PRIMARY KEY (stream_id, history_kind, history_id, subject_kind, subject_id)
 ```
 
-The authoritative domain transaction inserts the outbox row and pins any immutable source revision needed later.
+For the security stream, `last_sequence == securityGeneration`.
 
-If an object is required, a compiler builds the exact captured revision and marks the row object-ready.
+#### Same-stream atomicity
 
-The serialized stream projector then performs, in one transaction:
+One authoritative DB transaction may change several Edge-visible subjects.
 
-1. lock `edge_stream_state` for that `streamId`;
-2. assign the next stream sequence;
-3. construct/sign the stream envelope;
-4. insert `edge_stream_changes`;
-5. update `edge_projection_state` to the exact subject revision/tombstone/object;
-6. advance stream sequence/head digest;
-7. mark the outbox row projected;
-8. release the source-publication pin when no other pending work needs it.
+Capture those mutations with one `changeSetId`. The projector does not publish a partial change set.
 
-A recovery snapshot reads `edge_projection_state` plus the exact `edge_stream_state` checkpoint from one transaction. It therefore cannot include an authoritative mutation whose Edge object/feed representation has not completed yet. Such a mutation appears later through the stream.
+Once every required object for the change set is durable, one signed stream record contains a deterministic ordered `mutations[]` array and updates every affected projection row plus the stream head in one transaction.
 
-Failed compiles/projector work has bounded retries, diagnostics and supersession. A permanently failing obsolete revision may be superseded by a newer authoritative revision without pinning source state forever; failures that still block current state raise an operator incident.
+A node applies that record atomically to its local projection.
+
+#### Cross-stream causality
+
+V1 does not pretend two independent streams can be atomically visible at every partitioned node.
+
+When screen state depends on policy state, the screen mutation includes an explicit dependency coordinate such as:
+
+```text
+requires:
+  policyStreamSequence
+  policyStreamDigest
+  requiredResourceRevision(s)
+```
+
+The node does not activate the dependent screen state until those dependencies are satisfied.
+
+If a product invariant truly requires atomic visibility, place the coupled subjects in one stream/change set instead of relying on cross-stream timing.
+
+#### Compilation/retry
+
+The authoritative transaction captures exact source revisions and pins them.
+
+Object compilation builds those captured revisions. Failed obsolete work may be superseded by a newer change set; current-state-blocking failures raise an incident.
+
+Source pins are released only after projection or explicit safe supersession.
 
 ### 15.4 Exact stream digest/signature construction
 
-Avoid circular hash/signature definitions.
+For each record define `core` as the complete logical record excluding `streamDigest` and `signature`.
 
-For each stream record define **core** as the complete logical record except `streamDigest` and `signature`.
-
-Core includes at least:
+Security core includes:
 
 ```text
 schema
 installationId
 trustRealmId
-stateIncarnationId
 securityLineageId
 authorityEpoch
 streamId
-sequence
+sequence/securityGeneration
 previousSequence
 previousDigest
-type
-target
-subject
-object/payload digest
+mutations
 issuedAt
 expiresAt
 ```
 
+Policy/screen core additionally includes:
+
+```text
+stateIncarnationId
+securityGenerationAtIssue
+```
+
 Protocol:
 
-1. Validate the object against its closed schema and reject duplicate JSON keys/malformed UTF-8.
-2. `coreBytes = JCS(core)`.
-3. Decode `previousDigest` to 32 bytes, or use 32 zero bytes for the genesis record.
-4. Compute:
+1. validate against the closed schema; reject duplicate keys/malformed UTF-8;
+2. `coreBytes = JCS(core)`;
+3. decode previous digest, or use 32 zero bytes for genesis;
+4. compute:
 
 ```text
 streamDigest =
@@ -1854,27 +1892,94 @@ streamDigest =
   )
 ```
 
-5. Create `signedRecord = core + {streamDigest}`.
-6. `recordBytes = JCS(signedRecord)`.
-7. Compute Ed25519 signature over:
+5. create `signedRecord = core + {streamDigest}`;
+6. `recordBytes = JCS(signedRecord)`;
+7. sign:
 
 ```text
-"TilecastEdge/stream-record/v1\0" || recordBytes
+Ed25519(
+  authorityKey,
+  "TilecastEdge/stream-record/v1\0" || recordBytes
+)
 ```
 
-8. Attach `signature`.
+8. attach Base64url-no-padding signature.
 
-`streamDigest` is Base64url without padding in JSON. The signature is Base64url without padding.
+The first record uses null previous sequence/digest; later records must match exactly.
 
-The first record has `previousSequence = null` and `previousDigest = null`. Later records require exact previous sequence/digest equality.
+### 15.5 Normative digest constructions
 
-This definition has one unambiguous preimage and no self-reference.
+Every digest used for equivocation/recovery has one canonical construction.
 
-### 15.5 Cryptographic domain separation
+#### Subject state digest
 
-Never sign bare canonical JSON with one shared prefix across message kinds.
+```text
+stateDigest =
+  SHA-256(
+    "TilecastEdge/state/v1\0" ||
+    JCS(canonicalSubjectState)
+  )
+```
 
-Normative signing domains include at least:
+`canonicalSubjectState` excludes signatures, transport metadata and transient timestamps not part of semantic state.
+
+#### Projection digest
+
+Build a list of projection entries:
+
+```text
+{subjectKind, subjectId, revision, stateDigest, tombstone, objectHash/null}
+```
+
+Sort lexicographically by `(subjectKind, subjectId)`.
+
+```text
+projectionDigest =
+  SHA-256(
+    "TilecastEdge/projection/v1\0" ||
+    JCS(sortedEntries)
+  )
+```
+
+#### Security-state digest
+
+```text
+securityStateDigest =
+  SHA-256(
+    "TilecastEdge/security-state-digest/v1\0" ||
+    JCS(canonicalSecuritySnapshotWithoutDigestOrSignature)
+  )
+```
+
+#### Authority-keyring digest
+
+Canonicalize key/transition entries sorted by authority epoch:
+
+```text
+authorityKeyringDigest =
+  SHA-256(
+    "TilecastEdge/authority-keyring/v1\0" ||
+    JCS(sortedKeyring)
+  )
+```
+
+#### Payload digest
+
+Where a signed record references a detached canonical payload:
+
+```text
+payloadDigest =
+  SHA-256(
+    "TilecastEdge/payload/v1\0" ||
+    canonicalPayloadBytes
+  )
+```
+
+Cross-language golden fixtures cover every construction.
+
+### 15.6 Cryptographic domain separation
+
+Normative domains include:
 
 ```text
 TilecastEdge/stream-record/v1
@@ -1885,176 +1990,169 @@ TilecastEdge/authority-transition/v1
 TilecastEdge/recovery-reanchor/v1
 TilecastEdge/node-message/v1
 TilecastEdge/context-observation/v1
-TilecastEdge/release-manifest/v1
+TilecastEdge/object-grant/v1
 ```
 
-Each signing operation is:
+The online Edge authority does **not** sign software release sets. Release sets use the separate offline release-signing domain/key defined in §30.
+
+Each online signing operation is:
 
 ```text
-domain ASCII bytes || 0x00 || canonical message bytes
+domain || 0x00 || canonical message bytes
 ```
 
-Golden fixtures verify that a signature valid in one domain fails in every other domain.
+A signature valid in one domain fails in every other domain.
 
-### 15.6 Stream record example
+### 15.7 Authority-key acceptance
 
-```json
-{
-  "schema": 1,
-  "installationId": "...",
-  "trustRealmId": "...",
-  "stateIncarnationId": "...",
-  "securityLineageId": "...",
-  "authorityEpoch": 3,
-  "streamId": "screen/...",
-  "sequence": "1234",
-  "previousSequence": "1233",
-  "previousDigest": "...",
-  "type": "screen.presentation.changed",
-  "target": {"kind": "screen", "id": "..."},
-  "subject": {
-    "kind": "screen.manifest",
-    "id": "...",
-    "revision": "42",
-    "stateDigest": "..."
-  },
-  "object": {"sha256": "...", "sizeBytes": "18241"},
-  "issuedAt": "2026-09-22T19:00:00Z",
-  "expiresAt": null,
-  "streamDigest": "...",
-  "signature": "..."
-}
-```
+Authority transitions are security-stream records.
 
-Every potentially 64-bit counter/revision is an unsigned decimal string.
+If transition generation G activates authority epoch N+1 at G+1:
 
-### 15.7 Resource freshness and equivocation
+- security record G is signed by the old active key and contains the transition;
+- security G+1 and later are signed by N+1;
+- old key remains usable only for historical verification below its retirement boundary.
 
-Resource revisions are comparable only within the same `stateIncarnationId`.
+After a node has accepted the retirement boundary, a retired key cannot authorize:
 
-For a given `(stateIncarnationId, subject kind, subject id)`:
+- new stream extensions at/above that boundary;
+- current-state documents;
+- snapshots;
+- object grants;
+- recovery re-anchors.
 
-- higher revision supersedes lower revision;
-- lower revision at a later stream sequence is a stale no-op;
-- deletion is an explicit tombstone at a newer revision;
+If a node is too far behind and would need to cross a retired-key boundary from untrusted peer history, it obtains a current active-authority snapshot/checkpoint from the server instead of accepting an unanchored historical-key extension.
+
+### 15.8 Resource freshness and equivocation
+
+For policy/screen subjects, revisions compare only inside one `stateIncarnationId`.
+
+For one `(stateIncarnationId, subjectKind, subjectId)`:
+
+- higher revision supersedes lower;
+- lower revision at later stream sequence is stale no-op;
+- deletion is a newer tombstone;
 - same revision + same `stateDigest` is idempotent;
-- same revision + different `stateDigest` is an equivocation/fork incident requiring direct server reconciliation.
+- same revision + different `stateDigest` is equivocation/fork.
 
-Initial freshness sources include:
+Security freshness uses `securityLineageId + securityGeneration`, not ordinary revision/incarnation.
 
-| State | Freshness value |
-| --- | --- |
-| screen presentation/current manifest | `screen_manifest_state.manifest_version` |
-| screen configuration | `screen_config_state.config_revision` |
-| security state | `securityGeneration` in `securityLineageId` |
-| Context definition/policy | Context resource generation |
+### 15.9 Current-state documents are aggregate stream checkpoints
 
-### 15.8 Independently retrievable current state
+`/streams/<stream-id>/current` is an aggregate checkpoint for one stream, not an ambiguous singular subject document.
 
-Every stream also exposes an authority-signed current-state checkpoint/document for fast recovery.
-
-Current-state core includes at least:
+Ordinary policy/screen current-state core contains:
 
 ```text
 trustRealmId
 stateIncarnationId
 securityLineageId
+securityGenerationAtIssue
 streamId
-subject/stream revision
-stateDigest
-object/payload digest
-generatedAt
+baseSequence
+baseDigest
+projectionDigest
 authorityEpoch
+generatedAt
+inlineProjection or snapshotObject
 ```
 
-Its signature uses `TilecastEdge/current-state/v1`.
+Security current-state core contains:
 
-Same coordinates/revision with a different `stateDigest` is a fork incident.
+```text
+trustRealmId
+securityLineageId
+securityGeneration
+securityHeadDigest
+securityStateDigest
+activeAuthorityEpoch
+generatedAt
+canonicalSecuritySnapshot
+signature
+```
 
-Every object referenced by the active materialized projection/current-state document remains pinned on the server and eligible origin until that projection is superseded and all retained stream/snapshot recovery windows no longer need it. Snapshot objects pin every referenced immutable object required to reconstruct their state for the snapshot retention window.
+and has no ordinary state incarnation.
 
-A newly enrolled node or node that lost local anti-rollback state obtains its initial security/screen watermarks directly from the authenticated Tilecast Server. Peer-only current-state documents are not accepted as the first trust anchor.
+Current-state signatures use `TilecastEdge/current-state/v1` except the canonical security snapshot, which also satisfies the dedicated `TilecastEdge/security-state/v1` fixture contract.
 
-### 15.9 Security stream
+A newly enrolled node or node that lost anti-rollback state obtains its first current security/screen checkpoints directly from the authenticated server.
 
-Security state has an additional monotonic `securityGeneration` that never decreases within one `securityLineageId`.
-
-A missing policy/screen record cannot delay a newer valid security generation.
-
-A restored server may publish security state only when its recovered security checkpoint is at least as new as the externally trusted security checkpoint. Otherwise §12 requires security recovery/trust-realm reset.
+Objects referenced by current projections remain retained through the applicable stream/snapshot recovery window.
 
 ### 15.10 Snapshot checkpoints
 
-Snapshots are per stream.
+Policy/screen snapshots are per stream/history:
 
-Conceptual checkpoint:
-
-```json
-{
-  "schema": 1,
-  "installationId": "...",
-  "trustRealmId": "...",
-  "stateIncarnationId": "...",
-  "securityLineageId": "...",
-  "streamId": "screen/...",
-  "baseSequence": "81234",
-  "baseDigest": "...",
-  "authorityEpoch": 3,
-  "projectionDigest": "...",
-  "object": {"sha256": "...", "sizeBytes": "..."},
-  "generatedAt": "...",
-  "signature": "..."
-}
+```text
+trustRealmId
+stateIncarnationId
+securityLineageId
+securityGenerationAtIssue
+streamId
+baseSequence
+baseDigest
+projectionDigest
+authorityEpoch
+generatedAt
+object {sha256,sizeBytes}
+signature
 ```
 
-The object is serialized from the materialized Edge projection at exactly that stream watermark.
+The object serializes `edge_projection_state` at exactly that checkpoint.
 
-Snapshot signature domain is `TilecastEdge/snapshot/v1`.
+Security recovery uses the full security snapshot from §12.4/`security-state-v1`; it does not acquire an ordinary state incarnation merely to fit the snapshot schema.
 
-After destructive local-state recovery, a snapshot from a peer is not a new trust anchor. The node needs its durable trusted checkpoint or direct server recovery/enrollment state first.
+Snapshot signature uses `TilecastEdge/snapshot/v1`.
 
 ### 15.11 Node trusted checkpoint
 
-The node's non-reconstructible anti-rollback checkpoint contains at least:
+The node stores two independent anti-rollback components.
+
+**Security trust:**
 
 ```text
 installationId
 trustRealmId
-stateIncarnationId
 securityLineageId
 securityGeneration
+securityHeadDigest
 securityStateDigest
 authorityKeyringDigest
-per-stream { streamId, sequence, digest }
-checkpointCreatedAt
+activeAuthorityEpoch
 ```
 
-Persist it with atomic replace + file fsync + parent-directory fsync.
+**Ordinary stream trust:**
 
-When applying newer security/incarnation/stream trust state:
+```text
+stateIncarnationId
+per-stream {streamId, sequence, digest, projectionDigest}
+```
 
-1. verify signatures/transition rules;
-2. build the new local SQLite transaction;
-3. durably write the new trusted checkpoint;
-4. commit/activate the SQLite state that depends on it.
+Persist by atomic replacement + file fsync + parent-directory fsync.
 
-Recovery handles a trusted checkpoint that is ahead of SQLite by replaying/rebuilding local state from server/signed objects; SQLite must never be allowed to move trust behind the durable checkpoint.
+When accepting newer security state, the security checkpoint may advance without changing ordinary incarnation.
+
+When accepting a new ordinary incarnation, ordinary stream watermarks reset only through direct recovery re-anchor while the security checkpoint stays at least as new.
+
+Checkpoint-before-dependent-SQLite ordering remains mandatory; a checkpoint ahead of SQLite causes local reconstruction, never trust rollback.
 
 ### 15.12 Expiry and unknown protocol behavior
 
-`expiresAt` is valid only for explicitly ephemeral effect types.
+`expiresAt` is valid only for explicitly ephemeral effects.
 
-Durable configuration, tombstones, security state, authority transitions and recovery re-anchor documents have no expiry.
+Durable configuration, tombstones, security state, authority transitions and recovery re-anchor have no expiry.
 
-Unknown behavior is explicit:
+Unknown behavior:
 
-- unknown top-level schema version: do not apply;
-- unknown signed field when schema says closed: reject;
-- unknown stream record type in a non-security stream: stop that stream at the unknown record and request compatible server state/snapshot;
-- unknown security-state type/version: disable mesh/security-sensitive peer participation and require server/upgrade resolution;
-- never advance a security cursor through semantics the node cannot understand.
+- unknown top-level schema: do not apply;
+- closed-schema unknown field: reject;
+- unknown policy/screen record type: stop that stream and request compatible current state/snapshot;
+- unknown security type/version: stop peer security participation and mesh-sensitive behavior; require server/upgrade resolution;
+- never advance a security generation through semantics the node cannot understand.
 
-Protocol min/max capabilities are negotiated with the server and reported by nodes so the server can avoid publishing incompatible required state.
+Server/player protocol capability negotiation prevents publishing required semantics to software that declares it cannot understand them.
+
+### 15.13 Peer/server hints
 
 ### 15.13 Peer/server hints
 
