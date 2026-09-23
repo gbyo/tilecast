@@ -3265,6 +3265,119 @@ paths:
           "200": { description: Status accepted },
           "409": { description: Deployment cancelled or complete },
         }
+  /api/v1/player/edge/enroll:
+    post:
+      operationId: playerEdgeEnroll
+      security: [{ deviceBearer: [] }]
+      description: >-
+        Issues a 180-day Tilecast Edge node certificate for the authenticated
+        screen from an Ed25519 PKCS#10 request that the node generated. The
+        subject common name and the node URN must equal the screen's
+        playerInstallationId; the installation URN must equal this
+        installation. Only public certificate metadata is stored. Returns
+        404 edge_disabled when Edge is off and 503 edge_authority_unavailable
+        when the authority files are missing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EdgeEnrollRequest" }
+      responses:
+        "200":
+          description: Certificate, pinned trust material and feed baseline.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/EdgeEnrollment" }
+        "400": { description: invalid_request or invalid_certificate_request }
+        "403": { description: edge_identity_mismatch or screen_disabled }
+        "409": { description: edge_protocol_unsupported }
+        "429":
+          {
+            description: edge_issuance_limited (20 certificates per screen in 24 hours),
+          }
+  /api/v1/player/edge/changes:
+    get:
+      operationId: playerEdgeChanges
+      security: [{ deviceBearer: [] }]
+      description: >-
+        Signed change envelopes with sequence greater than `after`, in
+        sequence order. Sequences are monotonic and can skip integers; the
+        signed previousSequence field of each change proves continuity.
+      parameters:
+        - in: query
+          name: after
+          required: true
+          schema: { type: integer, format: int64, minimum: 0 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500, default: 500 }
+      responses:
+        "200":
+          description: One page of the change feed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [items, latestSequence, oldestSequence]
+                    properties:
+                      items:
+                        type: array
+                        maxItems: 500
+                        items:
+                          { $ref: "#/components/schemas/EdgeSignedDocument" }
+                      latestSequence: { type: integer, format: int64 }
+                      oldestSequence: { type: integer, format: int64 }
+  /api/v1/player/edge/revocations:
+    get:
+      operationId: playerEdgeRevocations
+      security: [{ deviceBearer: [] }]
+      description: >-
+        The signed revocation snapshot (purpose server.snapshot) of every
+        node with a revoked certificate that has not expired yet.
+      responses:
+        "200":
+          description: Signed snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/EdgeSignedDocument" }
+  /api/v1/player/edge/status:
+    post:
+      operationId: playerEdgeStatus
+      security: [{ deviceBearer: [] }]
+      description: >-
+        Bounded Edge status (at most 128 KiB). The node must hold an active
+        Edge certificate for the authenticated screen. This never updates
+        lastContactAt or the computed screen status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EdgeNodeStatus" }
+      responses:
+        "200": { description: Accepted. }
+        "400": { description: invalid_request or invalid_edge_status }
+        "403": { description: edge_identity_mismatch }
+  /api/v1/edge/nodes:
+    get:
+      operationId: listEdgeNodes
+      description: >-
+        Owner and Administrator. The latest Edge status for each enrolled
+        screen, with the latest active certificate expiry.
+      responses:
+        "200": { description: "`data.items` lists node summaries." }
 components:
   parameters:
     NoiseHistoryRange:
@@ -3299,6 +3412,108 @@ components:
       scheme: bearer
       bearerFormat: Tilecast device credential
   schemas:
+    EdgeEnrollRequest:
+      type: object
+      additionalProperties: false
+      required: [csrPem, meshProtocolVersion]
+      properties:
+        csrPem: { type: string, maxLength: 8192 }
+        meshProtocolVersion: { type: integer, enum: [1] }
+    EdgeSignedDocument:
+      type: object
+      additionalProperties: false
+      required: [format, purpose, body, signature]
+      description: >-
+        tilecast-edge-signed-v1 wrapper. `body` is base64url of canonical JSON;
+        the signature covers "tilecast-edge-signed-v1\n" + purpose + "\n" +
+        body. See docs/tilecast-edge.md.
+      properties:
+        format: { type: string, enum: [tilecast-edge-signed-v1] }
+        purpose:
+          {
+            type: string,
+            enum: [server.change, server.snapshot, node.statement],
+          }
+        body: { type: string }
+        signature:
+          type: object
+          additionalProperties: false
+          required: [alg, keyId, value]
+          properties:
+            alg: { type: string, enum: [ed25519] }
+            keyId: { type: string, pattern: "^sha256:[0-9a-f]{64}$" }
+            value: { type: string }
+        certificate:
+          {
+            type: string,
+            description: Base64url DER node certificate (node statements only).,
+          }
+    EdgeEnrollment:
+      type: object
+      required:
+        [
+          certificatePem,
+          caCertificatePem,
+          installationId,
+          screenId,
+          nodeId,
+          authority,
+          meshProtocolVersion,
+          notBefore,
+          notAfter,
+          renewAfter,
+          latestSequence,
+          revocationSnapshot,
+        ]
+      properties:
+        certificatePem: { type: string }
+        caCertificatePem: { type: string }
+        installationId: { type: string, format: uuid }
+        screenId: { type: string, format: uuid }
+        nodeId: { type: string, format: uuid }
+        authority:
+          type: object
+          required: [epoch, keyId, publicKey]
+          properties:
+            epoch: { type: integer, minimum: 1 }
+            keyId: { type: string }
+            publicKey:
+              { type: string, description: Base64url raw Ed25519 public key. }
+        meshProtocolVersion: { type: integer }
+        notBefore: { type: string, format: date-time }
+        notAfter: { type: string, format: date-time }
+        renewAfter: { type: string, format: date-time }
+        latestSequence: { type: integer, format: int64 }
+        revocationSnapshot: { $ref: "#/components/schemas/EdgeSignedDocument" }
+    EdgeNodeStatus:
+      type: object
+      required:
+        [schemaVersion, edgeVersion, nodeId, renderer, mesh, capabilities]
+      properties:
+        schemaVersion: { type: integer, enum: [1] }
+        edgeVersion: { type: string, maxLength: 64 }
+        nodeId: { type: string, format: uuid }
+        renderer:
+          type: object
+          required: [state]
+          properties:
+            kind: { type: string, maxLength: 32 }
+            version: { type: string, maxLength: 64 }
+            state: { type: string }
+        mesh:
+          type: object
+          required: [state, peerCount]
+          properties:
+            state: { type: string }
+            peerCount: { type: integer, minimum: 0, maximum: 10000 }
+        cache:
+          type: object
+          properties:
+            usedBytes: { type: integer, format: int64 }
+            limitBytes: { type: integer, format: int64 }
+        capabilities:
+          type: object
+          description: Capability snapshot, schema 1, at most 256 capabilities.
     PresentationNetworkSecurity:
       type: string
       enum: [wpa_psk, wpa_eap_peap_mschapv2]

@@ -136,3 +136,21 @@ The closed typed registry separates organization settings, preferences, group po
 ## Milestone 9 player updates
 
 The `updates` domain owns an optional fixed GitHub Releases provider, direct signed-release import, Ed25519-signed release manifests, Android APK-signature verification, private persistent cache, deployment snapshots, and per-screen state. Both release sources converge on one verified Player release model. Update commands reuse PostgreSQL command delivery; APK bytes use a device-authenticated range endpoint and never enter content manifests. Success remains provisional until the updated player reconnects with the expected version code. See [player-updates.md](player-updates.md).
+
+## Tilecast Edge
+
+Tilecast Edge is the Linux player platform that replaces the Electron Linux Player. The design is [`tilecast-edge.md`](tilecast-edge.md) with Amendment A1. The implementation state and next work are in [`tilecast-edge-next.md`](tilecast-edge-next.md).
+
+On each Linux player:
+
+- `tilecastd` (Rust, `apps/edge`) runs as the fixed `tilecast` account. It owns the server relationship, identity, SQLite state, the content-addressed store, supervision, and the peer fabric.
+- `tilecast-renderer-wpe` (C, WPE WebKit 2.54+ on WPEPlatform) shows what `tilecastd` sends over a versioned Unix socket. It holds no credential and receives no path.
+- The fabric is optional. Zenoh in peer mode, TLS only, carries presence, signed node statements, and change hints. An mTLS HTTPS blob service carries content bytes between nodes. The content store verifies every byte from any source.
+
+On the server (`internal/edge`):
+
+- The Edge authority key signs change envelopes and revocation snapshots. The installation Edge CA signs node certificates. Both keys are under `TILECAST_EDGE_ROOT`, separate from the offline player release-signing key.
+- Changes enter an outbox inside the transaction that causes them. One serialized signer under an advisory lock assigns the sequence and the `previousSequence` chain. The sequence is monotonic, not gapless.
+- Credential revocation revokes Edge certificates and queues `edge.node.revoked` in the same transaction.
+
+The server stays authoritative. Peers never become authoritative for server-owned state, and discovery never implies trust.

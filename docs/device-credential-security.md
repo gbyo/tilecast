@@ -38,3 +38,21 @@ Update metadata and APK ranges require device authentication. An active deployme
 Commands contain only identifiers, the expected version and hash, the mode, and the expiration. They do not contain URLs, credentials, or paths.
 
 Releases come only from `Gibsonmb71/tilecast`. The server verifies the Ed25519 statement, APK checksum, Android signature, and signing certificate.
+
+## Tilecast Edge
+
+On a Tilecast Edge Linux player, `tilecastd` is the only process that holds
+the device credential. It stores the credential in
+`/var/lib/tilecast-edge/identity/device-credential` with mode 0600. The
+credential is never in the state database, never sent over IPC to the
+renderer, never sent to peers, and never written to logs.
+
+`tilecastd import-legacy` reads the Electron player's saved credential once.
+It normalizes the saved server address, reads `/api/v1/system/identity`, and
+requires the saved installation ID before it stores or sends the credential.
+It never changes or deletes the legacy files.
+
+The Edge node key is a separate credential. `tilecastd` generates it,
+stores it in the same directory with mode 0600, and sends only a certificate
+request. Revoking the device credential also revokes the Edge certificates of
+the screen. See [`tilecast-edge-next.md`](tilecast-edge-next.md).

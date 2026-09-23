@@ -185,6 +185,23 @@ Passkeys require a secure browser context and a registrable domain. On a plain-H
 
 Device authentication errors use distinct codes: `device_credential_required`, `device_credential_invalid`, `device_credential_revoked`, and `screen_disabled`. Device credentials cannot authenticate dashboard endpoints.
 
+## Tilecast Edge
+
+The Edge routes exist only when the server runs with `TILECAST_EDGE_ENABLED=true`. Otherwise they return `404 edge_disabled`. If the Edge authority files are missing or do not match the database, they return `503 edge_authority_unavailable`. The server never generates a new authority in that case. See [`tilecast-edge.md`](tilecast-edge.md) and [`tilecast-edge-next.md`](tilecast-edge-next.md).
+
+Player routes use the device Bearer credential and nothing else:
+
+- `POST /api/v1/player/edge/enroll` — body `{"csrPem", "meshProtocolVersion"}`, at most 16 KiB. The CSR must be a PKCS#10 Ed25519 request whose subject common name is the screen's `playerInstallationId` and whose URI SANs are exactly `urn:tilecast:edge:installation:<id>` and `urn:tilecast:edge:node:<playerInstallationId>`. The server issues a 180-day node certificate from the installation Edge CA. The response has `certificatePem`, `caCertificatePem`, `installationId`, `screenId`, `nodeId`, `authority` (`epoch`, `keyId`, base64url `publicKey`), `meshProtocolVersion`, `notBefore`, `notAfter`, `renewAfter`, `latestSequence`, and a signed `revocationSnapshot`. Errors: `400 invalid_certificate_request`, `403 edge_identity_mismatch`, `403 screen_disabled`, `409 edge_protocol_unsupported`, `429 edge_issuance_limited` (20 certificates for each screen in 24 hours).
+- `GET /api/v1/player/edge/changes?after=<sequence>&limit=<1-500>` — signed change envelopes with `sequence > after`, in order, plus `latestSequence` and `oldestSequence`. The sequence is monotonic and can skip integers. Continuity is the signed `previousSequence` of each change.
+- `GET /api/v1/player/edge/revocations` — the signed revocation snapshot (`purpose` `server.snapshot`). A node adopts it at enrollment and when the server no longer holds the next change in its chain.
+- `POST /api/v1/player/edge/status` — bounded Edge status, at most 128 KiB: `schemaVersion` 1, `edgeVersion`, `nodeId`, `renderer`, `mesh`, optional `cache`, and the capability snapshot. The node must hold an active Edge certificate for the authenticated screen (`403 edge_identity_mismatch`). Edge status never changes `lastContactAt` or the computed screen status.
+
+Revoking a screen credential also revokes its Edge certificates and publishes an `edge.node.revoked` change in the same transaction.
+
+Dashboard route:
+
+- `GET /api/v1/edge/nodes` — Owner and Administrator. The latest Edge status for each enrolled screen, with certificate expiry.
+
 ## Screen administration
 
 All screen routes require a dashboard session. Mutations also require `X-CSRF-Token`. Approval, rejection, updates, disable, enable, and revocation require Owner or Administrator.

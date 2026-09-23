@@ -43,6 +43,7 @@ A complete backup requires:
 - `/data/media/originals`.
 - `/data/media/variants` and `/data/media/thumbnails` (or time to regenerate them in a future recovery tool).
 - deployment configuration, excluding copied secrets from documentation or source control.
+- `/data/edge` when Tilecast Edge is enabled. It holds the Edge authority key and the installation Edge CA key and certificate.
 
 Also preserve the external `TILECAST_PRESENTATION_NETWORK_KEY` separately when
 Presentation Networks are in use. It is not stored in Tilecast backups. A
@@ -50,6 +51,8 @@ database/media restore is incomplete until the key is restored and assigned
 players have reconciled their current network revision.
 
 The database holds every enrolled authenticator secret. Unlike a password or a device credential, a TOTP secret cannot be hashed, so anyone who can read a database backup can generate codes for any enrolled account. Protect backup archives accordingly. Passkeys store only a public key and do not carry this risk.
+
+Tilecast Edge is off by default. Set `TILECAST_EDGE_ENABLED=true` to enable it. `TILECAST_EDGE_ROOT` (default `/data/edge`) holds `authority.key`, `ca.key`, and `ca.crt` with mode 0600. In Docker Compose it is inside the `tilecast_data` volume. The server creates them once, after one-time setup, and records their public identity in the database. The automated backup does not include `/data/edge` yet. Copy it with every backup and protect the copy like the database. If a restored database finds different or missing files, every Edge endpoint returns `edge_authority_unavailable`. Restore the matching `/data/edge` to recover. The server never replaces the authority on its own, because every enrolled node pins it.
 
 Upload finalization is journaled in PostgreSQL. Keep both the database and
 media volume available during upgrades so the reconciliation worker can finish
