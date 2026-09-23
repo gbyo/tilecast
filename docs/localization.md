@@ -131,10 +131,10 @@ register it in `src/i18n/resources.ts`.
   breaks.
 - **camelCase segments.** Group by the page or component, then by the part of
   the UI: `users.table.lastSignedIn`, `users.deleteDialog.title`.
-- **One key per distinct meaning.** Don't reuse a key only because the English
+- **One key per distinct meaning.** Do not reuse a key only because the English
   happens to match. "Open" as a verb on a button and "Open" as a status translate
   differently in Russian.
-- **Don't build sentences from fragments.** `"Deactivate {{name}}?"` is one key.
+- **Do not build sentences from fragments.** `"Deactivate {{name}}?"` is one key.
   `t("deactivate") + name + "?"` cannot be translated, because word order and
   case endings differ between languages.
 
@@ -340,7 +340,7 @@ as a raw key.
 ## Translation style
 
 The interface is restrained infrastructure software. Translations should be as
-plain and short as the English. Don't pad them to sound friendlier.
+plain and short as the English. Do not pad them to sound friendlier.
 
 **Russian.** Address the reader as «вы» (lowercase). Use «ё» consistently.
 Quote with «ёлочки». For buttons, use the infinitive («Сохранить», «Удалить»).
@@ -384,7 +384,7 @@ Use the glossary as a starting point for wording and terminology, not as a
 drop-in source:
 
 - The fork translated by rewriting rendered DOM text, so some entries are
-  sentence fragments (`". This saves as a reusable"`). Don't copy fragments.
+  sentence fragments (`". This saves as a reusable"`). Do not copy fragments.
   Translate the whole sentence.
 - Some entries are keyed on English that has since changed.
 - The fork used gender-neutral shortcuts like «элемент(а)» where a plural was
