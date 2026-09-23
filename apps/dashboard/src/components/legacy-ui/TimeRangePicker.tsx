@@ -1,4 +1,11 @@
-import { Select } from "./SignalSelect";
+import { Input } from "../ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 export type TimeRangePreset = "24h" | "7d" | "30d" | "custom";
 
@@ -100,42 +107,57 @@ export function TimeRangePicker({
 }) {
   return (
     <div
-      className={`time-range ${className}`.trim()}
+      className={`flex flex-wrap items-end gap-2 ${className}`.trim()}
       role="group"
       aria-label="Date range"
     >
-      <label className="time-range__field">
+      <span className="grid gap-1 text-xs font-medium">
         <span>Date range</span>
-        <Select
+        <RheaSelect
           value={preset}
-          onChange={(event) =>
-            onPresetChange(event.target.value as TimeRangePreset)
-          }
+          onValueChange={(next) => {
+            if (next) onPresetChange(next);
+          }}
         >
-          <option value="24h">Last 24 hours</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-          <option value="custom">Custom range</option>
-        </Select>
-      </label>
+          <SelectTrigger size="sm" className="w-36" aria-label="Date range">
+            <SelectValue>
+              {preset === "24h"
+                ? "Last 24 hours"
+                : preset === "7d"
+                  ? "Last 7 days"
+                  : preset === "30d"
+                    ? "Last 30 days"
+                    : "Custom range"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent align="start" alignItemWithTrigger={false}>
+            <SelectItem value="24h">Last 24 hours</SelectItem>
+            <SelectItem value="7d">Last 7 days</SelectItem>
+            <SelectItem value="30d">Last 30 days</SelectItem>
+            <SelectItem value="custom">Custom range</SelectItem>
+          </SelectContent>
+        </RheaSelect>
+      </span>
       {preset === "custom" && (
         <>
-          <label className="time-range__field">
+          <label className="grid gap-1 text-xs font-medium">
             <span>From</span>
-            <input
+            <Input
               type="datetime-local"
               value={customFrom}
               max={customTo || undefined}
               onChange={(event) => onCustomFromChange(event.target.value)}
+              className="h-8"
             />
           </label>
-          <label className="time-range__field">
+          <label className="grid gap-1 text-xs font-medium">
             <span>To</span>
-            <input
+            <Input
               type="datetime-local"
               value={customTo}
               min={customFrom || undefined}
               onChange={(event) => onCustomToChange(event.target.value)}
+              className="h-8"
             />
           </label>
         </>

@@ -1,7 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { Drawer, type ResolvedTimeRange } from "../components/legacy-ui";
+import type { ResolvedTimeRange } from "../components/legacy-ui";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  Sheet as RheaSheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
 import {
   activityParams,
   activityRequest,
@@ -86,16 +96,14 @@ export function IncidentsTab({
 
   return (
     <>
-      <section className="activity-panel activity-incidents">
-        <header>
-          <div>
-            <h3>Incidents</h3>
-            <p>
-              {filters["dateBasis"]
-                ? `Incidents by ${filters["dateBasis"]} date over ${range.label}.`
-                : "Current incidents. Add a date basis to report over the selected range instead."}
-            </p>
-          </div>
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Incidents</h3>
+          <p className="text-sm text-muted-foreground">
+            {filters["dateBasis"]
+              ? `Incidents by ${filters["dateBasis"]} date over ${range.label}.`
+              : "Current incidents. Add a date basis to report over the selected range instead."}
+          </p>
         </header>
         {items.length === 0 ? (
           <EmptyState
@@ -106,7 +114,7 @@ export function IncidentsTab({
             }
           />
         ) : (
-          <ul className="activity-incident-list">
+          <ul className="grid list-none gap-2 p-0">
             {items.map((incident) => (
               <IncidentRow
                 key={incident.id}
@@ -117,14 +125,14 @@ export function IncidentsTab({
           </ul>
         )}
         {hasActiveFilters && items.length === 0 && (
-          <div className="activity-empty-actions">
-            <button
+          <div>
+            <RheaButton
               type="button"
-              className="button button--secondary"
+              variant="secondary"
               onClick={onClearFilters}
             >
               Clear filters
-            </button>
+            </RheaButton>
           </div>
         )}
       </section>
@@ -170,169 +178,200 @@ function IncidentDrawer({
   const detail = query.data;
 
   return (
-    <Drawer
-      onClose={onClose}
-      title={incident.title}
-      className="activity-detail-drawer activity-incident-drawer"
+    <RheaSheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <div className="activity-incident-drawer__summary">
-        <ResultBadge value={incident.severity} />
-        <IncidentStatusBadge incident={incident} />
-        <IncidentScope incident={incident} />
-        {incident.primaryScreenId && (
-          <Link to={screenActivityLink(incident.primaryScreenId)}>
-            Open the screen's Activity
-          </Link>
-        )}
-      </div>
-      <p>{incident.description}</p>
-
-      {error && <div className="notice notice--error">{error}</div>}
-      {canAct && (
-        <div className="activity-incident__actions">
-          <IncidentActionButtons
-            incident={incident}
-            onAct={onAct}
-            pending={pending}
-          />
-        </div>
-      )}
-
-      <IncidentFacts incident={incident} />
-
-      <section>
-        <h4>Recovery path</h4>
-        {/* Stated from what was recorded, including when nothing has. */}
-        <p>{detail?.recoveryPath ?? "Loading…"}</p>
-      </section>
-
-      {query.isLoading && <Loading />}
-
-      {detail && (
-        <>
-          <DrawerSection title="Timeline" empty="No timeline entries.">
-            {detail.timeline.map((entry) => (
-              <div key={entry.id} className="activity-incident-timeline__entry">
-                <time>{formatWhen(entry.occurredAt)}</time>
-                <span className="activity-domain">{humanize(entry.role)}</span>
-                <p>
-                  {entry.summary}
-                  {entry.actorName ? ` — ${entry.actorName}` : ""}
-                </p>
-              </div>
-            ))}
-          </DrawerSection>
-
-          <DrawerSection
-            title="Related raw events"
-            empty="No screen events were recorded while this incident was live."
-          >
-            {detail.relatedEvents.map((event) => (
-              <div key={event.id} className="activity-incident-timeline__entry">
-                <time>{formatWhen(event.timestamp)}</time>
-                <span
-                  className={`activity-domain activity-domain--${event.category}`}
-                >
-                  {event.category}
-                </span>
-                <p>
-                  {humanize(event.eventType)}
-                  {event.failureMessage ? ` — ${event.failureMessage}` : ""}
-                </p>
-                <TechnicalDetails value={event.details} />
-              </div>
-            ))}
-          </DrawerSection>
-
-          <DrawerSection
-            title="Playback during the incident"
-            empty="No playback sessions overlapped this incident."
-          >
-            {detail.proofSessions.map((session) => (
-              <div
-                key={session.id}
-                className="activity-incident-timeline__entry"
+      <SheetContent side="right" className="overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{incident.title}</SheetTitle>
+          <SheetDescription>{incident.description}</SheetDescription>
+        </SheetHeader>
+        <div className="grid gap-6 px-4 pb-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <ResultBadge value={incident.severity} />
+            <IncidentStatusBadge incident={incident} />
+            <IncidentScope incident={incident} />
+            {incident.primaryScreenId && (
+              <Link
+                to={screenActivityLink(incident.primaryScreenId)}
+                className="text-sm font-medium text-primary hover:underline"
               >
-                <time>{formatWhen(session.startedAt)}</time>
-                <span className="activity-domain">{session.sessionType}</span>
-                <p>
-                  <ResourceLink
-                    type={session.contentType ?? session.presentationType}
-                    id={session.contentId ?? session.presentationId}
-                    label={
-                      session.contentName ||
-                      session.presentationName ||
-                      session.contentId ||
-                      "Presentation"
-                    }
-                  />
-                  {session.actualDurationMs != null &&
-                    ` · ${formatDuration(session.actualDurationMs)}`}
-                  {session.terminalReason &&
-                    ` · ended ${humanize(session.terminalReason).toLowerCase()}`}
-                </p>
-                <ResultBadge value={session.result} />
-              </div>
-            ))}
-          </DrawerSection>
+                Open the screen&apos;s Activity
+              </Link>
+            )}
+          </div>
 
-          {/* Commands and updates are activity events with their own
-              categories, so they arrive in the related-events stream above and
-              are surfaced here as their own view of it. */}
-          <DrawerSection
-            title="Commands and updates"
-            empty="No commands or updates ran during this incident."
-          >
-            {detail.relatedEvents
-              .filter((event) =>
-                ["commands", "updates"].includes(event.category),
-              )
-              .map((event) => (
-                <div
-                  key={`command-${event.id}`}
-                  className="activity-incident-timeline__entry"
-                >
-                  <time>{formatWhen(event.timestamp)}</time>
-                  <span className="activity-domain">{event.category}</span>
-                  <p>{humanize(event.eventType)}</p>
-                  <ResultBadge value={event.result} />
-                </div>
-              ))}
-          </DrawerSection>
-
-          <DrawerSection
-            title="Administrative changes"
-            empty="No administrative changes touched this screen during the incident."
-          >
-            {detail.auditChanges.map((record) => (
-              <div
-                key={record.id}
-                className="activity-incident-timeline__entry"
-              >
-                <time>{formatWhen(record.timestamp)}</time>
-                <span className="activity-domain">audit</span>
-                <p>
-                  {record.summary || humanize(record.action)} —{" "}
-                  {record.actorName}
-                </p>
-              </div>
-            ))}
-          </DrawerSection>
-
-          {detail.screens.length > 0 && (
-            <DrawerSection title="Affected screens" empty="">
-              {detail.screens.map((screen) => (
-                <div key={screen.screenId}>
-                  <Link to={screenActivityLink(screen.screenId)}>
-                    {screen.screenName}
-                  </Link>
-                </div>
-              ))}
-            </DrawerSection>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
-        </>
-      )}
-    </Drawer>
+          {canAct && (
+            <div className="flex flex-wrap gap-2">
+              <IncidentActionButtons
+                incident={incident}
+                onAct={onAct}
+                pending={pending}
+              />
+            </div>
+          )}
+
+          <IncidentFacts incident={incident} />
+
+          <section className="grid gap-1">
+            <h4 className="text-sm font-semibold">Recovery path</h4>
+            {/* Stated from what was recorded, including when nothing has. */}
+            <p className="text-sm text-muted-foreground">
+              {detail?.recoveryPath ?? "Loading…"}
+            </p>
+          </section>
+
+          {query.isLoading && <Loading />}
+
+          {detail && (
+            <>
+              <DrawerSection title="Timeline" empty="No timeline entries.">
+                {detail.timeline.map((entry) => (
+                  <TimelineEntry
+                    key={entry.id}
+                    when={entry.occurredAt}
+                    tag={humanize(entry.role)}
+                  >
+                    {entry.summary}
+                    {entry.actorName ? ` — ${entry.actorName}` : ""}
+                  </TimelineEntry>
+                ))}
+              </DrawerSection>
+
+              <DrawerSection
+                title="Related raw events"
+                empty="No screen events were recorded while this incident was live."
+              >
+                {detail.relatedEvents.map((event) => (
+                  <TimelineEntry
+                    key={event.id}
+                    when={event.timestamp}
+                    tag={event.category}
+                  >
+                    {humanize(event.eventType)}
+                    {event.failureMessage ? ` — ${event.failureMessage}` : ""}
+                    <TechnicalDetails value={event.details} />
+                  </TimelineEntry>
+                ))}
+              </DrawerSection>
+
+              <DrawerSection
+                title="Playback during the incident"
+                empty="No playback sessions overlapped this incident."
+              >
+                {detail.proofSessions.map((session) => (
+                  <TimelineEntry
+                    key={session.id}
+                    when={session.startedAt}
+                    tag={session.sessionType}
+                  >
+                    <ResourceLink
+                      type={session.contentType ?? session.presentationType}
+                      id={session.contentId ?? session.presentationId}
+                      label={
+                        session.contentName ||
+                        session.presentationName ||
+                        session.contentId ||
+                        "Presentation"
+                      }
+                    />
+                    {session.actualDurationMs != null &&
+                      ` · ${formatDuration(session.actualDurationMs)}`}
+                    {session.terminalReason &&
+                      ` · ended ${humanize(session.terminalReason).toLowerCase()}`}{" "}
+                    <ResultBadge value={session.result} />
+                  </TimelineEntry>
+                ))}
+              </DrawerSection>
+
+              {/* Commands and updates are activity events with their own
+                  categories, so they arrive in the related-events stream above and
+                  are surfaced here as their own view of it. */}
+              <DrawerSection
+                title="Commands and updates"
+                empty="No commands or updates ran during this incident."
+              >
+                {detail.relatedEvents
+                  .filter((event) =>
+                    ["commands", "updates"].includes(event.category),
+                  )
+                  .map((event) => (
+                    <TimelineEntry
+                      key={`command-${event.id}`}
+                      when={event.timestamp}
+                      tag={event.category}
+                    >
+                      {humanize(event.eventType)}{" "}
+                      <ResultBadge value={event.result} />
+                    </TimelineEntry>
+                  ))}
+              </DrawerSection>
+
+              <DrawerSection
+                title="Administrative changes"
+                empty="No administrative changes touched this screen during the incident."
+              >
+                {detail.auditChanges.map((record) => (
+                  <TimelineEntry
+                    key={record.id}
+                    when={record.timestamp}
+                    tag="audit"
+                  >
+                    {record.summary || humanize(record.action)} —{" "}
+                    {record.actorName}
+                  </TimelineEntry>
+                ))}
+              </DrawerSection>
+
+              {detail.screens.length > 0 && (
+                <DrawerSection title="Affected screens" empty="">
+                  {detail.screens.map((screen) => (
+                    <div key={screen.screenId} className="text-sm">
+                      <Link
+                        to={screenActivityLink(screen.screenId)}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {screen.screenName}
+                      </Link>
+                    </div>
+                  ))}
+                </DrawerSection>
+              )}
+            </>
+          )}
+        </div>
+      </SheetContent>
+    </RheaSheet>
+  );
+}
+
+function TimelineEntry({
+  when,
+  tag,
+  children,
+}: {
+  when: string;
+  tag: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-1 rounded-xl border border-border p-3 text-sm">
+      <span className="flex flex-wrap items-center gap-2">
+        <time className="text-xs text-muted-foreground tabular-nums">
+          {formatWhen(when)}
+        </time>
+        <Badge variant="secondary">{tag}</Badge>
+      </span>
+      <p>{children}</p>
+    </div>
   );
 }
 
@@ -348,9 +387,13 @@ function DrawerSection({
   const items = Array.isArray(children) ? children : [children];
   const hasContent = items.some(Boolean) && items.flat().length > 0;
   return (
-    <section className="activity-incident-drawer__section">
-      <h4>{title}</h4>
-      {hasContent ? children : empty ? <p>{empty}</p> : null}
+    <section className="grid gap-2">
+      <h4 className="text-sm font-semibold">{title}</h4>
+      {hasContent ? (
+        children
+      ) : empty ? (
+        <p className="text-sm text-muted-foreground">{empty}</p>
+      ) : null}
     </section>
   );
 }

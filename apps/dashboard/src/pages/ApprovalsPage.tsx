@@ -3,15 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { ClipboardCheck } from "lucide-react";
 import { api } from "../api/client";
+import { Pagination } from "../components/legacy-ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
 import {
-  EmptyState,
-  Notice,
-  PageHeader,
-  Pagination,
-  Spinner,
-  StatusBadge,
-  TableContainer,
-} from "../components/legacy-ui";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Skeleton } from "../components/ui/skeleton";
 
 const PAGE_SIZE = 25;
 
@@ -35,50 +37,79 @@ export function ApprovalsPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="approvals-page">
-      <PageHeader
-        eyebrow="Forms"
-        title="Approvals"
-        description="Submissions awaiting a review decision across your forms."
-      />
+    <div className="grid gap-4">
+      <header className="grid gap-1">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Forms
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Approvals</h1>
+        <p className="text-sm text-muted-foreground">
+          Submissions awaiting a review decision across your forms.
+        </p>
+      </header>
 
       {approvals.isError && (
-        <Notice variant="danger" title="Could not load approvals">
-          {approvals.error instanceof Error
-            ? approvals.error.message
-            : "Please try again."}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Could not load approvals</AlertTitle>
+          <AlertDescription>
+            {approvals.error instanceof Error
+              ? approvals.error.message
+              : "Please try again."}
+          </AlertDescription>
+        </Alert>
       )}
 
       {approvals.isLoading ? (
-        <Spinner label="Loading approvals…" />
+        <div className="grid gap-2" aria-label="Loading approvals">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
       ) : items.length === 0 ? (
-        <EmptyState
-          icon={<ClipboardCheck size={28} aria-hidden="true" />}
-          title="Nothing to review"
-          message="There are no submissions awaiting your decision right now."
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ClipboardCheck size={28} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>Nothing to review</EmptyTitle>
+            <EmptyDescription>
+              There are no submissions awaiting your decision right now.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
-          <TableContainer>
-            <table className="data-table">
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[48rem] text-sm">
               <thead>
-                <tr>
-                  <th scope="col">Form</th>
-                  <th scope="col">Submission</th>
-                  <th scope="col">Submitter</th>
-                  <th scope="col">State</th>
-                  <th scope="col">Submitted</th>
-                  <th scope="col">Display window</th>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Form
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Submission
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Submitter
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    State
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Submitted
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Display window
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
                   <tr
                     key={item.recordId}
-                    className="data-table__row--clickable"
+                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted"
                     tabIndex={0}
                     role="button"
+                    aria-label={`Review ${item.title || "untitled submission"} from ${item.formName}`}
                     onClick={() => openRecord(item.dataSourceId, item.recordId)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -87,19 +118,27 @@ export function ApprovalsPage() {
                       }
                     }}
                   >
-                    <td>{item.formName}</td>
-                    <td>{item.title || "Untitled submission"}</td>
-                    <td>{item.submitterName || "Unknown"}</td>
-                    <td>
-                      <StatusBadge label={item.stateLabel} tone="info" />
+                    <td className="px-3 py-2">{item.formName}</td>
+                    <td className="px-3 py-2">
+                      {item.title || "Untitled submission"}
                     </td>
-                    <td>{new Date(item.submittedAt).toLocaleString()}</td>
-                    <td>{displayWindow(item.displayAt, item.expiresAt)}</td>
+                    <td className="px-3 py-2">
+                      {item.submitterName || "Unknown"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant="secondary">{item.stateLabel}</Badge>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                      {new Date(item.submittedAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {displayWindow(item.displayAt, item.expiresAt)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </TableContainer>
+          </div>
           <Pagination
             label="Approvals pages"
             status={`Page ${page} of ${totalPages} · ${total} pending`}

@@ -126,7 +126,7 @@ export function PlaylistPicker({
           label={`Search ${noun}`}
           placeholder={`Search ${noun}`}
         />
-        <div className="playlist-picker__results">
+        <div className="grid gap-2">
           {loading ? (
             <div className="space-y-2" aria-label={`Loading ${noun}`}>
               <Skeleton className="h-16 w-full" />
@@ -168,13 +168,13 @@ export function PlaylistPicker({
                 <button
                   type="button"
                   key={`${choice.kind}-${id}`}
-                  className={id === chosen ? "is-selected" : ""}
+                  className={`flex items-center gap-3 rounded-xl border p-2 text-left hover:bg-muted ${id === chosen ? "border-primary bg-muted" : "border-border"}`}
                   aria-pressed={id === chosen}
                   onClick={() => setChosen(id)}
                   onDoubleClick={() => onConfirm(choice)}
                 >
                   <span
-                    className="playlist-picker__preview"
+                    className="block h-12 w-20 shrink-0 overflow-hidden rounded-lg bg-muted"
                     data-orientation={
                       choice.kind === "layout"
                         ? choice.layout.orientation
@@ -188,7 +188,10 @@ export function PlaylistPicker({
                       <PlaylistPreview playlist={choice.playlist} />
                     )}
                   </span>
-                  <span className="playlist-picker__icon" aria-hidden="true">
+                  <span
+                    className="shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  >
                     {choice.kind === "layout" ? (
                       <LayoutTemplate size={17} />
                     ) : tagDriven ? (
@@ -197,13 +200,13 @@ export function PlaylistPicker({
                       <ListVideo size={17} />
                     )}
                   </span>
-                  <span className="playlist-picker__label">
-                    <strong>
+                  <span className="grid min-w-0 gap-0.5">
+                    <strong className="truncate text-sm">
                       {choice.kind === "playlist"
                         ? choice.playlist.name
                         : choice.layout.name}
                     </strong>
-                    <small>
+                    <small className="truncate text-xs text-muted-foreground">
                       {choice.kind === "layout"
                         ? `Layout · revision ${choice.layout.publishedRevision}`
                         : `${choice.playlist.itemCount} item${

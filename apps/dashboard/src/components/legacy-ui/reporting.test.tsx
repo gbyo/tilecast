@@ -45,7 +45,7 @@ describe("MetricTile", () => {
         }}
       />,
     );
-    expect(container.querySelector(".metric-tile__delta--bad")).toBeTruthy();
+    expect(container.querySelector('[data-tone="bad"]')).toBeTruthy();
 
     rerender(
       <MetricTile
@@ -58,7 +58,7 @@ describe("MetricTile", () => {
         }}
       />,
     );
-    expect(container.querySelector(".metric-tile__delta--good")).toBeTruthy();
+    expect(container.querySelector('[data-tone="good"]')).toBeTruthy();
   });
 
   it("reports no movement without a success or danger tone", () => {
@@ -75,7 +75,7 @@ describe("MetricTile", () => {
     );
 
     expect(screen.getByText(/Unchanged from previous 24 hours/)).toBeTruthy();
-    expect(container.querySelector(".metric-tile__delta--bad")).toBeNull();
+    expect(container.querySelector('[data-tone="bad"]')).toBeNull();
   });
 
   it("links the whole tile to the records behind the number", () => {

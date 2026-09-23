@@ -1,4 +1,3 @@
-import { Drawer, Select } from "../components/legacy-ui";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
@@ -25,6 +24,29 @@ import {
   TechnicalDetails,
   useActivityCursor,
 } from "./ActivityShared";
+import { MetricTile } from "../components/legacy-ui";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  Sheet as RheaSheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
 import type {
   AuditPage,
   EventPage,
@@ -135,86 +157,99 @@ export function ProofTab({
   return (
     <>
       {hasSummaryData && (
-        <section className="activity-panel activity-proof-summary">
-          <header>
-            <div>
-              <h3>Proof-of-play summary</h3>
-              <p>
+        <section
+          className="grid gap-3 rounded-xl border border-border p-4"
+          aria-label="Proof-of-play summary"
+        >
+          <header className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid min-w-0 flex-1 gap-1">
+              <h3 className="text-base font-semibold">Proof-of-play summary</h3>
+              <p className="text-sm text-muted-foreground">
                 Only Player-confirmed intervals are counted. Screen time is the
                 union of root presentations; exposure sums the content inside
                 them and can be larger when zones play at once.
               </p>
             </div>
-            <label className="activity-group-by">
+            <label className="grid gap-1 text-xs font-medium">
               <span>Group by</span>
-              <Select
+              <RheaSelect
                 value={dimension}
-                onChange={(e) => setDimension(e.target.value)}
+                onValueChange={(next) => {
+                  if (next) setDimension(next);
+                }}
               >
-                <option value="screen">Screen</option>
-                <option value="content">Content</option>
-                <option value="presentation">Playlist or Layout</option>
-                <option value="schedule">Schedule</option>
-              </Select>
+                <SelectTrigger size="sm" className="w-44" aria-label="Group by">
+                  <SelectValue>{proofDimensionLabel(dimension)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent align="end" alignItemWithTrigger={false}>
+                  {proofDimensionOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </RheaSelect>
             </label>
           </header>
-          <div className="activity-proof-metrics">
-            <article>
-              <PlayCircle size={18} aria-hidden="true" />
-              <strong>{metrics.records.toLocaleString()}</strong>
-              <span>Confirmed plays</span>
-              <small>Total intervals</small>
-            </article>
-            <article>
-              <Clock3 size={18} aria-hidden="true" />
-              <strong>{formatDuration(metrics.screenPlayback)}</strong>
-              <span>Confirmed screen playback</span>
-              <small>Wall clock, overlaps merged</small>
-            </article>
-            <article>
-              <Layers size={18} aria-hidden="true" />
-              <strong>{formatDuration(metrics.exposure)}</strong>
-              <span>Content exposure</span>
-              <small>Sums simultaneous zones</small>
-            </article>
-            <article>
-              <MonitorCheck size={18} aria-hidden="true" />
-              <strong>{metrics.completion.toFixed(0)}%</strong>
-              <span>Session completion rate</span>
-              <small>
-                Across {metrics.screens} screen
-                {metrics.screens === 1 ? "" : "s"}
-              </small>
-            </article>
-            <article>
-              <AlertTriangle size={18} aria-hidden="true" />
-              <strong>{metrics.failures.toLocaleString()}</strong>
-              <span>Failed sessions</span>
-              <small>
-                {metrics.interrupted.toLocaleString()} ended unexpectedly
-              </small>
-            </article>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <MetricTile
+              icon={PlayCircle}
+              label="Confirmed plays"
+              value={metrics.records.toLocaleString()}
+              hint="Total intervals"
+            />
+            <MetricTile
+              icon={Clock3}
+              label="Confirmed screen playback"
+              value={formatDuration(metrics.screenPlayback)}
+              hint="Wall clock, overlaps merged"
+            />
+            <MetricTile
+              icon={Layers}
+              label="Content exposure"
+              value={formatDuration(metrics.exposure)}
+              hint="Sums simultaneous zones"
+            />
+            <MetricTile
+              icon={MonitorCheck}
+              label="Session completion rate"
+              value={`${metrics.completion.toFixed(0)}%`}
+              hint={`Across ${metrics.screens} screen${metrics.screens === 1 ? "" : "s"}`}
+            />
+            <MetricTile
+              icon={AlertTriangle}
+              label="Failed sessions"
+              value={metrics.failures.toLocaleString()}
+              hint={`${metrics.interrupted.toLocaleString()} ended unexpectedly`}
+            />
           </div>
           {(summary.data?.items?.length ?? 0) > 0 && (
-            <details className="activity-summary-breakdown">
-              <summary>
+            <details className="grid gap-2 rounded-xl border border-border p-3">
+              <summary className="flex cursor-pointer items-center gap-1 text-sm font-medium">
                 View {dimensionLabel(dimension)} breakdown
                 <ChevronRight size={15} aria-hidden="true" />
               </summary>
-              <div className="activity-summary-table">
+              <div className="grid gap-2">
                 {summary.data?.items?.slice(0, 12).map((item) => (
-                  <div key={item.key}>
-                    <span>
-                      <strong>{item.label}</strong>
-                      <small>{item.records} confirmed records</small>
+                  <div
+                    key={item.key}
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm"
+                  >
+                    <span className="grid min-w-0 gap-0.5">
+                      <strong className="truncate">{item.label}</strong>
+                      <small className="text-xs text-muted-foreground">
+                        {item.records} confirmed records
+                      </small>
                     </span>
-                    <span>
+                    <span className="tabular-nums">
                       {formatDuration(item.confirmedScreenPlaybackMs)}
                     </span>
-                    <span>
+                    <span className="tabular-nums">
                       {item.sessionCompletionPercent.toFixed(0)}% completed
                     </span>
-                    <span>{item.failures} failures</span>
+                    <span className="tabular-nums">
+                      {item.failures} failures
+                    </span>
                   </div>
                 ))}
               </div>
@@ -223,31 +258,28 @@ export function ProofTab({
         </section>
       )}
 
-      <section className="activity-panel activity-records-panel">
-        <header>
-          <div>
-            <h3>Playback records</h3>
-          </div>
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Playback records</h3>
         </header>
         {records.length > 0 && (
-          <div className="activity-table-wrap">
-            <table className="activity-table activity-proof-table">
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[52rem] text-sm">
               <thead>
-                <tr>
-                  <th>Started</th>
-                  <th>Screen</th>
-                  <th>Presentation</th>
-                  <th>Content</th>
-                  <th>Duration</th>
-                  <th>Result</th>
-                  <th aria-label="Open details" />
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="px-3 py-2 font-medium">Started</th>
+                  <th className="px-3 py-2 font-medium">Screen</th>
+                  <th className="px-3 py-2 font-medium">Presentation</th>
+                  <th className="px-3 py-2 font-medium">Content</th>
+                  <th className="px-3 py-2 text-right font-medium">Duration</th>
+                  <th className="px-3 py-2 font-medium">Result</th>
+                  <th aria-label="Open details" className="w-10" />
                 </tr>
               </thead>
               <tbody>
                 {records.map((item) => (
                   <tr
                     key={item.id}
-                    className="activity-clickable-row"
                     tabIndex={0}
                     onClick={(event) => {
                       if (
@@ -270,61 +302,77 @@ export function ProofTab({
                         setSelectedRecord(item);
                       }
                     }}
+                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted"
                   >
-                    <td>
+                    <td className="px-3 py-2 whitespace-nowrap tabular-nums">
                       <time>{formatWhen(item.startedAt)}</time>
                     </td>
-                    <td>
-                      <Link to={`/screens/${item.screenId}?tab=activity`}>
-                        {item.screenName}
-                      </Link>
-                      <small>{item.groupName}</small>
+                    <td className="px-3 py-2">
+                      <span className="grid gap-0.5">
+                        <Link
+                          to={`/screens/${item.screenId}?tab=activity`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {item.screenName}
+                        </Link>
+                        <small className="text-xs text-muted-foreground">
+                          {item.groupName}
+                        </small>
+                      </span>
                     </td>
-                    <td>
-                      <strong>
-                        <ResourceLink
-                          type={item.presentationType}
-                          id={item.presentationId}
-                          label={
-                            item.presentationName || item.presentationId || "—"
-                          }
-                        />
-                      </strong>
-                      <small>
-                        {[
-                          item.presentationType,
-                          item.presentationRevision &&
-                            `rev ${item.presentationRevision}`,
-                          item.trigger,
-                          item.scheduleId && `schedule ${item.scheduleId}`,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </small>
+                    <td className="px-3 py-2">
+                      <span className="grid gap-0.5">
+                        <strong className="font-medium">
+                          <ResourceLink
+                            type={item.presentationType}
+                            id={item.presentationId}
+                            label={
+                              item.presentationName ||
+                              item.presentationId ||
+                              "—"
+                            }
+                          />
+                        </strong>
+                        <small className="text-xs text-muted-foreground">
+                          {[
+                            item.presentationType,
+                            item.presentationRevision &&
+                              `rev ${item.presentationRevision}`,
+                            item.trigger,
+                            item.scheduleId && `schedule ${item.scheduleId}`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </small>
+                      </span>
                     </td>
-                    <td>
-                      <strong>
-                        <ResourceLink
-                          type={item.contentType}
-                          id={item.contentId}
-                          label={
-                            item.contentName ||
-                            item.contentId ||
-                            "Root presentation"
-                          }
-                        />
-                      </strong>
-                      <small>{item.contentType}</small>
+                    <td className="px-3 py-2">
+                      <span className="grid gap-0.5">
+                        <strong className="font-medium">
+                          <ResourceLink
+                            type={item.contentType}
+                            id={item.contentId}
+                            label={
+                              item.contentName ||
+                              item.contentId ||
+                              "Root presentation"
+                            }
+                          />
+                        </strong>
+                        <small className="text-xs text-muted-foreground">
+                          {item.contentType}
+                        </small>
+                      </span>
                     </td>
-                    <td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
                       {item.actualDurationMs == null
                         ? "In progress"
                         : formatDuration(item.actualDurationMs)}
                     </td>
-                    <td>
+                    <td className="px-3 py-2">
                       <ResultBadge value={item.result} />
                     </td>
-                    <td className="activity-row-disclosure">
+                    <td className="px-3 py-2 text-muted-foreground">
                       <ChevronRight size={17} aria-hidden="true" />
                     </td>
                   </tr>
@@ -334,51 +382,55 @@ export function ProofTab({
           </div>
         )}
         {!records.length && (
-          <div className="activity-empty activity-empty--actionable">
-            <MonitorCheck size={24} aria-hidden="true" />
-            <h3>
-              {hasActiveFilters
-                ? "No playback matches the current filters"
-                : "No confirmed playback found"}
-            </h3>
-            <p>
-              {hasActiveFilters
-                ? "Try adjusting or clearing the filters to see more records."
-                : "No players reported proof of play during this date range. Try a longer range or check screen connectivity."}
-            </p>
-            <div className="activity-empty-actions">
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <MonitorCheck size={24} aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>
+                {hasActiveFilters
+                  ? "No playback matches the current filters"
+                  : "No confirmed playback found"}
+              </EmptyTitle>
+              <EmptyDescription>
+                {hasActiveFilters
+                  ? "Try adjusting or clearing the filters to see more records."
+                  : "No players reported proof of play during this date range. Try a longer range or check screen connectivity."}
+              </EmptyDescription>
+            </EmptyHeader>
+            <div className="flex flex-wrap justify-center gap-2">
               {hasActiveFilters ? (
-                <button
+                <RheaButton
                   type="button"
-                  className="button button--secondary"
+                  variant="secondary"
                   onClick={onClearFilters}
                 >
                   Clear filters
-                </button>
+                </RheaButton>
               ) : (
                 <>
                   {canExtendRange && (
-                    <button
+                    <RheaButton
                       type="button"
-                      className="button button--secondary"
+                      variant="secondary"
                       onClick={onExtendRange}
                     >
                       Last 7 days
-                    </button>
+                    </RheaButton>
                   )}
                   {onViewScreenEvents && (
-                    <button
+                    <RheaButton
                       type="button"
-                      className="button button--quiet"
+                      variant="ghost"
                       onClick={onViewScreenEvents}
                     >
                       View screen events
-                    </button>
+                    </RheaButton>
                   )}
                 </>
               )}
             </div>
-          </div>
+          </Empty>
         )}
         <ActivityPagination
           pagination={pagination}
@@ -424,115 +476,144 @@ function ProofDetailsDrawer({
   });
 
   return (
-    <Drawer
-      className="activity-detail-drawer"
-      eyebrow="Playback record"
-      title={record.contentName || record.presentationName || record.screenName}
-      closeLabel="Close playback details"
-      onClose={onClose}
+    <RheaSheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <div className="activity-drawer-body">
-        <div className="activity-drawer-result">
-          <ResultBadge value={record.result} />
-          <span>
-            {record.actualDurationMs == null
-              ? "Playback is still in progress"
-              : `${formatDuration(record.actualDurationMs)} confirmed`}
-          </span>
-        </div>
+      <SheetContent side="right" className="overflow-y-auto">
+        <SheetHeader>
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Playback record
+          </p>
+          <SheetTitle>
+            {record.contentName || record.presentationName || record.screenName}
+          </SheetTitle>
+          <SheetDescription>
+            Player-confirmed playback details.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="grid gap-6 px-4 pb-6">
+          <p className="flex flex-wrap items-center gap-2 text-sm">
+            <ResultBadge value={record.result} />
+            <span>
+              {record.actualDurationMs == null
+                ? "Playback is still in progress"
+                : `${formatDuration(record.actualDurationMs)} confirmed`}
+            </span>
+          </p>
 
-        <section>
-          <h3>Playback</h3>
-          <dl className="activity-detail-list">
-            <DetailRow
-              label="Started"
-              value={formatFullWhen(record.startedAt)}
-            />
-            <DetailRow
-              label="Ended"
-              value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
-            />
-            <DetailRow
-              label="Screen"
-              value={
-                <Link to={`/screens/${record.screenId}?tab=activity`}>
-                  {record.screenName}
-                </Link>
-              }
-            />
-            <DetailRow label="Group" value={record.groupName || "—"} />
-            <DetailRow label="Trigger" value={record.trigger || "—"} />
-          </dl>
-        </section>
-
-        <section>
-          <h3>Content</h3>
-          <dl className="activity-detail-list">
-            <DetailRow
-              label="Presentation"
-              value={
-                <ResourceLink
-                  type={record.presentationType}
-                  id={record.presentationId}
-                  label={
-                    record.presentationName || record.presentationId || "—"
-                  }
-                />
-              }
-            />
-            <DetailRow
-              label="Revision"
-              value={record.presentationRevision || "—"}
-            />
-            <DetailRow
-              label="Content"
-              value={
-                <ResourceLink
-                  type={record.contentType}
-                  id={record.contentId}
-                  label={
-                    record.contentName ||
-                    record.contentId ||
-                    "Root presentation"
-                  }
-                />
-              }
-            />
-            <DetailRow label="Schedule ID" value={record.scheduleId || "—"} />
-            <DetailRow label="Takeover ID" value={record.takeoverId || "—"} />
-          </dl>
-        </section>
-
-        {entries.length > 0 && (
-          <section>
-            <h3>Technical metadata</h3>
-            <dl className="activity-detail-list activity-detail-list--technical">
-              {entries.map(([key, value]) => (
-                <DetailRow
-                  key={key}
-                  label={humanize(key)}
-                  value={formatTechnicalValue(value)}
-                />
-              ))}
+          <section className="grid gap-2">
+            <h3 className="text-sm font-semibold">Playback</h3>
+            <dl className="grid gap-1.5 text-sm">
+              <DetailRow
+                label="Started"
+                value={formatFullWhen(record.startedAt)}
+              />
+              <DetailRow
+                label="Ended"
+                value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
+              />
+              <DetailRow
+                label="Screen"
+                value={
+                  <Link
+                    to={`/screens/${record.screenId}?tab=activity`}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {record.screenName}
+                  </Link>
+                }
+              />
+              <DetailRow label="Group" value={record.groupName || "—"} />
+              <DetailRow label="Trigger" value={record.trigger || "—"} />
             </dl>
           </section>
-        )}
-      </div>
-    </Drawer>
+
+          <section className="grid gap-2">
+            <h3 className="text-sm font-semibold">Content</h3>
+            <dl className="grid gap-1.5 text-sm">
+              <DetailRow
+                label="Presentation"
+                value={
+                  <ResourceLink
+                    type={record.presentationType}
+                    id={record.presentationId}
+                    label={
+                      record.presentationName || record.presentationId || "—"
+                    }
+                  />
+                }
+              />
+              <DetailRow
+                label="Revision"
+                value={record.presentationRevision || "—"}
+              />
+              <DetailRow
+                label="Content"
+                value={
+                  <ResourceLink
+                    type={record.contentType}
+                    id={record.contentId}
+                    label={
+                      record.contentName ||
+                      record.contentId ||
+                      "Root presentation"
+                    }
+                  />
+                }
+              />
+              <DetailRow label="Schedule ID" value={record.scheduleId || "—"} />
+              <DetailRow label="Takeover ID" value={record.takeoverId || "—"} />
+            </dl>
+          </section>
+
+          {entries.length > 0 && (
+            <section className="grid gap-2">
+              <h3 className="text-sm font-semibold">Technical metadata</h3>
+              <dl className="grid gap-1.5 text-sm">
+                {entries.map(([key, value]) => (
+                  <DetailRow
+                    key={key}
+                    label={humanize(key)}
+                    value={formatTechnicalValue(value)}
+                  />
+                ))}
+              </dl>
+            </section>
+          )}
+        </div>
+      </SheetContent>
+    </RheaSheet>
   );
 }
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
+    <div className="flex flex-wrap gap-x-2">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 flex-1 break-words">{value}</dd>
     </div>
   );
 }
 
 function dimensionLabel(value: string) {
   return value === "presentation" ? "presentation" : value;
+}
+
+const proofDimensionOptions = [
+  { value: "screen", label: "Screen" },
+  { value: "content", label: "Content" },
+  { value: "presentation", label: "Playlist or Layout" },
+  { value: "schedule", label: "Schedule" },
+];
+
+function proofDimensionLabel(value: string) {
+  return (
+    proofDimensionOptions.find((option) => option.value === value)?.label ??
+    value
+  );
 }
 
 function formatFullWhen(value: string) {
@@ -578,71 +659,91 @@ export function EventsTab({
   if (query.isLoading) return <Loading />;
   if (query.error) return <ErrorNotice error={query.error} />;
   return (
-    <section className="activity-panel">
-      <header>
-        <div>
-          <h3>Screen Events</h3>
-          <p>
-            Technical state transitions and meaningful Player or server
-            activity. Routine successful heartbeats are excluded.
-          </p>
-        </div>
+    <section className="grid gap-3 rounded-xl border border-border p-4">
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">Screen Events</h3>
+        <p className="text-sm text-muted-foreground">
+          Technical state transitions and meaningful Player or server activity.
+          Routine successful heartbeats are excluded.
+        </p>
       </header>
-      <div className="activity-table-wrap">
-        <table className="activity-table">
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <table className="w-full min-w-[56rem] text-sm">
           <thead>
-            <tr>
-              <th>Severity</th>
-              <th>Time</th>
-              <th>Screen</th>
-              <th>Event</th>
-              <th>Related resource</th>
-              <th>Result</th>
-              <th>Details</th>
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th className="px-3 py-2 font-medium">Severity</th>
+              <th className="px-3 py-2 font-medium">Time</th>
+              <th className="px-3 py-2 font-medium">Screen</th>
+              <th className="px-3 py-2 font-medium">Event</th>
+              <th className="px-3 py-2 font-medium">Related resource</th>
+              <th className="px-3 py-2 font-medium">Result</th>
+              <th className="px-3 py-2 font-medium">Details</th>
             </tr>
           </thead>
           <tbody>
             {query.data?.items?.map((item) => (
-              <tr key={item.id}>
-                <td>
+              <tr
+                key={item.id}
+                className="border-b border-border align-top last:border-0"
+              >
+                <td className="px-3 py-2">
                   <ResultBadge value={item.severity} />
                 </td>
-                <td>
-                  <time>{formatWhen(item.timestamp)}</time>
-                  <small>Received {formatWhen(item.receivedAt)}</small>
+                <td className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <time className="whitespace-nowrap tabular-nums">
+                      {formatWhen(item.timestamp)}
+                    </time>
+                    <small className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+                      Received {formatWhen(item.receivedAt)}
+                    </small>
+                  </span>
                 </td>
-                <td>
-                  <Link to={`/screens/${item.screenId}?tab=activity`}>
-                    {item.screenName}
-                  </Link>
-                  <small>{item.groupName}</small>
+                <td className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <Link
+                      to={`/screens/${item.screenId}?tab=activity`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {item.screenName}
+                    </Link>
+                    <small className="text-xs text-muted-foreground">
+                      {item.groupName}
+                    </small>
+                  </span>
                 </td>
-                <td>
-                  <strong>{humanize(item.eventType)}</strong>
-                  <small>
-                    {item.category} · seq {item.sequence ?? "server"}
-                  </small>
+                <td className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <strong className="font-medium">
+                      {humanize(item.eventType)}
+                    </strong>
+                    <small className="text-xs text-muted-foreground">
+                      {item.category} · seq {item.sequence ?? "server"}
+                    </small>
+                  </span>
                 </td>
-                <td>
+                <td className="px-3 py-2">
                   {item.relatedId ? (
-                    <>
-                      <strong>
+                    <span className="grid gap-0.5">
+                      <strong className="font-medium">
                         <ResourceLink
                           type={item.relatedType}
                           id={item.relatedId}
                           label={item.relatedId}
                         />
                       </strong>
-                      <small>{item.relatedType}</small>
-                    </>
+                      <small className="text-xs text-muted-foreground">
+                        {item.relatedType}
+                      </small>
+                    </span>
                   ) : (
                     "—"
                   )}
                 </td>
-                <td>
+                <td className="px-3 py-2">
                   <ResultBadge value={item.result} />
                 </td>
-                <td>
+                <td className="px-3 py-2">
                   <TechnicalDetails
                     value={{
                       failureCode: item.failureCode,
@@ -686,58 +787,73 @@ export function AuditTab({
   if (query.isLoading) return <Loading />;
   if (query.error) return <ErrorNotice error={query.error} />;
   return (
-    <section className="activity-panel">
-      <header>
-        <div>
-          <h3>Audit Log</h3>
-          <p>
-            Authenticated user and administrator changes. Player behavior is
-            kept in Screen Events.
-          </p>
-        </div>
+    <section className="grid gap-3 rounded-xl border border-border p-4">
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">Audit Log</h3>
+        <p className="text-sm text-muted-foreground">
+          Authenticated user and administrator changes. Player behavior is kept
+          in Screen Events.
+        </p>
       </header>
-      <div className="activity-table-wrap">
-        <table className="activity-table">
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <table className="w-full min-w-[56rem] text-sm">
           <thead>
-            <tr>
-              <th>Time</th>
-              <th>Actor</th>
-              <th>Action</th>
-              <th>Resource</th>
-              <th>Result</th>
-              <th>Summary</th>
-              <th>Details</th>
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th className="px-3 py-2 font-medium">Time</th>
+              <th className="px-3 py-2 font-medium">Actor</th>
+              <th className="px-3 py-2 font-medium">Action</th>
+              <th className="px-3 py-2 font-medium">Resource</th>
+              <th className="px-3 py-2 font-medium">Result</th>
+              <th className="px-3 py-2 font-medium">Summary</th>
+              <th className="px-3 py-2 font-medium">Details</th>
             </tr>
           </thead>
           <tbody>
             {query.data?.items?.map((item) => (
-              <tr key={item.id}>
-                <td>
+              <tr
+                key={item.id}
+                className="border-b border-border align-top last:border-0"
+              >
+                <td className="px-3 py-2 whitespace-nowrap tabular-nums">
                   <time>{formatWhen(item.timestamp)}</time>
                 </td>
-                <td>
-                  <strong>{item.actorName}</strong>
-                  <small>{item.actorUsername}</small>
+                <td className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <strong className="font-medium">{item.actorName}</strong>
+                    <small className="text-xs text-muted-foreground">
+                      {item.actorUsername}
+                    </small>
+                  </span>
                 </td>
-                <td>
-                  <strong>{humanize(item.action)}</strong>
-                  <small>{item.action}</small>
+                <td className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <strong className="font-medium">
+                      {humanize(item.action)}
+                    </strong>
+                    <small className="text-xs text-muted-foreground">
+                      {item.action}
+                    </small>
+                  </span>
                 </td>
-                <td>
-                  <strong>
-                    <ResourceLink
-                      type={item.resourceType}
-                      id={item.resourceId}
-                      label={item.resourceName || item.resourceId || "—"}
-                    />
-                  </strong>
-                  <small>{item.resourceType}</small>
+                <td className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <strong className="font-medium">
+                      <ResourceLink
+                        type={item.resourceType}
+                        id={item.resourceId}
+                        label={item.resourceName || item.resourceId || "—"}
+                      />
+                    </strong>
+                    <small className="text-xs text-muted-foreground">
+                      {item.resourceType}
+                    </small>
+                  </span>
                 </td>
-                <td>
+                <td className="px-3 py-2">
                   <ResultBadge value={item.result} />
                 </td>
-                <td>{item.summary}</td>
-                <td>
+                <td className="px-3 py-2">{item.summary}</td>
+                <td className="px-3 py-2">
                   <TechnicalDetails
                     value={{
                       requestId: item.requestId,

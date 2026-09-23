@@ -146,9 +146,7 @@ describe("Playback compliance", () => {
   it("names the main reason time went missing", async () => {
     renderPanel();
 
-    const row = (await screen.findByText("Lobby north")).closest(
-      ".activity-compliance__row",
-    )!;
+    const row = (await screen.findByText("Lobby north")).closest("tr")!;
     expect(row.textContent).toContain("Screen Offline");
   });
 

@@ -391,9 +391,7 @@ export function PlaylistItemInspector({
                     onValueChange={(next) =>
                       set(
                         "volume",
-                        Number(
-                          Array.isArray(next) ? (next[0] ?? 0) : next,
-                        ),
+                        Number(Array.isArray(next) ? (next[0] ?? 0) : next),
                       )
                     }
                     className="flex-1"

@@ -1,7 +1,5 @@
 import {
   FilterBar,
-  PageHeader,
-  Popover,
   TimeRangePicker,
   ViewTabs,
   resolveTimeRange,
@@ -10,6 +8,14 @@ import {
   type FilterOption,
   type TimeRangePreset,
 } from "../components/legacy-ui";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import {
+  Popover as RheaPopover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
@@ -339,36 +345,37 @@ export function ActivityPage() {
   }
 
   return (
-    <section className="activity-page">
-      <PageHeader
-        className="activity-heading"
-        title="Activity"
-        description="Operational reporting, Player-confirmed proof of play, technical screen events, and administrator history."
-        actions={
-          <div className="activity-heading-actions">
-            <TimeRangePicker
-              preset={preset}
-              onPresetChange={(value) => setRange("range", value)}
-              customFrom={customFrom}
-              customTo={customTo}
-              onCustomFromChange={(value) => setRange("from", value)}
-              onCustomToChange={(value) => setRange("to", value)}
-            />
-            {exportHref && (
-              <a
-                className="button button--secondary activity-export"
-                href={exportHref}
-                title="Export the current date range and filters"
-              >
-                <Download size={15} /> Export CSV
-              </a>
-            )}
-          </div>
-        }
-      />
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Operational reporting, Player-confirmed proof of play, technical
+            screen events, and administrator history.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <TimeRangePicker
+            preset={preset}
+            onPresetChange={(value) => setRange("range", value)}
+            customFrom={customFrom}
+            customTo={customTo}
+            onCustomFromChange={(value) => setRange("from", value)}
+            onCustomToChange={(value) => setRange("to", value)}
+          />
+          {exportHref && (
+            <a
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
+              href={exportHref}
+              title="Export the current date range and filters"
+            >
+              <Download size={15} aria-hidden="true" /> Export CSV
+            </a>
+          )}
+        </div>
+      </header>
 
       <ViewTabs
-        className="activity-tabs"
         label="Activity reports"
         value={tab}
         items={activityTabs}
@@ -384,58 +391,62 @@ export function ActivityPage() {
           label={`${activityTabs.find((item) => item.value === tab)?.label} filters`}
         >
           {tab === "proof" && (
-            <Popover
-              label="Advanced filters"
-              className="activity-more-filters"
-              panelClassName="activity-more-filters-panel"
-              align="end"
-              trigger={(props) => (
-                <button
-                  type="button"
-                  className="signal-popover__filter-trigger"
-                  {...props}
-                >
-                  <SlidersHorizontal size={15} aria-hidden="true" />
-                  <span>More filters</span>
-                  {activeAdvanced.length > 0 && (
-                    <span className="signal-popover__count">
-                      {activeAdvanced.length}
-                    </span>
-                  )}
-                </button>
-              )}
-            >
-              <div className="signal-popover__header">
-                <div>
-                  <strong>Advanced filters</strong>
-                  <small>Filter by an exact resource ID.</small>
-                </div>
+            <RheaPopover>
+              <PopoverTrigger
+                render={<RheaButton variant="outline" size="sm" />}
+                aria-label={`Advanced filters${activeAdvanced.length ? `, ${activeAdvanced.length} active` : ""}`}
+              >
+                <SlidersHorizontal size={15} aria-hidden="true" />
+                <span>More filters</span>
                 {activeAdvanced.length > 0 && (
-                  <button
-                    type="button"
-                    className="button button--quiet button--compact"
-                    onClick={() => {
-                      for (const filter of advancedProofFilters)
-                        set(filter.key, "");
-                    }}
-                  >
-                    Clear
-                  </button>
+                  <Badge variant="secondary">{activeAdvanced.length}</Badge>
                 )}
-              </div>
-              <div className="activity-advanced-filter-grid">
-                {advancedProofFilters.map((filter) => (
-                  <label key={filter.key}>
-                    <span>{filter.label} ID</span>
-                    <input
-                      value={values[filter.key] ?? ""}
-                      onChange={(event) => set(filter.key, event.target.value)}
-                      placeholder={`${filter.label} ID`}
-                    />
-                  </label>
-                ))}
-              </div>
-            </Popover>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="grid w-80 gap-3 p-3"
+                aria-label="Advanced filters"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="grid gap-0.5">
+                    <strong className="text-sm">Advanced filters</strong>
+                    <small className="text-xs text-muted-foreground">
+                      Filter by an exact resource ID.
+                    </small>
+                  </div>
+                  {activeAdvanced.length > 0 && (
+                    <RheaButton
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        for (const filter of advancedProofFilters)
+                          set(filter.key, "");
+                      }}
+                    >
+                      Clear
+                    </RheaButton>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  {advancedProofFilters.map((filter) => (
+                    <label
+                      key={filter.key}
+                      className="grid gap-1 text-xs font-medium"
+                    >
+                      <span>{filter.label} ID</span>
+                      <Input
+                        value={values[filter.key] ?? ""}
+                        onChange={(event) =>
+                          set(filter.key, event.target.value)
+                        }
+                        placeholder={`${filter.label} ID`}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </RheaPopover>
           )}
         </FilterBar>
       )}

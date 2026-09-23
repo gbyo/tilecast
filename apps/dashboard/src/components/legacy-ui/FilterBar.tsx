@@ -8,8 +8,15 @@ import {
 } from "react";
 import { useSearchParams } from "react-router";
 import { X } from "lucide-react";
-import { Select } from "./SignalSelect";
 import { DashboardSearch } from "../DashboardListToolbar";
+import { Input } from "../ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 export type FilterOption = { value: string; label: string };
 
@@ -105,8 +112,12 @@ export function FilterBar({
   className?: string;
 }) {
   return (
-    <div className={`filter-bar ${className}`.trim()}>
-      <div className="filter-bar__controls" role="group" aria-label={label}>
+    <div className={`grid gap-2 ${className}`.trim()}>
+      <div
+        className="flex flex-wrap items-center gap-2"
+        role="group"
+        aria-label={label}
+      >
         {definitions
           .filter(
             (definition) => definition.kind === "search" || !definition.hidden,
@@ -202,29 +213,45 @@ function FilterControl({
   }
   if (definition.kind === "text") {
     return (
-      <input
-        className="filter-bar__text"
+      <Input
         value={typed.value}
         aria-label={definition.label}
         placeholder={definition.placeholder}
         onChange={(event) => typed.onChange(event.target.value)}
         onBlur={typed.onBlur}
+        className="w-44"
       />
     );
   }
+  // Base UI selects need a non-empty value, so the empty "all" choice is
+  // addressed by a sentinel that maps back to "" on the way out.
+  const selectedValue = value || "__all__";
+  const selectedLabel =
+    definition.options.find((option) => option.value === value)?.label ??
+    definition.allLabel;
   return (
-    <Select
-      aria-label={definition.label}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
+    <RheaSelect
+      value={selectedValue}
+      onValueChange={(next) =>
+        onChange(!next || next === "__all__" ? "" : next)
+      }
     >
-      <option value="">{definition.allLabel}</option>
-      {definition.options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </Select>
+      <SelectTrigger
+        size="sm"
+        className="max-w-52"
+        aria-label={definition.label}
+      >
+        <SelectValue>{selectedLabel}</SelectValue>
+      </SelectTrigger>
+      <SelectContent align="start" alignItemWithTrigger={false}>
+        <SelectItem value="__all__">{definition.allLabel}</SelectItem>
+        {definition.options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </RheaSelect>
   );
 }
 
@@ -253,26 +280,33 @@ export function FilterChips({
     }));
   if (active.length === 0) return null;
   return (
-    <div className="filter-chips" aria-label="Active filters">
+    <div
+      className="flex flex-wrap items-center gap-1.5"
+      aria-label="Active filters"
+    >
       {active.map(({ definition, value }) => {
         const shown = describeValue(definition, value);
         return (
           <button
             key={definition.key}
             type="button"
-            className="filter-chip"
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs hover:bg-muted/60"
             // The visible text is repeated verbatim so the accessible name
             // still contains the label a sighted person is reading.
             aria-label={`Remove filter ${definition.label}: ${shown}`}
             onClick={() => onChange(definition.key, "")}
           >
-            <strong>{definition.label}:</strong>
+            <strong className="font-medium">{definition.label}:</strong>
             <span>{shown}</span>
             <X size={13} aria-hidden="true" />
           </button>
         );
       })}
-      <button type="button" className="filter-chips__clear" onClick={onClear}>
+      <button
+        type="button"
+        className="rounded-full px-2 py-0.5 text-xs font-medium text-primary hover:underline"
+        onClick={onClear}
+      >
         Clear all
       </button>
     </div>
