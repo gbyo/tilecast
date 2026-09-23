@@ -10,6 +10,14 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import {
   activityParams,
   activityRequest,
   EmptyState,
@@ -224,52 +232,60 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
         <EmptyState message="No expected playback was recorded in this range." />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full min-w-[42rem] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="px-3 py-2 font-medium">
+          <Table className="w-full min-w-[42rem] text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                <TableHead className="px-3 py-2 font-medium">
                   {humanize(data.dimension)}
-                </th>
-                <th className="px-3 py-2 text-right font-medium">Compliance</th>
-                <th className="px-3 py-2 text-right font-medium">Expected</th>
-                <th className="px-3 py-2 text-right font-medium">Confirmed</th>
-                <th className="px-3 py-2 text-right font-medium">Missed</th>
-                <th className="px-3 py-2 text-right font-medium">
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
+                  Compliance
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
+                  Expected
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
+                  Confirmed
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
+                  Missed
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
                   Main reason
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {breakdown.map((item) => (
-                <tr
+                <TableRow
                   key={item.key || item.label}
                   className="border-b border-border last:border-0"
                 >
                   {/* Labels come from the server already readable — a screen or
                       location name must not be re-cased into "Lobby North". */}
-                  <td className="px-3 py-2">{item.label}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  <TableCell className="px-3 py-2">{item.label}</TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
                     {formatPercent(item.compliancePercent)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
                     {formatDuration(item.measurableExpectedMs)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
                     {formatDuration(item.confirmedMs)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
                     {formatDuration(item.missedMs)}
-                  </td>
-                  <td className="px-3 py-2 text-right">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right">
                     {/* Named only when time actually went missing. */}
                     {item.missedMs > 0 && item.topFailureReason
                       ? humanize(item.topFailureReason)
                       : "—"}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </section>

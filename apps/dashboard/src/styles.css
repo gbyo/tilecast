@@ -371,25 +371,6 @@ a {
 .field-error {
   color: var(--tc-danger) !important;
 }
-.backup-job-list {
-  display: grid;
-}
-.backup-job-list > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--tc-border);
-}
-.backup-job-list span:first-child {
-  display: grid;
-  gap: 2px;
-}
-.backup-job-list small,
-.backup-job-status {
-  color: var(--tc-ink-muted);
-  font-size: 12px;
-}
 .setting-control--checks {
   display: grid;
   gap: 6px;
@@ -557,17 +538,6 @@ a {
 .approval-card form {
   display: grid;
   gap: 16px;
-}
-.detail-card {
-  background: var(--tc-surface);
-  border: 1px solid var(--tc-border);
-  border-radius: var(--tc-radius-md);
-}
-.detail-card h3 {
-  padding: 13px 16px;
-  margin: 0;
-  border-bottom: 1px solid var(--tc-border);
-  font-size: 14px;
 }
 @media (max-width: 620px) {
   .pair-card form {

@@ -26,6 +26,14 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 import { toast } from "../components/ui/toast";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -852,45 +860,45 @@ export function PlayerUpdatesPanel({
         ) : (
           <>
             <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[48rem] text-sm">
+              <Table className="w-full min-w-[48rem] text-sm">
                 <caption className="sr-only">
                   Available {platformLabel} Player releases
                 </caption>
-                <thead>
-                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th scope="col" className="px-3 py-2 font-medium">
+                <TableHeader>
+                  <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                    <TableHead scope="col" className="px-3 py-2 font-medium">
                       Version
-                    </th>
-                    <th scope="col" className="px-3 py-2 font-medium">
+                    </TableHead>
+                    <TableHead scope="col" className="px-3 py-2 font-medium">
                       Source
-                    </th>
-                    <th scope="col" className="px-3 py-2 font-medium">
+                    </TableHead>
+                    <TableHead scope="col" className="px-3 py-2 font-medium">
                       Published
-                    </th>
-                    <th scope="col" className="px-3 py-2 font-medium">
+                    </TableHead>
+                    <TableHead scope="col" className="px-3 py-2 font-medium">
                       Size
-                    </th>
-                    <th scope="col" className="px-3 py-2 font-medium">
+                    </TableHead>
+                    <TableHead scope="col" className="px-3 py-2 font-medium">
                       Status
-                    </th>
+                    </TableHead>
                     {owner && (
-                      <th
+                      <TableHead
                         scope="col"
                         aria-label="Actions"
                         className="px-3 py-2"
                       />
                     )}
-                  </tr>
-                </thead>
-                <tbody id="player-releases-table-body">
+                  </TableRow>
+                </TableHeader>
+                <TableBody id="player-releases-table-body">
                   {visibleReleaseItems.map((release) => {
                     const readiness = releaseReadiness(release);
                     return (
-                      <tr
+                      <TableRow
                         key={release.id}
                         className="border-b border-border last:border-0"
                       >
-                        <th
+                        <TableHead
                           scope="row"
                           className="px-3 py-2 text-left font-normal"
                         >
@@ -905,19 +913,19 @@ export function PlayerUpdatesPanel({
                           <small className="font-mono text-xs text-muted-foreground">
                             Code {release.versionCode}
                           </small>
-                        </th>
-                        <td className="px-3 py-2">
+                        </TableHead>
+                        <TableCell className="px-3 py-2">
                           {release.source === "upload"
                             ? "Direct upload"
                             : "GitHub"}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="px-3 py-2 whitespace-nowrap">
                           {new Date(release.publishedAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                        </TableCell>
+                        <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
                           {formatBytes(release.apkSizeBytes)}
-                        </td>
-                        <td className="px-3 py-2">
+                        </TableCell>
+                        <TableCell className="px-3 py-2">
                           <StatusDot
                             tone={readiness.tone}
                             label={readiness.label}
@@ -946,9 +954,9 @@ export function PlayerUpdatesPanel({
                               {readiness.detail}
                             </small>
                           )}
-                        </td>
+                        </TableCell>
                         {owner && (
-                          <td className="px-3 py-2">
+                          <TableCell className="px-3 py-2">
                             <div className="flex flex-wrap items-center gap-2">
                               {readiness.cacheable && (
                                 <ReleaseCacheButton
@@ -986,13 +994,13 @@ export function PlayerUpdatesPanel({
                                 </Button>
                               )}
                             </div>
-                          </td>
+                          </TableCell>
                         )}
-                      </tr>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
             {releaseItems.length > defaultVisibleReleaseCount && (
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1430,27 +1438,27 @@ export function PlayerUpdatesPanel({
           </div>
         )}
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full min-w-[48rem] text-sm">
+          <Table className="w-full min-w-[48rem] text-sm">
             <caption className="sr-only">
               {platformLabel} Player deployment history
             </caption>
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th scope="col" className="px-3 py-2 font-medium">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   Deployment
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   Status
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   Screens
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   What this needs
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {platformDeployments.map((item) => {
                 const headline = deploymentHeadline(item);
                 const needsAttention =
@@ -1458,30 +1466,33 @@ export function PlayerUpdatesPanel({
                   item.waitingForUserCount > 0 ||
                   item.status === "paused";
                 return (
-                  <tr
+                  <TableRow
                     key={item.id}
                     className="border-b border-border last:border-0"
                   >
-                    <th scope="row" className="px-3 py-2 text-left font-normal">
+                    <TableHead
+                      scope="row"
+                      className="px-3 py-2 text-left font-normal"
+                    >
                       <strong className="font-semibold">{item.name}</strong>
                       <small className="block font-mono text-xs text-muted-foreground">
                         {item.versionName} ({item.versionCode}) ·{" "}
                         {humanize(item.mode)}
                       </small>
-                    </th>
-                    <td className="px-3 py-2">
+                    </TableHead>
+                    <TableCell className="px-3 py-2">
                       <UpdateStatus value={item.status} />
                       <small className="block text-xs text-muted-foreground">
                         {rolloutSummary(item)}
                       </small>
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       <DeploymentMeter compact {...item} />
                       <small className="text-xs text-muted-foreground">
                         {outstandingSummary(item)}
                       </small>
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       <span
                         className={
                           needsAttention
@@ -1512,24 +1523,24 @@ export function PlayerUpdatesPanel({
                         {item.targetCount}{" "}
                         {item.targetCount === 1 ? "screen" : "screens"}
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {!deployments.isLoading &&
                 !deployments.error &&
                 platformDeployments.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-3 py-4 text-center">
+                  <TableRow>
+                    <TableCell colSpan={4} className="px-3 py-4 text-center">
                       <span className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                         <CheckCircle2 size={18} aria-hidden="true" />
                         No {platformLabel} Player deployments have been created.
                       </span>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </section>
       {openDeployment && (

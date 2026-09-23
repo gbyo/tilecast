@@ -32,7 +32,14 @@ import {
   type ReactNode,
 } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import { z } from "zod";
 import { api } from "../api/client";
 import type {
@@ -58,6 +65,7 @@ import { previewApi } from "../api/previews";
 import { previewAge } from "../components/livePreviewState";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
+import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
@@ -452,6 +460,67 @@ const statusContent: Record<
   revoked: { label: "Pairing revoked", Icon: ShieldOff },
 };
 
+export function ScreensWorkspacePage() {
+  const auth = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const manageable = canManageScreens(auth.status?.user);
+  const screens = useQuery({
+    queryKey: ["screens"],
+    queryFn: api.screens,
+    refetchInterval: 10_000,
+  });
+  const archive =
+    location.pathname === "/screens/archive" ||
+    location.pathname.startsWith("/screens/archive/");
+  const activeTab = archive ? "archive" : "fleet";
+
+  return (
+    <div className="w-full min-w-0 space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Screens</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {archive
+              ? "Review players whose pairings were revoked."
+              : screens.isLoading
+                ? "Loading screen inventory…"
+                : screenInventorySummary(screens.data?.items ?? [])}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {manageable && (
+            <Link
+              className={buttonVariants({ variant: "default", size: "sm" })}
+              to="/screens/pair"
+            >
+              <Plus aria-hidden="true" /> Pair screen
+            </Link>
+          )}
+          {manageable && !archive && (
+            <TakeoverAction screens={screens.data?.items ?? []} />
+          )}
+        </div>
+      </header>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) =>
+          void navigate(value === "archive" ? "/screens/archive" : "/screens")
+        }
+        className="min-w-0 gap-4"
+      >
+        <TabsList variant="line" aria-label="Screen views">
+          <TabsTrigger value="fleet">Fleet</TabsTrigger>
+          <TabsTrigger value="archive">Archive</TabsTrigger>
+        </TabsList>
+        <TabsContent value={activeTab} className="min-w-0 outline-none">
+          <Outlet />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 export function ScreensPage() {
   const auth = useAuth();
   const manageable = canManageScreens(auth.status?.user);
@@ -472,27 +541,6 @@ export function ScreensPage() {
   });
   return (
     <div className="w-full min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Screens</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {screens.isLoading
-              ? "Loading screen inventory…"
-              : screenInventorySummary(screens.data?.items ?? [])}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {manageable && (
-            <Link
-              className={buttonVariants({ variant: "default", size: "sm" })}
-              to="/screens/pair"
-            >
-              <Plus aria-hidden="true" /> Pair screen
-            </Link>
-          )}
-          {manageable && <TakeoverAction screens={screens.data?.items ?? []} />}
-        </div>
-      </header>
       <ActiveTakeoverBanners canManage={manageable} />
       {screens.isError && (
         <Alert variant="destructive">
@@ -2156,11 +2204,9 @@ export function ScreenGridCard({
         aria-label={`Open ${screen.name}`}
         className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
       >
-        <div
-          className={`relative grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
-          style={{
-            aspectRatio: `${screen.screenWidth || 16} / ${screen.screenHeight || 9}`,
-          }}
+        <AspectRatio
+          ratio={(screen.screenWidth || 16) / (screen.screenHeight || 9)}
+          className={`grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
         >
           {preview.isLoading && visible ? (
             <Skeleton
@@ -2195,7 +2241,7 @@ export function ScreenGridCard({
                 : "Preview unavailable"}
             </span>
           )}
-        </div>
+        </AspectRatio>
       </Link>
       <div className="grid gap-3 p-3">
         <header className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">

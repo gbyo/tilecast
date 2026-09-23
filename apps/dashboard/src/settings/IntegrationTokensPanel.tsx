@@ -16,6 +16,14 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { Input } from "../components/ui/input";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 
@@ -201,22 +209,17 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="grid gap-2">
+            <ItemGroup className="gap-2">
               {tokens.data.map((token) => (
-                <article
-                  className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
-                  key={token.id}
-                >
-                  <div className="grid min-w-0 flex-1 gap-1">
-                    <strong className="text-sm font-semibold">
-                      {token.name}
-                    </strong>
-                    <span className="text-sm text-muted-foreground">
+                <Item key={token.id} variant="outline">
+                  <ItemContent>
+                    <ItemTitle>{token.name}</ItemTitle>
+                    <ItemDescription>
                       {token.scopes
                         .map((scope) => scopeLabels[scope])
                         .join(" · ")}
-                    </span>
-                    <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    </ItemDescription>
+                    <ItemDescription className="flex flex-wrap items-center gap-2">
                       <Badge
                         variant={
                           status(token) === "Active" ? "default" : "secondary"
@@ -232,9 +235,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                       {token.dataSourceIds.length > 0
                         ? ` · Limited to ${token.dataSourceIds.length} Data Source${token.dataSourceIds.length === 1 ? "" : "s"}`
                         : ""}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
                     {!token.revokedAt && (
                       <RheaButton
                         variant="destructive"
@@ -244,10 +247,10 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                         <Trash2 size={15} aria-hidden="true" /> Revoke
                       </RheaButton>
                     )}
-                  </div>
-                </article>
+                  </ItemActions>
+                </Item>
               ))}
-            </div>
+            </ItemGroup>
           )}
           {revoke.error && !(revoke.error instanceof CancelledAction) && (
             <Alert variant="destructive">

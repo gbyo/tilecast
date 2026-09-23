@@ -56,6 +56,7 @@ import {
   AttachmentTitle,
 } from "../components/ui/attachment";
 import { Badge } from "../components/ui/badge";
+import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
@@ -1369,9 +1370,12 @@ function MediaAssetCard({
           aria-label={openLabel}
           className="grid gap-2 p-3 pt-10 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         >
-          <span className="grid aspect-video w-full place-items-center overflow-hidden rounded-xl bg-muted">
+          <AspectRatio
+            ratio={16 / 9}
+            className="grid w-full place-items-center overflow-hidden rounded-xl bg-muted [&_img]:h-full [&_img]:w-full [&_img]:object-cover"
+          >
             <AssetPreview asset={asset} />
-          </span>
+          </AspectRatio>
           <span className="grid min-w-0 gap-0.5">
             <span className="truncate text-sm font-medium">{asset.name}</span>
             <span className="text-xs text-muted-foreground">
@@ -2514,12 +2518,17 @@ function MediaAssetDetails({
   const details = (
     <div className="grid gap-4">
       {asset.thumbnailUrl && (
-        <img
-          className="aspect-video w-full rounded-xl border border-border object-cover"
-          src={asset.thumbnailUrl}
-          alt=""
-          draggable={false}
-        />
+        <AspectRatio
+          ratio={16 / 9}
+          className="overflow-hidden rounded-xl border border-border"
+        >
+          <img
+            className="size-full object-cover"
+            src={asset.thumbnailUrl}
+            alt=""
+            draggable={false}
+          />
+        </AspectRatio>
       )}
       <Field>
         <FieldLabel htmlFor="asset-name">Name</FieldLabel>

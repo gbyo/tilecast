@@ -20,6 +20,14 @@ import {
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 import { toast } from "../components/ui/toast";
 import { expandCapabilities } from "./capabilities";
 import { formToneBadgeProps } from "./formBadge";
@@ -121,24 +129,24 @@ export function AccessPanel({
       )}
 
       <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th scope="col" className="px-3 py-2 font-medium">
+        <Table className="w-full text-sm">
+          <TableHeader>
+            <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+              <TableHead scope="col" className="px-3 py-2 font-medium">
                 User
-              </th>
-              <th scope="col" className="px-3 py-2 font-medium">
+              </TableHead>
+              <TableHead scope="col" className="px-3 py-2 font-medium">
                 Global role
-              </th>
-              <th scope="col" className="px-3 py-2 font-medium">
+              </TableHead>
+              <TableHead scope="col" className="px-3 py-2 font-medium">
                 Access
-              </th>
-              <th scope="col" className="px-3 py-2 font-medium">
+              </TableHead>
+              <TableHead scope="col" className="px-3 py-2 font-medium">
                 <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {entries.map((entry) => (
               <AccessRow
                 key={entry.userId}
@@ -155,8 +163,8 @@ export function AccessPanel({
                 }
               />
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <GrantAccess
@@ -187,17 +195,17 @@ function AccessRow({
   const implicitManager = entry.isCreator || entry.isGlobalOwner;
   return (
     <>
-      <tr className="border-b border-border last:border-0">
-        <td className="px-3 py-2">
+      <TableRow className="border-b border-border last:border-0">
+        <TableCell className="px-3 py-2">
           <div className="grid gap-0.5">
             <strong>{entry.name || entry.username}</strong>
             <div className="text-xs text-muted-foreground">
               @{entry.username}
             </div>
           </div>
-        </td>
-        <td className="px-3 py-2">{entry.role}</td>
-        <td className="px-3 py-2">
+        </TableCell>
+        <TableCell className="px-3 py-2">{entry.role}</TableCell>
+        <TableCell className="px-3 py-2">
           {implicitManager ? (
             <Badge {...formToneBadgeProps("info")}>
               {entry.isCreator ? "Manager (creator)" : "Manager (Owner)"}
@@ -211,8 +219,8 @@ function AccessRow({
               ))}
             </span>
           )}
-        </td>
-        <td className="px-3 py-2 text-right">
+        </TableCell>
+        <TableCell className="px-3 py-2 text-right">
           {implicitManager ? (
             <span className="text-sm text-muted-foreground">
               Always a manager
@@ -222,19 +230,19 @@ function AccessRow({
               Edit access
             </RheaButton>
           )}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
       {editing && !implicitManager && (
-        <tr className="border-b border-border last:border-0">
-          <td colSpan={4} className="px-3 py-2">
+        <TableRow className="border-b border-border last:border-0">
+          <TableCell colSpan={4} className="px-3 py-2">
             <CapabilityEditor
               initial={entry.capabilities}
               saving={saving}
               onCancel={onCancel}
               onSave={onSave}
             />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );

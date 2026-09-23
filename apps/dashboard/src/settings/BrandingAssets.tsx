@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Alert, AlertDescription } from "../components/ui/alert";
+import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Button as RheaButton } from "../components/ui/button";
 import {
   clearLoginBackground,
@@ -200,8 +201,9 @@ function BrandingAssetUpload({
   const busy = uploading || pending;
   return (
     <article className="grid gap-4 rounded-xl border border-border bg-card p-4">
-      <div
-        className={`grid min-h-28 place-items-center overflow-hidden rounded-xl border border-border bg-muted${previewMode === "cover" ? " aspect-[16/10]" : ""}`}
+      <AspectRatio
+        ratio={16 / 10}
+        className="grid min-h-28 place-items-center overflow-hidden rounded-xl border border-border bg-muted"
       >
         {imageUrl ? (
           <img
@@ -218,7 +220,7 @@ function BrandingAssetUpload({
             {title}
           </span>
         )}
-      </div>
+      </AspectRatio>
       <div className="grid min-w-0 content-between gap-3">
         <div className="grid gap-1">
           <strong className="text-sm font-semibold">{title}</strong>

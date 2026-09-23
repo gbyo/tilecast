@@ -5,7 +5,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
-import { Item, ItemContent, ItemTitle } from "../components/ui/item";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "../components/ui/item";
 import { Badge } from "../components/ui/badge";
 import { ChevronDown } from "lucide-react";
 
@@ -51,9 +51,9 @@ function UsedByLink({
 
 function UsedByRows({ group }: { group: UsedByGroup }) {
   return (
-    <div className="grid gap-1">
+    <ItemGroup className="gap-1">
       {group.items.map((item, index) => (
-        <Item key={`${item.id}-${index}`} size="sm">
+        <Item key={`${item.id}-${index}`} size="sm" variant="outline">
           <ItemContent>
             <ItemTitle>
               <UsedByLink item={item} to={group.to} />
@@ -61,7 +61,7 @@ function UsedByRows({ group }: { group: UsedByGroup }) {
           </ItemContent>
         </Item>
       ))}
-    </div>
+    </ItemGroup>
   );
 }
 

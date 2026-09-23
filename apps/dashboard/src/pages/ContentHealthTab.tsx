@@ -10,6 +10,14 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
 
 // Content health answers a question the rest of Activity cannot: why does that
 // screen look wrong when nothing is reported as broken? A board showing last
@@ -65,27 +73,27 @@ export function ContentHealthTab() {
               not available yet, or was removed.
             </p>
           </header>
-          <div className="backup-job-list">
+          <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.emptyPlaylists.map((playlist) => (
-              <div key={playlist.id}>
-                <span>
-                  <strong>
+              <Item key={playlist.id} size="sm" className="rounded-none px-0">
+                <ItemContent>
+                  <ItemTitle>
                     <Link to={`/playlists/${playlist.id}`}>
                       {playlist.name}
                     </Link>
-                  </strong>
-                  <small>
+                  </ItemTitle>
+                  <ItemDescription>
                     {playlist.screenCount === 1
                       ? "1 screen"
                       : `${playlist.screenCount} screens`}
-                  </small>
-                </span>
-                <span className="backup-job-status">
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
                   <Badge variant="destructive">Nothing available</Badge>
-                </span>
-              </div>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         </section>
       )}
 
@@ -99,30 +107,30 @@ export function ContentHealthTab() {
               hours.
             </p>
           </header>
-          <div className="backup-job-list">
+          <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.staleSources.map((source) => (
-              <div key={source.id}>
-                <span>
-                  <strong>
+              <Item key={source.id} size="sm" className="rounded-none px-0">
+                <ItemContent>
+                  <ItemTitle>
                     <Link to={`/content/data-sources/${source.id}`}>
                       {source.name}
                     </Link>
-                  </strong>
-                  <small>
+                  </ItemTitle>
+                  <ItemDescription>
                     {source.provider} · last updated{" "}
                     {source.lastSuccessAt
                       ? new Date(source.lastSuccessAt).toLocaleString()
                       : "never"}
-                  </small>
-                </span>
-                <span className="backup-job-status">
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions className="text-sm text-muted-foreground">
                   {source.errorCode
                     ? `Last error: ${source.errorCode}`
                     : "No successful refresh"}
-                </span>
-              </div>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         </section>
       )}
 
@@ -135,21 +143,23 @@ export function ContentHealthTab() {
               that loses its last item stops having anything to show.
             </p>
           </header>
-          <div className="backup-job-list">
+          <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.expiringAssets.map((asset) => (
-              <div key={asset.id}>
-                <span>
-                  <strong>{asset.name}</strong>
-                  <small>
+              <Item key={asset.id} size="sm" className="rounded-none px-0">
+                <ItemContent>
+                  <ItemTitle>{asset.name}</ItemTitle>
+                  <ItemDescription>
                     Expires {new Date(asset.expiresAt).toLocaleString()}
-                  </small>
-                </span>
-                <span className="backup-job-status">
-                  {asset.inUse ? "In a playlist" : "Not in a playlist"}
-                </span>
-              </div>
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Badge variant={asset.inUse ? "secondary" : "outline"}>
+                    {asset.inUse ? "In a playlist" : "Not in a playlist"}
+                  </Badge>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         </section>
       )}
 
@@ -162,18 +172,21 @@ export function ContentHealthTab() {
               fault, so it does not raise an incident.
             </p>
           </header>
-          <div className="backup-job-list">
+          <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.unassignedScreens.map((screen) => (
-              <div key={screen.id}>
-                <span>
-                  <strong>
+              <Item key={screen.id} size="sm" className="rounded-none px-0">
+                <ItemContent>
+                  <ItemTitle>
                     <Link to={`/screens/${screen.id}`}>{screen.name}</Link>
-                  </strong>
-                </span>
-                <span className="backup-job-status">No playlist</span>
-              </div>
+                  </ItemTitle>
+                  <ItemDescription>No playlist assigned</ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Badge variant="outline">Setup</Badge>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         </section>
       )}
     </div>

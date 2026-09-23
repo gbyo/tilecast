@@ -320,20 +320,6 @@
   font: var(--tc-text-supporting);
 }
 
-.bulk-empty {
-  display: grid;
-  justify-items: center;
-  gap: var(--tc-space-1);
-  padding: var(--tc-space-8) var(--tc-space-4);
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-body);
-  text-align: center;
-}
-
-.bulk-empty svg {
-  color: var(--tc-text-disabled);
-}
-
 /* Responsive ------------------------------------------------------------ */
 
 @media (max-width: 1000px) {

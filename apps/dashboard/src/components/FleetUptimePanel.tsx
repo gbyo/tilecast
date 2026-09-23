@@ -18,6 +18,14 @@ import type {
 } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "./ui/empty";
+import { buttonVariants } from "./ui/button";
+import {
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
@@ -125,21 +133,33 @@ export function FleetUptimePanel({
           </AlertDescription>
         </Alert>
       ) : !report || report.screensTracked === 0 ? (
-        <div className="py-5 text-sm text-muted-foreground">
-          No screens to measure.{" "}
-          <Link className="underline underline-offset-4" to="/screens/pair">
-            Pair a screen
-          </Link>{" "}
-          to start recording state.
-        </div>
+        <Empty className="border-0 py-5">
+          <EmptyHeader>
+            <EmptyTitle>No screens to measure</EmptyTitle>
+            <EmptyDescription>
+              Pair a player to start recording its connection and playback
+              state.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link
+              className={buttonVariants({ variant: "secondary", size: "sm" })}
+              to="/screens/pair"
+            >
+              Pair a screen
+            </Link>
+          </EmptyContent>
+        </Empty>
       ) : report.uptimePercent === null ? (
-        <div className="py-5">
-          <p className="font-medium">No player state recorded yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Uptime appears once paired players report connection and playback
-            state for this window.
-          </p>
-        </div>
+        <Empty className="border-0 py-5">
+          <EmptyHeader>
+            <EmptyTitle>No player state recorded yet</EmptyTitle>
+            <EmptyDescription>
+              Uptime appears once paired players report connection and playback
+              state for this window.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <UptimeBody report={report} />
       )}

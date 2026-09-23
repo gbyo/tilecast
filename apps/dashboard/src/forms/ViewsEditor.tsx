@@ -27,6 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 import {
@@ -185,37 +193,37 @@ function ViewList({
         </Empty>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th scope="col" className="px-3 py-2 font-medium">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   Name
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   Dataset key
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   States
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {form.views.map((view) => (
-                <tr
+                <TableRow
                   key={view.id}
                   className="border-b border-border last:border-0"
                 >
-                  <td className="px-3 py-2">{view.name}</td>
-                  <td className="px-3 py-2">
+                  <TableCell className="px-3 py-2">{view.name}</TableCell>
+                  <TableCell className="px-3 py-2">
                     <code className="text-xs">{view.key}</code>
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     {view.includedStates.join(", ") || "—"}
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <div className="flex flex-wrap justify-end gap-1">
                       <RheaButton
                         variant="ghost"
@@ -240,11 +248,11 @@ function ViewList({
                         Delete
                       </RheaButton>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
@@ -884,35 +892,35 @@ function ViewForm({
             </p>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <Table className="w-full text-sm">
+                <TableHeader>
+                  <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
                     {(preview.fields ?? []).map((f) => (
-                      <th
+                      <TableHead
                         key={f.key}
                         scope="col"
                         className="px-3 py-2 font-medium"
                       >
                         {f.label || f.key}
-                      </th>
+                      </TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {(preview.records ?? []).map((record) => (
-                    <tr
+                    <TableRow
                       key={record.id}
                       className="border-b border-border last:border-0"
                     >
                       {(preview.fields ?? []).map((f) => (
-                        <td key={f.key} className="px-3 py-2">
+                        <TableCell key={f.key} className="px-3 py-2">
                           {record.values[f.key] ?? ""}
-                        </td>
+                        </TableCell>
                       ))}
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
         </section>

@@ -21,6 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 import { formToneBadgeProps } from "./formBadge";
@@ -364,33 +372,33 @@ export function WorkflowEditor({
           </RheaButton>
         </div>
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th scope="col" className="px-3 py-2 font-medium">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   From
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   To
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   Label
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   Required capability
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
                   <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {transitions.map((transition, index) => (
-                <tr
+                <TableRow
                   key={index}
                   className="border-b border-border last:border-0"
                 >
-                  <td className="px-3 py-2">
+                  <TableCell className="px-3 py-2">
                     <RheaSelect
                       items={states.map((state) => ({
                         value: state.key,
@@ -412,8 +420,8 @@ export function WorkflowEditor({
                         ))}
                       </SelectContent>
                     </RheaSelect>
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <RheaSelect
                       items={states.map((state) => ({
                         value: state.key,
@@ -435,16 +443,16 @@ export function WorkflowEditor({
                         ))}
                       </SelectContent>
                     </RheaSelect>
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <Input
                       value={transition.label}
                       onChange={(e) =>
                         updateTransition(index, { label: e.target.value })
                       }
                     />
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <RheaSelect
                       items={CAPABILITY_OPTIONS}
                       value={transition.requiredCapability}
@@ -465,8 +473,8 @@ export function WorkflowEditor({
                         ))}
                       </SelectContent>
                     </RheaSelect>
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <div className="flex gap-1">
                       <button
                         type="button"
@@ -495,11 +503,11 @@ export function WorkflowEditor({
                         ✕
                       </button>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </section>
 

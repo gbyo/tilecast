@@ -5,7 +5,11 @@ import { StudioRoutesProvider } from "./navigation/studioRoutes";
 import { settingsItems } from "./settings/settingsNavigation";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardShell, FoundationPage } from "./pages/Dashboard";
-import { PairScreenPage, ScreensPage } from "./pages/ScreensPage";
+import {
+  PairScreenPage,
+  ScreensPage,
+  ScreensWorkspacePage,
+} from "./pages/ScreensPage";
 import { FleetBulkPage } from "./pages/FleetBulkPage";
 import { ContentReviewPage } from "./pages/ContentReviewPage";
 import { ContentSubmissionInboxPage } from "./pages/ContentSubmissionInboxPage";
@@ -105,7 +109,25 @@ export const studioRoutes: RouteObject[] = [
           ),
         },
         children: [
-          { index: true, element: <ScreensPage /> },
+          {
+            element: <ScreensWorkspacePage />,
+            children: [
+              { index: true, element: <ScreensPage /> },
+              {
+                path: "archive",
+                element: <ArchivedScreensPage />,
+                handle: {
+                  breadcrumb: "Archive",
+                  search: search(
+                    "Screen archive",
+                    "Review players whose pairings were revoked",
+                    "/screens/archive",
+                    ["revoked", "archived", "players", "devices"],
+                  ),
+                },
+              },
+            ],
+          },
           {
             path: "bulk",
             element: <FleetBulkPage />,
@@ -133,19 +155,6 @@ export const studioRoutes: RouteObject[] = [
             path: "pair/request/:requestId",
             element: <PairScreenPage />,
             handle: { breadcrumb: "Pair screen" },
-          },
-          {
-            path: "archive",
-            element: <ArchivedScreensPage />,
-            handle: {
-              breadcrumb: "Archive",
-              search: search(
-                "Screen archive",
-                "Review players whose pairings were revoked",
-                "/screens/archive",
-                ["revoked", "archived", "players", "devices"],
-              ),
-            },
           },
           {
             path: ":id",

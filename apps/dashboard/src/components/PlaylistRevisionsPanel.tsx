@@ -5,6 +5,15 @@ import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "./ui/item";
 import { toast } from "./ui/toast";
 
 const initialRevisionCount = 5;
@@ -96,46 +105,61 @@ export function PlaylistRevisionsPanel({
         </Alert>
       )}
 
-      <div className="backup-job-list">
-        {visibleRevisions.map((revision) => (
-          <div key={revision.revision}>
-            <span>
-              <strong>
-                Revision {revision.revision}
-                {revision.isCurrent ? " (current)" : ""}
-              </strong>
-              <small>
-                {new Date(revision.createdAt).toLocaleString()} ·{" "}
-                {revision.itemCount} item
-                {revision.itemCount === 1 ? "" : "s"}
-                {revision.authorName ? ` · ${revision.authorName}` : ""}
-                {revision.missingReferences > 0
-                  ? ` · ${revision.missingReferences} deleted since`
-                  : ""}
-              </small>
-            </span>
-            <span className="backup-job-status">
-              {canRestore && revision.restorable ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={restore.isPending}
-                  onClick={() => {
-                    setResult(undefined);
-                    restore.mutate(revision.revision);
-                  }}
-                >
-                  <History size={14} /> Restore
-                </Button>
-              ) : revision.isCurrent ? (
-                "Current"
-              ) : (
-                "Nothing left to restore"
-              )}
-            </span>
-          </div>
-        ))}
-      </div>
+      {revisionItems.length === 0 ? (
+        <Empty className="border-0 py-6">
+          <EmptyHeader>
+            <EmptyTitle>No playlist history yet</EmptyTitle>
+            <EmptyDescription>
+              Revisions will appear here after the playlist is saved.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
+          {visibleRevisions.map((revision) => (
+            <Item
+              key={revision.revision}
+              size="sm"
+              className="rounded-none px-0"
+            >
+              <ItemContent>
+                <ItemTitle>
+                  Revision {revision.revision}
+                  {revision.isCurrent ? " (current)" : ""}
+                </ItemTitle>
+                <ItemDescription>
+                  {new Date(revision.createdAt).toLocaleString()} ·{" "}
+                  {revision.itemCount} item
+                  {revision.itemCount === 1 ? "" : "s"}
+                  {revision.authorName ? ` · ${revision.authorName}` : ""}
+                  {revision.missingReferences > 0
+                    ? ` · ${revision.missingReferences} deleted since`
+                    : ""}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                {canRestore && revision.restorable ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={restore.isPending}
+                    onClick={() => {
+                      setResult(undefined);
+                      restore.mutate(revision.revision);
+                    }}
+                  >
+                    <History size={14} /> Restore
+                  </Button>
+                ) : revision.isCurrent ? (
+                  "Current"
+                ) : (
+                  "Nothing left to restore"
+                )}
+              </ItemActions>
+            </Item>
+          ))}
+        </ItemGroup>
+      )}
 
       {(hiddenRevisionCount > 0 ||
         visibleRevisionCount > initialRevisionCount) && (

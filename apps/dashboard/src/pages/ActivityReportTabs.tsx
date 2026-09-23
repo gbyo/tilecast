@@ -27,6 +27,14 @@ import {
 import { MetricTile } from "../components/MetricTile";
 import { Button } from "../components/ui/button";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import {
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -279,28 +287,40 @@ export function ProofTab({
         </header>
         {records.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[52rem] text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">Started</th>
-                  <th className="px-3 py-2 font-medium">Screen</th>
-                  <th className="px-3 py-2 font-medium">Presentation</th>
-                  <th className="px-3 py-2 font-medium">Content</th>
-                  <th className="px-3 py-2 text-right font-medium">Duration</th>
-                  <th className="px-3 py-2 font-medium">Result</th>
-                  <th aria-label="Open details" className="w-10" />
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="w-full min-w-[52rem] text-sm">
+              <TableHeader>
+                <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                  <TableHead className="px-3 py-2 font-medium">
+                    Started
+                  </TableHead>
+                  <TableHead className="px-3 py-2 font-medium">
+                    Screen
+                  </TableHead>
+                  <TableHead className="px-3 py-2 font-medium">
+                    Presentation
+                  </TableHead>
+                  <TableHead className="px-3 py-2 font-medium">
+                    Content
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
+                    Duration
+                  </TableHead>
+                  <TableHead className="px-3 py-2 font-medium">
+                    Result
+                  </TableHead>
+                  <TableHead aria-label="Open details" className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {records.map((item) => (
-                  <tr
+                  <TableRow
                     key={item.id}
                     className="border-b border-border last:border-0 hover:bg-muted"
                   >
-                    <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                    <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
                       <time>{formatWhen(item.startedAt)}</time>
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       <span className="grid gap-0.5">
                         <Link
                           to={`/screens/${item.screenId}?tab=activity`}
@@ -312,8 +332,8 @@ export function ProofTab({
                           {item.groupName}
                         </small>
                       </span>
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       <span className="grid gap-0.5">
                         <strong className="font-medium">
                           <ResourceLink
@@ -338,8 +358,8 @@ export function ProofTab({
                             .join(" · ")}
                         </small>
                       </span>
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       <span className="grid gap-0.5">
                         <strong className="font-medium">
                           <ResourceLink
@@ -356,16 +376,16 @@ export function ProofTab({
                           {item.contentType}
                         </small>
                       </span>
-                    </td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
                       {item.actualDurationMs == null
                         ? "In progress"
                         : formatDuration(item.actualDurationMs)}
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       <ResultBadge value={item.result} />
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-muted-foreground">
                       <button
                         type="button"
                         aria-label={`Open details for ${item.screenName} playback`}
@@ -377,11 +397,11 @@ export function ProofTab({
                       >
                         <ChevronRight size={17} aria-hidden="true" />
                       </button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
         {!records.length && (
@@ -705,28 +725,30 @@ export function EventsTab({
         </p>
       </header>
       <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[56rem] text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="px-3 py-2 font-medium">Severity</th>
-              <th className="px-3 py-2 font-medium">Time</th>
-              <th className="px-3 py-2 font-medium">Screen</th>
-              <th className="px-3 py-2 font-medium">Event</th>
-              <th className="px-3 py-2 font-medium">Related resource</th>
-              <th className="px-3 py-2 font-medium">Result</th>
-              <th className="px-3 py-2 font-medium">Details</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="w-full min-w-[56rem] text-sm">
+          <TableHeader>
+            <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+              <TableHead className="px-3 py-2 font-medium">Severity</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Time</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Screen</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Event</TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                Related resource
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">Result</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Details</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {query.data?.items?.map((item) => (
-              <tr
+              <TableRow
                 key={item.id}
                 className="border-b border-border align-top last:border-0"
               >
-                <td className="px-3 py-2">
+                <TableCell className="px-3 py-2">
                   <ResultBadge value={item.severity} />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <span className="grid gap-0.5">
                     <time className="whitespace-nowrap tabular-nums">
                       {formatWhen(item.timestamp)}
@@ -735,8 +757,8 @@ export function EventsTab({
                       Received {formatWhen(item.receivedAt)}
                     </small>
                   </span>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <span className="grid gap-0.5">
                     <Link
                       to={`/screens/${item.screenId}?tab=activity`}
@@ -748,8 +770,8 @@ export function EventsTab({
                       {item.groupName}
                     </small>
                   </span>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <span className="grid gap-0.5">
                     <strong className="font-medium">
                       {humanize(item.eventType)}
@@ -758,8 +780,8 @@ export function EventsTab({
                       {item.category} · seq {item.sequence ?? "server"}
                     </small>
                   </span>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   {item.relatedId ? (
                     <span className="grid gap-0.5">
                       <strong className="font-medium">
@@ -776,11 +798,11 @@ export function EventsTab({
                   ) : (
                     "—"
                   )}
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <ResultBadge value={item.result} />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <TechnicalDetails
                     value={{
                       failureCode: item.failureCode,
@@ -789,11 +811,11 @@ export function EventsTab({
                       ...item.details,
                     }}
                   />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {!query.data?.items?.length && (
         <EmptyState message="No technical screen events matched these filters." />
@@ -833,36 +855,36 @@ export function AuditTab({
         </p>
       </header>
       <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[56rem] text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="px-3 py-2 font-medium">Time</th>
-              <th className="px-3 py-2 font-medium">Actor</th>
-              <th className="px-3 py-2 font-medium">Action</th>
-              <th className="px-3 py-2 font-medium">Resource</th>
-              <th className="px-3 py-2 font-medium">Result</th>
-              <th className="px-3 py-2 font-medium">Summary</th>
-              <th className="px-3 py-2 font-medium">Details</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="w-full min-w-[56rem] text-sm">
+          <TableHeader>
+            <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+              <TableHead className="px-3 py-2 font-medium">Time</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Actor</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Action</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Resource</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Result</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Summary</TableHead>
+              <TableHead className="px-3 py-2 font-medium">Details</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {query.data?.items?.map((item) => (
-              <tr
+              <TableRow
                 key={item.id}
                 className="border-b border-border align-top last:border-0"
               >
-                <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
                   <time>{formatWhen(item.timestamp)}</time>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <span className="grid gap-0.5">
                     <strong className="font-medium">{item.actorName}</strong>
                     <small className="text-xs text-muted-foreground">
                       {item.actorUsername}
                     </small>
                   </span>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <span className="grid gap-0.5">
                     <strong className="font-medium">
                       {humanize(item.action)}
@@ -871,8 +893,8 @@ export function AuditTab({
                       {item.action}
                     </small>
                   </span>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <span className="grid gap-0.5">
                     <strong className="font-medium">
                       <ResourceLink
@@ -885,12 +907,12 @@ export function AuditTab({
                       {item.resourceType}
                     </small>
                   </span>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <ResultBadge value={item.result} />
-                </td>
-                <td className="px-3 py-2">{item.summary}</td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">{item.summary}</TableCell>
+                <TableCell className="px-3 py-2">
                   <TechnicalDetails
                     value={{
                       requestId: item.requestId,
@@ -898,11 +920,11 @@ export function AuditTab({
                       ...item.metadata,
                     }}
                   />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {!query.data?.items?.length && (
         <EmptyState message="No administrative changes matched these filters." />
