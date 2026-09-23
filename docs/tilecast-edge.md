@@ -403,36 +403,48 @@ Recommended production layout:
     staging/
     diagnostics/
 
-/run/tilecast-edge/
-    renderer.sock
-    media.sock
-    admin.sock
-    health/
+/run/tilecast-edge/                       root:root 0755
+    renderer/                             root:tilecast-renderer 0750
+        control.sock
+        media.sock
+    admin/                                root:tilecast-admin 0750
+        admin.sock
+    health/                               tilecast-edge:tilecast-edge 0700
 
 /opt/tilecast-edge/
     releases/
-    current -> releases/<version>/
-    previous -> releases/<version>/
+        <component>/<version>/
+    sets/
+        <release-set-id>/manifest.json
+    current-set -> sets/<release-set-id>/
+    previous-set -> sets/<release-set-id>/
     rollback-state/
+    launcher/                             immutable privileged package
 ```
 
-The active identity generation changes with one atomic pointer switch after the complete key/certificate/CA/keyring set is durable. Do not leave a single `node-key.pem` beside a separately replaced `node-cert.pem`.
+The active identity generation changes with one atomic pointer switch after the complete key/certificate/CA/keyring set is durable. Do not leave one mutable key beside a separately replaced certificate.
 
 `authority-keyring.json` contains the verified public authority transition chain and currently trusted authority epochs. `edge-ca-bundle.pem` may contain overlapping installation CA certificates only during an explicit CA rotation plan.
 
 `trusted-checkpoint.json` is the minimal non-reconstructible anti-rollback state used after destructive SQLite recovery. It contains no private key and no server bearer secret.
 
-Rollback metadata for a pending software release lives outside the candidate release directory and outside a candidate database schema so a failed daemon cannot make its own rollback metadata unreadable.
+Runtime socket directories are not owned by `tilecast-edge.service`. Create/own them through the socket units or `tmpfiles.d` so their lifetime does not disappear when the service stops and each allowed group can traverse only its directory.
+
+The stable service entrypoint is an immutable launcher outside the mutable release set. It resolves `current-set`, verifies the selected set/component paths, and execs that set's `tilecastd`. systemd never points at an obsolete `current -> releases/<version>` symlink.
+
+Rollback metadata for a pending software release lives outside the candidate release directory and candidate database schema.
 
 ### 7.1 Filesystem rules
 
-- state/identity directories are owner-only unless an explicit subdirectory has a narrower renderer group ACL;
+- state/identity directories are owner-only;
+- renderer/admin runtime access uses the explicit group-controlled subdirectories above;
 - CAS paths derive only from validated lowercase SHA-256 hex;
 - partial filenames derive from the hash plus a fixed suffix;
-- secrets are not stored in the ordinary SQLite database unless an explicit encrypted-secret abstraction is introduced;
-- the SQLite file must not be remotely downloadable;
-- renderer-visible media is exposed through the constrained `media.sock` path rather than direct CAS access;
-- atomic identity/current-release pointer changes are followed by parent-directory fsync on filesystems where that operation is supported.
+- secrets are not stored in ordinary SQLite unless an explicit encrypted-secret abstraction is introduced;
+- SQLite is never remotely downloadable;
+- **the WPE renderer never receives the CAS root or direct CAS filesystem permission**;
+- renderer media is exposed through daemon-owned capability reads over the renderer media channel;
+- identity/release-set pointer changes use atomic replacement + parent-directory fsync where supported.
 
 ## 8. Local state: SQLite plus immutable files
 
@@ -470,7 +482,9 @@ object_pins
 object_partials
 peers
 peer_transfer_scores
-server_changes
+stream_cursors
+stream_records
+current_state
 resource_watermarks
 context_candidates
 context_effective
@@ -633,39 +647,61 @@ The actual schemas live in `packages/edge-protocol/schemas/` and fixtures are co
 
 No renderer message can name an executable, shell fragment, arbitrary path or server credential.
 
-### 9.5 Renderer media access
+### 9.5 Renderer media capability channel
 
-Tilecast-owned media uses the canonical URI form:
+Tilecast-owned media uses a capability URI that is meaningful only to the current renderer instance/presentation generation:
 
 ```text
-tcmedia://sha256/<64-lowercase-hex-digest>
+tcmedia://cap/<opaque-capability>
 ```
 
-Remote pages never receive filesystem paths. The renderer accepts no arbitrary path, query-controlled filename, relative path or directory listing.
+Do **not** put a raw SHA-256 digest in the authority portion and do not give WPE/GStreamer the CAS root.
 
-WPE's GStreamer backend does not turn a custom WebKit URI-scheme handler into a GStreamer media source. Therefore H.264/video playback uses a Tilecast-owned `GstURIHandler` source plugin for `tcmedia`. `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` only adds `tcmedia` to WebKit's existing media-protocol allowlist; it is not a sandbox or a replacement for the built-in HTTP/HTTPS protocols.
+When `tilecastd` prepares a presentation generation it creates random, unguessable media capabilities mapping:
 
-The source plugin is a narrow read-only CAS adapter:
+```text
+capability -> {
+  rendererInstance,
+  presentationGeneration,
+  sha256,
+  size,
+  contentType,
+  allowedReadMode,
+  expiresWhenGenerationRetires
+}
+```
 
-1. accept only the exact canonical digest URI;
-2. derive the object path only from that validated SHA-256 digest;
-3. use the CAS root fixed at renderer startup;
-4. refuse path traversal, percent-encoded separators, query-selected paths and symlinks;
-5. open the object with Linux path-containment/no-follow protections and verify it is a regular file;
-6. implement bounded seek/range behavior required by GStreamer without copying whole videos into memory;
-7. never enumerate the CAS or expose SQLite/identity state.
+Capabilities exist only for `prepared`, `active`, or `draining` generations and are invalidated when the generation retires or renderer instance changes.
 
-The daemon controls which verified objects are prepared/active/draining for the current presentation. The trusted WPE runtime receives only content references belonging to that presentation generation. WebKit subprocess sandboxing and renderer process hardening remain enabled.
+WPE's GStreamer backend still requires a Tilecast-owned `GstURIHandler` source for `tcmedia`. `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` only allows the protocol through WebKit's media pipeline; it is not an origin/sandbox/capability boundary.
 
-Image/widget/runtime resources may use a separate trusted local WebKit scheme, but remote website origins must not be able to access Tilecast trusted runtime/media schemes or the native bridge.
+The GStreamer source receives only the opaque capability and reads bytes through a daemon-created inherited/connected media channel. It never opens `/var/lib/tilecast-edge/cas` itself.
 
-Presentation generations still move through:
+The daemon-side media service:
+
+1. binds the connected renderer process/instance;
+2. validates the opaque capability;
+3. verifies the referenced presentation generation remains prepared/active/draining;
+4. resolves the capability to one already-verified blob;
+5. accepts only bounded HEAD/read/seek/range operations;
+6. prevents enumeration and arbitrary-hash probing;
+7. expires every capability on renderer/presentation retirement.
+
+Prefer an inherited connected socket/socketpair or FD-backed channel over a reconnectable bearer-token socket. If a reconnectable `media.sock` is retained, it still requires OS peer/process validation plus current renderer generation.
+
+Remote website content never receives the opaque media capabilities. More importantly, untrusted website WebViews/contexts must be configured so they cannot instantiate the privileged Tilecast media pipeline/source at all. Do not rely only on capability secrecy to separate hostile remote pages from trusted runtime media.
+
+Image/widget/runtime resources use a separate trusted local scheme/world. Remote website origins cannot access Tilecast runtime/media handlers or the native bridge.
+
+Presentation generations remain:
 
 ```text
 prepared -> active -> draining -> retired
 ```
 
-The previous generation remains readable until the renderer acknowledges the transition boundary or a bounded drain timeout expires.
+The previous generation remains readable through its capabilities until the renderer acknowledges the transition boundary or a bounded drain timeout expires.
+
+## 10. Trust model
 
 ## 10. Trust model
 
