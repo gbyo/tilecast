@@ -28,14 +28,17 @@ impl OriginBlobSource {
     /// `path` comes from a server manifest; it must stay inside the player
     /// API and carry no query, fragment or dot segments.
     pub fn new(server: AuthenticatedServer, path: &str) -> Result<Self, InvalidDownloadPath> {
+        Self::validate_path(path)?;
+        Ok(Self { server, path: path.to_owned() })
+    }
+
+    /// Validates an origin path before a manifest is accepted or persisted.
+    pub fn validate_path(path: &str) -> Result<(), InvalidDownloadPath> {
         let plain = path.starts_with("/api/v1/player/")
             && path.len() <= 512
             && !path.split('/').any(|segment| segment == "." || segment == "..")
             && path.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '-' | '_' | '.'));
-        if !plain {
-            return Err(InvalidDownloadPath);
-        }
-        Ok(Self { server, path: path.to_owned() })
+        if plain { Ok(()) } else { Err(InvalidDownloadPath) }
     }
 }
 
