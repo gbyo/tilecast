@@ -40,9 +40,13 @@ const lazyLocales: BackendModule = {
 
 export const i18n = i18next.createInstance();
 
-i18n.on("languageChanged", (language) => {
+let requestedLanguage: SupportedLanguage | null = null;
+let languagePreviewDirty = false;
+
+i18n.on("languageChanged", () => {
   if (typeof document !== "undefined") {
-    document.documentElement.lang = language;
+    document.documentElement.lang =
+      i18n.resolvedLanguage ?? DEFAULT_LANGUAGE;
   }
 });
 
@@ -53,6 +57,7 @@ i18n.on("languageChanged", (language) => {
 export function initI18n(
   language: SupportedLanguage = resolveLanguage(readCachedLanguagePreference()),
 ) {
+  requestedLanguage = language;
   return i18n
     .use(lazyLocales)
     .use(initReactI18next)
@@ -72,11 +77,41 @@ export function initI18n(
     });
 }
 
-/** Caches the preference for the next page load and switches if it differs. */
+function requestLanguage(preference: LanguagePreference) {
+  const language = resolveLanguage(preference);
+  const requestMatches = requestedLanguage === language;
+  const resolvedMatches = i18n.resolvedLanguage === language;
+  if (requestMatches && resolvedMatches) return;
+
+  requestedLanguage = language;
+  void i18n
+    .changeLanguage(language)
+    .then(() => {
+      const latest = requestedLanguage;
+      if (latest && i18n.resolvedLanguage !== latest) {
+        requestLanguage(latest);
+      }
+    })
+    .catch(() => undefined);
+}
+
+/** Switches the live UI language without persisting an unsaved draft. */
+export function previewLanguagePreference(preference: LanguagePreference) {
+  requestLanguage(preference);
+}
+
+/** Caches a saved preference for the next page load and switches to it. */
 export function applyLanguagePreference(preference: LanguagePreference) {
   writeCachedLanguagePreference(preference);
-  const language = resolveLanguage(preference);
-  if (i18n.resolvedLanguage !== language) void i18n.changeLanguage(language);
+  requestLanguage(preference);
+}
+
+export function setLanguagePreviewDirty(dirty: boolean) {
+  languagePreviewDirty = dirty;
+}
+
+export function isLanguagePreviewDirty() {
+  return languagePreviewDirty;
 }
 
 // Untyped view of `t` for keys assembled at runtime. Only the two helpers
