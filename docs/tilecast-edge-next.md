@@ -156,9 +156,11 @@ The identity-gated server client now reads the existing manifest endpoint with
 bounded response size and conditional ETags. The daemon has a validation
 boundary for the server-compiled manifest's target screen, asset identities,
 hash/size claims and origin paths. It is not yet connected to preparation.
-Preparation, scheduling, renderer media capabilities and activation remain
-open. The final RFC requires replacing the foundation's raw digest media
-URI/CAS-root access before real server content is activated.
+SQLite now has binding-scoped pending, active and previous manifest records,
+with atomic promotion after a future preparation step. Preparation,
+scheduling, renderer media capabilities and activation remain open. The final
+RFC requires replacing the foundation's raw digest media URI/CAS-root access
+before real server content is activated.
 
 - **Use:**
   - `edge_cas::Fetcher` with sources in this order:

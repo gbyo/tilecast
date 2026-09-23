@@ -10,6 +10,7 @@ pub mod commands;
 pub mod daemon;
 pub mod identity;
 pub mod legacy;
+pub mod manifests;
 pub mod outbox;
 pub mod peers;
 pub mod playback;

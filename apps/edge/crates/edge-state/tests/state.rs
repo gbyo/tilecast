@@ -3,7 +3,8 @@
 use edge_protocol::capability::{Capability, CapabilityId, CapabilityState};
 use edge_protocol::signed::change::{AuthorityKey, AuthorityTrust, verify_change};
 use edge_protocol::signed::{Purpose, SigningKey};
-use edge_protocol::{NodeId, Sha256Digest, Timestamp};
+use edge_protocol::{InstallationId, NodeId, ScreenId, Sha256Digest, Timestamp};
+use edge_state::repo::manifests::{self, Binding as ManifestBinding, Stage, StoredManifest};
 use edge_state::repo::{self, cas, changes, commands, daemon};
 use edge_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
 use serde_json::json;
@@ -34,6 +35,75 @@ fn fresh_database_migrates_and_reopens_idempotently() {
 }
 
 #[test]
+fn prepared_manifest_survives_restart_and_promotes_without_losing_previous() {
+    let (_dir, path) = temp_db();
+    let db = StateDb::open(&path, OpenOptions::default()).expect("open");
+    let binding = ManifestBinding {
+        installation_id: InstallationId::new_random(),
+        screen_id: ScreenId::new_random(),
+        server_url: "https://signage.example".to_owned(),
+    };
+    let first = StoredManifest {
+        binding: binding.clone(),
+        version: 1,
+        etag: "\"manifest-1\"".to_owned(),
+        document: json!({"manifestVersion": 1}),
+        stored_at: now(),
+    };
+    db.run_blocking(|c| manifests::put_pending(c, &first)).expect("first pending");
+    drop(db);
+    let db = StateDb::open(&path, OpenOptions { integrity_check: true }).expect("reopen");
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &binding)).unwrap(), None);
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Pending, &binding)).unwrap(), Some(first.clone()));
+    assert!(db.run_blocking(|c| manifests::promote_pending(c, &binding, 1)).unwrap());
+
+    let second = StoredManifest {
+        version: 2,
+        etag: "\"manifest-2\"".to_owned(),
+        document: json!({"manifestVersion": 2}),
+        ..first.clone()
+    };
+    db.run_blocking(|c| manifests::put_pending(c, &second)).expect("second pending");
+    assert!(!db.run_blocking(|c| manifests::promote_pending(c, &binding, 3)).unwrap());
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &binding)).unwrap(), Some(first.clone()));
+    assert!(db.run_blocking(|c| manifests::promote_pending(c, &binding, 2)).unwrap());
+    drop(db);
+
+    let reopened = StateDb::open(&path, OpenOptions { integrity_check: true }).expect("reopen again");
+    assert_eq!(reopened.run_blocking(|c| manifests::get_for(c, Stage::Active, &binding)).unwrap(), Some(second));
+    assert_eq!(reopened.run_blocking(|c| manifests::get_for(c, Stage::Previous, &binding)).unwrap(), Some(first));
+    assert_eq!(reopened.run_blocking(|c| manifests::get_for(c, Stage::Pending, &binding)).unwrap(), None);
+}
+
+#[test]
+fn cached_manifest_is_bound_to_one_screen_server_and_version() {
+    let (_dir, path) = temp_db();
+    let db = StateDb::open(&path, OpenOptions::default()).expect("open");
+    let binding = ManifestBinding {
+        installation_id: InstallationId::new_random(),
+        screen_id: ScreenId::new_random(),
+        server_url: "https://signage.example".to_owned(),
+    };
+    let active = StoredManifest {
+        binding: binding.clone(),
+        version: 10,
+        etag: "\"manifest-10\"".to_owned(),
+        document: json!({"manifestVersion": 10}),
+        stored_at: now(),
+    };
+    db.run_blocking(|c| manifests::put_pending(c, &active)).unwrap();
+    db.run_blocking(|c| manifests::promote_pending(c, &binding, 10)).unwrap();
+    let stale = StoredManifest { version: 9, ..active.clone() };
+    assert!(db.run_blocking(|c| manifests::put_pending(c, &stale)).is_err());
+    let foreign = ManifestBinding { screen_id: ScreenId::new_random(), ..binding.clone() };
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
+    let foreign = ManifestBinding { server_url: "https://other.example".to_owned(), ..binding.clone() };
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
+    let foreign = ManifestBinding { installation_id: InstallationId::new_random(), ..binding };
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
+}
+
+#[test]
 fn newer_schema_is_refused_not_rewritten() {
     let (_dir, path) = temp_db();
     drop(StateDb::open(&path, OpenOptions::default()).expect("open"));
@@ -60,11 +130,12 @@ fn failed_migration_rolls_back_completely() {
     let connection = open_connection(&path, OpenOptions::default()).expect("open");
     let broken = [
         Migration { version: 1, name: "initial", sql: edge_state::MIGRATIONS[0].sql },
-        Migration { version: 2, name: "broken", sql: "CREATE TABLE half_done (id INTEGER); THIS IS NOT SQL;" },
+        Migration { version: 2, name: "manifests", sql: edge_state::MIGRATIONS[1].sql },
+        Migration { version: 3, name: "broken", sql: "CREATE TABLE half_done (id INTEGER); THIS IS NOT SQL;" },
     ];
     let error = migrate_with(&connection, &broken).expect_err("migration fails");
-    assert!(matches!(error, StateError::Migration { version: 2, .. }));
-    assert_eq!(edge_state::schema_version(&connection).expect("version"), 1);
+    assert!(matches!(error, StateError::Migration { version: 3, .. }));
+    assert_eq!(edge_state::schema_version(&connection).expect("version"), 2);
     let half: i64 = connection
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'half_done'", [], |r| r.get(0))
         .expect("query");

@@ -44,8 +44,10 @@ pub struct Migration {
     pub sql: &'static str,
 }
 
-pub const MIGRATIONS: &[Migration] =
-    &[Migration { version: 1, name: "initial", sql: include_str!("../migrations/0001_initial.sql") }];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration { version: 1, name: "initial", sql: include_str!("../migrations/0001_initial.sql") },
+    Migration { version: 2, name: "manifests", sql: include_str!("../migrations/0002_manifests.sql") },
+];
 
 pub fn latest_schema_version() -> u32 {
     MIGRATIONS.last().map_or(0, |m| m.version)
