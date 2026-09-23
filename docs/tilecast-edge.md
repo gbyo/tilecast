@@ -1387,11 +1387,11 @@ etag
 
 Every CAS path derives only from validated lowercase SHA-256 hex. Blob lookup never accepts an arbitrary filesystem path.
 
-### 14.2 Peerability and confidentiality classes
+### 14.2 Peerability, confidentiality and hash-level policy
 
 Being hash-addressed does not imply every enrolled node may read the bytes.
 
-Each logical object reference has one sharing class:
+Reference classes remain:
 
 ```text
 installation_peerable
@@ -1400,34 +1400,62 @@ origin_only
 never_on_player
 ```
 
-**installation_peerable**
+However, **confidentiality is enforced at the byte/hash level**.
 
-Any active authenticated Edge node in the same trust realm may fetch the bytes. Use only for content whose confidentiality boundary is the installation, such as explicitly approved common signage media/static runtime assets.
+If the exact same bytes/hash are referenced by several live logical objects with different classes, compute one effective sharing policy no more permissive than the strictest live reference.
 
-**target_granted**
+Examples:
 
-Peer transfer is allowed only to a caller that presents a valid server-signed object grant naming that hash and caller audience. Use for screen-targeted presentation bundles, targeted update artifacts, and media/datasets whose policy is not installation-wide.
+- one `installation_peerable` + one `target_granted` reference → hash is not installation-peerable;
+- two `target_granted` references with different audiences → caller needs a grant whose audience/reference policy authorizes that hash;
+- any `origin_only` reference that requires byte confidentiality prevents peer serving of that hash unless the server intentionally creates a differently encoded/encrypted byte variant with another hash.
+
+Do not claim the same plaintext hash is both installation-public and target-confidential.
+
+If product semantics require the same logical content at two confidentiality levels, create distinct protected/encrypted variants so their byte identities differ.
+
+#### installation_peerable
+
+Any active authenticated Edge node in the trust realm may fetch the hash. Use only when installation-wide byte confidentiality is acceptable.
+
+#### target_granted
+
+Peer transfer requires a valid server-signed object grant.
 
 Conceptual grant core:
 
 ```text
+schema
 trustRealmId
-stateIncarnationId
+securityLineageId
+securityGenerationAtIssue
+stateIncarnationId/null
 hash
 size
 audienceScreenId or audienceNodeId
-referenceKind/referenceId
+referenceKind
+referenceId
 grantGeneration
-notAfter/null
+issuedAt
+notAfter
+authorityEpoch
 ```
 
-Sign with domain `TilecastEdge/object-grant/v1`.
+`notAfter` is mandatory for `target_granted`; null/unbounded target grants are not allowed.
 
-**origin_only**
+Grant maximum lifetime is bounded by server policy and trusted time. Short-lived grants reduce future-fetch exposure but do not revoke bytes already delivered legitimately.
 
-The authenticated Tilecast Server may serve it, but peers never do.
+Sign with `TilecastEdge/object-grant/v1` using the currently active online authority.
 
-**never_on_player**
+A newer security state may raise a per-reference/per-audience minimum grant generation for future fetches. Peers that cannot prove sufficiently current security state must fail closed for security-sensitive grant classes.
+
+For content requiring immediate/strong revocation semantics, use `origin_only` or an encrypted target-specific object/key design. Tilecast cannot make plaintext bytes disappear from a node that was previously authorized to receive them.
+
+#### origin_only
+
+Authenticated Tilecast Server may serve the object, peers never do.
+
+#### never_on_player
 
 Secrets/private records are not projected to player storage at all.
 
@@ -1438,14 +1466,14 @@ Never peer-share:
 - Presentation Network credentials;
 - dashboard sessions;
 - website cookie/storage partitions;
-- private form attachments unless explicitly projected with an approved sharing class;
+- private form attachments unless explicitly projected under an approved byte-level policy;
 - screenshots/live-preview frames;
 - raw microphone/audio samples;
 - arbitrary logs;
 - unapproved/sensitive Data Source configuration;
 - server private signing/CA keys.
 
-A screen-specific presentation bundle being non-applicable to another screen is **not** by itself a confidentiality control; use `target_granted` when other nodes must not read it.
+A screen-specific presentation being non-applicable to another screen is not a confidentiality control; choose the effective byte-sharing class deliberately.
 
 ### 14.3 Peer object endpoint
 
