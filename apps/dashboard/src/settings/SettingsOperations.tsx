@@ -45,6 +45,7 @@ import {
   Upload,
 } from "lucide-react";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import { screenPlatformFamily } from "../playerPlatform";
 import type {
   GitHubDeviceStart,
@@ -433,6 +434,7 @@ export function PlayerUpdatesPanel({
   manageable: boolean;
 }) {
   const { t } = useTranslation(["settings", "common"]);
+  const { t: tErrors } = useTranslation("errors");
   const locale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
@@ -898,7 +900,7 @@ export function PlayerUpdatesPanel({
             <Alert variant="destructive">
               <AlertTitle>{t("updates.panel.cacheErrorTitle")}</AlertTitle>
               <AlertDescription>
-                {mutationError(cache.error, t)}
+                {mutationError(cache.error, tErrors)}
               </AlertDescription>
             </Alert>
           )}
@@ -906,7 +908,7 @@ export function PlayerUpdatesPanel({
             <Alert variant="destructive">
               <AlertTitle>{t("updates.panel.removeErrorTitle")}</AlertTitle>
               <AlertDescription>
-                {mutationError(purge.error, t)}
+                {mutationError(purge.error, tErrors)}
               </AlertDescription>
             </Alert>
           )}
@@ -922,7 +924,7 @@ export function PlayerUpdatesPanel({
               ? t("updates.panel.loadingReleases")
               : releases.error
                 ? t("updates.panel.loadError", {
-                    error: mutationError(releases.error, t),
+                    error: mutationError(releases.error, tErrors),
                   })
                 : t("updates.panel.emptyReleases", {
                     platform: platformLabel,
@@ -1423,7 +1425,7 @@ export function PlayerUpdatesPanel({
               >
                 <AlertDescription>
                   {deploy.error
-                    ? mutationError(deploy.error, t)
+                    ? mutationError(deploy.error, tErrors)
                     : deploySuccess}
                 </AlertDescription>
               </Alert>
@@ -1558,7 +1560,7 @@ export function PlayerUpdatesPanel({
             <Alert variant="destructive">
               <AlertTitle>{t("updates.panel.historyLoadError")}</AlertTitle>
               <AlertDescription>
-                {mutationError(deployments.error, t)}
+                {mutationError(deployments.error, tErrors)}
               </AlertDescription>
             </Alert>
           </div>
@@ -2063,8 +2065,10 @@ function UpdateStatus({ value }: { value: string }) {
               : humanize(value);
   return <StatusDot tone={tone} label={label} />;
 }
-function mutationError(error: unknown, t: TFunction<["settings", "common"]>) {
-  return error instanceof Error ? error.message : t("updates.requestFailed");
+function mutationError(error: unknown, t: TFunction<"errors">): string {
+  return error instanceof Error
+    ? apiErrorMessage(error)
+    : t("fallback.requestFailed");
 }
 // One vocabulary for a screen's update state, shared with the deployment drawer
 // so a state never reads one way in a table and another way in a detail view.

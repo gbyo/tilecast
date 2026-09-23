@@ -1,4 +1,148 @@
 {
+  "myAccount": {
+    "title": "Mi cuenta",
+    "subtitle": "Ajustes que te pertenecen a ti y no a la organización.",
+    "navLabel": "Secciones de la cuenta",
+    "signedInAs": "Sesión iniciada como",
+    "sections": {
+      "preferences": {
+        "title": "Preferencias",
+        "description": "Ajustes de apariencia y flujo de trabajo, guardados con tu cuenta y no en este navegador."
+      },
+      "security": {
+        "title": "Seguridad de inicio de sesión",
+        "description": "Si se requiere un segundo factor es un ajuste de la organización. Cómo cumplirlo es tu decisión."
+      }
+    }
+  },
+  "roles": {
+    "owner": "Propietario",
+    "administrator": "Administrador",
+    "editor": "Editor",
+    "contributor": "Colaborador",
+    "viewer": "Lector",
+    "descriptions": {
+      "owner": "Todo, incluidas las copias de seguridad y los tokens de integración.",
+      "administrator": "Todo excepto las operaciones del sistema reservadas al propietario.",
+      "editor": "Crea contenido, lo publica y gestiona pantallas y reproducción.",
+      "contributor": "Crea y edita contenido, pero no puede publicar un diseño, eliminar nada ni poner contenido en una pantalla.",
+      "viewer": "Solo lectura."
+    }
+  },
+  "users": {
+    "accessDenied": "Se requiere acceso de propietario o administrador para gestionar los usuarios de Studio.",
+    "addForm": {
+      "title": "Agregar un usuario",
+      "passwordHint": "Las contraseñas deben tener al menos 12 caracteres.",
+      "nameLabel": "Nombre",
+      "usernameLabel": "Nombre de usuario",
+      "passwordLabel": "Contraseña temporal",
+      "roleLabel": "Rol",
+      "submit": "Agregar usuario",
+      "submitting": "Agregando…"
+    },
+    "list": {
+      "loading": "Cargando usuarios…",
+      "status": {
+        "active": "Activo",
+        "inactive": "Inactivo"
+      },
+      "lastSignedIn": "Último inicio de sesión: {{date}}",
+      "neverSignedIn": "Nunca inició sesión",
+      "mfa": {
+        "on": "Verificación en dos pasos activada",
+        "required": "Verificación en dos pasos requerida, aún no configurada",
+        "off": "Sin verificación en dos pasos"
+      }
+    },
+    "editDialog": {
+      "title": "Editar {{name}}",
+      "nameLabel": "Nombre",
+      "usernameLabel": "Nombre de usuario",
+      "roleLabel": "Rol",
+      "passwordLabel": "Nueva contraseña",
+      "passwordPlaceholder": "Dejar sin cambios",
+      "passwordHint": "Al menos 12 caracteres.",
+      "activeLabel": "Cuenta activa",
+      "mfaTitle": "Verificación en dos pasos",
+      "mfaEnrolled": "Esta cuenta tiene una app de autenticación o una llave de acceso registrada.",
+      "mfaNotEnrolled": "Esta cuenta no tiene ningún segundo factor registrado.",
+      "resetConfirmTitle": "¿Eliminar todos los autenticadores, llaves de acceso y códigos de recuperación de {{name}}?",
+      "resetConfirmBody": "Se cerrará su sesión en todas partes y deberá registrarse de nuevo.",
+      "resetAction": "Restablecer",
+      "resetting": "Restableciendo…",
+      "scopeTitle": "Alcance de pantallas",
+      "deactivateTitle": "¿Desactivar a {{name}}?",
+      "deactivateAction": "Desactivar",
+      "deactivating": "Desactivando…",
+      "deleteTitle": "¿Eliminar permanentemente a {{name}}?",
+      "deleteBody": "Se eliminarán su inicio de sesión, sus preferencias y sus credenciales de seguridad. Esta acción no se puede deshacer.",
+      "deleteAction": "Eliminar permanentemente",
+      "deleting": "Eliminando…"
+    },
+    "errors": {
+      "requestFailed": "Tilecast no pudo actualizar esta cuenta."
+    }
+  },
+  "security": {
+    "loading": "Cargando seguridad de inicio de sesión…",
+    "loadError": "No se pudo cargar la seguridad de inicio de sesión.",
+    "authenticator": {
+      "title": "App de autenticación",
+      "description": "Un código de seis dígitos de una app como Aegis, Google Authenticator o 1Password.",
+      "setup": "Configurar",
+      "enrolled": "Registrado",
+      "notEnrolled": "No registrado",
+      "addedOn": "Agregado el {{date}}",
+      "enrollInstruction": "Escanea el código con tu app de autenticación e ingresa el código de seis dígitos que muestra.",
+      "manualKeyLabel": "¿No puedes escanear? Ingresa esta clave manualmente:",
+      "codeLabel": "Código de seis dígitos",
+      "removeTitle": "Eliminar autenticador",
+      "removeDescription": "Confirma tu contraseña para eliminar el autenticador de esta cuenta."
+    },
+    "passkeys": {
+      "title": "Llaves de acceso",
+      "description": "Inicia sesión con tu huella, tu rostro, el bloqueo de pantalla o una llave de seguridad. Una llave de acceso inicia sesión por sí sola y cuenta como verificación en dos pasos.",
+      "add": "Agregar una llave de acceso",
+      "unavailableTitle": "Las llaves de acceso no están disponibles en esta instalación.",
+      "browserUnsupported": "Este navegador no admite llaves de acceso.",
+      "empty": "Sin llaves de acceso",
+      "addedOn": "Agregada el {{date}}",
+      "lastUsed": "Último uso: {{date}}",
+      "neverUsed": "Nunca usada",
+      "rename": "Renombrar",
+      "renameTitle": "Renombrar «{{name}}»",
+      "renameHint": "Tilecast le puso este nombre según el autenticador que la creó.",
+      "removeTitle": "Eliminar «{{name}}»",
+      "removeFallbackTitle": "Eliminar llave de acceso",
+      "removeDescription": "Confirma tu contraseña para eliminar esta llave de acceso de esta cuenta.",
+      "notCreated": "No se creó ninguna llave de acceso.",
+      "selectToRename": "Selecciona una llave de acceso para renombrarla.",
+      "selectToRemove": "Selecciona una llave de acceso para eliminarla."
+    },
+    "recovery": {
+      "title": "Códigos de recuperación",
+      "description": "Códigos de un solo uso que te permiten iniciar sesión cuando no puedes usar tu autenticador o tu llave de acceso.",
+      "regenerate": "Regenerar",
+      "generate": "Generar",
+      "remaining_one": "{{count}} código sin usar restante",
+      "remaining_many": "{{count}} de códigos sin usar restantes",
+      "remaining_other": "{{count}} códigos sin usar restantes",
+      "empty": "Sin códigos de recuperación",
+      "dialogTitle": "Generar códigos de recuperación",
+      "dialogDescription": "Confirma tu contraseña para generar códigos nuevos. Los códigos de recuperación existentes dejarán de funcionar.",
+      "shownOnceTitle": "Estos códigos se muestran una sola vez.",
+      "shownOnceDescription": "Guárdalos en un lugar seguro ahora. Tilecast solo guarda sus hashes y no puede mostrarlos de nuevo.",
+      "copyAll": "Copiar todo",
+      "savedConfirm": "Ya los guardé"
+    },
+    "passwordDialog": {
+      "passwordLabel": "Contraseña de la cuenta"
+    },
+    "errors": {
+      "requestFailed": "Tilecast no pudo completar la solicitud."
+    }
+  },
   "preferences": {
     "loading": "Cargando preferencias…",
     "saved": "Preferencias guardadas.",

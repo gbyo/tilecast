@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { api, ApiError } from "../api/client";
 import type { PluginInUseResource, PluginSummary } from "../api/types";
+
+export type PluginsT = TFunction<"plugins", undefined>;
 
 export const pluginCategories = [
   "Display",
@@ -9,20 +12,24 @@ export const pluginCategories = [
   "Hardware",
 ] as const;
 
-export type PluginStatusLabel =
-  "Attention" | "Active" | "Configured" | "Needs setup";
+export type PluginStatusKey =
+  | "status.attention"
+  | "status.active"
+  | "status.configured"
+  | "status.needsSetup";
 
 /**
  * The single status shown for an installed plugin. Attention notes are
  * advisory — a plugin may be installed before its Player exists — so a plugin
  * nobody has set up yet reads as needing setup, with the note alongside.
+ * Returns a key into the plugins namespace; the caller translates at render.
  */
-export function pluginStatus(plugin: PluginSummary): PluginStatusLabel {
-  if (!plugin.configured) return "Needs setup";
-  if (plugin.attention.length > 0) return "Attention";
-  if (plugin.active) return "Active";
-  if (plugin.configured) return "Configured";
-  return "Needs setup";
+export function pluginStatusKey(plugin: PluginSummary): PluginStatusKey {
+  if (!plugin.configured) return "status.needsSetup";
+  if (plugin.attention.length > 0) return "status.attention";
+  if (plugin.active) return "status.active";
+  if (plugin.configured) return "status.configured";
+  return "status.needsSetup";
 }
 
 export function instanceSummary(plugin: PluginSummary) {

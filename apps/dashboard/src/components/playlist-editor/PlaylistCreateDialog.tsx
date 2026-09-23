@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
@@ -28,6 +29,7 @@ export function PlaylistCreateDialog({
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
+  const { t } = useTranslation(["playlists", "common"]);
   const [name, setName] = useState("");
   const [sourceType, setSourceType] = useState<"static" | "tag">("static");
   const create = useMutation({
@@ -44,14 +46,14 @@ export function PlaylistCreateDialog({
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create playlist</DialogTitle>
-          <DialogDescription>
-            Name the playlist and choose how its items are selected.
-          </DialogDescription>
+          <DialogTitle>{t("create.title")}</DialogTitle>
+          <DialogDescription>{t("create.description")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
           <Field>
-            <FieldLabel htmlFor="playlist-create-name">Name</FieldLabel>
+            <FieldLabel htmlFor="playlist-create-name">
+              {t("create.nameLabel")}
+            </FieldLabel>
             <Input
               id="playlist-create-name"
               autoFocus
@@ -60,7 +62,9 @@ export function PlaylistCreateDialog({
             />
           </Field>
           <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium">Playlist type</legend>
+            <legend className="text-sm font-medium">
+              {t("create.typeLabel")}
+            </legend>
             <div className="grid gap-2 sm:grid-cols-2">
               <RheaButton
                 type="button"
@@ -69,9 +73,9 @@ export function PlaylistCreateDialog({
                 aria-pressed={sourceType === "static"}
                 onClick={() => setSourceType("static")}
               >
-                <strong className="text-sm">Standard playlist</strong>
+                <strong className="text-sm">{t("create.standardTitle")}</strong>
                 <span className="text-xs font-normal opacity-80">
-                  Manually arrange media and Layouts in a timeline.
+                  {t("create.standardDescription")}
                 </span>
               </RheaButton>
               <RheaButton
@@ -81,9 +85,9 @@ export function PlaylistCreateDialog({
                 aria-pressed={sourceType === "tag"}
                 onClick={() => setSourceType("tag")}
               >
-                <strong className="text-sm">Tag-driven playlist</strong>
+                <strong className="text-sm">{t("create.tagTitle")}</strong>
                 <span className="text-xs font-normal opacity-80">
-                  Automatically include ready media that matches tags.
+                  {t("create.tagDescription")}
                 </span>
               </RheaButton>
             </div>
@@ -96,14 +100,14 @@ export function PlaylistCreateDialog({
         </div>
         <DialogFooter>
           <RheaButton type="button" variant="outline" onClick={onClose}>
-            Cancel
+            {t("common:actions.cancel")}
           </RheaButton>
           <RheaButton
             type="button"
             disabled={!name.trim() || create.isPending}
             onClick={() => create.mutate()}
           >
-            {create.isPending ? "Creating…" : "Create playlist"}
+            {create.isPending ? t("create.creating") : t("create.submit")}
           </RheaButton>
         </DialogFooter>
       </DialogContent>

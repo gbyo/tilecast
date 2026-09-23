@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ScheduleInput, Screen, ScreenGroup } from "../api/types";
+import { i18n } from "../i18n";
 import {
   conflictWinnerReason,
   countTargetScreens,
@@ -10,6 +11,12 @@ import {
   setTargetSelected,
   validateScheduleInput,
 } from "./scheduleBuilderModel";
+
+// Helpers take the English `t` so assertions keep reading the English copy.
+// The locale is pinned so clock and date assertions never depend on jsdom's
+// default region.
+const t = i18n.getFixedT("en", "schedules");
+const locale = "en-US";
 
 const weekly = (changes: Partial<ScheduleInput> = {}): ScheduleInput => ({
   name: "Morning",
@@ -28,8 +35,10 @@ const weekly = (changes: Partial<ScheduleInput> = {}): ScheduleInput => ({
 
 describe("Schedule Builder model", () => {
   it("describes a recurring weekday schedule", () => {
-    expect(describeScheduleTiming(weekly())).toMatch(/Monday through Friday/);
-    expect(describeScheduleTiming(weekly())).toMatch(/9:00 AM/);
+    expect(describeScheduleTiming(weekly(), t, locale)).toMatch(
+      /Monday through Friday/,
+    );
+    expect(describeScheduleTiming(weekly(), t, locale)).toMatch(/9:00 AM/);
   });
 
   it("describes overnight windows as ending the following day", () => {
@@ -40,6 +49,8 @@ describe("Schedule Builder model", () => {
           dailyStart: "22:00",
           dailyEnd: "02:00",
         }),
+        t,
+        locale,
       ),
     ).toContain("following day");
   });
@@ -47,6 +58,8 @@ describe("Schedule Builder model", () => {
   it("includes optional weekly date ranges", () => {
     const description = describeScheduleTiming(
       weekly({ startDate: "2026-08-01", endDate: "2026-08-31" }),
+      t,
+      locale,
     );
     expect(description).toContain("beginning");
     expect(description).toContain("through");
@@ -58,10 +71,10 @@ describe("Schedule Builder model", () => {
       oneTimeStart: "2026-08-01T13:00:00Z",
       oneTimeEnd: "2026-08-01T15:30:00Z",
     });
-    expect(oneTimeDuration(input)).toBe("2 hr 30 min");
-    expect(validateScheduleInput(input)).toEqual({});
+    expect(oneTimeDuration(input, t)).toBe("2 hr 30 min");
+    expect(validateScheduleInput(input, t)).toEqual({});
     expect(
-      validateScheduleInput({ ...input, oneTimeEnd: input.oneTimeStart }),
+      validateScheduleInput({ ...input, oneTimeEnd: input.oneTimeStart }, t),
     ).toHaveProperty("oneTime");
   });
 
@@ -106,11 +119,11 @@ describe("Schedule Builder model", () => {
     expect(priorityPreset(500)).toBe("special");
     expect(priorityPreset(42)).toBe("custom");
     expect(
-      conflictWinnerReason({ priority: 100, specificity: 0 }, 0),
+      conflictWinnerReason({ priority: 100, specificity: 0 }, 0, t),
     ).toContain("highest priority");
-    expect(conflictWinnerReason({ priority: 0, specificity: 1 }, 0)).toContain(
-      "directly",
-    );
+    expect(
+      conflictWinnerReason({ priority: 0, specificity: 1 }, 0, t),
+    ).toContain("directly");
   });
 
   it("requires content, targets, days, and valid dates", () => {
@@ -123,6 +136,7 @@ describe("Schedule Builder model", () => {
         startDate: "2026-09-02",
         endDate: "2026-09-01",
       }),
+      t,
     );
     for (const key of [
       "name",
