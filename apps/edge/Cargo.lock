@@ -3005,6 +3005,7 @@ dependencies = [
  "edge-state",
  "jiff",
  "nix",
+ "ring",
  "rustix",
  "serde",
  "serde_json",

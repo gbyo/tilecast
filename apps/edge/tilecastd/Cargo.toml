@@ -23,6 +23,7 @@ edge-server.workspace = true
 edge-state.workspace = true
 jiff.workspace = true
 nix = { version = "0.31", default-features = false, features = ["net"] }
+ring.workspace = true
 rustix = { workspace = true, features = ["process"] }
 serde.workspace = true
 serde_json.workspace = true

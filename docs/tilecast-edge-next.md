@@ -166,9 +166,11 @@ pending, active and previous records with atomic promotion; promotion is not
 yet called. A timezone-aware selector now resolves direct assignments,
 one-time and weekly schedules, quick presents and takeovers with the existing
 Linux player's half-open and DST rules; it is not yet wired into activation.
-Renderer media capabilities and activation remain open. The final RFC requires
-replacing the foundation's raw digest media URI/CAS-root access before real
-server content is activated.
+The daemon now has an opaque, random, renderer-session-bound media capability
+registry with prepared/active/draining lifetimes, but the media socket and WPE
+consumers are not yet connected. Activation remains open. The final RFC
+requires replacing the foundation's raw digest media URI/CAS-root access
+before real server content is activated.
 
 - **Use:**
   - `edge_cas::Fetcher` with sources in this order:
