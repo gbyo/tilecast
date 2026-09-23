@@ -1,101 +1,150 @@
-// UsedByPanel renders the reverse-dependency edges of one record as links.
-//
-// The relationships already existed in the database and were already returned by the API, but
-// Studio rendered them as plain text, so a user could see that "Today's Lunch" consumed a Data
-// Source and still had no way to reach it. Every record type now reports the same panel, which is
-// what lets someone trace lunch.csv -> Today's Lunch -> Cafeteria Layout -> Cafeteria TV, and walk
-// back the other way when asking why a screen looks stale.
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
-import type { ReactNode } from "react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import { Item, ItemContent, ItemTitle } from "../components/ui/item";
+import { Badge } from "../components/ui/badge";
+import { ChevronDown } from "lucide-react";
+
+export type UsedByItem = {
+  id: string;
+  name: string;
+  hint?: string;
+};
 
 export type UsedByGroup = {
-  // Plural noun for the group, e.g. "Widgets". Rendered as the group heading.
   label: string;
-  items: { id: string; name: string; hint?: string }[];
-  // Path builder for an item, e.g. (id) => `/widgets/${id}`. Omit for entries that are not
-  // separately addressable.
+  items: UsedByItem[];
   to?: (id: string) => string;
 };
 
-function count(groups: UsedByGroup[]) {
-  return groups.reduce((total, group) => total + group.items.length, 0);
+function UsedByLink({
+  item,
+  to,
+}: {
+  item: UsedByItem;
+  to?: (id: string) => string;
+}) {
+  const body = (
+    <>
+      {item.name}
+      {item.hint && (
+        <Badge variant="outline" className="ml-2">
+          {item.hint}
+        </Badge>
+      )}
+    </>
+  );
+  if (!to) return <span className="text-sm">{body}</span>;
+  return (
+    <Link
+      to={to(item.id)}
+      className="text-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {body}
+    </Link>
+  );
+}
+
+function UsedByRows({ group }: { group: UsedByGroup }) {
+  return (
+    <div className="grid gap-1">
+      {group.items.map((item, index) => (
+        <Item key={`${item.id}-${index}`} size="sm">
+          <ItemContent>
+            <ItemTitle>
+              <UsedByLink item={item} to={group.to} />
+            </ItemTitle>
+          </ItemContent>
+        </Item>
+      ))}
+    </div>
+  );
 }
 
 export function UsedByPanel({
+  emptyMessage = "",
   groups,
-  emptyMessage = "Nothing uses this yet.",
-  action,
   compact = false,
 }: {
-  groups: UsedByGroup[];
   emptyMessage?: string;
-  action?: ReactNode;
+  groups: UsedByGroup[];
   compact?: boolean;
 }) {
-  const total = count(groups);
-  const populated = groups.filter((group) => group.items.length > 0);
-
-  const items = (group: UsedByGroup) => (
-    <ul>
-      {/* One record may appear twice in a group — a Layout can bind several fields of
-          the same Data Source — so the index disambiguates the key. */}
-      {group.items.map((item, index) => (
-        <li key={`${group.label}-${item.id}-${index}`}>
-          {group.to ? (
-            <Link to={group.to(item.id)}>
-              <span>{item.name}</span>
-              {item.hint && <small>{item.hint}</small>}
-              <ExternalLink size={13} aria-hidden="true" />
-            </Link>
-          ) : (
-            <span className="used-by__static">
-              <span>{item.name}</span>
-              {item.hint && <small>{item.hint}</small>}
-            </span>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-
-  return (
-    <aside
-      className={`used-by${compact ? " used-by--compact" : ""}`}
-      aria-labelledby="used-by-title"
-    >
-      <div className="used-by__header">
-        <strong id="used-by-title">Used by</strong>
-        {action}
-      </div>
-      {total === 0 ? (
-        <p className="used-by__empty">{emptyMessage}</p>
-      ) : compact ? (
-        <div className="used-by__summary">
-          {populated.map((group) => (
-            <details key={group.label} className="used-by__summary-group">
-              <summary>
-                <span>
-                  <strong>{group.items.length}</strong>
-                  <small>{group.label}</small>
-                </span>
-                <ChevronDown size={16} aria-hidden="true" />
-              </summary>
-              <div className="used-by__summary-list">{items(group)}</div>
-            </details>
-          ))}
-        </div>
-      ) : (
-        populated.map((group) => (
-          <section key={group.label} className="used-by__group">
-            <h4>
+  const visible = groups.filter((group) => group.items.length > 0);
+  const total = visible.reduce((sum, group) => sum + group.items.length, 0);
+  if (total === 0)
+    return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
+  if (!compact) {
+    return (
+      <div className="grid gap-3">
+        {visible.map((group) => (
+          <div key={group.label} className="grid gap-1">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {group.label}
-              <span aria-hidden="true"> · {group.items.length}</span>
-            </h4>
-            {items(group)}
-          </section>
-        ))
-      )}
-    </aside>
+            </p>
+            <UsedByRows group={group} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <CompactUsedByPanel groups={visible} total={total} />;
+}
+
+function CompactUsedByPanel({
+  groups,
+  total,
+}: {
+  groups: UsedByGroup[];
+  total: number;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="grid gap-2">
+      <CollapsibleTrigger className="flex cursor-pointer items-center justify-between gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="text-sm font-medium">
+          Used by{" "}
+          <Badge variant="secondary">
+            {total} {total === 1 ? "place" : "places"}
+          </Badge>
+        </span>
+        <ChevronDown
+          size={16}
+          aria-hidden="true"
+          className={`text-muted-foreground ${open ? "rotate-180" : ""}`}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="grid gap-3">
+        {groups.map((group) => (
+          <CompactUsedByGroup key={group.label} group={group} />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function CompactUsedByGroup({ group }: { group: UsedByGroup }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="grid gap-1">
+      <CollapsibleTrigger className="flex cursor-pointer items-center justify-between gap-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="font-medium">{group.label}</span>
+        <span className="flex items-center gap-1 text-muted-foreground">
+          <Badge variant="secondary">{group.items.length}</Badge>
+          <ChevronDown
+            size={14}
+            aria-hidden="true"
+            className={open ? "rotate-180" : ""}
+          />
+        </span>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <UsedByRows group={group} />
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
