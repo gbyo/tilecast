@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
+import { Field, FieldLabel } from "../components/ui/field";
 import {
   Select,
   SelectContent,
@@ -144,8 +145,10 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
             stopped time is excluded from the percentage and shown separately.
           </p>
         </div>
-        <label className="grid gap-1 text-xs font-medium">
-          <span>Break down by</span>
+        <Field className="gap-1">
+          <FieldLabel htmlFor="playback-compliance-dimension">
+            Break down by
+          </FieldLabel>
           <Select
             items={dimensions}
             value={dimension}
@@ -154,6 +157,7 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
             }}
           >
             <SelectTrigger
+              id="playback-compliance-dimension"
               size="sm"
               className="w-40"
               aria-label="Break down by"
@@ -168,7 +172,7 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
               ))}
             </SelectContent>
           </Select>
-        </label>
+        </Field>
       </header>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

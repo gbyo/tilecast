@@ -41,6 +41,11 @@ export function DateInput({
   min,
   max,
   disabled,
+  "aria-label": ariaLabel,
+  "aria-describedby": describedBy,
+  "aria-invalid": invalid,
+  required,
+  onBlur,
 }: {
   id: string;
   value: string;
@@ -48,6 +53,11 @@ export function DateInput({
   min?: string;
   max?: string;
   disabled?: boolean;
+  "aria-label"?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+  required?: boolean;
+  onBlur?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const minDate = min ? parseDatePart(min) : undefined;
@@ -61,6 +71,11 @@ export function DateInput({
               id={id}
               type="button"
               disabled={disabled}
+              aria-label={ariaLabel}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
+              aria-required={required}
+              onBlur={onBlur}
               className={cn(
                 buttonVariants({ variant: "outline" }),
                 "min-w-36 justify-start font-normal",
@@ -130,6 +145,12 @@ export function DateTimeInput({
   min,
   max,
   disabled,
+  "aria-label": ariaLabel,
+  timeLabel,
+  "aria-describedby": describedBy,
+  "aria-invalid": invalid,
+  required,
+  onBlur,
 }: {
   id: string;
   value: string;
@@ -137,8 +158,16 @@ export function DateTimeInput({
   min?: string;
   max?: string;
   disabled?: boolean;
+  "aria-label"?: string;
+  timeLabel?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+  required?: boolean;
+  onBlur?: () => void;
 }) {
   const [datePart, rawTimePart] = value.split("T");
+  const [minDate, minTime] = (min ?? "").split("T");
+  const [maxDate, maxTime] = (max ?? "").split("T");
   // Accept full ISO instants as well as datetime-local strings: only the
   // leading HH:mm is editable, and it names the same instant.
   const timePart = /^\d{2}:\d{2}/.test(rawTimePart ?? "")
@@ -157,19 +186,34 @@ export function DateTimeInput({
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <DateInput
-        id={`${id}-date`}
+        id={id}
         value={datePart ?? ""}
-        min={min?.split("T")[0]}
-        max={max?.split("T")[0]}
+        min={minDate || undefined}
+        max={maxDate || undefined}
         disabled={disabled}
+        aria-label={ariaLabel}
+        aria-describedby={describedBy}
+        aria-invalid={invalid}
+        required={required}
+        onBlur={onBlur}
         onChange={setDate}
       />
       <Input
         id={`${id}-time`}
         type="time"
-        aria-label="Time"
+        aria-label={timeLabel ?? (ariaLabel ? ariaLabel + " time" : "Time")}
+        aria-describedby={describedBy}
+        aria-invalid={invalid}
+        aria-required={required}
+        onBlur={onBlur}
         value={timePart ?? ""}
         disabled={disabled || !datePart}
+        min={
+          datePart === minDate ? minTime?.slice(0, 5) || undefined : undefined
+        }
+        max={
+          datePart === maxDate ? maxTime?.slice(0, 5) || undefined : undefined
+        }
         onChange={(event) =>
           onChange(
             datePart ? `${datePart}T${event.target.value || "00:00"}` : "",

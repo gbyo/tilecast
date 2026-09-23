@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import type { IntegrationScope, IntegrationToken } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
+import { DateInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton } from "../components/ui/button";
@@ -15,6 +16,14 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLegend,
+  FieldLabel,
+  FieldSet,
+} from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
   Item,
@@ -271,38 +280,36 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
               create.mutate();
             }}
           >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid content-start gap-1">
-                <label htmlFor="token-name" className="text-sm font-medium">
-                  Name
-                </label>
-                <p className="text-sm text-muted-foreground">
+            <Field className="gap-3 sm:grid sm:grid-cols-2 sm:items-start">
+              <FieldContent>
+                <FieldLabel htmlFor="token-name">Name</FieldLabel>
+                <FieldDescription>
                   Name the system that will use it, so the delivery record and
                   the audit log say who did what.
-                </p>
-              </div>
-              <div className="grid content-start gap-2">
-                <Input
-                  id="token-name"
-                  value={name}
-                  required
-                  maxLength={120}
-                  onChange={(event) => setName(event.target.value)}
-                />
-              </div>
-            </div>
+                </FieldDescription>
+              </FieldContent>
+              <Input
+                id="token-name"
+                value={name}
+                required
+                maxLength={120}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid content-start gap-1">
-                <label className="text-sm font-medium">Capabilities</label>
-              </div>
+            <FieldSet className="grid gap-2">
+              <FieldLegend variant="label" className="mb-0">
+                Capabilities
+              </FieldLegend>
               <div className="grid content-start gap-2">
                 {allScopes.map((scope) => (
-                  <label
+                  <Field
                     key={scope}
-                    className="flex cursor-pointer items-start gap-2 text-sm"
+                    orientation="horizontal"
+                    className="items-start"
                   >
                     <RheaCheckbox
+                      id={"token-scope-" + scope}
                       checked={scopes.includes(scope)}
                       onCheckedChange={(checked) =>
                         setScopes(
@@ -312,52 +319,48 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                         )
                       }
                     />
-                    <span className="grid gap-0.5">
+                    <FieldLabel
+                      htmlFor={"token-scope-" + scope}
+                      className="grid gap-0.5 font-normal"
+                    >
                       {scopeLabels[scope]}
-                      <small className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {scopeDescriptions[scope]}
-                      </small>
-                    </span>
-                  </label>
+                      </span>
+                    </FieldLabel>
+                  </Field>
                 ))}
               </div>
-            </div>
+            </FieldSet>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid content-start gap-1">
-                <label htmlFor="token-expires" className="text-sm font-medium">
-                  Expires on
-                </label>
-                <p className="text-sm text-muted-foreground">
+            <Field className="gap-3 sm:grid sm:grid-cols-2 sm:items-start">
+              <FieldContent>
+                <FieldLabel htmlFor="token-expires">Expires on</FieldLabel>
+                <FieldDescription>
                   The token stops working at the end of this day. Leave it empty
                   for a token that never expires, and revoke it when the system
                   using it is retired.
-                </p>
-              </div>
-              <div className="grid content-start gap-2">
-                <Input
-                  id="token-expires"
-                  type="date"
-                  value={expiresOn}
-                  // Today is the earliest useful choice: it expires tonight. The
-                  // server refuses anything already past regardless.
-                  min={localDate(new Date())}
-                  onChange={(event) => setExpiresOn(event.target.value)}
-                />
-              </div>
-            </div>
+                </FieldDescription>
+              </FieldContent>
+              <DateInput
+                id="token-expires"
+                value={expiresOn}
+                // Today is the earliest useful choice: it expires tonight. The
+                // server refuses anything already past regardless.
+                min={localDate(new Date())}
+                onChange={setExpiresOn}
+              />
+            </Field>
 
             {scopes.includes("data_source:write") && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid content-start gap-1">
-                  <label className="text-sm font-medium">
-                    Limit to Data Sources
-                  </label>
-                  <p className="text-sm text-muted-foreground">
-                    Select none to allow every Manual Table Data Source. Naming
-                    them is the safer default.
-                  </p>
-                </div>
+              <FieldSet className="grid gap-2">
+                <FieldLegend variant="label" className="mb-0">
+                  Limit to Data Sources
+                </FieldLegend>
+                <FieldDescription>
+                  Select none to allow every Manual Table Data Source. Naming
+                  them is the safer default.
+                </FieldDescription>
                 <div className="grid content-start gap-2">
                   {sources.isLoading ? (
                     <span className="text-xs text-muted-foreground">
@@ -369,11 +372,13 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                     </span>
                   ) : (
                     sources.data.items.map((source) => (
-                      <label
+                      <Field
                         key={source.id}
-                        className="flex cursor-pointer items-center gap-2 text-sm"
+                        orientation="horizontal"
+                        className="items-center"
                       >
                         <RheaCheckbox
+                          id={"token-source-" + source.id}
                           checked={sourceIds.includes(source.id)}
                           onCheckedChange={(checked) =>
                             setSourceIds(
@@ -383,12 +388,17 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                             )
                           }
                         />
-                        <span>{source.name}</span>
-                      </label>
+                        <FieldLabel
+                          htmlFor={"token-source-" + source.id}
+                          className="font-normal"
+                        >
+                          {source.name}
+                        </FieldLabel>
+                      </Field>
                     ))
                   )}
                 </div>
-              </div>
+              </FieldSet>
             )}
 
             {create.error && (

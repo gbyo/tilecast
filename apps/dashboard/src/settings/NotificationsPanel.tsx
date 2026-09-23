@@ -15,6 +15,14 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
@@ -425,58 +433,52 @@ function WebhookSection({
           setCategories([]);
         }}
       >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid content-start gap-1">
-            <label htmlFor="webhook-name" className="text-sm font-medium">
-              Name
-            </label>
-            <p className="text-sm text-muted-foreground">
+        <Field className="gap-3 sm:grid sm:grid-cols-2 sm:items-start">
+          <FieldContent>
+            <FieldLabel htmlFor="webhook-name">Name</FieldLabel>
+            <FieldDescription>
               How this receiver is identified in the delivery log.
-            </p>
-          </div>
-          <div className="grid content-start gap-2">
-            <Input
-              id="webhook-name"
-              value={name}
-              required
-              maxLength={120}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid content-start gap-1">
-            <label htmlFor="webhook-url" className="text-sm font-medium">
-              URL
-            </label>
-            <p className="text-sm text-muted-foreground">
+            </FieldDescription>
+          </FieldContent>
+          <Input
+            id="webhook-name"
+            value={name}
+            required
+            maxLength={120}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+        <Field className="gap-3 sm:grid sm:grid-cols-2 sm:items-start">
+          <FieldContent>
+            <FieldLabel htmlFor="webhook-url">URL</FieldLabel>
+            <FieldDescription>
               HTTPS is required unless the receiver is on the local network.
-            </p>
-          </div>
-          <div className="grid content-start gap-2">
-            <Input
-              id="webhook-url"
-              type="url"
-              value={url}
-              required
-              onChange={(event) => setUrl(event.target.value)}
-            />
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid content-start gap-1">
-            <label className="text-sm font-medium">Categories</label>
-            <p className="text-sm text-muted-foreground">
-              Select none to receive every category.
-            </p>
-          </div>
+            </FieldDescription>
+          </FieldContent>
+          <Input
+            id="webhook-url"
+            type="url"
+            value={url}
+            required
+            onChange={(event) => setUrl(event.target.value)}
+          />
+        </Field>
+        <FieldSet className="grid gap-2">
+          <FieldLegend variant="label" className="mb-0">
+            Categories
+          </FieldLegend>
+          <FieldDescription>
+            Select none to receive every category.
+          </FieldDescription>
           <div className="grid content-start gap-2">
             {allCategories.map((category) => (
-              <label
+              <Field
                 key={category}
-                className="flex cursor-pointer items-center gap-2 text-sm"
+                orientation="horizontal"
+                className="items-center"
               >
                 <RheaCheckbox
+                  id={"webhook-category-" + category}
                   checked={categories.includes(category)}
                   onCheckedChange={(checked) =>
                     setCategories(
@@ -486,11 +488,16 @@ function WebhookSection({
                     )
                   }
                 />
-                <span>{categoryLabels[category]}</span>
-              </label>
+                <FieldLabel
+                  htmlFor={"webhook-category-" + category}
+                  className="font-normal"
+                >
+                  {categoryLabels[category]}
+                </FieldLabel>
+              </Field>
             ))}
           </div>
-        </div>
+        </FieldSet>
         {createError && (
           <Alert variant="destructive">
             <AlertDescription>{createError}</AlertDescription>

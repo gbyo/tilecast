@@ -14,7 +14,12 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "../components/ui/drawer";
-import { Input } from "../components/ui/input";
+import { Field, FieldLabel } from "../components/ui/field";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../components/ui/input-group";
 import {
   Sheet as RheaSheet,
   SheetContent,
@@ -232,21 +237,26 @@ export function UpdateDeploymentDrawer({
               ]}
               onValueChange={(value) => setFilter(value)}
             />
-            <label className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2">
-              <span className="sr-only">Search screens</span>
-              <Search
-                size={16}
-                aria-hidden="true"
-                className="shrink-0 text-muted-foreground"
-              />
-              <Input
-                type="search"
-                value={search}
-                placeholder="Search screens"
-                onChange={(event) => setSearch(event.target.value)}
-                className="w-40 border-0 bg-transparent px-0 py-[5px]"
-              />
-            </label>
+            <Field className="w-52 gap-1">
+              <FieldLabel
+                htmlFor="deployment-screen-search"
+                className="sr-only"
+              >
+                Search screens
+              </FieldLabel>
+              <InputGroup>
+                <InputGroupAddon>
+                  <Search aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="deployment-screen-search"
+                  type="search"
+                  value={search}
+                  placeholder="Search screens"
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </InputGroup>
+            </Field>
           </div>
           <ul className="grid gap-0 divide-y divide-border rounded-xl border border-border">
             {visible.map((item) => (

@@ -557,6 +557,8 @@ function PublishActions({
         <FieldLabel htmlFor="submission-publish-at">Publish at</FieldLabel>
         <DateTimeInput
           id="submission-publish-at"
+          aria-label="Publish at"
+          timeLabel="Publication time"
           value={schedule}
           onChange={onSchedule}
         />

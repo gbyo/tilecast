@@ -5,7 +5,7 @@ import type { ScreenGroup, SpanPanel, SpanStatus } from "../api/types";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button as RheaButton } from "./ui/button";
 import { Field, FieldLabel } from "./ui/field";
-import { Input } from "./ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -155,31 +155,37 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
       <div className="flex flex-wrap items-end gap-3">
         <Field className="min-w-32">
           <FieldLabel htmlFor="span-canvas-width">Canvas width</FieldLabel>
-          <Input
-            id="span-canvas-width"
-            type="number"
-            min={320}
-            max={16384}
-            value={canvas.width}
-            onChange={(event) => {
-              setDirty(true);
-              setCanvas({ ...canvas, width: Number(event.target.value) });
-            }}
-          />
+          <InputGroup>
+            <InputGroupInput
+              id="span-canvas-width"
+              type="number"
+              min={320}
+              max={16384}
+              value={canvas.width}
+              onChange={(event) => {
+                setDirty(true);
+                setCanvas({ ...canvas, width: Number(event.target.value) });
+              }}
+            />
+            <InputGroupAddon align="inline-end">px</InputGroupAddon>
+          </InputGroup>
         </Field>
         <Field className="min-w-32">
           <FieldLabel htmlFor="span-canvas-height">Canvas height</FieldLabel>
-          <Input
-            id="span-canvas-height"
-            type="number"
-            min={320}
-            max={16384}
-            value={canvas.height}
-            onChange={(event) => {
-              setDirty(true);
-              setCanvas({ ...canvas, height: Number(event.target.value) });
-            }}
-          />
+          <InputGroup>
+            <InputGroupInput
+              id="span-canvas-height"
+              type="number"
+              min={320}
+              max={16384}
+              value={canvas.height}
+              onChange={(event) => {
+                setDirty(true);
+                setCanvas({ ...canvas, height: Number(event.target.value) });
+              }}
+            />
+            <InputGroupAddon align="inline-end">px</InputGroupAddon>
+          </InputGroup>
         </Field>
         <div className="flex items-center gap-2" aria-label="Wall presets">
           <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -292,20 +298,23 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
                     <FieldLabel htmlFor={`span-${panel.screenId}-${key}`}>
                       {key.toUpperCase()}
                     </FieldLabel>
-                    <Input
-                      id={`span-${panel.screenId}-${key}`}
-                      type="number"
-                      min={0}
-                      value={panel[key]}
-                      disabled={!manageable}
-                      onChange={(event) =>
-                        setPanel(
-                          panel.screenId,
-                          key,
-                          Number(event.target.value),
-                        )
-                      }
-                    />
+                    <InputGroup>
+                      <InputGroupInput
+                        id={`span-${panel.screenId}-${key}`}
+                        type="number"
+                        min={0}
+                        value={panel[key]}
+                        disabled={!manageable}
+                        onChange={(event) =>
+                          setPanel(
+                            panel.screenId,
+                            key,
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                      <InputGroupAddon align="inline-end">px</InputGroupAddon>
+                    </InputGroup>
                   </Field>
                 ))}
                 <Field>

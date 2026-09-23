@@ -12,6 +12,11 @@ import { Button } from "../components/ui/button";
 import { FieldError } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../components/ui/input-group";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -381,18 +386,20 @@ function UnitInput({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Input
-        aria-label={definition.title}
-        type="number"
-        min={definition.min ? definition.min / multiplier : undefined}
-        max={definition.max ? definition.max / multiplier : undefined}
-        value={value / multiplier}
-        disabled={disabled}
-        onChange={(event) =>
-          onChange(Math.round(Number(event.target.value) * multiplier))
-        }
-      />
-      <span className="text-sm text-muted-foreground">{unit}</span>
+      <InputGroup className="w-40">
+        <InputGroupInput
+          aria-label={definition.title}
+          type="number"
+          min={definition.min ? definition.min / multiplier : undefined}
+          max={definition.max ? definition.max / multiplier : undefined}
+          value={value / multiplier}
+          disabled={disabled}
+          onChange={(event) =>
+            onChange(Math.round(Number(event.target.value) * multiplier))
+          }
+        />
+        <InputGroupAddon align="inline-end">{unit}</InputGroupAddon>
+      </InputGroup>
     </div>
   );
 }

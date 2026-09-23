@@ -1,8 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
-import type { InputHTMLAttributes } from "react";
-import type { UseFormRegisterReturn } from "react-hook-form";
+import { useId } from "react";
+import {
+  Controller,
+  useController,
+  type Control,
+  type FieldPathByValue,
+  type FieldValues,
+} from "react-hook-form";
 import { api } from "../api/client";
-import { Field, FieldError, FieldLabel } from "../components/ui/field";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../components/ui/field";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -18,21 +32,41 @@ const targetScopeOptions = [
   { value: "locations", label: "Locations" },
 ];
 
-/** Wrapping-label native checkbox for react-hook-form register() spreads. */
-export function RegisterCheckbox({
+/** Base Vega checkbox connected to a typed React Hook Form field. */
+export function RegisterCheckbox<TForm extends FieldValues>({
+  control,
+  name,
   label,
-  ...input
-}: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+  disabled,
+}: {
+  control: Control<TForm>;
+  name: FieldPathByValue<TForm, boolean>;
+  label: string;
+  disabled?: boolean;
+}) {
+  const id = useId();
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm">
-      {/* Native input: register() attaches an uncontrolled ref. */}
-      <input
-        type="checkbox"
-        className="size-4 shrink-0 accent-primary"
-        {...input}
-      />
-      <span>{label}</span>
-    </label>
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <Field
+          data-disabled={disabled}
+          orientation="horizontal"
+          className="items-center"
+        >
+          <Checkbox
+            id={id}
+            name={field.name}
+            checked={field.value === true}
+            disabled={disabled}
+            onCheckedChange={(checked) => field.onChange(checked === true)}
+            onBlur={field.onBlur}
+          />
+          <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        </Field>
+      )}
+    />
   );
 }
 
@@ -103,23 +137,29 @@ export function useTargetSource(scope: TargetScope): TargetSource | null {
         : null;
 }
 
-export function TargetFields({
+export function TargetFields<TForm extends FieldValues>({
   idPrefix,
   scope,
   source,
-  chosenCount,
   error,
-  registerTargetIds,
+  control,
   onScopeChange,
 }: {
   idPrefix: string;
   scope: TargetScope;
   source: TargetSource | null;
-  chosenCount: number;
   error?: string;
-  registerTargetIds: UseFormRegisterReturn;
+  control: Control<TForm>;
   onScopeChange: (value: TargetScope) => void;
 }) {
+  const targetIds = useController({
+    control,
+    name: "targetIds" as FieldPathByValue<TForm, string[]>,
+  });
+  const selectedIds = Array.isArray(targetIds.field.value)
+    ? (targetIds.field.value as string[])
+    : [];
+  const errorId = `${idPrefix}-targets-error`;
   const targets = (source?.query.data?.items ?? []).map((item) => ({
     id: item.id,
     name: item.name,
@@ -154,54 +194,63 @@ export function TargetFields({
         </RheaSelect>
       </Field>
       {source && (
-        <div className="grid gap-2">
-          <span
-            className="text-sm font-medium"
-            id={`${idPrefix}-targets-label`}
+        <FieldSet
+          className="grid gap-2 rounded-xl border border-border p-3"
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? true : undefined}
+        >
+          <FieldLegend
+            variant="label"
+            className="mb-0 flex w-full items-center justify-between gap-2"
           >
-            Choose targets
-          </span>
-          <div
-            className="grid gap-2 rounded-xl border border-border p-3"
-            role="group"
-            aria-labelledby={`${idPrefix}-targets-label`}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="font-medium">Available {source.noun}</span>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {chosenCount} of {targets.length} selected
-              </span>
-            </div>
-            <div className="grid max-h-56 gap-1 overflow-auto">
-              {targets.map((target) => (
-                <label
+            <span>Choose targets</span>
+            <span className="text-xs font-normal text-muted-foreground tabular-nums">
+              {selectedIds.length} of {targets.length} selected
+            </span>
+          </FieldLegend>
+          <FieldDescription>Available {source.noun}</FieldDescription>
+          <div className="grid max-h-56 gap-1 overflow-auto">
+            {targets.map((target) => {
+              const targetId = `${idPrefix}-target-${target.id}`;
+              const checked = selectedIds.includes(target.id);
+              return (
+                <Field
                   key={target.id}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted"
+                  orientation="horizontal"
+                  className="items-center rounded-lg px-2 py-1.5 text-sm hover:bg-muted"
                 >
-                  {/* Native checkbox: react-hook-form registers an
-                      uncontrolled input by ref. */}
-                  <input
-                    type="checkbox"
+                  <Checkbox
+                    id={targetId}
                     value={target.id}
-                    className="size-4 shrink-0 accent-primary"
-                    {...registerTargetIds}
+                    checked={checked}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? errorId : undefined}
+                    onBlur={targetIds.field.onBlur}
+                    onCheckedChange={(nextChecked) => {
+                      const next = nextChecked
+                        ? [...selectedIds, target.id]
+                        : selectedIds.filter((id) => id !== target.id);
+                      targetIds.field.onChange(next);
+                    }}
                   />
-                  <span>{target.name}</span>
-                </label>
-              ))}
-              {!targets.length && (
-                <p className="text-sm text-muted-foreground">
-                  {source.query.isLoading
-                    ? `Loading ${source.noun}…`
-                    : source.query.isError
-                      ? `The ${source.noun} could not be loaded.`
-                      : source.empty}
-                </p>
-              )}
-            </div>
+                  <FieldLabel htmlFor={targetId} className="flex-1 font-normal">
+                    {target.name}
+                  </FieldLabel>
+                </Field>
+              );
+            })}
+            {!targets.length && (
+              <p className="text-sm text-muted-foreground">
+                {source.query.isLoading
+                  ? `Loading ${source.noun}…`
+                  : source.query.isError
+                    ? `The ${source.noun} could not be loaded.`
+                    : source.empty}
+              </p>
+            )}
           </div>
-          {error && <FieldError role="alert">{error}</FieldError>}
-        </div>
+          {error && <FieldError id={errorId}>{error}</FieldError>}
+        </FieldSet>
       )}
     </>
   );

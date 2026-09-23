@@ -15,6 +15,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Dialog as RheaDialog,
   DialogContent,
@@ -498,16 +499,19 @@ function UserEditorDialog({
               <FieldDescription>At least 12 characters.</FieldDescription>
             </Field>
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="size-4 shrink-0 accent-primary"
+          <Field
+            data-disabled={isSelf}
+            orientation="horizontal"
+            className="items-center"
+          >
+            <Checkbox
+              id="users-edit-active"
               checked={active}
               disabled={isSelf}
-              onChange={(event) => setActive(event.target.checked)}
+              onCheckedChange={(checked) => setActive(checked === true)}
             />
-            <span>Account active</span>
-          </label>
+            <FieldLabel htmlFor="users-edit-active">Account active</FieldLabel>
+          </Field>
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 p-4">
             <div className="grid gap-0.5">
               <strong className="text-sm font-semibold">

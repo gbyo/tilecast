@@ -1,8 +1,8 @@
 import { useId } from "react";
 import { previewTimeInputValue, type PreviewTime } from "./previewTime";
 import { Button } from "../components/ui/button";
+import { DateTimeInput } from "../components/date-picker";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
-import { Input } from "../components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 /**
@@ -46,13 +46,12 @@ export function PreviewTimeControl({
             <FieldLabel htmlFor={inputId} className="text-xs">
               Preview date and time
             </FieldLabel>
-            <Input
+            <DateTimeInput
               id={inputId}
-              type="datetime-local"
+              aria-label="Preview date and time"
+              timeLabel="Preview time of day"
               value={value.value}
-              onChange={(event) =>
-                onChange({ mode: "fixed", value: event.target.value })
-              }
+              onChange={(next) => onChange({ mode: "fixed", value: next })}
             />
           </Field>
           <Button

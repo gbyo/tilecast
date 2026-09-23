@@ -161,17 +161,19 @@ export function FormFieldEditor({
       </Field>
 
       {!meta.presentation && (
-        /* Base UI names the span from the wrapping label. */
-        <label className="flex items-center gap-2 text-sm">
+        <Field orientation="horizontal" className="items-center">
           <RheaCheckbox
+            id="form-field-required"
             checked={Boolean(field.required)}
             disabled={disabled}
             onCheckedChange={(checked) =>
               update({ required: checked === true })
             }
           />
-          <span>Required</span>
-        </label>
+          <FieldLabel htmlFor="form-field-required" className="font-normal">
+            Required
+          </FieldLabel>
+        </Field>
       )}
 
       {!meta.presentation && field.control !== "image" && (

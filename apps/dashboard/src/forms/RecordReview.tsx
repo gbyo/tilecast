@@ -410,22 +410,26 @@ function RecordReviewBody({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="record-review-display-at-date">
+            <FieldLabel htmlFor="record-review-display-at">
               Display from
             </FieldLabel>
             <DateTimeInput
               id="record-review-display-at"
+              aria-label="Display from"
+              timeLabel="Display time"
               value={displayAt}
               disabled={!canEdit}
               onChange={setDisplayAt}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="record-review-expires-at-date">
+            <FieldLabel htmlFor="record-review-expires-at">
               Expires at
             </FieldLabel>
             <DateTimeInput
               id="record-review-expires-at"
+              aria-label="Expires at"
+              timeLabel="Expiry time"
               value={expiresAt}
               min={displayAt}
               disabled={!canEdit}

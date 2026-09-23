@@ -408,6 +408,7 @@ export function NoiseMeterEditorPage() {
     enabled: editing,
   });
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -477,7 +478,6 @@ export function NoiseMeterEditorPage() {
   };
   const targetScope = watch("targetScope");
   const targetSource = useTargetSource(targetScope);
-  const chosenTargets = watch("targetIds") ?? [];
   const submit = (values: NoiseMeterFormValues) => {
     save.mutate({
       name: values.name,
@@ -670,7 +670,7 @@ export function NoiseMeterEditorPage() {
               {...register("heightPx", { valueAsNumber: true })}
             />
           </div>
-          <RegisterCheckbox label="Enabled" {...register("enabled")} />
+          <RegisterCheckbox control={control} name="enabled" label="Enabled" />
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
@@ -682,8 +682,9 @@ export function NoiseMeterEditorPage() {
             </p>
           </header>
           <RegisterCheckbox
+            control={control}
+            name="scheduleEnabled"
             label="Only show during a set time window"
-            {...register("scheduleEnabled")}
           />
           {scheduleEnabled && (
             <>
@@ -768,8 +769,9 @@ export function NoiseMeterEditorPage() {
             </p>
           </header>
           <RegisterCheckbox
+            control={control}
+            name="historyEnabled"
             label="Save noise history"
-            {...register("historyEnabled")}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
@@ -806,8 +808,9 @@ export function NoiseMeterEditorPage() {
             </Field>
           </div>
           <RegisterCheckbox
+            control={control}
+            name="historyActiveHoursOnly"
             label="Collect only during active hours"
-            {...register("historyActiveHoursOnly")}
           />
           <p className="text-sm text-muted-foreground">
             Outside active hours the player stops listening entirely rather than
@@ -822,9 +825,8 @@ export function NoiseMeterEditorPage() {
             idPrefix="noise-meter"
             scope={targetScope}
             source={targetSource}
-            chosenCount={chosenTargets.length}
             error={errors.targetIds?.message}
-            registerTargetIds={register("targetIds")}
+            control={control}
             onScopeChange={(value) => {
               setValue("targetIds", []);
               setValue("targetScope", value, { shouldDirty: true });

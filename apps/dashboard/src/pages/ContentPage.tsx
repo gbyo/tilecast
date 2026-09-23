@@ -59,6 +59,7 @@ import { Badge } from "../components/ui/badge";
 import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
+import { DateTimeInput } from "../components/date-picker";
 import {
   Collapsible,
   CollapsibleContent,
@@ -2542,12 +2543,13 @@ function MediaAssetDetails({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="asset-available-from">Available from</FieldLabel>
-          <Input
+          <DateTimeInput
             id="asset-available-from"
-            type="datetime-local"
+            aria-label="Available from"
+            timeLabel="Available from time"
             value={availableFrom}
             disabled={!canManage}
-            onChange={(event) => setAvailableFrom(event.target.value)}
+            onChange={setAvailableFrom}
           />
           <p className="text-sm text-muted-foreground">
             Leave blank to make this content available immediately.
@@ -2555,12 +2557,13 @@ function MediaAssetDetails({
         </Field>
         <Field>
           <FieldLabel htmlFor="asset-expires-at">Expires at</FieldLabel>
-          <Input
+          <DateTimeInput
             id="asset-expires-at"
-            type="datetime-local"
+            aria-label="Expires at"
+            timeLabel="Expiry time"
             value={expiresAt}
             disabled={!canManage}
-            onChange={(event) => setExpiresAt(event.target.value)}
+            onChange={setExpiresAt}
           />
           <p className="text-sm text-muted-foreground">
             The Player stops using it at this local date and time, even offline.

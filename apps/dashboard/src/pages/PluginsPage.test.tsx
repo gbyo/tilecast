@@ -70,6 +70,20 @@ async function chooseLoadedOption(
   await user.click(await screen.findByRole("option", { name: optionLabel }));
 }
 
+async function chooseDate(label: string | RegExp, day: RegExp) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: label }));
+  await user.click(await screen.findByRole("button", { name: day }));
+}
+
+function currentMonthDay(day: 1 | 10) {
+  const month = new Date().toLocaleString("en-US", { month: "long" });
+  const year = new Date().getFullYear();
+  return new RegExp(
+    month + " " + (day === 1 ? "1st" : "10th") + ", " + year + "$",
+  );
+}
+
 function pressedDays() {
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].filter(
     (day) =>
@@ -304,9 +318,9 @@ describe("Plugins", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
-    fireEvent.click(screen.getByLabelText("Enabled"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enabled" }));
     await chooseOption("Target type", "Individual screens");
-    fireEvent.click(await screen.findByLabelText("Cafeteria"));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Cafeteria" }));
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
     expect(submitted[0]?.enabled).toBe(false);
@@ -318,7 +332,7 @@ describe("Plugins", () => {
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
     await chooseOption("Target type", "Individual screens");
     expect(await screen.findByText("0 of 1 selected")).toBeVisible();
-    fireEvent.click(await screen.findByLabelText("Cafeteria"));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Cafeteria" }));
     expect(screen.getByText("1 of 1 selected")).toBeVisible();
     // No Display Groups exist in this fixture, so the list must say so rather than
     // render an empty box.
@@ -348,7 +362,9 @@ describe("Plugins", () => {
       target: { value: "Lunch" },
     });
     fireEvent.click(
-      screen.getByLabelText("Show confetti when the countdown reaches zero"),
+      screen.getByRole("checkbox", {
+        name: "Show confetti when the countdown reaches zero",
+      }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
@@ -362,7 +378,11 @@ describe("Plugins", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
-    fireEvent.click(screen.getByLabelText("Enable countdown urgency stages"));
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "Enable countdown urgency stages",
+      }),
+    );
     fireEvent.change(screen.getByLabelText(/Starting soon/), {
       target: { value: "8" },
     });
@@ -388,7 +408,11 @@ describe("Plugins", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
-    fireEvent.click(screen.getByLabelText("Enable countdown urgency stages"));
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "Enable countdown urgency stages",
+      }),
+    );
     fireEvent.change(screen.getByLabelText("Appear this many minutes before"), {
       target: { value: "30" },
     });
@@ -479,8 +503,9 @@ describe("Brand Bug", () => {
     });
     await chooseLoadedOption(/^Logo image/, "District logo");
     await chooseOption("Corner", "Bottom left");
-    fireEvent.change(screen.getByLabelText(/^Show from/), {
-      target: { value: "2026-09-01T08:00" },
+    await chooseDate(/^Show from/, currentMonthDay(1));
+    fireEvent.change(screen.getByLabelText("Start time"), {
+      target: { value: "08:00" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
@@ -505,11 +530,13 @@ describe("Brand Bug", () => {
     fireEvent.change(screen.getByPlaceholderText("Presented by Example"), {
       target: { value: "Vote Tuesday" },
     });
-    fireEvent.change(screen.getByLabelText(/^Show from/), {
-      target: { value: "2026-09-10T08:00" },
+    await chooseDate(/^Show from/, currentMonthDay(10));
+    fireEvent.change(screen.getByLabelText("Start time"), {
+      target: { value: "08:00" },
     });
-    fireEvent.change(screen.getByLabelText(/^Show until/), {
-      target: { value: "2026-09-01T08:00" },
+    await chooseDate(/^Show until/, currentMonthDay(1));
+    fireEvent.change(screen.getByLabelText("End time"), {
+      target: { value: "08:00" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     expect(
@@ -609,9 +636,13 @@ describe("Noise Meter", () => {
         "Saves only relative noise-level measurements. Microphone audio is never recorded or uploaded.",
       ),
     ).toBeVisible();
-    expect(screen.getByLabelText("Save noise history")).toBeChecked();
     expect(
-      screen.getByLabelText("Collect only during active hours"),
+      screen.getByRole("checkbox", { name: "Save noise history" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Collect only during active hours",
+      }),
     ).toBeChecked();
   }, 10_000);
 
@@ -620,7 +651,9 @@ describe("Noise Meter", () => {
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
     expect(screen.queryByLabelText("From")).not.toBeInTheDocument();
     fireEvent.click(
-      screen.getByLabelText("Only show during a set time window"),
+      screen.getByRole("checkbox", {
+        name: "Only show during a set time window",
+      }),
     );
     expect(await screen.findByLabelText("From")).toBeVisible();
     expect(screen.getByLabelText(/^Until/)).toHaveValue("15:30");
@@ -630,7 +663,9 @@ describe("Noise Meter", () => {
     renderRoute(<NoiseMeterEditorPage />, "/plugins/noise-meter/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
     fireEvent.click(
-      screen.getByLabelText("Only show during a set time window"),
+      screen.getByRole("checkbox", {
+        name: "Only show during a set time window",
+      }),
     );
     fireEvent.change(await screen.findByLabelText("From"), {
       target: { value: "09:15" },
@@ -653,7 +688,9 @@ describe("Noise Meter", () => {
     renderRoute(<NoiseMeterEditorPage />, "/plugins/noise-meter/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
     fireEvent.click(
-      screen.getByLabelText("Only show during a set time window"),
+      screen.getByRole("checkbox", {
+        name: "Only show during a set time window",
+      }),
     );
     // Every day switched off: the bar would never appear again.
     for (const day of ["Mon", "Tue", "Wed", "Thu", "Fri"]) {

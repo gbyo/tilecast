@@ -145,6 +145,8 @@ export function TimeRangePicker({
             <span>From</span>
             <DateTimeInput
               id="time-range-from"
+              aria-label="From"
+              timeLabel="From time"
               value={customFrom}
               max={customTo || undefined}
               onChange={onCustomFromChange}
@@ -154,6 +156,8 @@ export function TimeRangePicker({
             <span>To</span>
             <DateTimeInput
               id="time-range-to"
+              aria-label="To"
+              timeLabel="To time"
               value={customTo}
               min={customFrom || undefined}
               onChange={onCustomToChange}

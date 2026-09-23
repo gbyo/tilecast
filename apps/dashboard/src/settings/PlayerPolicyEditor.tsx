@@ -30,6 +30,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
+import { Field, FieldLabel } from "../components/ui/field";
 import { Switch as RheaSwitch } from "../components/ui/switch";
 
 const policyGroups = [
@@ -234,14 +235,19 @@ export function PlayerPolicyEditor({
             onChange={(event) => setSearch(event.target.value)}
           />
         </InputGroup>
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+        <Field orientation="horizontal" className="items-center">
           <RheaSwitch
+            id="player-settings-overridden-only"
             checked={overriddenOnly}
             onCheckedChange={setOverriddenOnly}
-            aria-label="Overridden only"
           />
-          Overridden only
-        </label>
+          <FieldLabel
+            htmlFor="player-settings-overridden-only"
+            className="font-normal"
+          >
+            Overridden only
+          </FieldLabel>
+        </Field>
         <Badge variant="secondary">
           {overrideCount} {overrideCount === 1 ? "override" : "overrides"}
         </Badge>
@@ -507,16 +513,22 @@ function PolicyRow({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+        <Field orientation="horizontal" className="items-center">
           <RheaSwitch
             size="sm"
+            id={"player-setting-override-" + definition.key}
             aria-label={`Override ${definition.title}`}
             checked={overridden}
             disabled={!manageable}
             onCheckedChange={(next) => onToggle(next)}
           />
-          {overridden ? "Override on" : "Override"}
-        </label>
+          <FieldLabel
+            htmlFor={"player-setting-override-" + definition.key}
+            className="font-normal"
+          >
+            {overridden ? "Override on" : "Override"}
+          </FieldLabel>
+        </Field>
         {overridden && (
           <RheaButton
             type="button"

@@ -66,6 +66,14 @@ import { previewAge } from "../components/livePreviewState";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
 import { AspectRatio } from "../components/ui/aspect-ratio";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "../components/ui/combobox";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
@@ -109,8 +117,16 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import { Field, FieldLabel } from "../components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Textarea } from "../components/ui/textarea";
 import {
   Item,
@@ -2642,6 +2658,12 @@ function ApprovalPanel({
     }
     approve.mutate(values);
   };
+  const eligibleScreens = (screens.data?.items ?? []).filter(
+    (screen) => screen.id !== request.existingScreenId,
+  );
+  const selectedReplacementScreen = eligibleScreens.find(
+    (screen) => screen.id === replacementScreenId,
+  );
   const metadata = request.metadata;
   return (
     <section className="approval-card">
@@ -2700,88 +2722,116 @@ function ApprovalPanel({
           </div>
         )}
       </dl>
-      <fieldset className="pairing-destination">
-        <legend>Pairing destination</legend>
-        <label className="radio-control">
-          <input
-            type="radio"
-            name="pairingDestination"
-            value="new_screen"
-            checked={destination === "new_screen"}
-            onChange={() => setDestination("new_screen")}
-          />
-          <span>
-            <strong>Create new screen</strong>
-            <small>Create a new logical screen from this player.</small>
-          </span>
-        </label>
-        {request.previouslyPaired && request.hasActiveCredential && (
-          <label className="radio-control">
-            <input
-              type="radio"
-              name="pairingDestination"
-              value="credential_repair"
-              checked={destination === "credential_repair"}
-              onChange={() => setDestination("credential_repair")}
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          Pairing destination
+        </FieldLegend>
+        <RadioGroup
+          aria-label="Pairing destination"
+          value={destination}
+          onValueChange={(value) => setDestination(value as PairingDestination)}
+          className="grid gap-2"
+        >
+          <Field orientation="horizontal" className="items-start">
+            <RadioGroupItem id="pairing-destination-new" value="new_screen" />
+            <FieldContent>
+              <FieldLabel
+                htmlFor="pairing-destination-new"
+                className="font-normal"
+              >
+                Create new screen
+              </FieldLabel>
+              <FieldDescription>
+                Create a new logical screen from this player.
+              </FieldDescription>
+            </FieldContent>
+          </Field>
+          {request.previouslyPaired && request.hasActiveCredential && (
+            <Field orientation="horizontal" className="items-start">
+              <RadioGroupItem
+                id="pairing-destination-repair"
+                value="credential_repair"
+              />
+              <FieldContent>
+                <FieldLabel
+                  htmlFor="pairing-destination-repair"
+                  className="font-normal"
+                >
+                  Repair existing credential
+                </FieldLabel>
+                <FieldDescription>
+                  Keep this player installation on “{request.existingScreenName}
+                  ”.
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          )}
+          <Field orientation="horizontal" className="items-start">
+            <RadioGroupItem
+              id="pairing-destination-replace"
+              value="replace_hardware"
             />
-            <span>
-              <strong>Repair existing credential</strong>
-              <small>
-                Keep this player installation on “{request.existingScreenName}”.
-              </small>
-            </span>
-          </label>
-        )}
-        <label className="radio-control">
-          <input
-            type="radio"
-            name="pairingDestination"
-            value="replace_hardware"
-            checked={destination === "replace_hardware"}
-            onChange={() => setDestination("replace_hardware")}
-          />
-          <span>
-            <strong>Replace hardware for an existing screen</strong>
-            <small>
-              Keep the logical screen, Display Group, content, schedules,
-              policies, and history.
-            </small>
-          </span>
-        </label>
+            <FieldContent>
+              <FieldLabel
+                htmlFor="pairing-destination-replace"
+                className="font-normal"
+              >
+                Replace hardware for an existing screen
+              </FieldLabel>
+              <FieldDescription>
+                Keep the logical screen, Display Group, content, schedules,
+                policies, and history.
+              </FieldDescription>
+            </FieldContent>
+          </Field>
+        </RadioGroup>
         {destination === "replace_hardware" && (
-          <label className="grid gap-2 text-sm font-medium">
-            <span>Existing screen</span>
-            <Select
-              items={(screens.data?.items ?? []).map((screen) => ({
-                value: screen.id,
-                label: screen.location
-                  ? `${screen.name} — ${screen.location}`
-                  : screen.name,
-              }))}
-              value={replacementScreenId || null}
-              onValueChange={(value) => setReplacementScreenId(value ?? "")}
+          <Field>
+            <FieldLabel htmlFor="pairing-existing-screen">
+              Existing screen
+            </FieldLabel>
+            <Combobox
+              items={eligibleScreens}
+              value={selectedReplacementScreen ?? null}
+              itemToStringLabel={(screen: Screen) =>
+                screen.location
+                  ? screen.name + " — " + screen.location
+                  : screen.name
+              }
+              onValueChange={(value) => setReplacementScreenId(value?.id ?? "")}
             >
-              <SelectTrigger className="w-full" aria-label="Existing screen">
-                <SelectValue placeholder="Choose a screen" />
-              </SelectTrigger>
-              <SelectContent>
-                {(screens.data?.items ?? [])
-                  .filter((screen) => screen.id !== request.existingScreenId)
-                  .map((screen) => (
-                    <SelectItem key={screen.id} value={screen.id}>
+              <ComboboxInput
+                id="pairing-existing-screen"
+                aria-label="Existing screen"
+                placeholder="Search screens…"
+                showClear
+                className="w-full"
+              />
+              <ComboboxContent>
+                <ComboboxEmpty>
+                  {screens.isLoading
+                    ? "Loading screens…"
+                    : screens.isError
+                      ? "Screens could not be loaded."
+                      : "No matching eligible screens."}
+                </ComboboxEmpty>
+                <ComboboxList>
+                  {(screen: Screen) => (
+                    <ComboboxItem key={screen.id} value={screen}>
                       {screen.name}
                       {screen.location ? ` — ${screen.location}` : ""}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <small className="text-xs text-muted-foreground">
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+            <FieldDescription>
               The old credential is retired only after this player successfully
               enrolls.
-            </small>
-          </label>
+            </FieldDescription>
+          </Field>
         )}
-      </fieldset>
+      </FieldSet>
       {request.previouslyPaired && (
         <Alert role="status">
           <AlertTitle>

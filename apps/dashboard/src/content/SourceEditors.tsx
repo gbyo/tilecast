@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
+import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog as RheaAlertDialog,
@@ -925,15 +926,16 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="countdown-target">
                         Target date and time
                       </FieldLabel>
-                      <Input
+                      <DateTimeInput
                         id="countdown-target"
-                        type="datetime-local"
+                        aria-label="Target date and time"
+                        timeLabel="Target time"
                         value={(configuration as CountdownWidgetConfig).target}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onChange={(value) =>
                           setConfiguration((current) => ({
                             ...current,
-                            target: event.target.value,
+                            target: value,
                           }))
                         }
                       />

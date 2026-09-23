@@ -167,7 +167,9 @@ describe("Playback compliance", () => {
       "Date",
       "Failure reason",
     ]) {
-      expect(screen.getByRole("option", { name: dimension })).toBeTruthy();
+      expect(
+        await screen.findByRole("option", { name: dimension }),
+      ).toBeTruthy();
     }
 
     await user.click(screen.getByRole("option", { name: "Schedule" }));

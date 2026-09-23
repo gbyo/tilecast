@@ -17,6 +17,7 @@ import type {
   CampaignSnapshot,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog as RheaAlertDialog,
@@ -653,30 +654,32 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="campaign-start">Campaign start</FieldLabel>
-              <Input
+              <DateTimeInput
                 id="campaign-start"
-                type="datetime-local"
+                aria-label="Campaign start"
+                timeLabel="Campaign start time"
                 value={dateTimeInput(draft.campaignStart)}
                 disabled={!canEdit}
-                onChange={(event) =>
+                onChange={(value) =>
                   setDraft({
                     ...draft,
-                    campaignStart: dateTimeValue(event.target.value),
+                    campaignStart: dateTimeValue(value),
                   })
                 }
               />
             </Field>
             <Field>
               <FieldLabel htmlFor="campaign-end">Campaign end</FieldLabel>
-              <Input
+              <DateTimeInput
                 id="campaign-end"
-                type="datetime-local"
+                aria-label="Campaign end"
+                timeLabel="Campaign end time"
                 value={dateTimeInput(draft.campaignEnd)}
                 disabled={!canEdit}
-                onChange={(event) =>
+                onChange={(value) =>
                   setDraft({
                     ...draft,
-                    campaignEnd: dateTimeValue(event.target.value),
+                    campaignEnd: dateTimeValue(value),
                   })
                 }
               />
@@ -806,13 +809,14 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           <FieldLabel htmlFor={`block-start-${block.id}`}>
                             Starts
                           </FieldLabel>
-                          <Input
+                          <DateTimeInput
                             id={`block-start-${block.id}`}
-                            type="datetime-local"
+                            aria-label="Starts"
+                            timeLabel="Start time"
                             value={dateTimeInput(block.oneTimeStart)}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               updateBlock(block.id, {
-                                oneTimeStart: dateTimeValue(event.target.value),
+                                oneTimeStart: dateTimeValue(value),
                               })
                             }
                           />
@@ -821,13 +825,14 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           <FieldLabel htmlFor={`block-end-${block.id}`}>
                             Ends
                           </FieldLabel>
-                          <Input
+                          <DateTimeInput
                             id={`block-end-${block.id}`}
-                            type="datetime-local"
+                            aria-label="Ends"
+                            timeLabel="End time"
                             value={dateTimeInput(block.oneTimeEnd)}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               updateBlock(block.id, {
-                                oneTimeEnd: dateTimeValue(event.target.value),
+                                oneTimeEnd: dateTimeValue(value),
                               })
                             }
                           />
@@ -839,13 +844,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           <FieldLabel htmlFor={`block-range-start-${block.id}`}>
                             Date range start
                           </FieldLabel>
-                          <Input
+                          <DateInput
                             id={`block-range-start-${block.id}`}
-                            type="date"
                             value={block.startDate ?? ""}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               updateBlock(block.id, {
-                                startDate: event.target.value || undefined,
+                                startDate: value || undefined,
                               })
                             }
                           />
@@ -854,13 +858,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           <FieldLabel htmlFor={`block-range-end-${block.id}`}>
                             Date range end
                           </FieldLabel>
-                          <Input
+                          <DateInput
                             id={`block-range-end-${block.id}`}
-                            type="date"
                             value={block.endDate ?? ""}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               updateBlock(block.id, {
-                                endDate: event.target.value || undefined,
+                                endDate: value || undefined,
                               })
                             }
                           />

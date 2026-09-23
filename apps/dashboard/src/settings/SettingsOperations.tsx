@@ -1,4 +1,5 @@
 import { useConfirm } from "../components/ConfirmDialog";
+import { DateTimeInput } from "../components/date-picker";
 import { StatusDot } from "../components/StatusDot";
 import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
@@ -1211,11 +1212,12 @@ export function PlayerUpdatesPanel({
                 <FieldLabel htmlFor="deployment-window">
                   Maintenance window
                 </FieldLabel>
-                <Input
+                <DateTimeInput
                   id="deployment-window"
-                  type="datetime-local"
+                  aria-label="Maintenance window"
+                  timeLabel="Maintenance time"
                   value={windowStart}
-                  onChange={(event) => setWindowStart(event.target.value)}
+                  onChange={setWindowStart}
                 />
                 <small className="text-xs text-muted-foreground">
                   Players install at or after this local time on each screen.
@@ -1224,22 +1226,23 @@ export function PlayerUpdatesPanel({
             )}
           </div>
           <div className="grid gap-2 overflow-hidden rounded-xl border border-border bg-card p-4">
-            <label className="grid gap-1">
-              <span className="text-sm font-medium">
+            <Field className="gap-1">
+              <FieldLabel htmlFor="deployment-target-search">
                 Target screens and Display Groups
-              </span>
+              </FieldLabel>
               <InputGroup>
                 <InputGroupAddon>
                   <Search aria-hidden="true" />
                 </InputGroupAddon>
                 <InputGroupInput
+                  id="deployment-target-search"
                   type="search"
                   value={targetSearch}
                   onChange={(event) => setTargetSearch(event.target.value)}
                   placeholder="Search by name"
                 />
               </InputGroup>
-            </label>
+            </Field>
             <div
               className="grid gap-4 sm:grid-cols-2"
               role="group"

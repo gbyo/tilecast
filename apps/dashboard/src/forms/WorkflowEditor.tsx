@@ -14,6 +14,7 @@ import { Button as RheaButton } from "../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -104,6 +105,7 @@ export function WorkflowEditor({
       ),
     [states, transitions],
   );
+  const initialStateIndex = states.findIndex((state) => state.initial);
 
   const save = useMutation({
     mutationFn: () =>
@@ -245,118 +247,145 @@ export function WorkflowEditor({
             Add state
           </RheaButton>
         </div>
-        {states.map((state, index) => {
-          const locked = state.removable === false;
-          return (
-            <div
-              key={index}
-              className="grid gap-3 rounded-xl border border-border p-4"
-            >
-              <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
-                <Field>
-                  <FieldLabel htmlFor={`workflow-state-label-${index}`}>
-                    Label
-                  </FieldLabel>
-                  <Input
-                    id={`workflow-state-label-${index}`}
-                    value={state.label}
-                    onChange={(e) =>
-                      updateState(index, { label: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`workflow-state-key-${index}`}>
-                    Key
-                  </FieldLabel>
-                  <Input
-                    id={`workflow-state-key-${index}`}
-                    value={state.key}
-                    disabled={locked}
-                    onChange={(e) =>
-                      updateState(index, {
-                        key: slugifyStateKey(e.target.value),
-                      })
-                    }
-                  />
-                  <FieldDescription>
-                    {locked ? "In use — locked" : "Lowercase, stable"}
-                  </FieldDescription>
-                </Field>
-                <span className="sm:pb-1">
-                  <Badge {...formToneBadgeProps("neutral")}>
-                    {`${state.recordCount ?? 0} records`}
-                  </Badge>
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                {/* The wrapping label names the radio; no extra aria-label. */}
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="initial-state"
-                    className="size-4 shrink-0 accent-primary"
-                    checked={state.initial}
-                    onChange={() => setInitial(index)}
-                  />
-                  <span>Initial</span>
-                </label>
-                {/* Base UI names the span from the wrapping label. */}
-                <label className="flex items-center gap-2 text-sm">
-                  <RheaCheckbox
-                    checked={state.eligibleForOutput}
-                    onCheckedChange={(checked) =>
-                      updateState(index, {
-                        eligibleForOutput: checked === true,
-                      })
-                    }
-                  />
-                  <span>Output-eligible</span>
-                </label>
-                {/* Base UI names the span from the wrapping label. */}
-                <label className="flex items-center gap-2 text-sm">
-                  <RheaCheckbox
-                    checked={state.terminal}
-                    onCheckedChange={(checked) =>
-                      updateState(index, { terminal: checked === true })
-                    }
-                  />
-                  <span>Terminal</span>
-                </label>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                    aria-label={`Move ${state.label} up`}
-                    disabled={index === 0}
-                    onClick={() => moveState(index, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                    aria-label={`Move ${state.label} down`}
-                    disabled={index === states.length - 1}
-                    onClick={() => moveState(index, 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                    aria-label={`Delete ${state.label}`}
-                    disabled={locked}
-                    title={locked ? "Referenced by records" : "Delete state"}
-                    onClick={() => removeState(index)}
-                  >
-                    ✕
-                  </button>
+        <RadioGroup
+          aria-label="Initial state"
+          value={initialStateIndex >= 0 ? String(initialStateIndex) : ""}
+          onValueChange={(value) => {
+            const index = Number(value);
+            if (
+              Number.isInteger(index) &&
+              index >= 0 &&
+              index < states.length
+            ) {
+              setInitial(index);
+            }
+          }}
+          className="grid gap-3"
+        >
+          {states.map((state, index) => {
+            const locked = state.removable === false;
+            return (
+              <div
+                key={index}
+                className="grid gap-3 rounded-xl border border-border p-4"
+              >
+                <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
+                  <Field>
+                    <FieldLabel htmlFor={`workflow-state-label-${index}`}>
+                      Label
+                    </FieldLabel>
+                    <Input
+                      id={`workflow-state-label-${index}`}
+                      value={state.label}
+                      onChange={(e) =>
+                        updateState(index, { label: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`workflow-state-key-${index}`}>
+                      Key
+                    </FieldLabel>
+                    <Input
+                      id={`workflow-state-key-${index}`}
+                      value={state.key}
+                      disabled={locked}
+                      onChange={(e) =>
+                        updateState(index, {
+                          key: slugifyStateKey(e.target.value),
+                        })
+                      }
+                    />
+                    <FieldDescription>
+                      {locked ? "In use — locked" : "Lowercase, stable"}
+                    </FieldDescription>
+                  </Field>
+                  <span className="sm:pb-1">
+                    <Badge {...formToneBadgeProps("neutral")}>
+                      {`${state.recordCount ?? 0} records`}
+                    </Badge>
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Field orientation="horizontal" className="items-center">
+                    <RadioGroupItem
+                      id={`workflow-state-initial-${index}`}
+                      value={String(index)}
+                    />
+                    <FieldLabel
+                      htmlFor={`workflow-state-initial-${index}`}
+                      className="font-normal"
+                    >
+                      Initial
+                    </FieldLabel>
+                  </Field>
+                  <Field orientation="horizontal" className="items-center">
+                    <RheaCheckbox
+                      id={`workflow-state-output-${index}`}
+                      checked={state.eligibleForOutput}
+                      onCheckedChange={(checked) =>
+                        updateState(index, {
+                          eligibleForOutput: checked === true,
+                        })
+                      }
+                    />
+                    <FieldLabel
+                      htmlFor={`workflow-state-output-${index}`}
+                      className="font-normal"
+                    >
+                      Output-eligible
+                    </FieldLabel>
+                  </Field>
+                  <Field orientation="horizontal" className="items-center">
+                    <RheaCheckbox
+                      id={`workflow-state-terminal-${index}`}
+                      checked={state.terminal}
+                      onCheckedChange={(checked) =>
+                        updateState(index, { terminal: checked === true })
+                      }
+                    />
+                    <FieldLabel
+                      htmlFor={`workflow-state-terminal-${index}`}
+                      className="font-normal"
+                    >
+                      Terminal
+                    </FieldLabel>
+                  </Field>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      aria-label={`Move ${state.label} up`}
+                      disabled={index === 0}
+                      onClick={() => moveState(index, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      aria-label={`Move ${state.label} down`}
+                      disabled={index === states.length - 1}
+                      onClick={() => moveState(index, 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      aria-label={`Delete ${state.label}`}
+                      disabled={locked}
+                      title={locked ? "Referenced by records" : "Delete state"}
+                      onClick={() => removeState(index)}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </RadioGroup>
       </section>
 
       <section className="grid gap-3" aria-label="Transitions">

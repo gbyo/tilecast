@@ -1,10 +1,25 @@
 import { useId } from "react";
+import { Image as ImageIcon } from "lucide-react";
 import type { FormField, FormSchema } from "../api/types";
 import { Button } from "../components/ui/button";
+import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
 import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "../components/ui/attachment";
+import {
   Field as RheaField,
+  FieldDescription as RheaFieldDescription,
+  FieldError as RheaFieldError,
+  FieldLegend as RheaFieldLegend,
   FieldLabel as RheaFieldLabel,
+  FieldSet as RheaFieldSet,
   FieldTitle as RheaFieldTitle,
 } from "../components/ui/field";
 import { Input as RheaInput } from "../components/ui/input";
@@ -169,9 +184,9 @@ function FieldRow({
   }
 
   const hint = hintId ? (
-    <span id={hintId} className="form-renderer__hint">
+    <RheaFieldDescription id={hintId} className="form-renderer__hint">
       {field.description}
-    </span>
+    </RheaFieldDescription>
   ) : null;
 
   const support = (
@@ -184,9 +199,9 @@ function FieldRow({
         />
       )}
       {errorId && (
-        <span id={errorId} className="form-renderer__error">
+        <RheaFieldError id={errorId} className="form-renderer__error">
           {error}
-        </span>
+        </RheaFieldError>
       )}
     </>
   );
@@ -227,18 +242,18 @@ function FieldRow({
   // announces when focus enters any option.
   if (field.control === "multi_select") {
     return (
-      <fieldset
+      <RheaFieldSet
         id={controlId}
         tabIndex={-1}
-        className="form-renderer__field form-renderer__group"
+        className="form-renderer__field form-renderer__group gap-3"
         aria-describedby={describedBy}
         aria-invalid={error ? true : undefined}
         aria-required={field.required ? true : undefined}
       >
-        <legend className="form-renderer__label">
+        <RheaFieldLegend variant="label" className="mb-0 form-renderer__label">
           {field.label}
           <RequiredMark required={field.required} />
-        </legend>
+        </RheaFieldLegend>
         {hint}
         <div className="form-renderer__multi">
           {(field.options ?? []).map((option) => {
@@ -270,7 +285,7 @@ function FieldRow({
           })}
         </div>
         {support}
-      </fieldset>
+      </RheaFieldSet>
     );
   }
 
@@ -496,21 +511,15 @@ function FieldControl({
         />
       );
     case "date":
-      return (
-        <RheaInput
-          {...common}
-          type="date"
-          value={stringValue}
-          onChange={(event) => emit(event.target.value)}
-        />
-      );
+      return <DateInput {...common} value={stringValue} onChange={emit} />;
     case "datetime":
       return (
-        <RheaInput
+        <DateTimeInput
           {...common}
-          type="datetime-local"
+          aria-label={field.label}
+          timeLabel={field.label + " time"}
           value={stringValue}
-          onChange={(event) => emit(event.target.value)}
+          onChange={emit}
         />
       );
     case "url":
@@ -563,63 +572,81 @@ function ImageField({
 }) {
   const previewUrl = state?.pendingUrl ?? state?.contentUrl;
   const hasImage = Boolean(previewUrl);
+  const attachmentState = state?.error
+    ? "error"
+    : state?.uploading
+      ? "uploading"
+      : state?.pendingName
+        ? "processing"
+        : hasImage
+          ? "done"
+          : "idle";
   return (
-    <div className="form-renderer__image">
-      {hasImage && (
-        <img
-          className="form-renderer__image-preview"
-          src={previewUrl}
-          alt={`${label} attachment`}
-        />
-      )}
-      {state?.pendingName && !state.uploading && (
-        <span className="form-renderer__image-note">
-          {state.pendingName} — uploads when you save.
-        </span>
-      )}
-      {state?.uploading && (
-        <span className="form-renderer__image-note">Uploading…</span>
-      )}
+    <div className="form-renderer__image grid justify-items-start gap-2">
+      <Attachment state={attachmentState} className="w-full">
+        <AttachmentMedia variant={hasImage ? "image" : "icon"}>
+          {previewUrl ? (
+            <img src={previewUrl} alt="" />
+          ) : (
+            <ImageIcon aria-hidden="true" />
+          )}
+        </AttachmentMedia>
+        <AttachmentContent>
+          <AttachmentTitle>{state?.pendingName ?? label}</AttachmentTitle>
+          <AttachmentDescription>
+            {state?.error
+              ? "Image needs attention."
+              : state?.uploading
+                ? "Uploading…"
+                : state?.pendingName
+                  ? "Uploads when you save."
+                  : hasImage
+                    ? "Image attached."
+                    : "No image provided."}
+          </AttachmentDescription>
+        </AttachmentContent>
+        {!disabled && (
+          <AttachmentActions>
+            {hasImage && (
+              <AttachmentAction
+                type="button"
+                size="sm"
+                disabled={state?.uploading}
+                onClick={() => onRemove(fieldKey)}
+              >
+                Remove
+              </AttachmentAction>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              render={<label />}
+              disabled={state?.uploading}
+            >
+              {hasImage ? "Replace" : "Choose"}
+              <input
+                id={id}
+                type="file"
+                accept="image/*"
+                aria-describedby={describedBy}
+                aria-invalid={invalid ? true : undefined}
+                aria-label={hasImage ? "Replace " + label : "Choose " + label}
+                className="visually-hidden"
+                disabled={state?.uploading}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) onSelect(fieldKey, file);
+                  event.target.value = "";
+                }}
+              />
+            </Button>
+          </AttachmentActions>
+        )}
+      </Attachment>
       {state?.error && (
         <span className="form-renderer__error" role="alert">
           {state.error}
         </span>
-      )}
-      {!disabled && (
-        <div className="form-renderer__image-actions">
-          <Button variant="secondary" size="sm" render={<label />}>
-            {hasImage ? "Replace image" : "Choose image"}
-            <input
-              id={id}
-              type="file"
-              accept="image/*"
-              aria-describedby={describedBy}
-              aria-invalid={invalid ? true : undefined}
-              aria-label={hasImage ? `Replace ${label}` : `Choose ${label}`}
-              className="visually-hidden"
-              disabled={state?.uploading}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) onSelect(fieldKey, file);
-                event.target.value = "";
-              }}
-            />
-          </Button>
-          {hasImage && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={state?.uploading}
-              onClick={() => onRemove(fieldKey)}
-            >
-              Remove
-            </Button>
-          )}
-        </div>
-      )}
-      {!hasImage && disabled && (
-        <span className="form-renderer__image-note">No image provided.</span>
       )}
     </div>
   );
