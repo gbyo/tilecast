@@ -113,11 +113,6 @@ a {
   gap: 11px;
   color: inherit;
 }
-.brand__name {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-}
 .brand__mark {
   position: relative;
   display: grid;
@@ -138,9 +133,6 @@ a {
 }
 .brand__mark span:last-child {
   background: var(--tc-neutral-100);
-}
-.brand--compact .brand__name {
-  font-size: 19px;
 }
 .auth-context p:not(.eyebrow) {
   max-width: 480px;
