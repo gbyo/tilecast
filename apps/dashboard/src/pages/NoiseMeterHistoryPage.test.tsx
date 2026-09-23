@@ -10,6 +10,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
+import userEvent from "@testing-library/user-event";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -144,10 +145,11 @@ let screensPayload: { items: unknown[]; total: number } = {
 };
 let summaryPayload: unknown = summary;
 
-/** Signal Select hides its native control, so pick the way a person does. */
-function chooseOption(selectLabel: string | RegExp, optionLabel: string) {
-  fireEvent.click(screen.getByLabelText(selectLabel));
-  fireEvent.click(screen.getByRole("option", { name: optionLabel }));
+/** Rhea Select hides its native control, so pick the way a person does. */
+async function chooseOption(selectLabel: string | RegExp, optionLabel: string) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("combobox", { name: selectLabel }));
+  await user.click(await screen.findByRole("option", { name: optionLabel }));
 }
 
 function renderPage() {
@@ -304,7 +306,7 @@ describe("Noise Meter history", () => {
       await screen.findByText(/Combining 2 screens/, { exact: false }),
     ).toBeVisible();
     requested = [];
-    chooseOption(/^Screen/, "Gym");
+    await chooseOption(/^Screen/, "Gym");
     await waitFor(() =>
       expect(requested.some((path) => path.includes("screenId=screen-2"))).toBe(
         true,
@@ -324,7 +326,7 @@ describe("Noise Meter history", () => {
       "href",
       expect.stringContaining("granularity=raw"),
     );
-    chooseOption("Export", "Daily summaries");
+    await chooseOption("Export", "Daily summaries");
     expect(screen.getByRole("link", { name: /Export CSV/ })).toHaveAttribute(
       "href",
       expect.stringContaining("granularity=daily"),

@@ -8,16 +8,21 @@ import type {
   FormWorkflowTransition,
 } from "../api/types";
 import { api } from "../api/client";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
 import {
-  Button,
-  Checkbox,
-  Field,
-  Input,
-  Notice,
-  Select,
-  StatusBadge,
-  TableContainer,
-} from "../components/legacy-ui";
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Spinner } from "../components/ui/spinner";
+import { formToneBadgeProps } from "./formBadge";
 import { slugifyKey } from "./formKeys";
 
 const CAPABILITY_OPTIONS: { value: FormCapability; label: string }[] = [
@@ -189,65 +194,73 @@ export function WorkflowEditor({
     setTransitions((prev) => prev.filter((_, i) => i !== index));
 
   return (
-    <div className="form-workflow">
+    <div className="grid gap-4">
       {blocker.state === "blocked" && (
-        <Notice
-          variant="warning"
-          title="Leave without saving?"
-          action={
-            <div className="form-builder__confirm-actions">
-              <Button variant="quiet" onClick={() => blocker.reset?.()}>
-                Stay
-              </Button>
-              <Button variant="primary" onClick={() => blocker.proceed?.()}>
-                Leave
-              </Button>
-            </div>
-          }
-        >
-          The workflow has unsaved changes.
-        </Notice>
+        <Alert>
+          <AlertTitle>Leave without saving?</AlertTitle>
+          <AlertDescription>The workflow has unsaved changes.</AlertDescription>
+          <div className="flex flex-wrap gap-2">
+            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+              Stay
+            </RheaButton>
+            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+              Leave
+            </RheaButton>
+          </div>
+        </Alert>
       )}
       {error && (
-        <Notice variant="danger" title="Workflow not saved">
-          {error}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Workflow not saved</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       {errors.length > 0 && (
-        <Notice variant="danger" title="Fix these before saving">
-          <ul>
-            {errors.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Fix these before saving</AlertTitle>
+          <AlertDescription>
+            <ul className="grid gap-1">
+              {errors.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
       )}
 
-      <section className="form-workflow__states" aria-label="States">
-        <div className="form-workflow__section-head">
-          <h3>States</h3>
-          <Button variant="secondary" compact onClick={addState}>
+      <section className="grid gap-3" aria-label="States">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold">States</h3>
+          <RheaButton variant="secondary" size="sm" onClick={addState}>
             Add state
-          </Button>
+          </RheaButton>
         </div>
         {states.map((state, index) => {
           const locked = state.removable === false;
           return (
-            <div key={index} className="form-workflow__state-card">
-              <div className="form-workflow__state-main">
-                <Field label="Label">
+            <div
+              key={index}
+              className="grid gap-3 rounded-xl border border-border p-4"
+            >
+              <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
+                <Field>
+                  <FieldLabel htmlFor={`workflow-state-label-${index}`}>
+                    Label
+                  </FieldLabel>
                   <Input
+                    id={`workflow-state-label-${index}`}
                     value={state.label}
                     onChange={(e) =>
                       updateState(index, { label: e.target.value })
                     }
                   />
                 </Field>
-                <Field
-                  label="Key"
-                  description={locked ? "In use — locked" : "Lowercase, stable"}
-                >
+                <Field>
+                  <FieldLabel htmlFor={`workflow-state-key-${index}`}>
+                    Key
+                  </FieldLabel>
                   <Input
+                    id={`workflow-state-key-${index}`}
                     value={state.key}
                     disabled={locked}
                     onChange={(e) =>
@@ -256,41 +269,54 @@ export function WorkflowEditor({
                       })
                     }
                   />
+                  <FieldDescription>
+                    {locked ? "In use — locked" : "Lowercase, stable"}
+                  </FieldDescription>
                 </Field>
-                <span className="form-workflow__count">
-                  <StatusBadge
-                    label={`${state.recordCount ?? 0} records`}
-                    tone="neutral"
-                  />
+                <span className="sm:pb-1">
+                  <Badge {...formToneBadgeProps("neutral")}>
+                    {`${state.recordCount ?? 0} records`}
+                  </Badge>
                 </span>
               </div>
-              <div className="form-workflow__state-flags">
-                <label className="checkbox-control">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* The wrapping label names the radio; no extra aria-label. */}
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
                   <input
                     type="radio"
                     name="initial-state"
+                    className="size-4 shrink-0 accent-primary"
                     checked={state.initial}
                     onChange={() => setInitial(index)}
                   />
                   <span>Initial</span>
                 </label>
-                <Checkbox
-                  label="Output-eligible"
-                  checked={state.eligibleForOutput}
-                  onChange={(e) =>
-                    updateState(index, { eligibleForOutput: e.target.checked })
-                  }
-                />
-                <Checkbox
-                  label="Terminal"
-                  checked={state.terminal}
-                  onChange={(e) =>
-                    updateState(index, { terminal: e.target.checked })
-                  }
-                />
-                <div className="form-workflow__state-actions">
+                {/* Base UI names the span from the wrapping label. */}
+                <label className="flex items-center gap-2 text-sm">
+                  <RheaCheckbox
+                    checked={state.eligibleForOutput}
+                    onCheckedChange={(checked) =>
+                      updateState(index, {
+                        eligibleForOutput: checked === true,
+                      })
+                    }
+                  />
+                  <span>Output-eligible</span>
+                </label>
+                {/* Base UI names the span from the wrapping label. */}
+                <label className="flex items-center gap-2 text-sm">
+                  <RheaCheckbox
+                    checked={state.terminal}
+                    onCheckedChange={(checked) =>
+                      updateState(index, { terminal: checked === true })
+                    }
+                  />
+                  <span>Terminal</span>
+                </label>
+                <div className="flex gap-1">
                   <button
                     type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
                     aria-label={`Move ${state.label} up`}
                     disabled={index === 0}
                     onClick={() => moveState(index, -1)}
@@ -299,6 +325,7 @@ export function WorkflowEditor({
                   </button>
                   <button
                     type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
                     aria-label={`Move ${state.label} down`}
                     disabled={index === states.length - 1}
                     onClick={() => moveState(index, 1)}
@@ -307,6 +334,7 @@ export function WorkflowEditor({
                   </button>
                   <button
                     type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
                     aria-label={`Delete ${state.label}`}
                     disabled={locked}
                     title={locked ? "Referenced by records" : "Delete state"}
@@ -321,156 +349,199 @@ export function WorkflowEditor({
         })}
       </section>
 
-      <section className="form-workflow__transitions" aria-label="Transitions">
-        <div className="form-workflow__section-head">
-          <h3>Transitions</h3>
-          <Button
+      <section className="grid gap-3" aria-label="Transitions">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold">Transitions</h3>
+          <RheaButton
             variant="secondary"
-            compact
+            size="sm"
             onClick={addTransition}
             disabled={states.length === 0}
           >
             Add transition
-          </Button>
+          </RheaButton>
         </div>
-        <TableContainer>
-          <table className="data-table">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
             <thead>
-              <tr>
-                <th scope="col">From</th>
-                <th scope="col">To</th>
-                <th scope="col">Label</th>
-                <th scope="col">Required capability</th>
-                <th scope="col" aria-label="Actions" />
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th scope="col" className="px-3 py-2 font-medium">
+                  From
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  To
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  Label
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  Required capability
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {transitions.map((transition, index) => (
-                <tr key={index}>
-                  <td>
-                    <Select
-                      aria-label="From state"
+                <tr
+                  key={index}
+                  className="border-b border-border last:border-0"
+                >
+                  <td className="px-3 py-2">
+                    <RheaSelect
                       value={transition.from}
-                      onChange={(e) =>
-                        updateTransition(index, { from: e.target.value })
+                      onValueChange={(value) =>
+                        updateTransition(index, { from: value ?? "" })
                       }
                     >
-                      {states.map((s) => (
-                        <option key={s.key} value={s.key}>
-                          {s.label || s.key}
-                        </option>
-                      ))}
-                    </Select>
+                      <SelectTrigger aria-label="From state">
+                        <SelectValue>
+                          {states.find((s) => s.key === transition.from)
+                            ?.label ?? transition.from}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {states.map((s) => (
+                          <SelectItem key={s.key} value={s.key}>
+                            {s.label || s.key}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </RheaSelect>
                   </td>
-                  <td>
-                    <Select
-                      aria-label="To state"
+                  <td className="px-3 py-2">
+                    <RheaSelect
                       value={transition.to}
-                      onChange={(e) =>
-                        updateTransition(index, { to: e.target.value })
+                      onValueChange={(value) =>
+                        updateTransition(index, { to: value ?? "" })
                       }
                     >
-                      {states.map((s) => (
-                        <option key={s.key} value={s.key}>
-                          {s.label || s.key}
-                        </option>
-                      ))}
-                    </Select>
+                      <SelectTrigger aria-label="To state">
+                        <SelectValue>
+                          {states.find((s) => s.key === transition.to)?.label ??
+                            transition.to}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {states.map((s) => (
+                          <SelectItem key={s.key} value={s.key}>
+                            {s.label || s.key}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </RheaSelect>
                   </td>
-                  <td>
+                  <td className="px-3 py-2">
                     <Input
-                      aria-label="Transition label"
                       value={transition.label}
                       onChange={(e) =>
                         updateTransition(index, { label: e.target.value })
                       }
                     />
                   </td>
-                  <td>
-                    <Select
-                      aria-label="Required capability"
+                  <td className="px-3 py-2">
+                    <RheaSelect
                       value={transition.requiredCapability}
-                      onChange={(e) =>
+                      onValueChange={(value) =>
                         updateTransition(index, {
-                          requiredCapability: e.target.value as FormCapability,
+                          requiredCapability: value ?? "submit",
                         })
                       }
                     >
-                      {CAPABILITY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
+                      <SelectTrigger aria-label="Required capability">
+                        <SelectValue>
+                          {CAPABILITY_OPTIONS.find(
+                            (option) =>
+                              option.value === transition.requiredCapability,
+                          )?.label ?? transition.requiredCapability}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CAPABILITY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </RheaSelect>
                   </td>
-                  <td className="form-workflow__row-actions">
-                    <button
-                      type="button"
-                      aria-label="Move transition up"
-                      disabled={index === 0}
-                      onClick={() => moveTransition(index, -1)}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Move transition down"
-                      disabled={index === transitions.length - 1}
-                      onClick={() => moveTransition(index, 1)}
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Delete transition"
-                      onClick={() => removeTransition(index)}
-                    >
-                      ✕
-                    </button>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                        aria-label="Move transition up"
+                        disabled={index === 0}
+                        onClick={() => moveTransition(index, -1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                        aria-label="Move transition down"
+                        disabled={index === transitions.length - 1}
+                        onClick={() => moveTransition(index, 1)}
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                        aria-label={`Remove transition ${transition.label || index + 1}`}
+                        onClick={() => removeTransition(index)}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </TableContainer>
+        </div>
       </section>
 
       {confirming && warnings.length > 0 && (
-        <Notice
-          variant="warning"
-          title="This change affects output or submission paths"
-          action={
-            <div className="form-builder__confirm-actions">
-              <Button variant="quiet" onClick={() => setConfirming(false)}>
-                Review again
-              </Button>
-              <Button
-                variant="primary"
-                loading={save.isPending}
-                onClick={() => save.mutate()}
-              >
-                Save anyway
-              </Button>
-            </div>
-          }
-        >
-          <ul>
-            {warnings.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        </Notice>
+        <Alert>
+          <AlertTitle>
+            This change affects output or submission paths
+          </AlertTitle>
+          <AlertDescription>
+            <ul className="grid gap-1">
+              {warnings.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+          <div className="flex flex-wrap gap-2">
+            <RheaButton variant="ghost" onClick={() => setConfirming(false)}>
+              Review again
+            </RheaButton>
+            <RheaButton
+              variant="default"
+              disabled={save.isPending}
+              aria-busy={save.isPending || undefined}
+              onClick={() => save.mutate()}
+            >
+              {save.isPending && <Spinner aria-hidden="true" />}
+              Save anyway
+            </RheaButton>
+          </div>
+        </Alert>
       )}
 
-      <div className="form-workflow__actions">
-        <Button
-          variant="primary"
-          loading={save.isPending}
+      <div className="flex flex-wrap gap-2">
+        <RheaButton
+          variant="default"
           disabled={save.isPending || errors.length > 0 || !dirty}
+          aria-busy={save.isPending || undefined}
           onClick={attemptSave}
         >
+          {save.isPending && <Spinner aria-hidden="true" />}
           Save workflow
-        </Button>
+        </RheaButton>
       </div>
     </div>
   );
@@ -520,7 +591,7 @@ function validateWorkflow(
     if (!keys.has(transition.from) || !keys.has(transition.to)) {
       errors.push("Every transition must reference existing states.");
     }
-    const pair = `${transition.from} ${transition.to}`;
+    const pair = `${transition.from} ${transition.to}`;
     if (seen.has(pair))
       errors.push(
         `Duplicate transition ${transition.from} → ${transition.to}.`,

@@ -9,19 +9,30 @@ import type {
   NoiseHistoryRange,
   NoiseHistorySummary,
 } from "../api/types";
-import {
-  EmptyState,
-  Field,
-  Notice,
-  PageHeader,
-  Panel,
-  SectionHeader,
-  Select,
-  ToggleGroup,
-  ViewTabs,
-} from "../components/legacy-ui";
+import { ToggleGroup, ViewTabs } from "../components/legacy-ui";
 import { MetricTile } from "../components/legacy-ui/MetricTile";
-import "./NoiseMeterHistoryPage.css";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { buttonVariants } from "../components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+
+const granularityOptions = [
+  { value: "raw", label: "10-second records" },
+  { value: "minute", label: "1-minute summaries" },
+  { value: "daily", label: "Daily summaries" },
+];
 
 const ranges: { value: NoiseHistoryRange; label: string }[] = [
   { value: "today", label: "Today" },
@@ -168,72 +179,86 @@ function NoiseTimeline({
     };
   });
   return (
-    <figure className="noise-chart">
+    <figure className="grid gap-2">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
         role="img"
         aria-label={`Noise Level over time. Warning level ${warningLevel}, too loud level ${loudLevel}.`}
+        className="h-60 w-full rounded-xl border border-border bg-muted/30"
       >
         <rect
           x="0"
           y="0"
           width={width}
           height={y(warningLevel)}
-          className="noise-chart__band noise-chart__band--loud"
+          className="fill-red-500/10"
         />
         <rect
           x="0"
           y={y(loudLevel)}
           width={width}
           height={Math.max(0, y(warningLevel) - y(loudLevel))}
-          className="noise-chart__band noise-chart__band--warning"
+          className="fill-amber-500/10"
         />
         <line
           x1="0"
           x2={width}
           y1={y(loudLevel)}
           y2={y(loudLevel)}
-          className="noise-chart__threshold noise-chart__threshold--loud"
+          className="stroke-red-500 [stroke-dasharray:6_4] [stroke-width:1] [vector-effect:non-scaling-stroke]"
         />
         <line
           x1="0"
           x2={width}
           y1={y(warningLevel)}
           y2={y(warningLevel)}
-          className="noise-chart__threshold"
+          className="stroke-amber-500 [stroke-dasharray:6_4] [stroke-width:1] [vector-effect:non-scaling-stroke]"
         />
         {segments.map((segment, index) => (
           <path
             key={`peak-${index}`}
             d={line(segment, (point) => point.peakLevel)}
-            className="noise-chart__peak"
+            className="noise-chart__peak fill-none stroke-muted-foreground opacity-55 [stroke-width:1] [vector-effect:non-scaling-stroke]"
           />
         ))}
         {segments.map((segment, index) => (
           <path
             key={`avg-${index}`}
             d={line(segment, (point) => point.averageLevel)}
-            className="noise-chart__average"
+            className="noise-chart__average fill-none stroke-primary [stroke-width:2] [vector-effect:non-scaling-stroke]"
           />
         ))}
       </svg>
-      <div className="noise-chart__axis" aria-hidden="true">
+      <div
+        className="relative h-5 text-xs text-muted-foreground"
+        aria-hidden="true"
+      >
         {labels.map((tick) => (
-          <span key={tick.x} style={{ left: `${(tick.x / width) * 100}%` }}>
+          <span
+            key={tick.x}
+            style={{ left: `${(tick.x / width) * 100}%` }}
+            className="absolute -translate-x-1/2 whitespace-nowrap"
+          >
             {tick.label}
           </span>
         ))}
       </div>
-      <figcaption className="noise-chart__legend">
-        <span className="noise-chart__key noise-chart__key--average">
+      <figcaption className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-[3px] w-3 bg-primary" />
           Average
         </span>
-        <span className="noise-chart__key noise-chart__key--peak">Peak</span>
-        <span className="noise-chart__key noise-chart__key--warning">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3 bg-muted-foreground" />
+          Peak
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3 bg-amber-500" />
           Warning {warningLevel}
         </span>
-        <span className="noise-chart__key noise-chart__key--loud">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3 bg-red-500" />
           Too loud {loudLevel}
         </span>
       </figcaption>
@@ -263,15 +288,20 @@ function DailyComparison({
         : String(day.triggerCount);
   const highest = Math.max(1, ...days.map(value));
   return (
-    <ol className="noise-daily">
+    <ol className="flex min-h-50 list-none items-end gap-2 overflow-x-auto p-0">
       {days.map((day) => (
-        <li key={day.date}>
-          <span className="noise-daily__value">{label(day)}</span>
+        <li
+          key={day.date}
+          className="grid h-45 min-w-11 flex-1 content-end justify-items-center gap-1"
+        >
+          <span className="text-xs whitespace-nowrap text-muted-foreground">
+            {label(day)}
+          </span>
           <span
-            className="noise-daily__bar"
+            className="min-h-0.5 w-3/5 rounded-t bg-primary"
             style={{ height: `${Math.max(2, (value(day) / highest) * 100)}%` }}
           />
-          <span className="noise-daily__date">
+          <span className="text-xs whitespace-nowrap text-muted-foreground">
             {new Date(`${day.date}T00:00:00`).toLocaleDateString(undefined, {
               weekday: "short",
               day: "numeric",
@@ -286,7 +316,7 @@ function DailyComparison({
 function SummaryTiles({ summary }: { summary: NoiseHistorySummary }) {
   return (
     <>
-      <div className="noise-metrics">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <MetricTile
           label="Average noise level"
           value={formatLevel(summary.averageLevel)}
@@ -306,28 +336,40 @@ function SummaryTiles({ summary }: { summary: NoiseHistorySummary }) {
           hint="Times the bar appeared"
         />
       </div>
-      <dl className="noise-secondary">
-        <div>
-          <dt>Time in normal range</dt>
-          <dd>
+      <dl className="grid gap-3 rounded-xl border border-border bg-muted/50 p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-0.5">
+          <dt className="text-xs text-muted-foreground">
+            Time in normal range
+          </dt>
+          <dd className="text-sm font-medium tabular-nums">
             {formatDuration(summary.normalMs)}{" "}
-            <small>{formatShare(summary.normalMs, summary.monitoredMs)}</small>
+            <small className="font-normal text-muted-foreground">
+              {formatShare(summary.normalMs, summary.monitoredMs)}
+            </small>
           </dd>
         </div>
-        <div>
-          <dt>Time in warning range</dt>
-          <dd>
+        <div className="grid gap-0.5">
+          <dt className="text-xs text-muted-foreground">
+            Time in warning range
+          </dt>
+          <dd className="text-sm font-medium tabular-nums">
             {formatDuration(summary.warningMs)}{" "}
-            <small>{formatShare(summary.warningMs, summary.monitoredMs)}</small>
+            <small className="font-normal text-muted-foreground">
+              {formatShare(summary.warningMs, summary.monitoredMs)}
+            </small>
           </dd>
         </div>
-        <div>
-          <dt>Longest continuous too loud</dt>
-          <dd>{formatDuration(summary.longestLoudMs)}</dd>
+        <div className="grid gap-0.5">
+          <dt className="text-xs text-muted-foreground">
+            Longest continuous too loud
+          </dt>
+          <dd className="text-sm font-medium tabular-nums">
+            {formatDuration(summary.longestLoudMs)}
+          </dd>
         </div>
-        <div>
-          <dt>Loudest 15 minutes</dt>
-          <dd>
+        <div className="grid gap-0.5">
+          <dt className="text-xs text-muted-foreground">Loudest 15 minutes</dt>
+          <dd className="text-sm font-medium tabular-nums">
             {summary.loudestWindowAt
               ? `${formatLevel(summary.loudestWindowLevel)} · ${new Date(
                   summary.loudestWindowAt,
@@ -340,9 +382,11 @@ function SummaryTiles({ summary }: { summary: NoiseHistorySummary }) {
               : "—"}
           </dd>
         </div>
-        <div>
-          <dt>Monitored time</dt>
-          <dd>{formatDuration(summary.monitoredMs)}</dd>
+        <div className="grid gap-0.5">
+          <dt className="text-xs text-muted-foreground">Monitored time</dt>
+          <dd className="text-sm font-medium tabular-nums">
+            {formatDuration(summary.monitoredMs)}
+          </dd>
         </div>
       </dl>
     </>
@@ -403,25 +447,33 @@ export function NoiseMeterHistoryPage() {
     (summary.data?.summary.buckets ?? 0) === 0;
 
   return (
-    <main className="page plugins-page">
-      <PageHeader
-        eyebrow={
-          <Link className="back-link" to="/plugins/noise-meter">
-            <ArrowLeft size={15} /> Noise Meter
-          </Link>
-        }
-        title={instance.data?.name ?? "Noise Meter"}
-        description="Measurements the player recorded locally and delivered on its ordinary heartbeat."
-      />
+    <main className="mx-auto grid w-full max-w-6xl gap-4 px-4 py-6 sm:px-6">
+      <header className="grid gap-1">
+        <Link
+          to="/plugins/noise-meter"
+          className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft size={15} aria-hidden="true" /> Noise Meter
+        </Link>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {instance.data?.name ?? "Noise Meter"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Measurements the player recorded locally and delivered on its ordinary
+          heartbeat.
+        </p>
+      </header>
       <NoiseHistoryTabs id={id} />
-      <Notice>
-        Noise history stores relative noise-level measurements for graphs and
-        reports. Tilecast never records or stores microphone audio. Levels are
-        relative to each player&rsquo;s own microphone and are not calibrated
-        decibel measurements.
-      </Notice>
+      <Alert>
+        <AlertDescription>
+          Noise history stores relative noise-level measurements for graphs and
+          reports. Tilecast never records or stores microphone audio. Levels are
+          relative to each player&rsquo;s own microphone and are not calibrated
+          decibel measurements.
+        </AlertDescription>
+      </Alert>
 
-      <div className="noise-controls">
+      <div className="flex flex-wrap items-end gap-4">
         <ToggleGroup
           label="Date range"
           value={range}
@@ -429,55 +481,79 @@ export function NoiseMeterHistoryPage() {
           onValueChange={setRange}
         />
         {multipleScreens && (
-          <Field
-            label="Screen"
-            description="Levels are relative to each player's own microphone, so screens are compared with care."
-          >
-            <Select
-              name="screenId"
-              value={screenId}
-              onChange={(event) => setScreenId(event.target.value)}
+          <Field>
+            <FieldLabel htmlFor="noise-history-screen">Screen</FieldLabel>
+            <RheaSelect
+              value={screenId || "all"}
+              onValueChange={(value) =>
+                setScreenId(!value || value === "all" ? "" : value)
+              }
             >
-              <option value="">All screens (combined)</option>
-              {available.map((screen) => (
-                <option key={screen.screenId} value={screen.screenId}>
-                  {screen.name}
-                </option>
-              ))}
-            </Select>
+              <SelectTrigger id="noise-history-screen">
+                <SelectValue>
+                  {screenId
+                    ? (available.find((screen) => screen.screenId === screenId)
+                        ?.name ?? screenId)
+                    : "All screens (combined)"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All screens (combined)</SelectItem>
+                {available.map((screen) => (
+                  <SelectItem key={screen.screenId} value={screen.screenId}>
+                    {screen.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </RheaSelect>
+            <FieldDescription>
+              Levels are relative to each player&apos;s own microphone, so
+              screens are compared with care.
+            </FieldDescription>
           </Field>
         )}
-        <Field label="Export">
-          <Select
-            name="granularity"
+        <Field>
+          <FieldLabel htmlFor="noise-history-granularity">Export</FieldLabel>
+          <RheaSelect
             value={granularity}
-            onChange={(event) => setGranularity(event.target.value)}
+            onValueChange={(value) => setGranularity(value ?? "raw")}
           >
-            <option value="raw">10-second records</option>
-            <option value="minute">1-minute summaries</option>
-            <option value="daily">Daily summaries</option>
-          </Select>
+            <SelectTrigger id="noise-history-granularity">
+              <SelectValue>
+                {granularityOptions.find((o) => o.value === granularity)?.label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {granularityOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </RheaSelect>
         </Field>
         <a
-          className="button button--secondary"
           href={exportHref}
           title="Export the selected range and screen"
+          className={buttonVariants({ variant: "secondary" })}
         >
-          <Download size={15} /> Export CSV
+          <Download size={15} aria-hidden="true" /> Export CSV
         </a>
       </div>
 
       {summary.isError && (
-        <Notice variant="danger">History could not be loaded.</Notice>
+        <Alert variant="destructive">
+          <AlertDescription>History could not be loaded.</AlertDescription>
+        </Alert>
       )}
 
       {!multipleScreens && available.length === 1 && (
-        <p className="noise-scope">
+        <p className="text-sm text-muted-foreground">
           Showing <strong>{available[0]!.name}</strong>.
         </p>
       )}
       {multipleScreens && !screenId && (
-        <p className="noise-scope">
+        <p className="text-sm text-muted-foreground">
           Combining {available.length} screens. Each player&rsquo;s levels come
           from its own microphone, so a combined view describes the group rather
           than comparing rooms.
@@ -485,18 +561,26 @@ export function NoiseMeterHistoryPage() {
       )}
 
       {empty ? (
-        <EmptyState
-          title="No measurements in this range"
-          message="History appears once a targeted Linux player has been measuring and has delivered a heartbeat."
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No measurements in this range</EmptyTitle>
+            <EmptyDescription>
+              History appears once a targeted Linux player has been measuring
+              and has delivered a heartbeat.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
           {summary.data && <SummaryTiles summary={summary.data.summary} />}
-          <Panel className="plugin-form__section">
-            <SectionHeader
-              title="Noise level over time"
-              description="Average and peak, against this meter's own thresholds. Periods with no monitoring are left blank."
-            />
+          <section className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+            <header>
+              <h2 className="text-sm font-semibold">Noise level over time</h2>
+              <p className="text-sm text-muted-foreground">
+                Average and peak, against this meter&apos;s own thresholds.
+                Periods with no monitoring are left blank.
+              </p>
+            </header>
             {series.data && instance.data && series.data.points.length > 0 ? (
               <NoiseTimeline
                 points={series.data.points}
@@ -507,29 +591,36 @@ export function NoiseMeterHistoryPage() {
                 to={series.data.range.to}
               />
             ) : (
-              <p className="noise-scope">No measurements to draw yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No measurements to draw yet.
+              </p>
             )}
-          </Panel>
+          </section>
           {(range === "7d" || range === "30d") && (
-            <Panel className="plugin-form__section">
-              <SectionHeader
-                title="Daily comparison"
-                description="Days without monitoring are omitted rather than shown as silent."
-                actions={
-                  <ToggleGroup
-                    label="Daily measure"
-                    value={measure}
-                    items={dailyMeasures}
-                    onValueChange={setMeasure}
-                  />
-                }
-              />
+            <section className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+              <header className="flex flex-wrap items-end justify-between gap-3">
+                <div className="grid gap-0.5">
+                  <h2 className="text-sm font-semibold">Daily comparison</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Days without monitoring are omitted rather than shown as
+                    silent.
+                  </p>
+                </div>
+                <ToggleGroup
+                  label="Daily measure"
+                  value={measure}
+                  items={dailyMeasures}
+                  onValueChange={setMeasure}
+                />
+              </header>
               {(daily.data?.days.length ?? 0) > 0 ? (
                 <DailyComparison days={daily.data!.days} measure={measure} />
               ) : (
-                <p className="noise-scope">No days with measurements yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  No days with measurements yet.
+                </p>
               )}
-            </Panel>
+            </section>
           )}
         </>
       )}

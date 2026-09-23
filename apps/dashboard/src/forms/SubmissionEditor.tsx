@@ -11,7 +11,9 @@ import type {
   FormSchema,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
-import { Button, Notice } from "../components/legacy-ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button as RheaButton } from "../components/ui/button";
+import { Spinner } from "../components/ui/spinner";
 import {
   FormRenderer,
   fieldControlId,
@@ -424,37 +426,39 @@ export function SubmissionEditor({
   }
 
   return (
-    <div className="submission-editor">
+    <div className="grid gap-4">
       {blocker.state === "blocked" && (
-        <Notice
-          variant="warning"
-          title="Leave without saving?"
-          action={
-            <div className="form-builder__confirm-actions">
-              <Button variant="quiet" onClick={() => blocker.reset?.()}>
-                Stay on page
-              </Button>
-              <Button variant="primary" onClick={() => blocker.proceed?.()}>
-                Leave without saving
-              </Button>
-            </div>
-          }
-        >
-          You have unsaved changes to this submission. Leaving now will discard
-          them.
-        </Notice>
+        <Alert>
+          <AlertTitle>Leave without saving?</AlertTitle>
+          <AlertDescription>
+            You have unsaved changes to this submission. Leaving now will
+            discard them.
+          </AlertDescription>
+          <div className="flex flex-wrap gap-2">
+            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+              Stay on page
+            </RheaButton>
+            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+              Leave without saving
+            </RheaButton>
+          </div>
+        </Alert>
       )}
 
       {feedback && editable && (
-        <Notice variant="warning" title="Changes requested">
-          <strong>{feedback.actorName ?? "Reviewer"}:</strong> {feedback.note}
-        </Notice>
+        <Alert>
+          <AlertTitle>Changes requested</AlertTitle>
+          <AlertDescription>
+            <strong>{feedback.actorName ?? "Reviewer"}:</strong> {feedback.note}
+          </AlertDescription>
+        </Alert>
       )}
 
       {formError && (
-        <Notice variant="danger" title="Could not save">
-          {formError}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Could not save</AlertTitle>
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
       )}
 
       <ErrorSummary schema={schema} errors={errors} onSelect={focusField} />
@@ -462,7 +466,7 @@ export function SubmissionEditor({
       {/* A real form element so Enter in a text field submits, and noValidate so our own validation
           (which produces the summary above) is the only thing that ever blocks a submit. */}
       <form
-        className="submission-editor__form"
+        className="grid gap-4"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
@@ -487,44 +491,54 @@ export function SubmissionEditor({
         />
 
         {editable ? (
-          <div className="submission-editor__actions">
-            <Button
+          <div className="flex flex-wrap gap-2">
+            <RheaButton
               type="button"
               variant="secondary"
-              loading={busy === "draft"}
               disabled={busy !== ""}
+              aria-busy={busy === "draft" || undefined}
               onClick={() => void saveDraft()}
             >
+              {busy === "draft" && <Spinner aria-hidden="true" />}
               Save draft
-            </Button>
+            </RheaButton>
             {canSubmit && (
-              <Button
+              <RheaButton
                 type="submit"
-                variant="primary"
-                loading={busy === "submit"}
+                variant="default"
                 disabled={busy !== ""}
+                aria-busy={busy === "submit" || undefined}
               >
+                {busy === "submit" && <Spinner aria-hidden="true" />}
                 {submitLabel}
-              </Button>
+              </RheaButton>
             )}
           </div>
         ) : (
-          <Notice
-            variant="info"
-            title={`This submission is ${stateLabel(form.workflow, state)}`}
-          >
-            It can no longer be edited. A reviewer will follow up if changes are
-            needed.
-          </Notice>
+          <Alert>
+            <AlertTitle>
+              {`This submission is ${stateLabel(form.workflow, state)}`}
+            </AlertTitle>
+            <AlertDescription>
+              It can no longer be edited. A reviewer will follow up if changes
+              are needed.
+            </AlertDescription>
+          </Alert>
         )}
       </form>
 
       {comments.length > 0 && (
-        <section className="submission-editor__comments" aria-label="Comments">
-          <h3>Comments</h3>
-          <ul>
+        <section
+          className="grid gap-3 rounded-xl border border-border p-4"
+          aria-label="Comments"
+        >
+          <h3 className="text-base font-semibold">Comments</h3>
+          <ul className="grid gap-2">
             {comments.map((comment) => (
-              <li key={comment.id}>
+              <li
+                key={comment.id}
+                className="grid gap-1 rounded-xl border border-border p-3 text-sm"
+              >
                 <strong>{comment.authorName}</strong>
                 <p>{comment.body}</p>
               </li>
@@ -551,23 +565,20 @@ function ErrorSummary({
   const invalid = schema.fields.filter((field) => errors[field.key]);
   if (invalid.length === 0) return null;
   return (
-    <div
-      className="notice notice--danger submission-editor__errors"
-      role="alert"
-    >
+    <Alert variant="destructive">
       <AlertCircle size={18} aria-hidden="true" />
-      <div>
-        <strong>
-          {invalid.length === 1
-            ? "Fix 1 field before continuing"
-            : `Fix ${invalid.length} fields before continuing`}
-        </strong>
-        <ul>
+      <AlertTitle>
+        {invalid.length === 1
+          ? "Fix 1 field before continuing"
+          : `Fix ${invalid.length} fields before continuing`}
+      </AlertTitle>
+      <AlertDescription>
+        <ul className="grid gap-1">
           {invalid.map((field) => (
             <li key={field.key}>
               <button
                 type="button"
-                className="text-link"
+                className="underline underline-offset-4 hover:text-foreground"
                 onClick={() => onSelect(field.key)}
               >
                 {errors[field.key]}
@@ -575,8 +586,8 @@ function ErrorSummary({
             </li>
           ))}
         </ul>
-      </div>
-    </div>
+      </AlertDescription>
+    </Alert>
   );
 }
 

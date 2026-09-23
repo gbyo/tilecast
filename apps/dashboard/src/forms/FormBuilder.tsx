@@ -8,13 +8,12 @@ import type {
   FormSchema,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
-import {
-  Button,
-  Field,
-  Input,
-  Notice,
-  Textarea,
-} from "../components/legacy-ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button as RheaButton } from "../components/ui/button";
+import { Field, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
+import { Textarea } from "../components/ui/textarea";
 import { FormFieldEditor, type FieldLock } from "./FormFieldEditor";
 import { FormFieldPalette } from "./FormFieldPalette";
 import { FormRenderer } from "./FormRenderer";
@@ -201,12 +200,10 @@ export function FormBuilder({
   };
 
   return (
-    <div className="form-builder">
+    <div className="grid gap-4">
       {!readOnly && (
-        <div className="form-builder__statusbar">
-          <span
-            className={`form-builder__status form-builder__status--${saveState}`}
-          >
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
+          <span className="text-sm text-muted-foreground">
             {saveState === "saving"
               ? "Saving…"
               : saveState === "error"
@@ -215,17 +212,18 @@ export function FormBuilder({
                   ? "Unsaved changes"
                   : "Saved"}
           </span>
-          <div className="form-builder__status-actions">
-            <Button
+          <div className="flex flex-wrap gap-2">
+            <RheaButton
               variant="secondary"
               disabled={!dirty || saveDraft.isPending}
-              loading={saveDraft.isPending}
+              aria-busy={saveDraft.isPending || undefined}
               onClick={() => saveDraft.mutate()}
             >
+              {saveDraft.isPending && <Spinner aria-hidden="true" />}
               Save draft
-            </Button>
-            <Button
-              variant="primary"
+            </RheaButton>
+            <RheaButton
+              variant="default"
               disabled={
                 publish.isPending ||
                 saveDraft.isPending ||
@@ -234,88 +232,96 @@ export function FormBuilder({
               onClick={() => setShowPublish(true)}
             >
               Publish
-            </Button>
+            </RheaButton>
           </div>
         </div>
       )}
 
       {blocker.state === "blocked" && (
-        <Notice
-          variant="warning"
-          title="Leave without saving?"
-          action={
-            <div className="form-builder__confirm-actions">
-              <Button variant="quiet" onClick={() => blocker.reset?.()}>
-                Stay on page
-              </Button>
-              <Button variant="primary" onClick={() => blocker.proceed?.()}>
-                Leave without saving
-              </Button>
-            </div>
-          }
-        >
-          You have unsaved changes to this form. Leaving now will discard them.
-        </Notice>
+        <Alert>
+          <AlertTitle>Leave without saving?</AlertTitle>
+          <AlertDescription>
+            You have unsaved changes to this form. Leaving now will discard
+            them.
+          </AlertDescription>
+          <div className="flex flex-wrap gap-2">
+            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+              Stay on page
+            </RheaButton>
+            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+              Leave without saving
+            </RheaButton>
+          </div>
+        </Alert>
       )}
 
       {saveError && (
-        <Notice variant="danger" title="Draft not saved">
-          {saveError}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Draft not saved</AlertTitle>
+          <AlertDescription>{saveError}</AlertDescription>
+        </Alert>
       )}
 
       {showPublish && (
-        <Notice
-          variant="warning"
-          title="Publish a new revision?"
-          action={
-            <div className="form-builder__confirm-actions">
-              <Button
-                variant="quiet"
-                onClick={() => setShowPublish(false)}
-                disabled={publish.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                loading={publish.isPending}
-                onClick={() => publish.mutate()}
-              >
-                Publish revision
-              </Button>
-            </div>
-          }
-        >
-          Publishing creates a new immutable revision. Existing submissions stay
-          tied to the revision they were created against.
-          {publishError && (
-            <span className="form-builder__confirm-error"> {publishError}</span>
-          )}
-        </Notice>
+        <Alert>
+          <AlertTitle>Publish a new revision?</AlertTitle>
+          <AlertDescription>
+            Publishing creates a new immutable revision. Existing submissions
+            stay tied to the revision they were created against.
+            {publishError && (
+              <span className="font-medium text-destructive">
+                {" "}
+                {publishError}
+              </span>
+            )}
+          </AlertDescription>
+          <div className="flex flex-wrap gap-2">
+            <RheaButton
+              variant="ghost"
+              onClick={() => setShowPublish(false)}
+              disabled={publish.isPending}
+            >
+              Cancel
+            </RheaButton>
+            <RheaButton
+              variant="default"
+              disabled={publish.isPending}
+              aria-busy={publish.isPending || undefined}
+              onClick={() => publish.mutate()}
+            >
+              {publish.isPending && <Spinner aria-hidden="true" />}
+              Publish revision
+            </RheaButton>
+          </div>
+        </Alert>
       )}
 
-      <div className="form-builder__layout">
-        <section className="form-builder__list" aria-label="Form fields">
-          <ol className="form-builder__field-list">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,17rem)]">
+        <section className="grid content-start gap-3" aria-label="Form fields">
+          <ol className="grid gap-2">
             {draft.fields.map((field, index) => (
               <li key={index}>
                 <div
-                  className={`form-builder__field-item${index === selected ? " is-selected" : ""}`}
+                  className={`rounded-xl border px-3 py-2 ${index === selected ? "border-primary" : "border-border"}`}
                 >
                   <button
                     type="button"
-                    className="form-builder__field-select"
+                    className="flex w-full flex-col gap-0.5 text-left"
                     onClick={() => setSelected(index)}
                     aria-current={index === selected}
                   >
-                    <strong>{field.label || field.key}</strong>
-                    <span>{field.control}</span>
+                    <strong className="text-sm">
+                      {field.label || field.key}
+                    </strong>
+                    <span className="text-xs text-muted-foreground">
+                      {field.control}
+                    </span>
                   </button>
                   {!readOnly && (
-                    <div className="form-builder__field-controls">
+                    <div className="mt-1 flex gap-1">
                       <button
                         type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
                         aria-label={`Move ${field.label || field.key} up`}
                         disabled={index === 0}
                         onClick={() => move(index, -1)}
@@ -324,6 +330,7 @@ export function FormBuilder({
                       </button>
                       <button
                         type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
                         aria-label={`Move ${field.label || field.key} down`}
                         disabled={index === draft.fields.length - 1}
                         onClick={() => move(index, 1)}
@@ -332,6 +339,7 @@ export function FormBuilder({
                       </button>
                       <button
                         type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
                         aria-label={`Delete ${field.label || field.key}`}
                         disabled={lockFor(field).deleteLocked}
                         onClick={() => removeField(index)}
@@ -347,11 +355,13 @@ export function FormBuilder({
           {!readOnly && <FormFieldPalette onAdd={addField} />}
         </section>
 
-        <section className="form-builder__preview" aria-label="Form preview">
+        <section className="grid content-start gap-3" aria-label="Form preview">
           {!readOnly && (
-            <div className="form-builder__schema-meta">
-              <Field label="Form title">
+            <div className="grid gap-3">
+              <Field>
+                <FieldLabel htmlFor="form-builder-title">Form title</FieldLabel>
                 <Input
+                  id="form-builder-title"
                   value={draft.title ?? ""}
                   onChange={(event) =>
                     setDraft((current) => ({
@@ -361,8 +371,12 @@ export function FormBuilder({
                   }
                 />
               </Field>
-              <Field label="Form description">
+              <Field>
+                <FieldLabel htmlFor="form-builder-description">
+                  Form description
+                </FieldLabel>
                 <Textarea
+                  id="form-builder-description"
                   rows={2}
                   value={draft.description ?? ""}
                   onChange={(event) =>
@@ -380,10 +394,10 @@ export function FormBuilder({
 
         {!readOnly && (
           <aside
-            className="form-builder__inspector"
+            className="grid content-start gap-3 rounded-xl border border-border p-4"
             aria-label="Field settings"
           >
-            <h3 className="form-builder__inspector-title">Field settings</h3>
+            <h3 className="text-base font-semibold">Field settings</h3>
             {selectedField ? (
               <FormFieldEditor
                 field={selectedField}
@@ -393,7 +407,7 @@ export function FormBuilder({
                 onChange={(next) => mutateField(selected, next)}
               />
             ) : (
-              <p className="form-builder__inspector-empty">
+              <p className="text-sm text-muted-foreground">
                 Select a field to edit its settings.
               </p>
             )}

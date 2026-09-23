@@ -12,15 +12,12 @@ import {
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  BrandBugEditorPage,
-  BrandBugsPage,
-  CountdownBarEditorPage,
-  NoiseMeterEditorPage,
-  NoiseMetersPage,
-  PluginsPage,
-} from "./PluginsPage";
+import { PluginsPage } from "./PluginsPage";
+import { CountdownBarEditorPage } from "./CountdownBarsPage";
+import { BrandBugEditorPage, BrandBugsPage } from "./BrandBugsPage";
+import { NoiseMeterEditorPage, NoiseMetersPage } from "./NoiseMetersPage";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -57,10 +54,11 @@ function renderRoute(element: ReactNode, path = "/plugins") {
   );
 }
 
-/** Signal Select hides its native control, so pick the way a person does. */
-function chooseOption(selectLabel: string, optionLabel: string) {
-  fireEvent.click(screen.getByLabelText(selectLabel));
-  fireEvent.click(screen.getByRole("option", { name: optionLabel }));
+/** Rhea Select hides its native control, so pick the way a person does. */
+async function chooseOption(selectLabel: string, optionLabel: string) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("combobox", { name: selectLabel }));
+  await user.click(await screen.findByRole("option", { name: optionLabel }));
 }
 
 /** Same, for a select whose options arrive with a query rather than statically. */
@@ -68,8 +66,9 @@ async function chooseLoadedOption(
   selectLabel: string | RegExp,
   optionLabel: string,
 ) {
-  fireEvent.click(screen.getByLabelText(selectLabel));
-  fireEvent.click(await screen.findByRole("option", { name: optionLabel }));
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("combobox", { name: selectLabel }));
+  await user.click(await screen.findByRole("option", { name: optionLabel }));
 }
 
 function pressedDays() {
@@ -337,7 +336,7 @@ describe("Plugins", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Target type")).toBeEnabled(),
     );
-    chooseOption("Target type", "Individual screens");
+    await chooseOption("Target type", "Individual screens");
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
@@ -385,7 +384,7 @@ describe("Plugins", () => {
       target: { value: "Lunch" },
     });
     fireEvent.click(screen.getByLabelText("Enabled"));
-    chooseOption("Target type", "Individual screens");
+    await chooseOption("Target type", "Individual screens");
     fireEvent.click(await screen.findByLabelText("Cafeteria"));
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
@@ -396,13 +395,13 @@ describe("Plugins", () => {
   it("counts the chosen targets and explains an empty scope", async () => {
     renderRoute(<CountdownBarEditorPage />, "/plugins/countdown-bar/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
-    chooseOption("Target type", "Individual screens");
+    await chooseOption("Target type", "Individual screens");
     expect(await screen.findByText("0 of 1 selected")).toBeVisible();
     fireEvent.click(await screen.findByLabelText("Cafeteria"));
     expect(screen.getByText("1 of 1 selected")).toBeVisible();
     // No Display Groups exist in this fixture, so the list must say so rather than
     // render an empty box.
-    chooseOption("Target type", "Display Groups");
+    await chooseOption("Target type", "Display Groups");
     expect(
       await screen.findByText("No Display Groups exist yet."),
     ).toBeVisible();
@@ -415,7 +414,7 @@ describe("Plugins", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
-    chooseOption("Background countdown", "Drain right to left");
+    await chooseOption("Background countdown", "Drain right to left");
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
     expect(submitted[0]?.progressFill).toBe("drain");
@@ -510,7 +509,7 @@ describe("Plugins", () => {
   it("keeps the schedule and mode selections across an unrelated edit", async () => {
     renderRoute(<CountdownBarEditorPage />, "/plugins/countdown-bar/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
-    chooseOption("Mode", "Push and shrink current content");
+    await chooseOption("Mode", "Push and shrink current content");
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
@@ -558,7 +557,7 @@ describe("Brand Bug", () => {
       target: { value: "Sponsor logo" },
     });
     await chooseLoadedOption(/^Logo image/, "District logo");
-    chooseOption("Corner", "Bottom left");
+    await chooseOption("Corner", "Bottom left");
     fireEvent.change(screen.getByLabelText(/^Show from/), {
       target: { value: "2026-09-01T08:00" },
     });

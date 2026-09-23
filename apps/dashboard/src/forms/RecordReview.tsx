@@ -6,15 +6,14 @@ import type {
   FormRecordDetail,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
-import {
-  Button,
-  Field,
-  Input,
-  Notice,
-  Spinner,
-  StatusBadge,
-  Textarea,
-} from "../components/legacy-ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
+import { Textarea } from "../components/ui/textarea";
+import { formToneBadgeProps } from "./formBadge";
 import {
   FormRenderer,
   type FormValues,
@@ -53,12 +52,17 @@ export function RecordReview({
     queryFn: () => api.getFormRecord(form.id, recordId),
   });
 
-  if (detailQuery.isLoading) return <Spinner label="Loading submission…" />;
+  if (detailQuery.isLoading)
+    return <Spinner aria-label="Loading submission…" />;
   if (detailQuery.isError || !detailQuery.data) {
     return (
-      <Notice variant="danger" title="Submission unavailable">
-        This submission could not be loaded or you no longer have access to it.
-      </Notice>
+      <Alert variant="destructive">
+        <AlertTitle>Submission unavailable</AlertTitle>
+        <AlertDescription>
+          This submission could not be loaded or you no longer have access to
+          it.
+        </AlertDescription>
+      </Alert>
     );
   }
   return (
@@ -320,11 +324,13 @@ function RecordReviewBody({
   );
 
   return (
-    <div className="record-review">
-      <header className="record-review__header">
-        <div>
-          <h2>{detail.displayTitle || "Untitled submission"}</h2>
-          <p className="record-review__meta">
+    <div className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-2">
+        <div className="grid gap-0.5">
+          <h2 className="text-xl font-semibold tracking-tight">
+            {detail.displayTitle || "Untitled submission"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
             Submitted by {detail.submitterName || "Unknown"} ·{" "}
             {new Date(detail.createdAt).toLocaleString()}
             {detail.revision && (
@@ -332,16 +338,16 @@ function RecordReviewBody({
             )}
           </p>
         </div>
-        <StatusBadge
-          label={stateLabel(form.workflow, detail.state)}
-          tone={stateTone(form.workflow, detail.state)}
-        />
+        <Badge {...formToneBadgeProps(stateTone(form.workflow, detail.state))}>
+          {stateLabel(form.workflow, detail.state)}
+        </Badge>
       </header>
 
       {error && (
-        <Notice variant="danger" title="Action failed">
-          {error}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Action failed</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <FormRenderer
@@ -362,36 +368,48 @@ function RecordReviewBody({
       />
 
       <section
-        className="record-review__metadata"
+        className="grid gap-3 rounded-xl border border-border p-4"
         aria-label="Display metadata"
       >
-        <h3>Display settings</h3>
-        <div className="record-review__metadata-grid">
-          <Field label="Display title">
+        <h3 className="text-base font-semibold">Display settings</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="record-review-title">Display title</FieldLabel>
             <Input
+              id="record-review-title"
               value={displayTitle}
               disabled={!canEdit}
               onChange={(event) => setDisplayTitle(event.target.value)}
             />
           </Field>
-          <Field label="Priority">
+          <Field>
+            <FieldLabel htmlFor="record-review-priority">Priority</FieldLabel>
             <Input
+              id="record-review-priority"
               type="number"
               value={priority}
               disabled={!canEdit}
               onChange={(event) => setPriority(event.target.value)}
             />
           </Field>
-          <Field label="Display from">
+          <Field>
+            <FieldLabel htmlFor="record-review-display-at">
+              Display from
+            </FieldLabel>
             <Input
+              id="record-review-display-at"
               type="datetime-local"
               value={displayAt}
               disabled={!canEdit}
               onChange={(event) => setDisplayAt(event.target.value)}
             />
           </Field>
-          <Field label="Expires at">
+          <Field>
+            <FieldLabel htmlFor="record-review-expires-at">
+              Expires at
+            </FieldLabel>
             <Input
+              id="record-review-expires-at"
               type="datetime-local"
               value={expiresAt}
               disabled={!canEdit}
@@ -400,55 +418,70 @@ function RecordReviewBody({
           </Field>
         </div>
         {canEdit && (
-          <Button
+          <RheaButton
             variant="secondary"
-            loading={busy}
             disabled={busy || !dirty}
+            aria-busy={busy || undefined}
             onClick={() => void handleSave()}
           >
+            {busy && <Spinner aria-hidden="true" />}
             Save changes
-          </Button>
+          </RheaButton>
         )}
       </section>
 
       {detail.availableTransitions.length > 0 && (
-        <section className="record-review__actions" aria-label="Decision">
-          <h3>Decision</h3>
+        <section
+          className="grid gap-3 rounded-xl border border-border p-4"
+          aria-label="Decision"
+        >
+          <h3 className="text-base font-semibold">Decision</h3>
           {requiresNoteTransition && (
-            <Field label="Note" description="Required when requesting changes.">
+            <Field>
+              <FieldLabel htmlFor="record-review-note">Note</FieldLabel>
               <Textarea
+                id="record-review-note"
                 rows={2}
                 value={note}
                 aria-label="Note"
                 onChange={(event) => setNote(event.target.value)}
               />
+              <FieldDescription>
+                Required when requesting changes.
+              </FieldDescription>
             </Field>
           )}
-          <div className="record-review__transition-buttons">
+          <div className="flex flex-wrap gap-2">
             {detail.availableTransitions.map((transition) => (
-              <Button
+              <RheaButton
                 key={`${transition.to}`}
-                variant={transition.requiresNote ? "secondary" : "primary"}
+                variant={transition.requiresNote ? "secondary" : "default"}
                 disabled={busy}
                 onClick={() => void runTransition(transition)}
               >
                 {transition.label}
-              </Button>
+              </RheaButton>
             ))}
           </div>
         </section>
       )}
 
-      <section className="record-review__comments" aria-label="Comments">
-        <h3>Comments</h3>
+      <section
+        className="grid gap-3 rounded-xl border border-border p-4"
+        aria-label="Comments"
+      >
+        <h3 className="text-base font-semibold">Comments</h3>
         {detail.comments.length === 0 ? (
-          <p className="record-review__empty">No comments yet.</p>
+          <p className="text-sm text-muted-foreground">No comments yet.</p>
         ) : (
-          <ul>
+          <ul className="grid gap-2">
             {detail.comments.map((entry) => (
-              <li key={entry.id}>
+              <li
+                key={entry.id}
+                className="grid gap-1 rounded-xl border border-border p-3 text-sm"
+              >
                 <strong>{entry.authorName}</strong>
-                <span className="record-review__comment-time">
+                <span className="text-xs text-muted-foreground">
                   {new Date(entry.createdAt).toLocaleString()}
                 </span>
                 <p>{entry.body}</p>
@@ -457,7 +490,7 @@ function RecordReviewBody({
           </ul>
         )}
         {canComment && (
-          <div className="record-review__add-comment">
+          <div className="grid gap-2">
             <Textarea
               rows={2}
               value={comment}
@@ -465,26 +498,30 @@ function RecordReviewBody({
               aria-label="Add a comment"
               onChange={(event) => setComment(event.target.value)}
             />
-            <Button
+            <RheaButton
               variant="secondary"
               disabled={busy || comment.trim() === ""}
               onClick={() => void addComment()}
             >
               Comment
-            </Button>
+            </RheaButton>
           </div>
         )}
       </section>
 
-      <section className="record-review__history" aria-label="History">
-        <h3>History</h3>
-        <ul>
+      <section
+        className="grid gap-3 rounded-xl border border-border p-4"
+        aria-label="History"
+      >
+        <h3 className="text-base font-semibold">History</h3>
+        <ul className="grid gap-1 text-sm">
           {detail.events.map((event) => (
-            <li key={event.id}>
-              <span className="record-review__event-type">
-                {describeEvent(event)}
-              </span>
-              <span className="record-review__event-time">
+            <li
+              key={event.id}
+              className="flex flex-wrap items-center justify-between gap-2"
+            >
+              <span>{describeEvent(event)}</span>
+              <span className="text-xs text-muted-foreground">
                 {new Date(event.createdAt).toLocaleString()}
               </span>
             </li>

@@ -7,18 +7,21 @@ import type {
   FormDirectoryUser,
 } from "../api/types";
 import { api } from "../api/client";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
 import {
-  Button,
-  Checkbox,
-  EmptyState,
-  Field,
-  Input,
-  Notice,
-  Spinner,
-  StatusBadge,
-  TableContainer,
-} from "../components/legacy-ui";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
 import { expandCapabilities } from "./capabilities";
+import { formToneBadgeProps } from "./formBadge";
 
 // Grantable capabilities in lattice order (broadest first), each with a plain-language implication.
 const CAPABILITIES: {
@@ -90,35 +93,47 @@ export function AccessPanel({
       setError(err instanceof Error ? err.message : "Could not update access."),
   });
 
-  if (access.isLoading) return <Spinner label="Loading access…" />;
+  if (access.isLoading) return <Spinner aria-label="Loading access…" />;
   if (access.isError || !access.data) {
     return (
-      <Notice variant="danger" title="Could not load access">
-        {access.error instanceof Error
-          ? access.error.message
-          : "Please try again."}
-      </Notice>
+      <Alert variant="destructive">
+        <AlertTitle>Could not load access</AlertTitle>
+        <AlertDescription>
+          {access.error instanceof Error
+            ? access.error.message
+            : "Please try again."}
+        </AlertDescription>
+      </Alert>
     );
   }
   const entries = access.data;
   const grantedUserIds = new Set(entries.map((entry) => entry.userId));
 
   return (
-    <div className="form-access">
+    <div className="grid gap-4">
       {error && (
-        <Notice variant="danger" title="Access change failed">
-          {error}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Access change failed</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      <TableContainer>
-        <table className="data-table">
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <table className="w-full text-sm">
           <thead>
-            <tr>
-              <th scope="col">User</th>
-              <th scope="col">Global role</th>
-              <th scope="col">Access</th>
-              <th scope="col" aria-label="Actions" />
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th scope="col" className="px-3 py-2 font-medium">
+                User
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                Global role
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                Access
+              </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -140,7 +155,7 @@ export function AccessPanel({
             ))}
           </tbody>
         </table>
-      </TableContainer>
+      </div>
 
       <GrantAccess
         formId={form.id}
@@ -170,43 +185,46 @@ function AccessRow({
   const implicitManager = entry.isCreator || entry.isGlobalOwner;
   return (
     <>
-      <tr>
-        <td>
-          <strong>{entry.name || entry.username}</strong>
-          <div className="form-access__username">@{entry.username}</div>
+      <tr className="border-b border-border last:border-0">
+        <td className="px-3 py-2">
+          <div className="grid gap-0.5">
+            <strong>{entry.name || entry.username}</strong>
+            <div className="text-xs text-muted-foreground">
+              @{entry.username}
+            </div>
+          </div>
         </td>
-        <td>{entry.role}</td>
-        <td>
+        <td className="px-3 py-2">{entry.role}</td>
+        <td className="px-3 py-2">
           {implicitManager ? (
-            <StatusBadge
-              label={entry.isCreator ? "Manager (creator)" : "Manager (Owner)"}
-              tone="info"
-            />
+            <Badge {...formToneBadgeProps("info")}>
+              {entry.isCreator ? "Manager (creator)" : "Manager (Owner)"}
+            </Badge>
           ) : (
-            <span className="form-access__caps">
+            <span className="flex flex-wrap gap-1">
               {entry.capabilities.map((cap) => (
-                <StatusBadge
-                  key={cap}
-                  label={capabilityLabel(cap)}
-                  tone="neutral"
-                />
+                <Badge key={cap} {...formToneBadgeProps("neutral")}>
+                  {capabilityLabel(cap)}
+                </Badge>
               ))}
             </span>
           )}
         </td>
-        <td className="form-access__actions">
+        <td className="px-3 py-2 text-right">
           {implicitManager ? (
-            <span className="form-access__locked">Always a manager</span>
+            <span className="text-sm text-muted-foreground">
+              Always a manager
+            </span>
           ) : editing ? null : (
-            <Button variant="quiet" compact onClick={onEdit}>
+            <RheaButton variant="ghost" size="sm" onClick={onEdit}>
               Edit access
-            </Button>
+            </RheaButton>
           )}
         </td>
       </tr>
       {editing && !implicitManager && (
-        <tr>
-          <td colSpan={4}>
+        <tr className="border-b border-border last:border-0">
+          <td colSpan={4} className="px-3 py-2">
             <CapabilityEditor
               initial={entry.capabilities}
               saving={saving}
@@ -240,10 +258,15 @@ function GrantAccess({
   });
 
   return (
-    <section className="form-access__grant" aria-label="Grant access">
-      <h3>Grant access</h3>
-      <Field label="Find a user" description="Search by name or username.">
+    <section
+      className="grid gap-3 rounded-xl border border-border p-4"
+      aria-label="Grant access"
+    >
+      <h3 className="text-base font-semibold">Grant access</h3>
+      <Field>
+        <FieldLabel htmlFor="form-access-search">Find a user</FieldLabel>
         <Input
+          id="form-access-search"
           value={search}
           placeholder="Search users"
           onChange={(event) => {
@@ -251,10 +274,11 @@ function GrantAccess({
             setSelected(null);
           }}
         />
+        <FieldDescription>Search by name or username.</FieldDescription>
       </Field>
       {selected ? (
-        <div className="form-access__grant-selected">
-          <p>
+        <div className="grid gap-2 rounded-xl border border-border p-3">
+          <p className="text-sm">
             Granting access to{" "}
             <strong>{selected.name || selected.username}</strong> (@
             {selected.username})
@@ -272,23 +296,31 @@ function GrantAccess({
         </div>
       ) : search.trim().length > 0 ? (
         directory.isLoading ? (
-          <Spinner label="Searching…" />
+          <Spinner aria-label="Searching…" />
         ) : (directory.data ?? []).filter(
             (user) => !excludeUserIds.has(user.id),
           ).length === 0 ? (
-          <EmptyState
-            title="No matching users"
-            message="Try a different search."
-          />
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No matching users</EmptyTitle>
+              <EmptyDescription>Try a different search.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <ul className="form-access__directory">
+          <ul className="grid gap-1">
             {(directory.data ?? [])
               .filter((user) => !excludeUserIds.has(user.id))
               .map((user) => (
                 <li key={user.id}>
-                  <button type="button" onClick={() => setSelected(user)}>
-                    <strong>{user.name || user.username}</strong>
-                    <span>
+                  <button
+                    type="button"
+                    className="flex w-full flex-col gap-0.5 rounded-xl border border-border px-3 py-2 text-left hover:bg-muted"
+                    onClick={() => setSelected(user)}
+                  >
+                    <strong className="text-sm">
+                      {user.name || user.username}
+                    </strong>
+                    <span className="text-xs text-muted-foreground">
                       @{user.username} · {user.role}
                     </span>
                   </button>
@@ -333,38 +365,42 @@ function CapabilityEditor({
   };
 
   return (
-    <div className="form-access__editor">
-      <ul className="form-access__cap-list">
+    <div className="grid gap-3">
+      <ul className="grid gap-2">
         {CAPABILITIES.map((cap) => {
           const isImplied = implied.has(cap.value);
           const isChecked = checked.has(cap.value) || isImplied;
           return (
-            <li key={cap.value}>
-              <Checkbox
-                label={cap.label}
-                checked={isChecked}
-                disabled={isImplied || saving}
-                onChange={() => toggle(cap.value)}
-              />
-              <span className="form-access__cap-implies">
+            <li key={cap.value} className="grid gap-0.5">
+              {/* Base UI names the span from the wrapping label. */}
+              <label className="flex items-center gap-2 text-sm">
+                <RheaCheckbox
+                  checked={isChecked}
+                  disabled={isImplied || saving}
+                  onCheckedChange={() => toggle(cap.value)}
+                />
+                <span>{cap.label}</span>
+              </label>
+              <span className="pl-6 text-xs text-muted-foreground">
                 {isImplied ? "Included by a broader capability." : cap.implies}
               </span>
             </li>
           );
         })}
       </ul>
-      <div className="form-access__editor-actions">
-        <Button variant="quiet" onClick={onCancel} disabled={saving}>
+      <div className="flex flex-wrap gap-2">
+        <RheaButton variant="ghost" onClick={onCancel} disabled={saving}>
           Cancel
-        </Button>
-        <Button
-          variant="primary"
-          loading={saving}
+        </RheaButton>
+        <RheaButton
+          variant="default"
           disabled={saving}
+          aria-busy={saving || undefined}
           onClick={() => onSave([...checked])}
         >
+          {saving && <Spinner aria-hidden="true" />}
           Save access
-        </Button>
+        </RheaButton>
       </div>
     </div>
   );
