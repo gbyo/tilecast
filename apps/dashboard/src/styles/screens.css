@@ -4,13 +4,3 @@
   gap: var(--tc-space-6);
   width: min(1180px, 100%);
 }
-
-.screens-page > .page-header {
-  margin-bottom: 0;
-}
-
-/* Compact empty states shared with the Locations settings panel. */
-.screen-empty--compact {
-  min-height: 0;
-  padding: var(--tc-space-8) var(--tc-space-4);
-}

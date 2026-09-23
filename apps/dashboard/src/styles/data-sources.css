@@ -52,11 +52,6 @@
   line-height: 1.45;
 }
 
-.csv-file-summary__detail {
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-supporting);
-}
-
 .csv-source-input textarea {
   width: 100%;
   min-height: 144px;
@@ -174,14 +169,6 @@
   padding: 0;
   font-size: 13px;
   font-weight: 650;
-}
-
-.widget-editor__section-body .switch-row {
-  display: flex;
-  min-height: 32px;
-  align-items: center;
-  gap: var(--tc-space-2);
-  margin: 0;
 }
 
 .widget-editor__subsection {

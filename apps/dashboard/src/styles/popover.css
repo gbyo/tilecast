@@ -2,26 +2,9 @@
    `backwards`, never `both`: a filled transform left behind would quietly make
    the panel a containing block for any fixed-position child, which is the exact
    trap documented for overlays in docs/design-system.md. */
-@media (prefers-reduced-motion: no-preference) {
-  .signal-popover__panel {
-    animation: signal-popover-enter var(--tc-motion-fast) ease-out backwards;
-  }
-}
-
 @keyframes signal-popover-enter {
   from {
     opacity: 0;
     transform: translateY(-2px);
   }
-}
-
-/* Active-filter count on a trigger. Same geometry as the .view-tabs count, and
-   textual rather than colour-only so the number is the signal. */
-.signal-popover__count {
-  padding: 1px 6px;
-  border-radius: var(--tc-radius-chip);
-  color: var(--tc-action-primary);
-  background: var(--tc-action-primary-soft);
-  font: var(--tc-text-supporting);
-  font-weight: 600;
 }

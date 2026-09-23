@@ -81,23 +81,15 @@ p {
   gap: var(--tc-space-4);
 }
 
-.layout-library-item__copy,
 .layout-history-row > div {
   display: grid;
   min-width: 0;
   gap: 3px;
 }
 
-.layout-library-item__copy span,
 .layout-history-row span {
   color: var(--tc-text-secondary);
   font: var(--tc-text-caption);
-}
-
-.layout-preset-grid button.is-selected {
-  border-color: var(--tc-action-primary);
-  box-shadow: 0 0 0 2px
-    color-mix(in srgb, var(--tc-action-primary) 20%, transparent);
 }
 
 .layout-editor {
@@ -630,12 +622,6 @@ p {
   border: 2px dashed rgb(255 255 255 / 45%);
 }
 
-.layout-inspector-actions,
-.layout-inspector-actions + .button {
-  display: flex;
-  gap: var(--tc-space-1);
-}
-
 .layout-preview-overlay {
   position: fixed;
   z-index: 1200;
@@ -854,52 +840,6 @@ p {
   }
 }
 
-.page-header,
-.settings-page-header,
-.content-header,
-.screens-header,
-.playlist-header,
-.schedules-header {
-  margin-bottom: var(--tc-space-6);
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--tc-space-6);
-}
-
-.page-header h1,
-.page-header h2,
-.settings-page-header h1,
-.content-header h2,
-.screens-header h2,
-.playlist-header h2,
-.schedules-header h2 {
-  margin: 0;
-  font: var(--tc-text-page-title);
-  letter-spacing: -0.02em;
-}
-
-.page-header p,
-.settings-page-header p,
-.content-header p,
-.screens-header p,
-.playlist-header p,
-.schedules-header p {
-  margin: var(--tc-space-1) 0 0;
-  color: var(--tc-text-secondary);
-}
-
-@media (max-width: 720px) {
-  .page-header {
-    align-items: stretch;
-    flex-direction: column;
-    gap: var(--tc-space-4);
-  }
-}
-
 input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
 select,
 textarea {
@@ -946,7 +886,6 @@ textarea:disabled {
   color: var(--tc-status-danger);
 }
 
-.section-header,
 .toolbar {
   display: flex;
   align-items: center;
@@ -954,110 +893,8 @@ textarea:disabled {
   gap: var(--tc-space-4);
 }
 
-.view-tabs {
-  display: flex;
-  gap: var(--tc-space-6);
-  margin-bottom: var(--tc-space-6);
-  overflow-x: auto;
-  border-bottom: 1px solid var(--tc-border-default);
-  scrollbar-width: thin;
-}
-
-.view-tabs button,
-.view-tabs a {
-  position: relative;
-  text-decoration: none;
-  display: inline-flex;
-  min-height: 42px;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: var(--tc-space-2);
-  padding: 0 0 var(--tc-space-2);
-  color: var(--tc-text-secondary);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  font: var(--tc-text-label);
-}
-
-.view-tabs button::after,
-.view-tabs a::after {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  content: "";
-  background: transparent;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition:
-    background var(--tc-motion-fast),
-    transform 160ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.view-tabs button:hover:not(:disabled),
-.view-tabs a:hover,
-.view-tabs button[aria-current="page"],
-.view-tabs a[aria-current="page"] {
-  color: var(--tc-text-primary);
-}
-
-.view-tabs button[aria-current="page"]::after,
-.view-tabs a[aria-current="page"]::after {
-  background: var(--tc-action-primary);
-  transform: scaleX(1);
-}
-
-.view-tabs button:disabled {
-  color: var(--tc-text-disabled);
-  cursor: not-allowed;
-}
-
-.view-tabs button small,
-.view-tabs a small {
-  padding: 1px 6px;
-  color: var(--tc-status-warning);
-  background: var(--tc-status-warning-bg);
-  border: 1px solid var(--tc-status-warning-border);
-  border-radius: var(--tc-radius-chip);
-  font: var(--tc-text-supporting);
-}
-
-.status-badge {
-  min-height: 24px;
-  padding: 2px 8px;
-  border-radius: var(--tc-radius-pill);
-  font-size: 12px;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.status-dot-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--tc-space-2);
-  color: var(--tc-status-neutral);
-  font-size: 13px;
-}
-
-.status-dot-label > span {
-  width: 8px;
-  height: 8px;
-  background: currentColor;
-  border-radius: 50%;
-}
 .status-dot-label--danger {
   color: var(--tc-status-danger);
-}
-
-/* Tone groups accept both the semantic name StatusBadge passes (success, warning,
-   danger, info, neutral) and the domain names pages use. The semantic aliases were
-   missing, so `<StatusBadge tone="warning">` had no tone at all. */
-.status-badge {
-  color: var(--tc-status-success);
-  background: var(--tc-status-success-bg);
-  border-color: var(--tc-status-success-border);
 }
 
 .table-wrap,
@@ -1197,29 +1034,12 @@ tbody tr {
   }
 }
 
-.auth-context p:not(.eyebrow) {
-  color: var(--tc-sidebar-text);
-}
-
 .eyebrow,
 .step-label {
   color: var(--tc-identity-amber);
 }
 
-.settings-navigation a[aria-current="page"],
-.settings-navigation button.active,
-.settings-nav a[aria-current="page"],
-.settings-nav button.active {
-  color: var(--tc-action-primary);
-  background: var(--tc-action-primary-soft);
-  font-weight: 650;
-}
-
-.technical,
-.screen-id,
-.asset-meta code,
-.deployment-version,
-.package-editor code {
+.technical {
   font-family: var(--tc-font-mono);
   font-size: 13px;
 }
@@ -1484,14 +1304,6 @@ tbody tr {
   white-space: nowrap;
 }
 
-.content-picker-failures {
-  margin: 0 var(--tc-space-6) var(--tc-space-2);
-}
-
-.content-picker-failures ul {
-  margin: var(--tc-space-1) 0 0;
-}
-
 .content-picker__footer {
   border-top: 1px solid var(--tc-border-default);
   font-variant-numeric: tabular-nums;
@@ -1754,15 +1566,13 @@ tbody tr {
 
 /* One weekday row for every surface that picks weekdays, so a Monday reads the
    same in Schedules and in the Countdown Bar editor. */
-.schedule-weekdays,
-.countdown-weekdays {
+.schedule-weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(48px, 1fr));
   gap: var(--tc-space-2);
 }
 
-.schedule-weekdays button,
-.countdown-weekdays button {
+.schedule-weekdays button {
   min-height: 44px;
   border: 1px solid var(--tc-border-default);
   border-radius: var(--tc-radius-control);
@@ -1770,8 +1580,7 @@ tbody tr {
   background: var(--tc-bg-surface);
 }
 
-.schedule-weekdays button[aria-pressed="true"],
-.countdown-weekdays button[aria-pressed="true"] {
+.schedule-weekdays button[aria-pressed="true"] {
   border-color: var(--tc-action-primary);
   color: var(--tc-action-primary);
   background: var(--tc-action-primary-soft);
@@ -1802,170 +1611,9 @@ tbody tr {
   background: var(--tc-action-primary-soft);
 }
 
-/* The popover anchor is a flex container, so the trigger inside it would size to
-   its longest timezone name. Both fill the field's column instead, keeping this
-   control the same width as the ones beside it. */
-.schedule-timezone > .signal-popover,
-.schedule-timezone__trigger {
-  width: 100%;
-}
-
-.schedule-timezone__trigger {
-  display: flex;
-  height: var(--tc-control-height);
-  min-height: var(--tc-control-height);
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--tc-space-3);
-  border: 1px solid var(--tc-input-border);
-  border-radius: var(--tc-radius-control);
-  color: var(--tc-text-primary);
-  background: var(--tc-input-bg);
-  text-align: left;
-}
-
-.schedule-timezone__menu {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  padding: 0;
-}
-
-.schedule-timezone__menu > label {
-  display: flex;
-  align-items: center;
-  gap: var(--tc-space-2);
-  padding: var(--tc-space-2);
-  border-bottom: 1px solid var(--tc-border-default);
-}
-
-.schedule-timezone__menu input {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-/* The timezone menu label wraps a borderless filter input; keep it flush
-   with the menu surface (relocated from the retired issue-fixes sheet). */
-.schedule-timezone__menu
-  > label
-  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
-.schedule-timezone__menu > label input:hover:not(:disabled),
-.schedule-timezone__menu > label input:focus {
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  padding: 0;
-  color: var(--tc-input-text);
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  outline: 0;
-  box-shadow: none;
-  appearance: none;
-}
-
-.schedule-timezone__menu > div {
-  overflow: auto;
-  padding: var(--tc-space-1);
-}
-
-.schedule-timezone__menu > div button {
-  display: flex;
-  width: 100%;
-  min-height: 38px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--tc-space-2);
-  border: 0;
-  border-radius: var(--tc-radius-chip);
-  color: var(--tc-text-primary);
-  background: transparent;
-  text-align: left;
-}
-
-.schedule-timezone__menu button:hover,
-.schedule-timezone__menu button.selected {
-  background: var(--tc-table-row-hover);
-}
-
 .schedule-target-picker {
   display: grid;
   gap: var(--tc-space-3);
-}
-
-.schedule-target-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--tc-space-2);
-}
-
-.schedule-target-chips > span {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  gap: var(--tc-space-1);
-  max-width: 100%;
-  padding-left: var(--tc-space-3);
-  border: 1px solid var(--tc-action-primary);
-  border-radius: var(--tc-radius-pill);
-  color: var(--tc-action-primary);
-  background: var(--tc-action-primary-soft);
-}
-
-.schedule-target-chips button {
-  display: grid;
-  width: 32px;
-  height: 30px;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  color: inherit;
-  background: transparent;
-}
-
-.schedule-target-results {
-  display: grid;
-  max-height: 260px;
-  overflow: auto;
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-control);
-}
-
-.schedule-target-results > button {
-  display: flex;
-  min-height: 54px;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--tc-space-3);
-  padding: var(--tc-space-2) var(--tc-space-3);
-  border: 0;
-  border-bottom: 1px solid var(--tc-border-default);
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-surface);
-  text-align: left;
-}
-
-.schedule-target-results > button:last-child {
-  border-bottom: 0;
-}
-
-.schedule-target-results > button:hover {
-  background: var(--tc-table-row-hover);
-}
-
-.schedule-target-results > button:disabled {
-  color: var(--tc-text-secondary);
-  background: var(--tc-bg-subtle);
-}
-
-.schedule-target-results > button > span:first-child {
-  display: grid;
-  gap: 2px;
-}
-
-.schedule-target-results small {
-  color: var(--tc-text-secondary);
 }
 
 .schedule-priority > div[role="radiogroup"] {
@@ -2105,8 +1753,7 @@ tbody tr {
     padding: var(--tc-space-3);
   }
 
-  .schedule-weekdays,
-  .countdown-weekdays {
+  .schedule-weekdays {
     grid-template-columns: repeat(4, minmax(52px, 1fr));
   }
 
@@ -2256,23 +1903,6 @@ tbody tr {
   }
 }
 
-@media (max-width: 480px) {
-  .policy-filter-switch,
-  .policy-toolbar .button {
-    width: 100%;
-  }
-
-  .policy-action-bar > div,
-  .policy-action-bar .button {
-    width: 100%;
-  }
-}
-
-.content-type-filters {
-  max-width: 100%;
-  overflow-x: auto;
-}
-
 /* The catalog preview shows the Widget's arrangement rather than a generic icon. It is
    decorative relative to the button's own label, so it never grows past the card. */
 .widget-thumbnail {
@@ -2303,9 +1933,7 @@ tbody tr {
   background: transparent;
 }
 
-.app-editor-route .source-gallery,
-.app-editor-route .source-editor,
-.app-editor-route .website-editor {
+.app-editor-route .source-editor {
   width: 100%;
   max-height: none;
   padding: 0;
@@ -2314,9 +1942,7 @@ tbody tr {
   box-shadow: none;
 }
 
-.app-editor-route .source-gallery > header,
-.app-editor-route .source-editor > header,
-.app-editor-route .website-editor > header {
+.app-editor-route .source-editor > header {
   padding-bottom: var(--tc-space-4);
   border-bottom: 1px solid var(--tc-border-default);
 }
@@ -2442,8 +2068,7 @@ tbody tr {
 }
 
 .source-editor__fieldset,
-.source-diagnostics,
-.source-preview-list {
+.source-diagnostics {
   display: grid;
   gap: var(--tc-space-3);
   padding: var(--tc-space-3);
@@ -2451,77 +2076,15 @@ tbody tr {
   border-radius: var(--tc-radius-panel);
   background: var(--tc-bg-subtle);
 }
-.reliability-button-grid .button {
-  justify-content: flex-start;
-  width: 100%;
-  min-width: 0;
-  text-align: left;
-}
 
-/* The Screens page workspace — tabs, summary, toolbar, table, and preview cards —
-   is defined in styles/screens.css. Only the pieces the Locations settings panel
-   shares with it stay here. */
-.location-search {
-  display: flex;
-  align-items: center;
-  gap: var(--tc-space-2);
-  min-width: min(25rem, 100%);
-  height: var(--tc-control-height);
-  padding: 0 var(--tc-space-3);
-  border: 1px solid var(--tc-input-border);
-  border-radius: var(--tc-radius-control);
-  background: var(--tc-input-bg);
-}
-.screen-room-fields,
-.location-form__row {
+.screen-room-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem;
 }
 
 @media (max-width: 680px) {
-  .screen-room-fields,
-  .location-form__row {
+  .screen-room-fields {
     grid-template-columns: 1fr;
   }
-}
-
-/* Metric tiles, filter bars, and the time range picker: shared primitives for
-   reporting surfaces. See docs/design-system.md. */
-.metric-tile {
-  display: grid;
-  min-height: 106px;
-  align-content: start;
-  gap: var(--tc-space-1);
-  padding: var(--tc-space-4);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-  background: var(--tc-bg-surface);
-  color: inherit;
-  text-decoration: none;
-}
-
-.playlist-picker__preview .playlist-library-preview,
-.playlist-picker__preview .layout-library-preview {
-  border-radius: inherit;
-}
-
-.playlist-picker__preview .layout-library-thumbnail {
-  width: 100%;
-  height: 100%;
-}
-
-.playlist-picker__preview[data-orientation="portrait"]
-  .layout-library-thumbnail {
-  width: auto;
-  max-width: 58%;
-}
-
-.playlist-picker__results > button.is-selected {
-  background: var(--tc-brand-soft);
-  border-color: var(--tc-brand);
-}
-
-.playlist-picker__results > button.is-selected .playlist-picker__icon {
-  color: var(--tc-brand);
 }

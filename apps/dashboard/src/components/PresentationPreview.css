@@ -98,8 +98,7 @@
   background: var(--tc-bg-subtle);
 }
 
-.layout-library-preview[data-orientation="portrait"] .layout-library-thumbnail,
-.layout-library-card[data-orientation="portrait"] .layout-library-thumbnail {
+.layout-library-preview[data-orientation="portrait"] .layout-library-thumbnail {
   width: auto;
   max-width: 58%;
 }

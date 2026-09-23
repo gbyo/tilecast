@@ -80,7 +80,6 @@ import {
   ToggleGroupItem as RheaToggleGroupItem,
 } from "../components/ui/toggle-group";
 import { optionLabel } from "../content/data-sources/shared";
-import "./LayoutLibraryPage.css";
 
 const presets = [
   {

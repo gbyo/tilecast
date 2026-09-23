@@ -18,11 +18,6 @@
   width: min(1180px, 100%);
 }
 
-.bulk-page > .page-header,
-.bulk-page > .view-tabs {
-  margin-bottom: 0;
-}
-
 /* Work area ------------------------------------------------------------
 
    Choosing screens and choosing the change are two halves of one decision, so
