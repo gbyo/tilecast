@@ -1,28 +1,18 @@
-import {
-  Button,
-  ContextMenu,
-  Dialog,
-  EmptyState,
-  Field,
-  Notice,
-  PageHeader,
-  Select,
-  ViewToggle,
-  useContextMenu,
-  type ContextMenuItem,
-} from "../components/legacy-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronRight,
   Copy,
   EllipsisVertical,
+  LayoutGrid,
   LayoutTemplate,
+  List,
   Pencil,
   Plus,
   SquarePen,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { LayoutOrientation, LayoutSummary } from "../api/types";
@@ -33,6 +23,64 @@ import {
 } from "../components/DashboardListToolbar";
 import { LayoutPreview } from "../components/PresentationPreview";
 import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  AlertDialog as RheaAlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  ContextMenu as RheaContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "../components/ui/context-menu";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  DropdownMenu as RheaDropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
+import { Textarea } from "../components/ui/textarea";
+import {
+  ToggleGroup as RheaToggleGroup,
+  ToggleGroupItem as RheaToggleGroupItem,
+} from "../components/ui/toggle-group";
+import { optionLabel } from "../content/data-sources/shared";
 import "./LayoutLibraryPage.css";
 
 const presets = [
@@ -70,6 +118,27 @@ export type LayoutPublicationState = Exclude<
   LayoutLibraryPublicationFilter,
   "all"
 >;
+
+const layoutOrientationOptions = [
+  { value: "all", label: "All orientations" },
+  { value: "landscape", label: "Landscape" },
+  { value: "portrait", label: "Portrait" },
+  { value: "custom", label: "Custom" },
+];
+
+const layoutPublicationOptions = [
+  { value: "all", label: "All statuses" },
+  { value: "published", label: "Published" },
+  { value: "changes", label: "Unpublished changes" },
+  { value: "draft", label: "Draft only" },
+];
+
+const layoutSortOptions = [
+  { value: "updated", label: "Recently updated" },
+  { value: "name", label: "Name" },
+  { value: "created", label: "Recently created" },
+  { value: "published", label: "Recently published" },
+];
 
 const layoutViewStorageKey = "tilecast.layout-library.view";
 const layoutNameCollator = new Intl.Collator(undefined, {
@@ -212,7 +281,9 @@ export function LayoutsPage() {
   const [actionError, setActionError] = useState("");
   const [renaming, setRenaming] = useState<LayoutSummary>();
   const [renameName, setRenameName] = useState("");
-  const menu = useContextMenu<LayoutSummary>();
+  const [pendingDelete, setPendingDelete] = useState<LayoutSummary | null>(
+    null,
+  );
 
   const layouts = useQuery({
     queryKey: ["layouts", "library"],
@@ -391,8 +462,16 @@ export function LayoutsPage() {
     setOrientation("all");
     setPublication("all");
   };
-  const actionsFor = (layout: LayoutSummary): ContextMenuItem[] => {
-    const actions: ContextMenuItem[] = [
+  type LayoutMenuAction = {
+    label: string;
+    icon: ReactNode;
+    danger?: boolean;
+    separated?: boolean;
+    disabled?: boolean;
+    onSelect: () => void;
+  };
+  const actionsFor = (layout: LayoutSummary): LayoutMenuAction[] => {
+    const actions: LayoutMenuAction[] = [
       {
         label: canManage ? "Edit" : "Open",
         icon: <SquarePen size={14} />,
@@ -419,10 +498,7 @@ export function LayoutsPage() {
           danger: true,
           separated: true,
           disabled: remove.isPending,
-          onSelect: () => {
-            if (window.confirm(`Delete ${layout.name}?`))
-              remove.mutate(layout.id);
-          },
+          onSelect: () => setPendingDelete(layout),
         },
       );
     }
@@ -430,340 +506,509 @@ export function LayoutsPage() {
   };
 
   return (
-    <section className="layout-library-page">
+    <section className="grid gap-4">
       <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
-      <PageHeader
-        title="Layouts"
-        description="Design reusable screen compositions and find the right canvas at a glance."
-        actions={
-          canManage ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Layouts</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Design reusable screen compositions and find the right canvas at a
+            glance.
+          </p>
+        </div>
+        {canManage && (
+          <div className="flex flex-wrap items-center gap-2">
+            <RheaButton type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               Create layout
-            </Button>
-          ) : undefined
-        }
-      />
-      <DashboardListToolbar className="layout-library-toolbar">
+            </RheaButton>
+          </div>
+        )}
+      </header>
+      <DashboardListToolbar>
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
           label="Search layouts"
           placeholder="Search names, descriptions, or dimensions"
         />
-        <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Filter layouts by orientation"
+        <RheaSelect
           value={orientation}
-          onChange={(event) =>
-            setOrientation(event.target.value as LayoutLibraryOrientationFilter)
+          onValueChange={(next) =>
+            setOrientation(next as LayoutLibraryOrientationFilter)
           }
         >
-          <option value="all">All orientations</option>
-          <option value="landscape">Landscape</option>
-          <option value="portrait">Portrait</option>
-          <option value="custom">Custom</option>
-        </Select>
-        <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Filter layouts by publication status"
+          <SelectTrigger aria-label="Filter layouts by orientation">
+            <SelectValue>
+              {optionLabel(layoutOrientationOptions, orientation)}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {layoutOrientationOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </RheaSelect>
+        <RheaSelect
           value={publication}
-          onChange={(event) =>
-            setPublication(event.target.value as LayoutLibraryPublicationFilter)
+          onValueChange={(next) =>
+            setPublication(next as LayoutLibraryPublicationFilter)
           }
         >
-          <option value="all">All statuses</option>
-          <option value="published">Published</option>
-          <option value="changes">Unpublished changes</option>
-          <option value="draft">Draft only</option>
-        </Select>
-        <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Sort layouts"
+          <SelectTrigger aria-label="Filter layouts by publication status">
+            <SelectValue>
+              {optionLabel(layoutPublicationOptions, publication)}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {layoutPublicationOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </RheaSelect>
+        <RheaSelect
           value={sort}
-          onChange={(event) => setSort(event.target.value as LayoutLibrarySort)}
+          onValueChange={(next) => setSort(next as LayoutLibrarySort)}
         >
-          <option value="updated">Recently updated</option>
-          <option value="name">Name</option>
-          <option value="created">Recently created</option>
-          <option value="published">Recently published</option>
-        </Select>
-        <ViewToggle value={view} onValueChange={setView} label="Layout view" />
+          <SelectTrigger aria-label="Sort layouts">
+            <SelectValue>{optionLabel(layoutSortOptions, sort)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {layoutSortOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </RheaSelect>
+        <RheaToggleGroup
+          aria-label="Layout view"
+          value={[view]}
+          onValueChange={(values) => {
+            const next = values[0];
+            if (next === "grid" || next === "list") setView(next);
+          }}
+        >
+          <RheaToggleGroupItem value="grid" aria-label="Grid view">
+            <LayoutGrid size={16} aria-hidden="true" />
+          </RheaToggleGroupItem>
+          <RheaToggleGroupItem value="list" aria-label="List view">
+            <List size={16} aria-hidden="true" />
+          </RheaToggleGroupItem>
+        </RheaToggleGroup>
       </DashboardListToolbar>
 
       {!layouts.isLoading && allLayouts.length > 0 && (
-        <div className="layout-library-summary" aria-live="polite">
+        <div className="text-sm text-muted-foreground" aria-live="polite">
           Showing {visibleLayouts.length} of {allLayouts.length} layouts
         </div>
       )}
 
       {layouts.isError && (
-        <Notice variant="danger">
-          {layouts.error instanceof Error
-            ? layouts.error.message
-            : "Layouts could not be loaded."}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {layouts.error instanceof Error
+              ? layouts.error.message
+              : "Layouts could not be loaded."}
+          </AlertDescription>
+        </Alert>
       )}
-      {actionError && <Notice variant="danger">{actionError}</Notice>}
+      {actionError && (
+        <Alert variant="destructive">
+          <AlertDescription>{actionError}</AlertDescription>
+        </Alert>
+      )}
 
       {layouts.isLoading ? (
-        <div className="table-loading">Loading layouts…</div>
+        <div className="grid gap-2">
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+        </div>
       ) : allLayouts.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<LayoutTemplate size={24} aria-hidden="true" />}
-          title="No layouts yet"
-          message={
-            canManage
-              ? "Create a landscape or portrait canvas, then arrange reusable content on it."
-              : "An Owner, Administrator, or Editor can create layouts."
-          }
-          action={
-            canManage ? (
-              <Button variant="primary" onClick={() => setCreating(true)}>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <LayoutTemplate size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No layouts yet</EmptyTitle>
+            <EmptyDescription>
+              {canManage
+                ? "Create a landscape or portrait canvas, then arrange reusable content on it."
+                : "An Owner, Administrator, or Editor can create layouts."}
+            </EmptyDescription>
+          </EmptyHeader>
+          {canManage && (
+            <EmptyContent>
+              <RheaButton type="button" onClick={() => setCreating(true)}>
                 Create layout
-              </Button>
-            ) : undefined
-          }
-        />
+              </RheaButton>
+            </EmptyContent>
+          )}
+        </Empty>
       ) : visibleLayouts.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<LayoutTemplate size={24} aria-hidden="true" />}
-          title="No matching layouts"
-          message="Try a different search or clear the layout filters."
-          action={
-            <Button variant="secondary" onClick={clearLibraryFilters}>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <LayoutTemplate size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No matching layouts</EmptyTitle>
+            <EmptyDescription>
+              Try a different search or clear the layout filters.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <RheaButton
+              type="button"
+              variant="outline"
+              onClick={clearLibraryFilters}
+            >
               Clear filters
-            </Button>
-          }
-        />
+            </RheaButton>
+          </EmptyContent>
+        </Empty>
       ) : (
-        <div className={`layout-library-grid layout-library-grid--${view}`}>
+        <div
+          className={
+            view === "grid"
+              ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+              : "grid gap-2"
+          }
+        >
           {visibleLayouts.map((layout) => {
             const publicationState = layoutPublicationState(layout);
+            const menuLabel = `Actions for ${layout.name}`;
             return (
-              <article
-                className="layout-library-card"
-                data-orientation={layout.orientation}
-                data-publication={publicationState}
-                key={layout.id}
-                onContextMenu={(event) => menu.open(event, layout)}
-              >
-                <button
-                  type="button"
-                  className="layout-library-card__menu"
-                  aria-haspopup="menu"
-                  aria-expanded={menu.anchor?.target.id === layout.id}
-                  aria-label={`Actions for ${layout.name}`}
-                  onClick={(event) => menu.open(event, layout)}
+              <RheaContextMenu key={layout.id}>
+                <ContextMenuTrigger
+                  render={
+                    <article
+                      className="relative min-w-0"
+                      data-orientation={layout.orientation}
+                      data-publication={publicationState}
+                    />
+                  }
                 >
-                  <EllipsisVertical size={16} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="layout-library-card__open"
-                  aria-label={`${canManage ? "Edit" : "Open"} ${layout.name}`}
-                  onClick={() => void navigate(`/layouts/${layout.id}`)}
-                >
-                  <span className="layout-library-card__preview">
-                    <LayoutPreview layout={layout} />
-                    <span className="layout-library-card__status">
-                      {layoutPublicationLabel(layout)}
+                  <button
+                    type="button"
+                    className="grid w-full gap-3 rounded-xl border border-border p-3 text-left hover:bg-muted"
+                    aria-label={`${canManage ? "Edit" : "Open"} ${layout.name}`}
+                    onClick={() => void navigate(`/layouts/${layout.id}`)}
+                  >
+                    <span className="relative block">
+                      <LayoutPreview layout={layout} />
+                      <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
+                        {layoutPublicationLabel(layout)}
+                      </span>
+                      <span className="absolute right-2 bottom-2 rounded-full bg-background/90 px-2 py-0.5 text-xs tabular-nums">
+                        {layout.canvasWidth} × {layout.canvasHeight}
+                      </span>
                     </span>
-                    <span className="layout-library-card__dimensions">
-                      {layout.canvasWidth} × {layout.canvasHeight}
+                    <span className="grid gap-1">
+                      <span className="flex items-center justify-between gap-2">
+                        <strong
+                          title={layout.name}
+                          className="truncate text-sm"
+                        >
+                          {layout.name}
+                        </strong>
+                        <ChevronRight
+                          size={17}
+                          aria-hidden="true"
+                          className="shrink-0 text-muted-foreground"
+                        />
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {layout.description || "No description"}
+                      </span>
+                      <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{orientationLabel(layout.orientation)}</span>
+                        <span>Draft r{layout.draftRevision}</span>
+                        {layout.publishedRevision && (
+                          <span>Published r{layout.publishedRevision}</span>
+                        )}
+                      </span>
+                      <small className="text-xs text-muted-foreground">
+                        {formatLayoutUpdatedAt(layout.updatedAt)}
+                      </small>
                     </span>
-                  </span>
-                  <span className="layout-library-card__body">
-                    <span className="layout-library-card__heading">
-                      <strong title={layout.name}>{layout.name}</strong>
-                      <ChevronRight size={17} aria-hidden="true" />
-                    </span>
-                    <span
-                      className={`layout-library-card__description${layout.description ? "" : " is-empty"}`}
+                  </button>
+                  <RheaDropdownMenu>
+                    <DropdownMenuTrigger
+                      className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-xl bg-background/90 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
+                      aria-label={menuLabel}
                     >
-                      {layout.description || "No description"}
-                    </span>
-                    <span className="layout-library-card__metadata">
-                      <span>{orientationLabel(layout.orientation)}</span>
-                      <span>Draft r{layout.draftRevision}</span>
-                      {layout.publishedRevision && (
-                        <span>Published r{layout.publishedRevision}</span>
-                      )}
-                    </span>
-                    <small>{formatLayoutUpdatedAt(layout.updatedAt)}</small>
-                  </span>
-                </button>
-              </article>
+                      <EllipsisVertical size={16} aria-hidden="true" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" aria-label={menuLabel}>
+                      {actionsFor(layout).map((action, index) => (
+                        <Fragment key={`${action.label}-${index}`}>
+                          {action.separated && <DropdownMenuSeparator />}
+                          <DropdownMenuItem
+                            variant={action.danger ? "destructive" : "default"}
+                            disabled={action.disabled}
+                            onClick={action.onSelect}
+                          >
+                            {action.icon}
+                            {action.label}
+                          </DropdownMenuItem>
+                        </Fragment>
+                      ))}
+                    </DropdownMenuContent>
+                  </RheaDropdownMenu>
+                </ContextMenuTrigger>
+                <ContextMenuContent aria-label={menuLabel}>
+                  {actionsFor(layout).map((action, index) => (
+                    <Fragment key={`${action.label}-${index}`}>
+                      {action.separated && <ContextMenuSeparator />}
+                      <ContextMenuItem
+                        variant={action.danger ? "destructive" : "default"}
+                        disabled={action.disabled}
+                        onClick={action.onSelect}
+                      >
+                        {action.icon}
+                        {action.label}
+                      </ContextMenuItem>
+                    </Fragment>
+                  ))}
+                </ContextMenuContent>
+              </RheaContextMenu>
             );
           })}
-          {menu.anchor && (
-            <ContextMenu
-              x={menu.anchor.x}
-              y={menu.anchor.y}
-              label={`Actions for ${menu.anchor.target.name}`}
-              items={actionsFor(menu.anchor.target)}
-              onClose={menu.close}
-            />
-          )}
         </div>
       )}
 
-      <Dialog
+      <RheaDialog
         open={creating}
-        title="Create layout"
-        onClose={closeCreate}
-        className="layout-library-dialog"
+        onOpenChange={(open) => {
+          if (!open) closeCreate();
+        }}
       >
-        <div className="layout-library-dialog__body">
-          <Field label="Name" required>
-            <input
-              autoFocus
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          <Field
-            label="Description"
-            description="Optional context that makes the layout easier to find later."
-          >
-            <textarea
-              rows={3}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </Field>
-          <fieldset className="layout-library-presets">
-            <legend>Canvas size</legend>
-            <div className="layout-library-presets__grid">
-              {presets.map((item, index) => (
-                <button
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create layout</DialogTitle>
+            <DialogDescription>
+              Name the canvas, pick its size, and choose a starting point.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="layout-create-name">Name *</FieldLabel>
+              <Input
+                id="layout-create-name"
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="layout-create-description">
+                Description
+              </FieldLabel>
+              <Textarea
+                id="layout-create-description"
+                rows={3}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+              <FieldDescription>
+                Optional context that makes the layout easier to find later.
+              </FieldDescription>
+            </Field>
+            <fieldset className="grid gap-2">
+              <legend className="text-sm font-medium">Canvas size</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {presets.map((item, index) => (
+                  <RheaButton
+                    type="button"
+                    variant={preset === index ? "default" : "outline"}
+                    className="h-auto items-center gap-3 p-3 text-left"
+                    aria-pressed={preset === index}
+                    key={item.label}
+                    onClick={() => setPreset(index)}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={
+                        item.orientation === "landscape"
+                          ? "h-6 w-10 shrink-0 rounded-sm border-2 border-current"
+                          : "h-10 w-6 shrink-0 rounded-sm border-2 border-current"
+                      }
+                    />
+                    <span className="grid gap-0.5">
+                      <strong className="text-sm">{item.label}</strong>
+                      <small className="text-xs font-normal opacity-80">
+                        {item.width} × {item.height}
+                      </small>
+                    </span>
+                  </RheaButton>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="grid gap-2">
+              <legend className="text-sm font-medium">Starting point</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <RheaButton
                   type="button"
-                  aria-pressed={preset === index}
-                  key={item.label}
-                  onClick={() => setPreset(index)}
+                  variant={template === "blank" ? "default" : "outline"}
+                  className="h-auto items-center gap-3 p-3 text-left"
+                  aria-pressed={template === "blank"}
+                  onClick={() => setTemplate("blank")}
                 >
-                  <span
-                    className={`layout-library-preset-shape layout-library-preset-shape--${item.orientation}`}
-                    aria-hidden="true"
-                  />
-                  <span>
-                    <strong>{item.label}</strong>
-                    <small>
-                      {item.width} × {item.height}
+                  <LayoutTemplate size={20} aria-hidden="true" />
+                  <span className="grid gap-0.5">
+                    <strong className="text-sm">Blank canvas</strong>
+                    <small className="text-xs font-normal opacity-80">
+                      Start with an empty layout.
                     </small>
                   </span>
-                </button>
-              ))}
-            </div>
-          </fieldset>
-          <fieldset className="layout-library-starting-point">
-            <legend>Starting point</legend>
-            <button
+                </RheaButton>
+                <RheaButton
+                  type="button"
+                  variant={template === "announcement" ? "default" : "outline"}
+                  className="h-auto items-center gap-3 p-3 text-left"
+                  aria-pressed={template === "announcement"}
+                  onClick={() => setTemplate("announcement")}
+                >
+                  <SquarePen size={20} aria-hidden="true" />
+                  <span className="grid gap-0.5">
+                    <strong className="text-sm">Announcement</strong>
+                    <small className="text-xs font-normal opacity-80">
+                      Begin with an accent bar and headline.
+                    </small>
+                  </span>
+                </RheaButton>
+              </div>
+            </fieldset>
+            {create.error && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {create.error instanceof Error
+                    ? create.error.message
+                    : "The layout could not be created."}
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <RheaButton type="button" variant="outline" onClick={closeCreate}>
+              Cancel
+            </RheaButton>
+            <RheaButton
               type="button"
-              aria-pressed={template === "blank"}
-              onClick={() => setTemplate("blank")}
+              disabled={!name.trim() || create.isPending}
+              onClick={() => create.mutate()}
             >
-              <LayoutTemplate size={20} aria-hidden="true" />
-              <span>
-                <strong>Blank canvas</strong>
-                <small>Start with an empty layout.</small>
-              </span>
-            </button>
-            <button
-              type="button"
-              aria-pressed={template === "announcement"}
-              onClick={() => setTemplate("announcement")}
-            >
-              <SquarePen size={20} aria-hidden="true" />
-              <span>
-                <strong>Announcement</strong>
-                <small>Begin with an accent bar and headline.</small>
-              </span>
-            </button>
-          </fieldset>
-          {create.error && (
-            <Notice variant="danger">
-              {create.error instanceof Error
-                ? create.error.message
-                : "The layout could not be created."}
-            </Notice>
-          )}
-        </div>
-        <div className="form-actions">
-          <Button variant="quiet" onClick={closeCreate}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!name.trim()}
-            loading={create.isPending}
-            onClick={() => create.mutate()}
-          >
-            Create layout
-          </Button>
-        </div>
-      </Dialog>
+              {create.isPending ? "Creating…" : "Create layout"}
+            </RheaButton>
+          </DialogFooter>
+        </DialogContent>
+      </RheaDialog>
 
-      <Dialog
+      <RheaDialog
         open={Boolean(renaming)}
-        title="Rename layout"
-        onClose={closeRename}
-        className="layout-library-rename-dialog"
+        onOpenChange={(open) => {
+          if (!open) closeRename();
+        }}
       >
-        <Field label="Name" required>
-          <input
-            autoFocus
-            value={renameName}
-            onChange={(event) => setRenameName(event.target.value)}
-            onKeyDown={(event) => {
-              if (
-                event.key === "Enter" &&
-                !rename.isPending &&
-                renaming &&
-                renameName.trim() &&
-                renameName.trim() !== renaming.name
-              ) {
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename layout</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="layout-rename-name">Name *</FieldLabel>
+              <Input
+                id="layout-rename-name"
+                autoFocus
+                value={renameName}
+                onChange={(event) => setRenameName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    !rename.isPending &&
+                    renaming &&
+                    renameName.trim() &&
+                    renameName.trim() !== renaming.name
+                  ) {
+                    rename.mutate({
+                      layout: renaming,
+                      nextName: renameName.trim(),
+                    });
+                  }
+                }}
+              />
+            </Field>
+            {rename.error && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {rename.error instanceof Error
+                    ? rename.error.message
+                    : "The layout could not be renamed."}
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <RheaButton type="button" variant="outline" onClick={closeRename}>
+              Cancel
+            </RheaButton>
+            <RheaButton
+              type="button"
+              disabled={
+                !renaming ||
+                !renameName.trim() ||
+                renameName.trim() === renaming.name ||
+                rename.isPending
+              }
+              onClick={() => {
+                if (!renaming) return;
                 rename.mutate({
                   layout: renaming,
                   nextName: renameName.trim(),
                 });
-              }
-            }}
-          />
-        </Field>
-        {rename.error && (
-          <Notice variant="danger">
-            {rename.error instanceof Error
-              ? rename.error.message
-              : "The layout could not be renamed."}
-          </Notice>
-        )}
-        <div className="form-actions">
-          <Button variant="quiet" onClick={closeRename}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={
-              !renaming ||
-              !renameName.trim() ||
-              renameName.trim() === renaming.name
-            }
-            loading={rename.isPending}
-            onClick={() => {
-              if (!renaming) return;
-              rename.mutate({
-                layout: renaming,
-                nextName: renameName.trim(),
-              });
-            }}
-          >
-            Save name
-          </Button>
-        </div>
-      </Dialog>
+              }}
+            >
+              {rename.isPending ? "Saving…" : "Save name"}
+            </RheaButton>
+          </DialogFooter>
+        </DialogContent>
+      </RheaDialog>
+      <RheaAlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {pendingDelete?.name ?? "layout"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Playlists using this layout keep their last published copy. This
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={remove.isPending}
+              onClick={() => {
+                if (pendingDelete) {
+                  remove.mutate(pendingDelete.id);
+                  setPendingDelete(null);
+                }
+              }}
+            >
+              Delete layout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
     </section>
   );
 }

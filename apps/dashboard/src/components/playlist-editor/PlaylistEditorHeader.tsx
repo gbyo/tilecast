@@ -9,8 +9,16 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { Link } from "react-router";
-import { Button, PageHeader, Popover, StatusBadge } from "../legacy-ui";
 import type { Playlist } from "../../api/types";
+import { Badge } from "../ui/badge";
+import { Button as RheaButton } from "../ui/button";
+import {
+  DropdownMenu as RheaDropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import { playlistDurationLabel } from "./playlistEditorModel";
 
 export function PlaylistEditorHeader({
@@ -50,127 +58,85 @@ export function PlaylistEditorHeader({
   const duration = playlistDurationLabel(playlist.items);
 
   return (
-    <PageHeader
-      className="playlist-editor-header"
-      eyebrow={
-        <Link className="playlist-editor-header__back" to="/playlists">
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div className="grid min-w-0 gap-1">
+        <Link
+          to="/playlists"
+          className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft size={15} aria-hidden="true" />
           Playlists
         </Link>
-      }
-      title={playlist.name}
-      description={
-        <span className="playlist-editor-header__summary">
-          <StatusBadge
-            label={isPublished ? "Published" : "Draft"}
-            tone={isPublished ? "success" : "neutral"}
-          />
+        <h1 className="truncate text-2xl font-semibold tracking-tight">
+          {playlist.name}
+        </h1>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <Badge variant={isPublished ? "default" : "secondary"}>
+            {isPublished ? "Published" : "Draft"}
+          </Badge>
           <span>{playlist.itemCount} items</span>
           <span>{duration}</span>
           {sourceType === "tag" && <span>Tag-driven</span>}
           {hasChanges && (
-            <span className="playlist-editor-header__unpublished">
+            <span className="font-medium text-amber-600 dark:text-amber-400">
               Unpublished changes
             </span>
           )}
-        </span>
-      }
-      actions={
-        <>
-          <Button variant="quiet" onClick={onPreview}>
-            <ExternalLink size={15} aria-hidden="true" />
-            Preview
-          </Button>
-          {canSubmit && (
-            <Button
-              variant="primary"
-              loading={publishPending}
-              onClick={onPublish}
-              disabled={!hasChanges}
-            >
-              <Send size={15} aria-hidden="true" />
-              {canPublish ? "Publish" : "Submit for review"}
-            </Button>
-          )}
-          <Popover
-            label="Playlist actions"
-            mode="menu"
-            align="end"
-            width="220px"
-            trigger={(trigger) => (
-              <button
-                type="button"
-                className="icon-button playlist-editor-header__menu-trigger"
-                aria-label="More playlist actions"
-                title="More playlist actions"
-                {...trigger}
-              >
-                <MoreHorizontal size={18} aria-hidden="true" />
-              </button>
-            )}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <RheaButton type="button" variant="outline" onClick={onPreview}>
+          <ExternalLink size={15} aria-hidden="true" />
+          Preview
+        </RheaButton>
+        {canSubmit && (
+          <RheaButton
+            type="button"
+            disabled={!hasChanges || publishPending}
+            onClick={onPublish}
           >
-            {(close) => (
+            <Send size={15} aria-hidden="true" />
+            {publishPending
+              ? "Publishing…"
+              : canPublish
+                ? "Publish"
+                : "Submit for review"}
+          </RheaButton>
+        )}
+        <RheaDropdownMenu>
+          <DropdownMenuTrigger
+            className="inline-flex size-8 items-center justify-center rounded-xl hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
+            aria-label="More playlist actions"
+          >
+            <MoreHorizontal size={18} aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" aria-label="Playlist actions">
+            <DropdownMenuItem onClick={onOpenHistory}>
+              <History size={16} aria-hidden="true" />
+              History
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenDetails}>
+              <Settings2 size={16} aria-hidden="true" />
+              Playlist details
+            </DropdownMenuItem>
+            {canManage && (
               <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="playlist-editor-menu-item"
-                  onClick={() => {
-                    close();
-                    onOpenHistory();
-                  }}
-                >
-                  <History size={16} aria-hidden="true" />
-                  History
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="playlist-editor-menu-item"
-                  onClick={() => {
-                    close();
-                    onOpenDetails();
-                  }}
-                >
-                  <Settings2 size={16} aria-hidden="true" />
-                  Playlist details
-                </button>
-                {canManage && (
-                  <>
-                    <hr className="playlist-editor-menu-divider" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="playlist-editor-menu-item"
-                      onClick={() => {
-                        close();
-                        onDuplicate();
-                      }}
-                    >
-                      <Copy size={16} aria-hidden="true" />
-                      Duplicate playlist
-                    </button>
-                    {canDelete && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="playlist-editor-menu-item playlist-editor-menu-item--danger"
-                        onClick={() => {
-                          close();
-                          onDelete();
-                        }}
-                      >
-                        <Trash2 size={16} aria-hidden="true" />
-                        Delete playlist
-                      </button>
-                    )}
-                  </>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onDuplicate}>
+                  <Copy size={16} aria-hidden="true" />
+                  Duplicate playlist
+                </DropdownMenuItem>
+                {canDelete && (
+                  <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                    <Trash2 size={16} aria-hidden="true" />
+                    Delete playlist
+                  </DropdownMenuItem>
                 )}
               </>
             )}
-          </Popover>
-        </>
-      }
-    />
+          </DropdownMenuContent>
+        </RheaDropdownMenu>
+      </div>
+    </header>
   );
 }

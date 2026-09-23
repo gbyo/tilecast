@@ -1,9 +1,29 @@
-import { ContextMenu, Select, useContextMenu } from "../components/legacy-ui";
-import type { ContextMenuItem } from "../components/legacy-ui";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
+import { Button as RheaButton } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import {
+  ContextMenu as RheaContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "../components/ui/context-menu";
+import { Input } from "../components/ui/input";
+import { CanvasInspector } from "../components/layout-editor/CanvasInspector";
+import { PlacementInspector } from "../components/layout-editor/PlacementInspector";
+import {
+  AppPlacementPreview,
+  AssetPlaybackPreview,
+  PlaylistZonePreview,
+  WidgetLivePreview,
+  assetPreviewStyle,
+} from "../components/layout-editor/WidgetLivePreview";
+import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlignCenter,
   AlignCenterHorizontal,
   AlignCenterVertical,
   AlignEndHorizontal,
@@ -52,8 +72,10 @@ import {
 } from "lucide-react";
 import {
   type DragEvent as ReactDragEvent,
+  Fragment,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -61,33 +83,18 @@ import {
   useRef,
   useState,
 } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
-import QRCode from "qrcode";
+import { useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
   Asset,
-  CalendarEvent,
   CalendarPreview,
-  ClockWidgetConfig,
-  DataSourceProvider,
-  DataSource,
-  DateWidgetConfig,
-  DisplayWidgetConfig,
   LayoutDocument,
   LayoutPlacement,
   LayoutPrimitive,
   Playlist,
-  PlaylistItem,
-  QRCodeWidgetConfig,
   StructuredPreview,
-  StructuredRecord,
-  TickerWidgetConfig,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import {
-  ConnectDataNotice,
-  DataSourcePicker,
-} from "../content/DataSourcePicker";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { layoutFontStack } from "../layoutFonts";
 import { captureLayoutPreview } from "../content/widgetPreviewCapture";
@@ -132,16 +139,6 @@ export function recentLayoutLibraryItems(
     )
     .slice(0, 20);
 }
-
-// Resolved live data for one Data Source, keyed by its id, shared by every
-// widget/binding that references it so the preview mirrors the Player.
-type LivePreviewSource = {
-  provider: DataSourceProvider;
-  records?: StructuredRecord[];
-  events?: CalendarEvent[];
-  emptyState: string;
-};
-type LivePreviewData = Record<string, LivePreviewSource>;
 
 const widgetDataSourceId = (asset?: Asset): string | undefined => {
   const widget = asset?.widget;
@@ -272,6 +269,48 @@ export function createPlaylistZonePlacement(
 /** Where a right-click landed: on a placement, or on the empty canvas behind them. */
 type LayoutMenuTarget =
   { kind: "placement"; item: LayoutPlacement } | { kind: "canvas" };
+
+type LayoutMenuEntry = {
+  label: string;
+  icon?: ReactNode;
+  disabled?: boolean;
+  separated?: boolean;
+  danger?: boolean;
+  submenu?: LayoutMenuEntry[];
+  onSelect?: () => void;
+};
+
+function LayoutEditorMenuEntries({ items }: { items: LayoutMenuEntry[] }) {
+  return (
+    <>
+      {items.map((entry, index) => (
+        <Fragment key={`${entry.label}-${index}`}>
+          {entry.separated && <ContextMenuSeparator />}
+          {entry.submenu ? (
+            <ContextMenuSub>
+              <ContextMenuSubTrigger disabled={entry.disabled}>
+                {entry.icon}
+                {entry.label}
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent aria-label={entry.label}>
+                <LayoutEditorMenuEntries items={entry.submenu} />
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          ) : (
+            <ContextMenuItem
+              variant={entry.danger ? "destructive" : "default"}
+              disabled={entry.disabled}
+              onClick={entry.onSelect}
+            >
+              {entry.icon}
+              {entry.label}
+            </ContextMenuItem>
+          )}
+        </Fragment>
+      ))}
+    </>
+  );
+}
 
 export type LayoutArrangeMode = "front" | "forward" | "backward" | "back";
 export type LayoutAlignMode =
@@ -1252,17 +1291,19 @@ export function LayoutEditorPage() {
     },
     [selection, update],
   );
-  const menu = useContextMenu<LayoutMenuTarget>();
+  // Right-click target for the canvas menu. Capture-phase handlers set this
+  // before the Rhea trigger opens, so the content always matches the pointer.
+  const [menuTarget, setMenuTarget] = useState<LayoutMenuTarget | null>(null);
   const openPlacementMenu = (
-    event: ReactMouseEvent<HTMLElement>,
+    _event: ReactMouseEvent<HTMLElement>,
     item: LayoutPlacement,
   ) => {
     // Right-clicking outside the current selection retargets it, so the commands in the
     // menu always act on what the user just pointed at.
     if (!selection.has(item.id)) setSelection(new Set([item.id]));
-    menu.open(event, { kind: "placement", item });
+    setMenuTarget({ kind: "placement", item });
   };
-  const placementMenuItems = (target: LayoutPlacement): ContextMenuItem[] => {
+  const placementMenuItems = (target: LayoutPlacement): LayoutMenuEntry[] => {
     const scope = selection.has(target.id) ? selected : [target];
     const many = scope.length > 1;
     const locked = scope.some((item) => item.locked);
@@ -1410,7 +1451,7 @@ export function LayoutEditorPage() {
       },
     ];
   };
-  const canvasMenuItems = (): ContextMenuItem[] => [
+  const canvasMenuItems = (): LayoutMenuEntry[] => [
     {
       label: "Add element",
       icon: <Plus size={14} />,
@@ -1785,8 +1826,9 @@ export function LayoutEditorPage() {
     <div className="layout-editor">
       <div className="layout-editor-toolbar">
         <strong>{layoutQuery.data?.name}</strong>
-        <button
-          className="icon-button"
+        <RheaButton
+          variant="ghost"
+          size="icon"
           title="Rename Layout"
           aria-label={`Rename ${layoutQuery.data?.name ?? "Layout"}`}
           onClick={() => {
@@ -1799,48 +1841,56 @@ export function LayoutEditorPage() {
           }}
           disabled={rename.isPending}
         >
-          <Pencil size={16} />
-        </button>
+          <Pencil size={16} aria-hidden="true" />
+        </RheaButton>
         <span className="toolbar-divider" />
-        <button
-          className="icon-button"
+        <RheaButton
+          variant="ghost"
+          size="icon"
           title="Undo"
+          aria-label="Undo"
           onClick={undo}
           disabled={!past.length}
         >
-          <Undo2 size={17} />
-        </button>
-        <button
-          className="icon-button"
+          <Undo2 size={17} aria-hidden="true" />
+        </RheaButton>
+        <RheaButton
+          variant="ghost"
+          size="icon"
           title="Redo"
+          aria-label="Redo"
           onClick={redo}
           disabled={!future.length}
         >
-          <Redo2 size={17} />
-        </button>
+          <Redo2 size={17} aria-hidden="true" />
+        </RheaButton>
         <span className="toolbar-divider" />
-        <button
-          className="button button--compact button--secondary"
+        <RheaButton
+          variant="secondary"
+          size="sm"
           onClick={() => {
             setPreview(true);
             void loadLayoutPreview();
           }}
         >
-          <Scan size={16} />
+          <Scan size={16} aria-hidden="true" />
           Preview
-        </button>
-        <button
-          className="button button--compact button--secondary"
+        </RheaButton>
+        <RheaButton
+          variant="secondary"
+          size="sm"
           onClick={() => {
             setHistoryOpen(true);
             void revisions.refetch();
           }}
         >
-          <History size={16} />
+          <History size={16} aria-hidden="true" />
           History
-        </button>
-        <button
+        </RheaButton>
+        <RheaButton
           type="button"
+          variant="ghost"
+          size="sm"
           className={`layout-save-state layout-save-state--${saveState}`}
           onClick={() => void save()}
           disabled={
@@ -1857,7 +1907,7 @@ export function LayoutEditorPage() {
           }
           aria-live="polite"
         >
-          <Save size={14} />
+          <Save size={14} aria-hidden="true" />
           {saveState === "saved"
             ? "Saved"
             : saveState === "saving"
@@ -1867,10 +1917,11 @@ export function LayoutEditorPage() {
                 : saveState === "error"
                   ? "Retry save"
                   : "Save now"}
-        </button>
+        </RheaButton>
         {canSubmit && (
-          <button
-            className="button button--compact button--primary"
+          <RheaButton
+            variant="default"
+            size="sm"
             disabled={saveState !== "saved" || publish.isPending}
             onClick={() => publish.mutate()}
           >
@@ -1881,7 +1932,7 @@ export function LayoutEditorPage() {
               : canPublish
                 ? "Publish"
                 : "Submit for review"}
-          </button>
+          </RheaButton>
         )}
       </div>
       <aside className="layout-editor-left">
@@ -1924,12 +1975,13 @@ export function LayoutEditorPage() {
                   }
                 </strong>
               </div>
-              <button
+              <RheaButton
                 type="button"
-                className="button button--primary layout-library-browse"
+                variant="default"
+                className="layout-library-browse"
                 onClick={() => setPicker(sidebarSection)}
               >
-                <Search size={16} />
+                <Search size={16} aria-hidden="true" />
                 {
                   {
                     media: "Browse media library",
@@ -1937,7 +1989,7 @@ export function LayoutEditorPage() {
                     playlists: "Browse playlists",
                   }[sidebarSection]
                 }
-              </button>
+              </RheaButton>
               <div className="layout-panel-heading layout-panel-heading--sub">
                 <strong>Recent</strong>
                 <span>Drag to canvas</span>
@@ -2169,121 +2221,149 @@ export function LayoutEditorPage() {
       </aside>
       <main className="layout-stage">
         <div className="layout-stage-controls">
-          <button
-            className="icon-button"
+          <RheaButton
+            variant="ghost"
+            size="icon"
             onClick={() => setZoom((value) => Math.max(0.25, value - 0.1))}
             title="Zoom out"
+            aria-label="Zoom out"
           >
-            <ZoomOut size={16} />
-          </button>
+            <ZoomOut size={16} aria-hidden="true" />
+          </RheaButton>
           <span>{Math.round(zoom * 100)}%</span>
-          <button
-            className="icon-button"
+          <RheaButton
+            variant="ghost"
+            size="icon"
             onClick={() => setZoom((value) => Math.min(1.5, value + 0.1))}
             title="Zoom in"
+            aria-label="Zoom in"
           >
-            <ZoomIn size={16} />
-          </button>
-          <label>
-            <input
-              type="checkbox"
+            <ZoomIn size={16} aria-hidden="true" />
+          </RheaButton>
+          {/* The wrapping label names the checkbox; no extra aria-label. */}
+          <label className="flex items-center gap-2 text-sm">
+            <RheaCheckbox
               checked={snap}
-              onChange={(event) => setSnap(event.target.checked)}
+              onCheckedChange={(checked) => setSnap(checked === true)}
             />
             Snap
           </label>
-          <label>
-            <input
-              type="checkbox"
+          <label className="flex items-center gap-2 text-sm">
+            <RheaCheckbox
               checked={safeArea}
-              onChange={(event) => setSafeArea(event.target.checked)}
+              onCheckedChange={(checked) => setSafeArea(checked === true)}
             />
             Safe area
           </label>
         </div>
-        <div
-          className="layout-stage-scroll"
-          onPointerDown={(event) => {
-            if (event.button === 0) setSelection(new Set());
-          }}
-          onContextMenu={(event) => menu.open(event, { kind: "canvas" })}
-        >
-          <div
-            ref={canvasRef}
-            className="layout-canvas"
-            onDragOver={(event) => {
-              if (
-                event.dataTransfer.types.includes(
-                  "application/x-tilecast-layout-library",
-                )
-              ) {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "copy";
-              }
-            }}
-            onDrop={dropLibraryItem}
-            style={{
-              aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
-              width: `${zoom * 100}%`,
-              backgroundColor: document.canvas.backgroundColor,
-            }}
+        <RheaContextMenu>
+          <ContextMenuTrigger
+            render={
+              <div
+                className="layout-stage-scroll"
+                onPointerDown={(event) => {
+                  if (event.button === 0) setSelection(new Set());
+                }}
+                onContextMenuCapture={() => setMenuTarget({ kind: "canvas" })}
+              />
+            }
           >
-            {document.canvas.backgroundAssetId &&
-              contentByID.get(document.canvas.backgroundAssetId)?.type ===
-                "image" && (
-                <img
-                  className="layout-preview-background"
-                  src={api.assetPreviewUrl(document.canvas.backgroundAssetId)}
-                  alt=""
-                  draggable={false}
+            <div
+              ref={canvasRef}
+              className="layout-canvas"
+              onDragOver={(event) => {
+                if (
+                  event.dataTransfer.types.includes(
+                    "application/x-tilecast-layout-library",
+                  )
+                ) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                }
+              }}
+              onDrop={dropLibraryItem}
+              style={{
+                aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
+                width: `${zoom * 100}%`,
+                backgroundColor: document.canvas.backgroundColor,
+              }}
+            >
+              {document.canvas.backgroundAssetId &&
+                contentByID.get(document.canvas.backgroundAssetId)?.type ===
+                  "image" && (
+                  <img
+                    className="layout-preview-background"
+                    src={api.assetPreviewUrl(document.canvas.backgroundAssetId)}
+                    alt=""
+                    draggable={false}
+                  />
+                )}
+              {safeArea && (
+                <div
+                  className="layout-safe-area"
+                  style={{ inset: `${document.canvas.safeAreaPercent}%` }}
                 />
               )}
-            {safeArea && (
-              <div
-                className="layout-safe-area"
-                style={{ inset: `${document.canvas.safeAreaPercent}%` }}
-              />
-            )}
-            {guides.x !== undefined && (
-              <span
-                className="layout-guide layout-guide--vertical"
-                style={{ left: `${(guides.x / document.canvas.width) * 100}%` }}
-              />
-            )}
-            {guides.y !== undefined && (
-              <span
-                className="layout-guide layout-guide--horizontal"
-                style={{ top: `${(guides.y / document.canvas.height) * 100}%` }}
-              />
-            )}
-            {[...document.placements]
-              .sort((a, b) => a.layer - b.layer)
-              .map((item) => (
-                <PlacementView
-                  key={item.id}
-                  item={item}
-                  content={
-                    item.widgetId
-                      ? contentByID.get(item.widgetId)
-                      : item.assetId
-                        ? contentByID.get(item.assetId)
-                        : undefined
-                  }
-                  playlist={
-                    item.playlistId
-                      ? playlistByID.get(item.playlistId)
-                      : undefined
-                  }
-                  assetsById={contentByID}
-                  canvas={document.canvas}
-                  selected={selection.has(item.id)}
-                  onPointerDown={(event) => beginMove(event, item)}
-                  onResize={(event) => beginMove(event, item, true)}
-                  onContextMenu={(event) => openPlacementMenu(event, item)}
+              {guides.x !== undefined && (
+                <span
+                  className="layout-guide layout-guide--vertical"
+                  style={{
+                    left: `${(guides.x / document.canvas.width) * 100}%`,
+                  }}
                 />
-              ))}
-          </div>
-        </div>
+              )}
+              {guides.y !== undefined && (
+                <span
+                  className="layout-guide layout-guide--horizontal"
+                  style={{
+                    top: `${(guides.y / document.canvas.height) * 100}%`,
+                  }}
+                />
+              )}
+              {[...document.placements]
+                .sort((a, b) => a.layer - b.layer)
+                .map((item) => (
+                  <PlacementView
+                    key={item.id}
+                    item={item}
+                    content={
+                      item.widgetId
+                        ? contentByID.get(item.widgetId)
+                        : item.assetId
+                          ? contentByID.get(item.assetId)
+                          : undefined
+                    }
+                    playlist={
+                      item.playlistId
+                        ? playlistByID.get(item.playlistId)
+                        : undefined
+                    }
+                    assetsById={contentByID}
+                    canvas={document.canvas}
+                    selected={selection.has(item.id)}
+                    onPointerDown={(event) => beginMove(event, item)}
+                    onResize={(event) => beginMove(event, item, true)}
+                    onContextMenu={(event) => openPlacementMenu(event, item)}
+                  />
+                ))}
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent
+            aria-label={
+              menuTarget?.kind === "placement"
+                ? `Actions for ${menuTarget.item.name}`
+                : "Canvas actions"
+            }
+          >
+            <LayoutEditorMenuEntries
+              items={
+                menuTarget?.kind === "placement"
+                  ? placementMenuItems(menuTarget.item)
+                  : canvasMenuItems()
+              }
+            />
+          </ContextMenuContent>
+        </RheaContextMenu>
       </main>
       {/* Mounted on demand, like the playlist editor: the picker keeps its search and
           selection in local state, so a fresh mount is the reset. */}
@@ -2324,23 +2404,6 @@ export function LayoutEditorPage() {
           onClose={() => setPicker(undefined)}
         />
       )}
-      {menu.anchor && (
-        <ContextMenu
-          x={menu.anchor.x}
-          y={menu.anchor.y}
-          label={
-            menu.anchor.target.kind === "placement"
-              ? `Actions for ${menu.anchor.target.item.name}`
-              : "Canvas actions"
-          }
-          items={
-            menu.anchor.target.kind === "placement"
-              ? placementMenuItems(menu.anchor.target.item)
-              : canvasMenuItems()
-          }
-          onClose={menu.close}
-        />
-      )}
       {preview && (
         <div className="layout-preview-overlay" role="dialog" aria-modal="true">
           <div className="layout-preview-toolbar">
@@ -2348,7 +2411,7 @@ export function LayoutEditorPage() {
             <span>
               {document.canvas.width} × {document.canvas.height}
             </span>
-            <input
+            <Input
               type="date"
               aria-label="Preview date"
               value={previewDate}
@@ -2366,12 +2429,9 @@ export function LayoutEditorPage() {
                 {previewError}
               </span>
             )}
-            <button
-              className="button button--secondary"
-              onClick={() => setPreview(false)}
-            >
+            <RheaButton variant="secondary" onClick={() => setPreview(false)}>
               Close preview
-            </button>
+            </RheaButton>
           </div>
           <div
             ref={previewFrameRef}
@@ -2446,12 +2506,12 @@ export function LayoutEditorPage() {
                       </span>
                       <code>{revision.documentSha256.slice(0, 12)}</code>
                     </div>
-                    <button
-                      className="button button--secondary"
+                    <RheaButton
+                      variant="secondary"
                       onClick={() => restore.mutate(revision.id)}
                     >
                       Restore as draft
-                    </button>
+                    </RheaButton>
                   </div>
                 ))
               ) : (
@@ -2459,12 +2519,12 @@ export function LayoutEditorPage() {
               )}
             </div>
             <footer>
-              <button
-                className="button button--secondary"
+              <RheaButton
+                variant="secondary"
                 onClick={() => setHistoryOpen(false)}
               >
                 Close
-              </button>
+              </RheaButton>
             </footer>
           </section>
         </div>
@@ -2517,7 +2577,8 @@ function PlacementView({
       className={`layout-placement ${selected ? "is-selected" : ""} ${item.locked ? "is-locked" : ""}`}
       style={style}
       onPointerDown={onPointerDown}
-      onContextMenu={onContextMenu}
+      // Capture phase so the menu target is set before the Rhea trigger opens.
+      onContextMenuCapture={onContextMenu}
     >
       {item.type === "playlistZone" ? (
         playbackPreview && playlist?.items?.length ? (
@@ -2652,1849 +2713,6 @@ function PlacementView({
           onPointerDown={onResize}
         />
       )}
-    </div>
-  );
-}
-
-function assetPreviewStyle(
-  fit: NonNullable<LayoutPlacement["playback"]>["fit"],
-  cornerRadius?: number,
-): React.CSSProperties {
-  return {
-    objectFit:
-      fit === "cover" ? "cover" : fit === "stretch" ? "fill" : "contain",
-    borderRadius: cornerRadius,
-  };
-}
-
-function AssetPlaybackPreview({
-  asset,
-  placement,
-}: {
-  asset: Asset;
-  placement: LayoutPlacement;
-}) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [asset.id]);
-  if (failed || (asset.type !== "image" && asset.type !== "video"))
-    return (
-      <div className="layout-placement-placeholder">
-        <ImageIcon size={22} />
-        <span>{asset.name}</span>
-      </div>
-    );
-  const common = {
-    className: "layout-asset-placement layout-asset-placement--playback",
-    src: api.assetPreviewUrl(asset.id),
-    style: assetPreviewStyle(
-      placement.playback?.fit,
-      placement.playback?.cornerRadius,
-    ),
-    onError: () => setFailed(true),
-  };
-  if (asset.type === "video")
-    return (
-      <video
-        {...common}
-        autoPlay
-        playsInline
-        loop={placement.playback?.loop ?? true}
-        muted={placement.playback?.muted ?? true}
-        preload="auto"
-      />
-    );
-  return <img {...common} alt="" draggable={false} />;
-}
-
-export function playlistPreviewDuration(item: PlaylistItem) {
-  if (item.durationMs && item.durationMs > 0) return item.durationMs;
-  return item.assetType === "video" ? undefined : 10_000;
-}
-
-export function nextPlaylistPreviewIndex(
-  index: number,
-  length: number,
-  loop: boolean,
-) {
-  if (!length) return 0;
-  if (index + 1 >= length) return loop ? 0 : index;
-  return index + 1;
-}
-
-function PlaylistZonePreview({
-  placement,
-  playlist,
-  assetsById,
-  live,
-  scale,
-}: {
-  placement: LayoutPlacement;
-  playlist: Playlist;
-  assetsById: Map<string, Asset>;
-  live: LivePreviewData;
-  scale: number;
-}) {
-  const items = playlist.items.filter((item) => item.assetStatus === "ready");
-  const [index, setIndex] = useState(0);
-  const current = items[index % Math.max(1, items.length)];
-  const asset = current ? assetsById.get(current.assetId) : undefined;
-  const advance = useCallback(
-    () =>
-      setIndex((value) => {
-        return nextPlaylistPreviewIndex(
-          value,
-          items.length,
-          placement.playback?.loop !== false,
-        );
-      }),
-    [items.length, placement.playback?.loop],
-  );
-  useEffect(() => setIndex(0), [playlist.id, playlist.revision]);
-  useEffect(() => {
-    if (!current) return;
-    const duration = playlistPreviewDuration(current);
-    if (!duration) return;
-    const timer = window.setTimeout(advance, duration);
-    return () => window.clearTimeout(timer);
-  }, [advance, current]);
-
-  if (!current)
-    return (
-      <div className="layout-playlist-zone">
-        <ListVideo size={22} />
-        <strong>{playlist.name}</strong>
-        <span>No ready items</span>
-      </div>
-    );
-  if (!asset)
-    return (
-      <div className="layout-placement-placeholder">
-        <ListVideo size={22} />
-        <span>{current.assetName}</span>
-      </div>
-    );
-  const fit = placement.playback?.fit ?? current.fitMode;
-  const radius = placement.playback?.cornerRadius;
-  const className = `layout-playlist-preview${current.transition === "fade" || current.transition === "crossfade" ? " layout-playlist-preview--fade" : ""}`;
-  if (asset.type === "widget")
-    return (
-      <div className={className} key={`${playlist.id}-${current.id}`}>
-        {asset.widget ? (
-          <WidgetLivePreview
-            asset={asset}
-            item={placement}
-            live={live}
-            scale={scale}
-          />
-        ) : (
-          <AppPlacementPreview asset={asset} item={placement} />
-        )}
-      </div>
-    );
-  if (asset.type === "video")
-    return (
-      <video
-        key={`${playlist.id}-${current.id}`}
-        className={className}
-        src={api.assetPreviewUrl(asset.id)}
-        style={assetPreviewStyle(fit, radius)}
-        autoPlay
-        playsInline
-        muted={(placement.playback?.muted ?? true) || !current.audioEnabled}
-        preload="auto"
-        onLoadedMetadata={(event) => {
-          event.currentTarget.volume = current.volume;
-          if (current.videoStartOffsetMs)
-            event.currentTarget.currentTime = current.videoStartOffsetMs / 1000;
-        }}
-        onTimeUpdate={(event) => {
-          if (
-            current.videoEndOffsetMs &&
-            event.currentTarget.currentTime >= current.videoEndOffsetMs / 1000
-          )
-            advance();
-        }}
-        onEnded={advance}
-        onError={advance}
-      />
-    );
-  return (
-    <img
-      key={`${playlist.id}-${current.id}`}
-      className={className}
-      src={api.assetPreviewUrl(asset.id)}
-      style={assetPreviewStyle(fit, radius)}
-      alt=""
-      onError={advance}
-    />
-  );
-}
-
-function AppPlacementPreview({
-  asset,
-  item,
-}: {
-  asset?: Asset;
-  item: LayoutPlacement;
-}) {
-  if (asset?.thumbnailUrl)
-    return (
-      <img
-        className="layout-asset-placement"
-        src={asset.thumbnailUrl}
-        alt=""
-        style={assetPreviewStyle(
-          item.playback?.fit,
-          item.playback?.cornerRadius,
-        )}
-      />
-    );
-  const provider = asset?.widget?.provider;
-  const config = (asset?.widget?.configuration ?? {}) as Record<
-    string,
-    unknown
-  >;
-  const background =
-    (item.overrides?.backgroundColor as string | undefined) ??
-    (config.backgroundColor as string | undefined) ??
-    "#18232D";
-  const foreground =
-    (item.overrides?.foregroundColor as string | undefined) ??
-    (config.foregroundColor as string | undefined) ??
-    "#F5F7FA";
-  let value = asset?.name ?? item.name;
-  if (provider === "clock") {
-    const timezone =
-      typeof config.timezone === "string" ? config.timezone : "UTC";
-    value = new Intl.DateTimeFormat(undefined, {
-      timeStyle: config.showSeconds ? "medium" : "short",
-      timeZone: timezone,
-    }).format(new Date());
-  } else if (provider === "date") {
-    const timezone =
-      typeof config.timezone === "string" ? config.timezone : "UTC";
-    value = new Intl.DateTimeFormat(undefined, {
-      dateStyle:
-        (config.format as "full" | "long" | "medium" | "short") ?? "full",
-      timeZone: timezone,
-    }).format(new Date());
-  } else if (provider === "qrcode")
-    value =
-      typeof config.label === "string" && config.label
-        ? config.label
-        : "QR Code";
-  else if (provider === "ticker")
-    value = `${asset?.name ?? "Ticker"} · live data`;
-  return (
-    <div
-      className={`layout-app-placement layout-app-placement--${provider ?? "unknown"}`}
-      style={{
-        background,
-        color: foreground,
-        alignItems:
-          item.overrides?.alignment === "left"
-            ? "flex-start"
-            : item.overrides?.alignment === "right"
-              ? "flex-end"
-              : "center",
-      }}
-    >
-      <span className="layout-app-placement__provider">
-        {provider ?? "Widget"}
-      </span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Faithful native-widget preview. Mirrors the Android Player's Compose renderers
-// (apps/player-android/.../content/NativeWidgetPlayback.kt + CalendarPlayback.kt)
-// so the Layout preview shows real live data laid out like the Player. Canvas
-// pixel sizes are multiplied by `scale` (renderedFrameWidth / canvasWidth) to
-// match how the Player scales the whole canvas onto the screen.
-// ---------------------------------------------------------------------------
-
-// The Player parses colors with android.graphics.Color.parseColor, which uses
-// #AARRGGBB order and falls back to black on any failure.
-function colorToCss(value: string | undefined, fallback: string): string {
-  if (!value) return fallback;
-  const v = value.trim();
-  const argb = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{6})$/.exec(v);
-  if (argb) {
-    const alpha = argb[1] ?? "ff";
-    const rgb = argb[2] ?? "000000";
-    const a = parseInt(alpha, 16) / 255;
-    const r = parseInt(rgb.slice(0, 2), 16);
-    const g = parseInt(rgb.slice(2, 4), 16);
-    const b = parseInt(rgb.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
-  }
-  if (/^#[0-9a-fA-F]{6}$/.test(v) || /^#[0-9a-fA-F]{3}$/.test(v)) return v;
-  return fallback;
-}
-
-// The QR encoder needs solid #RRGGBB colors; drop any leading ARGB alpha.
-function hex6(value: string | undefined, fallback: string): string {
-  if (!value) return fallback;
-  const v = value.trim();
-  if (/^#[0-9a-fA-F]{6}$/.test(v) || /^#[0-9a-fA-F]{3}$/.test(v)) return v;
-  if (/^#[0-9a-fA-F]{8}$/.test(v)) return `#${v.slice(3)}`;
-  return fallback;
-}
-
-function structuredFieldValue(record: StructuredRecord, field: string): string {
-  if (field === "title") return record.title ?? "";
-  if (field === "subtitle") return record.subtitle ?? "";
-  if (field === "date") return record.date ?? "";
-  if (field === "author") return record.author ?? "";
-  if (field === "description") return record.description ?? "";
-  return record.values?.[field] ?? "";
-}
-
-function menuFieldLabel(field: string): string {
-  const key = field.toLowerCase();
-  if (
-    ["option_2", "alternative", "secondary", "secondary_option"].includes(key)
-  )
-    return "Alternative";
-  if (
-    ["option_1", "primary", "primary_option", "entree", "entrée"].includes(key)
-  )
-    return "Entrée";
-  return field.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function clockText(cfg: ClockWidgetConfig): string {
-  const is24 = cfg.format === "24";
-  return new Intl.DateTimeFormat(undefined, {
-    timeZone: cfg.timezone || "UTC",
-    hour12: !is24,
-    hour: is24 ? "2-digit" : "numeric",
-    minute: "2-digit",
-    ...(cfg.showSeconds ? { second: "2-digit" as const } : {}),
-  }).format(new Date());
-}
-
-function dateText(cfg: DateWidgetConfig): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: cfg.format || "full",
-    timeZone: cfg.timezone || "UTC",
-  }).format(new Date());
-}
-
-function tickerText(
-  cfg: TickerWidgetConfig,
-  source?: LivePreviewSource,
-): string {
-  const parts = (source?.records ?? [])
-    .map((record) => structuredFieldValue(record, cfg.field || "title"))
-    .filter((value) => value.trim().length > 0);
-  return parts.length
-    ? parts.join(cfg.separator || " • ")
-    : source?.emptyState || "No items available";
-}
-
-export function widgetContentArea(
-  item: Pick<LayoutPlacement, "width" | "height">,
-  cfg: { contentPadding?: number },
-) {
-  const padding = Math.max(0, Math.min(40, cfg.contentPadding ?? 10)) / 100;
-  return {
-    width: item.width * (1 - padding * 2),
-    height: item.height * (1 - padding * 2),
-    horizontalPadding: item.width * padding,
-    verticalPadding: item.height * padding,
-  };
-}
-
-// Shrinks text to fit its box, matching the Player's FittedWidgetText.
-function FittedText({
-  text,
-  color,
-  fontPx,
-  weight,
-  maxLines = 1,
-  textScale = 100,
-}: {
-  text: string;
-  color: string;
-  fontPx: number;
-  weight: number;
-  maxLines?: number;
-  textScale?: number;
-}) {
-  const boxRef = useRef<HTMLDivElement>(null);
-  const spanRef = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const box = boxRef.current;
-    const span = spanRef.current;
-    if (!box || !span) return;
-    const shrinkToFit = (from: number) => {
-      let size = from;
-      span.style.fontSize = `${size}px`;
-      let guard = 0;
-      while (
-        guard++ < 80 &&
-        size > 4 &&
-        (span.scrollWidth > box.clientWidth + 1 ||
-          span.scrollHeight > box.clientHeight + 1)
-      ) {
-        size = Math.max(4, size * 0.9);
-        span.style.fontSize = `${size}px`;
-      }
-      return size;
-    };
-    // Automatic sizing is the bounds-first fit. An author scale multiplies that
-    // — previously it was capped at 1, which made every scale above 100 percent
-    // a no-op — and a second fit pass is the final guard against overflow.
-    const automatic = shrinkToFit(fontPx);
-    const authorScale = Math.max(25, Math.min(500, textScale)) / 100;
-    if (authorScale !== 1) shrinkToFit(automatic * authorScale);
-  }, [text, fontPx, maxLines, textScale]);
-  return (
-    <div ref={boxRef} className="wpv-fit-box">
-      <span
-        ref={spanRef}
-        className={`wpv-fit ${maxLines > 1 ? "wpv-fit--multi" : ""}`}
-        style={{ color, fontWeight: weight }}
-      >
-        {text}
-      </span>
-    </div>
-  );
-}
-
-// Full-bleed background with content centered inside an inset, like CenteredWidget.
-function CenteredWidget({
-  background,
-  item,
-  scale,
-  contentPadding,
-  children,
-}: {
-  background: string;
-  item: LayoutPlacement;
-  scale: number;
-  contentPadding?: number;
-  children: React.ReactNode;
-}) {
-  const area = widgetContentArea(item, { contentPadding });
-  return (
-    <div
-      className="wpv-root wpv-centered"
-      style={{
-        background,
-        padding: `${area.verticalPadding * scale}px ${area.horizontalPadding * scale}px`,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function QrWidget({
-  cfg,
-  item,
-  scale,
-}: {
-  cfg: QRCodeWidgetConfig;
-  item: LayoutPlacement;
-  scale: number;
-}) {
-  const [dataUrl, setDataUrl] = useState("");
-  useEffect(() => {
-    if (!cfg.value) {
-      setDataUrl("");
-      return;
-    }
-    void QRCode.toDataURL(cfg.value, {
-      margin: 2,
-      errorCorrectionLevel: { low: "L", medium: "M", quartile: "Q", high: "H" }[
-        cfg.errorCorrection
-      ] as "L" | "M" | "Q" | "H",
-      color: {
-        dark: hex6(cfg.foregroundColor, "#000000"),
-        light: hex6(cfg.backgroundColor, "#ffffff"),
-      },
-      width: 480,
-    })
-      .then(setDataUrl)
-      .catch(() => setDataUrl(""));
-  }, [
-    cfg.value,
-    cfg.errorCorrection,
-    cfg.foregroundColor,
-    cfg.backgroundColor,
-  ]);
-  const area = widgetContentArea(item, cfg);
-  const label = cfg.label?.trim();
-  return (
-    <div
-      className="wpv-root wpv-qr"
-      style={{
-        background: colorToCss(cfg.backgroundColor, "#FFFFFF"),
-        padding: `${area.verticalPadding * scale}px ${area.horizontalPadding * scale}px`,
-        gap: area.height * scale * 0.025,
-      }}
-    >
-      {dataUrl && <img className="wpv-qr__image" src={dataUrl} alt="" />}
-      {label && (
-        <div style={{ width: "100%", height: "18%" }}>
-          <FittedText
-            text={label}
-            color={colorToCss(cfg.foregroundColor, "#000000")}
-            fontPx={Math.max(area.width, area.height) * scale}
-            weight={400}
-            maxLines={2}
-            textScale={cfg.textScale}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MenuWidget({
-  name,
-  cfg,
-  source,
-  fg,
-  bg,
-  scale,
-  item,
-}: {
-  name: string;
-  cfg: DisplayWidgetConfig;
-  source?: LivePreviewSource;
-  fg: string;
-  bg: string;
-  scale: number;
-  item: LayoutPlacement;
-}) {
-  const record = source?.records?.[0];
-  const values = record
-    ? (cfg.fields ?? [])
-        .map((field) => ({ field, value: structuredFieldValue(record, field) }))
-        .filter((entry) => entry.value.trim().length > 0)
-        .slice(0, Math.min(cfg.maximumItems ?? 8, 8))
-    : [];
-  const area = widgetContentArea(item, cfg);
-  const padding = `${area.verticalPadding * scale}px ${area.horizontalPadding * scale}px`;
-  if (!values.length)
-    return (
-      <div
-        className="wpv-root wpv-centered"
-        style={{ background: bg, padding }}
-      >
-        <FittedText
-          text={source?.emptyState || "No items available"}
-          color={fg}
-          fontPx={Math.max(area.width, area.height) * scale}
-          weight={500}
-          maxLines={3}
-          textScale={cfg.textScale}
-        />
-      </div>
-    );
-  const authorScale = Math.max(25, Math.min(500, cfg.textScale ?? 100)) / 100;
-  const contentFactor = Math.max(
-    0.05,
-    Math.min(
-      area.height / (50 + values.length * 150),
-      (area.height / (50 + values.length * 150)) * authorScale,
-    ),
-  );
-  return (
-    <div className="wpv-root wpv-menu" style={{ background: bg, padding }}>
-      <div
-        className="wpv-menu__header"
-        style={{ color: fg, fontSize: 24 * scale * contentFactor }}
-      >
-        {name.toUpperCase()}
-      </div>
-      {record?.date && (
-        <div
-          className="wpv-menu__date"
-          style={{ color: fg, fontSize: 18 * scale * contentFactor }}
-        >
-          {record.date}
-        </div>
-      )}
-      {values.map((entry, index) => (
-        <div key={entry.field} className="wpv-menu__item">
-          <div
-            className="wpv-menu__label"
-            style={{
-              color: fg,
-              fontSize: (index === 0 ? 20 : 16) * scale * contentFactor,
-              paddingTop: (index === 0 ? 28 : 22) * scale * contentFactor,
-            }}
-          >
-            {index === 0
-              ? "TODAY'S LUNCH"
-              : menuFieldLabel(entry.field).toUpperCase()}
-          </div>
-          <div
-            className="wpv-menu__value"
-            style={{
-              color: fg,
-              fontSize: (index === 0 ? 52 : 34) * scale * contentFactor,
-              fontWeight: index === 0 ? 700 : 500,
-            }}
-          >
-            {entry.value}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DisplayWidget({
-  cfg,
-  source,
-  fg,
-  bg,
-  scale,
-  item,
-}: {
-  cfg: DisplayWidgetConfig;
-  source?: LivePreviewSource;
-  fg: string;
-  bg: string;
-  scale: number;
-  item: LayoutPlacement;
-}) {
-  const max = cfg.maximumItems ?? 20;
-  let rows: string[];
-  if (source?.provider === "calendar") {
-    rows = (source.events ?? [])
-      .slice(0, max)
-      .map((event) =>
-        [event.start, event.title, event.location]
-          .filter((value) => value && String(value).trim().length > 0)
-          .join("  "),
-      );
-  } else {
-    const fields = cfg.fields ?? [];
-    rows = (source?.records ?? [])
-      .slice(0, max)
-      .map((record) =>
-        fields
-          .map((field) => structuredFieldValue(record, field))
-          .filter((value) => value.trim().length > 0)
-          .join("  "),
-      )
-      .filter((row) => row.trim().length > 0);
-  }
-  const area = widgetContentArea(item, cfg);
-  const padding = `${area.verticalPadding * scale}px ${area.horizontalPadding * scale}px`;
-  if (!rows.length)
-    return (
-      <div
-        className="wpv-root wpv-centered"
-        style={{ background: bg, padding }}
-      >
-        <FittedText
-          text={source?.emptyState || "No items available"}
-          color={fg}
-          fontPx={Math.max(area.width, area.height) * scale}
-          weight={400}
-          maxLines={3}
-          textScale={cfg.textScale}
-        />
-      </div>
-    );
-  const gap = Math.max(2, area.height * scale * 0.025);
-  const availableHeight = Math.max(1, area.height * scale);
-  const maximumRows = Math.max(
-    1,
-    Math.floor((availableHeight + gap) / (4 * 1.15 + gap)),
-  );
-  const visibleRows = rows.slice(0, maximumRows);
-  return (
-    <div
-      className="wpv-root wpv-display"
-      style={{
-        background: bg,
-        padding,
-        gap,
-      }}
-    >
-      {visibleRows.map((row, index) => (
-        <div
-          key={index}
-          className="wpv-display__row"
-          style={{
-            color: fg,
-            fontSize:
-              Math.min(
-                (area.width * scale) / Math.max(1, row.length * 0.62),
-                Math.max(4, availableHeight / visibleRows.length / 1.15),
-              ) * Math.min(1, Math.max(25, cfg.textScale ?? 100) / 100),
-          }}
-        >
-          {row}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function WidgetLivePreview({
-  asset,
-  item,
-  live,
-  scale,
-}: {
-  asset: Asset;
-  item: LayoutPlacement;
-  live: LivePreviewData;
-  scale: number;
-}) {
-  const widget = asset.widget!;
-  const provider = widget.provider;
-  const cfg = widget.configuration as Record<string, unknown>;
-  const fg = colorToCss(cfg.foregroundColor as string, "#F5F7FA");
-  const bg = colorToCss(
-    cfg.backgroundColor as string,
-    provider === "qrcode" ? "#FFFFFF" : "#0E141B",
-  );
-  const sourceId = cfg.dataSourceId as string | undefined;
-  const source = sourceId ? live[sourceId] : undefined;
-  switch (provider) {
-    case "clock":
-      return (
-        <CenteredWidget
-          background={bg}
-          item={item}
-          scale={scale}
-          contentPadding={(cfg as unknown as ClockWidgetConfig).contentPadding}
-        >
-          <FittedText
-            text={clockText(cfg as unknown as ClockWidgetConfig)}
-            color={fg}
-            fontPx={Math.max(item.width, item.height) * scale}
-            weight={600}
-            textScale={(cfg as unknown as ClockWidgetConfig).textScale}
-          />
-        </CenteredWidget>
-      );
-    case "date":
-      return (
-        <CenteredWidget
-          background={bg}
-          item={item}
-          scale={scale}
-          contentPadding={(cfg as unknown as DateWidgetConfig).contentPadding}
-        >
-          <FittedText
-            text={dateText(cfg as unknown as DateWidgetConfig)}
-            color={fg}
-            fontPx={Math.max(item.width, item.height) * scale}
-            weight={500}
-            textScale={(cfg as unknown as DateWidgetConfig).textScale}
-          />
-        </CenteredWidget>
-      );
-    case "qrcode":
-      return (
-        <QrWidget
-          cfg={cfg as unknown as QRCodeWidgetConfig}
-          item={item}
-          scale={scale}
-        />
-      );
-    case "ticker":
-      return (
-        <CenteredWidget
-          background={bg}
-          item={item}
-          scale={scale}
-          contentPadding={(cfg as unknown as TickerWidgetConfig).contentPadding}
-        >
-          <FittedText
-            text={tickerText(cfg as unknown as TickerWidgetConfig, source)}
-            color={fg}
-            fontPx={Math.max(item.width, item.height) * scale}
-            weight={400}
-            maxLines={2}
-            textScale={(cfg as unknown as TickerWidgetConfig).textScale}
-          />
-        </CenteredWidget>
-      );
-    case "menu":
-      return (
-        <MenuWidget
-          name={asset.name}
-          cfg={cfg as unknown as DisplayWidgetConfig}
-          source={source}
-          fg={fg}
-          bg={bg}
-          scale={scale}
-          item={item}
-        />
-      );
-    case "list":
-    case "table":
-    case "agenda":
-      return (
-        <DisplayWidget
-          cfg={cfg as unknown as DisplayWidgetConfig}
-          source={source}
-          fg={fg}
-          bg={bg}
-          scale={scale}
-          item={item}
-        />
-      );
-    default:
-      return <AppPlacementPreview asset={asset} item={item} />;
-  }
-}
-
-function NumberField({
-  label,
-  value,
-  onChange,
-  min = 0,
-  max = 7680,
-  step = 1,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-}) {
-  return (
-    <label className="field field--compact">
-      <span className="field__label">{label}</span>
-      <input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={Number(value.toFixed(2))}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </label>
-  );
-}
-function PlacementInspector({
-  item,
-  content,
-  playlist,
-  dataSources,
-  update,
-  duplicate,
-  group,
-  ungroup,
-  canGroup,
-}: {
-  item: LayoutPlacement;
-  content?: Asset;
-  playlist?: Playlist;
-  dataSources: DataSource[];
-  update: (change: (item: LayoutPlacement) => void) => void;
-  duplicate: () => void;
-  group: () => void;
-  ungroup: () => void;
-  canGroup: boolean;
-}) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const auth = useAuth();
-  const queryClient = useQueryClient();
-  const csrf = auth.status?.csrfToken ?? "";
-  // Connecting data from the empty state must also apply the binding, matching what selecting an
-  // existing source does. The refreshed list is awaited so the new source's own first field is
-  // used, rather than guessing a field name the source may not have.
-  const bindNewDataSource = async (
-    dataSourceId: string,
-    apply: (binding: { dataSourceId: string; field: string }) => void,
-  ) => {
-    await queryClient.invalidateQueries({ queryKey: ["layout-data-sources"] });
-    const refreshed = queryClient.getQueryData<{ items: DataSource[] }>([
-      "layout-data-sources",
-    ]);
-    const created = refreshed?.items?.find(
-      (source) => source.id === dataSourceId,
-    );
-    apply({
-      dataSourceId,
-      field: (created ? structuredFields(created)[0] : undefined) ?? "title",
-    });
-  };
-  const primitive = item.primitive;
-  return (
-    <div className="layout-inspector">
-      <label className="field">
-        <span className="field__label">Layer name</span>
-        <input
-          value={item.name}
-          onChange={(event) =>
-            update((target) => (target.name = event.target.value))
-          }
-        />
-      </label>
-      <div className="form-grid form-grid--2">
-        <NumberField
-          label="X"
-          value={item.x}
-          onChange={(value) => update((target) => (target.x = value))}
-        />
-        <NumberField
-          label="Y"
-          value={item.y}
-          onChange={(value) => update((target) => (target.y = value))}
-        />
-        <NumberField
-          label="Width"
-          value={item.width}
-          min={1}
-          onChange={(value) => update((target) => (target.width = value))}
-        />
-        <NumberField
-          label="Height"
-          value={item.height}
-          min={1}
-          onChange={(value) => update((target) => (target.height = value))}
-        />
-      </div>
-      <NumberField
-        label="Opacity"
-        value={item.opacity}
-        min={0}
-        max={1}
-        step={0.05}
-        onChange={(value) => update((target) => (target.opacity = value))}
-      />
-      <div className="layout-inspector-actions">
-        <button
-          className="icon-button"
-          title="Move forward"
-          onClick={() =>
-            update((target) => (target.layer = Math.min(999, target.layer + 1)))
-          }
-        >
-          <ArrowUp size={16} />
-        </button>
-        <button
-          className="icon-button"
-          title="Move backward"
-          onClick={() =>
-            update((target) => (target.layer = Math.max(0, target.layer - 1)))
-          }
-        >
-          <ArrowDown size={16} />
-        </button>
-        <button className="icon-button" title="Duplicate" onClick={duplicate}>
-          <Copy size={16} />
-        </button>
-        <button
-          className="icon-button"
-          title="Lock"
-          onClick={() => update((target) => (target.locked = !target.locked))}
-        >
-          {item.locked ? <Lock size={16} /> : <LockOpen size={16} />}
-        </button>
-        <button
-          className="icon-button"
-          title="Hide"
-          onClick={() => update((target) => (target.visible = !target.visible))}
-        >
-          {item.visible ? <Eye size={16} /> : <EyeOff size={16} />}
-        </button>
-      </div>
-      {item.type === "widget" && (
-        <div className="layout-placement-settings">
-          <div className="form-grid form-grid--2">
-            <label className="field">
-              <span className="field__label">Fit</span>
-              <Select
-                value={(item.overrides?.fit as string | undefined) ?? "contain"}
-                onChange={(event) =>
-                  update((target) => {
-                    target.overrides = {
-                      ...target.overrides,
-                      fit: event.target.value,
-                    };
-                  })
-                }
-              >
-                <option value="contain">Fit</option>
-                <option value="cover">Fill</option>
-                <option value="stretch">Stretch</option>
-              </Select>
-            </label>
-            <label className="field">
-              <span className="field__label">Alignment</span>
-              <Select
-                value={
-                  (item.overrides?.alignment as string | undefined) ?? "center"
-                }
-                onChange={(event) =>
-                  update((target) => {
-                    target.overrides = {
-                      ...target.overrides,
-                      alignment: event.target.value,
-                    };
-                  })
-                }
-              >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </Select>
-            </label>
-            <label className="field">
-              <span className="field__label">Foreground</span>
-              <input
-                type="color"
-                value={(
-                  (item.overrides?.foregroundColor as string | undefined) ??
-                  "#F5F7FA"
-                ).slice(0, 7)}
-                onChange={(event) =>
-                  update((target) => {
-                    target.overrides = {
-                      ...target.overrides,
-                      foregroundColor: event.target.value,
-                    };
-                  })
-                }
-              />
-            </label>
-            <label className="field">
-              <span className="field__label">Background</span>
-              <input
-                type="color"
-                value={(
-                  (item.overrides?.backgroundColor as string | undefined) ??
-                  "#18232D"
-                ).slice(0, 7)}
-                onChange={(event) =>
-                  update((target) => {
-                    target.overrides = {
-                      ...target.overrides,
-                      backgroundColor: event.target.value,
-                    };
-                  })
-                }
-              />
-            </label>
-          </div>
-          <label className="field">
-            <span className="field__label">When unavailable</span>
-            <Select
-              value={
-                (item.overrides?.fallbackVisibility as string | undefined) ??
-                "show"
-              }
-              onChange={(event) =>
-                update((target) => {
-                  target.overrides = {
-                    ...target.overrides,
-                    fallbackVisibility: event.target.value,
-                  };
-                })
-              }
-            >
-              <option value="show">Show App fallback</option>
-              <option value="hide">Hide placement</option>
-            </Select>
-          </label>
-          {(content?.widget?.provider === "website" ||
-            content?.widget?.provider === "youtube") && (
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={(item.overrides?.muted as boolean | undefined) ?? true}
-                onChange={(event) =>
-                  update((target) => {
-                    target.overrides = {
-                      ...target.overrides,
-                      muted: event.target.checked,
-                    };
-                  })
-                }
-              />
-              Muted in this Layout
-            </label>
-          )}
-          {/* Opens the Widget itself and carries a return path, instead of asking for confirmation
-              and then abandoning the author at the Widget list. The Widget editor reports its own
-              consumers, so the warning this dialog used to guess at is shown where it is
-              actionable. */}
-          <button
-            className="button button--secondary"
-            disabled={!content}
-            onClick={() => {
-              if (!content) return;
-              void navigate(
-                `/widgets/${content.id}?returnTo=${encodeURIComponent(location.pathname)}`,
-              );
-            }}
-          >
-            <AppWindow size={16} />
-            Edit shared Widget
-          </button>
-        </div>
-      )}
-      {item.type === "playlistZone" && (
-        <div className="layout-placement-settings">
-          <div className="notice notice--neutral">
-            <strong>{playlist?.name ?? item.name}</strong>
-            <span>{playlist?.itemCount ?? 0} items</span>
-          </div>
-          <div className="form-grid form-grid--2">
-            <label className="field">
-              <span className="field__label">Fit</span>
-              <Select
-                value={item.playback?.fit ?? "contain"}
-                onChange={(event) =>
-                  update((target) => {
-                    target.playback = {
-                      ...target.playback,
-                      fit: event.target.value as
-                        "contain" | "cover" | "stretch",
-                    };
-                  })
-                }
-              >
-                <option value="contain">Fit</option>
-                <option value="cover">Fill</option>
-                <option value="stretch">Stretch</option>
-              </Select>
-            </label>
-            <label className="field">
-              <span className="field__label">Fallback</span>
-              <Select
-                value={item.playback?.fallback ?? "background"}
-                onChange={(event) =>
-                  update((target) => {
-                    target.playback = {
-                      ...target.playback,
-                      fallback: event.target.value as
-                        "hide" | "background" | "previous",
-                    };
-                  })
-                }
-              >
-                <option value="background">Zone background</option>
-                <option value="previous">Previous item</option>
-                <option value="hide">Hide zone</option>
-              </Select>
-            </label>
-          </div>
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={item.playback?.loop ?? true}
-              onChange={(event) =>
-                update((target) => {
-                  target.playback = {
-                    ...target.playback,
-                    loop: event.target.checked,
-                  };
-                })
-              }
-            />
-            Loop independently
-          </label>
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={item.playback?.muted ?? true}
-              onChange={(event) =>
-                update((target) => {
-                  target.playback = {
-                    ...target.playback,
-                    muted: event.target.checked,
-                  };
-                })
-              }
-            />
-            Muted
-          </label>
-          <NumberField
-            label="Corner radius"
-            value={item.playback?.cornerRadius ?? 0}
-            max={1000}
-            onChange={(value) =>
-              update((target) => {
-                target.playback = { ...target.playback, cornerRadius: value };
-              })
-            }
-          />
-          <button
-            className="button button--secondary"
-            onClick={() => void navigate(`/playlists/${item.playlistId}`)}
-          >
-            Edit playlist
-          </button>
-        </div>
-      )}
-      {item.type === "asset" && (
-        <div className="layout-placement-settings">
-          <label className="field">
-            <span className="field__label">Fit</span>
-            <Select
-              value={item.playback?.fit ?? "contain"}
-              onChange={(event) =>
-                update((target) => {
-                  target.playback = {
-                    ...target.playback,
-                    fit: event.target.value as "contain" | "cover" | "stretch",
-                  };
-                })
-              }
-            >
-              <option value="contain">Fit</option>
-              <option value="cover">Fill</option>
-              <option value="stretch">Stretch</option>
-            </Select>
-          </label>
-          <div className="form-grid form-grid--2">
-            <NumberField
-              label="Corner radius"
-              value={item.playback?.cornerRadius ?? 0}
-              max={1000}
-              onChange={(value) =>
-                update((target) => {
-                  target.playback = { ...target.playback, cornerRadius: value };
-                })
-              }
-            />
-            <label className="field">
-              <span className="field__label">Fallback</span>
-              <Select
-                value={item.playback?.fallback ?? "hide"}
-                onChange={(event) =>
-                  update((target) => {
-                    target.playback = {
-                      ...target.playback,
-                      fallback: event.target.value as
-                        "hide" | "background" | "previous",
-                    };
-                  })
-                }
-              >
-                <option value="hide">Hide</option>
-                <option value="background">Background</option>
-                <option value="previous">Previous frame</option>
-              </Select>
-            </label>
-          </div>
-          {content?.type === "video" && (
-            <>
-              <label className="switch-row">
-                <input
-                  type="checkbox"
-                  checked={item.playback?.muted ?? true}
-                  onChange={(event) =>
-                    update((target) => {
-                      target.playback = {
-                        ...target.playback,
-                        muted: event.target.checked,
-                      };
-                    })
-                  }
-                />
-                <span>Muted</span>
-              </label>
-              <label className="switch-row">
-                <input
-                  type="checkbox"
-                  checked={item.playback?.loop ?? true}
-                  onChange={(event) =>
-                    update((target) => {
-                      target.playback = {
-                        ...target.playback,
-                        loop: event.target.checked,
-                      };
-                    })
-                  }
-                />
-                <span>Loop</span>
-              </label>
-            </>
-          )}
-        </div>
-      )}
-      {canGroup && (
-        <button className="button button--secondary" onClick={group}>
-          <Group size={16} />
-          Group selection
-        </button>
-      )}
-      {primitive?.kind === "group" && (
-        <>
-          <button className="button button--secondary" onClick={ungroup}>
-            <Ungroup size={16} />
-            Ungroup
-          </button>
-          {!primitive.binding && dataSources.length === 0 ? (
-            <ConnectDataNotice
-              message="Connect data to hide this group when a field is empty."
-              csrf={csrf}
-              onCreated={(dataSourceId) =>
-                void bindNewDataSource(dataSourceId, (binding) =>
-                  update((target) => {
-                    target.primitive!.binding = {
-                      ...binding,
-                      hideWhenEmpty: true,
-                    };
-                  }),
-                )
-              }
-            />
-          ) : (
-            <label className="field">
-              <span className="field__label">Visibility</span>
-              <Select
-                value={primitive.binding ? "field" : "always"}
-                onChange={(event) =>
-                  update((target) => {
-                    if (event.target.value === "always") {
-                      delete target.primitive!.binding;
-                      return;
-                    }
-                    const source = dataSources[0];
-                    if (source)
-                      target.primitive!.binding = {
-                        dataSourceId: source.id,
-                        field: structuredFields(source)[0] ?? "title",
-                        hideWhenEmpty: true,
-                      };
-                  })
-                }
-              >
-                <option value="always">Always visible</option>
-                <option value="field">Hide when field is empty</option>
-              </Select>
-            </label>
-          )}
-          {primitive.binding && (
-            <div className="form-grid form-grid--2">
-              <DataSourcePicker
-                value={primitive.binding.dataSourceId}
-                sources={dataSources}
-                csrf={csrf}
-                allowEmpty={false}
-                onChange={(dataSourceId) =>
-                  update(
-                    (target) =>
-                      (target.primitive!.binding!.dataSourceId = dataSourceId),
-                  )
-                }
-              />
-              <label className="field">
-                <span className="field__label">Field</span>
-                <Select
-                  value={primitive.binding.field}
-                  onChange={(event) =>
-                    update(
-                      (target) =>
-                        (target.primitive!.binding!.field = event.target.value),
-                    )
-                  }
-                >
-                  {structuredFields(
-                    dataSources.find(
-                      (asset) => asset.id === primitive.binding!.dataSourceId,
-                    ),
-                  ).map((field) => (
-                    <option key={field} value={field}>
-                      {field}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            </div>
-          )}
-        </>
-      )}
-      {primitive?.kind === "text" && (
-        <>
-          {!primitive.binding && dataSources.length === 0 ? (
-            <ConnectDataNotice
-              message="Connect data to bind this text to a live field."
-              csrf={csrf}
-              onCreated={(dataSourceId) =>
-                void bindNewDataSource(dataSourceId, (binding) =>
-                  update((target) => {
-                    target.primitive!.binding = {
-                      ...binding,
-                      format: "text",
-                    };
-                  }),
-                )
-              }
-            />
-          ) : (
-            <label className="field">
-              <span className="field__label">Content mode</span>
-              <Select
-                value={primitive.binding ? "dynamic" : "static"}
-                onChange={(event) =>
-                  update((target) => {
-                    if (event.target.value === "static") {
-                      delete target.primitive!.binding;
-                      return;
-                    }
-                    const source = dataSources[0];
-                    if (source)
-                      target.primitive!.binding = {
-                        dataSourceId: source.id,
-                        field: structuredFields(source)[0] ?? "title",
-                        format: "text",
-                      };
-                  })
-                }
-              >
-                <option value="static">Static</option>
-                <option value="dynamic">Dynamic field</option>
-              </Select>
-            </label>
-          )}
-          {primitive.binding && (
-            <div className="layout-placement-settings">
-              <DataSourcePicker
-                value={primitive.binding.dataSourceId}
-                sources={dataSources}
-                csrf={csrf}
-                allowEmpty={false}
-                onChange={(dataSourceId) =>
-                  update((target) => {
-                    const source = dataSources.find(
-                      (asset) => asset.id === dataSourceId,
-                    );
-                    target.primitive!.binding = {
-                      ...target.primitive!.binding!,
-                      dataSourceId,
-                      field: source
-                        ? (structuredFields(source)[0] ?? "title")
-                        : "title",
-                    };
-                  })
-                }
-              />
-              <label className="field">
-                <span className="field__label">Field</span>
-                <Select
-                  value={primitive.binding.field}
-                  onChange={(event) =>
-                    update(
-                      (target) =>
-                        (target.primitive!.binding!.field = event.target.value),
-                    )
-                  }
-                >
-                  {structuredFields(
-                    dataSources.find(
-                      (asset) => asset.id === primitive.binding!.dataSourceId,
-                    ),
-                  ).map((field) => (
-                    <option key={field} value={field}>
-                      {field}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <div className="form-grid form-grid--2">
-                <label className="field">
-                  <span className="field__label">Prefix</span>
-                  <input
-                    value={primitive.binding.prefix ?? ""}
-                    onChange={(event) =>
-                      update(
-                        (target) =>
-                          (target.primitive!.binding!.prefix =
-                            event.target.value),
-                      )
-                    }
-                  />
-                </label>
-                <label className="field">
-                  <span className="field__label">Suffix</span>
-                  <input
-                    value={primitive.binding.suffix ?? ""}
-                    onChange={(event) =>
-                      update(
-                        (target) =>
-                          (target.primitive!.binding!.suffix =
-                            event.target.value),
-                      )
-                    }
-                  />
-                </label>
-              </div>
-              <label className="field">
-                <span className="field__label">Fallback text</span>
-                <input
-                  value={primitive.binding.fallbackText ?? ""}
-                  onChange={(event) =>
-                    update(
-                      (target) =>
-                        (target.primitive!.binding!.fallbackText =
-                          event.target.value),
-                    )
-                  }
-                />
-              </label>
-              <label className="field">
-                <span className="field__label">Format</span>
-                <Select
-                  value={primitive.binding.format ?? "text"}
-                  onChange={(event) =>
-                    update(
-                      (target) =>
-                        (target.primitive!.binding!.format = event.target
-                          .value as NonNullable<
-                          LayoutPrimitive["binding"]
-                        >["format"]),
-                    )
-                  }
-                >
-                  <option value="text">Text</option>
-                  <option value="date-short">Short date</option>
-                  <option value="date-long">Long date</option>
-                  <option value="number">Number</option>
-                  <option value="integer">Integer</option>
-                  <option value="currency">Currency</option>
-                </Select>
-              </label>
-              <label className="switch-row">
-                <input
-                  type="checkbox"
-                  checked={primitive.binding.hideWhenEmpty ?? false}
-                  onChange={(event) =>
-                    update(
-                      (target) =>
-                        (target.primitive!.binding!.hideWhenEmpty =
-                          event.target.checked),
-                    )
-                  }
-                />
-                <span>Hide when empty</span>
-              </label>
-            </div>
-          )}
-          {!primitive.binding && (
-            <label className="field">
-              <span className="field__label">Text</span>
-              <textarea
-                value={primitive.text ?? ""}
-                onChange={(event) =>
-                  update((target) => {
-                    target.primitive!.text = event.target.value;
-                  })
-                }
-              />
-            </label>
-          )}
-          <div className="form-grid form-grid--2">
-            <label className="field">
-              <span className="field__label">Font</span>
-              <Select
-                value={primitive.fontFamily}
-                onChange={(event) =>
-                  update(
-                    (target) =>
-                      (target.primitive!.fontFamily = event.target
-                        .value as LayoutPrimitive["fontFamily"]),
-                  )
-                }
-              >
-                <option>Inter</option>
-                <option>Roboto</option>
-                <option>Source Sans 3</option>
-                <option>Noto Sans</option>
-              </Select>
-            </label>
-            <NumberField
-              label="Size"
-              value={primitive.fontSize ?? 48}
-              min={8}
-              max={600}
-              onChange={(value) =>
-                update((target) => (target.primitive!.fontSize = value))
-              }
-            />
-            <label className="field">
-              <span className="field__label">Weight</span>
-              <Select
-                value={primitive.fontWeight}
-                onChange={(event) =>
-                  update(
-                    (target) =>
-                      (target.primitive!.fontWeight = Number(
-                        event.target.value,
-                      ) as LayoutPrimitive["fontWeight"]),
-                  )
-                }
-              >
-                {[400, 500, 600, 700, 800].map((weight) => (
-                  <option key={weight}>{weight}</option>
-                ))}
-              </Select>
-            </label>
-            <label className="field">
-              <span className="field__label">Align</span>
-              <Select
-                value={primitive.textAlign}
-                onChange={(event) =>
-                  update(
-                    (target) =>
-                      (target.primitive!.textAlign = event.target
-                        .value as LayoutPrimitive["textAlign"]),
-                  )
-                }
-              >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </Select>
-            </label>
-            <label className="field">
-              <span className="field__label">Text color</span>
-              <input
-                type="color"
-                value={primitive.color?.slice(0, 7)}
-                onChange={(event) =>
-                  update(
-                    (target) => (target.primitive!.color = event.target.value),
-                  )
-                }
-              />
-            </label>
-            <label className="field">
-              <span className="field__label">Background</span>
-              <input
-                type="color"
-                value={(primitive.backgroundColor ?? "#000000").slice(0, 7)}
-                onChange={(event) =>
-                  update(
-                    (target) =>
-                      (target.primitive!.backgroundColor = event.target.value),
-                  )
-                }
-              />
-            </label>
-            <NumberField
-              label="Line height"
-              value={primitive.lineHeight ?? 1.2}
-              min={0.8}
-              max={3}
-              step={0.1}
-              onChange={(value) =>
-                update((target) => (target.primitive!.lineHeight = value))
-              }
-            />
-            <NumberField
-              label="Letter spacing"
-              value={primitive.letterSpacing ?? 0}
-              min={0}
-              max={40}
-              step={0.5}
-              onChange={(value) =>
-                update((target) => (target.primitive!.letterSpacing = value))
-              }
-            />
-            <NumberField
-              label="Padding"
-              value={primitive.padding ?? 0}
-              max={300}
-              onChange={(value) =>
-                update((target) => (target.primitive!.padding = value))
-              }
-            />
-            <NumberField
-              label="Corner radius"
-              value={primitive.cornerRadius ?? 0}
-              max={1000}
-              onChange={(value) =>
-                update((target) => (target.primitive!.cornerRadius = value))
-              }
-            />
-            <NumberField
-              label="Border"
-              value={primitive.borderWidth ?? 0}
-              max={100}
-              onChange={(value) =>
-                update((target) => (target.primitive!.borderWidth = value))
-              }
-            />
-            <NumberField
-              label="Maximum lines"
-              value={primitive.maximumLines ?? 4}
-              min={1}
-              max={100}
-              onChange={(value) =>
-                update((target) => (target.primitive!.maximumLines = value))
-              }
-            />
-          </div>
-          <label className="switch-row">
-            <input
-              type="checkbox"
-              checked={primitive.autoFit ?? false}
-              onChange={(event) =>
-                update(
-                  (target) =>
-                    (target.primitive!.autoFit = event.target.checked),
-                )
-              }
-            />
-            <span>Automatically fit text</span>
-          </label>
-        </>
-      )}
-      {primitive &&
-        ["rectangle", "circle", "line"].includes(primitive.kind) && (
-          <div className="form-grid form-grid--2">
-            <label className="field">
-              <span className="field__label">Fill</span>
-              <input
-                type="color"
-                value={(primitive.fillColor ?? "#2D7FF9").slice(0, 7)}
-                onChange={(event) =>
-                  update(
-                    (target) =>
-                      (target.primitive!.fillColor = event.target.value),
-                  )
-                }
-              />
-            </label>
-            <label className="field">
-              <span className="field__label">Stroke</span>
-              <input
-                type="color"
-                value={(primitive.strokeColor ?? "#FFFFFF").slice(0, 7)}
-                onChange={(event) =>
-                  update(
-                    (target) =>
-                      (target.primitive!.strokeColor = event.target.value),
-                  )
-                }
-              />
-            </label>
-            <NumberField
-              label="Stroke width"
-              value={primitive.strokeWidth ?? 0}
-              max={100}
-              onChange={(value) =>
-                update((target) => (target.primitive!.strokeWidth = value))
-              }
-            />
-          </div>
-        )}
-    </div>
-  );
-}
-
-function structuredFields(source?: DataSource): string[] {
-  if (!source || !["csv", "json"].includes(source.provider)) return [];
-  const config = source.configuration as {
-    mapping?: { valueFields?: Record<string, string> };
-  };
-  return [
-    "title",
-    "subtitle",
-    "date",
-    "author",
-    "description",
-    ...Object.keys(config.mapping?.valueFields ?? {}),
-  ];
-}
-function CanvasInspector({
-  document,
-  update,
-}: {
-  document: LayoutDocument;
-  update: (change: (draft: LayoutDocument) => void) => void;
-}) {
-  return (
-    <div className="layout-inspector">
-      <label className="field">
-        <span className="field__label">Canvas preset</span>
-        <Select
-          value={`${document.canvas.width}x${document.canvas.height}`}
-          onChange={(event) => {
-            const [width, height] = event.target.value.split("x").map(Number);
-            update((draft) => {
-              draft.canvas.width = width!;
-              draft.canvas.height = height!;
-              draft.canvas.orientation =
-                width! > height! ? "landscape" : "portrait";
-              draft.placements = draft.placements.filter(
-                (item) =>
-                  item.x + item.width <= width! &&
-                  item.y + item.height <= height!,
-              );
-            });
-          }}
-        >
-          <option value="1920x1080">1920 × 1080</option>
-          <option value="1080x1920">1080 × 1920</option>
-          <option value="3840x2160">3840 × 2160</option>
-          <option value="2160x3840">2160 × 3840</option>
-        </Select>
-      </label>
-      <div className="form-grid form-grid--2">
-        <NumberField
-          label="Width"
-          value={document.canvas.width}
-          min={320}
-          max={7680}
-          onChange={(value) =>
-            update((d) => {
-              d.canvas.width = value;
-              d.canvas.orientation = "custom";
-            })
-          }
-        />
-        <NumberField
-          label="Height"
-          value={document.canvas.height}
-          min={320}
-          max={7680}
-          onChange={(value) =>
-            update((d) => {
-              d.canvas.height = value;
-              d.canvas.orientation = "custom";
-            })
-          }
-        />
-      </div>
-      <label className="field">
-        <span className="field__label">Background</span>
-        <input
-          type="color"
-          value={document.canvas.backgroundColor.slice(0, 7)}
-          onChange={(event) =>
-            update((d) => (d.canvas.backgroundColor = event.target.value))
-          }
-        />
-      </label>
-      <NumberField
-        label="Safe area (%)"
-        value={document.canvas.safeAreaPercent}
-        min={0}
-        max={20}
-        step={1}
-        onChange={(value) => update((d) => (d.canvas.safeAreaPercent = value))}
-      />
-      <div className="layout-canvas-summary">
-        <AlignCenter size={17} />
-        <span>
-          {document.placements.length} layers · {document.canvas.orientation}
-        </span>
-      </div>
     </div>
   );
 }

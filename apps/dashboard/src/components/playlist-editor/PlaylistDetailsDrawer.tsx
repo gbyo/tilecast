@@ -1,6 +1,35 @@
 import { Save, Tag } from "lucide-react";
-import { Button, Drawer, Field, Select } from "../legacy-ui";
 import type { ContentTag } from "../../api/types";
+import { Alert, AlertDescription } from "../ui/alert";
+import { Button as RheaButton } from "../ui/button";
+import { Field, FieldDescription, FieldLabel } from "../ui/field";
+import { Input } from "../ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import {
+  Sheet as RheaSheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../ui/sheet";
+import { Textarea } from "../ui/textarea";
+import { optionLabel } from "../../content/data-sources/shared";
+
+const sourceTypeOptions = [
+  { value: "static", label: "Manual timeline" },
+  { value: "tag", label: "Automatically from media tags" },
+];
+
+const tagMatchOptions = [
+  { value: "any", label: "Any selected tag" },
+  { value: "all", label: "All selected tags" },
+];
 
 export function PlaylistDetailsDrawer({
   canManage,
@@ -52,178 +81,211 @@ export function PlaylistDetailsDrawer({
   onSaveTagRule: () => void;
 }) {
   return (
-    <Drawer
-      title="Playlist details"
-      eyebrow={
-        sourceType === "tag" ? "Tag-driven playlist" : "Playlist settings"
-      }
-      onClose={onClose}
-      closeLabel="Close playlist details"
-      className="playlist-details-drawer"
+    <RheaSheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <div className="playlist-details-drawer__content">
-        <section className="playlist-details-section">
-          <div className="playlist-details-section__heading">
-            <h3>Details</h3>
-            <p>
-              Name and description are saved separately from timeline edits.
-            </p>
-          </div>
-          <div className="playlist-details-section__fields">
-            <Field label="Name">
-              <input
+      <SheetContent side="right" className="overflow-y-auto">
+        <SheetHeader>
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            {sourceType === "tag" ? "Tag-driven playlist" : "Playlist settings"}
+          </p>
+          <SheetTitle>Playlist details</SheetTitle>
+          <SheetDescription>
+            Name and description are saved separately from timeline edits.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="grid gap-6 px-4">
+          <section className="grid gap-3">
+            <h3 className="text-sm font-medium">Details</h3>
+            <Field>
+              <FieldLabel htmlFor="playlist-details-name">Name</FieldLabel>
+              <Input
+                id="playlist-details-name"
                 disabled={!canManage}
                 value={name}
                 onChange={(event) => onNameChange(event.target.value)}
               />
             </Field>
-            <Field label="Description">
-              <textarea
+            <Field>
+              <FieldLabel htmlFor="playlist-details-description">
+                Description
+              </FieldLabel>
+              <Textarea
+                id="playlist-details-description"
                 disabled={!canManage}
                 value={description}
                 onChange={(event) => onDescriptionChange(event.target.value)}
               />
             </Field>
-          </div>
-          {metadataError && (
-            <div
-              className="playlist-editor-notice playlist-editor-notice--error"
-              role="alert"
-            >
-              {metadataError}
+            {metadataError && (
+              <Alert variant="destructive">
+                <AlertDescription>{metadataError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <RheaButton
+                type="button"
+                size="sm"
+                disabled={!canManage || !metadataDirty || metadataSaving}
+                onClick={onSaveMetadata}
+              >
+                <Save size={14} aria-hidden="true" />
+                {metadataSaving ? "Saving…" : "Save details"}
+              </RheaButton>
             </div>
-          )}
-          <div className="playlist-details-section__actions">
-            <Button
-              variant="primary"
-              compact
-              loading={metadataSaving}
-              disabled={!canManage || !metadataDirty}
-              onClick={onSaveMetadata}
-            >
-              <Save size={14} aria-hidden="true" />
-              Save details
-            </Button>
-          </div>
-        </section>
+          </section>
 
-        <section className="playlist-details-section">
-          <div className="playlist-details-section__heading">
-            <h3>Content source</h3>
-            <p>
+          <section className="grid gap-3">
+            <h3 className="text-sm font-medium">Content source</h3>
+            <p className="text-sm text-muted-foreground">
               Choose a manual timeline or let matching ready media appear from
               tags.
             </p>
-          </div>
-          <Field label="Source">
-            <Select
-              disabled={!canManage}
-              value={sourceType}
-              onChange={(event) =>
-                onSourceTypeChange(event.target.value as "static" | "tag")
-              }
-            >
-              <option value="static">Manual timeline</option>
-              <option value="tag">Automatically from media tags</option>
-            </Select>
-          </Field>
-
-          {sourceType === "tag" && (
-            <>
-              <Field label="Match">
-                <Select
-                  disabled={!canManage}
-                  value={tagMatch}
-                  onChange={(event) =>
-                    onTagMatchChange(event.target.value as "any" | "all")
-                  }
-                >
-                  <option value="any">Any selected tag</option>
-                  <option value="all">All selected tags</option>
-                </Select>
-              </Field>
-              <div className="field playlist-details-drawer__tags">
-                <span className="field__label">Media tags</span>
-                <div className="playlist-details-drawer__tag-list">
-                  {tags.length ? (
-                    tags.map((tag) => {
-                      const active = tagIds.includes(tag.id);
-                      return (
-                        <button
-                          key={tag.id}
-                          type="button"
-                          className={`playlist-details-drawer__tag${active ? " playlist-details-drawer__tag--active" : ""}`}
-                          aria-pressed={active}
-                          disabled={!canManage}
-                          onClick={() => onTagToggle(tag.id)}
-                        >
-                          <span
-                            className="playlist-details-drawer__tag-dot"
-                            style={{ backgroundColor: tag.color }}
-                            aria-hidden="true"
-                          />
-                          {tag.name}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <span className="playlist-editor__readout">
-                      No tags available
-                    </span>
-                  )}
-                </div>
-              </div>
-              <Field
-                label="Image duration"
-                description="Applied to matching image content."
+            <Field>
+              <FieldLabel htmlFor="playlist-details-source">Source</FieldLabel>
+              <RheaSelect
+                disabled={!canManage}
+                value={sourceType}
+                onValueChange={(next) =>
+                  onSourceTypeChange(next as "static" | "tag")
+                }
               >
-                <div className="playlist-playback__duration-control">
-                  <input
-                    type="number"
-                    min="1"
-                    max="86400"
+                <SelectTrigger id="playlist-details-source" aria-label="Source">
+                  <SelectValue>
+                    {optionLabel(sourceTypeOptions, sourceType)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {sourceTypeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </RheaSelect>
+            </Field>
+
+            {sourceType === "tag" && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="playlist-details-match">
+                    Match
+                  </FieldLabel>
+                  <RheaSelect
                     disabled={!canManage}
-                    value={tagImageSeconds}
-                    onChange={(event) =>
-                      onTagImageSecondsChange(Number(event.target.value))
+                    value={tagMatch}
+                    onValueChange={(next) =>
+                      onTagMatchChange(next as "any" | "all")
                     }
-                  />
-                  <span>seconds</span>
-                </div>
-              </Field>
-              {tagIds.length === 0 && (
-                <p className="playlist-details-drawer__warning">
-                  Select at least one tag before saving this source.
-                </p>
-              )}
-            </>
-          )}
-          {tagRuleError && (
-            <div
-              className="playlist-editor-notice playlist-editor-notice--error"
-              role="alert"
-            >
-              {tagRuleError}
+                  >
+                    <SelectTrigger
+                      id="playlist-details-match"
+                      aria-label="Match"
+                    >
+                      <SelectValue>
+                        {optionLabel(tagMatchOptions, tagMatch)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tagMatchOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </RheaSelect>
+                </Field>
+                <Field>
+                  <span className="text-sm font-medium">Media tags</span>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.length ? (
+                      tags.map((tag) => {
+                        const active = tagIds.includes(tag.id);
+                        return (
+                          <RheaButton
+                            key={tag.id}
+                            type="button"
+                            variant={active ? "default" : "outline"}
+                            size="sm"
+                            aria-pressed={active}
+                            disabled={!canManage}
+                            onClick={() => onTagToggle(tag.id)}
+                          >
+                            <span
+                              className="size-2 rounded-full"
+                              style={{ backgroundColor: tag.color }}
+                              aria-hidden="true"
+                            />
+                            {tag.name}
+                          </RheaButton>
+                        );
+                      })
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        No tags available
+                      </span>
+                    )}
+                  </div>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="playlist-details-image-duration">
+                    Image duration
+                  </FieldLabel>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="playlist-details-image-duration"
+                      className="w-28"
+                      type="number"
+                      min="1"
+                      max="86400"
+                      disabled={!canManage}
+                      value={tagImageSeconds}
+                      onChange={(event) =>
+                        onTagImageSecondsChange(Number(event.target.value))
+                      }
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      seconds
+                    </span>
+                  </div>
+                  <FieldDescription>
+                    Applied to matching image content.
+                  </FieldDescription>
+                </Field>
+                {tagIds.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Select at least one tag before saving this source.
+                  </p>
+                )}
+              </>
+            )}
+            {tagRuleError && (
+              <Alert variant="destructive">
+                <AlertDescription>{tagRuleError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <RheaButton
+                type="button"
+                size="sm"
+                disabled={
+                  !canManage ||
+                  !tagRuleDirty ||
+                  tagRuleSaving ||
+                  (sourceType === "tag" && tagIds.length === 0)
+                }
+                onClick={onSaveTagRule}
+              >
+                <Tag size={14} aria-hidden="true" />
+                {tagRuleSaving ? "Saving…" : "Save content source"}
+              </RheaButton>
             </div>
-          )}
-          <div className="playlist-details-section__actions">
-            <Button
-              variant="primary"
-              compact
-              loading={tagRuleSaving}
-              disabled={
-                !canManage ||
-                !tagRuleDirty ||
-                (sourceType === "tag" && tagIds.length === 0)
-              }
-              onClick={onSaveTagRule}
-            >
-              <Tag size={14} aria-hidden="true" />
-              Save content source
-            </Button>
-          </div>
-        </section>
-      </div>
-    </Drawer>
+          </section>
+        </div>
+      </SheetContent>
+    </RheaSheet>
   );
 }
