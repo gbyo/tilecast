@@ -13,6 +13,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { toast } from "../components/ui/toast";
 import { Checkbox } from "../components/ui/checkbox";
 import {
   Select as RheaSelect,
@@ -40,15 +41,16 @@ function BulkSelect({
   placeholder?: string;
   hint?: string;
 }) {
-  const selected = options.find((option) => option.value === value);
   return (
     <div className="bulk-field">
       <label htmlFor={id}>{label}</label>
-      <RheaSelect value={value} onValueChange={(next) => onChange(next ?? "")}>
+      <RheaSelect
+        items={options}
+        value={value}
+        onValueChange={(next) => onChange(next ?? "")}
+      >
         <SelectTrigger id={id}>
-          <SelectValue placeholder={placeholder}>
-            {selected?.label ?? placeholder ?? value}
-          </SelectValue>
+          <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
@@ -144,6 +146,7 @@ export function FleetBulkPage() {
         csrf,
       ),
     onSuccess: (data) => {
+      toast.add({ title: "Bulk changes applied.", type: "success" });
       setResult(data);
       setPreview(undefined);
       void client.invalidateQueries({ queryKey: ["screens"] });
@@ -153,6 +156,7 @@ export function FleetBulkPage() {
   const undo = useMutation({
     mutationFn: (id: string) => api.undoBulkOperation(id, csrf),
     onSuccess: () => {
+      toast.add({ title: "Bulk changes undone.", type: "success" });
       setResult(undefined);
       void client.invalidateQueries({ queryKey: ["screens"] });
       void client.invalidateQueries({ queryKey: ["bulk-operations"] });

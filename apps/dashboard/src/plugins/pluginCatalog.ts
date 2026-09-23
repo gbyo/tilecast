@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api/client";
 import type { PluginInUseResource, PluginSummary } from "../api/types";
+import { toast } from "../components/ui/toast";
 
 export const pluginCategories = [
   "Display",
@@ -68,11 +69,17 @@ export function usePluginLifecycle(csrfToken: string) {
     queryClient.invalidateQueries({ queryKey: pluginsQueryKey });
   const install = useMutation({
     mutationFn: (id: string) => api.installPlugin(id, csrfToken),
-    onSuccess: settle,
+    onSuccess: () => {
+      toast.add({ title: "Plugin installed.", type: "success" });
+      return settle();
+    },
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.removePlugin(id, csrfToken),
-    onSuccess: settle,
+    onSuccess: () => {
+      toast.add({ title: "Plugin removed.", type: "success" });
+      return settle();
+    },
   });
   return { install, remove };
 }

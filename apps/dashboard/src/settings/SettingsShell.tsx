@@ -27,7 +27,6 @@ export function SettingsShell({
   const navigate = useNavigate();
   const details = sectionDetails[active];
   const items = settingsNavigation.flatMap((group) => group.items);
-  const activeLabel = items.find((item) => item.id === active)?.label ?? "";
   return (
     <div className="mx-auto grid max-w-[1240px] grid-cols-[208px_minmax(0,1fr)] items-start gap-8 max-[1050px]:grid-cols-[190px_minmax(0,1fr)] max-[1050px]:gap-[22px] max-[850px]:grid-cols-1">
       <aside
@@ -39,6 +38,10 @@ export function SettingsShell({
             Settings section
           </FieldLabel>
           <RheaSelect
+            items={items.map((item) => ({
+              value: item.id,
+              label: `${item.label}${dirty.has(item.id) ? " • Unsaved" : ""}`,
+            }))}
             value={active}
             onValueChange={(value) => {
               const item = items.find((candidate) => candidate.id === value);
@@ -47,7 +50,7 @@ export function SettingsShell({
             }}
           >
             <SelectTrigger id="settings-mobile-section" className="w-full">
-              <SelectValue>{activeLabel}</SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {items.map((item) => (

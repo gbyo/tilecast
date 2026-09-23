@@ -21,6 +21,7 @@ import { SecurityQr } from "../components/SecurityQr";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import { securityKey } from "./SecurityPage";
 
 /**
@@ -455,8 +456,21 @@ function RecoveryStep({
             <Button
               variant="secondary"
               onClick={() => {
-                void navigator.clipboard?.writeText(codes.join("\n"));
-                setCopied(true);
+                void navigator.clipboard
+                  ?.writeText(codes.join("\n"))
+                  .then(() => {
+                    setCopied(true);
+                    toast.add({
+                      title: "Recovery codes copied.",
+                      type: "success",
+                    });
+                  })
+                  .catch(() =>
+                    toast.add({
+                      title: "Recovery codes could not be copied.",
+                      type: "error",
+                    }),
+                  );
               }}
             >
               {copied ? "Copied" : "Copy all"}

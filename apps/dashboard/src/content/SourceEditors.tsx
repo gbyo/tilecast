@@ -23,6 +23,7 @@ import { Input } from "../components/ui/input";
 import { Slider } from "../components/ui/slider";
 import { Switch as RheaSwitch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
+import { toast } from "../components/ui/toast";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -703,6 +704,10 @@ export function NativeAppEditor({
       };
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: asset ? "Widget updated." : "Widget created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       onSaved(saved);
     },
@@ -2378,6 +2383,13 @@ export function NativeAppEditor({
                         Uploaded image
                       </FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "", label: "No image" },
+                          ...(imageAssets.data?.items ?? []).map((item) => ({
+                            value: item.id,
+                            label: item.name,
+                          })),
+                        ]}
                         value={
                           (configuration as SpotlightWidgetConfig)
                             .imageAssetId ?? ""
@@ -2394,14 +2406,7 @@ export function NativeAppEditor({
                           id="spotlight-image"
                           aria-label="Uploaded image"
                         >
-                          <SelectValue>
-                            {(imageAssets.data?.items ?? []).find(
-                              (item) =>
-                                item.id ===
-                                (configuration as SpotlightWidgetConfig)
-                                  .imageAssetId,
-                            )?.name ?? "No image"}
-                          </SelectValue>
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="">No image</SelectItem>
@@ -4120,6 +4125,13 @@ function FieldSelect({
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <RheaSelect
+        items={[
+          { value: "", label: emptyLabel },
+          ...fields.map((field) => ({
+            value: field.key,
+            label: field.label,
+          })),
+        ]}
         value={value}
         disabled={disabled || fields.length === 0}
         onValueChange={(next) => {
@@ -4127,9 +4139,7 @@ function FieldSelect({
         }}
       >
         <SelectTrigger id={id} aria-label={label}>
-          <SelectValue>
-            {fields.find((field) => field.key === value)?.label ?? emptyLabel}
-          </SelectValue>
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="">{emptyLabel}</SelectItem>
@@ -4222,6 +4232,10 @@ export function YouTubeSourceEditor({
         : api.createWidget(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: asset ? "Widget updated." : "Widget created.",
+        type: "success",
+      });
       setDirty(false);
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       onSaved(saved);
@@ -4482,6 +4496,13 @@ export function YouTubeSourceEditor({
         <Field>
           <FieldLabel htmlFor="youtube-fallback">Fallback image</FieldLabel>
           <RheaSelect
+            items={[
+              { value: "", label: "None" },
+              ...(images.data?.items ?? []).map((image) => ({
+                value: image.id,
+                label: image.name,
+              })),
+            ]}
             disabled={readOnly}
             value={configuration.fallbackImageAssetId ?? ""}
             onValueChange={(next) =>
@@ -4489,11 +4510,7 @@ export function YouTubeSourceEditor({
             }
           >
             <SelectTrigger id="youtube-fallback" aria-label="Fallback image">
-              <SelectValue>
-                {images.data?.items?.find(
-                  (image) => image.id === configuration.fallbackImageAssetId,
-                )?.name ?? "None"}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">None</SelectItem>

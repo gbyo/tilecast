@@ -17,6 +17,7 @@ import {
 } from "../components/ui/empty";
 import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 
 const categoryLabels: Record<NotificationCategory, string> = {
   incident: "Screen problems",
@@ -55,7 +56,10 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
 
   const sendTest = useMutation({
     mutationFn: () => api.sendTestNotification(csrf),
-    onSuccess: (data) => setTestResult(`Test message sent to ${data.sentTo}.`),
+    onSuccess: (data) => {
+      setTestResult(`Test message sent to ${data.sentTo}.`);
+      toast.add({ title: "Test notification sent.", type: "success" });
+    },
     onError: () => setTestResult(undefined),
   });
   const createWebhook = useMutation({
@@ -65,6 +69,7 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
       categories: NotificationCategory[];
     }) => api.createNotificationWebhook(body, csrf),
     onSuccess: (data) => {
+      toast.add({ title: "Notification webhook created.", type: "success" });
       setNewSecret(data.signingSecret);
       refresh();
     },
@@ -81,11 +86,17 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
         },
         csrf,
       ),
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.add({ title: "Notification webhook updated.", type: "success" });
+      refresh();
+    },
   });
   const testWebhook = useMutation({
     mutationFn: (id: string) => api.testNotificationWebhook(id, csrf),
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.add({ title: "Webhook test sent.", type: "success" });
+      refresh();
+    },
   });
   const { confirm, dialog: confirmDialog } = useConfirm();
   const removeWebhook = useMutation({
@@ -99,7 +110,10 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
       if (!ok) throw new CancelledAction();
       return api.deleteNotificationWebhook(webhook.id, csrf);
     },
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.add({ title: "Notification webhook removed.", type: "success" });
+      refresh();
+    },
   });
 
   const emailConfigured = status.data?.emailConfigured ?? false;

@@ -57,7 +57,7 @@ import {
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
-import { optionLabel } from "../content/data-sources/shared";
+import { toast } from "../components/ui/toast";
 
 function nextHour() {
   const date = new Date(Date.now() + 60 * 60 * 1000);
@@ -143,7 +143,10 @@ function CampaignLibrary() {
   const create = useMutation({
     mutationFn: () =>
       api.createCampaign({ name: name.trim(), timezone: "UTC" }, csrf),
-    onSuccess: (campaign) => void navigate(`/campaigns/${campaign.id}`),
+    onSuccess: (campaign) => {
+      toast.add({ title: "Campaign created.", type: "success" });
+      void navigate(`/campaigns/${campaign.id}`);
+    },
   });
   const closeCreate = () => {
     setCreating(false);
@@ -325,6 +328,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         csrf,
       ),
     onSuccess: (campaign) => {
+      toast.add({ title: "Campaign draft saved.", type: "success" });
       setDraft(snapshotForEdit(campaign));
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
@@ -348,6 +352,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         csrf,
       ),
     onSuccess: () => {
+      toast.add({ title: "Campaign published.", type: "success" });
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
       });
@@ -364,6 +369,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     mutationFn: (releaseId: string) =>
       api.restoreCampaignRelease(campaignId, releaseId, csrf),
     onSuccess: (campaign) => {
+      toast.add({
+        title: "Campaign release restored to draft.",
+        type: "success",
+      });
       setDraft(snapshotForEdit(campaign));
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
@@ -382,6 +391,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         csrf,
       ),
     onSuccess: async () => {
+      toast.add({ title: "Publication restored to draft.", type: "success" });
       setDraft(undefined);
       await queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
@@ -400,6 +410,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     mutationFn: (publicationId: string) =>
       api.rollbackPublication("campaign", campaignId, publicationId, csrf),
     onSuccess: () => {
+      toast.add({ title: "Publication rolled back.", type: "success" });
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
       });
@@ -415,6 +426,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   const archive = useMutation({
     mutationFn: () => api.archiveCampaign(campaignId, csrf),
     onSuccess: () => {
+      toast.add({ title: "Campaign archived.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       void navigate("/campaigns");
     },
@@ -728,14 +740,13 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             type: next as CampaignBlock["type"],
                           })
                         }
+                        items={blockScheduleOptions}
                       >
                         <SelectTrigger
                           id={`block-type-${block.id}`}
                           aria-label={`Block ${index + 1} schedule type`}
                         >
-                          <SelectValue>
-                            {optionLabel(blockScheduleOptions, block.type)}
-                          </SelectValue>
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {blockScheduleOptions.map((option) => (
@@ -952,14 +963,13 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     setSelectedType(next as CampaignBlock["contentType"]);
                     setSelectedContent("");
                   }}
+                  items={blockContentOptions}
                 >
                   <SelectTrigger
                     id="campaign-content-type"
                     aria-label="Content type"
                   >
-                    <SelectValue>
-                      {optionLabel(blockContentOptions, selectedType)}
-                    </SelectValue>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {blockContentOptions.map((option) => (
@@ -975,20 +985,16 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 <RheaSelect
                   value={selectedContent}
                   onValueChange={(next) => setSelectedContent(next as string)}
+                  items={[
+                    { value: "", label: "Select content" },
+                    ...contentOptions.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    })),
+                  ]}
                 >
                   <SelectTrigger id="campaign-content" aria-label="Content">
-                    <SelectValue>
-                      {optionLabel(
-                        [
-                          { value: "", label: "Select content" },
-                          ...contentOptions.map((item) => ({
-                            value: item.id,
-                            label: item.name,
-                          })),
-                        ],
-                        selectedContent,
-                      )}
-                    </SelectValue>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Select content</SelectItem>
@@ -1065,14 +1071,13 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     setDestinationType(next as CampaignDestination["type"]);
                     setDestination("");
                   }}
+                  items={destinationTypeOptions}
                 >
                   <SelectTrigger
                     id="campaign-destination-type"
                     aria-label="Destination type"
                   >
-                    <SelectValue>
-                      {optionLabel(destinationTypeOptions, destinationType)}
-                    </SelectValue>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {destinationTypeOptions.map((option) => (
@@ -1090,23 +1095,19 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 <RheaSelect
                   value={destination}
                   onValueChange={(next) => setDestination(next as string)}
+                  items={[
+                    { value: "", label: "Select destination" },
+                    ...destinationOptions.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    })),
+                  ]}
                 >
                   <SelectTrigger
                     id="campaign-destination"
                     aria-label="Destination"
                   >
-                    <SelectValue>
-                      {optionLabel(
-                        [
-                          { value: "", label: "Select destination" },
-                          ...destinationOptions.map((item) => ({
-                            value: item.id,
-                            label: item.name,
-                          })),
-                        ],
-                        destination,
-                      )}
-                    </SelectValue>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Select destination</SelectItem>

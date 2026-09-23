@@ -5,6 +5,7 @@ import { api, ApiError } from "../api/client";
 import type { AirplaySession, ReliabilityStatus } from "../api/types";
 import { airplayCapabilityBlockDetail } from "./airplayCapability";
 import { Alert, AlertDescription } from "./ui/alert";
+import { toast } from "./ui/toast";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
@@ -140,6 +141,7 @@ export function AirPlayPresentDialog({
         csrfToken,
       ),
     onSuccess: (value) => {
+      toast.add({ title: "AirPlay session started.", type: "success" });
       setSession(value);
       setSessionId(value.id);
     },
@@ -184,6 +186,7 @@ export function AirPlayPresentDialog({
       return api.stopAirplaySession(sessionId, csrfToken);
     },
     onSuccess: (value) => {
+      toast.add({ title: "AirPlay session ended.", type: "success" });
       setSession(value);
       setSessionId(value.id);
     },

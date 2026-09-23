@@ -1,4 +1,4 @@
-import { Save, Tag } from "lucide-react";
+import { Save, Tag, X } from "lucide-react";
 import type { ContentTag } from "../../api/types";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button as RheaButton } from "../ui/button";
@@ -12,14 +12,13 @@ import {
   SelectValue,
 } from "../ui/select";
 import {
-  Sheet as RheaSheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "../ui/sheet";
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../ui/drawer";
 import { Textarea } from "../ui/textarea";
-import { optionLabel } from "../../content/data-sources/shared";
 
 const sourceTypeOptions = [
   { value: "static", label: "Manual timeline" },
@@ -32,6 +31,7 @@ const tagMatchOptions = [
 ];
 
 export function PlaylistDetailsDrawer({
+  open,
   canManage,
   sourceType,
   name,
@@ -56,6 +56,7 @@ export function PlaylistDetailsDrawer({
   onSaveMetadata,
   onSaveTagRule,
 }: {
+  open: boolean;
   canManage: boolean;
   sourceType: "static" | "tag";
   name: string;
@@ -81,23 +82,34 @@ export function PlaylistDetailsDrawer({
   onSaveTagRule: () => void;
 }) {
   return (
-    <RheaSheet
-      open
+    <Drawer
+      open={open}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
+      showSwipeHandle
     >
-      <SheetContent side="right" className="overflow-y-auto">
-        <SheetHeader>
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        <DrawerHeader className="relative">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {sourceType === "tag" ? "Tag-driven playlist" : "Playlist settings"}
           </p>
-          <SheetTitle>Playlist details</SheetTitle>
-          <SheetDescription>
+          <DrawerTitle>Playlist details</DrawerTitle>
+          <DrawerDescription>
             Name and description are saved separately from timeline edits.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="grid gap-6 px-4">
+          </DrawerDescription>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="absolute top-2 right-3"
+            aria-label="Close playlist details"
+            onClick={onClose}
+          >
+            <X aria-hidden="true" />
+          </RheaButton>
+        </DrawerHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           <section className="grid gap-3">
             <h3 className="text-sm font-medium">Details</h3>
             <Field>
@@ -152,11 +164,10 @@ export function PlaylistDetailsDrawer({
                 onValueChange={(next) =>
                   onSourceTypeChange(next as "static" | "tag")
                 }
+                items={sourceTypeOptions}
               >
                 <SelectTrigger id="playlist-details-source" aria-label="Source">
-                  <SelectValue>
-                    {optionLabel(sourceTypeOptions, sourceType)}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {sourceTypeOptions.map((option) => (
@@ -180,14 +191,13 @@ export function PlaylistDetailsDrawer({
                     onValueChange={(next) =>
                       onTagMatchChange(next as "any" | "all")
                     }
+                    items={tagMatchOptions}
                   >
                     <SelectTrigger
                       id="playlist-details-match"
                       aria-label="Match"
                     >
-                      <SelectValue>
-                        {optionLabel(tagMatchOptions, tagMatch)}
-                      </SelectValue>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {tagMatchOptions.map((option) => (
@@ -285,7 +295,7 @@ export function PlaylistDetailsDrawer({
             </div>
           </section>
         </div>
-      </SheetContent>
-    </RheaSheet>
+      </DrawerContent>
+    </Drawer>
   );
 }

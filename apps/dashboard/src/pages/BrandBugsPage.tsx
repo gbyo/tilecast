@@ -22,6 +22,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
+import { toast } from "../components/ui/toast";
 import {
   Empty,
   EmptyDescription,
@@ -164,6 +165,7 @@ export function BrandBugsPage() {
     mutationFn: (id: string) =>
       api.deleteBrandBug(id, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({ title: "Brand Bug removed.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["brand-bugs"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
     },
@@ -363,6 +365,7 @@ export function BrandBugEditorPage() {
         ? api.updateBrandBug(id ?? "", input, auth.status?.csrfToken ?? "")
         : api.createBrandBug(input, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({ title: "Brand Bug saved.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["brand-bugs"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
       void navigate("/plugins/brand-bug");
@@ -436,6 +439,13 @@ export function BrandBugEditorPage() {
           <Field>
             <FieldLabel htmlFor="brand-bug-image">Logo image</FieldLabel>
             <RheaSelect
+              items={[
+                { value: "none", label: "No image" },
+                ...(images.data?.items ?? []).map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                })),
+              ]}
               name="imageAssetId"
               value={imageAssetId || "none"}
               onValueChange={(next) =>
@@ -445,13 +455,7 @@ export function BrandBugEditorPage() {
               }
             >
               <SelectTrigger id="brand-bug-image" aria-label="Logo image">
-                <SelectValue>
-                  {imageAssetId
-                    ? ((images.data?.items ?? []).find(
-                        (item) => item.id === imageAssetId,
-                      )?.name ?? imageAssetId)
-                    : "No image"}
-                </SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No image</SelectItem>
@@ -482,6 +486,9 @@ export function BrandBugEditorPage() {
             <Field>
               <FieldLabel htmlFor="brand-bug-corner">Corner</FieldLabel>
               <RheaSelect
+                items={(
+                  Object.keys(cornerLabels) as BrandBugInput["corner"][]
+                ).map((value) => ({ value, label: cornerLabels[value] }))}
                 name="corner"
                 value={corner}
                 onValueChange={(next) => {
@@ -492,7 +499,7 @@ export function BrandBugEditorPage() {
                 }}
               >
                 <SelectTrigger id="brand-bug-corner" aria-label="Corner">
-                  <SelectValue>{cornerLabels[corner]}</SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.keys(cornerLabels) as BrandBugInput["corner"][]).map(
@@ -548,6 +555,7 @@ export function BrandBugEditorPage() {
             <Field>
               <FieldLabel htmlFor="brand-bug-backing">Backing</FieldLabel>
               <RheaSelect
+                items={backingOptions}
                 name="backgroundStyle"
                 value={backgroundStyle}
                 onValueChange={(next) => {
@@ -556,11 +564,7 @@ export function BrandBugEditorPage() {
                 }}
               >
                 <SelectTrigger id="brand-bug-backing" aria-label="Backing">
-                  <SelectValue>
-                    {backingOptions.find(
-                      (option) => option.value === backgroundStyle,
-                    )?.label ?? backgroundStyle}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {backingOptions.map((option) => (

@@ -57,12 +57,6 @@ const rotationOptions = [0, 90, 180, 270].map((value) => ({
   label: `${value}°`,
 }));
 
-function rotationLabel(value: string) {
-  return (
-    rotationOptions.find((option) => option.value === value)?.label ?? value
-  );
-}
-
 export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
   const client = useQueryClient();
   const status = useQuery({
@@ -319,6 +313,7 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
                     Rotation
                   </FieldLabel>
                   <RheaSelect
+                    items={rotationOptions}
                     value={String(panel.rotation)}
                     disabled={!manageable}
                     onValueChange={(next) =>
@@ -333,9 +328,7 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
                       id={`span-${panel.screenId}-rotation`}
                       aria-label="Rotation"
                     >
-                      <SelectValue>
-                        {rotationLabel(String(panel.rotation))}
-                      </SelectValue>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {rotationOptions.map((option) => (

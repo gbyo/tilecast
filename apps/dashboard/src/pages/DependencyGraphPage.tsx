@@ -593,6 +593,13 @@ export function DependencyGraphPage() {
                 )}
               </InputGroup>
               <Select
+                items={[
+                  { value: "all", label: "All types" },
+                  ...typeOrder.map((nodeType) => ({
+                    value: nodeType,
+                    label: typePresentation[nodeType].plural,
+                  })),
+                ]}
                 value={type}
                 onValueChange={(value) =>
                   setType((value as DependencyNodeType | "all") ?? "all")
@@ -602,11 +609,7 @@ export function DependencyGraphPage() {
                   aria-label="Filter by type"
                   className="h-[34px] border-transparent"
                 >
-                  <SelectValue>
-                    {type === "all"
-                      ? "All types"
-                      : typePresentation[type].plural}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All types</SelectItem>

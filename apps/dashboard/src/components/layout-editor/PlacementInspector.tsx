@@ -66,7 +66,6 @@ import {
   ConnectDataNotice,
   DataSourcePicker,
 } from "../../content/DataSourcePicker";
-import { optionLabel } from "../../content/data-sources/shared";
 
 const fitOptions = [
   { value: "contain", label: "Fit" },
@@ -255,9 +254,10 @@ function InspectorSelect({
       <RheaSelect
         value={value}
         onValueChange={(next) => onChange(next ?? value)}
+        items={options}
       >
         <SelectTrigger id={id} aria-label={label}>
-          <SelectValue>{optionLabel(options, value)}</SelectValue>
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (

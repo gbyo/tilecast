@@ -18,12 +18,6 @@ const targetScopeOptions = [
   { value: "locations", label: "Locations" },
 ];
 
-function targetScopeLabel(value: TargetScope) {
-  return (
-    targetScopeOptions.find((option) => option.value === value)?.label ?? value
-  );
-}
-
 /** Wrapping-label native checkbox for react-hook-form register() spreads. */
 export function RegisterCheckbox({
   label,
@@ -137,6 +131,7 @@ export function TargetFields({
           Target type
         </FieldLabel>
         <RheaSelect
+          items={targetScopeOptions}
           name="targetScope"
           value={scope}
           onValueChange={(next) => {
@@ -147,7 +142,7 @@ export function TargetFields({
             id={`${idPrefix}-target-scope`}
             aria-label="Target type"
           >
-            <SelectValue>{targetScopeLabel(scope)}</SelectValue>
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {targetScopeOptions.map((option) => (

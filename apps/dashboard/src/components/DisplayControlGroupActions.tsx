@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { DisplayControlGroupPreview } from "../api/types";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button as RheaButton } from "./ui/button";
+import { toast } from "./ui/toast";
 
 type GroupDisplayCommand = DisplayControlGroupPreview["commandType"];
 
@@ -48,6 +49,10 @@ export function DisplayControlGroupActions({
         csrfToken,
       ),
     onSuccess: async (result) => {
+      toast.add({
+        title: `${result.queuedCount} player command${result.queuedCount === 1 ? "" : "s"} queued.`,
+        type: result.failedCount ? "warning" : "success",
+      });
       setLastResult(
         `${result.queuedCount} command${result.queuedCount === 1 ? "" : "s"} queued${result.failedCount ? ` · ${result.failedCount} failed` : ""}.`,
       );

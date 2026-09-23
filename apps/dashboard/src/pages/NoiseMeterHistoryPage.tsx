@@ -489,18 +489,20 @@ export function NoiseMeterHistoryPage() {
           <Field>
             <FieldLabel htmlFor="noise-history-screen">Screen</FieldLabel>
             <RheaSelect
+              items={[
+                { value: "all", label: "All screens (combined)" },
+                ...available.map((screen) => ({
+                  value: screen.screenId,
+                  label: screen.name,
+                })),
+              ]}
               value={screenId || "all"}
               onValueChange={(value) =>
                 setScreenId(!value || value === "all" ? "" : value)
               }
             >
               <SelectTrigger id="noise-history-screen">
-                <SelectValue>
-                  {screenId
-                    ? (available.find((screen) => screen.screenId === screenId)
-                        ?.name ?? screenId)
-                    : "All screens (combined)"}
-                </SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All screens (combined)</SelectItem>
@@ -520,13 +522,12 @@ export function NoiseMeterHistoryPage() {
         <Field>
           <FieldLabel htmlFor="noise-history-granularity">Export</FieldLabel>
           <RheaSelect
+            items={granularityOptions}
             value={granularity}
             onValueChange={(value) => setGranularity(value ?? "raw")}
           >
             <SelectTrigger id="noise-history-granularity">
-              <SelectValue>
-                {granularityOptions.find((o) => o.value === granularity)?.label}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {granularityOptions.map((option) => (

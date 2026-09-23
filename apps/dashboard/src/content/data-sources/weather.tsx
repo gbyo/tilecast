@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../api/client";
+import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../../components/ui/field";
@@ -17,7 +18,7 @@ import type {
   TypedRecordData,
   WeatherSourceConfig,
 } from "../../api/types";
-import { EditorFrame, optionLabel } from "./shared";
+import { EditorFrame } from "./shared";
 
 const weatherUnitOptions = [
   { value: "imperial", label: "Imperial" },
@@ -78,6 +79,10 @@ export function WeatherDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },
@@ -173,11 +178,10 @@ export function WeatherDataSourceEditor({
             onValueChange={(next) =>
               set("units", next as WeatherSourceConfig["units"])
             }
+            items={weatherUnitOptions}
           >
             <SelectTrigger id="weather-units" aria-label="Units">
-              <SelectValue>
-                {optionLabel(weatherUnitOptions, configuration.units)}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {weatherUnitOptions.map((option) => (

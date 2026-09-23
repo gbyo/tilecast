@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -107,7 +108,10 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
   const maintenance = useMutation({
     mutationFn: (action: string) =>
       api.runMaintenance(action, auth.status?.csrfToken ?? ""),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["system-status"] }),
+    onSuccess: () => {
+      toast.add({ title: "Maintenance action completed.", type: "success" });
+      return client.invalidateQueries({ queryKey: ["system-status"] });
+    },
   });
   if (!canManage)
     return (
@@ -221,11 +225,6 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
               </div>
             ))}
           </div>
-          {maintenance.isSuccess && (
-            <Alert role="status">
-              <AlertDescription>Maintenance action completed.</AlertDescription>
-            </Alert>
-          )}
           {maintenance.error && (
             <Alert variant="destructive">
               <AlertDescription>{maintenance.error.message}</AlertDescription>
@@ -262,6 +261,9 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
   const apply = useMutation({
     mutationFn: () =>
       api.applySettingsImport(document, auth.status?.csrfToken ?? ""),
+    onSuccess: () => {
+      toast.add({ title: "Settings imported.", type: "success" });
+    },
   });
   if (!owner)
     return (
@@ -433,6 +435,7 @@ export function PlayerUpdatesPanel({
   const [confirmDeploy, setConfirmDeploy] = useState(false);
   const [purging, setPurging] = useState<PlayerRelease>();
   const [openDeployment, setOpenDeployment] = useState<string>();
+  const [deploymentDrawerOpen, setDeploymentDrawerOpen] = useState(false);
   const [purgeNotice, setPurgeNotice] = useState("");
   const [deploySuccess, setDeploySuccess] = useState("");
   const [githubFlow, setGitHubFlow] = useState<
@@ -456,6 +459,12 @@ export function PlayerUpdatesPanel({
     onMutate: () => setPurgeNotice(""),
     onSuccess: async (result) => {
       setPurging(undefined);
+      toast.add({
+        title: result.deleted
+          ? "Release deleted."
+          : "Cached release file removed.",
+        type: "success",
+      });
       setPurgeNotice(
         result.deleted
           ? "Release deleted and its cached file freed."
@@ -481,6 +490,7 @@ export function PlayerUpdatesPanel({
     onSuccess: async () => {
       setGitHubFlow(null);
       setGitHubAuthMessage("GitHub account disconnected.");
+      toast.add({ title: "GitHub account disconnected.", type: "success" });
       await client.invalidateQueries({ queryKey: ["player-releases"] });
     },
     onError: (error) => setGitHubAuthMessage(error.message),
@@ -568,6 +578,10 @@ export function PlayerUpdatesPanel({
       setDeploySuccess(
         `Deployment created for ${created.targetCount} ${created.targetCount === 1 ? "screen" : "screens"}.`,
       );
+      toast.add({
+        title: `Player update deployment created for ${created.targetCount} ${created.targetCount === 1 ? "screen" : "screens"}.`,
+        type: "success",
+      });
     },
   });
   const targetSet = new Set(screenIds);
@@ -633,6 +647,7 @@ export function PlayerUpdatesPanel({
           setGroupIds([]);
           setShowUpload(false);
           setShowAllReleases(false);
+          setDeploymentDrawerOpen(false);
           setOpenDeployment(undefined);
         }}
       />
@@ -1088,6 +1103,18 @@ export function PlayerUpdatesPanel({
                 Verified release
               </FieldLabel>
               <Select
+                items={[
+                  {
+                    value: "none",
+                    label: deployableReleases.length
+                      ? "Select a release"
+                      : "No release is ready to deploy",
+                  },
+                  ...deployableReleases.map((item) => ({
+                    value: item.id,
+                    label: `${item.versionName} · ${item.channel}`,
+                  })),
+                ]}
                 name="release"
                 value={releaseId || "none"}
                 onValueChange={(next) =>
@@ -1099,20 +1126,7 @@ export function PlayerUpdatesPanel({
                   id="deployment-release"
                   aria-label="Verified release"
                 >
-                  <SelectValue>
-                    {releaseId
-                      ? (() => {
-                          const selected = deployableReleases.find(
-                            (item) => item.id === releaseId,
-                          );
-                          return selected
-                            ? `${selected.versionName} · ${selected.channel}`
-                            : releaseId;
-                        })()
-                      : deployableReleases.length
-                        ? "Select a release"
-                        : "No release is ready to deploy"}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">
@@ -1131,6 +1145,17 @@ export function PlayerUpdatesPanel({
             <Field>
               <FieldLabel htmlFor="deployment-mode">Deployment mode</FieldLabel>
               <Select
+                items={[
+                  { value: "download_only", label: "Download only" },
+                  {
+                    value: "install_now",
+                    label: "Download and request installation",
+                  },
+                  {
+                    value: "maintenance_window",
+                    label: "Maintenance window",
+                  },
+                ]}
                 name="mode"
                 value={mode}
                 onValueChange={(next) => {
@@ -1141,15 +1166,7 @@ export function PlayerUpdatesPanel({
                   id="deployment-mode"
                   aria-label="Deployment mode"
                 >
-                  <SelectValue>
-                    {mode === "download_only"
-                      ? "Download only"
-                      : mode === "install_now"
-                        ? "Download and request installation"
-                        : mode === "maintenance_window"
-                          ? "Maintenance window"
-                          : mode}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="download_only">Download only</SelectItem>
@@ -1486,7 +1503,10 @@ export function PlayerUpdatesPanel({
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => setOpenDeployment(item.id)}
+                        onClick={() => {
+                          setOpenDeployment(item.id);
+                          setDeploymentDrawerOpen(true);
+                        }}
                       >
                         <ListChecks size={15} aria-hidden="true" />
                         {item.targetCount}{" "}
@@ -1517,7 +1537,11 @@ export function PlayerUpdatesPanel({
           deploymentId={openDeployment}
           screens={screens.data?.items ?? []}
           manageable={manageable}
-          onClose={() => setOpenDeployment(undefined)}
+          open={deploymentDrawerOpen}
+          onOpenChange={setDeploymentDrawerOpen}
+          onOpenChangeComplete={(open) => {
+            if (!open) setOpenDeployment(undefined);
+          }}
         />
       )}
     </div>
@@ -1679,6 +1703,7 @@ function PlayerReleaseUpload({
     },
     onSuccess: () => {
       setPhase("complete");
+      toast.add({ title: "Signed player release uploaded.", type: "success" });
       onImported();
     },
     onError: () => setPhase("selecting"),

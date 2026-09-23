@@ -43,6 +43,7 @@ import type {
   PlaylistBulkItemUpdateInput,
 } from "../../api/types";
 import { api } from "../../api/client";
+import { toast } from "../ui/toast";
 import { useAuth } from "../../auth/AuthProvider";
 import { ContentPicker, type ContentPickerResult } from "../content-picker";
 import { UsedByPanel } from "../../content/UsedByPanel";
@@ -93,6 +94,7 @@ export function PlaylistEditorPage() {
   const [layoutPicker, setLayoutPicker] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [itemInspectorOpen, setItemInspectorOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>();
   const [draggedItemId, setDraggedItemId] = useState<string>();
   const [sourceType, setSourceType] = useState<"static" | "tag">("static");
@@ -146,6 +148,7 @@ export function PlaylistEditorPage() {
   const save = useMutation({
     mutationFn: () => api.updatePlaylist(id, { name, description }, csrf),
     onSuccess: (playlist) => {
+      toast.add({ title: "Playlist details saved.", type: "success" });
       update(playlist);
       setMetadataDirty(false);
       setEditorError("");
@@ -166,6 +169,7 @@ export function PlaylistEditorPage() {
         csrf,
       ),
     onSuccess: (playlist) => {
+      toast.add({ title: "Playlist content source saved.", type: "success" });
       update(playlist);
       setTagRuleDirty(false);
       setEditorError("");
@@ -181,6 +185,12 @@ export function PlaylistEditorPage() {
         : api.submitContent("playlist", id, csrf, undefined, expectedRevision);
     },
     onSuccess: () => {
+      toast.add({
+        title: canPublish
+          ? "Playlist published."
+          : "Playlist submitted for review.",
+        type: "success",
+      });
       void client.invalidateQueries({ queryKey: ["playlists", id] });
       void client.invalidateQueries({ queryKey: ["playlists"] });
       void client.invalidateQueries({ queryKey: ["content-submissions"] });
@@ -192,11 +202,17 @@ export function PlaylistEditorPage() {
 
   const duplicate = useMutation({
     mutationFn: () => api.duplicatePlaylist(id, csrf),
-    onSuccess: (playlist) => void navigate(`/playlists/${playlist.id}`),
+    onSuccess: (playlist) => {
+      toast.add({ title: "Playlist duplicated.", type: "success" });
+      void navigate(`/playlists/${playlist.id}`);
+    },
   });
   const remove = useMutation({
     mutationFn: () => api.deletePlaylist(id, csrf),
-    onSuccess: () => void navigate("/playlists"),
+    onSuccess: () => {
+      toast.add({ title: "Playlist deleted.", type: "success" });
+      void navigate("/playlists");
+    },
   });
 
   const updateItem = useMutation({
@@ -217,8 +233,9 @@ export function PlaylistEditorPage() {
   const deleteItem = useMutation({
     mutationFn: (itemId: string) => api.deletePlaylistItem(id, itemId, csrf),
     onSuccess: (playlist) => {
+      toast.add({ title: "Playlist item removed.", type: "success" });
       update(playlist);
-      setSelectedItemId(undefined);
+      setItemInspectorOpen(false);
       setEditorError("");
     },
     onError: (error) => setEditorError(error.message),
@@ -384,15 +401,16 @@ export function PlaylistEditorPage() {
   const openHistory = () => {
     setHistoryOpen(true);
     setDetailsOpen(false);
-    setSelectedItemId(undefined);
+    setItemInspectorOpen(false);
   };
   const openDetails = () => {
     setDetailsOpen(true);
     setHistoryOpen(false);
-    setSelectedItemId(undefined);
+    setItemInspectorOpen(false);
   };
   const selectItem = (itemId: string) => {
     setSelectedItemId(itemId);
+    setItemInspectorOpen(true);
     setHistoryOpen(false);
     setDetailsOpen(false);
     setEditorError("");
@@ -666,7 +684,15 @@ export function PlaylistEditorPage() {
           playlistTransition={commonTransition}
           saving={updateItem.isPending || deleteItem.isPending}
           error={updateItem.error?.message || deleteItem.error?.message}
-          onClose={() => setSelectedItemId(undefined)}
+          open={itemInspectorOpen}
+          onClose={() => setItemInspectorOpen(false)}
+          onOpenChangeComplete={(open) => {
+            if (!open) {
+              setSelectedItemId((current) =>
+                current === selectedItem.id ? undefined : current,
+              );
+            }
+          }}
           onChange={(input) => {
             setEditorError("");
             updateItem.mutate({ itemId: selectedItem.id, input });
@@ -675,9 +701,9 @@ export function PlaylistEditorPage() {
         />
       )}
 
-      {historyOpen && (
+      {!desktop && (
         <RheaSheet
-          open
+          open={historyOpen}
           onOpenChange={(open) => {
             if (!open) setHistoryOpen(false);
           }}
@@ -703,8 +729,9 @@ export function PlaylistEditorPage() {
         </RheaSheet>
       )}
 
-      {detailsOpen && (
+      {!desktop && (
         <PlaylistDetailsDrawer
+          open={detailsOpen}
           canManage={canManage}
           sourceType={sourceType}
           name={name}

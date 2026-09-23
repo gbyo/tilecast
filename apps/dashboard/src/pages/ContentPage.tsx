@@ -95,6 +95,7 @@ import {
 } from "../components/ui/empty";
 import { Field, FieldError, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import { toast } from "../components/ui/toast";
 import {
   Item,
   ItemActions,
@@ -111,6 +112,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
 import {
   Sheet,
   SheetContent,
@@ -138,6 +147,7 @@ import { NativeAppEditor, YouTubeSourceEditor } from "../content/SourceEditors";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
 import { UsedByPanel } from "../content/UsedByPanel";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 
 type QueueItem = {
   localId: string;
@@ -329,6 +339,10 @@ export function ContentPage() {
   const deleteCheckedAssets = async () => {
     const ids = [...checkedAssetIds];
     await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
+    toast.add({
+      title: `${ids.length} archived item${ids.length === 1 ? "" : "s"} permanently deleted.`,
+      type: "success",
+    });
     setCheckedAssetIds(new Set());
     refreshOrganization();
   };
@@ -349,6 +363,7 @@ export function ContentPage() {
     }
   });
   const [selected, setSelected] = useState<Asset>();
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const controllers = useRef(new Map<string, AbortController>());
   const fileInput = useRef<HTMLInputElement>(null);
   const params = new URLSearchParams({ page: "1", pageSize: "48", sort });
@@ -393,7 +408,7 @@ export function ContentPage() {
   }, [assets.data?.items, queryClient]);
   useEffect(() => {
     setCheckedAssetIds(new Set());
-    setSelected(undefined);
+    setDetailsOpen(false);
   }, [
     libraryView,
     search,
@@ -490,6 +505,10 @@ export function ContentPage() {
       }
       updateQueue(localId, { state: "finalizing" });
       await api.completeUpload(sessionId, csrf);
+      toast.add({
+        title: `${file.name} uploaded; processing started.`,
+        type: "success",
+      });
       updateQueue(localId, { state: "processing", uploadedBytes: file.size });
       await queryClient.invalidateQueries({ queryKey: ["assets"] });
       window.setTimeout(
@@ -797,11 +816,19 @@ export function ContentPage() {
           archiveMode={libraryView === "archive"}
           onArchive={async () => {
             await api.archiveAssets([...checkedAssetIds], csrf);
+            toast.add({
+              title: `${checkedAssetIds.size} item${checkedAssetIds.size === 1 ? "" : "s"} archived.`,
+              type: "success",
+            });
             setCheckedAssetIds(new Set());
             refreshOrganization();
           }}
           onRestore={async () => {
             await api.restoreAssets([...checkedAssetIds], csrf);
+            toast.add({
+              title: `${checkedAssetIds.size} item${checkedAssetIds.size === 1 ? "" : "s"} restored.`,
+              type: "success",
+            });
             setCheckedAssetIds(new Set());
             refreshOrganization();
           }}
@@ -859,21 +886,28 @@ export function ContentPage() {
           }
           onSelect={(asset) =>
             libraryView === "archive"
-              ? setSelected(asset)
-              : void api.asset(asset.id).then(setSelected)
+              ? (setSelected(asset), setDetailsOpen(true))
+              : void api.asset(asset.id).then((latest) => {
+                  setSelected(latest);
+                  setDetailsOpen(true);
+                })
           }
           canManage={canManage}
           archived={libraryView === "archive"}
           onDuplicate={(asset) =>
-            void api
-              .duplicateWidget(asset.id, csrf)
-              .then(() =>
-                queryClient.invalidateQueries({ queryKey: ["assets"] }),
-              )
+            void api.duplicateWidget(asset.id, csrf).then(() => {
+              toast.add({ title: "Widget duplicated.", type: "success" });
+              return queryClient.invalidateQueries({
+                queryKey: ["assets"],
+              });
+            })
           }
           onArchive={(asset) => setConfirmArchiveAsset(asset)}
           onRestore={(asset) => {
-            void api.restoreAssets([asset.id], csrf).then(refreshOrganization);
+            void api.restoreAssets([asset.id], csrf).then(() => {
+              toast.add({ title: "Asset restored.", type: "success" });
+              refreshOrganization();
+            });
           }}
           onDelete={(asset) => setConfirmDeleteAsset(asset)}
           selectedIds={checkedAssetIds}
@@ -892,7 +926,16 @@ export function ContentPage() {
           asset={selected}
           canManage={canManage && libraryView === "active"}
           csrf={csrf}
-          onClose={() => setSelected(undefined)}
+          open={detailsOpen}
+          onClose={() => setDetailsOpen(false)}
+          onDismiss={() => {
+            setDetailsOpen(false);
+            setSelected(undefined);
+          }}
+          onRequestClose={() => setDetailsOpen(false)}
+          onOpenChangeComplete={(open) => {
+            if (!open) setSelected(undefined);
+          }}
           onChanged={(asset) => {
             setSelected(asset);
             void queryClient.invalidateQueries({ queryKey: ["assets"] });
@@ -922,9 +965,10 @@ export function ContentPage() {
                 const asset = confirmArchiveAsset;
                 setConfirmArchiveAsset(null);
                 if (asset)
-                  void api
-                    .archiveAssets([asset.id], csrf)
-                    .then(refreshOrganization);
+                  void api.archiveAssets([asset.id], csrf).then(() => {
+                    toast.add({ title: "Asset archived.", type: "success" });
+                    refreshOrganization();
+                  });
               }}
             >
               Move to archive
@@ -954,9 +998,13 @@ export function ContentPage() {
                 const asset = confirmDeleteAsset;
                 setConfirmDeleteAsset(null);
                 if (asset)
-                  void api
-                    .deleteAsset(asset.id, csrf)
-                    .then(refreshOrganization);
+                  void api.deleteAsset(asset.id, csrf).then(() => {
+                    toast.add({
+                      title: "Asset permanently deleted.",
+                      type: "success",
+                    });
+                    refreshOrganization();
+                  });
               }}
             >
               Delete permanently
@@ -1473,16 +1521,22 @@ const organizerCopy: Record<
 export function CreateOrganizerDialog({
   kind,
   csrf,
+  open = true,
   onClose,
+  onOpenChangeComplete,
   onCreated,
 }: {
   kind: OrganizerKind;
   csrf: string;
+  open?: boolean;
   onClose: () => void;
+  onOpenChangeComplete?: (open: boolean) => void;
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
   const [color, setColor] = useState("#64748b");
+  const copy = organizerCopy[kind];
+  const noun = copy.title.slice("Create ".length);
   const create = useMutation({
     mutationFn: (): Promise<unknown> =>
       kind === "folder"
@@ -1491,17 +1545,21 @@ export function CreateOrganizerDialog({
           ? api.createContentCollection({ name, description: "" }, csrf)
           : api.createContentTag({ name, color }, csrf),
     onSuccess: () => {
+      toast.add({
+        title: `${noun.charAt(0).toUpperCase()}${noun.slice(1)} created.`,
+        type: "success",
+      });
       onCreated();
       onClose();
     },
   });
-  const copy = organizerCopy[kind];
   return (
     <Dialog
-      open
+      open={open}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
+      onOpenChangeComplete={onOpenChangeComplete}
     >
       <DialogContent>
         <DialogHeader>
@@ -1690,6 +1748,7 @@ function ManageOrganizationDialog({
   collections,
   tags,
   csrf,
+  open,
   onChanged,
   onClose,
 }: {
@@ -1697,6 +1756,7 @@ function ManageOrganizationDialog({
   collections: ContentCollection[];
   tags: ContentTag[];
   csrf: string;
+  open: boolean;
   onChanged: () => void;
   onClose: () => void;
 }) {
@@ -1766,7 +1826,7 @@ function ManageOrganizationDialog({
   ];
   return (
     <Dialog
-      open
+      open={open}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
@@ -1795,10 +1855,18 @@ function ManageOrganizationDialog({
                       confirmDescription={`${row.confirmText} This cannot be undone.`}
                       onRename={async (name) => {
                         await row.rename(name);
+                        toast.add({
+                          title: "Organization name updated.",
+                          type: "success",
+                        });
                         onChanged();
                       }}
                       onDelete={async () => {
                         await row.remove();
+                        toast.add({
+                          title: "Organization item deleted.",
+                          type: "success",
+                        });
                         onChanged();
                       }}
                     />
@@ -1847,6 +1915,7 @@ function ContentOrganizer({
   const [collectionId, setCollectionId] = useState("");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState<OrganizerKind>();
+  const [createOpen, setCreateOpen] = useState(false);
   const [managing, setManaging] = useState(false);
   const [organizing, setOrganizing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1896,6 +1965,7 @@ function ContentOrganizer({
       setFolderId("");
       setTagId("");
       setCollectionId("");
+      toast.add({ title: "Selected content organized.", type: "success" });
       setOrganizing(false);
       onApplied();
     } catch (cause) {
@@ -1917,7 +1987,10 @@ function ContentOrganizer({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setCreating("folder")}
+            onClick={() => {
+              setCreating("folder");
+              setCreateOpen(true);
+            }}
           >
             <FolderPlus size={15} aria-hidden="true" /> Create folder
           </Button>
@@ -1925,7 +1998,10 @@ function ContentOrganizer({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setCreating("collection")}
+            onClick={() => {
+              setCreating("collection");
+              setCreateOpen(true);
+            }}
           >
             <Library size={15} aria-hidden="true" /> Create collection
           </Button>
@@ -1933,7 +2009,10 @@ function ContentOrganizer({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setCreating("tag")}
+            onClick={() => {
+              setCreating("tag");
+              setCreateOpen(true);
+            }}
           >
             <Tags size={15} aria-hidden="true" /> Create tag
           </Button>
@@ -2017,119 +2096,120 @@ function ContentOrganizer({
         <CreateOrganizerDialog
           kind={creating}
           csrf={csrf}
-          onClose={() => setCreating(undefined)}
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onOpenChangeComplete={(open) => {
+            if (!open) setCreating(undefined);
+          }}
           onCreated={onCatalogChanged}
         />
       )}
-      {managing && (
-        <ManageOrganizationDialog
-          folders={folders}
-          collections={collections}
-          tags={tags}
-          csrf={csrf}
-          onChanged={onCatalogChanged}
-          onClose={() => setManaging(false)}
-        />
-      )}
-      {organizing && (
-        <Dialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setOrganizing(false);
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                Organize {assetIds.length} selected item
-                {assetIds.length === 1 ? "" : "s"}
-              </DialogTitle>
-              <DialogDescription>
-                Choose one or more changes. Existing tags and collections stay
-                unless you explicitly remove them.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4">
-              <Field>
-                <FieldLabel htmlFor="bulk-folder">Move to folder</FieldLabel>
-                <FilterSelect
-                  id="bulk-folder"
-                  label="Move to folder"
-                  value={folderId}
-                  onChange={setFolderId}
-                  options={[
-                    { value: "", label: "Leave folder unchanged" },
-                    { value: "unfiled", label: "Move to Unfiled" },
-                    ...folders.map((folder) => ({
-                      value: folder.id,
-                      label: folder.name,
-                    })),
-                  ]}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="bulk-tag">Tag change</FieldLabel>
-                <FilterSelect
-                  id="bulk-tag"
-                  label="Tag change"
-                  value={tagId}
-                  onChange={setTagId}
-                  options={[
-                    { value: "", label: "Leave tags unchanged" },
-                    ...tags.flatMap((tag) => [
-                      { value: `add:${tag.id}`, label: `Add ${tag.name}` },
-                      {
-                        value: `remove:${tag.id}`,
-                        label: `Remove ${tag.name}`,
-                      },
-                    ]),
-                  ]}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="bulk-collection">
-                  Collection change
-                </FieldLabel>
-                <FilterSelect
-                  id="bulk-collection"
-                  label="Collection change"
-                  value={collectionId}
-                  onChange={setCollectionId}
-                  options={[
-                    { value: "", label: "Leave collections unchanged" },
-                    ...collections.flatMap((collection) => [
-                      {
-                        value: `add:${collection.id}`,
-                        label: `Add to ${collection.name}`,
-                      },
-                      {
-                        value: `remove:${collection.id}`,
-                        label: `Remove from ${collection.name}`,
-                      },
-                    ]),
-                  ]}
-                />
-              </Field>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setOrganizing(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                disabled={!folderId && !tagId && !collectionId}
-                onClick={() => void apply()}
-              >
-                Apply changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      <ManageOrganizationDialog
+        folders={folders}
+        collections={collections}
+        tags={tags}
+        csrf={csrf}
+        open={managing}
+        onChanged={onCatalogChanged}
+        onClose={() => setManaging(false)}
+      />
+      <Dialog
+        open={organizing}
+        onOpenChange={(open) => {
+          if (!open) setOrganizing(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Organize {assetIds.length} selected item
+              {assetIds.length === 1 ? "" : "s"}
+            </DialogTitle>
+            <DialogDescription>
+              Choose one or more changes. Existing tags and collections stay
+              unless you explicitly remove them.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="bulk-folder">Move to folder</FieldLabel>
+              <FilterSelect
+                id="bulk-folder"
+                label="Move to folder"
+                value={folderId}
+                onChange={setFolderId}
+                options={[
+                  { value: "", label: "Leave folder unchanged" },
+                  { value: "unfiled", label: "Move to Unfiled" },
+                  ...folders.map((folder) => ({
+                    value: folder.id,
+                    label: folder.name,
+                  })),
+                ]}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="bulk-tag">Tag change</FieldLabel>
+              <FilterSelect
+                id="bulk-tag"
+                label="Tag change"
+                value={tagId}
+                onChange={setTagId}
+                options={[
+                  { value: "", label: "Leave tags unchanged" },
+                  ...tags.flatMap((tag) => [
+                    { value: `add:${tag.id}`, label: `Add ${tag.name}` },
+                    {
+                      value: `remove:${tag.id}`,
+                      label: `Remove ${tag.name}`,
+                    },
+                  ]),
+                ]}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="bulk-collection">
+                Collection change
+              </FieldLabel>
+              <FilterSelect
+                id="bulk-collection"
+                label="Collection change"
+                value={collectionId}
+                onChange={setCollectionId}
+                options={[
+                  { value: "", label: "Leave collections unchanged" },
+                  ...collections.flatMap((collection) => [
+                    {
+                      value: `add:${collection.id}`,
+                      label: `Add to ${collection.name}`,
+                    },
+                    {
+                      value: `remove:${collection.id}`,
+                      label: `Remove from ${collection.name}`,
+                    },
+                  ]),
+                ]}
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setOrganizing(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!folderId && !tagId && !collectionId}
+              onClick={() => void apply()}
+            >
+              Apply changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2138,7 +2218,11 @@ function AssetDetails(props: {
   asset: Asset;
   canManage: boolean;
   csrf: string;
+  open: boolean;
   onClose: () => void;
+  onDismiss: () => void;
+  onRequestClose: () => void;
+  onOpenChangeComplete: (open: boolean) => void;
   onChanged: (asset: Asset) => void;
 }) {
   return props.asset.type === "widget" &&
@@ -2147,7 +2231,7 @@ function AssetDetails(props: {
       asset={props.asset}
       csrf={props.csrf}
       readOnly={!props.canManage}
-      onClose={props.onClose}
+      onClose={props.onDismiss}
       onSaved={props.onChanged}
     />
   ) : props.asset.type === "widget" &&
@@ -2156,7 +2240,7 @@ function AssetDetails(props: {
       asset={props.asset}
       csrf={props.csrf}
       readOnly={!props.canManage}
-      onClose={props.onClose}
+      onClose={props.onDismiss}
       onSaved={props.onChanged}
     />
   ) : props.asset.type === "widget" &&
@@ -2186,7 +2270,7 @@ function AssetDetails(props: {
       asset={props.asset}
       csrf={props.csrf}
       readOnly={!props.canManage}
-      onClose={props.onClose}
+      onClose={props.onDismiss}
       onSaved={props.onChanged}
     />
   ) : (
@@ -2223,6 +2307,7 @@ export function AssetOrganization({
       return api.asset(asset.id);
     },
     onSuccess: (latest) => {
+      toast.add({ title: "Asset organization updated.", type: "success" });
       onChanged(latest);
       void queryClient.invalidateQueries({ queryKey: ["content-folders"] });
       void queryClient.invalidateQueries({
@@ -2362,13 +2447,17 @@ function MediaAssetDetails({
   asset,
   canManage,
   csrf,
-  onClose,
+  open,
+  onRequestClose,
+  onOpenChangeComplete,
   onChanged,
 }: {
   asset: Asset;
   canManage: boolean;
   csrf: string;
-  onClose: () => void;
+  open: boolean;
+  onRequestClose: () => void;
+  onOpenChangeComplete: (open: boolean) => void;
   onChanged: (asset: Asset) => void;
 }) {
   const queryClient = useQueryClient();
@@ -2397,190 +2486,241 @@ function MediaAssetDetails({
         },
         csrf,
       ),
-    onSuccess: onChanged,
+    onSuccess: (saved) => {
+      toast.add({ title: "Media details saved.", type: "success" });
+      onChanged(saved);
+    },
   });
   const [confirmArchive, setConfirmArchive] = useState(false);
-  return (
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        Media asset
+      </p>
+      <SheetTitle>{asset.name}</SheetTitle>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        Media asset
+      </p>
+      <DrawerTitle>{asset.name}</DrawerTitle>
+      <DrawerDescription className="sr-only">
+        Review and edit media details.
+      </DrawerDescription>
+    </DrawerHeader>
+  );
+  const details = (
+    <div className="grid gap-4">
+      {asset.thumbnailUrl && (
+        <img
+          className="aspect-video w-full rounded-xl border border-border object-cover"
+          src={asset.thumbnailUrl}
+          alt=""
+          draggable={false}
+        />
+      )}
+      <Field>
+        <FieldLabel htmlFor="asset-name">Name</FieldLabel>
+        <Input
+          id="asset-name"
+          value={name}
+          disabled={!canManage}
+          onChange={(event) => setName(event.target.value)}
+        />
+      </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor="asset-available-from">Available from</FieldLabel>
+          <Input
+            id="asset-available-from"
+            type="datetime-local"
+            value={availableFrom}
+            disabled={!canManage}
+            onChange={(event) => setAvailableFrom(event.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            Leave blank to make this content available immediately.
+          </p>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="asset-expires-at">Expires at</FieldLabel>
+          <Input
+            id="asset-expires-at"
+            type="datetime-local"
+            value={expiresAt}
+            disabled={!canManage}
+            onChange={(event) => setExpiresAt(event.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            The Player stops using it at this local date and time, even offline.
+          </p>
+        </Field>
+      </div>
+      <Field>
+        <FieldLabel htmlFor="asset-description">Description</FieldLabel>
+        <Textarea
+          id="asset-description"
+          value={description}
+          disabled={!canManage}
+          onChange={(event) => setDescription(event.target.value)}
+        />
+      </Field>
+      <AssetOrganization
+        asset={asset}
+        canManage={canManage}
+        csrf={csrf}
+        onChanged={onChanged}
+      />
+      <dl className="grid gap-2 text-sm">
+        <div className="flex flex-wrap justify-between gap-2">
+          <dt className="text-muted-foreground">Status</dt>
+          <dd className="font-medium">{statusLabel(asset.processingStatus)}</dd>
+        </div>
+        <div className="flex flex-wrap justify-between gap-2">
+          <dt className="text-muted-foreground">Original file</dt>
+          <dd className="font-medium">{asset.originalFilename}</dd>
+        </div>
+        <div className="flex flex-wrap justify-between gap-2">
+          <dt className="text-muted-foreground">Detected type</dt>
+          <dd className="font-medium">{asset.detectedMimeType}</dd>
+        </div>
+        <div className="flex flex-wrap justify-between gap-2">
+          <dt className="text-muted-foreground">SHA-256</dt>
+          <dd className="font-mono text-xs break-all">{asset.sha256}</dd>
+        </div>
+      </dl>
+      <UsedByPanel
+        emptyMessage="No playlist or Layout uses this media yet."
+        groups={[
+          {
+            label: "Playlists",
+            items: asset.playlistsUsing ?? [],
+            to: (playlistId) => `/playlists/${playlistId}`,
+          },
+          {
+            label: "Layouts",
+            items: (asset.layoutUsage ?? []).map((usage) => ({
+              id: usage.id,
+              name: usage.name,
+              hint: usage.published ? "Published" : "Draft",
+            })),
+            to: (layoutId) => `/layouts/${layoutId}`,
+          },
+        ]}
+      />
+      {asset.errorMessage && (
+        <Alert variant="destructive">
+          <AlertDescription>{asset.errorMessage}</AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+  const actions = canManage && (
+    <>
+      <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+        {mutation.isPending && <Spinner aria-hidden="true" />}
+        Save changes
+      </Button>
+      {asset.processingStatus === "failed" && (
+        <Button
+          variant="outline"
+          onClick={() =>
+            void api.retryAsset(asset.id, csrf).then((next) => {
+              toast.add({
+                title: "Processing retry started.",
+                type: "success",
+              });
+              onChanged(next);
+            })
+          }
+        >
+          Retry processing
+        </Button>
+      )}
+      <Button variant="outline" onClick={() => setConfirmArchive(true)}>
+        <Archive size={15} aria-hidden="true" /> Archive asset
+      </Button>
+    </>
+  );
+  const archiveConfirmation = (
+    <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Move {asset.name} to the archive?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Archived items stay available until you restore or permanently
+            delete them.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep in library</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() =>
+              void api.archiveAssets([asset.id], csrf).then(() => {
+                toast.add({ title: "Asset archived.", type: "success" });
+                void queryClient.invalidateQueries({
+                  queryKey: ["assets"],
+                });
+                onRequestClose();
+              })
+            }
+          >
+            Move to archive
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+  const onOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) onRequestClose();
+  };
+
+  return desktop ? (
     <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+      open={open}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
     >
       <SheetContent
         side="right"
         aria-label={`Details for ${asset.name}`}
         className="overflow-y-auto"
       >
-        <SheetHeader>
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Media asset
-          </p>
-          <SheetTitle>{asset.name}</SheetTitle>
-        </SheetHeader>
-        <div className="grid gap-4 px-4">
-          {asset.thumbnailUrl && (
-            <img
-              className="aspect-video w-full rounded-xl border border-border object-cover"
-              src={asset.thumbnailUrl}
-              alt=""
-              draggable={false}
-            />
-          )}
-          <Field>
-            <FieldLabel htmlFor="asset-name">Name</FieldLabel>
-            <Input
-              id="asset-name"
-              value={name}
-              disabled={!canManage}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="asset-available-from">
-                Available from
-              </FieldLabel>
-              <Input
-                id="asset-available-from"
-                type="datetime-local"
-                value={availableFrom}
-                disabled={!canManage}
-                onChange={(event) => setAvailableFrom(event.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                Leave blank to make this content available immediately.
-              </p>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="asset-expires-at">Expires at</FieldLabel>
-              <Input
-                id="asset-expires-at"
-                type="datetime-local"
-                value={expiresAt}
-                disabled={!canManage}
-                onChange={(event) => setExpiresAt(event.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                The Player stops using it at this local date and time, even
-                offline.
-              </p>
-            </Field>
-          </div>
-          <Field>
-            <FieldLabel htmlFor="asset-description">Description</FieldLabel>
-            <Textarea
-              id="asset-description"
-              value={description}
-              disabled={!canManage}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </Field>
-          <AssetOrganization
-            asset={asset}
-            canManage={canManage}
-            csrf={csrf}
-            onChanged={onChanged}
-          />
-          <dl className="grid gap-2 text-sm">
-            <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">Status</dt>
-              <dd className="font-medium">
-                {statusLabel(asset.processingStatus)}
-              </dd>
-            </div>
-            <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">Original file</dt>
-              <dd className="font-medium">{asset.originalFilename}</dd>
-            </div>
-            <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">Detected type</dt>
-              <dd className="font-medium">{asset.detectedMimeType}</dd>
-            </div>
-            <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">SHA-256</dt>
-              <dd className="font-mono text-xs break-all">{asset.sha256}</dd>
-            </div>
-          </dl>
-          <UsedByPanel
-            emptyMessage="No playlist or Layout uses this media yet."
-            groups={[
-              {
-                label: "Playlists",
-                items: asset.playlistsUsing ?? [],
-                to: (playlistId) => `/playlists/${playlistId}`,
-              },
-              {
-                label: "Layouts",
-                items: (asset.layoutUsage ?? []).map((usage) => ({
-                  id: usage.id,
-                  name: usage.name,
-                  hint: usage.published ? "Published" : "Draft",
-                })),
-                to: (layoutId) => `/layouts/${layoutId}`,
-              },
-            ]}
-          />
-          {asset.errorMessage && (
-            <Alert variant="destructive">
-              <AlertDescription>{asset.errorMessage}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-        {canManage && (
+        {header}
+        <div className="grid gap-4 px-4">{details}</div>
+        {actions && (
           <SheetFooter className="flex-col items-stretch gap-2">
-            <Button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending && <Spinner aria-hidden="true" />}
-              Save changes
-            </Button>
-            {asset.processingStatus === "failed" && (
-              <Button
-                variant="outline"
-                onClick={() =>
-                  void api.retryAsset(asset.id, csrf).then(onChanged)
-                }
-              >
-                Retry processing
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => setConfirmArchive(true)}>
-              <Archive size={15} aria-hidden="true" /> Archive asset
-            </Button>
+            {actions}
           </SheetFooter>
         )}
-        <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                Move {asset.name} to the archive?
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Archived items stay available until you restore or permanently
-                delete them.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep in library</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() =>
-                  void api.archiveAssets([asset.id], csrf).then(() => {
-                    void queryClient.invalidateQueries({
-                      queryKey: ["assets"],
-                    });
-                    onClose();
-                  })
-                }
-              >
-                Move to archive
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {archiveConfirmation}
       </SheetContent>
     </Sheet>
+  ) : (
+    <Drawer
+      open={open}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+      showSwipeHandle
+    >
+      <DrawerContent
+        aria-label={`Details for ${asset.name}`}
+        className="max-h-[calc(100dvh-2rem)]"
+      >
+        {header}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+          {details}
+        </div>
+        {actions && (
+          <DrawerFooter className="border-t border-border">
+            {actions}
+          </DrawerFooter>
+        )}
+        {archiveConfirmation}
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -2691,6 +2831,10 @@ export function WebsiteEditor({
         : api.createWidget(sourceInput, csrf);
     },
     onSuccess: (value) => {
+      toast.add({
+        title: asset ? "Website App updated." : "Website App created.",
+        type: "success",
+      });
       setDirty(false);
       onSaved(value);
     },
@@ -3026,7 +3170,14 @@ export function WebsiteEditor({
             <AlertDialogCancel>Keep website</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (asset) void api.deleteAsset(asset.id, csrf).then(onClose);
+                if (asset)
+                  void api.deleteAsset(asset.id, csrf).then(() => {
+                    toast.add({
+                      title: "Website App deleted.",
+                      type: "success",
+                    });
+                    onClose();
+                  });
               }}
             >
               Delete website

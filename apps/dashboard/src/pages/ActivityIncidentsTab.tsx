@@ -6,12 +6,20 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton } from "../components/ui/button";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
+import {
   Sheet as RheaSheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   activityParams,
   activityRequest,
@@ -72,6 +80,7 @@ export function IncidentsTab({
   onClearFilters: () => void;
 }) {
   const [selected, setSelected] = useState<Incident | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const canAct = useCanActOnIncidents();
   const act = useIncidentAction();
 
@@ -119,7 +128,10 @@ export function IncidentsTab({
               <IncidentRow
                 key={incident.id}
                 incident={incident}
-                onOpenDetail={setSelected}
+                onOpenDetail={(incident) => {
+                  setSelected(incident);
+                  setDetailsOpen(true);
+                }}
               />
             ))}
           </ul>
@@ -140,12 +152,17 @@ export function IncidentsTab({
       {selected && (
         <IncidentDrawer
           incident={selected}
-          onClose={() => setSelected(null)}
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          onOpenChangeComplete={(open) => {
+            if (!open) setSelected(null);
+          }}
+          onClose={() => setDetailsOpen(false)}
           canAct={canAct}
           onAct={(action) =>
             act.mutate(
               { id: selected.id, action },
-              { onSuccess: () => setSelected(null) },
+              { onSuccess: () => setDetailsOpen(false) },
             )
           }
           pending={act.isPending}
@@ -158,6 +175,9 @@ export function IncidentsTab({
 
 function IncidentDrawer({
   incident,
+  open,
+  onOpenChange,
+  onOpenChangeComplete,
   onClose,
   canAct,
   onAct,
@@ -165,6 +185,9 @@ function IncidentDrawer({
   error,
 }: {
   incident: Incident;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete: (open: boolean) => void;
   onClose: () => void;
   canAct: boolean;
   onAct: (action: string) => void;
@@ -176,180 +199,213 @@ function IncidentDrawer({
     queryFn: () => activityRequest<IncidentDetail>(`/incidents/${incident.id}`),
   });
   const detail = query.data;
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <SheetTitle>{incident.title}</SheetTitle>
+      <SheetDescription>{incident.description}</SheetDescription>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <DrawerTitle>{incident.title}</DrawerTitle>
+      <DrawerDescription>{incident.description}</DrawerDescription>
+    </DrawerHeader>
+  );
 
-  return (
-    <RheaSheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+  const content = (
+    <div
+      className={
+        desktop
+          ? "grid gap-6 px-4 pb-6"
+          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
+      }
     >
-      <SheetContent side="right" className="overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{incident.title}</SheetTitle>
-          <SheetDescription>{incident.description}</SheetDescription>
-        </SheetHeader>
-        <div className="grid gap-6 px-4 pb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <ResultBadge value={incident.severity} />
-            <IncidentStatusBadge incident={incident} />
-            <IncidentScope incident={incident} />
-            {incident.primaryScreenId && (
-              <Link
-                to={screenActivityLink(incident.primaryScreenId)}
-                className="text-sm font-medium text-primary hover:underline"
+      <div className="flex flex-wrap items-center gap-2">
+        <ResultBadge value={incident.severity} />
+        <IncidentStatusBadge incident={incident} />
+        <IncidentScope incident={incident} />
+        {incident.primaryScreenId && (
+          <Link
+            to={screenActivityLink(incident.primaryScreenId)}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Open the screen&apos;s Activity
+          </Link>
+        )}
+      </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {canAct && (
+        <div className="flex flex-wrap gap-2">
+          <IncidentActionButtons
+            incident={incident}
+            onAct={onAct}
+            pending={pending}
+          />
+        </div>
+      )}
+
+      <IncidentFacts incident={incident} />
+
+      <section className="grid gap-1">
+        <h4 className="text-sm font-semibold">Recovery path</h4>
+        {/* Stated from what was recorded, including when nothing has. */}
+        <p className="text-sm text-muted-foreground">
+          {detail?.recoveryPath ?? "Loading…"}
+        </p>
+      </section>
+
+      {query.isLoading && <Loading />}
+
+      {detail && (
+        <>
+          <DrawerSection title="Timeline" empty="No timeline entries.">
+            {detail.timeline.map((entry) => (
+              <TimelineEntry
+                key={entry.id}
+                when={entry.occurredAt}
+                tag={humanize(entry.role)}
               >
-                Open the screen&apos;s Activity
-              </Link>
-            )}
-          </div>
+                {entry.summary}
+                {entry.actorName ? ` — ${entry.actorName}` : ""}
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {canAct && (
-            <div className="flex flex-wrap gap-2">
-              <IncidentActionButtons
-                incident={incident}
-                onAct={onAct}
-                pending={pending}
-              />
-            </div>
-          )}
-
-          <IncidentFacts incident={incident} />
-
-          <section className="grid gap-1">
-            <h4 className="text-sm font-semibold">Recovery path</h4>
-            {/* Stated from what was recorded, including when nothing has. */}
-            <p className="text-sm text-muted-foreground">
-              {detail?.recoveryPath ?? "Loading…"}
-            </p>
-          </section>
-
-          {query.isLoading && <Loading />}
-
-          {detail && (
-            <>
-              <DrawerSection title="Timeline" empty="No timeline entries.">
-                {detail.timeline.map((entry) => (
-                  <TimelineEntry
-                    key={entry.id}
-                    when={entry.occurredAt}
-                    tag={humanize(entry.role)}
-                  >
-                    {entry.summary}
-                    {entry.actorName ? ` — ${entry.actorName}` : ""}
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
-
-              <DrawerSection
-                title="Related raw events"
-                empty="No screen events were recorded while this incident was live."
+          <DrawerSection
+            title="Related raw events"
+            empty="No screen events were recorded while this incident was live."
+          >
+            {detail.relatedEvents.map((event) => (
+              <TimelineEntry
+                key={event.id}
+                when={event.timestamp}
+                tag={event.category}
               >
-                {detail.relatedEvents.map((event) => (
-                  <TimelineEntry
-                    key={event.id}
-                    when={event.timestamp}
-                    tag={event.category}
-                  >
-                    {humanize(event.eventType)}
-                    {event.failureMessage ? ` — ${event.failureMessage}` : ""}
-                    <TechnicalDetails value={event.details} />
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
+                {humanize(event.eventType)}
+                {event.failureMessage ? ` — ${event.failureMessage}` : ""}
+                <TechnicalDetails value={event.details} />
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
 
-              <DrawerSection
-                title="Playback during the incident"
-                empty="No playback sessions overlapped this incident."
+          <DrawerSection
+            title="Playback during the incident"
+            empty="No playback sessions overlapped this incident."
+          >
+            {detail.proofSessions.map((session) => (
+              <TimelineEntry
+                key={session.id}
+                when={session.startedAt}
+                tag={session.sessionType}
               >
-                {detail.proofSessions.map((session) => (
-                  <TimelineEntry
-                    key={session.id}
-                    when={session.startedAt}
-                    tag={session.sessionType}
-                  >
-                    <ResourceLink
-                      type={session.contentType ?? session.presentationType}
-                      id={session.contentId ?? session.presentationId}
-                      label={
-                        session.contentName ||
-                        session.presentationName ||
-                        session.contentId ||
-                        "Presentation"
-                      }
-                    />
-                    {session.actualDurationMs != null &&
-                      ` · ${formatDuration(session.actualDurationMs)}`}
-                    {session.terminalReason &&
-                      ` · ended ${humanize(session.terminalReason).toLowerCase()}`}{" "}
-                    <ResultBadge value={session.result} />
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
+                <ResourceLink
+                  type={session.contentType ?? session.presentationType}
+                  id={session.contentId ?? session.presentationId}
+                  label={
+                    session.contentName ||
+                    session.presentationName ||
+                    session.contentId ||
+                    "Presentation"
+                  }
+                />
+                {session.actualDurationMs != null &&
+                  ` · ${formatDuration(session.actualDurationMs)}`}
+                {session.terminalReason &&
+                  ` · ended ${humanize(session.terminalReason).toLowerCase()}`}{" "}
+                <ResultBadge value={session.result} />
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
 
-              {/* Commands and updates are activity events with their own
+          {/* Commands and updates are activity events with their own
                   categories, so they arrive in the related-events stream above and
                   are surfaced here as their own view of it. */}
-              <DrawerSection
-                title="Commands and updates"
-                empty="No commands or updates ran during this incident."
-              >
-                {detail.relatedEvents
-                  .filter((event) =>
-                    ["commands", "updates"].includes(event.category),
-                  )
-                  .map((event) => (
-                    <TimelineEntry
-                      key={`command-${event.id}`}
-                      when={event.timestamp}
-                      tag={event.category}
-                    >
-                      {humanize(event.eventType)}{" "}
-                      <ResultBadge value={event.result} />
-                    </TimelineEntry>
-                  ))}
-              </DrawerSection>
+          <DrawerSection
+            title="Commands and updates"
+            empty="No commands or updates ran during this incident."
+          >
+            {detail.relatedEvents
+              .filter((event) =>
+                ["commands", "updates"].includes(event.category),
+              )
+              .map((event) => (
+                <TimelineEntry
+                  key={`command-${event.id}`}
+                  when={event.timestamp}
+                  tag={event.category}
+                >
+                  {humanize(event.eventType)}{" "}
+                  <ResultBadge value={event.result} />
+                </TimelineEntry>
+              ))}
+          </DrawerSection>
 
-              <DrawerSection
-                title="Administrative changes"
-                empty="No administrative changes touched this screen during the incident."
+          <DrawerSection
+            title="Administrative changes"
+            empty="No administrative changes touched this screen during the incident."
+          >
+            {detail.auditChanges.map((record) => (
+              <TimelineEntry
+                key={record.id}
+                when={record.timestamp}
+                tag="audit"
               >
-                {detail.auditChanges.map((record) => (
-                  <TimelineEntry
-                    key={record.id}
-                    when={record.timestamp}
-                    tag="audit"
+                {record.summary || humanize(record.action)} — {record.actorName}
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
+
+          {detail.screens.length > 0 && (
+            <DrawerSection title="Affected screens" empty="">
+              {detail.screens.map((screen) => (
+                <div key={screen.screenId} className="text-sm">
+                  <Link
+                    to={screenActivityLink(screen.screenId)}
+                    className="font-medium text-primary hover:underline"
                   >
-                    {record.summary || humanize(record.action)} —{" "}
-                    {record.actorName}
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
-
-              {detail.screens.length > 0 && (
-                <DrawerSection title="Affected screens" empty="">
-                  {detail.screens.map((screen) => (
-                    <div key={screen.screenId} className="text-sm">
-                      <Link
-                        to={screenActivityLink(screen.screenId)}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {screen.screenName}
-                      </Link>
-                    </div>
-                  ))}
-                </DrawerSection>
-              )}
-            </>
+                    {screen.screenName}
+                  </Link>
+                </div>
+              ))}
+            </DrawerSection>
           )}
-        </div>
+        </>
+      )}
+    </div>
+  );
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+    if (!nextOpen) onClose();
+  };
+
+  return desktop ? (
+    <RheaSheet
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+    >
+      <SheetContent side="right" className="overflow-y-auto">
+        {header}
+        {content}
       </SheetContent>
     </RheaSheet>
+  ) : (
+    <Drawer
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+      showSwipeHandle
+    >
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        {header}
+        {content}
+      </DrawerContent>
+    </Drawer>
   );
 }
 

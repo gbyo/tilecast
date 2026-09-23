@@ -20,6 +20,7 @@ import {
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import { expandCapabilities } from "./capabilities";
 import { formToneBadgeProps } from "./formBadge";
 
@@ -82,6 +83,7 @@ export function AccessPanel({
       caps: FormCapability[];
     }) => api.replaceFormGrants(form.id, userId, caps, csrf),
     onSuccess: (entries) => {
+      toast.add({ title: "Form access updated.", type: "success" });
       queryClient.setQueryData(["form-access", form.id], entries);
       void queryClient.invalidateQueries({
         queryKey: ["form-data-source", form.id],

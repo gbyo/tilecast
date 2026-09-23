@@ -204,7 +204,7 @@ describe("StructuredDataSourceEditor", () => {
 
     // The author remains the authority: a detected type can be corrected.
     await userEvent.click(startType);
-    await userEvent.click(screen.getByRole("option", { name: "Text" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Text" }));
     expect(startType).toHaveTextContent("Text");
     // Every timestamp is mapped, so there is nothing left to offer.
     expect(

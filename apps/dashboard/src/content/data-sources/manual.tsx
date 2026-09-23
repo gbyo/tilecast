@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client";
+import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Field, FieldLabel } from "../../components/ui/field";
@@ -20,7 +21,7 @@ import type {
   ManualColumn,
   ManualSourceConfig,
 } from "../../api/types";
-import { EditorFrame, optionLabel } from "./shared";
+import { EditorFrame } from "./shared";
 
 const manualColumnTypes = [
   "text",
@@ -92,6 +93,10 @@ export function ManualDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },
@@ -179,6 +184,10 @@ export function ManualDataSourceEditor({
                 Type
               </FieldLabel>
               <RheaSelect
+                items={manualColumnTypes.map((type) => ({
+                  value: type,
+                  label: type,
+                }))}
                 value={column.type}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -191,7 +200,7 @@ export function ManualDataSourceEditor({
                   id={`manual-column-type-${index}`}
                   aria-label={`Type for ${column.label || `column ${index + 1}`}`}
                 >
-                  <SelectValue>{column.type}</SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {manualColumnTypes.map((type) => (
@@ -298,17 +307,13 @@ export function ManualDataSourceEditor({
                           ),
                         }))
                       }
+                      items={booleanCellOptions}
                     >
                       <SelectTrigger
                         id={`manual-cell-${rowIndex}-${column.key}`}
                         aria-label={`${column.label} value`}
                       >
-                        <SelectValue>
-                          {optionLabel(
-                            booleanCellOptions,
-                            row.values[column.key] ?? "",
-                          )}
-                        </SelectValue>
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {booleanCellOptions.map((option) => (
@@ -428,24 +433,20 @@ export function ManualDataSourceEditor({
                     dateField: next as string,
                   }))
                 }
+                items={[
+                  { value: "", label: "Select a date column" },
+                  ...configuration.columns
+                    .filter((column) =>
+                      ["date", "datetime"].includes(column.type),
+                    )
+                    .map((column) => ({
+                      value: column.key,
+                      label: column.label,
+                    })),
+                ]}
               >
                 <SelectTrigger id="manual-date-field" aria-label="Date field">
-                  <SelectValue>
-                    {optionLabel(
-                      [
-                        { value: "", label: "Select a date column" },
-                        ...configuration.columns
-                          .filter((column) =>
-                            ["date", "datetime"].includes(column.type),
-                          )
-                          .map((column) => ({
-                            value: column.key,
-                            label: column.label,
-                          })),
-                      ],
-                      configuration.dateField ?? "",
-                    )}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Select a date column</SelectItem>
@@ -492,14 +493,10 @@ export function ManualDataSourceEditor({
                     },
                   }))
                 }
+                items={manualDateModeOptions}
               >
                 <SelectTrigger id="manual-selection" aria-label="Selection">
-                  <SelectValue>
-                    {optionLabel(
-                      manualDateModeOptions,
-                      configuration.dateSelection.mode,
-                    )}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {manualDateModeOptions.map((option) => (

@@ -66,6 +66,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
+import { toast } from "../components/ui/toast";
 import {
   Table,
   TableBody,
@@ -133,14 +134,17 @@ export function DataSourcesPage() {
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateDataSource(id, csrf),
     onSuccess: (created) => {
+      toast.add({ title: "Data Source duplicated.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       void navigate(`/data-sources/${created.id}`);
     },
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteDataSource(id, csrf),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["data-sources"] }),
+    onSuccess: () => {
+      toast.add({ title: "Data Source deleted.", type: "success" });
+      void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
+    },
   });
   const actionsFor = (source: DataSource): SourceAction[] => {
     const actions: SourceAction[] = [

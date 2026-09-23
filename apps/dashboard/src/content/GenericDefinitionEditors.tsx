@@ -17,6 +17,7 @@ import { Button } from "../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
+import { toast } from "../components/ui/toast";
 import { DefinitionForm } from "./DefinitionForm";
 import { previewDatasetMaps, type PreviewDatasets } from "./previewRecords";
 import { DeclarativePresentationPreview } from "./SourceEditors";
@@ -140,6 +141,10 @@ export function GenericWidgetEditor({
       };
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: asset ? "Widget updated." : "Widget created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       onSaved(saved);
     },
@@ -253,6 +258,10 @@ export function GenericDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },

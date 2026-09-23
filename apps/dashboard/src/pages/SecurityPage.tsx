@@ -36,6 +36,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 
 export const securityKey = ["me", "security"] as const;
 
@@ -515,9 +516,22 @@ function RecoveryCodeBlock({ status }: { status: SecurityStatus }) {
           <DialogFooter>
             <Button
               variant="secondary"
-              onClick={() =>
-                void navigator.clipboard?.writeText((codes ?? []).join("\n"))
-              }
+              onClick={() => {
+                void navigator.clipboard
+                  ?.writeText((codes ?? []).join("\n"))
+                  .then(() =>
+                    toast.add({
+                      title: "Recovery codes copied.",
+                      type: "success",
+                    }),
+                  )
+                  .catch(() =>
+                    toast.add({
+                      title: "Recovery codes could not be copied.",
+                      type: "error",
+                    }),
+                  );
+              }}
             >
               Copy all
             </Button>

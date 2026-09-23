@@ -263,7 +263,7 @@ describe("Incidents tab filters", () => {
     renderTab();
 
     await user.click(await screen.findByRole("combobox", { name: "Severity" }));
-    await user.click(screen.getByRole("option", { name: "Critical" }));
+    await user.click(await screen.findByRole("option", { name: "Critical" }));
 
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toContain(

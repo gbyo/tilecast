@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button as RheaButton } from "../components/ui/button";
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import { toast } from "../components/ui/toast";
 import { activityRequest } from "../pages/ActivityShared";
 
 type Retention = {
@@ -123,6 +124,10 @@ export function ActivityRetentionPanel({
       return body.data;
     },
     onSuccess: (next) => {
+      toast.add({
+        title: "Activity retention settings saved.",
+        type: "success",
+      });
       setDraft(null);
       queryClient.setQueryData(["activity", "retention"], next);
     },

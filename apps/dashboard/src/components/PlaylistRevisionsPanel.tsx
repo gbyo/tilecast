@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
+import { toast } from "./ui/toast";
 
 const initialRevisionCount = 5;
 const revisionPageSize = 10;
@@ -37,6 +38,7 @@ export function PlaylistRevisionsPanel({
     mutationFn: (revision: number) =>
       api.restorePlaylistRevision(playlistId, revision, csrf),
     onSuccess: (data) => {
+      toast.add({ title: "Playlist revision restored.", type: "success" });
       setResult(
         `Restored revision ${data.restoredFrom} as revision ${data.newRevision}.` +
           (data.skippedItems > 0

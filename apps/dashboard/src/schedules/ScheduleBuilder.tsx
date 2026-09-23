@@ -54,6 +54,7 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
+import { toast } from "../components/ui/toast";
 import {
   conflictWinnerReason,
   countTargetScreens,
@@ -233,6 +234,10 @@ export function ScheduleEditorPage() {
         ? api.updateSchedule(id, input, csrf)
         : api.createSchedule(input, csrf),
     onSuccess: (schedule) => {
+      toast.add({
+        title: id ? "Schedule updated." : "Schedule created.",
+        type: "success",
+      });
       const next = scheduleToInput(schedule);
       setBaseline(next);
       setInput(next);
@@ -242,7 +247,10 @@ export function ScheduleEditorPage() {
   });
   const remove = useMutation({
     mutationFn: () => api.deleteSchedule(id!, csrf),
-    onSuccess: () => void navigate("/schedules"),
+    onSuccess: () => {
+      toast.add({ title: "Schedule deleted.", type: "success" });
+      void navigate("/schedules");
+    },
   });
 
   if (id && existing.isLoading)
@@ -657,13 +665,14 @@ function DisplayControlSelection({
         <Field>
           <FieldLabel htmlFor="schedule-display-action">Action</FieldLabel>
           <Select
+            items={displayActionOptions}
             value={action.type}
             onValueChange={(next) => {
               if (next) setType(next);
             }}
           >
             <SelectTrigger id="schedule-display-action" aria-label="Action">
-              <SelectValue>{displayActionOptionLabel(action.type)}</SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {displayActionOptions.map((option) => (
@@ -1389,13 +1398,6 @@ const displayActionOptions: {
   { value: "display_unmute", label: "Unmute" },
   { value: "display_set_brightness", label: "Set brightness" },
 ];
-
-function displayActionOptionLabel(value: DisplayControlAction["type"]) {
-  return (
-    displayActionOptions.find((option) => option.value === value)?.label ??
-    value
-  );
-}
 
 function displayActionLabel(action: DisplayControlAction) {
   const labels: Record<DisplayControlAction["type"], string> = {

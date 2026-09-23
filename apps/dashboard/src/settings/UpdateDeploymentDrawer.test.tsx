@@ -74,7 +74,9 @@ function renderDrawer(manageable = true) {
         deploymentId="d1"
         screens={fleet}
         manageable={manageable}
-        onClose={() => {}}
+        open
+        onOpenChange={() => {}}
+        onOpenChangeComplete={() => {}}
       />
     </QueryClientProvider>,
   );

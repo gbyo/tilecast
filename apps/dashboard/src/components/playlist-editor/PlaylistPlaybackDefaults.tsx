@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { optionLabel } from "../../content/data-sources/shared";
 import {
   type ImageDurationSummary,
   type PlaylistTransition,
@@ -112,20 +111,13 @@ export function PlaylistPlaybackDefaults({
                 onTransitionChange(next);
               }
             }}
+            items={transitionOptions}
           >
             <SelectTrigger
               id="playlist-transition"
               aria-label="Playlist transition"
             >
-              <SelectValue>
-                {optionLabel(
-                  transitionOptions.filter(
-                    (option) =>
-                      option.value !== "mixed" || transition === "mixed",
-                  ),
-                  transitionValue,
-                )}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {transition === "mixed" && (

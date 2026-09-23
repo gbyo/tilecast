@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import { Textarea } from "../components/ui/textarea";
 
 type NetworkDraft = Omit<PresentationNetworkInput, "secret"> & {
@@ -66,13 +67,6 @@ function safeError(error: unknown, fallback: string) {
     : fallback;
 }
 
-function securityLabel(
-  options: { value: string; label: string }[] | undefined,
-  value: string,
-) {
-  return options?.find((option) => option.value === value)?.label ?? value;
-}
-
 export function PresentationNetworksPanel({
   canManage,
 }: {
@@ -98,7 +92,6 @@ export function PresentationNetworksPanel({
   // and is never rehydrated from a GET response.
   const [secret, setSecret] = useState("");
   const [assignmentIds, setAssignmentIds] = useState<string[]>([]);
-  const [notice, setNotice] = useState<string>();
 
   const detail = useQuery({
     queryKey: ["presentation-network", editing],
@@ -155,9 +148,15 @@ export function PresentationNetworksPanel({
       return network;
     },
     onSuccess: async () => {
+      toast.add({
+        title:
+          editing === "new"
+            ? "Presentation Network created."
+            : "Presentation Network updated.",
+        type: "success",
+      });
       setEditing(undefined);
       setSecret("");
-      setNotice("Presentation Network saved.");
       await client.invalidateQueries({ queryKey: ["presentation-networks"] });
       await client.invalidateQueries({ queryKey: ["presentation-network"] });
       await client.invalidateQueries({ queryKey: ["screens"] });
@@ -168,14 +167,13 @@ export function PresentationNetworksPanel({
     mutationFn: (network: PresentationNetwork) =>
       api.deletePresentationNetwork(network.id, csrf),
     onSuccess: async () => {
-      setNotice("Presentation Network deleted.");
+      toast.add({ title: "Presentation Network deleted.", type: "success" });
       await client.invalidateQueries({ queryKey: ["presentation-networks"] });
       await client.invalidateQueries({ queryKey: ["screens"] });
     },
   });
 
   const open = (network: PresentationNetwork | "new") => {
-    setNotice(undefined);
     setSaveError(undefined);
     setEditing(network === "new" ? "new" : network.id);
     if (network === "new") {
@@ -258,11 +256,6 @@ export function PresentationNetworksPanel({
           </RheaButton>
         </div>
 
-        {notice && (
-          <Alert role="status">
-            <AlertDescription>{notice}</AlertDescription>
-          </Alert>
-        )}
         {networks.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner aria-hidden="true" />
@@ -432,6 +425,7 @@ export function PresentationNetworksPanel({
                       Authentication
                     </FieldLabel>
                     <RheaSelect
+                      items={networks.data?.supportedSecurity ?? []}
                       name="security"
                       value={draft.security}
                       onValueChange={(next) => {
@@ -446,12 +440,7 @@ export function PresentationNetworksPanel({
                         id="presentation-network-security"
                         aria-label="Authentication"
                       >
-                        <SelectValue>
-                          {securityLabel(
-                            networks.data?.supportedSecurity,
-                            draft.security,
-                          )}
-                        </SelectValue>
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {(networks.data?.supportedSecurity ?? []).map(

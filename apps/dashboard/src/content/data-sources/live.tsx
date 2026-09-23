@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../api/client";
+import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
@@ -22,7 +23,7 @@ import type {
   AirQualitySourceConfig,
   TypedDatasetPayload,
 } from "../../api/types";
-import { EditorFrame, optionLabel } from "./shared";
+import { EditorFrame } from "./shared";
 
 const feedModeOptions = [
   { value: "auto", label: "Detect automatically" },
@@ -141,6 +142,10 @@ export function LiveDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },
@@ -312,14 +317,10 @@ export function LiveDataSourceEditor({
                     feedMode: next as CAPAlertsSourceConfig["feedMode"],
                   })
                 }
+                items={feedModeOptions}
               >
                 <SelectTrigger id="cap-feed-mode" aria-label="Feed mode">
-                  <SelectValue>
-                    {optionLabel(
-                      feedModeOptions,
-                      (configuration as CAPAlertsSourceConfig).feedMode,
-                    )}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {feedModeOptions.map((option) => (
@@ -356,14 +357,10 @@ export function LiveDataSourceEditor({
                       next as CAPAlertsSourceConfig["minimumSeverity"],
                   })
                 }
+                items={severityOptions}
               >
                 <SelectTrigger id="cap-severity" aria-label="Minimum severity">
-                  <SelectValue>
-                    {optionLabel(
-                      severityOptions,
-                      (configuration as CAPAlertsSourceConfig).minimumSeverity,
-                    )}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {severityOptions.map((option) => (
@@ -470,17 +467,13 @@ export function LiveDataSourceEditor({
                     aqiStandard: next as AirQualitySourceConfig["aqiStandard"],
                   })
                 }
+                items={aqiStandardOptions}
               >
                 <SelectTrigger
                   id="air-quality-standard"
                   aria-label="AQI standard"
                 >
-                  <SelectValue>
-                    {optionLabel(
-                      aqiStandardOptions,
-                      (configuration as AirQualitySourceConfig).aqiStandard,
-                    )}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {aqiStandardOptions.map((option) => (

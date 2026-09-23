@@ -23,6 +23,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { toast } from "../components/ui/toast";
 import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
 import {
   Empty,
@@ -243,6 +244,7 @@ export function NoiseMetersPage() {
     mutationFn: (id: string) =>
       api.deleteNoiseMeter(id, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({ title: "Noise Meter removed.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["noise-meters"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
     },
@@ -448,6 +450,10 @@ export function NoiseMeterEditorPage() {
         ? api.updateNoiseMeter(id ?? "", input, auth.status?.csrfToken ?? "")
         : api.createNoiseMeter(input, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({
+        title: editing ? "Noise Meter updated." : "Noise Meter created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["noise-meters"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
       void navigate("/plugins/noise-meter");
@@ -631,6 +637,7 @@ export function NoiseMeterEditorPage() {
                 Display mode
               </FieldLabel>
               <RheaSelect
+                items={noiseDisplayModeOptions}
                 name="displayMode"
                 value={displayMode}
                 onValueChange={(next) => {
@@ -642,11 +649,7 @@ export function NoiseMeterEditorPage() {
                   id="noise-meter-display-mode"
                   aria-label="Display mode"
                 >
-                  <SelectValue>
-                    {noiseDisplayModeOptions.find(
-                      (option) => option.value === displayMode,
-                    )?.label ?? displayMode}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {noiseDisplayModeOptions.map((option) => (
@@ -772,6 +775,7 @@ export function NoiseMeterEditorPage() {
             <Field>
               <FieldLabel htmlFor="noise-meter-retention">Retention</FieldLabel>
               <RheaSelect
+                items={retentionOptions}
                 name="historyRetentionDays"
                 value={String(historyRetentionDays)}
                 onValueChange={(next) => {
@@ -785,11 +789,7 @@ export function NoiseMeterEditorPage() {
                   id="noise-meter-retention"
                   aria-label="Retention"
                 >
-                  <SelectValue>
-                    {retentionOptions.find(
-                      (option) => option.value === String(historyRetentionDays),
-                    )?.label ?? `${String(historyRetentionDays)} days`}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {retentionOptions.map((option) => (

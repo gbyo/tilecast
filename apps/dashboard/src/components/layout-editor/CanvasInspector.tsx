@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { optionLabel } from "../../content/data-sources/shared";
 import { InspectorSection, NumberField } from "./PlacementInspector";
 
 const canvasPresetOptions = [
@@ -50,11 +49,10 @@ export function CanvasInspector({
                 );
               });
             }}
+            items={canvasPresetOptions}
           >
             <SelectTrigger id="canvas-preset" aria-label="Canvas preset">
-              <SelectValue>
-                {optionLabel(canvasPresetOptions, presetValue)}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {canvasPresetOptions.map((option) => (

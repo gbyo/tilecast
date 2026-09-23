@@ -14,6 +14,13 @@ import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
+import {
   Sheet as RheaSheet,
   SheetContent,
   SheetDescription,
@@ -55,6 +62,7 @@ import { OutputsPanel } from "../forms/OutputsPanel";
 import { AccessPanel } from "../forms/AccessPanel";
 import { canManageForm, canViewResponses } from "../forms/capabilities";
 import { stateLabel, stateTone } from "../forms/formStatus";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 
 type TabValue =
   "responses" | "form" | "workflow" | "views" | "outputs" | "access";
@@ -233,6 +241,8 @@ function ResponsesTab({
   selectedRecordId: string | null;
   onSelectRecord: (recordId: string | null) => void;
 }) {
+  const desktop = useDesktopLayout();
+  const [detailsOpen, setDetailsOpen] = useState(Boolean(selectedRecordId));
   const [stateFilter, setStateFilter] = useState<string>("needs_review");
   const [search, setSearch] = useState("");
   const [sort, setSort] =
@@ -304,12 +314,17 @@ function ResponsesTab({
     { value: "priority", label: "Priority" },
   ];
 
+  useEffect(() => {
+    if (selectedRecordId) setDetailsOpen(true);
+  }, [selectedRecordId]);
+
   return (
     <div className="grid content-start gap-4">
       <div className="flex flex-wrap items-end gap-4">
         <Field className="min-w-44">
           <FieldLabel htmlFor="responses-state">State</FieldLabel>
           <RheaSelect
+            items={stateOptions}
             value={stateFilter}
             onValueChange={(value) => {
               setStateFilter(value ?? "needs_review");
@@ -317,9 +332,7 @@ function ResponsesTab({
             }}
           >
             <SelectTrigger id="responses-state">
-              <SelectValue>
-                {stateOptions.find((o) => o.value === stateFilter)?.label}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {stateOptions.map((option) => (
@@ -345,13 +358,12 @@ function ResponsesTab({
         <Field className="min-w-44">
           <FieldLabel htmlFor="responses-sort">Sort</FieldLabel>
           <RheaSelect
+            items={sortOptions}
             value={sort}
             onValueChange={(value) => setSort(value ?? "updated")}
           >
             <SelectTrigger id="responses-sort">
-              <SelectValue>
-                {sortOptions.find((o) => o.value === sort)?.label}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {sortOptions.map((option) => (
@@ -459,48 +471,92 @@ function ResponsesTab({
           />
         </>
       )}
-      {selectedRecordId && (
-        <RheaSheet
-          open
-          onOpenChange={(open) => {
-            if (!open) onSelectRecord(null);
-          }}
-        >
-          <SheetContent
-            side="right"
-            className="overflow-y-auto sm:max-w-xl"
-            aria-label="Response detail"
+      {selectedRecordId &&
+        (desktop ? (
+          <RheaSheet
+            open={detailsOpen}
+            onOpenChange={setDetailsOpen}
+            onOpenChangeComplete={(open) => {
+              if (!open) onSelectRecord(null);
+            }}
           >
-            <SheetHeader>
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Response
-              </p>
-              <SheetTitle>Review submission</SheetTitle>
-              <SheetDescription>
-                The list stays in place behind this panel; closing returns to
-                it.
-              </SheetDescription>
-            </SheetHeader>
-            <div className="grid content-start gap-4 px-4 pb-4">
-              <div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onSelectRecord(null)}
-                >
-                  ← Back to responses
-                </Button>
+            <SheetContent
+              side="right"
+              className="overflow-y-auto sm:max-w-xl"
+              aria-label="Response detail"
+            >
+              <SheetHeader>
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Response
+                </p>
+                <SheetTitle>Review submission</SheetTitle>
+                <SheetDescription>
+                  The list stays in place behind this panel; closing returns to
+                  it.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="grid content-start gap-4 px-4 pb-4">
+                <div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDetailsOpen(false)}
+                  >
+                    ← Back to responses
+                  </Button>
+                </div>
+                <RecordReview
+                  form={form}
+                  recordId={selectedRecordId}
+                  csrf={csrf}
+                  onAfterTransition={() => void records.refetch()}
+                />
               </div>
-              <RecordReview
-                form={form}
-                recordId={selectedRecordId}
-                csrf={csrf}
-                onAfterTransition={() => void records.refetch()}
-              />
-            </div>
-          </SheetContent>
-        </RheaSheet>
-      )}
+            </SheetContent>
+          </RheaSheet>
+        ) : (
+          <Drawer
+            open={detailsOpen}
+            onOpenChange={setDetailsOpen}
+            onOpenChangeComplete={(open) => {
+              if (!open) onSelectRecord(null);
+            }}
+            showSwipeHandle
+          >
+            <DrawerContent
+              aria-label="Response detail"
+              className="max-h-[calc(100dvh-2rem)]"
+            >
+              <DrawerHeader>
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Response
+                </p>
+                <DrawerTitle>Review submission</DrawerTitle>
+                <DrawerDescription>
+                  Review this response. Swipe down or close the drawer to return
+                  to the list.
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                <div className="grid content-start gap-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDetailsOpen(false)}
+                  >
+                    ← Back to responses
+                  </Button>
+                  <RecordReview
+                    form={form}
+                    recordId={selectedRecordId}
+                    csrf={csrf}
+                    onAfterTransition={() => void records.refetch()}
+                  />
+                </div>
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ))}
     </div>
   );
 }

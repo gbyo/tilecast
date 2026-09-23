@@ -203,10 +203,9 @@ function SettingSelect({
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
 }) {
-  const selectedLabel =
-    options.find((option) => option.value === value)?.label ?? value;
   return (
     <Select
+      items={options}
       value={value}
       disabled={disabled}
       onValueChange={(next) => {
@@ -214,7 +213,7 @@ function SettingSelect({
       }}
     >
       <SelectTrigger aria-label={label}>
-        <SelectValue>{selectedLabel}</SelectValue>
+        <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {options.map((option) => (

@@ -123,6 +123,10 @@ export function FormFieldEditor({
       <Field>
         <FieldLabel htmlFor="form-field-type">Field type</FieldLabel>
         <RheaSelect
+          items={controlOptions.map((control) => ({
+            value: control,
+            label: controlMeta(control).label,
+          }))}
           value={field.control}
           disabled={
             disabled || (lock.controlLocked && controlOptions.length <= 1)
@@ -132,7 +136,7 @@ export function FormFieldEditor({
           }}
         >
           <SelectTrigger id="form-field-type" aria-label="Field type">
-            <SelectValue>{controlMeta(field.control).label}</SelectValue>
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {controlOptions.map((control) => (

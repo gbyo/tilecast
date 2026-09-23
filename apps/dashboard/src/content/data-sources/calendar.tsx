@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client";
+import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
@@ -19,7 +20,7 @@ import type {
   CalendarPreview,
   DataSourceDetail,
 } from "../../api/types";
-import { EditorFrame, optionLabel } from "./shared";
+import { EditorFrame } from "./shared";
 
 const displayModeOptions = [
   { value: "today", label: "Today" },
@@ -111,6 +112,10 @@ export function CalendarDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },
@@ -280,11 +285,10 @@ export function CalendarDataSourceEditor({
                 displayMode: next as CalendarConfig["displayMode"],
               })
             }
+            items={displayModeOptions}
           >
             <SelectTrigger id="calendar-display" aria-label="Display">
-              <SelectValue>
-                {optionLabel(displayModeOptions, configuration.displayMode)}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {displayModeOptions.map((option) => (
@@ -432,14 +436,10 @@ export function CalendarDataSourceEditor({
                 refreshIntervalSeconds: Number(next),
               })
             }
+            items={calendarRefreshOptions}
           >
             <SelectTrigger id="calendar-refresh" aria-label="Refresh interval">
-              <SelectValue>
-                {optionLabel(
-                  calendarRefreshOptions,
-                  configuration.refreshIntervalSeconds,
-                )}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {calendarRefreshOptions.map((option) => (
@@ -461,17 +461,13 @@ export function CalendarDataSourceEditor({
                 stalenessLimitHours: Number(next),
               })
             }
+            items={stalenessOptions}
           >
             <SelectTrigger
               id="calendar-staleness"
               aria-label="Keep cached data"
             >
-              <SelectValue>
-                {optionLabel(
-                  stalenessOptions,
-                  configuration.stalenessLimitHours,
-                )}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {stalenessOptions.map((option) => (

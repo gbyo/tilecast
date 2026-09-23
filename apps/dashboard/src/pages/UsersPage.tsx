@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 
 type UserRole = User["role"];
 type UserInput = {
@@ -123,6 +124,7 @@ export function UsersPage() {
         body: JSON.stringify(input),
       }),
     onSuccess: async () => {
+      toast.add({ title: "User created.", type: "success" });
       setName("");
       setUsername("");
       setPassword("");
@@ -193,11 +195,15 @@ export function UsersPage() {
           <Field>
             <FieldLabel htmlFor="users-add-role">Role</FieldLabel>
             <RheaSelect
+              items={allowedRoles.map((value) => ({
+                value,
+                label: roleLabels[value],
+              }))}
               value={role}
               onValueChange={(value) => setRole(value ?? "viewer")}
             >
               <SelectTrigger id="users-add-role">
-                <SelectValue>{roleLabels[role]}</SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {allowedRoles.map((value) => (
@@ -379,19 +385,28 @@ function UserEditorDialog({
           ...(password ? { password } : {}),
         }),
       }),
-    onSuccess: onChanged,
+    onSuccess: () => {
+      toast.add({ title: "User updated.", type: "success" });
+      void onChanged();
+    },
   });
   const deactivate = useMutation({
     mutationFn: () =>
       userRequest<void>(`/users/${user.id}`, csrf, { method: "DELETE" }),
-    onSuccess: onChanged,
+    onSuccess: () => {
+      toast.add({ title: "User disabled.", type: "success" });
+      void onChanged();
+    },
   });
   const permanentlyDelete = useMutation({
     mutationFn: () =>
       userRequest<void>(`/users/${user.id}/permanent`, csrf, {
         method: "DELETE",
       }),
-    onSuccess: onChanged,
+    onSuccess: () => {
+      toast.add({ title: "User permanently deleted.", type: "success" });
+      void onChanged();
+    },
   });
   // Tilecast has no email delivery, so there is no self-service factor reset.
   // An administrator clearing the factors is the ordinary recovery path.
@@ -400,7 +415,10 @@ function UserEditorDialog({
       userRequest<void>(`/users/${user.id}/security/reset`, csrf, {
         method: "POST",
       }),
-    onSuccess: onChanged,
+    onSuccess: () => {
+      toast.add({ title: "User sign-in factors reset.", type: "success" });
+      void onChanged();
+    },
   });
   const isSelf = user.id === currentUser.id;
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -446,11 +464,15 @@ function UserEditorDialog({
             <Field>
               <FieldLabel htmlFor="users-edit-role">Role</FieldLabel>
               <RheaSelect
+                items={allowedRoles.map((value) => ({
+                  value,
+                  label: roleLabels[value],
+                }))}
                 value={role}
                 onValueChange={(value) => setRole(value ?? user.role)}
               >
                 <SelectTrigger id="users-edit-role">
-                  <SelectValue>{roleLabels[role]}</SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {allowedRoles.map((value) => (

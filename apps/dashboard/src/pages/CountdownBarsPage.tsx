@@ -24,6 +24,7 @@ import {
 } from "../components/ui/item";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
+import { toast } from "../components/ui/toast";
 import {
   Empty,
   EmptyDescription,
@@ -218,13 +219,6 @@ const progressFillOptions = [
   { value: "drain", label: "Drain right to left" },
 ];
 
-function pluginOptionLabel(
-  options: { value: string; label: string }[],
-  value: string,
-) {
-  return options.find((option) => option.value === value)?.label ?? value;
-}
-
 export function CountdownBarsPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
@@ -237,6 +231,7 @@ export function CountdownBarsPage() {
     mutationFn: (id: string) =>
       api.deleteCountdownBar(id, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({ title: "Countdown Bar removed.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["countdown-bars"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
     },
@@ -459,6 +454,10 @@ export function CountdownBarEditorPage() {
         ? api.updateCountdownBar(id ?? "", input, auth.status?.csrfToken ?? "")
         : api.createCountdownBar(input, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({
+        title: editing ? "Countdown Bar updated." : "Countdown Bar created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["countdown-bars"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
       void navigate("/plugins/countdown-bar");
@@ -611,6 +610,7 @@ export function CountdownBarEditorPage() {
           <Field>
             <FieldLabel htmlFor="countdown-schedule-type">Schedule</FieldLabel>
             <RheaSelect
+              items={scheduleTypeOptions}
               name="scheduleType"
               value={scheduleType}
               onValueChange={(next) => {
@@ -618,9 +618,7 @@ export function CountdownBarEditorPage() {
               }}
             >
               <SelectTrigger id="countdown-schedule-type" aria-label="Schedule">
-                <SelectValue>
-                  {pluginOptionLabel(scheduleTypeOptions, scheduleType)}
-                </SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {scheduleTypeOptions.map((option) => (
@@ -714,6 +712,7 @@ export function CountdownBarEditorPage() {
             <Field>
               <FieldLabel htmlFor="countdown-display-mode">Mode</FieldLabel>
               <RheaSelect
+                items={displayModeOptions}
                 name="displayMode"
                 value={displayMode}
                 onValueChange={(next) => {
@@ -721,9 +720,7 @@ export function CountdownBarEditorPage() {
                 }}
               >
                 <SelectTrigger id="countdown-display-mode" aria-label="Mode">
-                  <SelectValue>
-                    {pluginOptionLabel(displayModeOptions, displayMode)}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {displayModeOptions.map((option) => (
@@ -739,6 +736,7 @@ export function CountdownBarEditorPage() {
                 Background countdown
               </FieldLabel>
               <RheaSelect
+                items={progressFillOptions}
                 name="progressFill"
                 value={progressFill}
                 onValueChange={(next) => {
@@ -749,9 +747,7 @@ export function CountdownBarEditorPage() {
                   id="countdown-progress-fill"
                   aria-label="Background countdown"
                 >
-                  <SelectValue>
-                    {pluginOptionLabel(progressFillOptions, progressFill)}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {progressFillOptions.map((option) => (

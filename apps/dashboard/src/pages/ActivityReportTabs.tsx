@@ -27,6 +27,13 @@ import {
 import { MetricTile } from "../components/MetricTile";
 import { Button } from "../components/ui/button";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -47,6 +54,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   Collapsible,
   CollapsibleContent,
@@ -84,6 +92,7 @@ export function ProofTab({
   const [selectedRecord, setSelectedRecord] = useState<ProofRecord | null>(
     null,
   );
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const params = activityParams(range, filters);
   const paramsKey = params.toString();
   const pagination = useActivityCursor(paramsKey);
@@ -143,11 +152,11 @@ export function ProofTab({
     };
   }, [screenSummary.data]);
 
-  useEffect(() => setSelectedRecord(null), [paramsKey]);
+  useEffect(() => setDetailsOpen(false), [paramsKey]);
   useEffect(() => {
     if (!selectedRecord) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedRecord(null);
+      if (event.key === "Escape") setDetailsOpen(false);
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
@@ -361,7 +370,10 @@ export function ProofTab({
                         type="button"
                         aria-label={`Open details for ${item.screenName} playback`}
                         className="rounded-md p-1 hover:bg-muted hover:text-foreground"
-                        onClick={() => setSelectedRecord(item)}
+                        onClick={() => {
+                          setSelectedRecord(item);
+                          setDetailsOpen(true);
+                        }}
                       >
                         <ChevronRight size={17} aria-hidden="true" />
                       </button>
@@ -432,7 +444,12 @@ export function ProofTab({
       {selectedRecord && (
         <ProofDetailsDrawer
           record={selectedRecord}
-          onClose={() => setSelectedRecord(null)}
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          onOpenChangeComplete={(open) => {
+            if (!open) setSelectedRecord(null);
+          }}
+          onClose={() => setDetailsOpen(false)}
         />
       )}
     </>
@@ -441,9 +458,15 @@ export function ProofTab({
 
 function ProofDetailsDrawer({
   record,
+  open,
+  onOpenChange,
+  onOpenChangeComplete,
   onClose,
 }: {
   record: ProofRecord;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete: (open: boolean) => void;
   onClose: () => void;
 }) {
   const technicalDetails = {
@@ -465,118 +488,148 @@ function ProofDetailsDrawer({
     if (value == null || value === "") return false;
     return typeof value !== "boolean" || value;
   });
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        Playback record
+      </p>
+      <SheetTitle>
+        {record.contentName || record.presentationName || record.screenName}
+      </SheetTitle>
+      <SheetDescription>Player-confirmed playback details.</SheetDescription>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        Playback record
+      </p>
+      <DrawerTitle>
+        {record.contentName || record.presentationName || record.screenName}
+      </DrawerTitle>
+      <DrawerDescription>Player-confirmed playback details.</DrawerDescription>
+    </DrawerHeader>
+  );
 
-  return (
+  const content = (
+    <div
+      className={
+        desktop
+          ? "grid gap-6 px-4 pb-6"
+          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
+      }
+    >
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <ResultBadge value={record.result} />
+        <span>
+          {record.actualDurationMs == null
+            ? "Playback is still in progress"
+            : `${formatDuration(record.actualDurationMs)} confirmed`}
+        </span>
+      </p>
+
+      <section className="grid gap-2">
+        <h3 className="text-sm font-semibold">Playback</h3>
+        <dl className="grid gap-1.5 text-sm">
+          <DetailRow label="Started" value={formatFullWhen(record.startedAt)} />
+          <DetailRow
+            label="Ended"
+            value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
+          />
+          <DetailRow
+            label="Screen"
+            value={
+              <Link
+                to={`/screens/${record.screenId}?tab=activity`}
+                className="font-medium text-primary hover:underline"
+              >
+                {record.screenName}
+              </Link>
+            }
+          />
+          <DetailRow label="Group" value={record.groupName || "—"} />
+          <DetailRow label="Trigger" value={record.trigger || "—"} />
+        </dl>
+      </section>
+
+      <section className="grid gap-2">
+        <h3 className="text-sm font-semibold">Content</h3>
+        <dl className="grid gap-1.5 text-sm">
+          <DetailRow
+            label="Presentation"
+            value={
+              <ResourceLink
+                type={record.presentationType}
+                id={record.presentationId}
+                label={record.presentationName || record.presentationId || "—"}
+              />
+            }
+          />
+          <DetailRow
+            label="Revision"
+            value={record.presentationRevision || "—"}
+          />
+          <DetailRow
+            label="Content"
+            value={
+              <ResourceLink
+                type={record.contentType}
+                id={record.contentId}
+                label={
+                  record.contentName || record.contentId || "Root presentation"
+                }
+              />
+            }
+          />
+          <DetailRow label="Schedule ID" value={record.scheduleId || "—"} />
+          <DetailRow label="Takeover ID" value={record.takeoverId || "—"} />
+        </dl>
+      </section>
+
+      {entries.length > 0 && (
+        <section className="grid gap-2">
+          <h3 className="text-sm font-semibold">Technical metadata</h3>
+          <dl className="grid gap-1.5 text-sm">
+            {entries.map(([key, value]) => (
+              <DetailRow
+                key={key}
+                label={humanize(key)}
+                value={formatTechnicalValue(value)}
+              />
+            ))}
+          </dl>
+        </section>
+      )}
+    </div>
+  );
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+    if (!nextOpen) onClose();
+  };
+
+  return desktop ? (
     <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
     >
       <SheetContent side="right" className="overflow-y-auto">
-        <SheetHeader>
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Playback record
-          </p>
-          <SheetTitle>
-            {record.contentName || record.presentationName || record.screenName}
-          </SheetTitle>
-          <SheetDescription>
-            Player-confirmed playback details.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="grid gap-6 px-4 pb-6">
-          <p className="flex flex-wrap items-center gap-2 text-sm">
-            <ResultBadge value={record.result} />
-            <span>
-              {record.actualDurationMs == null
-                ? "Playback is still in progress"
-                : `${formatDuration(record.actualDurationMs)} confirmed`}
-            </span>
-          </p>
-
-          <section className="grid gap-2">
-            <h3 className="text-sm font-semibold">Playback</h3>
-            <dl className="grid gap-1.5 text-sm">
-              <DetailRow
-                label="Started"
-                value={formatFullWhen(record.startedAt)}
-              />
-              <DetailRow
-                label="Ended"
-                value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
-              />
-              <DetailRow
-                label="Screen"
-                value={
-                  <Link
-                    to={`/screens/${record.screenId}?tab=activity`}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    {record.screenName}
-                  </Link>
-                }
-              />
-              <DetailRow label="Group" value={record.groupName || "—"} />
-              <DetailRow label="Trigger" value={record.trigger || "—"} />
-            </dl>
-          </section>
-
-          <section className="grid gap-2">
-            <h3 className="text-sm font-semibold">Content</h3>
-            <dl className="grid gap-1.5 text-sm">
-              <DetailRow
-                label="Presentation"
-                value={
-                  <ResourceLink
-                    type={record.presentationType}
-                    id={record.presentationId}
-                    label={
-                      record.presentationName || record.presentationId || "—"
-                    }
-                  />
-                }
-              />
-              <DetailRow
-                label="Revision"
-                value={record.presentationRevision || "—"}
-              />
-              <DetailRow
-                label="Content"
-                value={
-                  <ResourceLink
-                    type={record.contentType}
-                    id={record.contentId}
-                    label={
-                      record.contentName ||
-                      record.contentId ||
-                      "Root presentation"
-                    }
-                  />
-                }
-              />
-              <DetailRow label="Schedule ID" value={record.scheduleId || "—"} />
-              <DetailRow label="Takeover ID" value={record.takeoverId || "—"} />
-            </dl>
-          </section>
-
-          {entries.length > 0 && (
-            <section className="grid gap-2">
-              <h3 className="text-sm font-semibold">Technical metadata</h3>
-              <dl className="grid gap-1.5 text-sm">
-                {entries.map(([key, value]) => (
-                  <DetailRow
-                    key={key}
-                    label={humanize(key)}
-                    value={formatTechnicalValue(value)}
-                  />
-                ))}
-              </dl>
-            </section>
-          )}
-        </div>
+        {header}
+        {content}
       </SheetContent>
     </Sheet>
+  ) : (
+    <Drawer
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+      showSwipeHandle
+    >
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        {header}
+        {content}
+      </DrawerContent>
+    </Drawer>
   );
 }
 

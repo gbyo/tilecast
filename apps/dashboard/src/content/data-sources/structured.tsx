@@ -7,6 +7,7 @@ import {
 import { Plus, Trash2, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../../api/client";
+import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
@@ -29,7 +30,6 @@ import type {
   StructuredSourceConfig,
 } from "../../api/types";
 import { CsvSourceInput } from "../CsvSourceInput";
-import { optionLabel } from "./shared";
 
 export type StructuredProvider = "rss" | "atom" | "json" | "csv";
 
@@ -359,6 +359,19 @@ function MappingSelect({
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <RheaSelect
+        items={[
+          { value: "", label: "Not used" },
+          ...fields.map((field) => ({
+            value: field.key,
+            label:
+              field.samples.length > 0
+                ? `${field.label} — ${field.samples[0]}`
+                : field.label,
+          })),
+          ...(value && !known
+            ? [{ value, label: selectedText ?? `${value} (not found)` }]
+            : []),
+        ]}
         value={value}
         disabled={disabled}
         onValueChange={(next) => {
@@ -366,9 +379,7 @@ function MappingSelect({
         }}
       >
         <SelectTrigger id={id} aria-label={label}>
-          <SelectValue>
-            {value ? (selectedText ?? `${value} (not found)`) : "Not used"}
-          </SelectValue>
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="">Not used</SelectItem>
@@ -436,6 +447,10 @@ export function StructuredDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },
@@ -735,17 +750,13 @@ export function StructuredDataSourceEditor({
                       next as StructuredSourceConfig["presentation"],
                   }))
                 }
+                items={presentationOptions}
               >
                 <SelectTrigger
                   id="structured-presentation"
                   aria-label="Presentation"
                 >
-                  <SelectValue>
-                    {optionLabel(
-                      presentationOptions,
-                      configuration.presentation,
-                    )}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="list">List</SelectItem>
@@ -854,11 +865,10 @@ export function StructuredDataSourceEditor({
                     sort: next as StructuredSourceConfig["sort"],
                   }))
                 }
+                items={sortOptions}
               >
                 <SelectTrigger id="structured-sort" aria-label="Sort">
-                  <SelectValue>
-                    {optionLabel(sortOptions, configuration.sort)}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="newest">Newest</SelectItem>
@@ -923,14 +933,10 @@ export function StructuredDataSourceEditor({
                             next as StructuredSourceConfig["delimiter"],
                         }))
                       }
+                      items={delimiterOptions}
                     >
                       <SelectTrigger id="csv-delimiter" aria-label="Delimiter">
-                        <SelectValue>
-                          {optionLabel(
-                            delimiterOptions,
-                            configuration.delimiter ?? "",
-                          )}
-                        </SelectValue>
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="">Detect</SelectItem>
@@ -982,14 +988,10 @@ export function StructuredDataSourceEditor({
                               next as StructuredValueType,
                             )
                           }
+                          items={valueTypeOptions}
                         >
                           <SelectTrigger aria-label={`${label} type`}>
-                            <SelectValue>
-                              {optionLabel(
-                                valueTypeOptions,
-                                mapping.valueFieldTypes?.[label] ?? "text",
-                              )}
-                            </SelectValue>
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             {valueTypeOptions.map((option) => (
@@ -1097,17 +1099,13 @@ export function StructuredDataSourceEditor({
                               },
                             }))
                           }
+                          items={dateFormatOptions}
                         >
                           <SelectTrigger
                             id="date-format"
                             aria-label="Date format"
                           >
-                            <SelectValue>
-                              {optionLabel(
-                                dateFormatOptions,
-                                configuration.dateSelection.dateFormat,
-                              )}
-                            </SelectValue>
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="auto">Detect</SelectItem>
@@ -1154,14 +1152,10 @@ export function StructuredDataSourceEditor({
                               },
                             }))
                           }
+                          items={dateModeOptions}
                         >
                           <SelectTrigger id="date-mode" aria-label="Selection">
-                            <SelectValue>
-                              {optionLabel(
-                                dateModeOptions,
-                                configuration.dateSelection.mode,
-                              )}
-                            </SelectValue>
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="today">Today</SelectItem>
@@ -1195,17 +1189,13 @@ export function StructuredDataSourceEditor({
                               },
                             }))
                           }
+                          items={noMatchOptions}
                         >
                           <SelectTrigger
                             id="date-no-match"
                             aria-label="No match"
                           >
-                            <SelectValue>
-                              {optionLabel(
-                                noMatchOptions,
-                                configuration.dateSelection.noMatchBehavior,
-                              )}
-                            </SelectValue>
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="empty">
@@ -1370,11 +1360,10 @@ export function StructuredDataSourceEditor({
                         ),
                       }))
                     }
+                    items={filterOperatorOptions}
                   >
                     <SelectTrigger aria-label="Filter operator">
-                      <SelectValue>
-                        {optionLabel(filterOperatorOptions, filter.operator)}
-                      </SelectValue>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="equals">Equals</SelectItem>
@@ -1449,17 +1438,13 @@ export function StructuredDataSourceEditor({
                     refreshIntervalSeconds: Number(next),
                   }))
                 }
+                items={refreshOptions}
               >
                 <SelectTrigger
                   id="structured-refresh"
                   aria-label="Refresh interval"
                 >
-                  <SelectValue>
-                    {optionLabel(
-                      refreshOptions,
-                      configuration.refreshIntervalSeconds,
-                    )}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={300}>5 minutes</SelectItem>

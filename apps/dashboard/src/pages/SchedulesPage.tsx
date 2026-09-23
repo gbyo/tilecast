@@ -43,6 +43,7 @@ import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { SpanWallEditor } from "../components/SpanWallEditor";
 import { DisplayControlGroupActions } from "../components/DisplayControlGroupActions";
+import { toast } from "../components/ui/toast";
 
 const canManage = (role?: string) =>
   role === "owner" || role === "administrator";
@@ -94,7 +95,10 @@ export function GroupsPage() {
   const create = useMutation({
     mutationFn: (value: { name: string; description: string }) =>
       api.createScreenGroup(value, csrf),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["screen-groups"] }),
+    onSuccess: () => {
+      toast.add({ title: "Display Group created.", type: "success" });
+      return client.invalidateQueries({ queryKey: ["screen-groups"] });
+    },
   });
 
   return (
@@ -261,12 +265,21 @@ export function GroupDetailPage() {
   const add = useMutation({
       mutationFn: (screenId: string) =>
         api.addScreenToGroup(id, screenId, csrf),
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({ title: "Screen added to Display Group.", type: "success" });
+        return refresh();
+      },
     }),
     remove = useMutation({
       mutationFn: (screenId: string) =>
         api.removeScreenFromGroup(id, screenId, csrf),
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({
+          title: "Screen removed from Display Group.",
+          type: "success",
+        });
+        return refresh();
+      },
     }),
     update = useMutation({
       mutationFn: (value: {
@@ -275,11 +288,17 @@ export function GroupDetailPage() {
         presentationGatewayScreenId?: string;
         clearPresentationGateway?: boolean;
       }) => api.updateScreenGroup(id, value, csrf),
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({ title: "Display Group updated.", type: "success" });
+        return refresh();
+      },
     }),
     deleteGroup = useMutation({
       mutationFn: () => api.deleteScreenGroup(id, csrf),
-      onSuccess: () => navigate("/groups"),
+      onSuccess: () => {
+        toast.add({ title: "Display Group deleted.", type: "success" });
+        void navigate("/groups");
+      },
     }),
     assignContent = useMutation({
       mutationFn: (value: string) => {
@@ -290,7 +309,13 @@ export function GroupDetailPage() {
           return api.assignSyncGroupPlaylist(id, presentationId, csrf);
         return api.unassignSyncGroupPlaylist(id, csrf);
       },
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({
+          title: "Display Group assignment updated.",
+          type: "success",
+        });
+        return refresh();
+      },
     });
   useEffect(() => {
     setSelectedPresentation(
@@ -309,18 +334,6 @@ export function GroupDetailPage() {
       </div>
     );
   const groupData = group.data;
-  const fallbackOptionLabel = (value: string) => {
-    const [type, id] = value.split(":");
-    if (type === "playlist") {
-      const found = playlists.data?.items?.find((item) => item.id === id);
-      return found ? `Playlist · ${found.name}` : value;
-    }
-    if (type === "layout") {
-      const found = layouts.data?.items?.find((item) => item.id === id);
-      return found ? `Layout · ${found.name}` : value;
-    }
-    return value;
-  };
   const assignedElsewhere = new Set(
     (groups.data?.items ?? [])
       .filter((candidate) => candidate.id !== id)
@@ -493,6 +506,13 @@ export function GroupDetailPage() {
               Preferred presentation gateway
             </FieldLabel>
             <Select
+              items={[
+                { value: "automatic", label: "Automatic" },
+                ...groupData.screens.map((screen) => ({
+                  value: screen.id,
+                  label: screen.name,
+                })),
+              ]}
               value={groupData.presentationGatewayScreenId || "automatic"}
               onValueChange={(next) => {
                 if (!next || next === "automatic") {
@@ -515,14 +535,7 @@ export function GroupDetailPage() {
                 id="group-gateway"
                 aria-label="Preferred presentation gateway"
               >
-                <SelectValue>
-                  {groupData.presentationGatewayScreenId
-                    ? (groupData.screens.find(
-                        (screen) =>
-                          screen.id === groupData.presentationGatewayScreenId,
-                      )?.name ?? groupData.presentationGatewayScreenId)
-                    : "Automatic"}
-                </SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="automatic">Automatic</SelectItem>
@@ -552,6 +565,19 @@ export function GroupDetailPage() {
                 Display Group fallback content
               </FieldLabel>
               <Select
+                items={[
+                  { value: "none", label: "No fallback presentation" },
+                  ...(playlists.data?.items ?? []).map((playlist) => ({
+                    value: `playlist:${playlist.id}`,
+                    label: `Playlist · ${playlist.name}`,
+                  })),
+                  ...(layouts.data?.items ?? [])
+                    .filter((layout) => layout.publishedRevision)
+                    .map((layout) => ({
+                      value: `layout:${layout.id}`,
+                      label: `Layout · ${layout.name}`,
+                    })),
+                ]}
                 value={selectedPresentation || "none"}
                 onValueChange={(next) =>
                   setSelectedPresentation(!next || next === "none" ? "" : next)
@@ -561,11 +587,7 @@ export function GroupDetailPage() {
                   id="group-fallback"
                   aria-label="Display Group fallback content"
                 >
-                  <SelectValue>
-                    {selectedPresentation
-                      ? fallbackOptionLabel(selectedPresentation)
-                      : "No fallback presentation"}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No fallback presentation</SelectItem>
@@ -637,6 +659,10 @@ export function GroupDetailPage() {
             <Field>
               <FieldLabel htmlFor="group-add-screen">Add screen</FieldLabel>
               <Select
+                items={available.map((screen) => ({
+                  value: screen.id,
+                  label: `${screen.name}${screen.location ? ` — ${screen.location}` : ""}`,
+                }))}
                 value=""
                 disabled={available.length === 0 || add.isPending}
                 onValueChange={(next) => {
@@ -644,11 +670,13 @@ export function GroupDetailPage() {
                 }}
               >
                 <SelectTrigger id="group-add-screen" aria-label="Add screen">
-                  <SelectValue>
-                    {available.length
-                      ? "Choose a screen…"
-                      : "No matching screens"}
-                  </SelectValue>
+                  <SelectValue
+                    placeholder={
+                      available.length
+                        ? "Choose a screen…"
+                        : "No matching screens"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {available.map((screen) => (
