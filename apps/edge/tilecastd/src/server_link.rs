@@ -466,6 +466,21 @@ pub fn heartbeat_item_id(key: &str) -> Option<String> {
     edge_protocol::ids::parse_canonical_uuid(candidate).ok().map(|id| id.to_string())
 }
 
+/// The heartbeat `selectionSource` for a selection. The server records player
+/// status only when this is one of `takeover`, `schedule`, `direct_fallback`
+/// or `none`, and discards the whole status otherwise. A direct assignment is
+/// reported as `direct_fallback`, as the Android player does; Quick Present
+/// has no accepted value and is omitted rather than mislabelled.
+pub fn heartbeat_selection_source(source: &str) -> Option<&'static str> {
+    match source {
+        "takeover" => Some("takeover"),
+        "schedule" => Some("schedule"),
+        "direct" => Some("direct_fallback"),
+        "none" => Some("none"),
+        _ => None,
+    }
+}
+
 fn iso(ms: i64) -> Option<String> {
     Timestamp::from_unix_millis(ms).map(|at| at.to_string())
 }
@@ -504,7 +519,9 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         }
     }
     if let Some(identity) = current.as_ref().and_then(|activation| activation.identity.as_ref()) {
-        heartbeat["selectionSource"] = serde_json::json!(identity.selection_source);
+        if let Some(source) = heartbeat_selection_source(identity.selection_source) {
+            heartbeat["selectionSource"] = serde_json::json!(source);
+        }
         if let Some(playlist) = identity.playlist_id {
             heartbeat["currentPlaylistId"] = serde_json::json!(playlist.to_string());
         }
@@ -593,6 +610,15 @@ mod tests {
         assert_eq!(heartbeat_item_id("item-image"), None);
         assert_eq!(heartbeat_item_id("layout-not-a-uuid"), None);
         assert_eq!(heartbeat_item_id(&item.to_uppercase()), None);
+    }
+
+    #[test]
+    fn selection_source_uses_the_server_status_vocabulary() {
+        assert_eq!(heartbeat_selection_source("direct"), Some("direct_fallback"));
+        assert_eq!(heartbeat_selection_source("schedule"), Some("schedule"));
+        assert_eq!(heartbeat_selection_source("takeover"), Some("takeover"));
+        assert_eq!(heartbeat_selection_source("none"), Some("none"));
+        assert_eq!(heartbeat_selection_source("quick_present"), None);
     }
 
     #[test]

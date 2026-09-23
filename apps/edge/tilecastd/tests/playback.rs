@@ -573,6 +573,27 @@ async fn item_boundary(renderer: &FakeRenderer) {
     renderer.evidence(&current, EvidenceKind::ItemTransition, Some(&item)).await;
 }
 
+/// The playback status fields the server validates before recording player
+/// status (`playlists.Service.ReportStatus`); one unknown value discards the
+/// whole status.
+fn heartbeat(context: &DaemonContext) -> impl std::future::Future<Output = Value> + '_ {
+    async move {
+        let heartbeat = tilecastd::server_link::build_heartbeat(context).await;
+        if let Some(source) = heartbeat.get("selectionSource") {
+            assert!(
+                ["takeover", "schedule", "direct_fallback", "none"].contains(&source.as_str().unwrap()),
+                "the server discards status with selectionSource {source}"
+            );
+        }
+        if let Some(state) = heartbeat.get("takeoverState") {
+            assert!(
+                ["pending", "preparing", "ready", "active", "failed", "expired"].contains(&state.as_str().unwrap())
+            );
+        }
+        heartbeat
+    }
+}
+
 async fn settle() {
     tokio::time::sleep(Duration::from_millis(1500)).await;
 }
@@ -592,7 +613,7 @@ async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     let binding = harness.binding();
     assert!(player.stage(&binding, Stage::Pending).await.is_some(), "prepared and waiting for evidence");
     assert!(player.stage(&binding, Stage::Active).await.is_none(), "acceptance alone never commits");
-    let heartbeat = tilecastd::server_link::build_heartbeat(&player.context).await;
+    let heartbeat = heartbeat(&player.context).await;
     assert_eq!(heartbeat["pendingManifestVersion"], 3);
     assert!(heartbeat.get("activeManifestVersion").is_none());
 
@@ -608,12 +629,12 @@ async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     // The ordinary heartbeat reports what is playing, with the reference
     // player's field meanings.
     assert!(!harness.fake.heartbeats.lock().unwrap().is_empty(), "the ordinary heartbeat was sent");
-    let heartbeat = tilecastd::server_link::build_heartbeat(&player.context).await;
+    let heartbeat = heartbeat(&player.context).await;
     assert_eq!(heartbeat["activeManifestVersion"], 3);
     assert!(heartbeat.get("pendingManifestVersion").is_none());
     assert_eq!(heartbeat["currentItemId"], item);
     assert!(heartbeat["currentItemStartedAt"].is_string());
-    assert_eq!(heartbeat["selectionSource"], "direct");
+    assert_eq!(heartbeat["selectionSource"], "direct_fallback");
     assert_eq!(heartbeat["currentPlaylistId"], harness.fake.manifest.lock().unwrap()["playlist"]["id"]);
     assert!(heartbeat["lastMeaningfulProgressAt"].is_string());
     assert_eq!(heartbeat["webRuntimeVersion"], 0);
@@ -683,7 +704,7 @@ async fn replacement_activates_after_its_grace_period_or_at_once_for_a_takeover(
     wait_for("the takeover without waiting for a boundary", || renderer.last().filter(|a| shows(a, &urgent))).await;
     wait_until("promotion", || async { player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == 5) })
         .await;
-    let heartbeat = tilecastd::server_link::build_heartbeat(&player.context).await;
+    let heartbeat = heartbeat(&player.context).await;
     assert_eq!(heartbeat["selectionSource"], "takeover");
     assert_eq!(heartbeat["activeTakeoverId"], takeover_id);
     assert_eq!(heartbeat["takeoverState"], "active");
@@ -823,7 +844,7 @@ async fn failed_downloads_keep_the_committed_presentation_and_recover() {
         assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 3, "{mode:?}");
         assert!(player.stage(&binding, Stage::Pending).await.is_none(), "{mode:?}");
         assert!(shows(&renderer.last().unwrap(), &first), "{mode:?}");
-        let heartbeat = tilecastd::server_link::build_heartbeat(&player.context).await;
+        let heartbeat = heartbeat(&player.context).await;
         assert!(heartbeat["lastSynchronizationError"].is_string(), "{mode:?} is reported");
     }
 
@@ -866,7 +887,7 @@ async fn incompatible_content_is_typed_and_never_replaces_playback() {
     assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 3);
     assert!(player.stage(&binding, Stage::Pending).await.is_none());
     assert!(shows(&renderer.last().unwrap(), &first));
-    let heartbeat = tilecastd::server_link::build_heartbeat(&player.context).await;
+    let heartbeat = heartbeat(&player.context).await;
     assert_eq!(heartbeat["lastSynchronizationError"], "presentation_incompatible_website");
     renderer.stop();
     player.stop().await;
@@ -1031,7 +1052,7 @@ async fn layouts_widgets_and_plugins_reach_the_renderer_as_projection_inputs() {
     let binding = harness.binding();
     wait_until("promotion on layout evidence", || async { player.stage(&binding, Stage::Active).await.is_some() })
         .await;
-    let heartbeat = tilecastd::server_link::build_heartbeat(&player.context).await;
+    let heartbeat = heartbeat(&player.context).await;
     assert_eq!(heartbeat["currentItemId"], item);
     renderer.stop();
     player.stop().await;
