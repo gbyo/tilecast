@@ -1,3 +1,5 @@
+import { TilecastLogo } from "./TilecastLogo";
+
 export function Brand({
   compact = false,
   iconOnlyOnCollapse = false,
@@ -14,17 +16,17 @@ export function Brand({
       />
     );
   return (
-    <div className="brand" aria-label="Tilecast">
-      <span className="brand__mark" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </span>
-      <span
-        className={`brand__name ${iconOnlyOnCollapse ? "group-data-[collapsible=icon]:hidden" : ""}`.trim()}
-      >
-        Tilecast
-      </span>
+    <div className="brand">
+      {iconOnlyOnCollapse ? (
+        <span className="brand__mark brand__mark--collapsed" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      ) : null}
+      <TilecastLogo
+        className={`brand__logo ${iconOnlyOnCollapse ? "brand__logo--expanded" : ""}`.trim()}
+      />
     </div>
   );
 }

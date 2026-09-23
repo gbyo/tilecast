@@ -71,8 +71,20 @@ p {
   background: var(--tc-neutral-100);
 }
 
-.brand__name {
-  letter-spacing: -0.025em;
+.brand__logo {
+  display: block;
+  width: auto;
+  height: 22px;
+  flex: none;
+}
+
+.brand__mark--collapsed,
+[data-collapsible="icon"] .brand__logo--expanded {
+  display: none;
+}
+
+[data-collapsible="icon"] .brand__mark--collapsed {
+  display: grid;
 }
 
 .brand__studio-logo {
