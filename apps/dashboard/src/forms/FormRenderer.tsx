@@ -199,7 +199,7 @@ function FieldRow({
   if (field.control === "boolean") {
     return (
       <div className="form-renderer__field form-renderer__field--inline">
-        <label className="checkbox-control" htmlFor={controlId}>
+        <RheaField orientation="horizontal">
           <RheaCheckbox
             id={controlId}
             aria-describedby={describedBy}
@@ -211,11 +211,11 @@ function FieldRow({
               onChange?.(field.key, checked === true)
             }
           />
-          <span className="form-renderer__label">
+          <RheaFieldLabel htmlFor={controlId}>
             {field.label}
             <RequiredMark required={field.required} />
-          </span>
-        </label>
+          </RheaFieldLabel>
+        </RheaField>
         {hint}
         {support}
       </div>
@@ -244,9 +244,11 @@ function FieldRow({
           {(field.options ?? []).map((option) => {
             const selected =
               Array.isArray(value) && value.includes(option.value);
+            const optionId = `${controlId}-${option.value}`;
             return (
-              <label key={option.value} className="checkbox-control">
+              <RheaField key={option.value} orientation="horizontal">
                 <RheaCheckbox
+                  id={optionId}
                   disabled={disabled}
                   checked={selected}
                   onCheckedChange={(checked) => {
@@ -260,8 +262,10 @@ function FieldRow({
                     onChange?.(field.key, current);
                   }}
                 />
-                <span>{option.label}</span>
-              </label>
+                <RheaFieldLabel htmlFor={optionId} className="font-normal">
+                  {option.label}
+                </RheaFieldLabel>
+              </RheaField>
             );
           })}
         </div>
@@ -298,12 +302,21 @@ function FieldRow({
           }}
         >
           <div className="form-renderer__multi">
-            {options.map((option) => (
-              <label key={option.value} className="checkbox-control">
-                <RheaRadioGroupItem value={option.value} disabled={disabled} />
-                <span>{option.label}</span>
-              </label>
-            ))}
+            {options.map((option) => {
+              const radioId = `${controlId}-${option.value}`;
+              return (
+                <RheaField key={option.value} orientation="horizontal">
+                  <RheaRadioGroupItem
+                    value={option.value}
+                    id={radioId}
+                    disabled={disabled}
+                  />
+                  <RheaFieldLabel htmlFor={radioId} className="font-normal">
+                    {option.label}
+                  </RheaFieldLabel>
+                </RheaField>
+              );
+            })}
           </div>
         </RheaRadioGroup>
         {support}

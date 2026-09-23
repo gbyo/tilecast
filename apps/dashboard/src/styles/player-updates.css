@@ -456,8 +456,7 @@
 }
 
 .player-updates .deployment-fields--primary input,
-.player-updates .deployment-fields--primary select,
-.player-updates .deployment-fields--primary .signal-select {
+.player-updates .deployment-fields--primary select {
   width: 100%;
   min-width: 0;
 }

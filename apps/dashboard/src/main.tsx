@@ -11,15 +11,11 @@ import "./styles/signal.css";
 // Page-specific refinements intentionally load after shared Signal styles.
 import "./styles/screens.css";
 import "./styles/sync-groups.css";
-import "./styles/issue-fixes.css";
-import "./styles/issues-37-45.css";
-import "./styles/issues-48-49.css";
 import "./styles/data-sources.css";
 import "./styles/forms.css";
 import "./styles/player-updates.css";
 import "./styles/context-menu.css";
 import "./styles/popover.css";
-import "./styles/screens-media-fixes.css";
 import "./styles/playlist-editor.css";
 
 const queryClient = new QueryClient({

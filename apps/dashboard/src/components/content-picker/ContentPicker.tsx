@@ -378,19 +378,18 @@ export function ContentPicker({
           onClear={() => setSelected(new Map())}
         />
         {failures.length > 0 && (
-          <div
-            className="content-picker-failures notice notice--error"
-            role="alert"
-          >
-            <strong>Some content could not be added.</strong>
-            <ul>
-              {failures.map((failure) => (
-                <li key={failure.id}>
-                  <b>{failure.name}:</b> {failure.message}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Alert variant="destructive">
+            <AlertTitle>Some content could not be added.</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc pl-4">
+                {failures.map((failure) => (
+                  <li key={failure.id}>
+                    <b>{failure.name}:</b> {failure.message}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
         )}
         <footer className="content-picker__footer">
           <span>

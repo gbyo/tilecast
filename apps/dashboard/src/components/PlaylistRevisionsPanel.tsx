@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { History } from "lucide-react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 
 const initialRevisionCount = 5;
@@ -53,9 +54,9 @@ export function PlaylistRevisionsPanel({
     return <div className="table-loading">Loading history…</div>;
   if (revisions.error)
     return (
-      <div className="notice notice--error" role="alert">
-        {revisions.error.message}
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>{revisions.error.message}</AlertDescription>
+      </Alert>
     );
 
   const revisionItems = revisions.data?.items ?? [];
@@ -83,14 +84,14 @@ export function PlaylistRevisionsPanel({
       )}
 
       {result && (
-        <div className="notice" role="status">
-          {result}
-        </div>
+        <Alert role="status">
+          <AlertDescription>{result}</AlertDescription>
+        </Alert>
       )}
       {restore.error && (
-        <div className="notice notice--error" role="alert">
-          {restore.error.message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{restore.error.message}</AlertDescription>
+        </Alert>
       )}
 
       <div className="backup-job-list">
@@ -136,7 +137,7 @@ export function PlaylistRevisionsPanel({
 
       {(hiddenRevisionCount > 0 ||
         visibleRevisionCount > initialRevisionCount) && (
-        <div className="form-actions">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {hiddenRevisionCount > 0 && (
             <Button
               type="button"

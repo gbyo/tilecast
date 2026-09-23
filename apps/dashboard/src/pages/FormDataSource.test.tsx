@@ -365,3 +365,40 @@ describe("Form Data Source Studio", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("Form responses table", () => {
+  it("opens a response through its title link instead of a clickable row", async () => {
+    mockAuth("owner");
+    vi.spyOn(api, "getDataSource").mockResolvedValue(formDataSourceDetail);
+    vi.spyOn(api, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(api, "listFormRecords").mockResolvedValue({
+      items: [
+        {
+          id: "r1",
+          dataSourceId: "f1",
+          revisionId: "r1",
+          state: "submitted",
+          values: { title: "Field trip" },
+          submitterName: "Sam",
+          displayTitle: "Field trip",
+          priority: 0,
+          eligible: true,
+          version: 1,
+          createdAt: "2026-01-02T00:00:00Z",
+          updatedAt: "2026-01-02T00:00:00Z",
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 25,
+    });
+    const user = userEvent.setup();
+    const { router } = renderAt("/plugins/forms/f1?tab=responses");
+
+    // The title is a real link; the row itself carries no button role.
+    const title = await screen.findByRole("link", { name: "Field trip" });
+    expect(title.closest("tr")?.getAttribute("role")).toBeNull();
+    await user.click(title);
+    expect(router.state.location.search).toContain("record=r1");
+  });
+});
