@@ -60,12 +60,7 @@ async fn authorized_range_reads_and_denials_use_only_verified_cas() {
         &source,
         digest,
         bytes.len() as u64,
-        IngestMeta {
-            domain: Domain::Media,
-            content_type: Some("image/png".into()),
-            peerable: false,
-            source: SourceKind::Origin,
-        },
+        IngestMeta { domain: Domain::Media, content_type: Some("image/png".into()), source: SourceKind::Origin },
     )
     .await
     .unwrap();

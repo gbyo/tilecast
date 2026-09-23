@@ -474,7 +474,7 @@ fn iso(ms: i64) -> Option<String> {
 /// Playback identifiers have the reference Linux player's meaning: the
 /// committed and pending manifest versions, and what the renderer is actually
 /// showing and why.
-async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
+pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
     let (renderer, current, current_item) = {
         let presentation = context.presentation.lock().await;
         (presentation.status(), presentation.current().cloned(), presentation.current_item())

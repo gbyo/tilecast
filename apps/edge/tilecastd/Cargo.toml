@@ -32,7 +32,11 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+bytes.workspace = true
 edge-protocol = { workspace = true, features = ["test-util"] }
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
 tempfile.workspace = true
 
 [lints]
