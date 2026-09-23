@@ -2,7 +2,34 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PanelsTopLeft } from "lucide-react";
 import { useEffect, useState, type DragEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { Button, Dialog, Drawer, Notice } from "../legacy-ui";
+import {
+  AlertDialog as RheaAlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
+import { Alert, AlertDescription } from "../ui/alert";
+import { Button as RheaButton } from "../ui/button";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import {
+  Sheet as RheaSheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../ui/sheet";
+import { Skeleton } from "../ui/skeleton";
 import type {
   Asset,
   Playlist,
@@ -64,6 +91,7 @@ export function PlaylistEditorPage() {
   const [addFailure, setAddFailure] = useState("");
   const [editorError, setEditorError] = useState("");
   const [playbackMessage, setPlaybackMessage] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const layouts = useQuery({
     queryKey: ["layouts", "playlist-items"],
@@ -319,11 +347,18 @@ export function PlaylistEditorPage() {
   };
 
   if (query.isLoading) {
-    return <div className="table-loading">Loading playlist…</div>;
+    return (
+      <div className="grid gap-2">
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+      </div>
+    );
   }
   if (!query.data) {
     return (
-      <div className="notice notice--error">Playlist could not be loaded.</div>
+      <Alert variant="destructive">
+        <AlertDescription>Playlist could not be loaded.</AlertDescription>
+      </Alert>
     );
   }
 
@@ -352,7 +387,7 @@ export function PlaylistEditorPage() {
   };
 
   return (
-    <section className="playlist-editor-v2">
+    <section className="grid gap-4">
       <PlaylistEditorHeader
         playlist={playlist}
         sourceType={sourceType}
@@ -366,31 +401,43 @@ export function PlaylistEditorPage() {
         onOpenHistory={openHistory}
         onOpenDetails={openDetails}
         onDuplicate={() => duplicate.mutate()}
-        onDelete={() => {
-          if (confirm(`Delete ${playlist.name}?`)) remove.mutate();
-        }}
+        onDelete={() => setConfirmingDelete(true)}
       />
 
-      <div className="playlist-editor-v2__notices" aria-live="polite">
+      <div className="grid gap-2" aria-live="polite">
         {playlist.warnings.map((warning) => (
-          <Notice key={warning} variant="danger">
-            {warning}
-          </Notice>
+          <Alert key={warning} variant="destructive">
+            <AlertDescription>{warning}</AlertDescription>
+          </Alert>
         ))}
         {publish.error && (
-          <Notice variant="danger">{publish.error.message}</Notice>
+          <Alert variant="destructive">
+            <AlertDescription>{publish.error.message}</AlertDescription>
+          </Alert>
         )}
         {publish.isSuccess && (
-          <Notice variant="info">
-            The playlist was submitted or published. Check Content review for
-            its immutable submission.
-          </Notice>
+          <Alert>
+            <AlertDescription>
+              The playlist was submitted or published. Check Content review for
+              its immutable submission.
+            </AlertDescription>
+          </Alert>
         )}
-        {editorError && <Notice variant="danger">{editorError}</Notice>}
+        {editorError && (
+          <Alert variant="destructive">
+            <AlertDescription>{editorError}</AlertDescription>
+          </Alert>
+        )}
         {playbackMessage && (
-          <Notice variant="success">{playbackMessage}</Notice>
+          <Alert>
+            <AlertDescription>{playbackMessage}</AlertDescription>
+          </Alert>
         )}
-        {addFailure && <Notice variant="danger">{addFailure}</Notice>}
+        {addFailure && (
+          <Alert variant="destructive">
+            <AlertDescription>{addFailure}</AlertDescription>
+          </Alert>
+        )}
       </div>
 
       <PlaylistPlaybackDefaults
@@ -488,19 +535,31 @@ export function PlaylistEditorPage() {
       )}
 
       {historyOpen && (
-        <Drawer
-          title="History"
-          eyebrow="Playlist revisions"
-          onClose={() => setHistoryOpen(false)}
-          closeLabel="Close playlist history"
-          className="playlist-history-drawer"
+        <RheaSheet
+          open
+          onOpenChange={(open) => {
+            if (!open) setHistoryOpen(false);
+          }}
         >
-          <PlaylistRevisionsPanel
-            playlistId={id}
-            canRestore={canPublish}
-            embedded
-          />
-        </Drawer>
+          <SheetContent side="right" className="overflow-y-auto">
+            <SheetHeader>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Playlist revisions
+              </p>
+              <SheetTitle>History</SheetTitle>
+              <SheetDescription>
+                Every published revision is kept for review and restore.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="px-4">
+              <PlaylistRevisionsPanel
+                playlistId={id}
+                canRestore={canPublish}
+                embedded
+              />
+            </div>
+          </SheetContent>
+        </RheaSheet>
       )}
 
       {detailsOpen && (
@@ -570,39 +629,81 @@ export function PlaylistEditorPage() {
         />
       )}
 
-      <Dialog
+      <RheaDialog
         open={layoutPicker}
-        title="Add published Layout"
-        onClose={() => setLayoutPicker(false)}
+        onOpenChange={(open) => {
+          if (!open) setLayoutPicker(false);
+        }}
       >
-        <p>A Layout plays fullscreen for 30 seconds by default.</p>
-        <div className="playlist-editor-layout-picker">
-          {(layouts.data?.items ?? [])
-            .filter((layout) => layout.publishedRevision)
-            .map((layout) => (
-              <Button
-                variant="quiet"
-                key={layout.id}
-                onClick={() => void addLayout(layout.id)}
-              >
-                <PanelsTopLeft size={16} aria-hidden="true" />
-                {layout.name}
-              </Button>
-            ))}
-        </div>
-        {(layouts.data?.items ?? []).filter(
-          (layout) => layout.publishedRevision,
-        ).length === 0 && (
-          <p className="status-copy">
-            Publish a Layout before adding it to a playlist.
-          </p>
-        )}
-        <div className="form-actions">
-          <Button variant="quiet" onClick={() => setLayoutPicker(false)}>
-            Cancel
-          </Button>
-        </div>
-      </Dialog>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add published Layout</DialogTitle>
+            <DialogDescription>
+              A Layout plays fullscreen for 30 seconds by default.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            {(layouts.data?.items ?? [])
+              .filter((layout) => layout.publishedRevision)
+              .map((layout) => (
+                <RheaButton
+                  type="button"
+                  variant="outline"
+                  className="justify-start"
+                  key={layout.id}
+                  onClick={() => void addLayout(layout.id)}
+                >
+                  <PanelsTopLeft size={16} aria-hidden="true" />
+                  {layout.name}
+                </RheaButton>
+              ))}
+            {(layouts.data?.items ?? []).filter(
+              (layout) => layout.publishedRevision,
+            ).length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Publish a Layout before adding it to a playlist.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <RheaButton
+              type="button"
+              variant="outline"
+              onClick={() => setLayoutPicker(false)}
+            >
+              Cancel
+            </RheaButton>
+          </DialogFooter>
+        </DialogContent>
+      </RheaDialog>
+      <RheaAlertDialog
+        open={confirmingDelete}
+        onOpenChange={(open) => {
+          if (!open) setConfirmingDelete(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {playlist.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Screens assigned to this playlist will fall back to their default
+              content. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={remove.isPending}
+              onClick={() => {
+                setConfirmingDelete(false);
+                remove.mutate();
+              }}
+            >
+              Delete playlist
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
     </section>
   );
 }

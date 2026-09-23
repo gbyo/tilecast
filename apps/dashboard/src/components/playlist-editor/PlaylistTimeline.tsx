@@ -10,8 +10,17 @@ import {
   Volume2,
 } from "lucide-react";
 import type { DragEvent } from "react";
-import { Button, EmptyState, IconButton } from "../legacy-ui";
 import type { PlaylistItem } from "../../api/types";
+import { Badge } from "../ui/badge";
+import { Button as RheaButton } from "../ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../ui/empty";
 import {
   formatItemDuration,
   itemHasTransitionOverride,
@@ -51,69 +60,81 @@ export function PlaylistTimeline({
 }) {
   const tagDriven = sourceType === "tag";
   return (
-    <section
-      className="playlist-timeline-section"
-      aria-labelledby="playlist-timeline-title"
-    >
-      <header className="playlist-timeline__header">
-        <div>
-          <p className="playlist-editor-eyebrow">Timeline</p>
-          <div className="playlist-timeline__title-row">
-            <h2 id="playlist-timeline-title">Content</h2>
-            <span className="playlist-timeline__count">
+    <section aria-labelledby="playlist-timeline-title" className="grid gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid min-w-0 gap-1">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Timeline
+          </p>
+          <div className="flex items-center gap-2">
+            <h2
+              id="playlist-timeline-title"
+              className="text-lg font-semibold tracking-tight"
+            >
+              Content
+            </h2>
+            <span className="text-sm text-muted-foreground">
               {items.length} item{items.length === 1 ? "" : "s"}
             </span>
           </div>
-          <p>
+          <p className="text-sm text-muted-foreground">
             {tagDriven
               ? "Ready media matching the selected tags appears here automatically."
               : "Items play from top to bottom, then loop."}
           </p>
         </div>
         {!tagDriven && canManage && (
-          <div className="playlist-timeline__actions">
-            <Button variant="quiet" onClick={onAddLayout}>
+          <div className="flex flex-wrap items-center gap-2">
+            <RheaButton type="button" variant="outline" onClick={onAddLayout}>
               <PanelsTopLeft size={15} aria-hidden="true" />
               Add Layout
-            </Button>
-            <Button variant="primary" onClick={onAddContent}>
+            </RheaButton>
+            <RheaButton type="button" onClick={onAddContent}>
               <Plus size={15} aria-hidden="true" />
               Add content
-            </Button>
+            </RheaButton>
           </div>
         )}
-      </header>
+      </div>
 
       {tagDriven && (
-        <div className="playlist-timeline__tag-note" role="note">
+        <div
+          className="rounded-lg bg-muted p-3 text-sm text-muted-foreground"
+          role="note"
+        >
           Edit the tag rule under Playlist details to change which content
           appears here.
         </div>
       )}
 
       {items.length === 0 ? (
-        <EmptyState
-          className="playlist-timeline__empty"
-          icon={<FileImage size={22} aria-hidden="true" />}
-          title={tagDriven ? "No matching content" : "Your timeline is empty"}
-          message={
-            tagDriven
-              ? "No ready media currently matches this playlist’s tags."
-              : "Add ready images, videos, Widgets, or Layouts to begin playback."
-          }
-          action={
-            !tagDriven && canManage ? (
-              <Button variant="primary" onClick={onAddContent}>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FileImage size={22} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>
+              {tagDriven ? "No matching content" : "Your timeline is empty"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {tagDriven
+                ? "No ready media currently matches this playlist’s tags."
+                : "Add ready images, videos, Widgets, or Layouts to begin playback."}
+            </EmptyDescription>
+          </EmptyHeader>
+          {!tagDriven && canManage && (
+            <EmptyContent>
+              <RheaButton type="button" onClick={onAddContent}>
                 <Plus size={15} aria-hidden="true" />
                 Add content
-              </Button>
-            ) : undefined
-          }
-        />
+              </RheaButton>
+            </EmptyContent>
+          )}
+        </Empty>
       ) : (
         <>
           <div
-            className="playlist-timeline__list"
+            className="grid gap-2"
             role="list"
             aria-label="Playlist content timeline"
           >
@@ -135,7 +156,7 @@ export function PlaylistTimeline({
               />
             ))}
           </div>
-          <footer className="playlist-timeline__footer">
+          <footer className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
             <span>
               {items.length} item{items.length === 1 ? "" : "s"}
             </span>
@@ -181,7 +202,7 @@ function PlaylistTimelineItem({
 
   return (
     <article
-      className={`playlist-timeline-item${selected ? " playlist-timeline-item--selected" : ""}${dragged ? " playlist-timeline-item--dragged" : ""}`}
+      className={`flex items-center gap-2 rounded-xl border border-border p-2 ${selected ? "border-primary bg-muted" : ""} ${dragged ? "opacity-50" : ""}`}
       onDragOver={(event) => {
         if (canManage) event.preventDefault();
       }}
@@ -189,7 +210,7 @@ function PlaylistTimelineItem({
     >
       <button
         type="button"
-        className="playlist-timeline-item__drag-handle"
+        className="flex shrink-0 cursor-grab items-center gap-1 rounded-lg p-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         draggable={canManage}
         disabled={!canManage}
         aria-label={`Reorder ${item.assetName}`}
@@ -203,20 +224,22 @@ function PlaylistTimelineItem({
         onDragEnd={onDragEnd}
       >
         <GripVertical size={18} aria-hidden="true" />
-        <span>{String(index + 1).padStart(2, "0")}</span>
+        <span className="tabular-nums">
+          {String(index + 1).padStart(2, "0")}
+        </span>
       </button>
 
       <button
         type="button"
-        className="playlist-timeline-item__select"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left hover:bg-muted"
         aria-label={`Inspect ${item.assetName}`}
         aria-pressed={selected}
         onClick={() => onSelect(item.id)}
       >
         <TimelineThumbnail item={item} />
-        <span className="playlist-timeline-item__copy">
-          <strong>{item.assetName}</strong>
-          <span className="playlist-timeline-item__meta">
+        <span className="grid min-w-0 gap-0.5">
+          <strong className="truncate text-sm">{item.assetName}</strong>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
             <span>{item.assetType}</span>
             <span>{formatItemDuration(item)}</span>
             <span>
@@ -225,7 +248,7 @@ function PlaylistTimelineItem({
                 : transitionLabel(item.transition)}
             </span>
             {item.assetType === "video" && (
-              <span>
+              <span className="flex items-center gap-1">
                 <Volume2 size={13} aria-hidden="true" /> Audio
                 {showAudio ? " on" : " off"}
               </span>
@@ -234,45 +257,43 @@ function PlaylistTimelineItem({
         </span>
       </button>
 
-      <div className="playlist-timeline-item__badges">
+      <div className="flex shrink-0 flex-wrap items-center gap-1">
         {item.usePlayerDefaults ? (
-          <span className="playlist-editor-badge playlist-editor-badge--muted">
-            Player defaults
-          </span>
+          <Badge variant="secondary">Player defaults</Badge>
         ) : (
-          override && (
-            <span className="playlist-editor-badge playlist-editor-badge--override">
-              Override
-            </span>
-          )
+          override && <Badge variant="outline">Override</Badge>
         )}
         {item.assetStatus !== "ready" && (
-          <span className="playlist-editor-badge playlist-editor-badge--warning">
-            {item.assetStatus}
-          </span>
+          <Badge variant="destructive">{item.assetStatus}</Badge>
         )}
       </div>
 
       {canManage && (
-        <div className="playlist-timeline-item__reorder-actions">
-          <IconButton
-            label={`Move ${item.assetName} up`}
+        <div className="flex shrink-0 items-center gap-1">
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={`Move ${item.assetName} up`}
             disabled={index === 0}
             onClick={() => onMove(item.id, -1)}
           >
             <ArrowUp size={15} aria-hidden="true" />
-          </IconButton>
-          <IconButton
-            label={`Move ${item.assetName} down`}
+          </RheaButton>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={`Move ${item.assetName} down`}
             disabled={index === itemCount - 1}
             onClick={() => onMove(item.id, 1)}
           >
             <ArrowDown size={15} aria-hidden="true" />
-          </IconButton>
+          </RheaButton>
         </div>
       )}
 
-      <span className="playlist-timeline-item__disclosure" aria-hidden="true">
+      <span className="shrink-0 text-muted-foreground" aria-hidden="true">
         <ChevronRight size={18} />
       </span>
     </article>
@@ -282,21 +303,21 @@ function PlaylistTimelineItem({
 function TimelineThumbnail({ item }: { item: PlaylistItem }) {
   if (item.assetType === "layout") {
     return (
-      <span className="playlist-timeline-item__thumbnail playlist-timeline-item__thumbnail--icon">
+      <span className="grid size-12 shrink-0 place-content-center rounded-lg bg-muted text-muted-foreground">
         <PanelsTopLeft size={24} aria-hidden="true" />
       </span>
     );
   }
   if (item.assetType === "widget") {
     return (
-      <span className="playlist-timeline-item__thumbnail playlist-timeline-item__thumbnail--icon">
+      <span className="grid size-12 shrink-0 place-content-center rounded-lg bg-muted text-muted-foreground">
         <Globe2 size={24} aria-hidden="true" />
       </span>
     );
   }
   return (
-    <span className="playlist-timeline-item__thumbnail">
-      <img src={item.thumbnailUrl} alt="" />
+    <span className="grid size-12 shrink-0 place-content-center overflow-hidden rounded-lg bg-muted">
+      <img src={item.thumbnailUrl} alt="" className="size-full object-cover" />
     </span>
   );
 }

@@ -1,14 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
 import {
-  Button,
-  Dialog,
-  EmptyState,
-  Field,
-  PageHeader,
-  Select,
-  ViewToggle,
-} from "../components/legacy-ui";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronRight, ListVideo, Plus, Tags } from "lucide-react";
+  ChevronRight,
+  LayoutGrid,
+  List,
+  ListVideo,
+  Plus,
+  Tags,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
@@ -20,7 +18,29 @@ import {
 } from "../components/DashboardListToolbar";
 import { PlaylistPreview } from "../components/PresentationPreview";
 import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
-import "./PlaylistLibraryPage.css";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
+import {
+  ToggleGroup as RheaToggleGroup,
+  ToggleGroupItem as RheaToggleGroupItem,
+} from "../components/ui/toggle-group";
+import { optionLabel } from "../content/data-sources/shared";
+import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
 
 export type { PlaylistPreviewItem } from "../api/types";
 
@@ -40,6 +60,20 @@ export type PlaylistLibraryItem = Pick<
 
 export type PlaylistLibraryFilter = "all" | "standard" | "tag" | "empty";
 export type PlaylistLibrarySort = "updated" | "name" | "items" | "created";
+
+const playlistFilterOptions = [
+  { value: "all", label: "All playlists" },
+  { value: "standard", label: "Standard playlists" },
+  { value: "tag", label: "Tag-driven playlists" },
+  { value: "empty", label: "Empty playlists" },
+];
+
+const playlistSortOptions = [
+  { value: "updated", label: "Recently updated" },
+  { value: "name", label: "Name" },
+  { value: "items", label: "Most items" },
+  { value: "created", label: "Recently created" },
+];
 
 const playlistViewStorageKey = "tilecast.playlist-library.view";
 const playlistNameCollator = new Intl.Collator(undefined, {
@@ -152,16 +186,9 @@ export function PlaylistLibraryPage() {
   const [sort, setSort] = useState<PlaylistLibrarySort>("updated");
   const [view, setView] = useState<"grid" | "list">(storedPlaylistView);
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
-  const [sourceType, setSourceType] = useState<"static" | "tag">("static");
   const query = useQuery({
     queryKey: ["playlists", "library"],
     queryFn: () => api.playlists(""),
-  });
-  const create = useMutation({
-    mutationFn: () =>
-      api.createPlaylist({ name, description: "", sourceType }, csrf),
-    onSuccess: (playlist) => void navigate(`/playlists/${playlist.id}`),
   });
 
   useEffect(() => {
@@ -199,141 +226,190 @@ export function PlaylistLibraryPage() {
   };
 
   return (
-    <section className="playlist-library-page">
+    <section className="grid gap-4">
       <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
-      <PageHeader
-        title="Playlists"
-        description="Find, preview, and organize fullscreen playback for your screens."
-        actions={
-          canManage ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Playlists</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Find, preview, and organize fullscreen playback for your screens.
+          </p>
+        </div>
+        {canManage && (
+          <div className="flex flex-wrap items-center gap-2">
+            <RheaButton type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               Create playlist
-            </Button>
-          ) : undefined
-        }
-      />
-      <DashboardListToolbar className="playlist-library-toolbar">
+            </RheaButton>
+          </div>
+        )}
+      </header>
+      <DashboardListToolbar>
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
           label="Search playlists"
           placeholder="Search names, descriptions, or previewed content"
         />
-        <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Filter playlists"
+        <RheaSelect
           value={filter}
-          onChange={(event) =>
-            setFilter(event.target.value as PlaylistLibraryFilter)
-          }
+          onValueChange={(next) => setFilter(next as PlaylistLibraryFilter)}
         >
-          <option value="all">All playlists</option>
-          <option value="standard">Standard playlists</option>
-          <option value="tag">Tag-driven playlists</option>
-          <option value="empty">Empty playlists</option>
-        </Select>
-        <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Sort playlists"
+          <SelectTrigger aria-label="Filter playlists">
+            <SelectValue>
+              {optionLabel(playlistFilterOptions, filter)}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {playlistFilterOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </RheaSelect>
+        <RheaSelect
           value={sort}
-          onChange={(event) =>
-            setSort(event.target.value as PlaylistLibrarySort)
-          }
+          onValueChange={(next) => setSort(next as PlaylistLibrarySort)}
         >
-          <option value="updated">Recently updated</option>
-          <option value="name">Name</option>
-          <option value="items">Most items</option>
-          <option value="created">Recently created</option>
-        </Select>
-        <ViewToggle
-          value={view}
-          onValueChange={setView}
-          label="Playlist view"
-        />
+          <SelectTrigger aria-label="Sort playlists">
+            <SelectValue>{optionLabel(playlistSortOptions, sort)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {playlistSortOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </RheaSelect>
+        <RheaToggleGroup
+          aria-label="Playlist view"
+          value={[view]}
+          onValueChange={(values) => {
+            const next = values[0];
+            if (next === "grid" || next === "list") setView(next);
+          }}
+        >
+          <RheaToggleGroupItem value="grid" aria-label="Grid view">
+            <LayoutGrid size={16} aria-hidden="true" />
+          </RheaToggleGroupItem>
+          <RheaToggleGroupItem value="list" aria-label="List view">
+            <List size={16} aria-hidden="true" />
+          </RheaToggleGroupItem>
+        </RheaToggleGroup>
       </DashboardListToolbar>
 
       {!query.isLoading && allPlaylists.length > 0 && (
-        <div className="playlist-library-summary" aria-live="polite">
+        <div className="text-sm text-muted-foreground" aria-live="polite">
           Showing {visiblePlaylists.length} of {allPlaylists.length} playlists
         </div>
       )}
 
       {query.isLoading ? (
-        <div className="table-loading">Loading playlists…</div>
+        <div className="grid gap-2">
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+        </div>
       ) : allPlaylists.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<ListVideo size={24} aria-hidden="true" />}
-          title="No playlists yet"
-          message={
-            canManage
-              ? "Create a playlist, then add ready images, videos, Widgets, or Layouts."
-              : "An Owner, Administrator, or Editor can create playlists."
-          }
-          action={
-            canManage ? (
-              <Button variant="primary" onClick={() => setCreating(true)}>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ListVideo size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No playlists yet</EmptyTitle>
+            <EmptyDescription>
+              {canManage
+                ? "Create a playlist, then add ready images, videos, Widgets, or Layouts."
+                : "An Owner, Administrator, or Editor can create playlists."}
+            </EmptyDescription>
+          </EmptyHeader>
+          {canManage && (
+            <EmptyContent>
+              <RheaButton type="button" onClick={() => setCreating(true)}>
                 Create playlist
-              </Button>
-            ) : undefined
-          }
-        />
+              </RheaButton>
+            </EmptyContent>
+          )}
+        </Empty>
       ) : visiblePlaylists.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<ListVideo size={24} aria-hidden="true" />}
-          title="No matching playlists"
-          message="Try a different search or clear the playlist filter."
-          action={
-            <Button variant="secondary" onClick={clearLibraryFilters}>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ListVideo size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No matching playlists</EmptyTitle>
+            <EmptyDescription>
+              Try a different search or clear the playlist filter.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <RheaButton
+              type="button"
+              variant="outline"
+              onClick={clearLibraryFilters}
+            >
               Clear filters
-            </Button>
-          }
-        />
+            </RheaButton>
+          </EmptyContent>
+        </Empty>
       ) : (
-        <div className={`playlist-library playlist-library--${view}`}>
+        <div
+          className={
+            view === "grid"
+              ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+              : "grid gap-2"
+          }
+        >
           {visiblePlaylists.map((playlist) => (
             <article
-              className="playlist-library-card"
-              data-empty={playlist.itemCount === 0 || undefined}
               key={playlist.id}
+              className="min-w-0 overflow-hidden rounded-xl border border-border"
             >
               <Link
                 to={`/playlists/${playlist.id}`}
                 title={`Open ${playlist.name}`}
+                className="grid gap-3 p-3 hover:bg-muted"
               >
-                <div className="playlist-library-card__preview">
+                <div className="relative">
                   <PlaylistPreview playlist={playlist} />
-                  <span className="playlist-library-card__status">
+                  <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
                     {playlistStatus(playlist)}
                   </span>
                 </div>
-                <div className="playlist-library-card__body">
-                  <div className="playlist-library-card__heading">
-                    <span className="playlist-library-card__title">
+                <div className="grid gap-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-1.5">
                       {playlist.sourceType === "tag" && (
                         <Tags
-                          className="playlist-library-card__tag"
                           size={15}
                           role="img"
                           aria-label="Tag-driven playlist"
+                          className="shrink-0"
                         />
                       )}
-                      <strong>{playlist.name}</strong>
+                      <strong className="truncate text-sm">
+                        {playlist.name}
+                      </strong>
                     </span>
-                    <ChevronRight size={17} aria-hidden="true" />
+                    <ChevronRight
+                      size={17}
+                      aria-hidden="true"
+                      className="shrink-0 text-muted-foreground"
+                    />
                   </div>
                   {playlist.description && (
-                    <p className="playlist-library-card__description">
+                    <p className="truncate text-xs text-muted-foreground">
                       {playlist.description}
                     </p>
                   )}
-                  <div className="playlist-library-card__metadata">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>{itemCountLabel(playlist.itemCount)}</span>
                     <span>Revision {playlist.revision}</span>
                   </div>
-                  <small>{formatPlaylistUpdatedAt(playlist.updatedAt)}</small>
+                  <small className="text-xs text-muted-foreground">
+                    {formatPlaylistUpdatedAt(playlist.updatedAt)}
+                  </small>
                 </div>
               </Link>
             </article>
@@ -341,50 +417,12 @@ export function PlaylistLibraryPage() {
         </div>
       )}
 
-      <Dialog open={creating} title="Create playlist" onClose={closeCreate}>
-        <Field label="Name">
-          <input
-            autoFocus
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </Field>
-        <fieldset className="playlist-type-chooser">
-          <legend>Playlist type</legend>
-          <button
-            type="button"
-            aria-pressed={sourceType === "static"}
-            onClick={() => setSourceType("static")}
-          >
-            <strong>Standard playlist</strong>
-            <span>Manually arrange media and Layouts in a timeline.</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={sourceType === "tag"}
-            onClick={() => setSourceType("tag")}
-          >
-            <strong>Tag-driven playlist</strong>
-            <span>Automatically include ready media that matches tags.</span>
-          </button>
-        </fieldset>
-        {create.error && (
-          <div className="notice notice--error">{create.error.message}</div>
-        )}
-        <div className="form-actions">
-          <Button variant="quiet" onClick={closeCreate}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!name.trim()}
-            loading={create.isPending}
-            onClick={() => create.mutate()}
-          >
-            Create playlist
-          </Button>
-        </div>
-      </Dialog>
+      <PlaylistCreateDialog
+        open={creating}
+        csrf={csrf}
+        onClose={closeCreate}
+        onCreated={(id) => void navigate(`/playlists/${id}`)}
+      />
     </section>
   );
 }

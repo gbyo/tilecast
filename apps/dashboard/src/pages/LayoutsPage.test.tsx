@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -117,10 +123,12 @@ describe("layout library page", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(
-      await screen.findByRole("button", { name: "Actions for Lobby" }),
+    // Base UI menus open on the contextmenu event in this suite; the card
+    // offers the same actions through right-click and the actions button.
+    fireEvent.contextMenu(
+      await screen.findByRole("button", { name: "Edit Lobby" }),
     );
-    await user.click(screen.getByRole("menuitem", { name: "Rename" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
     const renameDialog = await screen.findByRole("dialog", {
       name: "Rename layout",
     });

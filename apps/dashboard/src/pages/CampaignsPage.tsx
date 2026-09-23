@@ -17,15 +17,48 @@ import type {
   CampaignSnapshot,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import {
-  Button,
-  Dialog,
-  EmptyState,
-  Field,
-  Notice,
-  PageHeader,
-} from "../components/legacy-ui";
 import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  AlertDialog as RheaAlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
+import { Textarea } from "../components/ui/textarea";
+import { optionLabel } from "../content/data-sources/shared";
 
 function nextHour() {
   const date = new Date(Date.now() + 60 * 60 * 1000);
@@ -62,6 +95,21 @@ function snapshotForEdit(campaign: Campaign): CampaignSnapshot {
 }
 
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const blockScheduleOptions = [
+  { value: "one_time", label: "Fixed time" },
+  { value: "weekly", label: "Weekly window" },
+];
+
+const blockContentOptions = [
+  { value: "playlist", label: "Playlist" },
+  { value: "layout", label: "Layout" },
+];
+
+const destinationTypeOptions = [
+  { value: "screen", label: "Screen" },
+  { value: "group", label: "Group" },
+];
 
 function dateTimeInput(value?: string) {
   if (!value) return "";
@@ -105,75 +153,109 @@ function CampaignLibrary() {
   };
 
   return (
-    <section>
+    <section className="grid gap-4">
       <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
-      <PageHeader
-        title="Campaigns"
-        description="Coordinate immutable content releases across screens and groups. A release reuses the scheduler and never changes what is live until it is published."
-        actions={
-          canCreate ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Campaigns</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Coordinate immutable content releases across screens and groups. A
+            release reuses the scheduler and never changes what is live until it
+            is published.
+          </p>
+        </div>
+        {canCreate && (
+          <div className="flex flex-wrap items-center gap-2">
+            <RheaButton type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" /> Create campaign
-            </Button>
-          ) : undefined
-        }
-      />
+            </RheaButton>
+          </div>
+        )}
+      </header>
       {query.isLoading ? (
-        <div className="table-loading">Loading campaigns…</div>
+        <div className="grid gap-2">
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+        </div>
       ) : !query.data?.items.length ? (
-        <EmptyState
-          icon={<CalendarRange size={24} aria-hidden="true" />}
-          title="No campaigns yet"
-          message="Create a campaign to coordinate content and destinations in one reviewed release."
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <CalendarRange size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No campaigns yet</EmptyTitle>
+            <EmptyDescription>
+              Create a campaign to coordinate content and destinations in one
+              reviewed release.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="backup-list">
+        <div className="grid gap-2">
           {query.data.items.map((campaign) => (
             <Link
-              className="backup-row"
+              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted"
               to={`/campaigns/${campaign.id}`}
               key={campaign.id}
             >
-              <div className="backup-row__details">
-                <strong>{campaign.name}</strong>
-                <span>{campaign.description || "No description"}</span>
-                <span>
+              <div className="grid min-w-0 gap-0.5">
+                <strong className="truncate text-sm">{campaign.name}</strong>
+                <span className="truncate text-xs text-muted-foreground">
+                  {campaign.description || "No description"}
+                </span>
+                <span className="text-xs text-muted-foreground">
                   {campaign.draft.blocks.length} blocks ·{" "}
                   {campaign.draft.destinations.length} destinations
                 </span>
               </div>
-              <span className="status-badge status-badge--recent">
-                {campaign.status}
-              </span>
+              <Badge variant="secondary">{campaign.status}</Badge>
             </Link>
           ))}
         </div>
       )}
-      <Dialog open={creating} title="Create campaign" onClose={closeCreate}>
-        <Field label="Name">
-          <input
-            autoFocus
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </Field>
-        {create.error && (
-          <Notice variant="danger">{create.error.message}</Notice>
-        )}
-        <div className="form-actions">
-          <Button variant="quiet" onClick={closeCreate}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!name.trim()}
-            loading={create.isPending}
-            onClick={() => create.mutate()}
-          >
-            Create campaign
-          </Button>
-        </div>
-      </Dialog>
+      <RheaDialog
+        open={creating}
+        onOpenChange={(open) => {
+          if (!open) closeCreate();
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create campaign</DialogTitle>
+            <DialogDescription>
+              Name the campaign; blocks and destinations come next.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="campaign-create-name">Name</FieldLabel>
+              <Input
+                id="campaign-create-name"
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            {create.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{create.error.message}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <RheaButton type="button" variant="outline" onClick={closeCreate}>
+              Cancel
+            </RheaButton>
+            <RheaButton
+              type="button"
+              disabled={!name.trim() || create.isPending}
+              onClick={() => create.mutate()}
+            >
+              {create.isPending ? "Creating…" : "Create campaign"}
+            </RheaButton>
+          </DialogFooter>
+        </DialogContent>
+      </RheaDialog>
     </section>
   );
 }
@@ -228,6 +310,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   const [destinationType, setDestinationType] =
     useState<CampaignDestination["type"]>("screen");
   const [destination, setDestination] = useState("");
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
 
   useEffect(() => {
     if (campaignQuery.data) {
@@ -362,11 +445,25 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         []);
 
   if (campaignQuery.error)
-    return <Notice variant="danger">{campaignQuery.error.message}</Notice>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{campaignQuery.error.message}</AlertDescription>
+      </Alert>
+    );
   if (campaignQuery.isLoading || !draft)
-    return <div className="table-loading">Loading campaign…</div>;
+    return (
+      <div className="grid gap-2">
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+      </div>
+    );
   const campaign = campaignQuery.data;
-  if (!campaign) return <Notice variant="danger">Campaign not found.</Notice>;
+  if (!campaign)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>Campaign not found.</AlertDescription>
+      </Alert>
+    );
 
   const addBlock = () => {
     if (!selectedContent) return;
@@ -403,94 +500,130 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   };
 
   return (
-    <section>
+    <section className="grid gap-4">
       <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
-      <PageHeader
-        title={campaign.name}
-        description={`${campaign.status} · draft ${campaign.draftRevision}. Changes remain private until this draft is submitted and published.`}
-        actions={
-          <div className="form-actions">
-            <Button
-              onClick={() => void preflightRun.mutate()}
-              disabled={preflightRun.isPending}
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {campaign.name}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {campaign.status} · draft {campaign.draftRevision}. Changes remain
+            private until this draft is submitted and published.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <RheaButton
+            type="button"
+            variant="outline"
+            onClick={() => void preflightRun.mutate()}
+            disabled={preflightRun.isPending}
+          >
+            Preflight
+          </RheaButton>
+          {canEdit && (
+            <RheaButton
+              type="button"
+              onClick={() => save.mutate()}
+              disabled={save.isPending}
             >
-              Preflight
-            </Button>
-            {canEdit && (
-              <Button
-                variant="primary"
-                onClick={() => save.mutate()}
-                disabled={save.isPending}
-              >
-                <Save size={16} /> Save draft
-              </Button>
-            )}
-            {canPublish && (
-              <Button
-                variant="primary"
-                onClick={() => publish.mutate()}
-                disabled={publish.isPending}
-              >
-                <Send size={16} /> Submit / publish
-              </Button>
-            )}
-            {canEdit && (
-              <Button
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Archive this campaign and stop its schedules?",
-                    )
-                  ) {
-                    archive.mutate();
-                  }
-                }}
-                disabled={archive.isPending}
-              >
-                <Archive size={16} /> Archive
-              </Button>
-            )}
-          </div>
-        }
-      />
+              <Save size={16} aria-hidden="true" /> Save draft
+            </RheaButton>
+          )}
+          {canPublish && (
+            <RheaButton
+              type="button"
+              onClick={() => publish.mutate()}
+              disabled={publish.isPending}
+            >
+              <Send size={16} aria-hidden="true" /> Submit / publish
+            </RheaButton>
+          )}
+          {canEdit && (
+            <RheaButton
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmingArchive(true)}
+              disabled={archive.isPending}
+            >
+              <Archive size={16} aria-hidden="true" /> Archive
+            </RheaButton>
+          )}
+        </div>
+      </header>
+      <RheaAlertDialog
+        open={confirmingArchive}
+        onOpenChange={(open) => {
+          if (!open) setConfirmingArchive(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {campaign.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Archiving stops its schedules. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={archive.isPending}
+              onClick={() => {
+                setConfirmingArchive(false);
+                archive.mutate();
+              }}
+            >
+              Archive campaign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
       {(save.error ||
         publish.error ||
         restore.error ||
         restorePublication.error ||
         rollback.error) && (
-        <Notice variant="danger">
-          {
-            (
-              save.error ||
-              publish.error ||
-              restore.error ||
-              restorePublication.error ||
-              rollback.error
-            )?.message
-          }
-        </Notice>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {
+              (
+                save.error ||
+                publish.error ||
+                restore.error ||
+                restorePublication.error ||
+                rollback.error
+              )?.message
+            }
+          </AlertDescription>
+        </Alert>
       )}
       {archive.error && (
-        <Notice variant="danger">{archive.error.message}</Notice>
+        <Alert variant="destructive">
+          <AlertDescription>{archive.error.message}</AlertDescription>
+        </Alert>
       )}
       {publish.isSuccess && (
-        <Notice variant="info">
-          The campaign was submitted or published. Review the submission status
-          in Content review.
-        </Notice>
+        <Alert>
+          <AlertDescription>
+            The campaign was submitted or published. Review the submission
+            status in Content review.
+          </AlertDescription>
+        </Alert>
       )}
 
-      <div className="settings-sections">
-        <section className="settings-subsection">
-          <header>
-            <h3>Draft definition</h3>
-            <p>
+      <div className="grid gap-6">
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Draft definition</h3>
+            <p className="text-sm text-muted-foreground">
               Every field below is part of the next immutable campaign release.
             </p>
           </header>
-          <div className="form-grid">
-            <Field label="Name">
-              <input
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="campaign-name">Name</FieldLabel>
+              <Input
+                id="campaign-name"
                 value={draft.name}
                 disabled={!canEdit}
                 onChange={(event) =>
@@ -498,8 +631,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 }
               />
             </Field>
-            <Field label="Timezone">
-              <input
+            <Field>
+              <FieldLabel htmlFor="campaign-timezone">Timezone</FieldLabel>
+              <Input
+                id="campaign-timezone"
                 value={draft.timezone}
                 disabled={!canEdit}
                 onChange={(event) =>
@@ -507,8 +642,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 }
               />
             </Field>
-            <Field label="Campaign start">
-              <input
+            <Field>
+              <FieldLabel htmlFor="campaign-start">Campaign start</FieldLabel>
+              <Input
+                id="campaign-start"
                 type="datetime-local"
                 value={dateTimeInput(draft.campaignStart)}
                 disabled={!canEdit}
@@ -520,8 +657,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 }
               />
             </Field>
-            <Field label="Campaign end">
-              <input
+            <Field>
+              <FieldLabel htmlFor="campaign-end">Campaign end</FieldLabel>
+              <Input
+                id="campaign-end"
                 type="datetime-local"
                 value={dateTimeInput(draft.campaignEnd)}
                 disabled={!canEdit}
@@ -534,8 +673,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               />
             </Field>
           </div>
-          <Field label="Description">
-            <textarea
+          <Field>
+            <FieldLabel htmlFor="campaign-description">Description</FieldLabel>
+            <Textarea
+              id="campaign-description"
               value={draft.description}
               disabled={!canEdit}
               onChange={(event) =>
@@ -545,18 +686,21 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
           </Field>
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Content blocks</h3>
-            <p>
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Content blocks</h3>
+            <p className="text-sm text-muted-foreground">
               Blocks become ordinary schedules when their release is published.
             </p>
           </header>
           {draft.blocks.map((block, index) => (
-            <div className="backup-row campaign-block-row" key={block.id}>
-              <div className="backup-row__details">
+            <div
+              className="grid gap-3 rounded-lg border border-border p-3"
+              key={block.id}
+            >
+              <div className="grid gap-1">
                 {canEdit ? (
-                  <input
+                  <Input
                     aria-label={`Block ${index + 1} name`}
                     value={block.name}
                     onChange={(event) =>
@@ -564,33 +708,53 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     }
                   />
                 ) : (
-                  <strong>{block.name}</strong>
+                  <strong className="text-sm">{block.name}</strong>
                 )}
-                <span>
+                <span className="text-xs text-muted-foreground">
                   {block.contentType} · {block.type} · {block.timezone}
                 </span>
-                <span>
+                <span className="text-xs text-muted-foreground">
                   {block.type === "one_time"
                     ? `${new Date(block.oneTimeStart ?? "").toLocaleString()} – ${new Date(block.oneTimeEnd ?? "").toLocaleString()}`
                     : `${block.dailyStart ?? ""} – ${block.dailyEnd ?? ""}`}
                 </span>
                 {canEdit && (
-                  <div className="form-grid">
-                    <Field label="Schedule type">
-                      <select
+                  <div className="grid gap-4 pt-2 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor={`block-type-${block.id}`}>
+                        Schedule type
+                      </FieldLabel>
+                      <RheaSelect
                         value={block.type}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           updateBlock(block.id, {
-                            type: event.target.value as CampaignBlock["type"],
+                            type: next as CampaignBlock["type"],
                           })
                         }
                       >
-                        <option value="one_time">Fixed time</option>
-                        <option value="weekly">Weekly window</option>
-                      </select>
+                        <SelectTrigger
+                          id={`block-type-${block.id}`}
+                          aria-label={`Block ${index + 1} schedule type`}
+                        >
+                          <SelectValue>
+                            {optionLabel(blockScheduleOptions, block.type)}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {blockScheduleOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </RheaSelect>
                     </Field>
-                    <Field label="Timezone">
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor={`block-timezone-${block.id}`}>
+                        Timezone
+                      </FieldLabel>
+                      <Input
+                        id={`block-timezone-${block.id}`}
                         value={block.timezone}
                         onChange={(event) =>
                           updateBlock(block.id, {
@@ -599,8 +763,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                         }
                       />
                     </Field>
-                    <Field label="Priority">
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor={`block-priority-${block.id}`}>
+                        Priority
+                      </FieldLabel>
+                      <Input
+                        id={`block-priority-${block.id}`}
                         type="number"
                         min="0"
                         value={block.priority}
@@ -611,22 +779,27 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                         }
                       />
                     </Field>
-                    <label className="field field--checkbox">
-                      <span className="field__label">Enabled</span>
-                      <input
-                        type="checkbox"
+                    {/* The wrapping label names the checkbox; no extra
+                        aria-label. */}
+                    <label className="flex items-center gap-2 text-sm">
+                      <RheaCheckbox
                         checked={block.enabled}
-                        onChange={(event) =>
+                        onCheckedChange={(checked) =>
                           updateBlock(block.id, {
-                            enabled: event.target.checked,
+                            enabled: checked === true,
                           })
                         }
                       />
+                      <span>Enabled</span>
                     </label>
                     {block.type === "one_time" ? (
                       <>
-                        <Field label="Starts">
-                          <input
+                        <Field>
+                          <FieldLabel htmlFor={`block-start-${block.id}`}>
+                            Starts
+                          </FieldLabel>
+                          <Input
+                            id={`block-start-${block.id}`}
                             type="datetime-local"
                             value={dateTimeInput(block.oneTimeStart)}
                             onChange={(event) =>
@@ -636,8 +809,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             }
                           />
                         </Field>
-                        <Field label="Ends">
-                          <input
+                        <Field>
+                          <FieldLabel htmlFor={`block-end-${block.id}`}>
+                            Ends
+                          </FieldLabel>
+                          <Input
+                            id={`block-end-${block.id}`}
                             type="datetime-local"
                             value={dateTimeInput(block.oneTimeEnd)}
                             onChange={(event) =>
@@ -650,8 +827,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       </>
                     ) : (
                       <>
-                        <Field label="Date range start">
-                          <input
+                        <Field>
+                          <FieldLabel htmlFor={`block-range-start-${block.id}`}>
+                            Date range start
+                          </FieldLabel>
+                          <Input
+                            id={`block-range-start-${block.id}`}
                             type="date"
                             value={block.startDate ?? ""}
                             onChange={(event) =>
@@ -661,8 +842,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             }
                           />
                         </Field>
-                        <Field label="Date range end">
-                          <input
+                        <Field>
+                          <FieldLabel htmlFor={`block-range-end-${block.id}`}>
+                            Date range end
+                          </FieldLabel>
+                          <Input
+                            id={`block-range-end-${block.id}`}
                             type="date"
                             value={block.endDate ?? ""}
                             onChange={(event) =>
@@ -672,8 +857,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             }
                           />
                         </Field>
-                        <Field label="Daily start">
-                          <input
+                        <Field>
+                          <FieldLabel htmlFor={`block-daily-start-${block.id}`}>
+                            Daily start
+                          </FieldLabel>
+                          <Input
+                            id={`block-daily-start-${block.id}`}
                             type="time"
                             value={block.dailyStart ?? ""}
                             onChange={(event) =>
@@ -683,8 +872,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             }
                           />
                         </Field>
-                        <Field label="Daily end">
-                          <input
+                        <Field>
+                          <FieldLabel htmlFor={`block-daily-end-${block.id}`}>
+                            Daily end
+                          </FieldLabel>
+                          <Input
+                            id={`block-daily-end-${block.id}`}
                             type="time"
                             value={block.dailyEnd ?? ""}
                             onChange={(event) =>
@@ -694,25 +887,37 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             }
                           />
                         </Field>
-                        <fieldset className="field campaign-weekdays">
-                          <legend className="field__label">Weekdays</legend>
-                          {weekdayLabels.map((label, day) => (
-                            <label key={label}>
-                              <input
-                                type="checkbox"
-                                checked={(block.daysOfWeek ?? []).includes(day)}
-                                onChange={(event) => {
-                                  const days = new Set(block.daysOfWeek ?? []);
-                                  if (event.target.checked) days.add(day);
-                                  else days.delete(day);
-                                  updateBlock(block.id, {
-                                    daysOfWeek: [...days].sort((a, b) => a - b),
-                                  });
-                                }}
-                              />
-                              {label}
-                            </label>
-                          ))}
+                        <fieldset className="grid gap-2 sm:col-span-2">
+                          <legend className="text-sm font-medium">
+                            Weekdays
+                          </legend>
+                          <div className="flex flex-wrap gap-x-4 gap-y-2">
+                            {weekdayLabels.map((label, day) => (
+                              <label
+                                key={label}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <RheaCheckbox
+                                  checked={(block.daysOfWeek ?? []).includes(
+                                    day,
+                                  )}
+                                  onCheckedChange={(checked) => {
+                                    const days = new Set(
+                                      block.daysOfWeek ?? [],
+                                    );
+                                    if (checked === true) days.add(day);
+                                    else days.delete(day);
+                                    updateBlock(block.id, {
+                                      daysOfWeek: [...days].sort(
+                                        (a, b) => a - b,
+                                      ),
+                                    });
+                                  }}
+                                />
+                                <span>{label}</span>
+                              </label>
+                            ))}
+                          </div>
                         </fieldset>
                       </>
                     )}
@@ -720,7 +925,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 )}
               </div>
               {canEdit && (
-                <Button
+                <RheaButton
+                  type="button"
+                  variant="outline"
+                  className="w-fit"
                   onClick={() =>
                     setDraft({
                       ...draft,
@@ -731,55 +939,96 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   }
                 >
                   Remove
-                </Button>
+                </RheaButton>
               )}
             </div>
           ))}
           {canEdit && (
-            <div className="form-grid">
-              <Field label="Content type">
-                <select
+            <div className="grid items-end gap-4 sm:grid-cols-3">
+              <Field>
+                <FieldLabel htmlFor="campaign-content-type">
+                  Content type
+                </FieldLabel>
+                <RheaSelect
                   value={selectedType}
-                  onChange={(event) => {
-                    setSelectedType(
-                      event.target.value as CampaignBlock["contentType"],
-                    );
+                  onValueChange={(next) => {
+                    setSelectedType(next as CampaignBlock["contentType"]);
                     setSelectedContent("");
                   }}
                 >
-                  <option value="playlist">Playlist</option>
-                  <option value="layout">Layout</option>
-                </select>
+                  <SelectTrigger
+                    id="campaign-content-type"
+                    aria-label="Content type"
+                  >
+                    <SelectValue>
+                      {optionLabel(blockContentOptions, selectedType)}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {blockContentOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </RheaSelect>
               </Field>
-              <Field label="Content">
-                <select
+              <Field>
+                <FieldLabel htmlFor="campaign-content">Content</FieldLabel>
+                <RheaSelect
                   value={selectedContent}
-                  onChange={(event) => setSelectedContent(event.target.value)}
+                  onValueChange={(next) => setSelectedContent(next as string)}
                 >
-                  <option value="">Select content</option>
-                  {contentOptions.map((item) => (
-                    <option value={item.id} key={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="campaign-content" aria-label="Content">
+                    <SelectValue>
+                      {optionLabel(
+                        [
+                          { value: "", label: "Select content" },
+                          ...contentOptions.map((item) => ({
+                            value: item.id,
+                            label: item.name,
+                          })),
+                        ],
+                        selectedContent,
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Select content</SelectItem>
+                    {contentOptions.map((item) => (
+                      <SelectItem value={item.id} key={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </RheaSelect>
               </Field>
-              <Button onClick={addBlock} disabled={!selectedContent}>
-                <Plus size={16} /> Add block
-              </Button>
+              <RheaButton
+                type="button"
+                variant="outline"
+                onClick={addBlock}
+                disabled={!selectedContent}
+              >
+                <Plus size={16} aria-hidden="true" /> Add block
+              </RheaButton>
             </div>
           )}
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Destinations</h3>
-            <p>Choose the screens or groups that receive this release.</p>
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Destinations</h3>
+            <p className="text-sm text-muted-foreground">
+              Choose the screens or groups that receive this release.
+            </p>
           </header>
-          <div className="backup-list">
+          <div className="grid gap-2">
             {draft.destinations.map((item) => (
-              <div className="backup-row" key={`${item.type}:${item.id}`}>
-                <span>
+              <div
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+                key={`${item.type}:${item.id}`}
+              >
+                <span className="text-sm">
                   {item.type} ·{" "}
                   {destinationLabel(
                     item,
@@ -788,7 +1037,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   )}
                 </span>
                 {canEdit && (
-                  <Button
+                  <RheaButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() =>
                       setDraft({
                         ...draft,
@@ -799,92 +1051,132 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     }
                   >
                     Remove
-                  </Button>
+                  </RheaButton>
                 )}
               </div>
             ))}
           </div>
           {canEdit && (
-            <div className="form-grid">
-              <Field label="Destination type">
-                <select
+            <div className="grid items-end gap-4 sm:grid-cols-3">
+              <Field>
+                <FieldLabel htmlFor="campaign-destination-type">
+                  Destination type
+                </FieldLabel>
+                <RheaSelect
                   value={destinationType}
-                  onChange={(event) => {
-                    setDestinationType(
-                      event.target.value as CampaignDestination["type"],
-                    );
+                  onValueChange={(next) => {
+                    setDestinationType(next as CampaignDestination["type"]);
                     setDestination("");
                   }}
                 >
-                  <option value="screen">Screen</option>
-                  <option value="group">Group</option>
-                </select>
+                  <SelectTrigger
+                    id="campaign-destination-type"
+                    aria-label="Destination type"
+                  >
+                    <SelectValue>
+                      {optionLabel(destinationTypeOptions, destinationType)}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {destinationTypeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </RheaSelect>
               </Field>
-              <Field label="Destination">
-                <select
+              <Field>
+                <FieldLabel htmlFor="campaign-destination">
+                  Destination
+                </FieldLabel>
+                <RheaSelect
                   value={destination}
-                  onChange={(event) => setDestination(event.target.value)}
+                  onValueChange={(next) => setDestination(next as string)}
                 >
-                  <option value="">Select destination</option>
-                  {destinationOptions.map((item) => (
-                    <option value={item.id} key={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    id="campaign-destination"
+                    aria-label="Destination"
+                  >
+                    <SelectValue>
+                      {optionLabel(
+                        [
+                          { value: "", label: "Select destination" },
+                          ...destinationOptions.map((item) => ({
+                            value: item.id,
+                            label: item.name,
+                          })),
+                        ],
+                        destination,
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Select destination</SelectItem>
+                    {destinationOptions.map((item) => (
+                      <SelectItem value={item.id} key={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </RheaSelect>
               </Field>
-              <Button onClick={addDestination} disabled={!destination}>
-                <Plus size={16} /> Add destination
-              </Button>
+              <RheaButton
+                type="button"
+                variant="outline"
+                onClick={addDestination}
+                disabled={!destination}
+              >
+                <Plus size={16} aria-hidden="true" /> Add destination
+              </RheaButton>
             </div>
           )}
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Preflight</h3>
-            <p>
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Preflight</h3>
+            <p className="text-sm text-muted-foreground">
               Publication checks referenced content, schedule windows, and
               destination membership before any schedule changes are committed.
             </p>
           </header>
           {preflight.data && (
-            <Notice
-              variant={
-                preflight.data.valid
-                  ? preflight.data.issues.length
-                    ? "info"
-                    : "success"
-                  : "danger"
-              }
-            >
-              <div>
-                {preflight.data.valid
-                  ? `Ready: ${preflight.data.blockCount} blocks can reach ${preflight.data.destinationCount} destinations.`
-                  : "The campaign cannot be published yet."}
-              </div>
-              {preflight.data.issues.map((issue) => (
-                <div key={`${issue.code}:${issue.message}`}>
-                  {issue.severity}: {issue.message}
+            <Alert variant={preflight.data.valid ? undefined : "destructive"}>
+              <AlertDescription>
+                <div>
+                  {preflight.data.valid
+                    ? `Ready: ${preflight.data.blockCount} blocks can reach ${preflight.data.destinationCount} destinations.`
+                    : "The campaign cannot be published yet."}
                 </div>
-              ))}
-            </Notice>
+                {preflight.data.issues.map((issue) => (
+                  <div key={`${issue.code}:${issue.message}`}>
+                    {issue.severity}: {issue.message}
+                  </div>
+                ))}
+              </AlertDescription>
+            </Alert>
           )}
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Release history</h3>
-            <p>
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Release history</h3>
+            <p className="text-sm text-muted-foreground">
               Releases are immutable. Restoring one returns it to the draft for
               review; it never rewrites history.
             </p>
           </header>
           {releases.data?.items.map((release) => (
-            <div className="backup-row" key={release.id}>
-              <div className="backup-row__details">
-                <strong>Release {release.releaseNumber}</strong>
-                <span>
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+              key={release.id}
+            >
+              <div className="grid gap-0.5">
+                <strong className="text-sm">
+                  Release {release.releaseNumber}
+                </strong>
+                <span className="text-xs text-muted-foreground">
                   {release.status} ·{" "}
                   {release.publishedAt
                     ? new Date(release.publishedAt).toLocaleString()
@@ -892,51 +1184,65 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 </span>
               </div>
               {canEdit && (
-                <Button
+                <RheaButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => restore.mutate(release.id)}
                   disabled={restore.isPending}
                 >
-                  <RotateCcw size={16} /> Restore to draft
-                </Button>
+                  <RotateCcw size={16} aria-hidden="true" /> Restore to draft
+                </RheaButton>
               )}
             </div>
           ))}
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Publication history</h3>
-            <p>
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Publication history</h3>
+            <p className="text-sm text-muted-foreground">
               Deployment history is separate from the security audit log.
               Restore creates a draft; rollback creates a new release.
             </p>
           </header>
           {history.data?.items.map((publication) => (
-            <div className="backup-row" key={publication.id}>
-              <div className="backup-row__details">
-                <strong>Release {publication.revision}</strong>
-                <span>
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+              key={publication.id}
+            >
+              <div className="grid gap-0.5">
+                <strong className="text-sm">
+                  Release {publication.revision}
+                </strong>
+                <span className="text-xs text-muted-foreground">
                   {publication.method} ·{" "}
                   {new Date(publication.publishedAt).toLocaleString()} ·{" "}
                   {publication.affectedScreenCount} screens
                 </span>
               </div>
-              <div className="form-actions">
+              <div className="flex flex-wrap items-center gap-2">
                 {canEdit && (
-                  <Button
+                  <RheaButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => restorePublication.mutate(publication.id)}
                     disabled={restorePublication.isPending}
                   >
                     Restore as draft
-                  </Button>
+                  </RheaButton>
                 )}
                 {canPublish && (
-                  <Button
+                  <RheaButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => rollback.mutate(publication.id)}
                     disabled={rollback.isPending}
                   >
                     Roll back to this release
-                  </Button>
+                  </RheaButton>
                 )}
               </div>
             </div>
