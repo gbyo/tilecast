@@ -4751,11 +4751,21 @@ Implement bounded framing, min/max negotiation, renderer-instance generation, `S
 
 Build the real C/GLib WPEPlatform launcher now and prove headless startup, status/setup rendering, renderer readiness, daemon restart/reconnect, renderer crash/recreation and meaningful evidence accepted by the daemon.
 
-### E2.3 CAS-backed media qualification
+### E2.3 Daemon-backed media capability qualification
 
-Implement the hardened `tcmedia://sha256/<digest>` path and custom GStreamer URI source required for WPE video.
+Implement `tcmedia://cap/<opaque-capability>` plus the custom GStreamer URI source required for WPE video.
 
-Prove mixed cached image/H.264/widget/layout playback and video progress/transition evidence under real WPE WebKit 2.54.
+The source uses an inherited/connected daemon media channel; it never receives the CAS root.
+
+Tests prove:
+
+- raw SHA-256 knowledge is insufficient to read media;
+- stale renderer/presentation capabilities fail;
+- seek/range works through the daemon channel;
+- image/H.264/widget/layout playback and meaningful progress work under real WPE WebKit;
+- arbitrary remote website content cannot turn a guessed hash into a media read.
+
+### E2 exit criteria
 
 ### E2 exit criteria
 
@@ -5711,43 +5721,47 @@ Use Linux network namespaces/veth and `tc netem` in a privileged CI/nightly envi
 
 ### 44.5 Failure injection
 
-Kill/restart at durability and ownership boundaries:
+Kill/restart at durability, restore, migration and update boundaries:
 
 - after domain transaction, before object compile;
 - after object fsync, before object-ready mark;
-- after stream-state lock, before signed stream/projection commit;
+- after one mutation in a same-stream change set is ready but another is not;
+- after stream-state lock, before atomic change-set/projection commit;
 - after stream/projection commit, before outbox cleanup;
-- after trusted-checkpoint file fsync, before SQLite activation;
-- after SQLite preparation, before trusted checkpoint;
-- after recovery incarnation prepared, before active marker;
-- after active marker, before first node fetch;
-- during ERB creation/rotation;
-- after CAS file fsync, before rename;
-- after CAS rename, before directory fsync;
-- after owner quiesce, before owner-tuple commit;
-- after owner tuple commit, before Edge first request;
+- after trusted-checkpoint fsync, before dependent SQLite activation;
+- after recovery root prepared, before active pointer;
+- after recovery root active, before one screen's lazy new-incarnation snapshot exists;
+- during ERB/security-snapshot creation/rotation;
+- during restore after DB/file staging but before Edge recovery-pointer activation;
+- after CAS file fsync, before rename/directory fsync;
+- after migration candidate credential is created, before node fsync;
+- after candidate credential fsync, before WPE actual-content health;
+- after migration confirmation commit, before response delivery;
+- staged migration expiry while candidate is offline;
 - after command intent persistence, before disruptive initiation;
 - after release-set pending metadata, before pointer switch;
 - after pointer switch, before directory fsync;
-- after offline DB migration, before candidate start;
-- after candidate READY, before external confirmation;
-- candidate alive forever but smoke/health never passes;
+- after backward-compatible expand migration, before candidate start;
+- candidate READY but smoke/health never passes;
 - repeated power cycles before update confirmation;
-- during identity generation replacement;
+- during certificate/identity generation replacement;
 - during SQLite WAL checkpoint.
 
 Recovery scenarios:
 
-- DB restore older than fleet state + matching/newer ERB;
+- DB restore older than fleet state + matching/newer ERB/full security snapshot;
 - DB restore older than fleet state + missing/stale ERB;
-- complete old-disk image restore where DB and ordinary server files both roll back;
-- cross-installation backup restore with mismatched old trust realm on disk;
+- old DB resurrects a credential/certificate that external security snapshot rejects;
+- newer security stream continues while ordinary screen incarnation is still old;
+- cross-installation restore with mismatched old trust realm;
 - local SQLite loss with trusted checkpoint intact;
 - local SQLite + trusted checkpoint loss;
-- resurrected old bearer after restore;
 - restored pending reboot/shutdown/update;
-- stale legacy/Edge owner waking from old incarnation;
-- failed asynchronous object compilation then newer superseding revision.
+- failed async object compilation then newer superseding revision;
+- same-stream multi-subject transaction never exposes partial projection;
+- screen-by-screen lazy recovery after large-fleet restore.
+
+An arbitrary whole-disk rollback with no external monotonic witness is a documented limitation, not a test expected to self-detect. The corresponding test presents a newer external ERB/witness and proves the stale disk state is then rejected.
 
 Every crash point has one documented restart/convergence result.
 
@@ -5756,69 +5770,69 @@ Every crash point has one documented restart/convergence result.
 Headless/WPE tests cover:
 
 - launcher/runtime startup;
-- subprocess sandbox enabled before web process;
-- inherited/PID-bound renderer IPC identity;
+- subprocess sandbox before web process;
+- inherited/PID-bound renderer IPC;
 - daemon restart kills/recreates renderer;
-- runtime/media URI schemes registered local with intended security flags;
-- strict MIME/CSP;
-- remote-origin denial for local schemes/native bridge;
-- remote website localhost/private/link-local/DNS-rebinding egress denial;
+- trusted runtime local-scheme/CSP/MIME policy;
+- opaque `tcmedia` capability reads through daemon channel;
+- raw digest/unknown capability denial;
+- stale presentation/renderer capability denial;
+- remote-origin denial for trusted scheme/native bridge;
+- iframe/content-world bridge isolation;
+- HTTP(S)/WebSocket/worker/service-worker private-network denial;
+- IPv4/IPv6/CGNAT/link-local/loopback/mapped-address cases;
+- DNS rebinding/re-resolution;
 - explicit proxy behavior;
-- file-download/file-chooser/external-protocol denial;
+- WebRTC/media-stream/data-channel disabled;
+- remote inspector/developer extras disabled in production;
+- file download/chooser/external-protocol denial;
 - website storage quota/cleanup;
-- presentation fixtures;
-- navigation/permissions;
-- process termination/recovery.
+- navigation/permissions/process recovery.
 
-Wayland jobs test the managed compositor/session, WPE media acceleration, recovery and preview behavior.
+Large media tests cover Range seek, pause/resume, loop, transition drain and cancellation through the daemon media channel.
 
-Large-media tests cover Range seek, pause/resume, loop, transition drain and cancellation.
-
-DRM jobs remain separate and prove compositorless WPE display ownership, recovery and hardware-decode behavior.
+Wayland/DRM jobs retain their hardware/recovery qualification.
 
 ### 44.7 Security tests
 
 Required adversarial cases include:
 
 - wrong installation/trust-realm certificate;
-- public-WebPKI-only certificate;
-- wrong CA/leaf constraints, KU/EKU/purpose/OID;
+- wrong CA/leaf constraints/KU/EKU/purpose/OID;
 - invalid CSR proof-of-possession;
-- enrollment/renewal flood and overlapping-cert limit;
+- Edge enrollment/re-anchor attempted over plain private HTTP;
 - expired/revoked certificate;
-- disabled node using any cert;
-- TLS resumed-session attempt after certificate/security change;
-- TLS early-data/0-RTT application attempt;
-- one node claiming another namespace/liveliness;
-- Presentation Network activation while a peer session already uses that interface;
-- peer HTTPS certificate differs from availability advertisement;
-- peer advertises loopback/public/arbitrary-port/redirect/proxy target;
-- authenticated peer starvation attempt;
-- unsigned/modified signed state;
-- signature valid under wrong protocol domain;
-- malformed stream digest/preimage;
+- certificate generation below current per-node minimum;
+- stale restored server attempts to mint an already-obsolete certificate generation;
+- disabled node using any certificate;
+- old authority key attempts fresh current-state/snapshot/grant signing after retirement;
+- TLS resumed-session/early-data bypass attempt;
+- one node claims another namespace/liveliness;
+- Presentation Network becomes forbidden while session exists;
+- peer endpoint/redirect/proxy/SSRF cases;
+- signed document reused under wrong domain;
+- malformed stream/digest canonicalization;
 - same stream coordinate + different digest;
 - same subject revision + different state digest;
+- partial same-stream change-set application attempt;
 - peer attempts trust-realm/state-incarnation transition;
+- security update accepted while ordinary node remains on previous state incarnation;
 - restored DB tries lower security generation;
+- restored DB resurrects revoked device credential but ERB security snapshot rejects it;
 - missing ERB tries to reopen existing trust realm;
-- local DB loss receives old valid peer state as bootstrap;
-- old-incarnation lower/higher resource revisions;
-- durable state with illegal expiry;
-- unknown security schema/message;
-- target-only blob fetch without/mismatched object grant;
-- hash has one peerable reference and one sensitive reference;
-- Context cross-source revision misuse;
-- Context definition revision changed under old observation;
-- Context NaN/Infinity/overflow/noncanonical timestamp;
-- CEL oversized/deep/costly expression;
-- stale renderer reconnect;
-- remote website accesses local scheme/localhost/private network;
-- uploaded media attempts HTML/JS trusted execution;
+- local DB loss receives old peer state as first anchor;
+- retired authority history tries to extend above cutover boundary;
+- unknown security schema;
+- target grant expired/too old generation/wrong audience;
+- one hash has permissive + confidential references;
+- plaintext previously peerable object is not falsely claimed retroactively confidential;
+- remote page knows CAS hash but lacks opaque media capability;
+- Context numeric/CEL/replay/definition-revision attacks;
 - malformed/mismatched Range;
-- concurrent same-hash race;
-- malformed recovery bundle/mismatched installation/trust realm;
+- malformed ERB/mismatched installation/trust realm;
 - wrong IPC role/UID/process identity.
+
+### 44.8 Compatibility tests
 
 ### 44.8 Compatibility tests
 
@@ -5841,8 +5855,9 @@ Compatibility tests include:
 
 - server/player protocol min/max;
 - fixed stream schema version negotiation;
-- state-schema readable ranges;
-- actual N-1 binary check/open of N-migrated state;
+- state-schema readable and writable rollback ranges;
+- actual N-1 binary open + representative write against the N+1 expanded schema;
+- N+1 reopens/validates the rows written by N during rollback;
 - daemon/renderer IPC overlap;
 - renderer/private-WPE ABI;
 - privileged updater/watchdog protocol;
@@ -5859,44 +5874,42 @@ A server upgrade must not strand older players; when older Edge software cannot 
 | Multicast blocked | Validated seeds/manual config or standalone. |
 | Zenoh unavailable | Playback/server path continues; mesh degraded. |
 | Peer advertises unsafe endpoint | Reject without connecting. |
-| One peer floods requests | Per-peer fairness protects others/playback. |
 | Peer sends corrupt bytes | Hash reject, penalize, refetch. |
-| Target-only object requested without valid grant | Reject even if hash exists locally. |
+| Target grant invalid/expired/stale | Refuse peer bytes even if hash exists. |
+| Same hash has confidential + permissive live refs | Effective hash policy is the stricter policy; do not OR-open it. |
+| Renderer/remote page knows CAS hash | Hash grants no media read; daemon requires current opaque presentation capability. |
 | Disk full | Preserve every live pin owner; stop new preparation. |
-| SQLite corrupt, trusted checkpoint intact | Rebuild from server/signed objects without moving trust behind checkpoint. |
-| SQLite + trusted checkpoint lost | Require direct server bootstrap/recovery; peer state is not first anchor. |
+| SQLite corrupt, trusted checkpoint intact | Rebuild local state without rolling trust backward. |
+| SQLite + trusted checkpoint lost | Direct secure server bootstrap/recovery required. |
 | Node cert expires | Server playback may continue; mesh disabled until safe renewal. |
+| Certificate generation below security minimum | Reject even if CA signature is valid. |
 | Trust realm mismatch | Refuse peer/state; no auto-trust. |
-| Stream gap | Recover that stream; other streams remain independently usable. |
+| Security generation arrives while screen uses old ordinary incarnation | Accept security update when trust realm/lineage are valid; ordinary incarnation is independent. |
+| Policy/screen stream gap | Recover that stream; independent streams continue. |
 | Same stream coordinate, different digest | Fork incident; direct server reconciliation. |
-| Same resource revision, different state digest | Equivocation incident; direct server reconciliation. |
-| DB restored behind fleet, matching/newer ERB | Prepare fresh state incarnation, then direct re-anchor. |
+| Same resource revision, different state digest | Equivocation incident. |
+| Multi-subject same-stream change set partially ready | Publish/apply none until complete. |
+| DB restored behind fleet + current ERB | Overlay full security state, create fresh ordinary incarnation, re-anchor screens lazily. |
+| DB resurrects revoked player bearer | Security credential overlay rejects it; repair/re-pair if current secret row is absent. |
 | DB restored without current security proof | `edge_security_recovery_required`; no lower security publication. |
-| Edge trust material lost | Explicit new trust realm + node re-enrollment. |
-| Cross-installation restore + old local trust files | Quarantine old trust; import matching ERB or reset trust realm. |
-| Later stream record has older revision in same incarnation | Stale no-op. |
-| New trusted state incarnation has lower numeric resource revision | Valid after direct re-anchor; revisions do not compare across incarnations. |
-| Durable state carries expiry | Reject. |
-| Ephemeral state expired | Do not activate; stream continuity remains valid. |
-| Snapshot retention gap | Verify per-stream projection snapshot/checkpoint. |
-| Unknown security schema/type | Disable mesh/security-sensitive participation; require server/upgrade. |
-| Context source stale | Expire under receiver policy. |
-| Context definition changed | Retire/revalidate observations bound to old definition. |
-| Presentation Network becomes forbidden | Withdraw listeners/Avahi and close sessions on that interface. |
-| Renderer crashes | Recreate bound renderer process/generation. |
-| Daemon restarts | Bound renderer is stopped/recreated. |
-| WPE repeatedly crashes | Bounded WPE recovery, then safe mode; never launch Electron. |
-| Presentation requires unsupported WPE capability | Report incompatibility without disrupting the last valid presentation/safe surface. |
-| Candidate release crashes | Stable watchdog rolls back complete release set. |
-| Candidate stays alive but fails smoke/health | Stable watchdog rolls back. |
-| Candidate power-cycles repeatedly unconfirmed | Persisted attempt bound causes rollback. |
-| Candidate migration breaks previous reader | Activation rejected before committing update. |
-| Privileged helper too old for release set | Deployment incompatible; no activation. |
-| Power cut mid-download | Resume/discard safely. |
-| Power cut during identity rotation | Previous complete generation remains usable. |
-| Old-incarnation owner wakes | Server rejects tuple regardless of numeric generation. |
-| Restored old disruptive command/update appears pending | Does not execute until explicitly reauthorized in current incarnation. |
-| LAN partition | Each partition continues trusted state; reconciles after heal without peer authority. |
+| Complete VM/disk rollback with no external witness | Cannot be auto-detected; require administrator/external witness before claiming rollback-safe Edge recovery. |
+| Cross-installation restore + old local trust | Quarantine; matching ERB or trust reset. |
+| Retired authority signs fresh state | Reject above retirement boundary. |
+| Unknown security schema/type | Disable mesh/security-sensitive participation; require upgrade/server. |
+| Presentation Network becomes forbidden | Withdraw advertisement/listeners and close existing sessions on interface. |
+| Renderer crashes | Recreate bound WPE renderer. |
+| WPE repeatedly crashes | Bounded WPE recovery then safe mode; no Electron runtime fallback. |
+| Migration preflight finds incompatible assigned content | Abort before credential cutover; restart unchanged Electron. |
+| Staged migration candidate dies/expires | Revoke candidate credential, unfence legacy credential. |
+| Migration confirmation response lost | Candidate credential already durable/active; retry succeeds, old legacy bearer remains revoked. |
+| Old Electron starts after confirmation | Its preserved credential is rejected. |
+| Candidate Edge release crashes | Stable watchdog rolls back complete Edge release set. |
+| Previous Edge release cannot write candidate-expanded schema | Do not arm/perform automatic binary rollback. |
+| Privileged helper too old | Deployment incompatible; no activation. |
+| Restored old disruptive command/update pending | Do not execute until explicitly reauthorized in current ordinary incarnation. |
+| LAN partition | Continue trusted local state and reconcile after heal without peer authority. |
+
+## 46. Performance and resource targets
 
 ## 46. Performance and resource targets
 
@@ -6165,11 +6178,14 @@ The deferred decision is only when Tilecast may stop supporting **upgrades from*
 
 ### Migration/commands
 
-- legacy Electron and Edge services are never intentionally authoritative at the same time;
-- legacy import is read-only, idempotent and verifies server identity before credential use;
-- Edge node enrollment is performed directly by `tilecastd`;
-- old-incarnation pending disruptive commands/updates do not auto-execute;
-- package rollback during the supported migration window stops Edge first and never becomes runtime renderer fallback.
+- WPE hardware/content preflight completes before authority cutover;
+- migration session temporarily fences legacy owner-sensitive work;
+- candidate credential is fsync'd before confirmation;
+- confirmation atomically revokes the preserved legacy bearer;
+- stale Electron cannot authenticate after confirmation;
+- pre-confirmation abort/expiry safely restores legacy authority;
+- post-confirmation recovery uses Edge rollback or explicit server-assisted legacy recovery;
+- old-incarnation pending disruptive commands/updates do not auto-execute.
 
 ### Context
 
@@ -6185,10 +6201,13 @@ The deferred decision is only when Tilecast may stop supporting **upgrades from*
 - renderer process identity is bound to the daemon-launched instance/process;
 - daemon restart recreates renderer;
 - WebKit subprocess sandbox is enabled;
-- `tcmedia` accepts only canonical digest URIs and cannot escape/enumerate CAS;
-- CAS-backed H.264 passes seek/progress/restart tests;
-- trusted local runtime/media capabilities cannot be reached by arbitrary remote pages;
-- remote website private-network/proxy/download/storage policy is enforced before website capability is declared;
+- `tcmedia` uses opaque renderer/presentation capabilities backed by daemon media IPC and the renderer has no CAS-root access;
+- H.264 passes seek/progress/restart through that capability channel;
+- raw hash knowledge does not authorize renderer/remote-page media reads;
+- trusted bridge is isolated to the intended content world/top frame;
+- remote website HTTP/WebSocket/worker/service-worker egress policy covers IPv4/IPv6 special/private ranges and DNS rebinding;
+- WebRTC/remote inspector/download/external-launch defaults are explicitly disabled;
+- proxy and persistent-storage policy is enforced before website capability is declared;
 - Wayland and DRM/KMS host modes are explicitly qualified;
 - stable patched WPE baseline/security updates are tracked.
 
@@ -6197,7 +6216,7 @@ The deferred decision is only when Tilecast may stop supporting **upgrades from*
 - daemon/renderers/private runtime activate as one signed compatible release set;
 - old daemon cannot race offline migration;
 - stable watchdog, persisted unconfirmed attempts and offline smoke fixture gate confirmation;
-- real previous-reader compatibility is tested;
+- real previous-release read/write compatibility is tested while automatic rollback is armed;
 - privileged updater/watchdog protocol compatibility is enforced.
 
 ### Studio/reliability
@@ -6401,8 +6420,9 @@ Important decisions derived from current upstream:
 - custom URI responses can provide response status/headers needed for bounded media-response behavior;
 - new projects should prefer a small custom launcher rather than new Cog-based architecture;
 - Tilecast Edge uses WPE as its only Linux renderer; Electron remains only a legacy migration/reference source;
-- WPE custom URI scheme registration alone is not a GStreamer URI source, so Tilecast video uses a narrow custom `GstURIHandler` source for canonical `tcmedia://sha256/<digest>` CAS reads;
-- `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` adds Tilecast's protocol to WebKit's existing media-protocol allowlist; it is not treated as the CAS security boundary.
+- WPE custom URI scheme registration alone is not a GStreamer URI source, so Tilecast video uses a narrow custom `GstURIHandler` source for `tcmedia://cap/<opaque-capability>`;
+- the GStreamer source reads through a daemon capability channel and never receives the CAS root;
+- `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` adds Tilecast's protocol to WebKit's media-protocol allowlist; it is not an origin, CAS, or presentation-authorization boundary.
 
 ### systemd
 
