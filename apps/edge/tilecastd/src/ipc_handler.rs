@@ -16,6 +16,8 @@ use edge_protocol::ipc::status::{
 use serde_json::Value;
 
 use crate::daemon::{DaemonContext, StateMode, VERSION, status_surface};
+use crate::media::RendererInstance;
+use crate::media_channel::process_start_ticks;
 use crate::presentation::ActivationSource;
 
 #[derive(Debug)]
@@ -59,6 +61,19 @@ impl IpcHandler for DaemonIpc {
 
     async fn session_opened(&self, session: SessionHandle) {
         if session.role() == Role::Renderer {
+            let peer = session.peer();
+            if let Some(pid) = peer.pid
+                && let Some(start_ticks) = process_start_ticks(pid)
+            {
+                self.context.media_registry.lock().await.bind_renderer(RendererInstance {
+                    session: session.id(),
+                    uid: peer.uid,
+                    pid,
+                    start_ticks,
+                });
+            } else {
+                tracing::warn!(component = "media", event = "renderer_process_unavailable");
+            }
             let now = self.context.now().unix_millis();
             self.context.presentation.lock().await.renderer_connected(session, now);
         }
@@ -176,6 +191,7 @@ impl IpcHandler for DaemonIpc {
 
     async fn session_closed(&self, session: &SessionHandle, _reason: &str) {
         if session.role() == Role::Renderer {
+            self.context.media_registry.lock().await.unbind_renderer(session.id());
             self.context.presentation.lock().await.renderer_disconnected(session.id());
         }
     }

@@ -167,10 +167,12 @@ yet called. A timezone-aware selector now resolves direct assignments,
 one-time and weekly schedules, quick presents and takeovers with the existing
 Linux player's half-open and DST rules; it is not yet wired into activation.
 The daemon now has an opaque, random, renderer-session-bound media capability
-registry with prepared/active/draining lifetimes, but the media socket and WPE
-consumers are not yet connected. Activation remains open. The final RFC
-requires replacing the foundation's raw digest media URI/CAS-root access
-before real server content is activated.
+registry with prepared/active/draining lifetimes. It serves bounded verified
+CAS HEAD/range reads through a Unix media socket, admitting only the current
+renderer process and descendants. WPE still uses the foundation's raw digest
+URI/CAS-root path; switching its image and GStreamer consumers to the new
+channel, then activating real server content, remains open. The final RFC
+requires that switch before real server content is activated.
 
 - **Use:**
   - `edge_cas::Fetcher` with sources in this order:

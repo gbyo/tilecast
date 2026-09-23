@@ -84,11 +84,15 @@ End-to-end checks:
   image, H.264 video, transitions, render-tree widget, layout).
 - `ci/e2e_server.py` runs a real Tilecast Server against PostgreSQL, pairs a
   screen through a locally trusted HTTPS endpoint, then runs `tilecastd
-  import-legacy`, Edge enrollment, authenticated player WebSocket presence,
+import-legacy`, Edge enrollment, authenticated player WebSocket presence,
   server manifest fetch, assigned-image origin download and CAS verification,
   server restart/reconnect, clock sampling, disable/enable and live revocation
   with the real binaries. It does not yet prove WPE activation.
   Run it from the repository root: `apps/edge/ci/e2e_server.py`.
+- `tilecastd/tests/media_channel.rs` runs on Linux with a real Unix socket and
+  verified CAS object. It checks capability-scoped HEAD/range reads and rejects
+  raw digests, oversized ranges and retired renderer sessions. WPE does not
+  use this channel yet.
 
 The repository `Makefile` has `edge-check`, `edge-test`, `edge-linux` and
 `edge-e2e` targets.

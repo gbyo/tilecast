@@ -88,10 +88,18 @@ struct Generation {
     expires_at_ms: Option<i64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RendererInstance {
+    pub session: SessionId,
+    pub uid: u32,
+    pub pid: i32,
+    pub start_ticks: u64,
+}
+
 /// Grants are process-local. A daemon restart never revives a capability;
 /// the renderer must reconnect and receive a fresh activation.
 pub struct MediaRegistry {
-    renderer: Option<SessionId>,
+    renderer: Option<RendererInstance>,
     generations: HashMap<u64, Generation>,
     grants: HashMap<MediaCapability, MediaGrant>,
 }
@@ -118,16 +126,20 @@ impl MediaRegistry {
     }
 
     /// A new renderer instance invalidates every old capability immediately.
-    pub fn bind_renderer(&mut self, session: SessionId) {
-        if self.renderer != Some(session) {
+    pub fn bind_renderer(&mut self, renderer: RendererInstance) {
+        if self.renderer != Some(renderer) {
             self.generations.clear();
             self.grants.clear();
-            self.renderer = Some(session);
+            self.renderer = Some(renderer);
         }
     }
 
+    pub fn renderer(&self) -> Option<RendererInstance> {
+        self.renderer
+    }
+
     pub fn unbind_renderer(&mut self, session: SessionId) {
-        if self.renderer == Some(session) {
+        if self.renderer.is_some_and(|renderer| renderer.session == session) {
             self.generations.clear();
             self.grants.clear();
             self.renderer = None;
@@ -144,7 +156,7 @@ impl MediaRegistry {
         now_ms: i64,
         content: &[ContentRef],
     ) -> Result<HashMap<Sha256Digest, MediaCapability>, MediaError> {
-        if self.renderer != Some(session) {
+        if self.renderer.is_none_or(|renderer| renderer.session != session) {
             return Err(MediaError::RendererChanged);
         }
         if self.generations.contains_key(&generation) {
@@ -205,7 +217,7 @@ impl MediaRegistry {
     }
 
     pub fn activate(&mut self, session: SessionId, generation: u64, now_ms: i64) -> Result<(), MediaError> {
-        if self.renderer != Some(session) {
+        if self.renderer.is_none_or(|renderer| renderer.session != session) {
             return Err(MediaError::RendererChanged);
         }
         self.expire(now_ms);
@@ -260,7 +272,7 @@ impl MediaRegistry {
     /// Unknown or malformed tokens get the same answer. A digest, even when
     /// known to the daemon, can never be used as a read grant.
     pub fn resolve(&self, session: SessionId, token: &str, now_ms: i64) -> Option<&MediaGrant> {
-        if self.renderer != Some(session) {
+        if self.renderer.is_none_or(|renderer| renderer.session != session) {
             return None;
         }
         let token = MediaCapability::parse(token)?;
@@ -284,13 +296,17 @@ mod tests {
         }
     }
 
+    fn renderer(session: SessionId) -> RendererInstance {
+        RendererInstance { session, uid: 1000, pid: 1234, start_ticks: 1 }
+    }
+
     #[test]
     fn tokens_are_random_instance_bound_and_not_digests() {
         let session = SessionId::new_random();
         let other = SessionId::new_random();
         let reference = content(&"a".repeat(64));
         let mut registry = MediaRegistry::new();
-        registry.bind_renderer(session);
+        registry.bind_renderer(renderer(session));
         let first = registry.prepare(session, 1, 0, std::slice::from_ref(&reference)).unwrap();
         let token = &first[&reference.sha256];
         assert!(token.uri().starts_with("tcmedia://cap/"));
@@ -298,7 +314,7 @@ mod tests {
         assert!(registry.resolve(session, &reference.sha256.to_hex(), 0).is_none());
         assert!(registry.resolve(other, token.as_str(), 0).is_none());
         assert_eq!(registry.resolve(session, token.as_str(), 0).unwrap().state, GenerationState::Prepared);
-        registry.bind_renderer(other);
+        registry.bind_renderer(renderer(other));
         assert!(registry.resolve(session, token.as_str(), 0).is_none());
         let second = registry.prepare(other, 1, 0, &[reference]).unwrap();
         assert_ne!(token, second.values().next().unwrap());
@@ -308,7 +324,7 @@ mod tests {
     fn prepared_active_draining_and_retired_lifetime() {
         let session = SessionId::new_random();
         let mut registry = MediaRegistry::new();
-        registry.bind_renderer(session);
+        registry.bind_renderer(renderer(session));
         let one = registry.prepare(session, 1, 0, &[content(&"a".repeat(64))]).unwrap();
         let one_token = one.values().next().unwrap().as_str();
         assert_eq!(registry.resolve(session, one_token, 0).unwrap().state, GenerationState::Prepared);
@@ -332,7 +348,7 @@ mod tests {
     fn conflict_is_atomic_and_failed_activation_preserves_current() {
         let session = SessionId::new_random();
         let mut registry = MediaRegistry::new();
-        registry.bind_renderer(session);
+        registry.bind_renderer(renderer(session));
         let first = content(&"a".repeat(64));
         let mut conflicting = first.clone();
         conflicting.size_bytes = 43;
@@ -351,7 +367,7 @@ mod tests {
     fn abandoned_prepared_grants_expire_before_activation() {
         let session = SessionId::new_random();
         let mut registry = MediaRegistry::new();
-        registry.bind_renderer(session);
+        registry.bind_renderer(renderer(session));
         let issued = registry.prepare(session, 1, 100, &[content(&"a".repeat(64))]).unwrap();
         let token = issued.values().next().unwrap().as_str();
         assert!(registry.resolve(session, token, 100 + PREPARED_LIFETIME_MS - 1).is_some());
