@@ -3600,8 +3600,6 @@ Contract/irreversible cleanup is deferred until a later release after the automa
 
 ### 30.7 External confirmation and rollback
 
-### 30.7 External confirmation and rollback
-
 The candidate can **request** confirmation; it cannot unilaterally disarm rollback protection.
 
 Root-owned pending metadata includes:
@@ -3688,17 +3686,20 @@ Add a focused server domain:
 apps/server/internal/edge/
 ```
 
-Suggested files/packages within the domain:
+Suggested files:
 
 ```text
-authority.go          # signing/verification material management
-certificates.go       # node issuance/renewal/revocation
-changes.go            # append/read/prune signed feed
-objects.go            # immutable object metadata/storage
-snapshots.go          # state snapshot generation
+authority.go          # online Edge signing-key transitions
+certificates.go       # node issuance/generation/revocation
+security.go           # security lineage/snapshot/credential overlay
+recovery.go           # ERB + restore/re-anchor integration
+streams.go            # signed stream append/read/prune/project
+objects.go            # immutable object refs/sharing/grants
+snapshots.go          # materialized projection/current-state snapshots
+migration.go          # legacy->Edge migration session/fence
 context.go            # definitions/rules/server values
-status.go             # current Edge node status projection
-settings.go           # organization Edge policy
+status.go             # current node projection
+settings.go           # installation Edge policy
 ```
 
 HTTP handlers remain thin in `internal/httpapi`.
@@ -3706,8 +3707,6 @@ HTTP handlers remain thin in `internal/httpapi`.
 ### 32.1 Database migrations
 
 Add migrations, not edits to shipped migrations.
-
-Edge server schema includes at least:
 
 #### `edge_recovery_state`
 
@@ -3717,19 +3716,36 @@ trust_realm_id
 active_state_incarnation_id
 security_lineage_id
 security_generation
+security_head_digest
 security_state_digest
 authority_keyring_digest
+active_authority_epoch
 recovery_state
 updated_at
 ```
 
-This database row is not the only recovery copy; the encrypted ERB/external recovery checkpoint from §12 is what prevents a database rollback from silently lowering security history.
+The database row is not the external rollback witness. ERB/current security snapshot provides that role during managed restore.
 
-#### Legacy Linux migration marker
+#### `edge_security_node_state`
 
-The server does not coordinate concurrent Electron/Edge ownership. Edge installation is a one-time host migration: the legacy service is stopped/disabled before `tilecastd` imports state and begins authenticated work.
+```text
+player_installation_id PK
+highest_issued_certificate_generation
+minimum_accepted_certificate_generation
+disabled_at
+updated_at
+```
 
-Server state may record a bounded migration/audit marker (screen, legacy version, Edge version, migrated-at/result) for supportability, but there is no `edge_player_owners` generation table or dual-runtime lease protocol.
+#### `edge_security_credential_state`
+
+```text
+screen_id PK
+authorization_generation
+allowed_credential_ids UUID[]
+updated_at
+```
+
+For an Edge-migrated screen, device authentication checks this overlay in addition to the existing `device_credentials` row.
 
 #### `edge_node_certificates`
 
@@ -3738,6 +3754,7 @@ id PK
 player_installation_id
 screen_id
 trust_realm_id
+certificate_generation
 serial_number UNIQUE
 public_key_fingerprint
 certificate_pem
@@ -3747,18 +3764,35 @@ not_after
 revoked_at
 revocation_reason
 created_at
+UNIQUE (player_installation_id, certificate_generation)
 ```
 
-Certificate rows represent instances. Durable node disablement reuses existing authoritative device/screen lifecycle where possible.
+#### `edge_migration_sessions`
+
+```text
+id PK
+screen_id
+state_incarnation_id
+legacy_credential_id
+candidate_credential_id
+legacy_version
+candidate_release_set_id
+state                  # staged/confirmed/aborted/expired
+expires_at
+created_at
+confirmed_at
+```
+
+The staged migration state is the temporary server fence from §41. It is not a permanent player-owner lease system.
 
 #### `edge_node_status`
 
 ```text
 screen_id PK
-state_incarnation_id
 trust_realm_id
 security_lineage_id
 security_generation
+state_incarnation_id
 edge_version
 release_set_id
 renderer_kind
@@ -3780,45 +3814,44 @@ last_error_code
 updated_at
 ```
 
-Each `stream_cursors` entry is bounded and contains stream ID, last applied sequence/digest, highest verified sequence and snapshot base where relevant.
+#### Signed streams/projection
 
-#### Edge streams/projection/outbox
+Use §15's `history_kind/history_id/change_set_id` schema for:
 
-Use the exact §15 tables: outbox, `edge_stream_state`, `edge_stream_changes`, and `edge_projection_state`.
+- `edge_change_outbox`;
+- `edge_stream_state`;
+- `edge_stream_changes`;
+- `edge_projection_state`.
 
-#### `edge_objects`
+The security stream history ID is `securityLineageId`; policy/screen history IDs are `stateIncarnationId`.
 
-Server immutable-object metadata plus reference/grant/sharing-class metadata. Object bytes are durable before a stream record may reference them.
+#### Object authorization
 
-#### `edge_context_sources`
+Server object metadata includes:
 
-Typed source definitions with maximum TTL, deterministic precedence and privacy classification.
+```text
+edge_objects
+edge_object_references
+edge_object_grant_policy
+```
 
-#### `edge_context_rules`
+Reference rows carry confidentiality class. Effective hash policy is computed conservatively across live references. Grant-policy rows carry bounded generation/lifetime state; signed grants themselves need not be stored forever.
 
-Validated bounded CEL source + normalized metadata + subset/compiler revision.
+#### Context/settings
 
-#### `edge_settings`
+Keep typed/bounded:
 
-Bounded Edge settings. Never store peer-supplied arbitrary targets/secrets here.
+```text
+edge_context_sources
+edge_context_rules
+edge_settings
+```
 
 ### 32.2 Current status vs history
 
-Meaningful Edge events belong in existing Activity/incident infrastructure:
+Keep current fleet state in projections. Store only meaningful incidents/transitions in Activity/audit. Do not turn node heartbeats/peer chatter into an unbounded history table.
 
-```text
-edge.peer_integrity_failure
-edge.mesh_unavailable
-edge.certificate_renewal_failed
-edge.renderer_recovery
-edge.ptp_lost
-edge.context_source_stale
-edge.update_rollback
-```
-
-Do not invent a second parallel audit/history subsystem for Edge.
-
----
+## 33. Server API
 
 ## 33. Server API
 
@@ -3826,25 +3859,39 @@ Preserve the existing separation between dashboard APIs and player-authenticated
 
 ### 33.1 Player/Edge endpoints
 
-Normal Edge player routes use the existing bearer credential only after the client has verified the configured server's installation identity. Recovery/security operations additionally bind to the current trusted state incarnation where applicable.
+Ordinary bearer-authenticated endpoints retain current Tilecast player semantics.
+
+Edge trust-establishing endpoints from §10.1 require the secure HTTPS bootstrap channel.
 
 Illustrative endpoints:
 
 ```text
+GET  /api/v1/player/edge/migration/preflight
+POST /api/v1/player/edge/migration/stage
+POST /api/v1/player/edge/migration/confirm
+POST /api/v1/player/edge/migration/abort
+
 POST /api/v1/player/edge/enroll
 POST /api/v1/player/edge/renew
 GET  /api/v1/player/edge/security
+
 GET  /api/v1/player/edge/streams/<stream-id>/changes
 GET  /api/v1/player/edge/streams/<stream-id>/current
 GET  /api/v1/player/edge/streams/<stream-id>/snapshot
 GET  /api/v1/player/edge/objects/<sha256>
-POST /api/v1/player/edge/object-grants/validate   # optional server fallback, not peer authority
+
 POST /api/v1/player/edge/status
 POST /api/v1/player/edge/context/observations
 POST /api/v1/player/edge/recovery/reanchor
 ```
 
-The recovery re-anchor endpoint is available only in explicit recovery state. It returns the new `stateIncarnationId`, trust/security checkpoint and initial signed stream checkpoints. It is never peer-relay authority.
+Migration-stage/confirm/abort follow §41's credential/fence state machine.
+
+The recovery re-anchor is available only in explicit recovery state over the secure bootstrap channel. It changes ordinary state incarnation but does not reset the security lineage.
+
+Peer relay never calls trust-reset/re-anchor/migration credential endpoints.
+
+### 33.2 Dashboard APIs
 
 ### 33.2 Dashboard APIs
 
@@ -4325,11 +4372,11 @@ These are release-blocking invariants.
 18. An optional capability failure cannot brick normal playback.
 19. Revoked certificate instances and disabled durable nodes are distinct; certificate replacement does not accidentally disable the renewed/rebound node.
 20. Renderer/admin IPC authority is derived from separate sockets, filesystem permissions, `SO_PEERCRED`, daemon-recorded renderer process identity and protocol role; a renderer cannot self-declare an admin role.
-21. WPE media access is limited to canonical digest-addressed verified CAS objects needed by prepared/active/draining presentation generations; browser content never receives arbitrary CAS paths or enumeration capability.
+21. WPE media access uses opaque daemon-issued capabilities bound to the launched renderer and prepared/active/draining presentation generation; the renderer never receives the CAS root and browser content never receives raw CAS authority.
 22. A CA-valid peer cannot impersonate another node's logical identity/keyspace, and outbound peer trust is installation-CA-only.
 23. Per-stream sequence/digest proves completeness inside one state incarnation; it never overrides a newer same-incarnation resource revision.
 24. Snapshot recovery uses the materialized Edge projection at an exact signed stream checkpoint.
-25. Trust realm/state incarnation can change only through the documented direct recovery path; security lineage cannot silently decrease.
+25. Trust realm/state incarnation can change only through the documented direct recovery path; the independent security lineage/generation cannot silently decrease and does not reset for ordinary restore.
 26. Blob hash identity is not read authorization; target-granted content requires a valid server-signed grant.
 27. Locally authored Context observations are signed, definition-bound, source-scoped, epoch-scoped and replay-protected.
 28. Unknown security semantics fail closed/degrade mesh rather than silently advancing.
@@ -5365,9 +5412,9 @@ Go + TypeScript fixture validators first; Rust joins in PR 3.
 
 Real C/GLib WPEPlatform launcher, headless status surface, daemon restart/reconnect, renderer crash recovery and renderer process binding.
 
-### PR 7 — `feat(renderer-wpe): add hardened tcmedia GStreamer CAS source`
+### PR 7 — `feat(renderer-wpe): add daemon-backed tcmedia capability source`
 
-Canonical digest URI, fixed CAS root, path/symlink escape rejection, seek/range behavior and H.264 progress evidence.
+Opaque generation-bound media capabilities, inherited/connected daemon media channel, no renderer CAS-root access, seek/range behavior and H.264 progress evidence. Remote website fixtures must not read media by knowing a CAS hash.
 
 ### PR 8 — `test(renderer-wpe): add headless recovery and mixed-content harness`
 
@@ -5377,9 +5424,9 @@ Status, daemon restart, renderer crash, and mixed image/video/widget/layout scen
 
 ### PR 10 — `feat(edge-server): implement pairing/enrollment and REST/WebSocket client`
 
-### PR 11 — `feat(edge-migration): import legacy Linux state and credential`
+### PR 11 — `feat(edge-migration): add WPE preflight, importer and migration credential fence`
 
-### PR 12 — `feat(edge-identity): enroll Edge node directly after migration`
+### PR 12 — `feat(edge-migration): confirm credential cutover then enroll Edge node`
 
 ### PR 13 — `feat(edge-state): add command execution classes and durable idempotency`
 
