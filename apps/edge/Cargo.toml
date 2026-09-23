@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/edge-protocol",
+    "crates/edge-state",
 ]
 
 [workspace.package]
@@ -16,6 +17,7 @@ rust-version = "1.98"
 # Internal crates. Dependency direction is documented in apps/edge/README.md;
 # a lower crate never depends on a higher one.
 edge-protocol = { path = "crates/edge-protocol" }
+edge-state = { path = "crates/edge-state" }
 
 anyhow = "1"
 async-trait = "0.1"
