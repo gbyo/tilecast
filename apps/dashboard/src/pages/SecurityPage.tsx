@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { Passkey, SecurityStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -36,22 +37,24 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Spinner } from "../components/ui/spinner";
+import { useFormatLocale } from "../i18n";
 
 export const securityKey = ["me", "security"] as const;
 
 export function SecurityPage() {
+  const { t } = useTranslation(["account", "common"]);
   const security = useQuery({ queryKey: securityKey, queryFn: api.security });
   if (security.isLoading)
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Spinner aria-hidden="true" /> Loading sign-in security…
+        <Spinner aria-hidden="true" /> {t("security.loading")}
       </p>
     );
   if (!security.data)
     return (
       <Alert variant="destructive">
         <AlertDescription role="alert">
-          Sign-in security could not be loaded.
+          {t("security.loadError")}
         </AlertDescription>
       </Alert>
     );
@@ -109,6 +112,8 @@ function useSecurityRefresh() {
 }
 
 function AuthenticatorBlock({ status }: { status: SecurityStatus }) {
+  const { t } = useTranslation(["account", "common"]);
+  const locale = useFormatLocale();
   const { status: auth } = useAuth();
   const csrfToken = auth?.csrfToken ?? "";
   const refresh = useSecurityRefresh();
@@ -142,12 +147,12 @@ function AuthenticatorBlock({ status }: { status: SecurityStatus }) {
     <section className="grid gap-3" aria-labelledby="security-authenticator">
       <AreaHeading
         id="security-authenticator"
-        title="Authenticator app"
-        description="A six-digit code from an app such as Aegis, Google Authenticator, or 1Password."
+        title={t("security.authenticator.title")}
+        description={t("security.authenticator.description")}
         actions={
           status.totpEnrolled ? (
             <Button variant="destructive" onClick={() => setRemoving(true)}>
-              Remove
+              {t("common:actions.remove")}
             </Button>
           ) : (
             <Button
@@ -156,7 +161,7 @@ function AuthenticatorBlock({ status }: { status: SecurityStatus }) {
               onClick={() => begin.mutate()}
             >
               {begin.isPending && <Spinner aria-hidden="true" />}
-              Set up
+              {t("security.authenticator.setup")}
             </Button>
           )
         }
@@ -165,35 +170,43 @@ function AuthenticatorBlock({ status }: { status: SecurityStatus }) {
         <Item>
           <ItemContent>
             <ItemTitle>
-              {status.totpEnrolled ? "Enrolled" : "Not enrolled"}
+              {status.totpEnrolled
+                ? t("security.authenticator.enrolled")
+                : t("security.authenticator.notEnrolled")}
             </ItemTitle>
             {status.totpEnrolled && status.totpConfirmedAt && (
               <ItemDescription>
-                Added {new Date(status.totpConfirmedAt).toLocaleDateString()}
+                {t("security.authenticator.addedOn", {
+                  date: new Date(status.totpConfirmedAt).toLocaleDateString(
+                    locale,
+                  ),
+                })}
               </ItemDescription>
             )}
           </ItemContent>
         </Item>
       </ItemGroup>
-      {errorNotice(begin.error ?? confirm.error ?? remove.error)}
+      {errorNotice(
+        begin.error ?? confirm.error ?? remove.error,
+        t("security.errors.requestFailed"),
+      )}
 
       {enrolling && begin.data && (
         <div className="grid gap-5 rounded-xl border border-border p-4 sm:grid-cols-[auto_minmax(0,1fr)]">
           <SecurityQr uri={begin.data.provisioningUri} />
           <div className="grid content-start gap-3">
             <p className="m-0 text-sm">
-              Scan the code with your authenticator app, then enter the
-              six-digit code it shows.
+              {t("security.authenticator.enrollInstruction")}
             </p>
             <p className="m-0 grid gap-1 text-sm text-muted-foreground">
-              Cannot scan? Enter this key by hand:
+              {t("security.authenticator.manualKeyLabel")}
               <code className="rounded-md bg-muted px-2 py-1.5 font-mono text-sm tracking-wider break-all">
                 {begin.data.secret}
               </code>
             </p>
             <div className="grid gap-2">
               <label htmlFor="totp-code" className="text-sm font-medium">
-                Six-digit code
+                {t("security.authenticator.codeLabel")}
               </label>
               <InputOTP
                 id="totp-code"
@@ -217,10 +230,10 @@ function AuthenticatorBlock({ status }: { status: SecurityStatus }) {
                 onClick={() => confirm.mutate()}
               >
                 {confirm.isPending && <Spinner aria-hidden="true" />}
-                Confirm
+                {t("common:actions.confirm")}
               </Button>
               <Button variant="ghost" onClick={() => setEnrolling(false)}>
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
             </div>
           </div>
@@ -230,14 +243,14 @@ function AuthenticatorBlock({ status }: { status: SecurityStatus }) {
       <PasswordDialog
         open={removing}
         onOpenChange={setRemoving}
-        title="Remove authenticator"
-        description="Confirm your password to remove the authenticator from this account."
+        title={t("security.authenticator.removeTitle")}
+        description={t("security.authenticator.removeDescription")}
         inputId="totp-remove"
         password={password}
         onPasswordChange={setPassword}
         pending={remove.isPending}
         error={remove.error}
-        confirmLabel="Remove"
+        confirmLabel={t("common:actions.remove")}
         destructive
         onConfirm={() => remove.mutate()}
       />
@@ -246,6 +259,8 @@ function AuthenticatorBlock({ status }: { status: SecurityStatus }) {
 }
 
 function PasskeyBlock({ status }: { status: SecurityStatus }) {
+  const { t } = useTranslation(["account", "common"]);
+  const locale = useFormatLocale();
   const { status: auth } = useAuth();
   const csrfToken = auth?.csrfToken ?? "";
   const refresh = useSecurityRefresh();
@@ -273,7 +288,7 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
       const credential = (await navigator.credentials.create({
         publicKey: toCreationOptions(ceremony.options),
       })) as PublicKeyCredential | null;
-      if (!credential) throw new Error("No passkey was created.");
+      if (!credential) throw new Error(t("security.passkeys.notCreated"));
       return api.registerPasskey(
         ceremony.challengeToken,
         serializeRegistration(credential),
@@ -284,7 +299,7 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
   });
   const rename = useMutation({
     mutationFn: () => {
-      if (!renaming) throw new Error("Select a passkey to rename.");
+      if (!renaming) throw new Error(t("security.passkeys.selectToRename"));
       return api.renamePasskey(renaming.id, name, csrfToken);
     },
     onSuccess: () => {
@@ -295,7 +310,7 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
   });
   const remove = useMutation({
     mutationFn: () => {
-      if (!removing) throw new Error("Select a passkey to remove.");
+      if (!removing) throw new Error(t("security.passkeys.selectToRemove"));
       return api.removePasskey(removing.id, password, csrfToken);
     },
     onSuccess: () => {
@@ -309,8 +324,8 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
     <section className="grid gap-3" aria-labelledby="security-passkeys">
       <AreaHeading
         id="security-passkeys"
-        title="Passkeys"
-        description="Sign in with a fingerprint, face, screen lock, or security key. A passkey signs you in on its own and counts as two-step verification."
+        title={t("security.passkeys.title")}
+        description={t("security.passkeys.description")}
         actions={
           status.passkeysAvailable &&
           supported && (
@@ -320,16 +335,14 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
               onClick={() => register.mutate()}
             >
               {register.isPending && <Spinner aria-hidden="true" />}
-              Add a passkey
+              {t("security.passkeys.add")}
             </Button>
           )
         }
       />
       {!status.passkeysAvailable && (
         <Alert>
-          <AlertTitle>
-            Passkeys are unavailable on this installation.
-          </AlertTitle>
+          <AlertTitle>{t("security.passkeys.unavailableTitle")}</AlertTitle>
           <AlertDescription>
             {status.passkeysUnavailableReason}
           </AlertDescription>
@@ -338,18 +351,21 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
       {status.passkeysAvailable && !supported && (
         <Alert>
           <AlertDescription>
-            This browser does not support passkeys.
+            {t("security.passkeys.browserUnsupported")}
           </AlertDescription>
         </Alert>
       )}
       {errorNotice(
         isPasskeyCancellation(register.error) ? null : register.error,
+        t("security.errors.requestFailed"),
       )}
-      {errorNotice(rename.error)}
-      {errorNotice(remove.error)}
+      {errorNotice(rename.error, t("security.errors.requestFailed"))}
+      {errorNotice(remove.error, t("security.errors.requestFailed"))}
 
       {status.passkeys.length === 0 ? (
-        <p className="m-0 text-sm text-muted-foreground">No passkeys</p>
+        <p className="m-0 text-sm text-muted-foreground">
+          {t("security.passkeys.empty")}
+        </p>
       ) : (
         <ItemGroup>
           {status.passkeys.map((passkey) => (
@@ -357,10 +373,18 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
               <ItemContent>
                 <ItemTitle>{passkey.name}</ItemTitle>
                 <ItemDescription>
-                  Added {new Date(passkey.createdAt).toLocaleDateString()}
+                  {t("security.passkeys.addedOn", {
+                    date: new Date(passkey.createdAt).toLocaleDateString(
+                      locale,
+                    ),
+                  })}
                   {passkey.lastUsedAt
-                    ? ` · Last used ${new Date(passkey.lastUsedAt).toLocaleDateString()}`
-                    : " · Never used"}
+                    ? ` · ${t("security.passkeys.lastUsed", {
+                        date: new Date(passkey.lastUsedAt).toLocaleDateString(
+                          locale,
+                        ),
+                      })}`
+                    : ` · ${t("security.passkeys.neverUsed")}`}
                 </ItemDescription>
               </ItemContent>
               <ItemActions>
@@ -372,14 +396,14 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
                     setName(passkey.name);
                   }}
                 >
-                  Rename
+                  {t("security.passkeys.rename")}
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
                   onClick={() => setRemoving(passkey)}
                 >
-                  Remove
+                  {t("common:actions.remove")}
                 </Button>
               </ItemActions>
             </Item>
@@ -391,8 +415,10 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
         <div className="grid max-w-md gap-3 rounded-xl border border-border p-4">
           <FormField
             id="passkey-name"
-            label={`Rename “${renaming.name}”`}
-            hint="Tilecast named this from the authenticator that created it."
+            label={t("security.passkeys.renameTitle", {
+              name: renaming.name,
+            })}
+            hint={t("security.passkeys.renameHint")}
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
@@ -403,10 +429,10 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
               onClick={() => rename.mutate()}
             >
               {rename.isPending && <Spinner aria-hidden="true" />}
-              Save
+              {t("common:actions.save")}
             </Button>
             <Button variant="ghost" onClick={() => setRenaming(undefined)}>
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
           </div>
         </div>
@@ -417,14 +443,18 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
         onOpenChange={(open) => {
           if (!open) setRemoving(undefined);
         }}
-        title={removing ? `Remove “${removing.name}”` : "Remove passkey"}
-        description="Confirm your password to remove this passkey from this account."
+        title={
+          removing
+            ? t("security.passkeys.removeTitle", { name: removing.name })
+            : t("security.passkeys.removeFallbackTitle")
+        }
+        description={t("security.passkeys.removeDescription")}
         inputId="passkey-remove"
         password={password}
         onPasswordChange={setPassword}
         pending={remove.isPending}
         error={remove.error}
-        confirmLabel="Remove"
+        confirmLabel={t("common:actions.remove")}
         destructive
         onConfirm={() => remove.mutate()}
       />
@@ -433,6 +463,7 @@ function PasskeyBlock({ status }: { status: SecurityStatus }) {
 }
 
 function RecoveryCodeBlock({ status }: { status: SecurityStatus }) {
+  const { t } = useTranslation(["account", "common"]);
   const { status: auth } = useAuth();
   const csrfToken = auth?.csrfToken ?? "";
   const refresh = useSecurityRefresh();
@@ -454,11 +485,13 @@ function RecoveryCodeBlock({ status }: { status: SecurityStatus }) {
     <section className="grid gap-3" aria-labelledby="security-recovery">
       <AreaHeading
         id="security-recovery"
-        title="Recovery codes"
-        description="Single-use codes that let you sign in when you cannot reach your authenticator or passkey."
+        title={t("security.recovery.title")}
+        description={t("security.recovery.description")}
         actions={
           <Button variant="secondary" onClick={() => setConfirming(true)}>
-            {status.recoveryCodesRemaining > 0 ? "Regenerate" : "Generate"}
+            {status.recoveryCodesRemaining > 0
+              ? t("security.recovery.regenerate")
+              : t("security.recovery.generate")}
           </Button>
         }
       />
@@ -467,25 +500,27 @@ function RecoveryCodeBlock({ status }: { status: SecurityStatus }) {
           <ItemContent>
             <ItemTitle>
               {status.recoveryCodesRemaining > 0
-                ? `${status.recoveryCodesRemaining} unused ${status.recoveryCodesRemaining === 1 ? "code" : "codes"} remaining`
-                : "No recovery codes"}
+                ? t("security.recovery.remaining", {
+                    count: status.recoveryCodesRemaining,
+                  })
+                : t("security.recovery.empty")}
             </ItemTitle>
           </ItemContent>
         </Item>
       </ItemGroup>
-      {errorNotice(generate.error)}
+      {errorNotice(generate.error, t("security.errors.requestFailed"))}
 
       <PasswordDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title="Generate recovery codes"
-        description="Confirm your password to generate new codes. Any existing recovery codes stop working."
+        title={t("security.recovery.dialogTitle")}
+        description={t("security.recovery.dialogDescription")}
         inputId="recovery-generate"
         password={password}
         onPasswordChange={setPassword}
         pending={generate.isPending}
         error={generate.error}
-        confirmLabel="Generate"
+        confirmLabel={t("security.recovery.generate")}
         onConfirm={() => generate.mutate()}
       />
 
@@ -497,10 +532,9 @@ function RecoveryCodeBlock({ status }: { status: SecurityStatus }) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>These codes are shown once.</DialogTitle>
+            <DialogTitle>{t("security.recovery.shownOnceTitle")}</DialogTitle>
             <DialogDescription>
-              Save them somewhere safe now. Tilecast stores only their hashes
-              and cannot show them again.
+              {t("security.recovery.shownOnceDescription")}
             </DialogDescription>
           </DialogHeader>
           <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-1.5 p-0">
@@ -519,10 +553,10 @@ function RecoveryCodeBlock({ status }: { status: SecurityStatus }) {
                 void navigator.clipboard?.writeText((codes ?? []).join("\n"))
               }
             >
-              Copy all
+              {t("security.recovery.copyAll")}
             </Button>
             <Button variant="default" onClick={() => setCodes(undefined)}>
-              I have saved them
+              {t("security.recovery.savedConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -564,6 +598,7 @@ function PasswordDialog({
   destructive?: boolean;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation(["account", "common"]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -573,13 +608,13 @@ function PasswordDialog({
         </DialogHeader>
         <FormField
           id={inputId}
-          label="Account password"
+          label={t("security.passwordDialog.passwordLabel")}
           type="password"
           autoComplete="current-password"
           value={password}
           onChange={(event) => onPasswordChange(event.target.value)}
         />
-        {errorNotice(error)}
+        {errorNotice(error, t("security.errors.requestFailed"))}
         <DialogFooter>
           <Button
             variant={destructive ? "destructive" : "default"}
@@ -590,7 +625,7 @@ function PasswordDialog({
             {confirmLabel}
           </Button>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -598,12 +633,9 @@ function PasswordDialog({
   );
 }
 
-function errorNotice(error: Error | null | undefined) {
+function errorNotice(error: Error | null | undefined, fallback: string) {
   if (!error) return null;
-  const message =
-    error instanceof ApiError
-      ? error.message
-      : "Tilecast could not complete the request.";
+  const message = error instanceof ApiError ? error.message : fallback;
   return (
     <Alert variant="destructive">
       <AlertDescription role="alert">{message}</AlertDescription>
