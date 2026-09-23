@@ -1,0 +1,22 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "renderer.ready",
+    "data": {
+      "renderer": {
+        "kind": "wpe",
+        "version": "0.1.0",
+        "engineVersion": "2.54.0",
+        "platform": "headless"
+      },
+      "features": ["status-surfaces-v1", "image", "video"],
+      "display": {
+        "connected": true,
+        "width": 1920,
+        "height": 1080,
+        "refreshMillihertz": 60000
+      }
+    }
+  }
+}

