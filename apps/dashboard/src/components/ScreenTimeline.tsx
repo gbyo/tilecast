@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
@@ -60,8 +59,9 @@ type ScreenTimeline = {
  * plus the two derived sources — state intervals and incidents — that have no
  * event of their own but belong in the same history.
  */
-type ScreensT = TFunction<"screens", undefined>;
-
+// Domain and range structures hold translation keys, never rendered text.
+// Labels are resolved with t() at render so the timeline follows language
+// changes.
 const domains = [
   { value: "", labelKey: "timeline.domains.all" },
   { value: "playback", labelKey: "timeline.domains.playback" },
@@ -74,17 +74,17 @@ const domains = [
   { value: "takeovers", labelKey: "timeline.domains.takeovers" },
   { value: "state", labelKey: "timeline.domains.state" },
   { value: "incidents", labelKey: "timeline.domains.incidents" },
-  { value: "audit", labelKey: "timeline.domains.audit" },
+  { value: "audit", labelKey: "timeline.domains.admin" },
 ] as const;
 
 const ranges = [
-  { value: "24h", labelKey: "timeline.ranges.day" },
-  { value: "7d", labelKey: "timeline.ranges.week" },
-  { value: "30d", labelKey: "timeline.ranges.month" },
+  { value: "24h", labelKey: "uptime.windows.24h" },
+  { value: "7d", labelKey: "uptime.windows.7d" },
+  { value: "30d", labelKey: "uptime.windows.30d" },
 ] as const;
 
-function formatOptional(value: string | undefined, t: ScreensT) {
-  return value ? formatWhen(value) : t("shared.notReported");
+function formatOptional(value: string | undefined, notReported: string) {
+  return value ? formatWhen(value) : notReported;
 }
 
 /**
@@ -92,7 +92,8 @@ function formatOptional(value: string | undefined, t: ScreensT) {
  * one order. The compact proof and event columns beside it remain a summary.
  */
 export function ScreenTimeline({ screenId }: { screenId: string }) {
-  const { t } = useTranslation("screens");
+  const { t } = useTranslation("activity");
+  const notReported = t("screenActivity.notReported");
   const [domain, setDomain] = useState("");
   const [range, setRange] = useState("24h");
   const query = useQuery({
@@ -115,7 +116,7 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
             {t("timeline.title")}
           </h3>
           <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">
-            {t("timeline.body")}
+            {t("timeline.description")}
           </p>
         </div>
         <ToggleGroup
@@ -136,7 +137,9 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
         </ToggleGroup>
       </header>
 
-      {query.data?.status && <CurrentStatus status={query.data.status} t={t} />}
+      {query.data?.status && (
+        <CurrentStatus status={query.data.status} notReported={notReported} />
+      )}
 
       <ToggleGroup
         aria-label={t("timeline.domainLabel")}
@@ -169,7 +172,7 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
       {query.error && (
         <Alert variant="destructive">
           <AlertTriangle aria-hidden="true" />
-          <AlertTitle>{t("timeline.loadError")}</AlertTitle>
+          <AlertTitle>{t("timeline.loadFailed")}</AlertTitle>
           <AlertDescription>{query.error.message}</AlertDescription>
         </Alert>
       )}
@@ -250,16 +253,17 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
 
 function CurrentStatus({
   status,
-  t,
+  notReported,
 }: {
   status: ScreenTimeline["status"];
-  t: ScreensT;
+  notReported: string;
 }) {
+  const { t } = useTranslation("activity");
   return (
     <dl className="grid gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:grid-cols-2 xl:grid-cols-4">
       <div>
         <dt className="text-xs text-muted-foreground">
-          {t("timeline.factHealth")}
+          {t("timeline.facts.health")}
         </dt>
         <dd className="mt-1 grid gap-1 text-sm">
           <Badge
@@ -281,23 +285,23 @@ function CurrentStatus({
       </div>
       <div>
         <dt className="text-xs text-muted-foreground">
-          {t("timeline.factPresentation")}
+          {t("screenActivity.facts.presentation")}
         </dt>
         <dd className="mt-1 break-words text-sm">
-          {status.currentPresentation || t("shared.notReported")}
+          {status.currentPresentation || notReported}
         </dd>
       </div>
       <div>
         <dt className="text-xs text-muted-foreground">
-          {t("timeline.factItem")}
+          {t("timeline.facts.item")}
         </dt>
         <dd className="mt-1 break-words text-sm">
-          {status.currentItem || t("shared.notReported")}
+          {status.currentItem || notReported}
         </dd>
       </div>
       <div>
         <dt className="text-xs text-muted-foreground">
-          {t("timeline.factIncident")}
+          {t("timeline.facts.incident")}
         </dt>
         <dd className="mt-1 break-words text-sm">
           {status.currentIncident ? (
@@ -314,41 +318,41 @@ function CurrentStatus({
       </div>
       <div>
         <dt className="text-xs text-muted-foreground">
-          {t("timeline.factLastHealthy")}
+          {t("screenActivity.facts.lastPlayback")}
         </dt>
         <dd className="mt-1 text-sm">
-          {formatOptional(status.lastHealthyPlayback, t)}
+          {formatOptional(status.lastHealthyPlayback, notReported)}
         </dd>
       </div>
       <div>
         <dt className="text-xs text-muted-foreground">
-          {t("timeline.factActivation")}
+          {t("screenActivity.facts.lastActivation")}
         </dt>
         <dd className="mt-1 text-sm">
-          {formatOptional(status.lastManifestActivation, t)}
+          {formatOptional(status.lastManifestActivation, notReported)}
         </dd>
       </div>
       <div>
         <dt className="text-xs text-muted-foreground">
-          {t("timeline.factHeartbeat")}
+          {t("timeline.facts.heartbeat")}
         </dt>
         <dd className="mt-1 text-sm">
-          {formatOptional(status.lastHeartbeatAt, t)}
+          {formatOptional(status.lastHeartbeatAt, notReported)}
         </dd>
       </div>
       <div>
         <dt className="text-xs text-muted-foreground">
-          {t("timeline.factVersion")}
+          {t("timeline.facts.version")}
         </dt>
-        <dd className="mt-1 text-sm">
-          {status.playerVersion || t("shared.notReported")}
-        </dd>
+        <dd className="mt-1 text-sm">{status.playerVersion || notReported}</dd>
       </div>
     </dl>
   );
 }
 
 function TimelineResourceLink({ type, id }: { type?: string; id: string }) {
+  const { t } = useTranslation("activity");
+  const open = t("timeline.openResource");
   const path =
     type === "screen"
       ? `/screens/${id}`
@@ -363,12 +367,11 @@ function TimelineResourceLink({ type, id }: { type?: string; id: string }) {
               : type === "user"
                 ? "/settings/users"
                 : undefined;
-  const { t } = useTranslation("screens");
   return path ? (
     <Link className="underline underline-offset-4" to={path}>
-      {t("timeline.openResource")}
+      {open}
     </Link>
   ) : (
-    t("timeline.openResource")
+    open
   );
 }

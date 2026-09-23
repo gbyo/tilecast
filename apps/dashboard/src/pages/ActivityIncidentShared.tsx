@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
+import { translateKnown } from "../i18n";
 import { formatWhen, humanize, ResultBadge } from "./ActivityShared";
 import { screenActivityLink } from "./activityLinks";
 import { Badge } from "../components/ui/badge";
@@ -50,23 +52,30 @@ export function isActivelyFailing(incident: Incident): boolean {
  * a recovered one counts as closed: the condition ended by itself, so it is
  * history to read rather than work to sign off.
  */
-export function actionsFor(
-  status: IncidentStatus,
-): { action: string; label: string }[] {
+// Action structures hold translation keys, never rendered text. Labels are
+// resolved with t() at render so rows follow language changes.
+export function actionsFor(status: IncidentStatus): {
+  action: string;
+  labelKey:
+    | "incidents.actions.acknowledge"
+    | "incidents.actions.resolve"
+    | "incidents.actions.ignore"
+    | "incidents.actions.reopen";
+}[] {
   switch (status) {
     case "open":
       return [
-        { action: "acknowledge", label: "Acknowledge" },
-        { action: "resolve", label: "Resolve" },
-        { action: "ignore", label: "Ignore" },
+        { action: "acknowledge", labelKey: "incidents.actions.acknowledge" },
+        { action: "resolve", labelKey: "incidents.actions.resolve" },
+        { action: "ignore", labelKey: "incidents.actions.ignore" },
       ];
     case "acknowledged":
       return [
-        { action: "resolve", label: "Resolve" },
-        { action: "ignore", label: "Ignore" },
+        { action: "resolve", labelKey: "incidents.actions.resolve" },
+        { action: "ignore", labelKey: "incidents.actions.ignore" },
       ];
     default:
-      return [{ action: "reopen", label: "Reopen" }];
+      return [{ action: "reopen", labelKey: "incidents.actions.reopen" }];
   }
 }
 
@@ -83,7 +92,8 @@ export function incidentDuration(incident: Incident, now = Date.now()): string {
 
 export function formatElapsed(milliseconds: number): string {
   const minutes = Math.round(milliseconds / 60_000);
-  if (minutes < 1) return "under a minute";
+  if (minutes < 1)
+    return translateKnown("activity:incidents.underMinute", "under a minute");
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ${minutes % 60}m`;
@@ -92,13 +102,19 @@ export function formatElapsed(milliseconds: number): string {
 
 /** The scope an incident affects: a screen, or a wider set of them. */
 export function IncidentScope({ incident }: { incident: Incident }) {
+  const { t } = useTranslation("activity");
   if (incident.affectedScreens > 1) {
-    return <span>{incident.affectedScreens} screens</span>;
+    return (
+      <span>
+        {t("incidents.scopeScreens", { count: incident.affectedScreens })}
+      </span>
+    );
   }
-  if (!incident.primaryScreenId) return <span>Fleet-wide</span>;
+  if (!incident.primaryScreenId)
+    return <span>{t("incidents.scopeFleet")}</span>;
   return (
     <Link to={screenActivityLink(incident.primaryScreenId)}>
-      {incident.primaryScreenName || "Screen"}
+      {incident.primaryScreenName || t("incidents.scopeFallback")}
     </Link>
   );
 }
@@ -134,7 +150,11 @@ export function useIncidentAction() {
           error?: { message?: string };
         };
         throw new Error(
-          body.error?.message ?? "The action could not be applied.",
+          body.error?.message ??
+            translateKnown(
+              "activity:incidents.actionFailed",
+              "The action could not be applied.",
+            ),
         );
       }
     },
@@ -176,6 +196,7 @@ export function IncidentRow({
   /** When set, the row defers to a drawer instead of expanding in place. */
   onOpenDetail?: (incident: Incident) => void;
 }) {
+  const { t } = useTranslation("activity");
   const [expanded, setExpanded] = useState(false);
   const recovered = incident.recoveredAt;
 
@@ -198,21 +219,40 @@ export function IncidentRow({
               {/* Ongoing versus how long it lasted: a recovered incident is
                   not still costing anyone a screen. */}
               {isActivelyFailing(incident)
-                ? `Ongoing for ${incidentDuration(incident)}`
-                : `Lasted ${incidentDuration(incident)}`}
+                ? t("incidents.ongoingFor", {
+                    duration: incidentDuration(incident),
+                  })
+                : t("incidents.lastedFor", {
+                    duration: incidentDuration(incident),
+                  })}
             </span>
-            <span>Last seen {formatWhen(incident.lastSeenAt)}</span>
+            <span>
+              {t("incidents.lastSeenAt", {
+                when: formatWhen(incident.lastSeenAt),
+              })}
+            </span>
             {recovered && (
               <span>
-                Recovered {formatWhen(recovered)}
-                {incident.recoveryMode === "automatic" ? " on its own" : ""}
+                {incident.recoveryMode === "automatic"
+                  ? t("incidents.recoveredAuto", {
+                      when: formatWhen(recovered),
+                    })
+                  : t("incidents.recoveredPlain", {
+                      when: formatWhen(recovered),
+                    })}
               </span>
             )}
             {incident.occurrenceCount > 1 && (
-              <span>{incident.occurrenceCount} occurrences</span>
+              <span>
+                {t("incidents.occurrences", {
+                  count: incident.occurrenceCount,
+                })}
+              </span>
             )}
             {incident.assignedToName && (
-              <span>Assigned to {incident.assignedToName}</span>
+              <span>
+                {t("incidents.assignedTo", { name: incident.assignedToName })}
+              </span>
             )}
           </div>
         </div>
@@ -234,7 +274,7 @@ export function IncidentRow({
                 : setExpanded((current) => !current)
             }
           >
-            Details
+            {t("incidents.details")}
           </RheaButton>
         </div>
       </div>
@@ -250,72 +290,81 @@ export function IncidentRow({
 
 /** The established facts about an incident, and only the established ones. */
 export function IncidentFacts({ incident }: { incident: Incident }) {
+  const { t } = useTranslation("activity");
   return (
     <dl className="grid gap-1.5 text-sm sm:grid-cols-2 [&_div]:flex [&_div]:flex-wrap [&_div]:gap-x-2 [&_dt]:shrink-0 [&_dt]:text-muted-foreground">
       <div>
-        <dt>Probable cause</dt>
+        <dt>{t("incidents.facts.cause")}</dt>
         {/* Never invent one. An empty cause says so plainly rather than
             offering a guess to an operator as fact. */}
-        <dd>{incident.probableCause || "Unknown cause"}</dd>
+        <dd>{incident.probableCause || t("incidents.facts.unknownCause")}</dd>
       </div>
       <div>
-        <dt>Opened</dt>
+        <dt>{t("incidents.facts.opened")}</dt>
         <dd>{formatWhen(incident.openedAt)}</dd>
       </div>
       <div>
-        <dt>Last seen</dt>
+        <dt>{t("incidents.facts.lastSeen")}</dt>
         <dd>{formatWhen(incident.lastSeenAt)}</dd>
       </div>
       {incident.recoveredAt && (
         <div>
-          <dt>Recovered</dt>
+          <dt>{t("incidents.facts.recovered")}</dt>
           <dd>
             {formatWhen(incident.recoveredAt)}
             {incident.recoveryMode === "automatic"
-              ? " (on its own)"
-              : " (closed by hand)"}
+              ? t("incidents.recoveredModeAuto")
+              : t("incidents.recoveredModeManual")}
           </dd>
         </div>
       )}
       {incident.acknowledgedAt && (
         <div>
-          <dt>Acknowledged</dt>
+          <dt>{t("incidents.facts.acknowledged")}</dt>
           <dd>
             {formatWhen(incident.acknowledgedAt)}
-            {incident.acknowledgedBy ? ` by ${incident.acknowledgedBy}` : ""}
+            {incident.acknowledgedBy
+              ? t("incidents.acknowledgedBy", {
+                  name: incident.acknowledgedBy,
+                })
+              : ""}
           </dd>
         </div>
       )}
       {incident.resolvedAt && (
         <div>
-          <dt>Resolved</dt>
+          <dt>{t("incidents.facts.resolved")}</dt>
           <dd>
             {formatWhen(incident.resolvedAt)}
-            {incident.resolutionReason ? ` — ${incident.resolutionReason}` : ""}
+            {incident.resolutionReason
+              ? t("incidents.resolvedReason", {
+                  reason: incident.resolutionReason,
+                })
+              : ""}
           </dd>
         </div>
       )}
       {incident.failureCode && (
         <div>
-          <dt>Failure code</dt>
+          <dt>{t("incidents.facts.failureCode")}</dt>
           <dd>{incident.failureCode}</dd>
         </div>
       )}
       {incident.deviceModel && (
         <div>
-          <dt>Device model</dt>
+          <dt>{t("incidents.facts.deviceModel")}</dt>
           <dd>{incident.deviceModel}</dd>
         </div>
       )}
       {incident.playerVersion && (
         <div>
-          <dt>Player version</dt>
+          <dt>{t("incidents.facts.playerVersion")}</dt>
           <dd>{incident.playerVersion}</dd>
         </div>
       )}
       {incident.resolutionNotes && (
         <div>
-          <dt>Notes</dt>
+          <dt>{t("incidents.facts.notes")}</dt>
           <dd>{incident.resolutionNotes}</dd>
         </div>
       )}
@@ -332,6 +381,7 @@ export function IncidentActionButtons({
   onAct: (action: string) => void;
   pending: boolean;
 }) {
+  const { t } = useTranslation("activity");
   return (
     <>
       {actionsFor(incident.status).map((item) => (
@@ -343,7 +393,7 @@ export function IncidentActionButtons({
           disabled={pending}
           onClick={() => onAct(item.action)}
         >
-          {item.label}
+          {t(item.labelKey)}
         </RheaButton>
       ))}
     </>

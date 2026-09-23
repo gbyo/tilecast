@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   ChevronRight,
@@ -81,6 +82,7 @@ export function ProofTab({
   onExtendRange: () => void;
   onViewScreenEvents?: () => void;
 }) {
+  const { t } = useTranslation("activity");
   const [selectedRecord, setSelectedRecord] = useState<ProofRecord | null>(
     null,
   );
@@ -164,33 +166,40 @@ export function ProofTab({
       {hasSummaryData && (
         <section
           className="grid gap-3 rounded-xl border border-border p-4"
-          aria-label="Proof-of-play summary"
+          aria-label={t("proof.summaryLabel")}
         >
           <header className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid min-w-0 flex-1 gap-1">
-              <h3 className="text-base font-semibold">Proof-of-play summary</h3>
+              <h3 className="text-base font-semibold">
+                {t("proof.summaryTitle")}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Only Player-confirmed intervals are counted. Screen time is the
-                union of root presentations; exposure sums the content inside
-                them and can be larger when zones play at once.
+                {t("proof.summaryDescription")}
               </p>
             </div>
             <label className="grid gap-1 text-xs font-medium">
-              <span>Group by</span>
+              <span>{t("proof.groupBy")}</span>
               <Select
-                items={proofDimensionOptions}
+                items={proofDimensionOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 value={dimension}
                 onValueChange={(next) => {
                   if (next) setDimension(next);
                 }}
               >
-                <SelectTrigger size="sm" className="w-44" aria-label="Group by">
+                <SelectTrigger
+                  size="sm"
+                  className="w-44"
+                  aria-label={t("proof.groupBy")}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {proofDimensionOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -200,39 +209,46 @@ export function ProofTab({
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <MetricTile
               icon={PlayCircle}
-              label="Confirmed plays"
+              label={t("proof.tiles.plays")}
               value={metrics.records.toLocaleString()}
-              hint="Total intervals"
+              hint={t("proof.tiles.playsHint")}
             />
             <MetricTile
               icon={Clock3}
-              label="Confirmed screen playback"
+              label={t("proof.tiles.playback")}
               value={formatDuration(metrics.screenPlayback)}
-              hint="Wall clock, overlaps merged"
+              hint={t("proof.tiles.playbackHint")}
             />
             <MetricTile
               icon={Layers}
-              label="Content exposure"
+              label={t("proof.tiles.exposure")}
               value={formatDuration(metrics.exposure)}
-              hint="Sums simultaneous zones"
+              hint={t("proof.tiles.exposureHint")}
             />
             <MetricTile
               icon={MonitorCheck}
-              label="Session completion rate"
+              label={t("proof.tiles.completionRate")}
               value={`${metrics.completion.toFixed(0)}%`}
-              hint={`Across ${metrics.screens} screen${metrics.screens === 1 ? "" : "s"}`}
+              hint={t("proof.tiles.acrossScreens", {
+                count: metrics.screens,
+              })}
             />
             <MetricTile
               icon={AlertTriangle}
-              label="Failed sessions"
+              label={t("proof.tiles.failed")}
               value={metrics.failures.toLocaleString()}
-              hint={`${metrics.interrupted.toLocaleString()} ended unexpectedly`}
+              hint={t("proof.tiles.endedUnexpectedly", {
+                count: metrics.interrupted,
+                value: metrics.interrupted.toLocaleString(),
+              })}
             />
           </div>
           {(summary.data?.items?.length ?? 0) > 0 && (
             <Collapsible className="grid gap-2 rounded-xl border border-border p-3">
               <CollapsibleTrigger className="flex cursor-pointer items-center gap-1 text-left text-sm font-medium">
-                View {dimensionLabel(dimension)} breakdown
+                {t("proof.viewBreakdown", {
+                  dimension: dimensionLabel(dimension),
+                })}
                 <ChevronRight size={15} aria-hidden="true" />
               </CollapsibleTrigger>
               <CollapsibleContent className="grid gap-2">
@@ -244,17 +260,19 @@ export function ProofTab({
                     <span className="grid min-w-0 gap-0.5">
                       <strong className="truncate">{item.label}</strong>
                       <small className="text-xs text-muted-foreground">
-                        {item.records} confirmed records
+                        {t("proof.confirmedRecords", { count: item.records })}
                       </small>
                     </span>
                     <span className="tabular-nums">
                       {formatDuration(item.confirmedScreenPlaybackMs)}
                     </span>
                     <span className="tabular-nums">
-                      {item.sessionCompletionPercent.toFixed(0)}% completed
+                      {t("proof.percentCompleted", {
+                        value: item.sessionCompletionPercent.toFixed(0),
+                      })}
                     </span>
                     <span className="tabular-nums">
-                      {item.failures} failures
+                      {t("proof.failures", { count: item.failures })}
                     </span>
                   </div>
                 ))}
@@ -266,20 +284,32 @@ export function ProofTab({
 
       <section className="grid gap-3 rounded-xl border border-border p-4">
         <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Playback records</h3>
+          <h3 className="text-base font-semibold">{t("proof.tableTitle")}</h3>
         </header>
         {records.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[52rem] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">Started</th>
-                  <th className="px-3 py-2 font-medium">Screen</th>
-                  <th className="px-3 py-2 font-medium">Presentation</th>
-                  <th className="px-3 py-2 font-medium">Content</th>
-                  <th className="px-3 py-2 text-right font-medium">Duration</th>
-                  <th className="px-3 py-2 font-medium">Result</th>
-                  <th aria-label="Open details" className="w-10" />
+                  <th className="px-3 py-2 font-medium">
+                    {t("proof.headers.started")}
+                  </th>
+                  <th className="px-3 py-2 font-medium">
+                    {t("proof.headers.screen")}
+                  </th>
+                  <th className="px-3 py-2 font-medium">
+                    {t("proof.headers.presentation")}
+                  </th>
+                  <th className="px-3 py-2 font-medium">
+                    {t("proof.headers.content")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("proof.headers.duration")}
+                  </th>
+                  <th className="px-3 py-2 font-medium">
+                    {t("proof.headers.result")}
+                  </th>
+                  <th aria-label={t("proof.openDetails")} className="w-10" />
                 </tr>
               </thead>
               <tbody>
@@ -321,9 +351,14 @@ export function ProofTab({
                           {[
                             item.presentationType,
                             item.presentationRevision &&
-                              `rev ${item.presentationRevision}`,
+                              t("proof.revisionShort", {
+                                value: item.presentationRevision,
+                              }),
                             item.trigger,
-                            item.scheduleId && `schedule ${item.scheduleId}`,
+                            item.scheduleId &&
+                              t("proof.scheduleShort", {
+                                value: item.scheduleId,
+                              }),
                           ]
                             .filter(Boolean)
                             .join(" · ")}
@@ -339,7 +374,7 @@ export function ProofTab({
                             label={
                               item.contentName ||
                               item.contentId ||
-                              "Root presentation"
+                              t("shared.rootPresentation")
                             }
                           />
                         </strong>
@@ -350,7 +385,7 @@ export function ProofTab({
                     </td>
                     <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
                       {item.actualDurationMs == null
-                        ? "In progress"
+                        ? t("proof.inProgress")
                         : formatDuration(item.actualDurationMs)}
                     </td>
                     <td className="px-3 py-2">
@@ -359,7 +394,9 @@ export function ProofTab({
                     <td className="px-3 py-2 text-muted-foreground">
                       <button
                         type="button"
-                        aria-label={`Open details for ${item.screenName} playback`}
+                        aria-label={t("proof.openRecordDetails", {
+                          screen: item.screenName,
+                        })}
                         className="rounded-md p-1 hover:bg-muted hover:text-foreground"
                         onClick={() => setSelectedRecord(item)}
                       >
@@ -380,13 +417,13 @@ export function ProofTab({
               </EmptyMedia>
               <EmptyTitle>
                 {hasActiveFilters
-                  ? "No playback matches the current filters"
-                  : "No confirmed playback found"}
+                  ? t("proof.emptyFilteredTitle")
+                  : t("proof.emptyNoneTitle")}
               </EmptyTitle>
               <EmptyDescription>
                 {hasActiveFilters
-                  ? "Try adjusting or clearing the filters to see more records."
-                  : "No players reported proof of play during this date range. Try a longer range or check screen connectivity."}
+                  ? t("proof.emptyFilteredHint")
+                  : t("proof.emptyNoneHint")}
               </EmptyDescription>
             </EmptyHeader>
             <div className="flex flex-wrap justify-center gap-2">
@@ -396,7 +433,7 @@ export function ProofTab({
                   variant="secondary"
                   onClick={onClearFilters}
                 >
-                  Clear filters
+                  {t("shared.clearFilters")}
                 </Button>
               ) : (
                 <>
@@ -406,7 +443,7 @@ export function ProofTab({
                       variant="secondary"
                       onClick={onExtendRange}
                     >
-                      Last 7 days
+                      {t("proof.extendRange")}
                     </Button>
                   )}
                   {onViewScreenEvents && (
@@ -415,7 +452,7 @@ export function ProofTab({
                       variant="ghost"
                       onClick={onViewScreenEvents}
                     >
-                      View screen events
+                      {t("proof.viewScreenEvents")}
                     </Button>
                   )}
                 </>
@@ -446,6 +483,7 @@ function ProofDetailsDrawer({
   record: ProofRecord;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("activity");
   const technicalDetails = {
     recordId: record.id,
     manifestVersion: record.manifestVersion,
@@ -476,38 +514,40 @@ function ProofDetailsDrawer({
       <SheetContent side="right" className="overflow-y-auto">
         <SheetHeader>
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Playback record
+            {t("proof.drawer.eyebrow")}
           </p>
           <SheetTitle>
             {record.contentName || record.presentationName || record.screenName}
           </SheetTitle>
-          <SheetDescription>
-            Player-confirmed playback details.
-          </SheetDescription>
+          <SheetDescription>{t("proof.drawer.description")}</SheetDescription>
         </SheetHeader>
         <div className="grid gap-6 px-4 pb-6">
           <p className="flex flex-wrap items-center gap-2 text-sm">
             <ResultBadge value={record.result} />
             <span>
               {record.actualDurationMs == null
-                ? "Playback is still in progress"
-                : `${formatDuration(record.actualDurationMs)} confirmed`}
+                ? t("proof.drawer.inProgress")
+                : t("proof.drawer.confirmedDuration", {
+                    duration: formatDuration(record.actualDurationMs),
+                  })}
             </span>
           </p>
 
           <section className="grid gap-2">
-            <h3 className="text-sm font-semibold">Playback</h3>
+            <h3 className="text-sm font-semibold">
+              {t("proof.drawer.sections.playback")}
+            </h3>
             <dl className="grid gap-1.5 text-sm">
               <DetailRow
-                label="Started"
+                label={t("proof.drawer.rows.started")}
                 value={formatFullWhen(record.startedAt)}
               />
               <DetailRow
-                label="Ended"
+                label={t("proof.drawer.rows.ended")}
                 value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
               />
               <DetailRow
-                label="Screen"
+                label={t("proof.drawer.rows.screen")}
                 value={
                   <Link
                     to={`/screens/${record.screenId}?tab=activity`}
@@ -517,16 +557,24 @@ function ProofDetailsDrawer({
                   </Link>
                 }
               />
-              <DetailRow label="Group" value={record.groupName || "—"} />
-              <DetailRow label="Trigger" value={record.trigger || "—"} />
+              <DetailRow
+                label={t("proof.drawer.rows.group")}
+                value={record.groupName || "—"}
+              />
+              <DetailRow
+                label={t("proof.drawer.rows.trigger")}
+                value={record.trigger || "—"}
+              />
             </dl>
           </section>
 
           <section className="grid gap-2">
-            <h3 className="text-sm font-semibold">Content</h3>
+            <h3 className="text-sm font-semibold">
+              {t("proof.drawer.sections.content")}
+            </h3>
             <dl className="grid gap-1.5 text-sm">
               <DetailRow
-                label="Presentation"
+                label={t("proof.drawer.rows.presentation")}
                 value={
                   <ResourceLink
                     type={record.presentationType}
@@ -538,11 +586,11 @@ function ProofDetailsDrawer({
                 }
               />
               <DetailRow
-                label="Revision"
+                label={t("proof.drawer.rows.revision")}
                 value={record.presentationRevision || "—"}
               />
               <DetailRow
-                label="Content"
+                label={t("proof.drawer.rows.content")}
                 value={
                   <ResourceLink
                     type={record.contentType}
@@ -550,25 +598,36 @@ function ProofDetailsDrawer({
                     label={
                       record.contentName ||
                       record.contentId ||
-                      "Root presentation"
+                      t("shared.rootPresentation")
                     }
                   />
                 }
               />
-              <DetailRow label="Schedule ID" value={record.scheduleId || "—"} />
-              <DetailRow label="Takeover ID" value={record.takeoverId || "—"} />
+              <DetailRow
+                label={t("proof.drawer.rows.scheduleId")}
+                value={record.scheduleId || "—"}
+              />
+              <DetailRow
+                label={t("proof.drawer.rows.takeoverId")}
+                value={record.takeoverId || "—"}
+              />
             </dl>
           </section>
 
           {entries.length > 0 && (
             <section className="grid gap-2">
-              <h3 className="text-sm font-semibold">Technical metadata</h3>
+              <h3 className="text-sm font-semibold">
+                {t("proof.drawer.sections.metadata")}
+              </h3>
               <dl className="grid gap-1.5 text-sm">
                 {entries.map(([key, value]) => (
                   <DetailRow
                     key={key}
                     label={humanize(key)}
-                    value={formatTechnicalValue(value)}
+                    value={formatTechnicalValue(
+                      value,
+                      t("shared.detailsUnavailable"),
+                    )}
                   />
                 ))}
               </dl>
@@ -593,12 +652,14 @@ function dimensionLabel(value: string) {
   return value === "presentation" ? "presentation" : value;
 }
 
+// Dimension structures hold translation keys, never rendered text. Labels are
+// resolved with t() at render so the tab follows language changes.
 const proofDimensionOptions = [
-  { value: "screen", label: "Screen" },
-  { value: "content", label: "Content" },
-  { value: "presentation", label: "Playlist or Layout" },
-  { value: "schedule", label: "Schedule" },
-];
+  { value: "screen", labelKey: "proof.dimensions.screen" },
+  { value: "content", labelKey: "proof.dimensions.content" },
+  { value: "presentation", labelKey: "proof.dimensions.presentation" },
+  { value: "schedule", labelKey: "proof.dimensions.schedule" },
+] as const;
 
 function formatFullWhen(value: string) {
   return new Date(value).toLocaleString([], {
@@ -611,7 +672,7 @@ function formatFullWhen(value: string) {
   });
 }
 
-function formatTechnicalValue(value: unknown): string {
+function formatTechnicalValue(value: unknown, unavailable: string): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
@@ -620,7 +681,7 @@ function formatTechnicalValue(value: unknown): string {
   try {
     return JSON.stringify(value);
   } catch {
-    return "Details unavailable";
+    return unavailable;
   }
 }
 
@@ -631,6 +692,7 @@ export function EventsTab({
   range: { from: string; to: string };
   filters: Record<string, string>;
 }) {
+  const { t } = useTranslation("activity");
   const params = activityParams(range, filters);
   const pagination = useActivityCursor(params.toString());
   const pageParams = new URLSearchParams(params);
@@ -645,23 +707,36 @@ export function EventsTab({
   return (
     <section className="grid gap-3 rounded-xl border border-border p-4">
       <header className="grid gap-1">
-        <h3 className="text-base font-semibold">Screen Events</h3>
+        <h3 className="text-base font-semibold">{t("events.title")}</h3>
         <p className="text-sm text-muted-foreground">
-          Technical state transitions and meaningful Player or server activity.
-          Routine successful heartbeats are excluded.
+          {t("events.description")}
         </p>
       </header>
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[56rem] text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="px-3 py-2 font-medium">Severity</th>
-              <th className="px-3 py-2 font-medium">Time</th>
-              <th className="px-3 py-2 font-medium">Screen</th>
-              <th className="px-3 py-2 font-medium">Event</th>
-              <th className="px-3 py-2 font-medium">Related resource</th>
-              <th className="px-3 py-2 font-medium">Result</th>
-              <th className="px-3 py-2 font-medium">Details</th>
+              <th className="px-3 py-2 font-medium">
+                {t("events.headers.severity")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("events.headers.time")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("events.headers.screen")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("events.headers.event")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("events.headers.resource")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("events.headers.result")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("events.headers.details")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -679,7 +754,9 @@ export function EventsTab({
                       {formatWhen(item.timestamp)}
                     </time>
                     <small className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                      Received {formatWhen(item.receivedAt)}
+                      {t("events.receivedAt", {
+                        when: formatWhen(item.receivedAt),
+                      })}
                     </small>
                   </span>
                 </td>
@@ -702,7 +779,10 @@ export function EventsTab({
                       {humanize(item.eventType)}
                     </strong>
                     <small className="text-xs text-muted-foreground">
-                      {item.category} · seq {item.sequence ?? "server"}
+                      {t("events.sequence", {
+                        category: item.category,
+                        sequence: item.sequence ?? t("events.serverAssigned"),
+                      })}
                     </small>
                   </span>
                 </td>
@@ -742,9 +822,7 @@ export function EventsTab({
           </tbody>
         </table>
       </div>
-      {!query.data?.items?.length && (
-        <EmptyState message="No technical screen events matched these filters." />
-      )}
+      {!query.data?.items?.length && <EmptyState message={t("events.empty")} />}
       <ActivityPagination
         pagination={pagination}
         nextCursor={query.data?.nextCursor}
@@ -760,6 +838,7 @@ export function AuditTab({
   range: { from: string; to: string };
   filters: Record<string, string>;
 }) {
+  const { t } = useTranslation("activity");
   const params = activityParams(range, filters);
   const pagination = useActivityCursor(params.toString());
   const pageParams = new URLSearchParams(params);
@@ -773,23 +852,36 @@ export function AuditTab({
   return (
     <section className="grid gap-3 rounded-xl border border-border p-4">
       <header className="grid gap-1">
-        <h3 className="text-base font-semibold">Audit Log</h3>
+        <h3 className="text-base font-semibold">{t("audit.title")}</h3>
         <p className="text-sm text-muted-foreground">
-          Authenticated user and administrator changes. Player behavior is kept
-          in Screen Events.
+          {t("audit.description")}
         </p>
       </header>
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[56rem] text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="px-3 py-2 font-medium">Time</th>
-              <th className="px-3 py-2 font-medium">Actor</th>
-              <th className="px-3 py-2 font-medium">Action</th>
-              <th className="px-3 py-2 font-medium">Resource</th>
-              <th className="px-3 py-2 font-medium">Result</th>
-              <th className="px-3 py-2 font-medium">Summary</th>
-              <th className="px-3 py-2 font-medium">Details</th>
+              <th className="px-3 py-2 font-medium">
+                {t("audit.headers.time")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("audit.headers.actor")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("audit.headers.action")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("audit.headers.resource")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("audit.headers.result")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("audit.headers.summary")}
+              </th>
+              <th className="px-3 py-2 font-medium">
+                {t("audit.headers.details")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -851,9 +943,7 @@ export function AuditTab({
           </tbody>
         </table>
       </div>
-      {!query.data?.items?.length && (
-        <EmptyState message="No administrative changes matched these filters." />
-      )}
+      {!query.data?.items?.length && <EmptyState message={t("audit.empty")} />}
       <ActivityPagination
         pagination={pagination}
         nextCursor={query.data?.nextCursor}

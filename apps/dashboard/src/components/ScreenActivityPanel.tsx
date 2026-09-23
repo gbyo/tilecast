@@ -1,17 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
+import { translateKnown } from "../i18n";
+import { AlertTriangle } from "lucide-react";
 import { buildActivityLink } from "../pages/activityLinks";
 import { ScreenTimeline } from "./ScreenTimeline";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { i18n, useFormatLocale } from "../i18n";
-
-type ScreensT = TFunction<"screens", undefined>;
 import {
   Item,
   ItemActions,
@@ -67,15 +64,19 @@ async function loadScreenActivity(id: string): Promise<ScreenActivity> {
   };
   if (!response.ok || !body.data)
     throw new Error(
-      body.error?.message ?? i18n.t("screens:activity.loadErrorFallback"),
+      body.error?.message ??
+        translateKnown(
+          "activity:screenActivity.loadFailed",
+          "Screen Activity could not be loaded.",
+        ),
     );
   return body.data;
 }
 
 /** The screen-detail page owns the Activity tab; this renders its contents. */
 export function ScreenActivityPanel({ screenId }: { screenId: string }) {
-  const { t } = useTranslation("screens");
-  const formatLocale = useFormatLocale();
+  const { t } = useTranslation("activity");
+  const notReported = t("screenActivity.notReported");
   const query = useQuery({
     queryKey: ["activity", "screen", screenId],
     queryFn: () => loadScreenActivity(screenId),
@@ -91,10 +92,10 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 id="screen-activity-title" className="text-base font-semibold">
-            {t("activity.title")}
+            {t("screenActivity.title")}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("activity.body")}
+            {t("screenActivity.subtitle")}
           </p>
         </div>
         <Button
@@ -104,12 +105,12 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
             <Link to={buildActivityLink("proof", { screen: screenId })} />
           }
         >
-          {t("activity.openFiltered")}
+          {t("screenActivity.openFiltered")}
         </Button>
       </header>
 
       {query.isLoading && (
-        <div className="space-y-2" aria-label={t("activity.loading")}>
+        <div className="space-y-2" aria-label={t("screenActivity.loading")}>
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-36 w-full" />
         </div>
@@ -117,7 +118,7 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
       {query.error && (
         <Alert variant="destructive">
           <AlertTriangle aria-hidden="true" />
-          <AlertTitle>{t("activity.loadError")}</AlertTitle>
+          <AlertTitle>{t("screenActivity.loadErrorTitle")}</AlertTitle>
           <AlertDescription>{query.error.message}</AlertDescription>
         </Alert>
       )}
@@ -125,27 +126,26 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
         <>
           <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-4">
             <ActivityFact
-              label={t("activity.currentPresentation")}
+              label={t("screenActivity.facts.presentation")}
               value={
                 data.currentPresentation?.presentationName ||
                 data.currentPresentation?.presentationId ||
-                t("shared.notReported")
+                notReported
               }
             />
             <ActivityFact
-              label={t("activity.lastHealthy")}
-              value={formatDate(data.lastHealthyPlayback, t, formatLocale)}
+              label={t("screenActivity.facts.lastPlayback")}
+              value={formatDate(data.lastHealthyPlayback, notReported)}
             />
             <ActivityFact
-              label={t("activity.lastActivation")}
+              label={t("screenActivity.facts.lastActivation")}
               value={formatDate(
                 data.lastSuccessfulManifestActivation,
-                t,
-                formatLocale,
+                notReported,
               )}
             />
             <ActivityFact
-              label={t("activity.gaps")}
+              label={t("screenActivity.facts.gaps")}
               value={data.playbackGaps}
             />
           </dl>
@@ -163,12 +163,8 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
               <AlertDescription>
                 {data.currentIssue.description}
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  {t("activity.reported", {
-                    date: formatDate(
-                      data.currentIssue.occurredAt,
-                      t,
-                      formatLocale,
-                    ),
+                  {t("screenActivity.reportedAt", {
+                    when: formatDate(data.currentIssue.occurredAt, notReported),
                   })}
                 </span>
               </AlertDescription>
@@ -179,8 +175,8 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
 
           <div className="grid min-w-0 gap-6 xl:grid-cols-2">
             <ActivityList
-              title={t("activity.proofTitle")}
-              empty={t("activity.proofEmpty")}
+              title={t("screenActivity.lists.proofTitle")}
+              empty={t("screenActivity.lists.proofEmpty")}
               items={data.recentProofOfPlay.map((item) => ({
                 id: item.id,
                 label:
@@ -188,18 +184,18 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
                   item.contentId ||
                   item.presentationName ||
                   item.presentationId ||
-                  t("activity.untitledPresentation"),
-                detail: formatDate(item.startedAt, t, formatLocale),
+                  t("shared.unnamedPresentation"),
+                detail: formatDate(item.startedAt, notReported),
                 status: item.result,
               }))}
             />
             <ActivityList
-              title={t("activity.eventsTitle")}
-              empty={t("activity.eventsEmpty")}
+              title={t("screenActivity.lists.eventsTitle")}
+              empty={t("screenActivity.lists.eventsEmpty")}
               items={data.recentEvents.map((item) => ({
                 id: item.id,
                 label: humanize(item.eventType),
-                detail: `${formatDate(item.timestamp, t, formatLocale)} · ${item.description}`,
+                detail: `${formatDate(item.timestamp, notReported)} · ${item.description}`,
                 status: item.severity,
               }))}
             />
@@ -269,15 +265,15 @@ function ActivityList({
   );
 }
 
-function formatDate(value: string | undefined, t: ScreensT, locale: string) {
+function formatDate(value: string | undefined, notReported: string) {
   return value
-    ? new Date(value).toLocaleString(locale, {
+    ? new Date(value).toLocaleString([], {
         month: "short",
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
       })
-    : t("shared.notReported");
+    : notReported;
 }
 
 function humanize(value: string) {

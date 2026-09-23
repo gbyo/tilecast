@@ -12,6 +12,7 @@ import {
   Volume2,
 } from "lucide-react";
 import type { DragEvent, KeyboardEvent } from "react";
+import { useTranslation } from "react-i18next";
 import type { PlaylistItem } from "../../api/types";
 import { Badge } from "../ui/badge";
 import { Button as RheaButton } from "../ui/button";
@@ -79,40 +80,39 @@ export function PlaylistTimeline({
   onAddContent: () => void;
   onAddLayout: () => void;
 }) {
+  const { t } = useTranslation("playlists");
   const tagDriven = sourceType === "tag";
   return (
     <section aria-labelledby="playlist-timeline-title" className="grid gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid min-w-0 gap-1">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Timeline
+            {t("timeline.eyebrow")}
           </p>
           <div className="flex items-center gap-2">
             <h2
               id="playlist-timeline-title"
               className="text-lg font-semibold tracking-tight"
             >
-              Content
+              {t("timeline.heading")}
             </h2>
             <span className="text-sm text-muted-foreground">
-              {items.length} item{items.length === 1 ? "" : "s"}
+              {t("count.items", { count: items.length })}
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
-            {tagDriven
-              ? "Ready media matching the selected tags appears here automatically."
-              : "Items play from top to bottom, then loop."}
+            {tagDriven ? t("timeline.hintTag") : t("timeline.hintManual")}
           </p>
         </div>
         {!tagDriven && canManage && (
           <div className="flex flex-wrap items-center gap-2">
             <RheaButton type="button" variant="outline" onClick={onAddLayout}>
               <PanelsTopLeft size={15} aria-hidden="true" />
-              Add Layout
+              {t("timeline.addLayout")}
             </RheaButton>
             <RheaButton type="button" onClick={onAddContent}>
               <Plus size={15} aria-hidden="true" />
-              Add content
+              {t("timeline.addContent")}
             </RheaButton>
           </div>
         )}
@@ -123,8 +123,7 @@ export function PlaylistTimeline({
           className="rounded-lg bg-muted p-3 text-sm text-muted-foreground"
           role="note"
         >
-          Edit the tag rule under Playlist details to change which content
-          appears here.
+          {t("timeline.tagRuleNote")}
         </div>
       )}
 
@@ -135,19 +134,21 @@ export function PlaylistTimeline({
               <FileImage size={22} aria-hidden="true" />
             </EmptyMedia>
             <EmptyTitle>
-              {tagDriven ? "No matching content" : "Your timeline is empty"}
+              {tagDriven
+                ? t("timeline.emptyTagTitle")
+                : t("timeline.emptyManualTitle")}
             </EmptyTitle>
             <EmptyDescription>
               {tagDriven
-                ? "No ready media currently matches this playlist’s tags."
-                : "Add ready images, videos, Widgets, or Layouts to begin playback."}
+                ? t("timeline.emptyTagDescription")
+                : t("timeline.emptyManualDescription")}
             </EmptyDescription>
           </EmptyHeader>
           {!tagDriven && canManage && (
             <EmptyContent>
               <RheaButton type="button" onClick={onAddContent}>
                 <Plus size={15} aria-hidden="true" />
-                Add content
+                {t("timeline.addContent")}
               </RheaButton>
             </EmptyContent>
           )}
@@ -158,7 +159,7 @@ export function PlaylistTimeline({
             <div
               className="grid gap-2 pr-3"
               role="list"
-              aria-label="Playlist content timeline"
+              aria-label={t("timeline.listLabel")}
             >
               {items.map((item, index) => (
                 <PlaylistTimelineItem
@@ -181,11 +182,9 @@ export function PlaylistTimeline({
             </div>
           </ScrollArea>
           <footer className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span>
-              {items.length} item{items.length === 1 ? "" : "s"}
-            </span>
-            <span aria-label="Total playlist duration">
-              {playlistDurationLabel(items)}
+            <span>{t("count.items", { count: items.length })}</span>
+            <span aria-label={t("timeline.totalDuration")}>
+              {playlistDurationLabel(items, t)}
             </span>
           </footer>
         </>
@@ -223,6 +222,7 @@ function PlaylistTimelineItem({
   onDragEnd: () => void;
   onDrop: (event: DragEvent, targetId: string) => void;
 }) {
+  const { t } = useTranslation("playlists");
   const override = itemHasTransitionOverride(item, playlistTransition);
   const showAudio = item.assetType === "video" && item.audioEnabled;
 
@@ -264,8 +264,8 @@ function PlaylistTimelineItem({
           className="flex shrink-0 cursor-grab items-center gap-1 rounded-lg p-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           draggable={canManage}
           disabled={!canManage}
-          aria-label={`Reorder ${item.assetName}`}
-          title={canManage ? "Drag to reorder" : undefined}
+          aria-label={t("timeline.reorder", { name: item.assetName })}
+          title={canManage ? t("timeline.dragHint") : undefined}
           onDragStart={(event) => {
             event.stopPropagation();
             event.dataTransfer.effectAllowed = "move";
@@ -283,7 +283,7 @@ function PlaylistTimelineItem({
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left hover:bg-muted"
-          aria-label={`Inspect ${item.assetName}`}
+          aria-label={t("timeline.inspectAction", { name: item.assetName })}
           aria-pressed={selected}
           onClick={() => onSelect(item.id)}
         >
@@ -292,16 +292,16 @@ function PlaylistTimelineItem({
             <strong className="truncate text-sm">{item.assetName}</strong>
             <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
               <span>{item.assetType}</span>
-              <span>{formatItemDuration(item)}</span>
+              <span>{formatItemDuration(item, t)}</span>
               <span>
                 {item.usePlayerDefaults
-                  ? "Player defaults"
-                  : transitionLabel(item.transition)}
+                  ? t("model.duration.playerDefaultsValue")
+                  : transitionLabel(item.transition, t)}
               </span>
               {item.assetType === "video" && (
                 <span className="flex items-center gap-1">
-                  <Volume2 size={13} aria-hidden="true" /> Audio
-                  {showAudio ? " on" : " off"}
+                  <Volume2 size={13} aria-hidden="true" />{" "}
+                  {showAudio ? t("timeline.audioOn") : t("timeline.audioOff")}
                 </span>
               )}
             </span>
@@ -310,9 +310,13 @@ function PlaylistTimelineItem({
 
         <div className="flex shrink-0 flex-wrap items-center gap-1">
           {item.usePlayerDefaults ? (
-            <Badge variant="secondary">Player defaults</Badge>
+            <Badge variant="secondary">
+              {t("model.duration.playerDefaultsValue")}
+            </Badge>
           ) : (
-            override && <Badge variant="outline">Override</Badge>
+            override && (
+              <Badge variant="outline">{t("timeline.overrideBadge")}</Badge>
+            )
           )}
           {item.assetStatus !== "ready" && (
             <Badge variant="destructive">{item.assetStatus}</Badge>
@@ -328,7 +332,9 @@ function PlaylistTimelineItem({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={`Move ${item.assetName} up`}
+                    aria-label={t("timeline.moveUpFor", {
+                      name: item.assetName,
+                    })}
                     disabled={index === 0}
                     onClick={() => onMove(item.id, -1)}
                   >
@@ -337,7 +343,9 @@ function PlaylistTimelineItem({
                 }
               />
               <TooltipContent>
-                Move up <Kbd>Alt+↑</Kbd>
+                {t("timeline.moveUp")}{" "}
+                {/* i18n-ignore: keyboard shortcut name stays English */}
+                <Kbd>Alt+↑</Kbd>
               </TooltipContent>
             </RheaTooltip>
             <RheaTooltip>
@@ -347,7 +355,9 @@ function PlaylistTimelineItem({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={`Move ${item.assetName} down`}
+                    aria-label={t("timeline.moveDownFor", {
+                      name: item.assetName,
+                    })}
                     disabled={index === itemCount - 1}
                     onClick={() => onMove(item.id, 1)}
                   >
@@ -356,7 +366,9 @@ function PlaylistTimelineItem({
                 }
               />
               <TooltipContent>
-                Move down <Kbd>Alt+↓</Kbd>
+                {t("timeline.moveDown")}{" "}
+                {/* i18n-ignore: keyboard shortcut name stays English */}
+                <Kbd>Alt+↓</Kbd>
               </TooltipContent>
             </RheaTooltip>
           </div>
@@ -366,9 +378,11 @@ function PlaylistTimelineItem({
           <ChevronRight size={18} />
         </span>
       </ContextMenuTrigger>
-      <ContextMenuContent aria-label={`Actions for ${item.assetName}`}>
+      <ContextMenuContent
+        aria-label={t("timeline.actionsFor", { name: item.assetName })}
+      >
         <ContextMenuItem onClick={() => onSelect(item.id)}>
-          Inspect item
+          {t("timeline.inspectItem")}
         </ContextMenuItem>
         {canManage && (
           <>
@@ -377,14 +391,16 @@ function PlaylistTimelineItem({
               disabled={index === 0}
               onClick={() => onMove(item.id, -1)}
             >
-              Move up
+              {t("timeline.moveUp")}
+              {/* i18n-ignore: keyboard shortcut name stays English */}
               <ContextMenuShortcut>Alt+↑</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuItem
               disabled={index === itemCount - 1}
               onClick={() => onMove(item.id, 1)}
             >
-              Move down
+              {t("timeline.moveDown")}
+              {/* i18n-ignore: keyboard shortcut name stays English */}
               <ContextMenuShortcut>Alt+↓</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuItem
@@ -392,7 +408,8 @@ function PlaylistTimelineItem({
               onClick={() => onMoveToEdge(item.id, "top")}
             >
               <ArrowUpToLine size={14} aria-hidden="true" />
-              Move to top
+              {t("timeline.moveTop")}
+              {/* i18n-ignore: keyboard shortcut name stays English */}
               <ContextMenuShortcut>Alt+Home</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuItem
@@ -400,7 +417,8 @@ function PlaylistTimelineItem({
               onClick={() => onMoveToEdge(item.id, "bottom")}
             >
               <ArrowDownToLine size={14} aria-hidden="true" />
-              Move to bottom
+              {t("timeline.moveBottom")}
+              {/* i18n-ignore: keyboard shortcut name stays English */}
               <ContextMenuShortcut>Alt+End</ContextMenuShortcut>
             </ContextMenuItem>
           </>
