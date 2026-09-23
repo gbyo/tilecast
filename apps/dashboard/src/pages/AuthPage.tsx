@@ -6,17 +6,29 @@ import { useAuth } from "../auth/AuthProvider";
 import {
   loginSchema,
   mfaSchema,
-  setupSchema,
   type LoginForm,
   type MFAForm,
-  type SetupForm,
 } from "../auth/schemas";
 import { passkeysSupported } from "../auth/webauthn";
 import { Brand } from "../components/Brand";
-import { FormField } from "../components/FormField";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "../components/ui/card";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
+import { SetupFlow } from "./SetupFlow";
 
 export function AuthPage({ mode }: { mode: "setup" | "login" }) {
   const auth = useAuth();
@@ -36,153 +48,71 @@ export function AuthPage({ mode }: { mode: "setup" | "login" }) {
   }, [auth.status, mode, navigate, returnTo]);
 
   if (auth.isLoading) return <LoadingScreen />;
+  // login-03: a muted shell with a compact centered card. Setup uses the same
+  // language with a slightly wider card for the guided questions. There are
+  // no social-provider buttons: this installation has only local accounts.
   return (
-    <main className="fixed inset-0 z-0 flex w-screen min-h-svh items-center justify-center overflow-hidden bg-[#1b2430] bg-[url('/api/v1/auth/background')] bg-cover bg-center p-[clamp(1rem,4vw,3rem)] max-[620px]:bg-[position:58%_center] max-[620px]:p-[0.85rem]">
+    <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
       <div
-        className="pointer-events-none absolute inset-0 bg-[rgb(7_12_18/42%)]"
-        aria-hidden="true"
-      />
-      <section
-        className={`relative z-[1] w-full flex-none rounded-[var(--tc-radius-overlay)] border border-[#d0d7de] bg-white px-[2.35rem] py-9 shadow-[0_20px_48px_rgb(0_0_0/28%)] max-[620px]:max-h-[calc(100svh-1.7rem)] max-[620px]:overflow-y-auto max-[620px]:px-[1.35rem] max-[620px]:py-7 ${mode === "setup" ? "max-w-[38rem]" : "max-w-[27rem]"} max-[620px]:max-w-full`}
+        className={`flex w-full flex-col gap-6 ${mode === "setup" ? "max-w-md" : "max-w-sm"}`}
       >
-        <div className="mb-8 flex justify-center max-[620px]:mb-[1.45rem] [&_.brand__studio-logo]:h-auto [&_.brand__studio-logo]:w-[min(11.75rem,72%)] [&_.brand__studio-logo]:brightness-0">
+        <div className="flex justify-center">
           <Brand compact />
         </div>
-        {mode === "setup" ? (
-          <SetupFormView />
-        ) : auth.challenge ? (
-          <ChallengeFormView />
-        ) : (
-          <LoginFormView />
-        )}
-      </section>
+        <Card>
+          {mode === "setup" ? (
+            <CardContent className="pt-6">
+              <SetupFlow />
+            </CardContent>
+          ) : auth.challenge ? (
+            <>
+              <CardHeader className="text-center">
+                <h1
+                  data-slot="card-title"
+                  className="font-heading text-xl font-medium"
+                >
+                  Two-step verification
+                </h1>
+                <CardDescription>
+                  {auth.challenge.methods.includes("totp") ||
+                  auth.challenge.methods.includes("recovery_code")
+                    ? "Enter the six-digit code from your authenticator app, or one of your recovery codes."
+                    : "Confirm your passkey to finish signing in."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChallengeFormView />
+              </CardContent>
+            </>
+          ) : (
+            <>
+              <CardHeader className="text-center">
+                <h1
+                  data-slot="card-title"
+                  className="font-heading text-xl font-medium"
+                >
+                  Sign in
+                </h1>
+                <CardDescription>
+                  Manage your Tilecast displays.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LoginFormView />
+              </CardContent>
+            </>
+          )}
+        </Card>
+      </div>
     </main>
-  );
-}
-
-function AuthHeader({
-  id,
-  title,
-  body,
-}: {
-  id: string;
-  title: string;
-  body: string;
-}) {
-  return (
-    <header className="mb-[1.6rem] text-center">
-      <h1
-        id={id}
-        className="m-0 text-[1.7rem] leading-[1.18] font-[680] tracking-normal text-[#101316]"
-      >
-        {title}
-      </h1>
-      <p className="mt-2 text-[0.92rem] text-[#687078]">{body}</p>
-    </header>
   );
 }
 
 function AuthError({ message }: { message: string }) {
   return (
-    <Alert
-      variant="destructive"
-      className="mb-[1.15rem] border-[#e8c4c4] bg-[#fdf0f0] text-[#8f1d1d]"
-    >
-      <AlertDescription className="text-[#8f1d1d]">{message}</AlertDescription>
+    <Alert variant="destructive" className="mb-4">
+      <AlertDescription>{message}</AlertDescription>
     </Alert>
-  );
-}
-
-function AuthDivider({ children }: { children: string }) {
-  return (
-    <p className="my-[1.05rem] flex items-center gap-[0.7rem] text-[0.74rem] tracking-[0.06em] text-[#91979d] uppercase before:h-px before:flex-1 before:bg-[#e2e5e8] before:content-[''] after:h-px after:flex-1 after:bg-[#e2e5e8] after:content-['']">
-      {children}
-    </p>
-  );
-}
-
-function SetupFormView() {
-  const { setup, error, isSubmitting } = useAuth();
-  const form = useForm<SetupForm>({
-    resolver: zodResolver(setupSchema),
-    defaultValues: {
-      organizationName: "",
-      ownerName: "",
-      username: "",
-      password: "",
-      confirmPassword: "",
-    },
-  });
-  const submit = form.handleSubmit(async (values) => {
-    await setup({
-      organizationName: values.organizationName,
-      ownerName: values.ownerName,
-      username: values.username,
-      password: values.password,
-    });
-  });
-  return (
-    <div aria-labelledby="setup-title">
-      <AuthHeader
-        id="setup-title"
-        title="Set up Tilecast"
-        body="Create the first owner account for this installation."
-      />
-      {error && <AuthError message={error.message} />}
-      <form
-        onSubmit={(event) => void submit(event)}
-        noValidate
-        className="grid gap-[1.05rem]"
-      >
-        <FormField
-          id="organizationName"
-          label="Organization name"
-          autoComplete="organization"
-          error={form.formState.errors.organizationName?.message}
-          {...form.register("organizationName")}
-        />
-        <FormField
-          id="ownerName"
-          label="Your name"
-          autoComplete="name"
-          error={form.formState.errors.ownerName?.message}
-          {...form.register("ownerName")}
-        />
-        <FormField
-          id="username"
-          label="Email or username"
-          autoComplete="username"
-          error={form.formState.errors.username?.message}
-          {...form.register("username")}
-        />
-        <div className="grid grid-cols-2 gap-[0.9rem] max-[620px]:grid-cols-1">
-          <FormField
-            id="password"
-            label="Password"
-            type="password"
-            autoComplete="new-password"
-            hint="At least 12 characters"
-            error={form.formState.errors.password?.message}
-            {...form.register("password")}
-          />
-          <FormField
-            id="confirmPassword"
-            label="Confirm password"
-            type="password"
-            autoComplete="new-password"
-            error={form.formState.errors.confirmPassword?.message}
-            {...form.register("confirmPassword")}
-          />
-        </div>
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-[0.35rem] min-h-[2.75rem] w-full"
-        >
-          {isSubmitting ? "Creating installation…" : "Create installation"}
-        </Button>
-      </form>
-    </div>
   );
 }
 
@@ -219,57 +149,55 @@ function LoginFormView() {
   // always fails would be worse than not offering one.
   const passkeys = Boolean(status?.passkeysAvailable) && passkeysSupported();
   return (
-    <div aria-labelledby="login-title">
-      <AuthHeader
-        id="login-title"
-        title="Sign in"
-        body="Manage your Tilecast displays."
-      />
-      {error && <AuthError message={error.message} />}
-      <form
-        onSubmit={(event) => void submit(event)}
-        noValidate
-        className="grid gap-[1.05rem]"
-      >
-        <FormField
-          id="username"
-          label="Email or username"
-          autoComplete="username webauthn"
-          autoFocus
-          error={form.formState.errors.username?.message}
-          {...form.register("username")}
-        />
-        <FormField
-          id="password"
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          error={form.formState.errors.password?.message}
-          {...form.register("password")}
-        />
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-[0.35rem] min-h-[2.75rem] w-full"
-        >
-          {isSubmitting ? "Signing in…" : "Sign in"}
-        </Button>
-      </form>
-      {passkeys && (
-        <>
-          <AuthDivider>or</AuthDivider>
-          <Button
-            variant="outline"
-            type="button"
-            disabled={isSubmitting}
-            onClick={() => void loginWithPasskey()}
-            className="min-h-[2.75rem] w-full"
-          >
-            Sign in with a passkey
+    <form onSubmit={(event) => void submit(event)} noValidate>
+      <FieldGroup>
+        {error && <AuthError message={error.message} />}
+        <Field>
+          <FieldLabel htmlFor="username">Email or username</FieldLabel>
+          <Input
+            id="username"
+            autoComplete="username webauthn"
+            autoFocus
+            aria-invalid={Boolean(form.formState.errors.username)}
+            {...form.register("username")}
+          />
+          <FieldError errors={[form.formState.errors.username]} />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="password">Password</FieldLabel>
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            aria-invalid={Boolean(form.formState.errors.password)}
+            {...form.register("password")}
+          />
+          <FieldError errors={[form.formState.errors.password]} />
+        </Field>
+        <Field>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in…" : "Sign in"}
           </Button>
-        </>
-      )}
-    </div>
+        </Field>
+        {passkeys && (
+          <>
+            <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+              or
+            </FieldSeparator>
+            <Field>
+              <Button
+                variant="outline"
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => void loginWithPasskey()}
+              >
+                Sign in with a passkey
+              </Button>
+            </Field>
+          </>
+        )}
+      </FieldGroup>
+    </form>
   );
 }
 
@@ -299,62 +227,53 @@ function ChallengeFormView() {
     challenge?.methods.includes("totp") ||
     challenge?.methods.includes("recovery_code"),
   );
+  // The challenge accepts both authenticator codes and recovery codes, which
+  // have different shapes, so this stays a plain input rather than a
+  // segmented one-time-code field.
   return (
-    <div aria-labelledby="mfa-title">
-      <AuthHeader
-        id="mfa-title"
-        title="Two-step verification"
-        body={
-          canUseCode
-            ? "Enter the six-digit code from your authenticator app, or one of your recovery codes."
-            : "Confirm your passkey to finish signing in."
-        }
-      />
+    <div className="grid gap-4">
       {error && <AuthError message={error.message} />}
       {canUseCode && (
-        <form
-          onSubmit={(event) => void submit(event)}
-          noValidate
-          className="grid gap-[1.05rem]"
-        >
-          <FormField
-            id="code"
-            label="Verification code"
-            autoComplete="one-time-code"
-            inputMode="text"
-            autoFocus
-            error={form.formState.errors.code?.message}
-            {...form.register("code")}
-          />
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="mt-[0.35rem] min-h-[2.75rem] w-full"
-          >
-            {isSubmitting ? "Verifying…" : "Verify"}
-          </Button>
+        <form onSubmit={(event) => void submit(event)} noValidate>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="code">Verification code</FieldLabel>
+              <Input
+                id="code"
+                autoComplete="one-time-code"
+                inputMode="text"
+                autoFocus
+                aria-invalid={Boolean(form.formState.errors.code)}
+                {...form.register("code")}
+              />
+              <FieldError errors={[form.formState.errors.code]} />
+            </Field>
+            <Field>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Verifying…" : "Verify"}
+              </Button>
+            </Field>
+          </FieldGroup>
         </form>
       )}
       {canUsePasskey && (
-        <>
-          {canUseCode && <AuthDivider>or</AuthDivider>}
+        <div className="grid gap-4">
+          {canUseCode && (
+            <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+              or
+            </FieldSeparator>
+          )}
           <Button
             variant="outline"
             type="button"
             disabled={isSubmitting}
             onClick={() => void verifyMfaPasskey()}
-            className="min-h-[2.75rem] w-full"
           >
             Use a passkey
           </Button>
-        </>
+        </div>
       )}
-      <Button
-        variant="ghost"
-        type="button"
-        onClick={cancelChallenge}
-        className="mt-3 min-h-[2.4rem] w-full"
-      >
+      <Button variant="ghost" type="button" onClick={cancelChallenge}>
         Back to sign in
       </Button>
     </div>
@@ -363,7 +282,7 @@ function ChallengeFormView() {
 
 function LoadingScreen() {
   return (
-    <div className="flex min-h-svh items-center justify-center gap-3 bg-[#f3f4f5]">
+    <div className="flex min-h-svh items-center justify-center gap-3 bg-muted">
       <Brand compact />
       <Spinner aria-label="Loading" />
     </div>

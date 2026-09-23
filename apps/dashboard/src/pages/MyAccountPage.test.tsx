@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -53,7 +54,7 @@ const security: SecurityStatus = {
   authMethod: "password",
 };
 
-function renderPage() {
+function renderPage(initialEntry = "/account") {
   vi.spyOn(api, "preferences").mockResolvedValue({
     schemaVersion: 1,
     revision: 1,
@@ -67,7 +68,7 @@ function renderPage() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <MyAccountPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -120,5 +121,53 @@ describe("MyAccountPage", () => {
     const { container } = renderPage();
     await screen.findByRole("heading", { name: "Recovery codes" });
     expect(container.querySelector(".panel .panel")).toBeNull();
+  });
+
+  it("marks the section matching the deep-link hash current", async () => {
+    renderPage("/account#security");
+    await screen.findByRole("heading", { name: "Sign-in security" });
+
+    const nav = screen.getByRole("navigation", { name: "Account sections" });
+    const security = nav.querySelector('a[href="#security"]');
+    const preferences = nav.querySelector('a[href="#preferences"]');
+    expect(security).toHaveAttribute("aria-current", "true");
+    expect(preferences).not.toHaveAttribute("aria-current");
+  });
+
+  it("defaults the section nav to Preferences without a hash", async () => {
+    renderPage();
+    await screen.findByRole("heading", { name: "Preferences" });
+
+    const nav = screen.getByRole("navigation", { name: "Account sections" });
+    expect(nav.querySelector('a[href="#preferences"]')).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+  });
+
+  it("offers Appearance as a single-select toggle group synced through save", async () => {
+    const update = vi.spyOn(api, "updatePreferences").mockResolvedValue({
+      schemaVersion: 1,
+      revision: 2,
+      values: { "preference.appearance": "dark" },
+      definitions: [definition],
+      updatedAt: "2026-07-01T00:00:00Z",
+    });
+    renderPage();
+    const group = await screen.findByRole("group", { name: "Appearance" });
+    expect(group).toBeInTheDocument();
+    expect(group.querySelector('[aria-pressed="true"]')).toHaveAccessibleName(
+      "System",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Dark" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith(
+        1,
+        { "preference.appearance": "dark" },
+        "token",
+      ),
+    );
   });
 });

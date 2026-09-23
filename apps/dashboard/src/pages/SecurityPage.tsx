@@ -14,6 +14,27 @@ import { FormField } from "../components/FormField";
 import { SecurityQr } from "../components/SecurityQr";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "../components/ui/input-otp";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
 import { Spinner } from "../components/ui/spinner";
 
 export const securityKey = ["me", "security"] as const;
@@ -37,38 +58,43 @@ export function SecurityPage() {
   return <SecurityPanels status={security.data} />;
 }
 
+/**
+ * Sign-in methods as compact Item rows. Multi-element flows (the
+ * authenticator QR/code step, passkey rename) expand inline beneath their
+ * row; anything that needs a password confirmation or shows secrets once
+ * interrupts in a Dialog instead.
+ */
 export function SecurityPanels({ status }: { status: SecurityStatus }) {
   return (
-    <section className="grid gap-4">
-      <AuthenticatorPanel status={status} />
-      <PasskeyPanel status={status} />
-      <RecoveryCodePanel status={status} />
-    </section>
+    <div className="grid gap-6">
+      <AuthenticatorBlock status={status} />
+      <PasskeyBlock status={status} />
+      <RecoveryCodeBlock status={status} />
+    </div>
   );
 }
 
-function PanelSection({
+function AreaHeading({
+  id,
   title,
   description,
   actions,
-  children,
 }: {
+  id: string;
   title: string;
   description: string;
   actions?: ReactNode;
-  children: ReactNode;
 }) {
   return (
-    <section className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-0.5">
-          <h3 className="text-sm font-semibold">{title}</h3>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-        {actions}
-      </header>
-      {children}
-    </section>
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div className="grid gap-0.5">
+        <h3 id={id} className="text-sm font-semibold">
+          {title}
+        </h3>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      {actions}
+    </header>
   );
 }
 
@@ -82,7 +108,7 @@ function useSecurityRefresh() {
   };
 }
 
-function AuthenticatorPanel({ status }: { status: SecurityStatus }) {
+function AuthenticatorBlock({ status }: { status: SecurityStatus }) {
   const { status: auth } = useAuth();
   const csrfToken = auth?.csrfToken ?? "";
   const refresh = useSecurityRefresh();
@@ -113,44 +139,46 @@ function AuthenticatorPanel({ status }: { status: SecurityStatus }) {
   });
 
   return (
-    <PanelSection
-      title="Authenticator app"
-      description="A six-digit code from an app such as Aegis, Google Authenticator, or 1Password."
-      actions={
-        status.totpEnrolled ? (
-          <Button
-            variant="destructive"
-            onClick={() => setRemoving((open) => !open)}
-          >
-            Remove
-          </Button>
-        ) : (
-          <Button
-            variant="default"
-            disabled={begin.isPending}
-            onClick={() => begin.mutate()}
-          >
-            {begin.isPending && <Spinner aria-hidden="true" />}
-            Set up
-          </Button>
-        )
-      }
-    >
-      <p className="m-0 text-sm text-muted-foreground">
-        {status.totpEnrolled ? (
-          <>
-            <strong className="font-semibold text-foreground">Enrolled</strong>
-            {status.totpConfirmedAt &&
-              ` — added ${new Date(status.totpConfirmedAt).toLocaleDateString()}`}
-          </>
-        ) : (
-          "Not enrolled"
-        )}
-      </p>
+    <section className="grid gap-3" aria-labelledby="security-authenticator">
+      <AreaHeading
+        id="security-authenticator"
+        title="Authenticator app"
+        description="A six-digit code from an app such as Aegis, Google Authenticator, or 1Password."
+        actions={
+          status.totpEnrolled ? (
+            <Button variant="destructive" onClick={() => setRemoving(true)}>
+              Remove
+            </Button>
+          ) : (
+            <Button
+              variant="default"
+              disabled={begin.isPending}
+              onClick={() => begin.mutate()}
+            >
+              {begin.isPending && <Spinner aria-hidden="true" />}
+              Set up
+            </Button>
+          )
+        }
+      />
+      <ItemGroup>
+        <Item>
+          <ItemContent>
+            <ItemTitle>
+              {status.totpEnrolled ? "Enrolled" : "Not enrolled"}
+            </ItemTitle>
+            {status.totpEnrolled && status.totpConfirmedAt && (
+              <ItemDescription>
+                Added {new Date(status.totpConfirmedAt).toLocaleDateString()}
+              </ItemDescription>
+            )}
+          </ItemContent>
+        </Item>
+      </ItemGroup>
       {errorNotice(begin.error ?? confirm.error ?? remove.error)}
 
       {enrolling && begin.data && (
-        <div className="grid gap-5 border-t border-border pt-4 sm:grid-cols-[auto_minmax(0,1fr)]">
+        <div className="grid gap-5 rounded-xl border border-border p-4 sm:grid-cols-[auto_minmax(0,1fr)]">
           <SecurityQr uri={begin.data.provisioningUri} />
           <div className="grid content-start gap-3">
             <p className="m-0 text-sm">
@@ -163,18 +191,29 @@ function AuthenticatorPanel({ status }: { status: SecurityStatus }) {
                 {begin.data.secret}
               </code>
             </p>
-            <FormField
-              id="totp-code"
-              label="Six-digit code"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-            />
+            <div className="grid gap-2">
+              <label htmlFor="totp-code" className="text-sm font-medium">
+                Six-digit code
+              </label>
+              <InputOTP
+                id="totp-code"
+                maxLength={6}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={setCode}
+              >
+                <InputOTPGroup>
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <InputOTPSlot key={index} index={index} />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="default"
-                disabled={confirm.isPending}
+                disabled={confirm.isPending || code.length !== 6}
                 onClick={() => confirm.mutate()}
               >
                 {confirm.isPending && <Spinner aria-hidden="true" />}
@@ -188,22 +227,25 @@ function AuthenticatorPanel({ status }: { status: SecurityStatus }) {
         </div>
       )}
 
-      {removing && (
-        <PasswordConfirm
-          id="totp-remove"
-          label="Confirm your password to remove the authenticator"
-          value={password}
-          onChange={setPassword}
-          pending={remove.isPending}
-          onConfirm={() => remove.mutate()}
-          onCancel={() => setRemoving(false)}
-        />
-      )}
-    </PanelSection>
+      <PasswordDialog
+        open={removing}
+        onOpenChange={setRemoving}
+        title="Remove authenticator"
+        description="Confirm your password to remove the authenticator from this account."
+        inputId="totp-remove"
+        password={password}
+        onPasswordChange={setPassword}
+        pending={remove.isPending}
+        error={remove.error}
+        confirmLabel="Remove"
+        destructive
+        onConfirm={() => remove.mutate()}
+      />
+    </section>
   );
 }
 
-function PasskeyPanel({ status }: { status: SecurityStatus }) {
+function PasskeyBlock({ status }: { status: SecurityStatus }) {
   const { status: auth } = useAuth();
   const csrfToken = auth?.csrfToken ?? "";
   const refresh = useSecurityRefresh();
@@ -264,23 +306,25 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
   });
 
   return (
-    <PanelSection
-      title="Passkeys"
-      description="Sign in with a fingerprint, face, screen lock, or security key. A passkey signs you in on its own and counts as two-step verification."
-      actions={
-        status.passkeysAvailable &&
-        supported && (
-          <Button
-            variant="default"
-            disabled={register.isPending}
-            onClick={() => register.mutate()}
-          >
-            {register.isPending && <Spinner aria-hidden="true" />}
-            Add a passkey
-          </Button>
-        )
-      }
-    >
+    <section className="grid gap-3" aria-labelledby="security-passkeys">
+      <AreaHeading
+        id="security-passkeys"
+        title="Passkeys"
+        description="Sign in with a fingerprint, face, screen lock, or security key. A passkey signs you in on its own and counts as two-step verification."
+        actions={
+          status.passkeysAvailable &&
+          supported && (
+            <Button
+              variant="default"
+              disabled={register.isPending}
+              onClick={() => register.mutate()}
+            >
+              {register.isPending && <Spinner aria-hidden="true" />}
+              Add a passkey
+            </Button>
+          )
+        }
+      />
       {!status.passkeysAvailable && (
         <Alert>
           <AlertTitle>
@@ -307,20 +351,19 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
       {status.passkeys.length === 0 ? (
         <p className="m-0 text-sm text-muted-foreground">No passkeys</p>
       ) : (
-        <ul className="m-0 grid list-none gap-2 p-0">
+        <ItemGroup>
           {status.passkeys.map((passkey) => (
-            <li
-              key={passkey.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 rounded-md border border-border px-3 py-2.5"
-            >
-              <span className="text-sm font-semibold">{passkey.name}</span>
-              <span className="col-start-1 text-xs text-muted-foreground">
-                Added {new Date(passkey.createdAt).toLocaleDateString()}
-                {passkey.lastUsedAt
-                  ? ` · Last used ${new Date(passkey.lastUsedAt).toLocaleDateString()}`
-                  : " · Never used"}
-              </span>
-              <span className="col-start-2 flex gap-1.5 row-span-2">
+            <Item key={passkey.id}>
+              <ItemContent>
+                <ItemTitle>{passkey.name}</ItemTitle>
+                <ItemDescription>
+                  Added {new Date(passkey.createdAt).toLocaleDateString()}
+                  {passkey.lastUsedAt
+                    ? ` · Last used ${new Date(passkey.lastUsedAt).toLocaleDateString()}`
+                    : " · Never used"}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
                 <Button
                   variant="secondary"
                   size="sm"
@@ -338,14 +381,14 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
                 >
                   Remove
                 </Button>
-              </span>
-            </li>
+              </ItemActions>
+            </Item>
           ))}
-        </ul>
+        </ItemGroup>
       )}
 
       {renaming && (
-        <div className="grid max-w-md gap-3 border-t border-border pt-4">
+        <div className="grid max-w-md gap-3 rounded-xl border border-border p-4">
           <FormField
             id="passkey-name"
             label={`Rename “${renaming.name}”`}
@@ -369,22 +412,27 @@ function PasskeyPanel({ status }: { status: SecurityStatus }) {
         </div>
       )}
 
-      {removing && (
-        <PasswordConfirm
-          id="passkey-remove"
-          label={`Confirm your password to remove “${removing.name}”`}
-          value={password}
-          onChange={setPassword}
-          pending={remove.isPending}
-          onConfirm={() => remove.mutate()}
-          onCancel={() => setRemoving(undefined)}
-        />
-      )}
-    </PanelSection>
+      <PasswordDialog
+        open={Boolean(removing)}
+        onOpenChange={(open) => {
+          if (!open) setRemoving(undefined);
+        }}
+        title={removing ? `Remove “${removing.name}”` : "Remove passkey"}
+        description="Confirm your password to remove this passkey from this account."
+        inputId="passkey-remove"
+        password={password}
+        onPasswordChange={setPassword}
+        pending={remove.isPending}
+        error={remove.error}
+        confirmLabel="Remove"
+        destructive
+        onConfirm={() => remove.mutate()}
+      />
+    </section>
   );
 }
 
-function RecoveryCodePanel({ status }: { status: SecurityStatus }) {
+function RecoveryCodeBlock({ status }: { status: SecurityStatus }) {
   const { status: auth } = useAuth();
   const csrfToken = auth?.csrfToken ?? "";
   const refresh = useSecurityRefresh();
@@ -403,49 +451,60 @@ function RecoveryCodePanel({ status }: { status: SecurityStatus }) {
   });
 
   return (
-    <PanelSection
-      title="Recovery codes"
-      description="Single-use codes that let you sign in when you cannot reach your authenticator or passkey."
-      actions={
-        <Button
-          variant="secondary"
-          onClick={() => setConfirming((open) => !open)}
-        >
-          {status.recoveryCodesRemaining > 0 ? "Regenerate" : "Generate"}
-        </Button>
-      }
-    >
-      <p className="m-0 text-sm text-muted-foreground">
-        {status.recoveryCodesRemaining > 0
-          ? `${status.recoveryCodesRemaining} unused ${status.recoveryCodesRemaining === 1 ? "code" : "codes"} remaining`
-          : "No recovery codes"}
-      </p>
+    <section className="grid gap-3" aria-labelledby="security-recovery">
+      <AreaHeading
+        id="security-recovery"
+        title="Recovery codes"
+        description="Single-use codes that let you sign in when you cannot reach your authenticator or passkey."
+        actions={
+          <Button variant="secondary" onClick={() => setConfirming(true)}>
+            {status.recoveryCodesRemaining > 0 ? "Regenerate" : "Generate"}
+          </Button>
+        }
+      />
+      <ItemGroup>
+        <Item>
+          <ItemContent>
+            <ItemTitle>
+              {status.recoveryCodesRemaining > 0
+                ? `${status.recoveryCodesRemaining} unused ${status.recoveryCodesRemaining === 1 ? "code" : "codes"} remaining`
+                : "No recovery codes"}
+            </ItemTitle>
+          </ItemContent>
+        </Item>
+      </ItemGroup>
       {errorNotice(generate.error)}
 
-      {confirming && (
-        <PasswordConfirm
-          id="recovery-generate"
-          label="Confirm your password to generate new codes"
-          hint="Any existing recovery codes stop working."
-          value={password}
-          onChange={setPassword}
-          pending={generate.isPending}
-          onConfirm={() => generate.mutate()}
-          onCancel={() => setConfirming(false)}
-        />
-      )}
+      <PasswordDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="Generate recovery codes"
+        description="Confirm your password to generate new codes. Any existing recovery codes stop working."
+        inputId="recovery-generate"
+        password={password}
+        onPasswordChange={setPassword}
+        pending={generate.isPending}
+        error={generate.error}
+        confirmLabel="Generate"
+        onConfirm={() => generate.mutate()}
+      />
 
-      {codes && (
-        <div className="grid gap-3 border-t border-border pt-4">
-          <Alert>
-            <AlertTitle>These codes are shown once.</AlertTitle>
-            <AlertDescription>
+      <Dialog
+        open={Boolean(codes)}
+        onOpenChange={(open) => {
+          if (!open) setCodes(undefined);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>These codes are shown once.</DialogTitle>
+            <DialogDescription>
               Save them somewhere safe now. Tilecast stores only their hashes
               and cannot show them again.
-            </AlertDescription>
-          </Alert>
+            </DialogDescription>
+          </DialogHeader>
           <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-1.5 p-0">
-            {codes.map((code) => (
+            {(codes ?? []).map((code) => (
               <li key={code}>
                 <code className="block rounded-md border border-border bg-muted px-2 py-1.5 text-center font-mono text-sm tracking-wide">
                   {code}
@@ -453,65 +512,89 @@ function RecoveryCodePanel({ status }: { status: SecurityStatus }) {
               </li>
             ))}
           </ul>
-          <div className="flex gap-2">
+          <DialogFooter>
             <Button
               variant="secondary"
               onClick={() =>
-                void navigator.clipboard?.writeText(codes.join("\n"))
+                void navigator.clipboard?.writeText((codes ?? []).join("\n"))
               }
             >
               Copy all
             </Button>
-            <Button variant="ghost" onClick={() => setCodes(undefined)}>
+            <Button variant="default" onClick={() => setCodes(undefined)}>
               I have saved them
             </Button>
-          </div>
-        </div>
-      )}
-    </PanelSection>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
   );
 }
 
-function PasswordConfirm({
-  id,
-  label,
-  hint,
-  value,
-  onChange,
+/**
+ * Destructive and secret-issuing confirmations interrupt in a Dialog so the
+ * password prompt cannot be scrolled past or submitted twice from two open
+ * inline forms. Removing a factor or regenerating codes always requires the
+ * account password in addition to the session.
+ */
+function PasswordDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  inputId,
+  password,
+  onPasswordChange,
   pending,
+  error,
+  confirmLabel,
+  destructive,
   onConfirm,
-  onCancel,
 }: {
-  id: string;
-  label: string;
-  hint?: string;
-  value: string;
-  onChange: (value: string) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  inputId: string;
+  password: string;
+  onPasswordChange: (value: string) => void;
   pending: boolean;
+  error: Error | null;
+  confirmLabel: string;
+  destructive?: boolean;
   onConfirm: () => void;
-  onCancel: () => void;
 }) {
   return (
-    <div className="grid max-w-md gap-3 border-t border-border pt-4">
-      <FormField
-        id={id}
-        label={label}
-        hint={hint}
-        type="password"
-        autoComplete="current-password"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      <div className="flex gap-2">
-        <Button variant="default" disabled={pending} onClick={onConfirm}>
-          {pending && <Spinner aria-hidden="true" />}
-          Confirm
-        </Button>
-        <Button variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <FormField
+          id={inputId}
+          label="Account password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => onPasswordChange(event.target.value)}
+        />
+        {errorNotice(error)}
+        <DialogFooter>
+          <Button
+            variant={destructive ? "destructive" : "default"}
+            disabled={pending || password.length === 0}
+            onClick={onConfirm}
+          >
+            {pending && <Spinner aria-hidden="true" />}
+            {confirmLabel}
+          </Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

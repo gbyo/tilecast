@@ -12,14 +12,16 @@ import type { StudioNavItem } from "./NavMain";
 export function NavSecondary({
   label,
   items,
+  className,
 }: {
   label: string;
   items: StudioNavItem[];
+  className?: string;
 }) {
   const location = useLocation();
 
   return (
-    <SidebarGroup>
+    <SidebarGroup className={className}>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
