@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { i18n } from "../i18n";
 import type { FormSchema } from "../api/types";
 import {
   formValuesToPayload,
@@ -7,6 +8,8 @@ import {
   rfc3339ToLocalDateTime,
   validateSubmission,
 } from "./formValues";
+
+const t = i18n.getFixedT("en", "forms");
 
 const datetimeSchema: FormSchema = {
   fields: [{ key: "startAt", label: "Start", control: "datetime" }],
@@ -52,7 +55,7 @@ describe("validateSubmission image handling", () => {
   };
 
   it("fails a required image with no attachment or pending file", () => {
-    const errors = validateSubmission(imageSchema, {}, true, new Set());
+    const errors = validateSubmission(imageSchema, {}, true, new Set(), t);
     expect(errors.photo).toMatch(/requires an image/i);
   });
 
@@ -62,6 +65,7 @@ describe("validateSubmission image handling", () => {
       {},
       true,
       new Set(["photo"]),
+      t,
     );
     expect(errors.photo).toBeUndefined();
   });

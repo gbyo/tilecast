@@ -1,5 +1,6 @@
 // Stable field keys are referenced by Widgets and saved views, so they are generated from the
 // label, validated against the server rule, and never collide with reserved synthetic keys.
+import type { TFunction } from "i18next";
 
 // Reserved keys mirror internal/forms reservedFieldKeys on the server.
 export const RESERVED_FIELD_KEYS = new Set([
@@ -51,17 +52,18 @@ export function uniqueKey(label: string, existing: Iterable<string>): string {
 export function validateKey(
   key: string,
   existing: Iterable<string>,
-  currentKey?: string,
+  currentKey: string | undefined,
+  t: TFunction<"forms", undefined>,
 ): string | null {
   if (!KEY_PATTERN.test(key)) {
-    return "Keys must start with a letter and use only letters, numbers, and underscores.";
+    return t("validation.keyPattern");
   }
   if (RESERVED_FIELD_KEYS.has(key)) {
-    return `"${key}" is a reserved key.`;
+    return t("validation.keyReserved", { key });
   }
   for (const other of existing) {
     if (other !== currentKey && other === key) {
-      return "Another field already uses this key.";
+      return t("validation.keyTaken");
     }
   }
   return null;

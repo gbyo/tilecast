@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { AlertCircle } from "lucide-react";
 import type {
   FormAvailableTransition,
@@ -52,6 +53,7 @@ export function SubmissionEditor({
   csrf: string;
   onCompleted: (recordId: string) => void;
 }) {
+  const { t } = useTranslation("forms");
   const queryClient = useQueryClient();
 
   // Editing uses the record's immutable revision; a new submission uses the current published one.
@@ -131,7 +133,7 @@ export function SubmissionEditor({
   // when the server lists a submit transition for the record's current state.
   const canSubmit =
     recordId === null ? canSubmitCapability : Boolean(submitTransition);
-  const submitLabel = submitTransition?.label ?? "Submit";
+  const submitLabel = submitTransition?.label ?? t("editor.submitFallback");
 
   const editable = canEdit;
 
@@ -351,7 +353,7 @@ export function SubmissionEditor({
     setErrors((current) => {
       if (!current[key]) return current;
       const next = { ...current };
-      const message = fieldError(field, value, true, satisfied);
+      const message = fieldError(field, value, true, satisfied, t);
       if (message) next[key] = message;
       else delete next[key];
       return next;
@@ -376,6 +378,7 @@ export function SubmissionEditor({
       values,
       false,
       satisfiedImages(),
+      t,
     );
     if (!reportValidation(validation)) return;
     setBusy("draft");
@@ -395,6 +398,7 @@ export function SubmissionEditor({
       values,
       true,
       satisfiedImages(),
+      t,
     );
     if (!reportValidation(validation)) return;
     setBusy("submit");
@@ -404,7 +408,7 @@ export function SubmissionEditor({
         (candidate) => candidate.requiredCapability === "submit",
       );
       if (!transition) {
-        setFormError("This form cannot be submitted from its current state.");
+        setFormError(t("editor.cannotSubmit"));
         return;
       }
       await api.transitionFormRecord(
@@ -429,17 +433,14 @@ export function SubmissionEditor({
     <div className="grid gap-4">
       {blocker.state === "blocked" && (
         <Alert>
-          <AlertTitle>Leave without saving?</AlertTitle>
-          <AlertDescription>
-            You have unsaved changes to this submission. Leaving now will
-            discard them.
-          </AlertDescription>
+          <AlertTitle>{t("editor.leaveTitle")}</AlertTitle>
+          <AlertDescription>{t("editor.leaveBody")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
             <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
-              Stay on page
+              {t("editor.stay")}
             </RheaButton>
             <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
-              Leave without saving
+              {t("editor.leave")}
             </RheaButton>
           </div>
         </Alert>
@@ -447,16 +448,19 @@ export function SubmissionEditor({
 
       {feedback && editable && (
         <Alert>
-          <AlertTitle>Changes requested</AlertTitle>
+          <AlertTitle>{t("editor.changesRequested")}</AlertTitle>
           <AlertDescription>
-            <strong>{feedback.actorName ?? "Reviewer"}:</strong> {feedback.note}
+            <strong>
+              {feedback.actorName ?? t("editor.anonymousReviewer")}:
+            </strong>{" "}
+            {feedback.note}
           </AlertDescription>
         </Alert>
       )}
 
       {formError && (
         <Alert variant="destructive">
-          <AlertTitle>Could not save</AlertTitle>
+          <AlertTitle>{t("editor.saveFailed")}</AlertTitle>
           <AlertDescription>{formError}</AlertDescription>
         </Alert>
       )}
@@ -500,7 +504,7 @@ export function SubmissionEditor({
               onClick={() => void saveDraft()}
             >
               {busy === "draft" && <Spinner aria-hidden="true" />}
-              Save draft
+              {t("editor.saveDraft")}
             </RheaButton>
             {canSubmit && (
               <RheaButton
@@ -517,12 +521,11 @@ export function SubmissionEditor({
         ) : (
           <Alert>
             <AlertTitle>
-              {`This submission is ${stateLabel(form.workflow, state)}`}
+              {t("editor.completedTitle", {
+                state: stateLabel(form.workflow, state),
+              })}
             </AlertTitle>
-            <AlertDescription>
-              It can no longer be edited. A reviewer will follow up if changes
-              are needed.
-            </AlertDescription>
+            <AlertDescription>{t("editor.completedBody")}</AlertDescription>
           </Alert>
         )}
       </form>
@@ -530,9 +533,11 @@ export function SubmissionEditor({
       {comments.length > 0 && (
         <section
           className="grid gap-3 rounded-xl border border-border p-4"
-          aria-label="Comments"
+          aria-label={t("editor.commentsSection")}
         >
-          <h3 className="text-base font-semibold">Comments</h3>
+          <h3 className="text-base font-semibold">
+            {t("editor.commentsSection")}
+          </h3>
           <ul className="grid gap-2">
             {comments.map((comment) => (
               <li
@@ -562,15 +567,14 @@ function ErrorSummary({
   errors: Record<string, string>;
   onSelect: (fieldKey: string) => void;
 }) {
+  const { t } = useTranslation("forms");
   const invalid = schema.fields.filter((field) => errors[field.key]);
   if (invalid.length === 0) return null;
   return (
     <Alert variant="destructive">
       <AlertCircle size={18} aria-hidden="true" />
       <AlertTitle>
-        {invalid.length === 1
-          ? "Fix 1 field before continuing"
-          : `Fix ${invalid.length} fields before continuing`}
+        {t("editor.fixFields", { count: invalid.length })}
       </AlertTitle>
       <AlertDescription>
         <ul className="grid gap-1">
