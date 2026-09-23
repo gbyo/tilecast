@@ -31,6 +31,7 @@ use crate::url_policy::normalize_server_url;
 
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 pub const PLAYER_SOCKET_ACTIVITY_TIMEOUT: Duration = Duration::from_secs(95);
+pub const MAX_MANIFEST_BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ServerError {
@@ -258,6 +259,12 @@ pub struct ChangePage {
     pub oldest_sequence: u64,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ManifestFetch {
+    NotModified,
+    Modified { document: serde_json::Value, etag: String },
+}
+
 /// Events from the existing Tilecast Player socket protocol.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlayerSocketEvent {
@@ -445,6 +452,45 @@ impl AuthenticatedServer {
             .map_err(|_| ServerError::Network)?;
         let _: serde_json::Value = decode(response).await?;
         Ok(())
+    }
+
+    /// Reads the existing server compiler's manifest without introducing an Edge compiler.
+    pub async fn player_manifest(&self, etag: Option<&str>) -> Result<ManifestFetch, ServerError> {
+        let mut request = self.request(reqwest::Method::GET, "/api/v1/player/manifest");
+        if let Some(etag) = etag {
+            if etag.len() > 200 {
+                return Err(ServerError::Decode);
+            }
+            let header = reqwest::header::HeaderValue::from_str(etag).map_err(|_| ServerError::Decode)?;
+            request = request.header(reqwest::header::IF_NONE_MATCH, header);
+        }
+        let mut response = request.send().await.map_err(|_| ServerError::Network)?;
+        if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+            return Ok(ManifestFetch::NotModified);
+        }
+        if !response.status().is_success() {
+            let _: serde_json::Value = decode(response).await?;
+            return Err(ServerError::Decode);
+        }
+        let etag = response
+            .headers()
+            .get(reqwest::header::ETAG)
+            .and_then(|value| value.to_str().ok())
+            .filter(|value| value.len() <= 200)
+            .ok_or(ServerError::Decode)?
+            .to_owned();
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|_| ServerError::Network)? {
+            if chunk.len() > MAX_MANIFEST_BYTES.saturating_sub(bytes.len()) {
+                return Err(ServerError::Decode);
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let envelope: Envelope<serde_json::Value> = serde_json::from_slice(&bytes).map_err(|_| ServerError::Decode)?;
+        if !envelope.data.is_object() {
+            return Err(ServerError::Decode);
+        }
+        Ok(ManifestFetch::Modified { document: envelope.data, etag })
     }
 
     /// Opens an authenticated download (for the origin blob source).

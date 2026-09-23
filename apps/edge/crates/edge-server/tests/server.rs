@@ -18,7 +18,7 @@ use edge_protocol::signed::change::{AuthorityKey, AuthorityTrust, ChangeType};
 use edge_protocol::signed::{Purpose, SignedDocument, SigningKey};
 use edge_protocol::time::system_clock;
 use edge_protocol::{InstallationId, NodeId, ScreenId, Sha256Digest, Timestamp};
-use edge_server::client::ServerClient;
+use edge_server::client::{ManifestFetch, ServerClient};
 use edge_server::enrollment::{EnrollError, enroll};
 use edge_server::feed::{FeedApplier, FeedError, Offer, Wake};
 use edge_server::legacy::{ImportError, ImportOutcome, import_legacy};
@@ -143,6 +143,17 @@ async fn handle(fake: Arc<Fake>, request: Request<Incoming>) -> Result<Response<
     let if_range = request.headers().get("if-range").and_then(|v| v.to_str().ok()).map(str::to_owned);
     match path.as_str() {
         "/api/v1/player/heartbeat" => Ok(data(json!({"accepted": true}))),
+        "/api/v1/player/manifest" => {
+            if request.headers().get("if-none-match").and_then(|v| v.to_str().ok()) == Some("\"manifest-1\"") {
+                let mut response = Response::new(Full::new(Bytes::new()));
+                *response.status_mut() = StatusCode::NOT_MODIFIED;
+                return Ok(response);
+            }
+            let mut response = data(json!({"schemaVersion": 11, "manifestVersion": 1,
+                "screenId": ScreenId::new_random().to_string(), "assets": []}));
+            response.headers_mut().insert("etag", "\"manifest-1\"".parse().unwrap());
+            Ok(response)
+        }
         "/api/v1/player/edge/enroll" => {
             let body = request.into_body().collect().await.unwrap().to_bytes();
             let body: Value = serde_json::from_slice(&body).unwrap();
@@ -447,6 +458,25 @@ async fn legacy_import_then_enrollment() {
     let missing = OriginBlobSource::new(server.clone(), "/api/v1/player/assets/zz/variants/v1").unwrap();
     assert!(matches!(missing.open(&digest, 1, 0).await, Err(SourceError::NotFound)));
     assert!(OriginBlobSource::new(server, "/api/v1/player/../admin").is_err());
+}
+
+#[tokio::test]
+async fn player_manifest_uses_existing_endpoint_and_conditional_etag() {
+    let installation = InstallationId::new_random();
+    let fake = Fake::new(installation);
+    let url = serve(Arc::clone(&fake)).await;
+    let server = ServerClient::new(&url)
+        .unwrap()
+        .verify_installation(installation, DeviceCredential::parse(CREDENTIAL).unwrap())
+        .await
+        .unwrap();
+    let ManifestFetch::Modified { document, etag } = server.player_manifest(None).await.unwrap() else {
+        panic!("expected manifest");
+    };
+    assert_eq!(document["schemaVersion"], 11);
+    assert_eq!(etag, "\"manifest-1\"");
+    assert_eq!(server.player_manifest(Some(&etag)).await.unwrap(), ManifestFetch::NotModified);
+    assert_eq!(fake.authenticated_paths(), vec!["/api/v1/player/manifest", "/api/v1/player/manifest"]);
 }
 
 #[tokio::test]

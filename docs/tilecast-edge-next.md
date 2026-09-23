@@ -152,6 +152,12 @@ Playback identifiers will be populated when W2 activates server content.
 
 ### W2 (P0) Manifest, downloads and activation
 
+The identity-gated server client now reads the existing manifest endpoint with
+bounded response size and conditional ETags. Preparation, scheduling,
+renderer media capabilities and activation remain open. The final RFC requires
+replacing the foundation's raw digest media URI/CAS-root access before real
+server content is activated.
+
 - **Use:**
   - `edge_cas::Fetcher` with sources in this order:
     `tilecastd::fabric::peer_sources(context, digest, size)`, then
