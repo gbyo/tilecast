@@ -111,6 +111,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-platform"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "edge-protocol",
+ "rustix",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "edge-protocol"
 version = "0.1.0"
 dependencies = [

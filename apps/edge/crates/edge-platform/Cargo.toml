@@ -1,0 +1,24 @@
+[package]
+name = "edge-platform"
+description = "Tilecast Edge host integration: paths, systemd notify/watchdog, disk space and capability providers."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+edge-protocol.workspace = true
+rustix = { workspace = true, features = ["fs", "process"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["time", "sync", "rt", "net", "macros"] }
+tracing.workspace = true
+
+[dev-dependencies]
+edge-protocol = { workspace = true, features = ["test-util"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+
+[lints]
+workspace = true

@@ -4,6 +4,7 @@ members = [
     "crates/edge-protocol",
     "crates/edge-state",
     "crates/edge-ipc",
+    "crates/edge-platform",
 ]
 
 [workspace.package]
@@ -19,6 +20,7 @@ rust-version = "1.98"
 # a lower crate never depends on a higher one.
 edge-protocol = { path = "crates/edge-protocol" }
 edge-state = { path = "crates/edge-state" }
+edge-platform = { path = "crates/edge-platform" }
 edge-ipc = { path = "crates/edge-ipc" }
 
 anyhow = "1"
