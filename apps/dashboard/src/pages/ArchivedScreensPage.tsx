@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Archive, MonitorOff } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { archivedScreens } from "../api/archivedScreens";
+import { useFormatLocale } from "../i18n";
 import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { buttonVariants } from "../components/ui/button";
@@ -14,28 +16,26 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 
-const formatDate = (value?: string) =>
-  value
-    ? new Date(value).toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      })
-    : "Unknown";
-
 export function ArchivedScreensPage() {
+  const { t } = useTranslation("screens");
+  const formatLocale = useFormatLocale();
   const archived = useQuery({
     queryKey: ["screens", "archive"],
     queryFn: archivedScreens,
   });
 
   const screens = archived.data?.items ?? [];
+  const formatDate = (value?: string) =>
+    value
+      ? new Date(value).toLocaleString(formatLocale, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : t("shared.unknown");
 
   return (
     <div className="screens-page">
-      <PageHeader
-        title="Screen archive"
-        description="Players with revoked pairings are retained for history but are detached from all live Tilecast configuration."
-      />
+      <PageHeader title={t("archive.title")} description={t("archive.body")} />
 
       {archived.isError && (
         <Alert variant="destructive">
@@ -44,47 +44,40 @@ export function ArchivedScreensPage() {
       )}
 
       {archived.isLoading ? (
-        <p className="text-sm text-muted-foreground">
-          Loading archived screens…
-        </p>
+        <p className="text-sm text-muted-foreground">{t("archive.loading")}</p>
       ) : screens.length === 0 ? (
         <Empty className="border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Archive aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No archived screens</EmptyTitle>
-            <EmptyDescription>
-              Revoked player pairings will appear here automatically.
-            </EmptyDescription>
+            <EmptyTitle>{t("archive.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("archive.emptyBody")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Link className={buttonVariants()} to="/screens">
-              Back to screens
+              {t("archive.back")}
             </Link>
           </EmptyContent>
         </Empty>
       ) : (
-        <section className="detail-card" aria-label="Archived screens">
+        <section className="detail-card" aria-label={t("archive.section")}>
           <header>
             <div>
-              <h3>Revoked pairings</h3>
-              <p>
-                These records do not count toward locations, groups, schedules,
-                assignments, takeovers, or update deployments.
-              </p>
+              <h3>{t("archive.revokedTitle")}</h3>
+              <p>{t("archive.revokedBody")}</p>
             </div>
-            <span>{screens.length} archived</span>
+            <span>{t("archive.count", { count: screens.length })}</span>
           </header>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Screen</th>
-                  <th>Device</th>
-                  <th>Archived</th>
-                  <th>Reason</th>
-                  <th>Last contact</th>
+                  <th>{t("archive.colScreen")}</th>
+                  <th>{t("archive.colDevice")}</th>
+                  <th>{t("archive.colArchived")}</th>
+                  <th>{t("archive.colReason")}</th>
+                  <th>{t("archive.colLastContact")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -101,7 +94,7 @@ export function ArchivedScreensPage() {
                       {screen.deviceModel}
                     </td>
                     <td>{formatDate(screen.archivedAt)}</td>
-                    <td>{screen.archivedReason || "Pairing revoked"}</td>
+                    <td>{screen.archivedReason || t("status.revoked")}</td>
                     <td>{formatDate(screen.lastContactAt)}</td>
                   </tr>
                 ))}

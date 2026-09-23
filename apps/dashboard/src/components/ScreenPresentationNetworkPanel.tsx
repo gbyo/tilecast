@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Wifi, WifiOff } from "lucide-react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { PresentationNetworkReadiness, Screen } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
@@ -15,32 +17,37 @@ import {
   SelectValue,
 } from "./ui/select";
 
-function statusLabel(status: PresentationNetworkReadiness["status"]) {
+type ScreensT = TFunction<"screens", undefined>;
+
+function statusLabel(
+  status: PresentationNetworkReadiness["status"],
+  t: ScreensT,
+) {
   switch (status) {
     case "ready":
-      return "Presentation Network ready";
+      return t("network.status.ready");
     case "connected":
-      return "Connected for AirPlay";
+      return t("network.status.connected");
     case "unassigned":
-      return "No Presentation Network assigned";
+      return t("network.status.unassigned");
     case "wifi_adapter_unavailable":
-      return "Wi-Fi adapter unavailable";
+      return t("network.status.wifiAdapter");
     case "network_manager_unavailable":
-      return "NetworkManager unavailable";
+      return t("network.status.networkManager");
     case "helper_missing":
-      return "Network helper unavailable";
+      return t("network.status.helperMissing");
     case "helper_unhealthy":
-      return "Network helper unhealthy";
+      return t("network.status.helperUnhealthy");
     case "configuration_pending":
-      return "Configuration pending";
+      return t("network.status.configPending");
     case "reporting_pending":
-      return "Waiting for player status";
+      return t("network.status.reportingPending");
     case "failed":
-      return "Last connection failed";
+      return t("network.status.failed");
     case "unsupported":
-      return "Presentation Network unsupported";
+      return t("network.status.unsupported");
     default:
-      return "Presentation Network not applicable";
+      return t("network.status.notApplicable");
   }
 }
 
@@ -53,6 +60,7 @@ export function ScreenPresentationNetworkPanel({
   canManage: boolean;
   csrfToken: string;
 }) {
+  const { t } = useTranslation(["screens", "common"]);
   const client = useQueryClient();
   const linux = screen.platform.trim().toLowerCase() === "linux";
   const readiness = useQuery({
@@ -80,9 +88,7 @@ export function ScreenPresentationNetworkPanel({
         : api.unassignScreenPresentationNetwork(screen.id, csrfToken),
     onSuccess: async () => {
       setNotice(
-        selected
-          ? "Presentation Network assignment saved."
-          : "Presentation Network unassigned.",
+        selected ? t("network.savedAssigned") : t("network.savedUnassigned"),
       );
       await client.invalidateQueries({
         queryKey: ["screens", screen.id, "presentation-network"],
@@ -94,13 +100,11 @@ export function ScreenPresentationNetworkPanel({
   const test = useMutation({
     mutationFn: () => {
       const networkId = readiness.data?.presentationNetworkId;
-      if (!networkId) throw new Error("Assign a Presentation Network first.");
+      if (!networkId) throw new Error(t("network.assignFirst"));
       return api.testPresentationNetwork(networkId, screen.id, csrfToken);
     },
     onSuccess: (result) => {
-      setNotice(
-        `Connection test requested. The player will report the result within ${result.timeoutSeconds} seconds.`,
-      );
+      setNotice(t("network.testRequested", { seconds: result.timeoutSeconds }));
       void client.invalidateQueries({
         queryKey: ["screens", screen.id, "commands"],
       });
@@ -130,12 +134,9 @@ export function ScreenPresentationNetworkPanel({
             id="presentation-network-readiness-heading"
             className="text-sm font-semibold"
           >
-            Presentation Network
+            {t("network.title")}
           </h4>
-          <p className="text-sm text-muted-foreground">
-            Temporary Wi-Fi is used only by this Linux player when it is the
-            AirPlay gateway. Group followers remain on Ethernet.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("network.body")}</p>
         </div>
         <Badge
           variant={
@@ -146,21 +147,18 @@ export function ScreenPresentationNetworkPanel({
                 : "secondary"
           }
         >
-          {statusLabel(data?.status ?? "reporting_pending")}
+          {statusLabel(data?.status ?? "reporting_pending", t)}
         </Badge>
       </div>
       {readiness.isLoading ? (
-        <div
-          className="space-y-2"
-          aria-label="Loading Presentation Network status"
-        >
+        <div className="space-y-2" aria-label={t("network.loading")}>
           <Skeleton className="h-8 w-full" />
           <Skeleton className="h-8 w-full" />
         </div>
       ) : readiness.error ? (
         <Alert variant="destructive">
           <WifiOff aria-hidden="true" />
-          <AlertTitle>Could not load Presentation Network status</AlertTitle>
+          <AlertTitle>{t("network.loadError")}</AlertTitle>
           <AlertDescription>{readiness.error.message}</AlertDescription>
         </Alert>
       ) : (
@@ -168,46 +166,52 @@ export function ScreenPresentationNetworkPanel({
           <dl className="grid gap-3 sm:grid-cols-2">
             <div>
               <dt className="text-xs text-muted-foreground">
-                Assigned network
+                {t("network.assigned")}
               </dt>
               <dd className="mt-1 break-words text-sm">
-                {data?.presentationNetworkName ?? "None"}
+                {data?.presentationNetworkName ?? t("shared.none")}
                 {assignedNetwork && !assignedNetwork.credentialSet
-                  ? " · credential missing"
+                  ? t("network.credentialMissing")
                   : ""}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Player status</dt>
+              <dt className="text-xs text-muted-foreground">
+                {t("network.playerStatus")}
+              </dt>
               <dd className="mt-1 break-words text-sm">
-                {data?.detail ?? "Waiting for player status."}
+                {data?.detail ?? t("network.waitingStatus")}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Wi-Fi adapter</dt>
+              <dt className="text-xs text-muted-foreground">
+                {t("network.wifi")}
+              </dt>
               <dd className="mt-1 text-sm">
                 {data?.wifiAdapterPresent == null
-                  ? "Not reported"
+                  ? t("shared.notReported")
                   : data.wifiAdapterPresent
-                    ? "Available"
-                    : "Unavailable"}
+                    ? t("detail.available")
+                    : t("network.unavailable")}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Ethernet IPv4</dt>
+              <dt className="text-xs text-muted-foreground">
+                {t("network.ethernet")}
+              </dt>
               <dd className="mt-1 break-words text-sm">
                 {data?.wiredIpv4
-                  ? `${data.wiredIpv4}${data.wiredInterfaceAvailable === false ? " · interface unavailable" : ""}`
+                  ? `${data.wiredIpv4}${data.wiredInterfaceAvailable === false ? t("network.ifaceUnavailable") : ""}`
                   : data?.wiredInterfaceAvailable === false
-                    ? "Unavailable"
-                    : "Not reported"}
+                    ? t("network.unavailable")
+                    : t("shared.notReported")}
               </dd>
             </div>
           </dl>
           {data?.limitation && (
             <Alert>
               <AlertDescription>
-                Capability limitation: {data.limitation}
+                {t("network.limitation", { detail: data.limitation })}
               </AlertDescription>
             </Alert>
           )}
@@ -216,14 +220,13 @@ export function ScreenPresentationNetworkPanel({
       {canManage && (
         <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <label className="grid min-w-0 gap-1.5 text-sm font-medium">
-            <span>Assigned Presentation Network</span>
+            <span>{t("network.assignLabel")}</span>
             <span className="text-xs font-normal text-muted-foreground">
-              Assignment is durable; the player joins Wi-Fi only for an AirPlay
-              gateway session.
+              {t("network.assignHint")}
             </span>
             <Select
               items={[
-                { value: "__unassigned__", label: "No Presentation Network" },
+                { value: "__unassigned__", label: t("network.noNetwork") },
                 ...(networks.data?.items ?? []).map((network) => ({
                   value: network.id,
                   label: `${network.name} · ${network.ssid}`,
@@ -236,14 +239,14 @@ export function ScreenPresentationNetworkPanel({
             >
               <SelectTrigger
                 className="w-full"
-                aria-label="Assigned Presentation Network"
+                aria-label={t("network.assignLabel")}
                 disabled={networks.isLoading || assignment.isPending}
               >
-                <SelectValue placeholder="No Presentation Network" />
+                <SelectValue placeholder={t("network.noNetwork")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__unassigned__">
-                  No Presentation Network
+                  {t("network.noNetwork")}
                 </SelectItem>
                 {(networks.data?.items ?? []).map((network) => (
                   <SelectItem key={network.id} value={network.id}>
@@ -264,7 +267,9 @@ export function ScreenPresentationNetworkPanel({
                 assignment.mutate();
               }}
             >
-              {assignment.isPending ? "Saving…" : "Save assignment"}
+              {assignment.isPending
+                ? t("common:actions.saving")
+                : t("network.save")}
             </Button>
             {data?.presentationNetworkId && (
               <Button
@@ -276,7 +281,7 @@ export function ScreenPresentationNetworkPanel({
                   test.mutate();
                 }}
               >
-                {test.isPending ? "Testing…" : "Test connection"}
+                {test.isPending ? t("network.testing") : t("network.test")}
               </Button>
             )}
           </div>
@@ -296,19 +301,17 @@ export function ScreenPresentationNetworkPanel({
       )}
       {!canManage && (
         <p className="text-sm text-muted-foreground">
-          An Owner or Administrator can change this assignment.
+          {t("network.viewerNote")}
         </p>
       )}
       {data?.status === "unassigned" && (
         <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <WifiOff size={14} aria-hidden="true" /> AirPlay remains Ethernet-only
-          until a network is assigned.
+          <WifiOff size={14} aria-hidden="true" /> {t("network.ethernetOnly")}
         </p>
       )}
       {(data?.status === "ready" || data?.status === "connected") && (
         <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Wifi size={14} aria-hidden="true" /> Ethernet remains the default
-          Tilecast route.
+          <Wifi size={14} aria-hidden="true" /> {t("network.ethernetDefault")}
         </p>
       )}
     </section>
