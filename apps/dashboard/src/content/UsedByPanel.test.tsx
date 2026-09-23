@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
 import { UsedByPanel, type UsedByGroup } from "./UsedByPanel";
@@ -96,7 +97,7 @@ describe("UsedByPanel", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("summarizes large usage groups behind expandable counts", () => {
+  it("summarizes large usage groups behind expandable counts", async () => {
     panel(
       [
         {
@@ -117,12 +118,18 @@ describe("UsedByPanel", () => {
       true,
     );
 
-    const screenSummary = screen.getByText("Screens").closest("summary");
+    const user = userEvent.setup();
+    const outer = screen.getByRole("button", { name: /Used by/ });
+    expect(outer).toHaveTextContent("3");
+    expect(outer).toHaveAttribute("aria-expanded", "false");
+    await user.click(outer);
+    const screenSummary = screen.getByRole("button", { name: /^Screens/ });
     expect(screenSummary).toHaveTextContent("2");
-    expect(screenSummary?.parentElement).not.toHaveAttribute("open");
-    expect(screen.getByText("Schedules").closest("summary")).toHaveTextContent(
-      "1",
-    );
+    expect(screenSummary).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByRole("button", { name: /^Schedules/ }),
+    ).toHaveTextContent("1");
+    await user.click(screen.getByRole("button", { name: /^Screens/ }));
     expect(screen.getByRole("link", { name: /Cafeteria TV/ })).toHaveAttribute(
       "href",
       "/screens/s1",

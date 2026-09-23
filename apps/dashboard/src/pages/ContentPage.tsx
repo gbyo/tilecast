@@ -1,48 +1,131 @@
-import {
-  Button,
-  ContextMenu,
-  Dialog,
-  Drawer,
-  Notice,
-  PageHeader,
-  Select,
-  ToggleGroup,
-  ViewToggle,
-  useContextMenu,
-  type ContextMenuItem,
-} from "../components/legacy-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  EllipsisVertical,
   Archive,
   ArchiveRestore,
-  FileImage,
-  Folder,
-  Upload,
+  ChevronDown,
   Copy,
-  Pencil,
-  Square,
-  SquareCheck,
-  SquarePen,
-  Trash2,
-  X,
+  EllipsisVertical,
+  FileImage,
+  FileUp,
+  Folder,
   FolderPlus,
-  Tags,
+  Grid2X2,
   Library,
+  List,
+  Pencil,
+  RotateCcw,
+  SquarePen,
+  Tags,
+  Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { signalColors } from "@tilecast/design-tokens/values";
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
   type ChangeEvent,
   type DragEvent,
+  type ReactNode,
 } from "react";
 import { api, ApiError } from "../api/client";
 import {
   DashboardListToolbar,
   DashboardSearch,
 } from "../components/DashboardListToolbar";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import {
+  AlertDialog as RheaAlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "../components/ui/attachment";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import {
+  ContextMenu as RheaContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "../components/ui/context-menu";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  DropdownMenu as RheaDropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldError, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import { Progress } from "../components/ui/progress";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  Sheet as RheaSheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
+import { Skeleton } from "../components/ui/skeleton";
+import { Spinner } from "../components/ui/spinner";
+import { Switch as RheaSwitch } from "../components/ui/switch";
+import { Textarea } from "../components/ui/textarea";
+import {
+  ToggleGroup as RheaToggleGroup,
+  ToggleGroupItem,
+} from "../components/ui/toggle-group";
 import type {
   Asset,
   AssetStatus,
@@ -137,6 +220,80 @@ export function nextExpirationDelay(assets: Asset[], now = Date.now()) {
   return next == null ? undefined : Math.max(0, next - now) + 100;
 }
 
+function SingleToggleGroup<Value extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: Value;
+  onChange: (value: Value) => void;
+  options: readonly { value: Value; label: ReactNode; text: string }[];
+}) {
+  return (
+    <RheaToggleGroup
+      aria-label={label}
+      multiple={false}
+      value={[value]}
+      onValueChange={(next) => {
+        const first = next[0];
+        if (first !== undefined) onChange(first as Value);
+      }}
+    >
+      {options.map((option) => (
+        <ToggleGroupItem
+          key={option.value}
+          value={option.value}
+          aria-label={option.text}
+        >
+          {option.label}
+        </ToggleGroupItem>
+      ))}
+    </RheaToggleGroup>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  id,
+  disabled,
+}: {
+  label: string;
+  value: string | undefined;
+  onChange: (value: string) => void;
+  options: readonly { value: string; label: string }[];
+  id?: string;
+  disabled?: boolean;
+}) {
+  const resolved = value ?? "";
+  const selectedLabel =
+    options.find((option) => option.value === resolved)?.label ?? resolved;
+  return (
+    <RheaSelect
+      value={resolved}
+      disabled={disabled}
+      onValueChange={(next) => {
+        if (typeof next === "string") onChange(next);
+      }}
+    >
+      <SelectTrigger id={id} aria-label={id ? undefined : label}>
+        <SelectValue>{selectedLabel}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </RheaSelect>
+  );
+}
+
 export function ContentPage() {
   const auth = useAuth();
   const canManage = canManageContent(auth.status?.user);
@@ -155,6 +312,19 @@ export function ContentPage() {
   const [checkedAssetIds, setCheckedAssetIds] = useState<Set<string>>(
     new Set(),
   );
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [confirmArchiveAsset, setConfirmArchiveAsset] = useState<Asset | null>(
+    null,
+  );
+  const [confirmDeleteAsset, setConfirmDeleteAsset] = useState<Asset | null>(
+    null,
+  );
+  const deleteCheckedAssets = async () => {
+    const ids = [...checkedAssetIds];
+    await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
+    setCheckedAssetIds(new Set());
+    refreshOrganization();
+  };
   const [view, setView] = useState<"grid" | "list">("grid");
   const [queue, setQueue] = useState<QueueItem[]>(() => {
     try {
@@ -366,38 +536,39 @@ export function ContentPage() {
 
   return (
     <section
-      className="content-page"
+      className="w-full min-w-0 space-y-5"
       onDragOver={(event) => event.preventDefault()}
       onDrop={libraryView === "active" ? dropFiles : undefined}
     >
       <WorkspaceTabs label="Content library" tabs={contentTabs} />
-      <PageHeader
-        title="Media"
-        description={
-          libraryView === "active"
-            ? "Uploaded images and videos available to playlists and Layouts."
-            : "Archived and expired content stays here until you restore or permanently delete it."
-        }
-        actions={
-          canManage && libraryView === "active" ? (
-            <Button
-              variant="primary"
+      <header className="space-y-1">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold">Media</h1>
+          {canManage && libraryView === "active" && (
+            <RheaButton
               type="button"
               onClick={() => fileInput.current?.click()}
             >
               <Upload size={16} aria-hidden="true" /> Upload assets
-            </Button>
-          ) : undefined
-        }
-      />
-      <ToggleGroup
-        className="content-library-switch"
+            </RheaButton>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {libraryView === "active"
+            ? "Uploaded images and videos available to playlists and Layouts."
+            : "Archived and expired content stays here until you restore or permanently delete it."}
+          {typeof assets.data?.total === "number" && (
+            <> {assets.data.total} assets.</>
+          )}
+        </p>
+      </header>
+      <SingleToggleGroup
         label="Library view"
         value={libraryView}
-        onValueChange={setLibraryView}
-        items={[
-          { value: "active", label: "Library" },
-          { value: "archive", label: "Archive" },
+        onChange={setLibraryView}
+        options={[
+          { value: "active", label: "Library", text: "Library" },
+          { value: "archive", label: "Archive", text: "Archive" },
         ]}
       />
       <input
@@ -411,47 +582,64 @@ export function ContentPage() {
       />
 
       {libraryView === "active" && queue.length > 0 && (
-        <section className="upload-queue" aria-label="Upload queue">
-          <header>
-            <strong>Uploads</strong>
-            <span>{queue.length} active</span>
-          </header>
+        <section className="space-y-2" aria-label="Upload queue">
+          <p className="text-sm font-medium">
+            Uploads{" "}
+            <span className="font-normal text-muted-foreground">
+              {queue.length} active
+            </span>
+          </p>
           {queue.map((item) => {
             const percent = Math.round(
               (item.uploadedBytes / item.sizeBytes) * 100,
             );
             return (
-              <div className="upload-row" key={item.localId}>
-                <span>
-                  <strong>{item.filename}</strong>
-                  <small>
+              <Attachment
+                key={item.localId}
+                state={
+                  item.state === "failed"
+                    ? "error"
+                    : item.state === "uploading"
+                      ? "uploading"
+                      : item.state === "waiting"
+                        ? "idle"
+                        : "processing"
+                }
+              >
+                <AttachmentMedia>
+                  <FileUp aria-hidden="true" />
+                </AttachmentMedia>
+                <AttachmentContent>
+                  <AttachmentTitle>{item.filename}</AttachmentTitle>
+                  <AttachmentDescription>
                     {formatBytes(item.uploadedBytes)} of{" "}
-                    {formatBytes(item.sizeBytes)} · {item.state}
-                  </small>
+                    {formatBytes(item.sizeBytes)} · {percent}% · {item.state}
+                  </AttachmentDescription>
                   {item.error && (
-                    <small className="upload-error">{item.error}</small>
+                    <p className="text-sm text-destructive">{item.error}</p>
                   )}
-                </span>
-                <progress value={item.uploadedBytes} max={item.sizeBytes}>
-                  {percent}%
-                </progress>
-                <b>{percent}%</b>
-                {item.state === "failed" && (
-                  <button
-                    className="button button--quiet"
-                    onClick={() => resume(item)}
+                  <Progress
+                    aria-label={`Upload progress for ${item.filename}`}
+                    value={percent}
+                  />
+                </AttachmentContent>
+                <AttachmentActions>
+                  {item.state === "failed" && (
+                    <AttachmentAction
+                      aria-label={`Retry or resume ${item.filename}`}
+                      onClick={() => resume(item)}
+                    >
+                      <RotateCcw aria-hidden="true" />
+                    </AttachmentAction>
+                  )}
+                  <AttachmentAction
+                    aria-label={`Cancel ${item.filename}`}
+                    onClick={() => void cancel(item)}
                   >
-                    Retry or resume
-                  </button>
-                )}
-                <button
-                  className="icon-button"
-                  aria-label={`Cancel ${item.filename}`}
-                  onClick={() => void cancel(item)}
-                >
-                  <X size={16} />
-                </button>
-              </div>
+                    <X aria-hidden="true" />
+                  </AttachmentAction>
+                </AttachmentActions>
+              </Attachment>
             );
           })}
         </section>
@@ -464,92 +652,88 @@ export function ContentPage() {
           label="Search media"
           placeholder="Search media"
         />
-        <ToggleGroup
-          className="content-type-filters"
+        <SingleToggleGroup
           label="Content type filters"
           value={contentFilter}
-          onValueChange={setContentFilter}
-          items={[
-            { value: "media", label: "Media" },
-            { value: "image", label: "Images" },
-            { value: "video", label: "Videos" },
+          onChange={setContentFilter}
+          options={[
+            { value: "media", label: "Media", text: "Media" },
+            { value: "image", label: "Images", text: "Images" },
+            { value: "video", label: "Videos", text: "Videos" },
           ]}
         />
-        <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Filter by status"
+        <FilterSelect
+          label="Filter by status"
           value={status}
-          onChange={(event) => setStatus(event.target.value)}
-        >
-          <option value="">All statuses</option>
-          <option value="ready">Ready</option>
-          <option value="queued">Waiting</option>
-          <option value="inspecting">Inspecting</option>
-          <option value="processing">Processing</option>
-          <option value="failed">Failed</option>
-        </Select>
+          onChange={setStatus}
+          options={[
+            { value: "", label: "All statuses" },
+            { value: "ready", label: "Ready" },
+            { value: "queued", label: "Waiting" },
+            { value: "inspecting", label: "Inspecting" },
+            { value: "processing", label: "Processing" },
+            { value: "failed", label: "Failed" },
+          ]}
+        />
         {libraryView === "active" && (
           <>
-            <Select
-              className="dashboard-list-toolbar__filter"
-              aria-label="Filter by folder"
+            <FilterSelect
+              label="Filter by folder"
               value={folderFilter}
-              onChange={(event) => setFolderFilter(event.target.value)}
-            >
-              <option value="">All folders</option>
-              {folders.data?.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.name} ({folder.assetCount})
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="dashboard-list-toolbar__filter"
-              aria-label="Filter by collection"
+              onChange={setFolderFilter}
+              options={[
+                { value: "", label: "All folders" },
+                ...(folders.data?.map((folder) => ({
+                  value: folder.id,
+                  label: `${folder.name} (${folder.assetCount})`,
+                })) ?? []),
+              ]}
+            />
+            <FilterSelect
+              label="Filter by collection"
               value={collectionFilter}
-              onChange={(event) => setCollectionFilter(event.target.value)}
-            >
-              <option value="">All collections</option>
-              {collections.data?.map((collection) => (
-                <option key={collection.id} value={collection.id}>
-                  {collection.name} ({collection.assetCount})
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="dashboard-list-toolbar__filter"
-              aria-label="Filter by tag"
+              onChange={setCollectionFilter}
+              options={[
+                { value: "", label: "All collections" },
+                ...(collections.data?.map((collection) => ({
+                  value: collection.id,
+                  label: `${collection.name} (${collection.assetCount})`,
+                })) ?? []),
+              ]}
+            />
+            <FilterSelect
+              label="Filter by tag"
               value={tagFilter}
-              onChange={(event) => setTagFilter(event.target.value)}
-            >
-              <option value="">All tags</option>
-              {tags.data?.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name} ({tag.assetCount ?? 0})
-                </option>
-              ))}
-            </Select>
+              onChange={setTagFilter}
+              options={[
+                { value: "", label: "All tags" },
+                ...(tags.data?.map((tag) => ({
+                  value: tag.id,
+                  label: `${tag.name} (${tag.assetCount ?? 0})`,
+                })) ?? []),
+              ]}
+            />
           </>
         )}
-        <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Sort media"
+        <FilterSelect
+          label="Sort media"
           value={sort}
-          onChange={(event) => setSort(event.target.value)}
-        >
-          <option value="updated">Recently updated</option>
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="name">Name</option>
-        </Select>
+          onChange={setSort}
+          options={[
+            { value: "updated", label: "Recently updated" },
+            { value: "newest", label: "Newest" },
+            { value: "oldest", label: "Oldest" },
+            { value: "name", label: "Name" },
+          ]}
+        />
         {(search ||
           contentFilter !== "media" ||
           status ||
           folderFilter ||
           collectionFilter ||
           tagFilter) && (
-          <Button
-            variant="quiet"
+          <RheaButton
+            variant="ghost"
             type="button"
             onClick={() => {
               setSearch("");
@@ -561,9 +745,25 @@ export function ContentPage() {
             }}
           >
             Reset filters
-          </Button>
+          </RheaButton>
         )}
-        <ViewToggle value={view} onValueChange={setView} />
+        <SingleToggleGroup
+          label="View"
+          value={view}
+          onChange={setView}
+          options={[
+            {
+              value: "grid",
+              label: <Grid2X2 size={16} aria-hidden="true" />,
+              text: "Grid view",
+            },
+            {
+              value: "list",
+              label: <List size={16} aria-hidden="true" />,
+              text: "List view",
+            },
+          ]}
+        />
       </DashboardListToolbar>
 
       {canManage && (libraryView === "active" || checkedAssetIds.size > 0) && (
@@ -595,30 +795,45 @@ export function ContentPage() {
             setCheckedAssetIds(new Set());
             refreshOrganization();
           }}
-          onDelete={async () => {
-            const ids = [...checkedAssetIds];
-            if (
-              !confirm(
-                `Permanently delete ${ids.length} archived item${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
-              )
-            )
-              return;
-            await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
-            setCheckedAssetIds(new Set());
-            refreshOrganization();
-          }}
+          onDelete={() => setConfirmBulkDelete(true)}
         />
       )}
+      <RheaAlertDialog
+        open={confirmBulkDelete}
+        onOpenChange={setConfirmBulkDelete}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Permanently delete {checkedAssetIds.size} archived item
+              {checkedAssetIds.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep items</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void deleteCheckedAssets()}>
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
 
       {assets.isError && (
-        <div className="notice notice--error">
-          {assets.error instanceof ApiError
-            ? assets.error.message
-            : "The media library could not be loaded."}
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>The media library could not be loaded</AlertTitle>
+          <AlertDescription>
+            {assets.error instanceof ApiError ? assets.error.message : ""}
+          </AlertDescription>
+        </Alert>
       )}
       {assets.isLoading ? (
-        <div className="table-loading">Loading media…</div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-48" />
+          <p className="text-sm text-muted-foreground">Loading media…</p>
+        </div>
       ) : assets.data?.items?.length === 0 ? (
         <ContentEmpty
           canManage={canManage && libraryView === "active"}
@@ -649,23 +864,11 @@ export function ContentPage() {
                 queryClient.invalidateQueries({ queryKey: ["assets"] }),
               )
           }
-          onArchive={(asset) => {
-            if (confirm(`Move ${asset.name} to the archive?`))
-              void api
-                .archiveAssets([asset.id], csrf)
-                .then(refreshOrganization);
-          }}
+          onArchive={(asset) => setConfirmArchiveAsset(asset)}
           onRestore={(asset) => {
             void api.restoreAssets([asset.id], csrf).then(refreshOrganization);
           }}
-          onDelete={(asset) => {
-            if (
-              confirm(
-                `Permanently delete ${asset.name}? This cannot be undone.`,
-              )
-            )
-              void api.deleteAsset(asset.id, csrf).then(refreshOrganization);
-          }}
+          onDelete={(asset) => setConfirmDeleteAsset(asset)}
           selectedIds={checkedAssetIds}
           onToggle={(id) =>
             setCheckedAssetIds((current) => {
@@ -689,6 +892,71 @@ export function ContentPage() {
           }}
         />
       )}
+      <RheaAlertDialog
+        open={confirmArchiveAsset !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmArchiveAsset(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Move {confirmArchiveAsset?.name} to the archive?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Archived items stay available until you restore or permanently
+              delete them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep in library</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const asset = confirmArchiveAsset;
+                setConfirmArchiveAsset(null);
+                if (asset)
+                  void api
+                    .archiveAssets([asset.id], csrf)
+                    .then(refreshOrganization);
+              }}
+            >
+              Move to archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
+      <RheaAlertDialog
+        open={confirmDeleteAsset !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmDeleteAsset(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Permanently delete {confirmDeleteAsset?.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep item</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const asset = confirmDeleteAsset;
+                setConfirmDeleteAsset(null);
+                if (asset)
+                  void api
+                    .deleteAsset(asset.id, csrf)
+                    .then(refreshOrganization);
+              }}
+            >
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
     </section>
   );
 }
@@ -705,26 +973,37 @@ export function ContentEmpty({
   archived?: boolean;
 }) {
   return (
-    <div
-      className="content-empty"
+    <Empty
       onDragOver={(event) => event.preventDefault()}
       onDrop={archived ? undefined : onDrop}
     >
-      {archived ? <Archive size={30} /> : <FileImage size={30} />}
-      <h3>{archived ? "Archive is empty" : "No media yet"}</h3>
-      <p>
-        {archived
-          ? "Items you archive—or that reach their expiration—appear here and can be restored later."
-          : canManage
-            ? "Drag images or videos here, or choose files to begin your library."
-            : "An Owner, Administrator, or Editor can upload media."}
-      </p>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          {archived ? (
+            <Archive aria-hidden="true" />
+          ) : (
+            <FileImage aria-hidden="true" />
+          )}
+        </EmptyMedia>
+        <EmptyTitle>
+          {archived ? "Archive is empty" : "No media yet"}
+        </EmptyTitle>
+        <EmptyDescription>
+          {archived
+            ? "Items you archive—or that reach their expiration—appear here and can be restored later."
+            : canManage
+              ? "Drag images or videos here, or choose files to begin your library."
+              : "An Owner, Administrator, or Editor can upload media."}
+        </EmptyDescription>
+      </EmptyHeader>
       {canManage && !archived && (
-        <button className="button button--quiet" onClick={onChoose}>
-          Choose files
-        </button>
+        <EmptyContent>
+          <RheaButton variant="outline" onClick={onChoose}>
+            Choose files
+          </RheaButton>
+        </EmptyContent>
       )}
-    </div>
+    </Empty>
   );
 }
 
@@ -755,198 +1034,409 @@ export function AssetCollection({
   folderNames?: Map<string, string>;
   archived?: boolean;
 }) {
-  const menu = useContextMenu<Asset>();
-  // Every action is also reachable from a visible control, so the menu stays a shortcut
-  // rather than the only route to duplication or deletion.
-  const actionsFor = (asset: Asset): ContextMenuItem[] => {
-    const actions: ContextMenuItem[] = archived
+  // Every action is also reachable from a visible control, so the menus stay a
+  // shortcut rather than the only route to duplication or deletion.
+  const actionsFor = (asset: Asset): AssetMenuAction[] => {
+    const actions: AssetMenuAction[] = archived
       ? []
       : [
           {
             label: canManage ? "Edit" : "Open",
-            icon: <SquarePen size={14} />,
+            icon: <SquarePen size={14} aria-hidden="true" />,
             onSelect: () => onSelect(asset),
           },
         ];
     if (canManage && onToggle)
       actions.push({
         label: selectedIds.has(asset.id) ? "Clear selection" : "Select",
-        icon: selectedIds.has(asset.id) ? (
-          <Square size={14} />
-        ) : (
-          <SquareCheck size={14} />
-        ),
         onSelect: () => onToggle(asset.id),
       });
     // Only Widgets have a duplicate endpoint; uploaded media has no server-side copy.
     if (canManage && onDuplicate && asset.type === "widget")
       actions.push({
         label: "Duplicate",
-        icon: <Copy size={14} />,
+        icon: <Copy size={14} aria-hidden="true" />,
         onSelect: () => onDuplicate(asset),
       });
     if (canManage && !archived && onArchive)
       actions.push({
         label: "Archive",
-        icon: <Archive size={14} />,
+        icon: <Archive size={14} aria-hidden="true" />,
         separated: actions.length > 0,
         onSelect: () => onArchive(asset),
       });
     if (canManage && archived && onRestore)
       actions.push({
         label: "Restore to library",
-        icon: <ArchiveRestore size={14} />,
+        icon: <ArchiveRestore size={14} aria-hidden="true" />,
         onSelect: () => onRestore(asset),
       });
     if (canManage && archived && onDelete)
       actions.push({
         label: "Delete permanently",
-        icon: <Trash2 size={14} />,
+        icon: <Trash2 size={14} aria-hidden="true" />,
         danger: true,
         separated: actions.length > 0,
         onSelect: () => onDelete(asset),
       });
     return actions;
   };
+  const toggleFor =
+    canManage && onToggle ? (id: string) => onToggle(id) : undefined;
+  if (view === "list") {
+    return (
+      <ItemGroup>
+        {items.map((asset) => (
+          <RheaContextMenu key={asset.id}>
+            <ContextMenuTrigger className="contents">
+              <MediaAssetListRow
+                asset={asset}
+                archived={archived}
+                selected={selectedIds.has(asset.id)}
+                onSelect={() => onSelect(asset)}
+                onToggle={toggleFor ? () => toggleFor(asset.id) : undefined}
+                actions={actionsFor(asset)}
+              />
+            </ContextMenuTrigger>
+            <AssetContextMenu asset={asset} actions={actionsFor(asset)} />
+          </RheaContextMenu>
+        ))}
+      </ItemGroup>
+    );
+  }
   return (
-    <div className={`asset-collection asset-collection--${view}`}>
-      {items.map((asset) => {
-        // Widget cards already spell their actions out in a footer, so they skip the trigger
-        // and keep right-click as the shortcut.
-        const showTrigger = archived || !(asset.type === "widget" && canManage);
-        const expired = archived && isExpiredAsset(asset);
-        return (
-          <article
-            className={`asset-card${showTrigger ? " asset-card--has-menu" : ""}${selectedIds.has(asset.id) ? " asset-card--selected" : ""}`}
-            key={asset.id}
-            onContextMenu={(event) => menu.open(event, asset)}
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {items.map((asset) => (
+        <MediaAssetCard
+          key={asset.id}
+          asset={asset}
+          archived={archived}
+          canManage={canManage}
+          folderNames={folderNames}
+          selected={selectedIds.has(asset.id)}
+          showMenu={archived || !(asset.type === "widget" && canManage)}
+          onSelect={() => onSelect(asset)}
+          onToggle={toggleFor ? () => toggleFor(asset.id) : undefined}
+          onDuplicate={
+            onDuplicate && asset.type === "widget"
+              ? () => onDuplicate(asset)
+              : undefined
+          }
+          onArchive={onArchive ? () => onArchive(asset) : undefined}
+          actions={actionsFor(asset)}
+        />
+      ))}
+    </div>
+  );
+}
+
+type AssetMenuAction = {
+  label: string;
+  icon?: ReactNode;
+  onSelect: () => void;
+  danger?: boolean;
+  separated?: boolean;
+};
+
+function AssetMenuContents({ actions }: { actions: AssetMenuAction[] }) {
+  return (
+    <>
+      {actions.map((action, index) => (
+        <Fragment key={`${action.label}-${index}`}>
+          {action.separated && <DropdownMenuSeparator />}
+          <DropdownMenuItem
+            variant={action.danger ? "destructive" : "default"}
+            onClick={action.onSelect}
           >
-            {showTrigger && (
-              <button
-                type="button"
-                className="asset-card__menu"
-                aria-haspopup="menu"
-                aria-expanded={menu.anchor?.target.id === asset.id}
-                aria-label={`Actions for ${asset.name}`}
-                onClick={(event) => menu.open(event, asset)}
-              >
-                <EllipsisVertical size={15} aria-hidden="true" />
-              </button>
-            )}
-            {canManage && onToggle && (
-              <label className="asset-card__select">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(asset.id)}
-                  onChange={() => onToggle(asset.id)}
-                />
-                <span className="visually-hidden">Select {asset.name}</span>
-              </label>
-            )}
-            <button
-              className="asset-card__open"
-              onClick={() => onSelect(asset)}
-              aria-label={`${archived ? "View" : "Edit"} ${asset.name}`}
+            {action.icon}
+            {action.label}
+          </DropdownMenuItem>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+function AssetContextMenu({
+  asset,
+  actions,
+}: {
+  asset: Asset;
+  actions: AssetMenuAction[];
+}) {
+  if (actions.length === 0) return null;
+  return (
+    <ContextMenuContent aria-label={`Actions for ${asset.name}`}>
+      {actions.map((action, index) => (
+        <Fragment key={`${action.label}-${index}`}>
+          {action.separated && <ContextMenuSeparator />}
+          <ContextMenuItem
+            variant={action.danger ? "destructive" : "default"}
+            onClick={action.onSelect}
+          >
+            {action.icon}
+            {action.label}
+          </ContextMenuItem>
+        </Fragment>
+      ))}
+    </ContextMenuContent>
+  );
+}
+
+function assetStatusBadge(
+  asset: Asset,
+  archived: boolean,
+): {
+  label: string;
+  variant: "secondary" | "destructive" | "outline";
+} {
+  if (archived && isExpiredAsset(asset))
+    return { label: "Expired", variant: "outline" };
+  if (archived) return { label: "Archived", variant: "outline" };
+  if (asset.processingStatus === "failed")
+    return { label: "Failed", variant: "destructive" };
+  return { label: statusLabel(asset.processingStatus), variant: "secondary" };
+}
+
+function AssetSummary({ asset }: { asset: Asset }) {
+  return (
+    <>
+      {asset.type === "video" && formatDuration(asset.durationSeconds)}
+      {asset.type === "widget" &&
+        (asset.widget?.provider === "youtube"
+          ? "YouTube"
+          : asset.widget?.provider
+            ? asset.widget.provider.toUpperCase()
+            : asset.website?.displayUrl)}
+      {asset.width && asset.height
+        ? `${asset.type === "video" ? " · " : ""}${asset.width} × ${asset.height}`
+        : ""}
+    </>
+  );
+}
+
+function AssetOrganizationChips({
+  asset,
+  folderNames,
+}: {
+  asset: Asset;
+  folderNames?: Map<string, string>;
+}) {
+  const folderLabel = asset.folderId
+    ? folderNames?.get(asset.folderId)
+    : undefined;
+  if (!folderLabel && !asset.tags?.length) return null;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {folderLabel && (
+        <Badge variant="outline">
+          <Folder size={11} aria-hidden="true" />
+          {folderLabel}
+        </Badge>
+      )}
+      {asset.tags?.map((tag) => (
+        <Badge key={tag.id} variant="outline">
+          <span
+            className="size-1.5 rounded-full"
+            style={{ backgroundColor: tag.color }}
+            aria-hidden="true"
+          />
+          {tag.name}
+        </Badge>
+      ))}
+    </span>
+  );
+}
+
+function MediaAssetCard({
+  asset,
+  archived,
+  canManage,
+  folderNames,
+  selected,
+  showMenu,
+  onSelect,
+  onToggle,
+  onDuplicate,
+  onArchive,
+  actions,
+}: {
+  asset: Asset;
+  archived: boolean;
+  canManage: boolean;
+  folderNames?: Map<string, string>;
+  selected: boolean;
+  showMenu: boolean;
+  onSelect: () => void;
+  onToggle?: () => void;
+  onDuplicate?: () => void;
+  onArchive?: () => void;
+  actions: AssetMenuAction[];
+}) {
+  const status = assetStatusBadge(asset, archived);
+  const openLabel = `${archived ? "View" : "Edit"} ${asset.name}`;
+  // The card root is the right-click target itself, so assisted-technology and
+  // test hooks keep working: `asset-card` stays a stable structural hook.
+  return (
+    <RheaContextMenu>
+      <ContextMenuTrigger
+        render={
+          <article
+            className={`asset-card group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-card transition-colors hover:border-foreground/20 ${selected ? "border-primary ring-2 ring-ring/30" : "border-border"}`}
+          />
+        }
+      >
+        {onToggle && (
+          <RheaCheckbox
+            aria-label={`Select ${asset.name}`}
+            checked={selected}
+            onCheckedChange={() => onToggle()}
+            className="absolute top-2 left-2 z-10 bg-background/90"
+          />
+        )}
+        {showMenu && actions.length > 0 && (
+          <RheaDropdownMenu>
+            <DropdownMenuTrigger
+              render={<RheaButton variant="ghost" size="icon-sm" />}
+              aria-label={`Actions for ${asset.name}`}
+              className="absolute top-2 right-2 z-10 bg-background/90"
             >
-              <span className="asset-preview">
-                <AssetPreview asset={asset} />
-              </span>
-              <span className="asset-card__body">
-                <strong>{asset.name}</strong>
-                <small>
-                  {asset.type === "video" &&
-                    formatDuration(asset.durationSeconds)}
-                  {asset.type === "widget" &&
-                    (asset.widget?.provider === "youtube"
-                      ? "YouTube"
-                      : asset.widget?.provider
-                        ? asset.widget.provider.toUpperCase()
-                        : asset.website?.displayUrl)}
-                  {asset.width && asset.height
-                    ? `${asset.type === "video" ? " · " : ""}${asset.width} × ${asset.height}`
-                    : ""}
-                </small>
-                <small>{formatBytes(asset.originalSize)}</small>
-                {(() => {
-                  const folderLabel = asset.folderId
-                    ? folderNames?.get(asset.folderId)
-                    : undefined;
-                  if (!folderLabel && !asset.tags?.length) return null;
-                  return (
-                    <span className="asset-card__organization">
-                      {folderLabel && (
-                        <span className="organizer-chip organizer-chip--folder">
-                          <Folder size={11} aria-hidden />
-                          {folderLabel}
-                        </span>
-                      )}
-                      {asset.tags?.map((tag) => (
-                        <span key={tag.id} className="organizer-chip">
-                          <span
-                            className="organizer-chip__dot"
-                            style={{ backgroundColor: tag.color }}
-                            aria-hidden
-                          />
-                          {tag.name}
-                        </span>
-                      ))}
-                    </span>
-                  );
-                })()}
-              </span>
-              <span
-                className={`media-status media-status--${expired ? "expired" : archived ? "archived" : asset.processingStatus}`}
-              >
-                {expired
-                  ? "Expired"
-                  : archived
-                    ? "Archived"
-                    : statusLabel(asset.processingStatus)}
-              </span>
-            </button>
-            {asset.type === "widget" && !archived && (
-              <footer className="source-card-actions">
-                <span>
-                  {asset.playlistUsage ?? 0} playlist
-                  {asset.playlistUsage === 1 ? "" : "s"}
-                  {` · ${asset.layoutUsage?.length ?? 0} Layout${asset.layoutUsage?.length === 1 ? "" : "s"}`}
-                </span>
-                {canManage && (
-                  <>
-                    <button type="button" onClick={() => onSelect(asset)}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDuplicate?.(asset)}
-                      aria-label={`Duplicate ${asset.name}`}
-                    >
-                      <Copy size={14} /> Duplicate
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onArchive?.(asset)}
-                      aria-label={`Archive ${asset.name}`}
-                    >
-                      <Archive size={14} /> Archive
-                    </button>
-                  </>
+              <EllipsisVertical aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <AssetMenuContents actions={actions} />
+            </DropdownMenuContent>
+          </RheaDropdownMenu>
+        )}
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-label={openLabel}
+          className="grid gap-2 p-3 pt-10 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        >
+          <span className="grid aspect-video w-full place-items-center overflow-hidden rounded-xl bg-muted">
+            <AssetPreview asset={asset} />
+          </span>
+          <span className="grid min-w-0 gap-0.5">
+            <span className="truncate text-sm font-medium">{asset.name}</span>
+            <span className="text-xs text-muted-foreground">
+              <AssetSummary asset={asset} />
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {formatBytes(asset.originalSize)}
+            </span>
+            <AssetOrganizationChips asset={asset} folderNames={folderNames} />
+          </span>
+          <Badge variant={status.variant} className="w-fit">
+            {status.label}
+          </Badge>
+        </button>
+        {asset.type === "widget" && !archived && (
+          <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2">
+            <span className="text-xs text-muted-foreground">
+              {asset.playlistUsage ?? 0} playlist
+              {asset.playlistUsage === 1 ? "" : "s"}
+              {` · ${asset.layoutUsage?.length ?? 0} Layout${asset.layoutUsage?.length === 1 ? "" : "s"}`}
+            </span>
+            {canManage && (
+              <>
+                <RheaButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onSelect}
+                >
+                  Edit
+                </RheaButton>
+                {onDuplicate && (
+                  <RheaButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={onDuplicate}
+                    aria-label={`Duplicate ${asset.name}`}
+                  >
+                    <Copy size={14} aria-hidden="true" /> Duplicate
+                  </RheaButton>
                 )}
-              </footer>
+                {onArchive && (
+                  <RheaButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={onArchive}
+                    aria-label={`Archive ${asset.name}`}
+                  >
+                    <Archive size={14} aria-hidden="true" /> Archive
+                  </RheaButton>
+                )}
+              </>
             )}
-          </article>
-        );
-      })}
-      {menu.anchor && (
-        <ContextMenu
-          x={menu.anchor.x}
-          y={menu.anchor.y}
-          label={`Actions for ${menu.anchor.target.name}`}
-          items={actionsFor(menu.anchor.target)}
-          onClose={menu.close}
+          </footer>
+        )}
+      </ContextMenuTrigger>
+      <AssetContextMenu asset={asset} actions={actions} />
+    </RheaContextMenu>
+  );
+}
+
+function MediaAssetListRow({
+  asset,
+  archived,
+  selected,
+  onSelect,
+  onToggle,
+  actions,
+}: {
+  asset: Asset;
+  archived: boolean;
+  selected: boolean;
+  onSelect: () => void;
+  onToggle?: () => void;
+  actions: AssetMenuAction[];
+}) {
+  const status = assetStatusBadge(asset, archived);
+  return (
+    <Item size="sm">
+      {onToggle && (
+        <RheaCheckbox
+          aria-label={`Select ${asset.name}`}
+          checked={selected}
+          onCheckedChange={() => onToggle()}
         />
       )}
-    </div>
+      <ItemContent>
+        <ItemTitle>
+          <button
+            type="button"
+            onClick={onSelect}
+            aria-label={`${archived ? "View" : "Edit"} ${asset.name}`}
+            className="truncate text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {asset.name}
+          </button>
+        </ItemTitle>
+        <ItemDescription>
+          <AssetSummary asset={asset} /> · {formatBytes(asset.originalSize)}
+        </ItemDescription>
+      </ItemContent>
+      <Badge variant={status.variant}>{status.label}</Badge>
+      {actions.length > 0 && (
+        <ItemActions>
+          <RheaDropdownMenu>
+            <DropdownMenuTrigger
+              render={<RheaButton variant="ghost" size="icon-sm" />}
+              aria-label={`Actions for ${asset.name}`}
+            >
+              <EllipsisVertical aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <AssetMenuContents actions={actions} />
+            </DropdownMenuContent>
+          </RheaDropdownMenu>
+        </ItemActions>
+      )}
+    </Item>
   );
 }
 
@@ -1000,63 +1490,82 @@ export function CreateOrganizerDialog({
   });
   const copy = organizerCopy[kind];
   return (
-    <Dialog open title={copy.title} onClose={onClose}>
-      <form
-        className="organizer-dialog__form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (name.trim()) create.mutate();
-        }}
-      >
-        <p className="organizer-dialog__hint">{copy.hint}</p>
-        <label className="field">
-          <span className="field__label">{copy.label}</span>
-          <input
-            autoFocus
-            required
-            value={name}
-            maxLength={kind === "tag" ? 60 : 120}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        {kind === "tag" && (
-          <label className="field organizer-dialog__color">
-            <span className="field__label">Color</span>
-            <input
-              type="color"
-              value={color}
-              onChange={(event) => setColor(event.target.value)}
+    <RheaDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{copy.title}</DialogTitle>
+          <DialogDescription>{copy.hint}</DialogDescription>
+        </DialogHeader>
+        <form
+          className="grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (name.trim()) create.mutate();
+          }}
+        >
+          <Field>
+            <FieldLabel htmlFor={`organizer-${kind}-name`}>
+              {copy.label}
+            </FieldLabel>
+            <Input
+              id={`organizer-${kind}-name`}
+              autoFocus
+              required
+              value={name}
+              maxLength={kind === "tag" ? 60 : 120}
+              onChange={(event) => setName(event.target.value)}
             />
-          </label>
-        )}
-        {create.isError && (
-          <Notice variant="danger">
-            {create.error instanceof ApiError
-              ? create.error.message
-              : `The ${kind} could not be created.`}
-          </Notice>
-        )}
-        <div className="form-actions">
-          <Button variant="quiet" type="button" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="primary" type="submit" loading={create.isPending}>
-            {copy.title}
-          </Button>
-        </div>
-      </form>
-    </Dialog>
+          </Field>
+          {kind === "tag" && (
+            <Field>
+              <FieldLabel htmlFor="organizer-tag-color">Color</FieldLabel>
+              <Input
+                id="organizer-tag-color"
+                type="color"
+                className="h-8 w-16 cursor-pointer p-1"
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+              />
+            </Field>
+          )}
+          {create.isError && (
+            <Alert variant="destructive">
+              <AlertTitle>{`The ${kind} could not be created`}</AlertTitle>
+              <AlertDescription>
+                {create.error instanceof ApiError ? create.error.message : ""}
+              </AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <RheaButton variant="outline" type="button" onClick={onClose}>
+              Cancel
+            </RheaButton>
+            <RheaButton type="submit" disabled={create.isPending}>
+              {create.isPending && <Spinner aria-hidden="true" />}
+              {copy.title}
+            </RheaButton>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </RheaDialog>
   );
 }
 
 function ManageOrganizerRow({
   name,
   count,
+  confirmDescription,
   onRename,
   onDelete,
 }: {
   name: string;
   count: number;
+  confirmDescription: string;
   onRename: (name: string) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
@@ -1064,7 +1573,7 @@ function ManageOrganizerRow({
   const [value, setValue] = useState(name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const run = async (action: () => Promise<void>) => {
+  const run = async (action: () => void | Promise<void>) => {
     setBusy(true);
     setError("");
     try {
@@ -1080,33 +1589,32 @@ function ManageOrganizerRow({
       setBusy(false);
     }
   };
+  const [confirmDelete, setConfirmDelete] = useState(false);
   return (
-    <li className="organizer-manage__row">
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
       {editing ? (
         <form
-          className="organizer-manage__edit"
+          className="flex flex-1 flex-wrap items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             if (value.trim()) void run(() => onRename(value));
           }}
         >
-          <input
+          <Input
             autoFocus
             required
             aria-label={`New name for ${name}`}
             value={value}
             onChange={(event) => setValue(event.target.value)}
+            className="min-w-32 flex-1"
           />
-          <button
-            type="submit"
-            className="button button--primary"
-            disabled={busy}
-          >
+          <RheaButton type="submit" size="sm" disabled={busy}>
             Save
-          </button>
-          <button
+          </RheaButton>
+          <RheaButton
             type="button"
-            className="button button--quiet"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setEditing(false);
               setValue(name);
@@ -1114,33 +1622,58 @@ function ManageOrganizerRow({
             }}
           >
             Cancel
-          </button>
+          </RheaButton>
         </form>
       ) : (
         <>
-          <span className="organizer-manage__name">
-            {name} <small>({count})</small>
+          <span className="text-sm font-medium">
+            {name}{" "}
+            <span className="font-normal text-muted-foreground">({count})</span>
           </span>
-          <span className="organizer-manage__actions">
-            <button
+          <span className="flex flex-wrap items-center gap-1">
+            <RheaButton
               type="button"
-              className="button button--quiet"
+              variant="ghost"
+              size="sm"
               onClick={() => setEditing(true)}
             >
-              <Pencil size={13} aria-hidden /> Rename
-            </button>
-            <button
+              <Pencil size={13} aria-hidden="true" /> Rename
+            </RheaButton>
+            <RheaButton
               type="button"
-              className="button button--danger-quiet"
+              variant="destructive"
+              size="sm"
               disabled={busy}
-              onClick={() => void run(onDelete)}
+              onClick={() => setConfirmDelete(true)}
             >
-              <Trash2 size={13} aria-hidden /> Delete
-            </button>
+              <Trash2 size={13} aria-hidden="true" /> Delete
+            </RheaButton>
           </span>
+          <RheaAlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {confirmDescription}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirmDelete(false);
+                    void run(onDelete);
+                  }}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </RheaAlertDialog>
         </>
       )}
-      {error && <span className="field__error">{error}</span>}
+      {error && <FieldError>{error}</FieldError>}
     </li>
   );
 }
@@ -1225,40 +1758,51 @@ function ManageOrganizationDialog({
     },
   ];
   return (
-    <Dialog
+    <RheaDialog
       open
-      title="Manage organization"
-      onClose={onClose}
-      className="organizer-manage"
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      {sections.map((section) => (
-        <section key={section.title} className="organizer-manage__section">
-          <h3>{section.title}</h3>
-          {section.rows.length === 0 ? (
-            <p className="organizer-manage__empty">{section.empty}</p>
-          ) : (
-            <ul>
-              {section.rows.map((row) => (
-                <ManageOrganizerRow
-                  key={row.id}
-                  name={row.name}
-                  count={row.count}
-                  onRename={async (name) => {
-                    await row.rename(name);
-                    onChanged();
-                  }}
-                  onDelete={async () => {
-                    if (!confirm(row.confirmText)) return;
-                    await row.remove();
-                    onChanged();
-                  }}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
-    </Dialog>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Manage organization</DialogTitle>
+          <DialogDescription>
+            Rename or delete folders, collections, and tags. Assets stay in the
+            library.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-5">
+          {sections.map((section) => (
+            <section key={section.title} className="grid gap-2">
+              <h3 className="text-sm font-medium">{section.title}</h3>
+              {section.rows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{section.empty}</p>
+              ) : (
+                <ul className="grid gap-2">
+                  {section.rows.map((row) => (
+                    <ManageOrganizerRow
+                      key={row.id}
+                      name={row.name}
+                      count={row.count}
+                      confirmDescription={`${row.confirmText} This cannot be undone.`}
+                      onRename={async (name) => {
+                        await row.rename(name);
+                        onChanged();
+                      }}
+                      onDelete={async () => {
+                        await row.remove();
+                        onChanged();
+                      }}
+                    />
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
+        </div>
+      </DialogContent>
+    </RheaDialog>
   );
 }
 
@@ -1287,9 +1831,9 @@ function ContentOrganizer({
   onSelectAll: () => void;
   onClear: () => void;
   archiveMode: boolean;
-  onArchive: () => Promise<void>;
-  onRestore: () => Promise<void>;
-  onDelete: () => Promise<void>;
+  onArchive: () => void | Promise<void>;
+  onRestore: () => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
 }) {
   const [folderId, setFolderId] = useState("");
   const [tagId, setTagId] = useState("");
@@ -1299,7 +1843,7 @@ function ContentOrganizer({
   const [managing, setManaging] = useState(false);
   const [organizing, setOrganizing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const run = async (action: () => Promise<void>) => {
+  const run = async (action: () => void | Promise<void>) => {
     setBusy(true);
     setError("");
     try {
@@ -1356,99 +1900,117 @@ function ContentOrganizer({
     }
   };
   return (
-    <div className="content-organizer" aria-label="Content organization">
+    <div
+      className="flex flex-wrap items-center gap-2"
+      aria-label="Content organization"
+    >
       {!archiveMode && assetIds.length === 0 && (
-        <div className="content-organizer__create">
-          <button
+        <div className="flex flex-wrap items-center gap-1">
+          <RheaButton
             type="button"
-            className="button button--quiet"
+            variant="ghost"
+            size="sm"
             onClick={() => setCreating("folder")}
           >
-            <FolderPlus size={15} /> Create folder
-          </button>
-          <button
+            <FolderPlus size={15} aria-hidden="true" /> Create folder
+          </RheaButton>
+          <RheaButton
             type="button"
-            className="button button--quiet"
+            variant="ghost"
+            size="sm"
             onClick={() => setCreating("collection")}
           >
-            <Library size={15} /> Create collection
-          </button>
-          <button
+            <Library size={15} aria-hidden="true" /> Create collection
+          </RheaButton>
+          <RheaButton
             type="button"
-            className="button button--quiet"
+            variant="ghost"
+            size="sm"
             onClick={() => setCreating("tag")}
           >
-            <Tags size={15} /> Create tag
-          </button>
+            <Tags size={15} aria-hidden="true" /> Create tag
+          </RheaButton>
           {(folders.length > 0 ||
             collections.length > 0 ||
             tags.length > 0) && (
-            <button
+            <RheaButton
               type="button"
-              className="button button--quiet"
+              variant="ghost"
+              size="sm"
               onClick={() => setManaging(true)}
             >
-              <Pencil size={15} /> Manage
-            </button>
+              <Pencil size={15} aria-hidden="true" /> Manage
+            </RheaButton>
           )}
         </div>
       )}
       {assetIds.length > 0 && (
-        <div className="content-organizer__bulk">
-          <strong>{assetIds.length} selected</strong>
-          <span className="content-organizer__selection-actions">
-            <button
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
+          <strong className="text-sm font-medium">
+            {assetIds.length} selected
+          </strong>
+          <span className="flex flex-wrap items-center gap-1">
+            <RheaButton
               type="button"
-              className="button button--quiet"
+              variant="ghost"
+              size="sm"
               onClick={onSelectAll}
             >
               Select page
-            </button>
-            <button
+            </RheaButton>
+            <RheaButton
               type="button"
-              className="button button--quiet"
+              variant="ghost"
+              size="sm"
               onClick={onClear}
             >
               Clear
-            </button>
+            </RheaButton>
           </span>
-          <span className="content-organizer__primary-actions">
+          <span className="flex flex-wrap items-center gap-1">
             {!archiveMode && (
-              <button
+              <RheaButton
                 type="button"
-                className="button button--quiet"
+                variant="ghost"
+                size="sm"
                 onClick={() => setOrganizing(true)}
               >
-                <Folder size={15} /> Organize
-              </button>
+                <Folder size={15} aria-hidden="true" /> Organize
+              </RheaButton>
             )}
-            <button
+            <RheaButton
               type="button"
-              className="button button--quiet"
+              variant="ghost"
+              size="sm"
               disabled={busy}
               onClick={() => void run(archiveMode ? onRestore : onArchive)}
             >
               {archiveMode ? (
-                <ArchiveRestore size={15} />
+                <ArchiveRestore size={15} aria-hidden="true" />
               ) : (
-                <Archive size={15} />
+                <Archive size={15} aria-hidden="true" />
               )}
               {archiveMode ? "Restore" : "Archive"}
-            </button>
+            </RheaButton>
             {archiveMode && (
-              <button
+              <RheaButton
                 type="button"
-                className="button button--danger-quiet"
+                variant="destructive"
+                size="sm"
                 disabled={busy}
                 onClick={() => void run(onDelete)}
               >
-                <Trash2 size={15} /> Delete permanently
-              </button>
+                <Trash2 size={15} aria-hidden="true" /> Delete permanently
+              </RheaButton>
             )}
           </span>
         </div>
       )}
-      {error && <span className="notice notice--error">{error}</span>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       {creating && (
         <CreateOrganizerDialog
           kind={creating}
@@ -1468,94 +2030,103 @@ function ContentOrganizer({
         />
       )}
       {organizing && (
-        <Dialog
+        <RheaDialog
           open
-          title={`Organize ${assetIds.length} selected item${assetIds.length === 1 ? "" : "s"}`}
-          onClose={() => setOrganizing(false)}
+          onOpenChange={(open) => {
+            if (!open) setOrganizing(false);
+          }}
         >
-          <div className="bulk-organize-dialog">
-            <p>
-              Choose one or more changes. Existing tags and collections stay
-              unless you explicitly remove them.
-            </p>
-            <label className="field">
-              <span className="field__label">Move to folder</span>
-              <Select
-                value={folderId}
-                onChange={(event) => setFolderId(event.target.value)}
-              >
-                <option value="">Leave folder unchanged</option>
-                <option value="unfiled">Move to Unfiled</option>
-                {folders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="field">
-              <span className="field__label">Tag change</span>
-              <Select
-                value={tagId}
-                onChange={(event) => setTagId(event.target.value)}
-              >
-                <option value="">Leave tags unchanged</option>
-                {tags.map((tag) => (
-                  <option key={`add-${tag.id}`} value={`add:${tag.id}`}>
-                    Add {tag.name}
-                  </option>
-                ))}
-                {tags.map((tag) => (
-                  <option key={`remove-${tag.id}`} value={`remove:${tag.id}`}>
-                    Remove {tag.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="field">
-              <span className="field__label">Collection change</span>
-              <Select
-                value={collectionId}
-                onChange={(event) => setCollectionId(event.target.value)}
-              >
-                <option value="">Leave collections unchanged</option>
-                {collections.map((collection) => (
-                  <option
-                    key={`add-${collection.id}`}
-                    value={`add:${collection.id}`}
-                  >
-                    Add to {collection.name}
-                  </option>
-                ))}
-                {collections.map((collection) => (
-                  <option
-                    key={`remove-${collection.id}`}
-                    value={`remove:${collection.id}`}
-                  >
-                    Remove from {collection.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <div className="form-actions">
-              <Button
-                variant="quiet"
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Organize {assetIds.length} selected item
+                {assetIds.length === 1 ? "" : "s"}
+              </DialogTitle>
+              <DialogDescription>
+                Choose one or more changes. Existing tags and collections stay
+                unless you explicitly remove them.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <Field>
+                <FieldLabel htmlFor="bulk-folder">Move to folder</FieldLabel>
+                <FilterSelect
+                  id="bulk-folder"
+                  label="Move to folder"
+                  value={folderId}
+                  onChange={setFolderId}
+                  options={[
+                    { value: "", label: "Leave folder unchanged" },
+                    { value: "unfiled", label: "Move to Unfiled" },
+                    ...folders.map((folder) => ({
+                      value: folder.id,
+                      label: folder.name,
+                    })),
+                  ]}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="bulk-tag">Tag change</FieldLabel>
+                <FilterSelect
+                  id="bulk-tag"
+                  label="Tag change"
+                  value={tagId}
+                  onChange={setTagId}
+                  options={[
+                    { value: "", label: "Leave tags unchanged" },
+                    ...tags.flatMap((tag) => [
+                      { value: `add:${tag.id}`, label: `Add ${tag.name}` },
+                      {
+                        value: `remove:${tag.id}`,
+                        label: `Remove ${tag.name}`,
+                      },
+                    ]),
+                  ]}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="bulk-collection">
+                  Collection change
+                </FieldLabel>
+                <FilterSelect
+                  id="bulk-collection"
+                  label="Collection change"
+                  value={collectionId}
+                  onChange={setCollectionId}
+                  options={[
+                    { value: "", label: "Leave collections unchanged" },
+                    ...collections.flatMap((collection) => [
+                      {
+                        value: `add:${collection.id}`,
+                        label: `Add to ${collection.name}`,
+                      },
+                      {
+                        value: `remove:${collection.id}`,
+                        label: `Remove from ${collection.name}`,
+                      },
+                    ]),
+                  ]}
+                />
+              </Field>
+            </div>
+            <DialogFooter>
+              <RheaButton
+                variant="outline"
                 type="button"
                 onClick={() => setOrganizing(false)}
               >
                 Cancel
-              </Button>
-              <Button
-                variant="primary"
+              </RheaButton>
+              <RheaButton
                 type="button"
                 disabled={!folderId && !tagId && !collectionId}
                 onClick={() => void apply()}
               >
                 Apply changes
-              </Button>
-            </div>
-          </div>
-        </Dialog>
+              </RheaButton>
+            </DialogFooter>
+          </DialogContent>
+        </RheaDialog>
       )}
     </div>
   );
@@ -1668,105 +2239,118 @@ export function AssetOrganization({
   )
     return null;
   return (
-    <section className="asset-organization" aria-label="Organization">
-      <h3>Organization</h3>
-      <label className="field">
-        <span className="field__label">Folder</span>
-        <Select
-          aria-label="Folder"
+    <section className="grid gap-4" aria-label="Organization">
+      <h3 className="text-sm font-medium">Organization</h3>
+      <Field>
+        <FieldLabel htmlFor="asset-folder">Folder</FieldLabel>
+        <FilterSelect
+          id="asset-folder"
+          label="Folder"
           value={asset.folderId ?? ""}
           disabled={!canManage || organize.isPending}
-          onChange={(event) =>
+          onChange={(value) =>
             organize.mutate({
               setFolder: true,
-              ...(event.target.value ? { folderId: event.target.value } : {}),
+              ...(value ? { folderId: value } : {}),
             })
           }
-        >
-          <option value="">Unfiled</option>
-          {folders.data?.map((folder) => (
-            <option key={folder.id} value={folder.id}>
-              {folder.name}
-            </option>
-          ))}
-        </Select>
-      </label>
-      <div className="asset-organization__group">
-        <span className="field__label">Tags</span>
+          options={[
+            { value: "", label: "Unfiled" },
+            ...(folders.data?.map((folder) => ({
+              value: folder.id,
+              label: folder.name,
+            })) ?? []),
+          ]}
+        />
+      </Field>
+      <Field>
+        <span className="text-sm leading-none font-medium">Tags</span>
         {(tags.data?.length ?? 0) === 0 ? (
-          <p className="asset-organization__empty">
+          <p className="text-sm text-muted-foreground">
             No tags yet. Create tags from the media library toolbar.
           </p>
         ) : (
-          <div className="asset-organization__chips">
-            {tags.data?.map((tag) => {
-              const active = assetTagIds.has(tag.id);
-              return (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className={`organizer-chip${active ? " organizer-chip--active" : ""}`}
-                  aria-pressed={active}
-                  disabled={!canManage || organize.isPending}
-                  onClick={() =>
-                    organize.mutate(
-                      active
-                        ? { removeTagIds: [tag.id] }
-                        : { addTagIds: [tag.id] },
-                    )
-                  }
-                >
-                  <span
-                    className="organizer-chip__dot"
-                    style={{ backgroundColor: tag.color }}
-                    aria-hidden
-                  />
-                  {tag.name}
-                </button>
+          <RheaToggleGroup
+            multiple
+            aria-label="Tags"
+            value={[...assetTagIds]}
+            disabled={!canManage || organize.isPending}
+            onValueChange={(next) => {
+              const nextSet = new Set(next);
+              const added = [...nextSet].find((id) => !assetTagIds.has(id));
+              const removed = [...assetTagIds].find(
+                (id) =>
+                  tags.data?.some((tag) => tag.id === id) && !nextSet.has(id),
               );
-            })}
-          </div>
+              if (added) organize.mutate({ addTagIds: [added] });
+              else if (removed) organize.mutate({ removeTagIds: [removed] });
+            }}
+          >
+            {tags.data?.map((tag) => (
+              <ToggleGroupItem
+                key={tag.id}
+                value={tag.id}
+                aria-label={tag.name}
+              >
+                <span
+                  className="size-1.5 rounded-full"
+                  style={{ backgroundColor: tag.color }}
+                  aria-hidden="true"
+                />
+                {tag.name}
+              </ToggleGroupItem>
+            ))}
+          </RheaToggleGroup>
         )}
-      </div>
-      <div className="asset-organization__group">
-        <span className="field__label">Collections</span>
+      </Field>
+      <Field>
+        <span className="text-sm leading-none font-medium">Collections</span>
         {(collections.data?.length ?? 0) === 0 ? (
-          <p className="asset-organization__empty">
+          <p className="text-sm text-muted-foreground">
             No collections yet. Create collections from the media library
             toolbar.
           </p>
         ) : (
-          <div className="asset-organization__chips">
-            {collections.data?.map((collection) => {
-              const active = assetCollectionIds.has(collection.id);
-              return (
-                <button
-                  key={collection.id}
-                  type="button"
-                  className={`organizer-chip${active ? " organizer-chip--active" : ""}`}
-                  aria-pressed={active}
-                  disabled={!canManage || organize.isPending}
-                  onClick={() =>
-                    organize.mutate(
-                      active
-                        ? { removeCollectionIds: [collection.id] }
-                        : { addCollectionIds: [collection.id] },
-                    )
-                  }
-                >
-                  {collection.name}
-                </button>
+          <RheaToggleGroup
+            multiple
+            aria-label="Collections"
+            value={[...assetCollectionIds]}
+            disabled={!canManage || organize.isPending}
+            onValueChange={(next) => {
+              const nextSet = new Set(next);
+              const added = [...nextSet].find(
+                (id) => !assetCollectionIds.has(id),
               );
-            })}
-          </div>
+              const removed = [...assetCollectionIds].find(
+                (id) =>
+                  collections.data?.some(
+                    (collection) => collection.id === id,
+                  ) && !nextSet.has(id),
+              );
+              if (added) organize.mutate({ addCollectionIds: [added] });
+              else if (removed)
+                organize.mutate({ removeCollectionIds: [removed] });
+            }}
+          >
+            {collections.data?.map((collection) => (
+              <ToggleGroupItem
+                key={collection.id}
+                value={collection.id}
+                aria-label={collection.name}
+              >
+                {collection.name}
+              </ToggleGroupItem>
+            ))}
+          </RheaToggleGroup>
         )}
-      </div>
+      </Field>
       {organize.isError && (
-        <Notice variant="danger">
-          {organize.error instanceof ApiError
-            ? organize.error.message
-            : "Organization could not be updated."}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Organization could not be updated</AlertTitle>
+          <AlertDescription>
+            {organize.error instanceof ApiError ? organize.error.message : ""}
+          </AlertDescription>
+        </Alert>
       )}
     </section>
   );
@@ -1813,151 +2397,191 @@ function MediaAssetDetails({
       ),
     onSuccess: onChanged,
   });
+  const [confirmArchive, setConfirmArchive] = useState(false);
   return (
-    <Drawer
-      className="asset-details-drawer"
-      eyebrow="Media asset"
-      title={asset.name}
-      closeLabel="Close asset details"
-      onClose={onClose}
-      footer={
-        canManage ? (
-          <>
-            <Button
-              variant="primary"
-              loading={mutation.isPending}
+    <RheaSheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <SheetContent
+        side="right"
+        aria-label={`Details for ${asset.name}`}
+        className="overflow-y-auto"
+      >
+        <SheetHeader>
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Media asset
+          </p>
+          <SheetTitle>{asset.name}</SheetTitle>
+        </SheetHeader>
+        <div className="grid gap-4 px-4">
+          {asset.thumbnailUrl && (
+            <img
+              className="aspect-video w-full rounded-xl border border-border object-cover"
+              src={asset.thumbnailUrl}
+              alt=""
+              draggable={false}
+            />
+          )}
+          <Field>
+            <FieldLabel htmlFor="asset-name">Name</FieldLabel>
+            <Input
+              id="asset-name"
+              value={name}
+              disabled={!canManage}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="asset-available-from">
+                Available from
+              </FieldLabel>
+              <Input
+                id="asset-available-from"
+                type="datetime-local"
+                value={availableFrom}
+                disabled={!canManage}
+                onChange={(event) => setAvailableFrom(event.target.value)}
+              />
+              <p className="text-sm text-muted-foreground">
+                Leave blank to make this content available immediately.
+              </p>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="asset-expires-at">Expires at</FieldLabel>
+              <Input
+                id="asset-expires-at"
+                type="datetime-local"
+                value={expiresAt}
+                disabled={!canManage}
+                onChange={(event) => setExpiresAt(event.target.value)}
+              />
+              <p className="text-sm text-muted-foreground">
+                The Player stops using it at this local date and time, even
+                offline.
+              </p>
+            </Field>
+          </div>
+          <Field>
+            <FieldLabel htmlFor="asset-description">Description</FieldLabel>
+            <Textarea
+              id="asset-description"
+              value={description}
+              disabled={!canManage}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+          </Field>
+          <AssetOrganization
+            asset={asset}
+            canManage={canManage}
+            csrf={csrf}
+            onChanged={onChanged}
+          />
+          <dl className="grid gap-2 text-sm">
+            <div className="flex flex-wrap justify-between gap-2">
+              <dt className="text-muted-foreground">Status</dt>
+              <dd className="font-medium">
+                {statusLabel(asset.processingStatus)}
+              </dd>
+            </div>
+            <div className="flex flex-wrap justify-between gap-2">
+              <dt className="text-muted-foreground">Original file</dt>
+              <dd className="font-medium">{asset.originalFilename}</dd>
+            </div>
+            <div className="flex flex-wrap justify-between gap-2">
+              <dt className="text-muted-foreground">Detected type</dt>
+              <dd className="font-medium">{asset.detectedMimeType}</dd>
+            </div>
+            <div className="flex flex-wrap justify-between gap-2">
+              <dt className="text-muted-foreground">SHA-256</dt>
+              <dd className="font-mono text-xs break-all">{asset.sha256}</dd>
+            </div>
+          </dl>
+          <UsedByPanel
+            emptyMessage="No playlist or Layout uses this media yet."
+            groups={[
+              {
+                label: "Playlists",
+                items: asset.playlistsUsing ?? [],
+                to: (playlistId) => `/playlists/${playlistId}`,
+              },
+              {
+                label: "Layouts",
+                items: (asset.layoutUsage ?? []).map((usage) => ({
+                  id: usage.id,
+                  name: usage.name,
+                  hint: usage.published ? "Published" : "Draft",
+                })),
+                to: (layoutId) => `/layouts/${layoutId}`,
+              },
+            ]}
+          />
+          {asset.errorMessage && (
+            <Alert variant="destructive">
+              <AlertDescription>{asset.errorMessage}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+        {canManage && (
+          <SheetFooter className="flex-col items-stretch gap-2">
+            <RheaButton
               onClick={() => mutation.mutate()}
+              disabled={mutation.isPending}
             >
+              {mutation.isPending && <Spinner aria-hidden="true" />}
               Save changes
-            </Button>
+            </RheaButton>
             {asset.processingStatus === "failed" && (
-              <Button
-                variant="quiet"
+              <RheaButton
+                variant="outline"
                 onClick={() =>
                   void api.retryAsset(asset.id, csrf).then(onChanged)
                 }
               >
                 Retry processing
-              </Button>
+              </RheaButton>
             )}
-            <Button
-              variant="quiet"
-              onClick={() => {
-                if (window.confirm(`Move ${asset.name} to the archive?`))
+            <RheaButton
+              variant="outline"
+              onClick={() => setConfirmArchive(true)}
+            >
+              <Archive size={15} aria-hidden="true" /> Archive asset
+            </RheaButton>
+          </SheetFooter>
+        )}
+        <RheaAlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Move {asset.name} to the archive?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Archived items stay available until you restore or permanently
+                delete them.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep in library</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() =>
                   void api.archiveAssets([asset.id], csrf).then(() => {
                     void queryClient.invalidateQueries({
                       queryKey: ["assets"],
                     });
                     onClose();
-                  });
-              }}
-            >
-              <Archive size={15} /> Archive asset
-            </Button>
-          </>
-        ) : undefined
-      }
-    >
-      <div className="asset-details">
-        {asset.thumbnailUrl && (
-          <img
-            className="details-preview"
-            src={asset.thumbnailUrl}
-            alt=""
-            draggable={false}
-          />
-        )}
-        <label className="field">
-          <span className="field__label">Name</span>
-          <input
-            value={name}
-            disabled={!canManage}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <div className="form-grid form-grid--two">
-          <label className="field">
-            <span className="field__label">Available from</span>
-            <input
-              type="datetime-local"
-              value={availableFrom}
-              disabled={!canManage}
-              onChange={(event) => setAvailableFrom(event.target.value)}
-            />
-            <span className="field__hint">
-              Leave blank to make this content available immediately.
-            </span>
-          </label>
-          <label className="field">
-            <span className="field__label">Expires at</span>
-            <input
-              type="datetime-local"
-              value={expiresAt}
-              disabled={!canManage}
-              onChange={(event) => setExpiresAt(event.target.value)}
-            />
-            <span className="field__hint">
-              The Player stops using it at this local date and time, even
-              offline.
-            </span>
-          </label>
-        </div>
-        <label className="field">
-          <span className="field__label">Description</span>
-          <textarea
-            value={description}
-            disabled={!canManage}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </label>
-        <AssetOrganization
-          asset={asset}
-          canManage={canManage}
-          csrf={csrf}
-          onChanged={onChanged}
-        />
-        <dl>
-          <div>
-            <dt>Status</dt>
-            <dd>{statusLabel(asset.processingStatus)}</dd>
-          </div>
-          <div>
-            <dt>Original file</dt>
-            <dd>{asset.originalFilename}</dd>
-          </div>
-          <div>
-            <dt>Detected type</dt>
-            <dd>{asset.detectedMimeType}</dd>
-          </div>
-          <div>
-            <dt>SHA-256</dt>
-            <dd className="hash">{asset.sha256}</dd>
-          </div>
-        </dl>
-        <UsedByPanel
-          emptyMessage="No playlist or Layout uses this media yet."
-          groups={[
-            {
-              label: "Playlists",
-              items: asset.playlistsUsing ?? [],
-              to: (playlistId) => `/playlists/${playlistId}`,
-            },
-            {
-              label: "Layouts",
-              items: (asset.layoutUsage ?? []).map((usage) => ({
-                id: usage.id,
-                name: usage.name,
-                hint: usage.published ? "Published" : "Draft",
-              })),
-              to: (layoutId) => `/layouts/${layoutId}`,
-            },
-          ]}
-        />
-        {asset.errorMessage && (
-          <div className="notice notice--error">{asset.errorMessage}</div>
-        )}
-      </div>
-    </Drawer>
+                  })
+                }
+              >
+                Move to archive
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </RheaAlertDialog>
+      </SheetContent>
+    </RheaSheet>
   );
 }
 
@@ -2072,312 +2696,383 @@ export function WebsiteEditor({
       onSaved(value);
     },
   });
-  const close = () => {
-    if (!dirty || confirm("Discard unsaved website changes?")) onClose();
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmDeleteWebsite, setConfirmDeleteWebsite] = useState(false);
+  const requestClose = () => {
+    if (dirty) setConfirmDiscard(true);
+    else onClose();
   };
-  useEffect(() => {
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        if (!dirty || confirm("Discard unsaved website changes?")) onClose();
-      }
-    };
-    addEventListener("keydown", escape);
-    return () => removeEventListener("keydown", escape);
-  }, [dirty, onClose]);
-  return (
-    <div
-      className="details-backdrop"
-      role={page ? undefined : "presentation"}
-      onMouseDown={(event) => {
-        if (
-          event.target === event.currentTarget &&
-          (!dirty || confirm("Discard unsaved website changes?"))
-        )
-          onClose();
-      }}
-    >
-      <section
-        className="asset-details website-editor"
-        role={page ? undefined : "dialog"}
-        aria-modal={page ? undefined : true}
-      >
-        <header>
-          <div>
-            <h2>{asset ? "Edit Website App" : "Create Website App"}</h2>
-            <p>
-              Fullscreen public website content. Duration is configured in the
-              playlist.
-            </p>
-          </div>
-          <button className="icon-button" aria-label="Close" onClick={close}>
-            <X size={18} />
-          </button>
-        </header>
-        <label className="field">
-          <span className="field__label">Name</span>
-          <input
+  const title = asset ? "Edit Website App" : "Create Website App";
+  const subtitle =
+    "Fullscreen public website content. Duration is configured in the playlist.";
+  const form = (
+    <div className="grid gap-4">
+      <Field>
+        <FieldLabel htmlFor="website-name">Name</FieldLabel>
+        <Input
+          id="website-name"
+          disabled={readOnly}
+          value={input.name}
+          onChange={(event) => set("name", event.target.value)}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="website-description">Description</FieldLabel>
+        <Textarea
+          id="website-description"
+          disabled={readOnly}
+          value={input.description}
+          onChange={(event) => set("description", event.target.value)}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="website-url">HTTPS URL</FieldLabel>
+        <Input
+          id="website-url"
+          disabled={readOnly}
+          value={input.url}
+          onChange={(event) => set("url", event.target.value)}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="website-reload">Reload policy</FieldLabel>
+        <FilterSelect
+          id="website-reload"
+          label="Reload policy"
+          disabled={readOnly}
+          value={input.reloadPolicy}
+          onChange={(value) =>
+            set("reloadPolicy", value as WebsiteInput["reloadPolicy"])
+          }
+          options={[
+            { value: "load_once", label: "Load once while active" },
+            { value: "on_each_activation", label: "Reload on each activation" },
+            { value: "interval", label: "Reload on interval" },
+          ]}
+        />
+      </Field>
+      {input.reloadPolicy === "interval" && (
+        <Field>
+          <FieldLabel htmlFor="website-refresh">
+            Refresh interval (seconds)
+          </FieldLabel>
+          <Input
+            id="website-refresh"
             disabled={readOnly}
-            value={input.name}
-            onChange={(e) => set("name", e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span className="field__label">Description</span>
-          <textarea
-            disabled={readOnly}
-            value={input.description}
-            onChange={(e) => set("description", e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span className="field__label">HTTPS URL</span>
-          <input
-            disabled={readOnly}
-            value={input.url}
-            onChange={(e) => set("url", e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span className="field__label">Reload policy</span>
-          <Select
-            disabled={readOnly}
-            value={input.reloadPolicy}
-            onChange={(e) =>
-              set(
-                "reloadPolicy",
-                e.target.value as WebsiteInput["reloadPolicy"],
-              )
+            type="number"
+            min={30}
+            value={input.refreshIntervalSeconds ?? 30}
+            onChange={(event) =>
+              set("refreshIntervalSeconds", Number(event.target.value))
             }
-          >
-            <option value="load_once">Load once while active</option>
-            <option value="on_each_activation">
-              Reload on each activation
-            </option>
-            <option value="interval">Reload on interval</option>
-          </Select>
-        </label>
-        {input.reloadPolicy === "interval" && (
-          <label className="field">
-            <span className="field__label">Refresh interval (seconds)</span>
-            <input
-              disabled={readOnly}
-              type="number"
-              min={30}
-              value={input.refreshIntervalSeconds ?? 30}
-              onChange={(e) =>
-                set("refreshIntervalSeconds", Number(e.target.value))
-              }
-            />
-          </label>
-        )}
-        <label className="field">
-          <span className="field__label">Failure behavior</span>
-          <Select
-            disabled={readOnly}
-            value={input.failureBehavior}
-            onChange={(e) =>
-              set(
-                "failureBehavior",
-                e.target.value as WebsiteInput["failureBehavior"],
-              )
-            }
-          >
-            <option value="placeholder">Show Tilecast placeholder</option>
-            <option value="last_success">Keep last rendered page</option>
-            <option value="fallback_image">Show fallback image</option>
-            <option value="skip">Skip item</option>
-          </Select>
-        </label>
-        <label className="field">
-          <span className="field__label">Fallback image</span>
-          <Select
-            disabled={readOnly}
-            value={input.fallbackImageAssetId ?? ""}
-            onChange={(e) =>
-              set("fallbackImageAssetId", e.target.value || undefined)
-            }
-          >
-            <option value="">None</option>
-            {images.data?.items?.map((image) => (
-              <option key={image.id} value={image.id}>
-                {image.name}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <details>
-          <summary>Advanced website settings</summary>
-          <label className="field">
-            <span className="field__label">
+          />
+        </Field>
+      )}
+      <Field>
+        <FieldLabel htmlFor="website-failure">Failure behavior</FieldLabel>
+        <FilterSelect
+          id="website-failure"
+          label="Failure behavior"
+          disabled={readOnly}
+          value={input.failureBehavior}
+          onChange={(value) =>
+            set("failureBehavior", value as WebsiteInput["failureBehavior"])
+          }
+          options={[
+            { value: "placeholder", label: "Show Tilecast placeholder" },
+            { value: "last_success", label: "Keep last rendered page" },
+            { value: "fallback_image", label: "Show fallback image" },
+            { value: "skip", label: "Skip item" },
+          ]}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="website-fallback">Fallback image</FieldLabel>
+        <FilterSelect
+          id="website-fallback"
+          label="Fallback image"
+          disabled={readOnly}
+          value={input.fallbackImageAssetId ?? ""}
+          onChange={(value) => set("fallbackImageAssetId", value || undefined)}
+          options={[
+            { value: "", label: "None" },
+            ...(images.data?.items?.map((image) => ({
+              value: image.id,
+              label: image.name,
+            })) ?? []),
+          ]}
+        />
+      </Field>
+      <Collapsible>
+        <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Advanced website settings
+          <ChevronDown size={16} aria-hidden="true" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="grid gap-4 pt-3">
+          <Field>
+            <FieldLabel htmlFor="website-hosts">
               Allowed top-level hosts (comma separated)
-            </span>
-            <input
+            </FieldLabel>
+            <Input
+              id="website-hosts"
               disabled={readOnly}
               value={input.allowedHosts.join(", ")}
-              onChange={(e) =>
+              onChange={(event) =>
                 set(
                   "allowedHosts",
-                  e.target.value
+                  event.target.value
                     .split(",")
-                    .map((x) => x.trim())
+                    .map((entry) => entry.trim())
                     .filter(Boolean),
                 )
               }
             />
-            <small>
+            <p className="text-sm text-muted-foreground">
               The URL host is always added. This restricts top-level navigation,
               not all third-party subresources.
-            </small>
-          </label>
-          <label>
-            <input
+            </p>
+          </Field>
+          <Field orientation="horizontal">
+            <RheaSwitch
+              id="website-js"
+              aria-label="JavaScript enabled"
               disabled={readOnly}
-              type="checkbox"
               checked={input.javascriptEnabled}
-              onChange={(e) => set("javascriptEnabled", e.target.checked)}
-            />{" "}
-            JavaScript enabled
-          </label>
-          <label>
-            <input
+              onCheckedChange={(checked) => set("javascriptEnabled", checked)}
+            />
+            <FieldLabel htmlFor="website-js">JavaScript enabled</FieldLabel>
+          </Field>
+          <Field orientation="horizontal">
+            <RheaSwitch
+              id="website-dom"
+              aria-label="DOM storage enabled"
               disabled={readOnly}
-              type="checkbox"
               checked={input.domStorageEnabled}
-              onChange={(e) => set("domStorageEnabled", e.target.checked)}
-            />{" "}
-            DOM storage enabled
-          </label>
-          <label className="field">
-            <span className="field__label">Cookies</span>
-            <Select
+              onCheckedChange={(checked) => set("domStorageEnabled", checked)}
+            />
+            <FieldLabel htmlFor="website-dom">DOM storage enabled</FieldLabel>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="website-cookies">Cookies</FieldLabel>
+            <FilterSelect
+              id="website-cookies"
+              label="Cookies"
               disabled={readOnly}
               value={input.cookiePolicy}
-              onChange={(e) =>
-                set(
-                  "cookiePolicy",
-                  e.target.value as WebsiteInput["cookiePolicy"],
-                )
+              onChange={(value) =>
+                set("cookiePolicy", value as WebsiteInput["cookiePolicy"])
               }
-            >
-              <option value="disabled">Disabled</option>
-              <option value="first_party">First-party only</option>
-              <option value="first_and_third_party">
-                First- and third-party
-              </option>
-            </Select>
-          </label>
-          <label className="field">
-            <span className="field__label">Load timeout (seconds)</span>
-            <input
+              options={[
+                { value: "disabled", label: "Disabled" },
+                { value: "first_party", label: "First-party only" },
+                {
+                  value: "first_and_third_party",
+                  label: "First- and third-party",
+                },
+              ]}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="website-timeout">
+              Load timeout (seconds)
+            </FieldLabel>
+            <Input
+              id="website-timeout"
               disabled={readOnly}
               type="number"
               min={1}
               max={120}
               value={input.loadTimeoutSeconds}
-              onChange={(e) =>
-                set("loadTimeoutSeconds", Number(e.target.value))
+              onChange={(event) =>
+                set("loadTimeoutSeconds", Number(event.target.value))
               }
             />
-          </label>
-          <label className="field">
-            <span className="field__label">Zoom percentage</span>
-            <input
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="website-zoom">Zoom percentage</FieldLabel>
+            <Input
+              id="website-zoom"
               disabled={readOnly}
               type="number"
               min={50}
               max={200}
               value={input.zoomPercent}
-              onChange={(e) => set("zoomPercent", Number(e.target.value))}
+              onChange={(event) =>
+                set("zoomPercent", Number(event.target.value))
+              }
             />
-          </label>
-          <div className="website-position">
-            <label className="field">
-              <span className="field__label">Horizontal scroll</span>
-              <input
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="website-scroll-x">
+                Horizontal scroll
+              </FieldLabel>
+              <Input
+                id="website-scroll-x"
                 disabled={readOnly}
                 type="number"
                 min={0}
                 value={input.scrollX}
-                onChange={(e) => set("scrollX", Number(e.target.value))}
+                onChange={(event) => set("scrollX", Number(event.target.value))}
               />
-            </label>
-            <label className="field">
-              <span className="field__label">Vertical scroll</span>
-              <input
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="website-scroll-y">
+                Vertical scroll
+              </FieldLabel>
+              <Input
+                id="website-scroll-y"
                 disabled={readOnly}
                 type="number"
                 min={0}
                 value={input.scrollY}
-                onChange={(e) => set("scrollY", Number(e.target.value))}
+                onChange={(event) => set("scrollY", Number(event.target.value))}
               />
-            </label>
+            </Field>
           </div>
-          <label className="field">
-            <span className="field__label">Custom user agent</span>
-            <input
+          <Field>
+            <FieldLabel htmlFor="website-agent">Custom user agent</FieldLabel>
+            <Input
+              id="website-agent"
               disabled={readOnly}
               maxLength={512}
               value={input.customUserAgent}
-              onChange={(e) => set("customUserAgent", e.target.value)}
+              onChange={(event) => set("customUserAgent", event.target.value)}
             />
-            <small>
+            <p className="text-sm text-muted-foreground">
               Leave blank for Android WebView’s standard user agent. Overrides
               can break sites.
-            </small>
-          </label>
-        </details>
-        {diagnostics.data && (
-          <section className="website-diagnostics">
-            <h3>Player diagnostics</h3>
-            <p>Allowed hosts: {diagnostics.data.allowedHosts.join(", ")}</p>
-            <p>
-              Last successful load:{" "}
-              {diagnostics.data.lastSuccessfulLoad
-                ? new Date(diagnostics.data.lastSuccessfulLoad).toLocaleString()
-                : "Not reported"}
             </p>
-            <p>
-              Last failure:{" "}
-              {diagnostics.data.lastFailureCategory ?? "Not reported"}
-            </p>
-            <p>
-              Reporting screens:{" "}
-              {diagnostics.data.reportingScreens
-                .map((screen) => `${screen.name} (${screen.state})`)
-                .join(", ") || "None"}
-            </p>
-          </section>
+          </Field>
+        </CollapsibleContent>
+      </Collapsible>
+      {diagnostics.data && (
+        <section className="grid gap-1 text-sm" aria-label="Player diagnostics">
+          <h3 className="text-sm font-medium">Player diagnostics</h3>
+          <p className="text-muted-foreground">
+            Allowed hosts: {diagnostics.data.allowedHosts.join(", ")}
+          </p>
+          <p className="text-muted-foreground">
+            Last successful load:{" "}
+            {diagnostics.data.lastSuccessfulLoad
+              ? new Date(diagnostics.data.lastSuccessfulLoad).toLocaleString()
+              : "Not reported"}
+          </p>
+          <p className="text-muted-foreground">
+            Last failure:{" "}
+            {diagnostics.data.lastFailureCategory ?? "Not reported"}
+          </p>
+          <p className="text-muted-foreground">
+            Reporting screens:{" "}
+            {diagnostics.data.reportingScreens
+              .map((screen) => `${screen.name} (${screen.state})`)
+              .join(", ") || "None"}
+          </p>
+        </section>
+      )}
+      {save.error && (
+        <Alert variant="destructive">
+          <AlertDescription>{save.error.message}</AlertDescription>
+        </Alert>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {!readOnly && (
+          <RheaButton disabled={save.isPending} onClick={() => save.mutate()}>
+            {save.isPending && <Spinner aria-hidden="true" />}
+            Save website
+          </RheaButton>
         )}
-        {save.error && (
-          <div className="notice notice--error">{save.error.message}</div>
+        <RheaButton variant="outline" onClick={requestClose}>
+          Cancel
+        </RheaButton>
+        {asset && !readOnly && (
+          <RheaButton
+            variant="destructive"
+            onClick={() => setConfirmDeleteWebsite(true)}
+          >
+            Delete website
+          </RheaButton>
         )}
-        <footer>
-          {!readOnly && (
-            <button
-              className="button button--primary"
-              disabled={save.isPending}
-              onClick={() => save.mutate()}
-            >
-              Save website
-            </button>
-          )}
-          <button className="button button--quiet" onClick={close}>
-            Cancel
-          </button>
-          {asset && !readOnly && (
-            <button
-              className="button button--danger"
+      </div>
+      <RheaAlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Discard unsaved website changes?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Your edits will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction onClick={onClose}>
+              Discard changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
+      <RheaAlertDialog
+        open={confirmDeleteWebsite}
+        onOpenChange={setConfirmDeleteWebsite}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {asset?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep website</AlertDialogCancel>
+            <AlertDialogAction
               onClick={() => {
-                if (confirm(`Delete ${asset.name}?`))
-                  void api.deleteAsset(asset.id, csrf).then(onClose);
+                if (asset) void api.deleteAsset(asset.id, csrf).then(onClose);
               }}
             >
               Delete website
-            </button>
-          )}
-        </footer>
-      </section>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </RheaAlertDialog>
     </div>
+  );
+  if (page) {
+    return (
+      <section className="w-full min-w-0 space-y-5" aria-label={title}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold">{title}</h1>
+            <p className="text-sm text-muted-foreground">{subtitle}</p>
+          </div>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Close"
+            onClick={requestClose}
+          >
+            <X aria-hidden="true" />
+          </RheaButton>
+        </div>
+        {form}
+      </section>
+    );
+  }
+  return (
+    <RheaDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) requestClose();
+      }}
+    >
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{subtitle}</DialogDescription>
+        </DialogHeader>
+        {form}
+      </DialogContent>
+    </RheaDialog>
   );
 }
