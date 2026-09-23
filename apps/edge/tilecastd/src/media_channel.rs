@@ -269,3 +269,38 @@ async fn serve(
 pub fn socket_path(runtime_dir: &Path) -> PathBuf {
     runtime_dir.join("media.sock")
 }
+
+#[cfg(test)]
+mod fixture_tests {
+    use super::*;
+
+    const CAP: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn c_client_media_frames_match_daemon_contract() {
+        let head: Request =
+            serde_json::from_str(include_str!("../../../../packages/edge-protocol/fixtures/media/head-request.json"))
+                .unwrap();
+        assert!(matches!(head, Request::Head { capability } if capability == CAP));
+        let read: Request =
+            serde_json::from_str(include_str!("../../../../packages/edge-protocol/fixtures/media/read-request.json"))
+                .unwrap();
+        assert!(matches!(read, Request::Read { capability, offset: 2, length: 3 } if capability == CAP));
+        for (fixture, expected) in [
+            (
+                include_str!("../../../../packages/edge-protocol/fixtures/media/head-response.json"),
+                json!({"status": "ok", "sizeBytes": 5, "mimeType": "image/png"}),
+            ),
+            (
+                include_str!("../../../../packages/edge-protocol/fixtures/media/read-response.json"),
+                json!({"status": "ok", "length": 3}),
+            ),
+            (
+                include_str!("../../../../packages/edge-protocol/fixtures/media/denied-response.json"),
+                json!({"status": "denied"}),
+            ),
+        ] {
+            assert_eq!(serde_json::from_str::<serde_json::Value>(fixture).unwrap(), expected);
+        }
+    }
+}
