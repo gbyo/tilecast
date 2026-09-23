@@ -217,11 +217,39 @@ p {
 
 .layout-editor {
   display: grid;
-  grid-template: 48px minmax(0, 1fr) / 320px minmax(420px, 1fr);
+  grid-template: 48px minmax(0, 1fr) / minmax(0, 1fr);
   height: calc(100vh - 56px);
   margin: calc(var(--tc-space-8) * -1);
   overflow: hidden;
   background: var(--tc-bg-subtle);
+}
+
+/* Desktop Resizable panes: library/layers | canvas | inspector. The narrow
+   stacked fallback renders the same panels without this wrapper. */
+.layout-editor-panes {
+  min-width: 0;
+  min-height: 0;
+}
+
+.layout-editor-pane {
+  min-width: 0;
+  min-height: 0;
+}
+
+.layout-editor-pane > .layout-editor-left,
+.layout-editor-pane > .layout-stage {
+  height: 100%;
+}
+
+.layout-inspector-pane {
+  display: grid;
+  gap: var(--tc-space-3);
+  align-content: start;
+  height: 100%;
+  padding: var(--tc-space-3);
+  overflow-y: auto;
+  background: var(--tc-bg-surface);
+  border-left: 1px solid var(--tc-border-default);
 }
 
 .layout-editor-toolbar {
@@ -504,28 +532,49 @@ p {
   overflow-wrap: anywhere;
 }
 
-.layout-layers > button {
+.layout-layers .layout-layer-row {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
   align-items: center;
   min-height: 36px;
   padding: 4px 6px;
   color: var(--tc-text-primary);
-  text-align: left;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--tc-radius-control);
 }
 
-.layout-layers > button.is-selected {
+.layout-layers .layout-layer-row.is-selected {
   background: var(--tc-sidebar-active);
   border-color: var(--tc-action-primary);
+}
+
+/* The select control is a real button; the visibility/lock toggles beside it
+   are siblings, never nested buttons. */
+.layout-layer-select {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
 }
 
 .layout-layer-actions {
   display: flex;
   gap: 5px;
+}
+
+/* Visibility/lock are real icon buttons; keep them row-sized. */
+.layout-layer-actions .layout-layer-toggle {
+  flex: none;
 }
 
 .layout-stage {
@@ -890,12 +939,33 @@ p {
 }
 
 @media (max-width: 1050px) {
+  .layout-editor-left {
+    grid-template-columns: 82px minmax(0, 1fr);
+  }
+}
+
+/* Narrow stacked fallback: library above, canvas below, page scrolls. */
+@media (max-width: 1023px) {
   .layout-editor {
-    grid-template-columns: 280px minmax(360px, 1fr);
+    grid-template: 48px auto auto / minmax(0, 1fr);
+    height: auto;
+    min-height: calc(100vh - 56px);
+    overflow: visible;
   }
 
   .layout-editor-left {
-    grid-template-columns: 82px minmax(0, 1fr);
+    max-height: 60vh;
+    border-right: none;
+    border-bottom: 1px solid var(--tc-border-default);
+  }
+
+  .layout-stage {
+    min-height: 70vh;
+    overflow: visible;
+  }
+
+  .layout-stage-scroll {
+    min-height: 70vh;
   }
 }
 

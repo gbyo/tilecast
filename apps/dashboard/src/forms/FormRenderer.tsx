@@ -1,7 +1,31 @@
 import { useId } from "react";
 import type { FormField, FormSchema } from "../api/types";
 import { Button } from "../components/ui/button";
+import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import {
+  Field as RheaField,
+  FieldLabel as RheaFieldLabel,
+  FieldTitle as RheaFieldTitle,
+} from "../components/ui/field";
+import { Input as RheaInput } from "../components/ui/input";
+import {
+  RadioGroup as RheaRadioGroup,
+  RadioGroupItem as RheaRadioGroupItem,
+} from "../components/ui/radio-group";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Textarea as RheaTextarea } from "../components/ui/textarea";
 import { isPresentationControl } from "./formSchema";
+
+// A single-select with this many options or fewer renders as a radio group so
+// every choice stays visible; longer lists collapse into a dropdown Select.
+// The stored value is a single option string either way.
+const RADIO_OPTION_LIMIT = 3;
 
 // FormValues maps a field key to its current value. Multi-select uses string[]; others use string
 // or boolean. The renderer is deliberately the single place that interprets controls so builder
@@ -169,19 +193,23 @@ function FieldRow({
 
   // A checkbox reads as "label, checkbox" only when the box sits next to its own text, so boolean
   // fields use an inline label instead of the stacked label-above-control layout.
+  // Boolean is a Checkbox, not a Switch: it is a form input with label
+  // semantics (consent-style on/off answers), while Switch is reserved for
+  // settings that take effect immediately, like the editor inspectors.
   if (field.control === "boolean") {
     return (
       <div className="form-renderer__field form-renderer__field--inline">
         <label className="checkbox-control" htmlFor={controlId}>
-          <input
+          <RheaCheckbox
             id={controlId}
-            type="checkbox"
             aria-describedby={describedBy}
             aria-invalid={error ? true : undefined}
             aria-required={field.required ? true : undefined}
             disabled={disabled}
             checked={value === true || value === "true"}
-            onChange={(event) => onChange?.(field.key, event.target.checked)}
+            onCheckedChange={(checked) =>
+              onChange?.(field.key, checked === true)
+            }
           />
           <span className="form-renderer__label">
             {field.label}
@@ -218,13 +246,12 @@ function FieldRow({
               Array.isArray(value) && value.includes(option.value);
             return (
               <label key={option.value} className="checkbox-control">
-                <input
-                  type="checkbox"
+                <RheaCheckbox
                   disabled={disabled}
                   checked={selected}
-                  onChange={(event) => {
+                  onCheckedChange={(checked) => {
                     const current = Array.isArray(value) ? [...value] : [];
-                    if (event.target.checked) {
+                    if (checked === true) {
                       current.push(option.value);
                     } else {
                       const index = current.indexOf(option.value);
@@ -243,14 +270,55 @@ function FieldRow({
     );
   }
 
+  // A short option list renders as radios (no single control id to point a
+  // label at), so the group carries its own accessible name and the visible
+  // title is presentation. Longer lists use the dropdown Select below, which
+  // the row label points at normally.
+  const options = field.control === "select" ? (field.options ?? []) : [];
+  if (field.control === "select" && options.length <= RADIO_OPTION_LIMIT) {
+    return (
+      <RheaField className="form-renderer__field">
+        <RheaFieldTitle>
+          <span className="form-renderer__label">
+            {field.label}
+            <RequiredMark required={field.required} />
+          </span>
+        </RheaFieldTitle>
+        {hint}
+        <RheaRadioGroup
+          aria-label={field.label}
+          aria-describedby={describedBy}
+          aria-invalid={error ? true : undefined}
+          aria-required={field.required ? true : undefined}
+          required={field.required}
+          disabled={disabled}
+          value={typeof value === "string" ? value : ""}
+          onValueChange={(next) => {
+            if (typeof next === "string" && next) onChange?.(field.key, next);
+          }}
+        >
+          <div className="form-renderer__multi">
+            {options.map((option) => (
+              <label key={option.value} className="checkbox-control">
+                <RheaRadioGroupItem value={option.value} disabled={disabled} />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </RheaRadioGroup>
+        {support}
+      </RheaField>
+    );
+  }
+
   return (
-    <div className="form-renderer__field">
-      <label htmlFor={controlId}>
+    <RheaField className="form-renderer__field">
+      <RheaFieldLabel htmlFor={controlId}>
         <span className="form-renderer__label">
           {field.label}
           <RequiredMark required={field.required} />
         </span>
-      </label>
+      </RheaFieldLabel>
       {hint}
       <FieldControl
         field={field}
@@ -263,7 +331,7 @@ function FieldRow({
         imageHandlers={imageHandlers}
       />
       {support}
-    </div>
+    </RheaField>
   );
 }
 
@@ -328,7 +396,6 @@ function FieldControl({
     id,
     "aria-describedby": describedBy,
     "aria-invalid": invalid ? (true as const) : undefined,
-    className: "input",
     required,
     disabled,
   };
@@ -336,7 +403,7 @@ function FieldControl({
   switch (field.control) {
     case "long_text":
       return (
-        <textarea
+        <RheaTextarea
           {...common}
           rows={3}
           value={stringValue}
@@ -346,18 +413,29 @@ function FieldControl({
       );
     case "select":
       return (
-        <select
-          {...common}
+        <RheaSelect
           value={stringValue}
-          onChange={(event) => emit(event.target.value)}
+          onValueChange={(next) => {
+            if (typeof next === "string") emit(next);
+          }}
+          required={required}
+          disabled={disabled}
         >
-          <option value="">Select…</option>
-          {(field.options ?? []).map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger
+            id={id}
+            aria-describedby={describedBy}
+            aria-invalid={invalid ? true : undefined}
+          >
+            <SelectValue placeholder="Select…" />
+          </SelectTrigger>
+          <SelectContent>
+            {(field.options ?? []).map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </RheaSelect>
       );
     case "image":
       if (imageHandlers) {
@@ -377,7 +455,7 @@ function FieldControl({
       }
       return (
         <div className="form-renderer__image">
-          <input
+          <RheaInput
             id={id}
             type="file"
             accept="image/*"
@@ -392,7 +470,7 @@ function FieldControl({
     case "number":
     case "integer":
       return (
-        <input
+        <RheaInput
           {...common}
           type="number"
           inputMode={field.control === "integer" ? "numeric" : "decimal"}
@@ -405,7 +483,7 @@ function FieldControl({
       );
     case "date":
       return (
-        <input
+        <RheaInput
           {...common}
           type="date"
           value={stringValue}
@@ -414,7 +492,7 @@ function FieldControl({
       );
     case "datetime":
       return (
-        <input
+        <RheaInput
           {...common}
           type="datetime-local"
           value={stringValue}
@@ -423,7 +501,7 @@ function FieldControl({
       );
     case "url":
       return (
-        <input
+        <RheaInput
           {...common}
           type="url"
           inputMode="url"
@@ -434,7 +512,7 @@ function FieldControl({
       );
     default:
       return (
-        <input
+        <RheaInput
           {...common}
           type="text"
           maxLength={field.maxLength || undefined}

@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import * as authModule from "../auth/AuthProvider";
@@ -263,5 +264,73 @@ describe("Layout editor drag: snap-then-clamp", () => {
       "draggable",
       "false",
     );
+  });
+});
+
+describe("Layout editor layers and zoom controls", () => {
+  it("toggles layer visibility with real buttons, by mouse and keyboard", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+
+    const hide = await screen.findByRole("button", {
+      name: "Hide Text",
+    });
+    expect(hide.tagName).toBe("BUTTON");
+
+    const user = userEvent.setup();
+    hide.focus();
+    await user.keyboard("{Enter}");
+    expect(
+      await screen.findByRole("button", { name: "Show Text" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show Text" }));
+    expect(
+      await screen.findByRole("button", { name: "Hide Text" }),
+    ).toBeInTheDocument();
+  });
+
+  it("exposes the visibility menu on layer rows", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+
+    const row = screen
+      .getByRole("button", { name: "Text" })
+      .closest(".layout-layer-row")!;
+    fireEvent.contextMenu(row);
+    expect(
+      await screen.findByRole("menuitem", { name: "Hide" }),
+    ).toBeInTheDocument();
+  });
+
+  it("groups zoom as minus, percent, plus, and fit", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+
+    expect(
+      screen.getByRole("group", { name: "Canvas zoom" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Fit canvas to view" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(await screen.findByText("110%")).toBeInTheDocument();
+  });
+
+  it("structures the inspector in headed, collapsible sections", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Text" }));
+
+    expect(await screen.findByText("Position & size")).toBeInTheDocument();
+    expect(screen.getByText("Appearance")).toBeInTheDocument();
+    expect(screen.getByLabelText("Layer opacity")).toBeInTheDocument();
   });
 });

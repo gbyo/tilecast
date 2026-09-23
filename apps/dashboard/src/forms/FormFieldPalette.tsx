@@ -1,3 +1,5 @@
+import { Separator } from "../components/ui/separator";
+import { Button as RheaButton } from "../components/ui/button";
 import type { FormFieldControl } from "../api/types";
 import { CONTROLS } from "./formSchema";
 
@@ -11,21 +13,28 @@ export function FormFieldPalette({
   disabled?: boolean;
 }) {
   return (
-    <div className="form-builder__palette">
-      <h3 className="form-builder__palette-title">Add a field</h3>
-      <div className="form-builder__palette-grid">
+    <div className="grid gap-2 border-t border-border pt-3">
+      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        Add a field
+      </h3>
+      <Separator />
+      <div className="grid grid-cols-2 gap-1">
         {CONTROLS.map((meta) => (
-          <button
+          <RheaButton
             key={meta.control}
             type="button"
-            className="form-builder__palette-item"
+            variant="outline"
+            size="sm"
+            className="h-auto flex-col items-start gap-0.5 px-2.5 py-2"
             disabled={disabled}
             onClick={() => onAdd(meta.control)}
             title={meta.description}
           >
-            <strong>{meta.label}</strong>
-            <span>{meta.description}</span>
-          </button>
+            <span className="text-xs font-medium">{meta.label}</span>
+            <span className="text-left text-[0.7rem] font-normal text-muted-foreground">
+              {meta.description}
+            </span>
+          </RheaButton>
         ))}
       </div>
     </div>
