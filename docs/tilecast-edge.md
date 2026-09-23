@@ -703,15 +703,39 @@ The previous generation remains readable through its capabilities until the rend
 
 ## 10. Trust model
 
-## 10. Trust model
-
 Tilecast Edge has three distinct trust relationships. They must not be collapsed.
 
 ### 10.1 Tilecast Server ↔ player
 
-This remains the existing device bearer credential contract.
+The ordinary player API keeps Tilecast's existing device-bearer/server-URL policy.
 
-The saved device credential is sent only after `/api/v1/system/identity` matches the configured installation ID. It is never sent to a peer.
+However, **Edge trust bootstrap is a stronger boundary than ordinary LAN player authentication**.
+
+V1 requires an authenticated encrypted bootstrap channel before a node may:
+
+- accept/install an Edge CA/trust realm for the first time;
+- enroll/renew an Edge node certificate;
+- accept a replacement trust realm;
+- accept a recovery re-anchor;
+- receive a migration confirmation that establishes the new Edge credential/trust state.
+
+Accepted v1 bootstrap channel:
+
+```text
+HTTPS to the configured Tilecast Server
+with normal certificate/hostname validation
+and no silent HTTP downgrade
+```
+
+The public installation-ID probe remains useful to prevent credential misdelivery, but installation ID over plain HTTP is not cryptographic server authentication.
+
+Private-LAN HTTP may remain supported for existing legacy/basic player behavior under the current product policy, but Edge mesh/trust enrollment stays disabled until the server has a secure bootstrap channel.
+
+A future alternative for HTTP-only LAN deployments must be an explicitly reviewed authenticated-encryption/PAKE or out-of-band trust protocol. Do not approximate it with a short pairing code or an unauthenticated fingerprint fetched over the same HTTP connection.
+
+The saved device credential is never sent to a peer.
+
+### 10.2 Edge peer ↔ Edge peer
 
 ### 10.2 Edge peer ↔ Edge peer
 
@@ -3262,27 +3286,96 @@ It contains no server networking, credential storage, filesystem policy or playe
 
 Keep trusted Tilecast code and remote website content in distinct security worlds.
 
-A trusted local runtime scheme may serve only embedded/versioned renderer files with a strict MIME allowlist and CSP. It is not CORS-enabled for arbitrary remote origins.
+The trusted runtime uses a dedicated local scheme registered with the applicable WebKit security-manager API as local/secure where supported. It serves only embedded/versioned renderer files with strict MIME + CSP.
 
-Tilecast-owned media is referenced by the trusted runtime through `tcmedia://cap/<opaque-capability>`. Video reaches GStreamer through the daemon-backed Tilecast `GstURIHandler` source in §9.5. `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` is only a protocol opt-in and is never treated as the CAS, origin, or presentation-authorization boundary.
+Tilecast media uses `tcmedia://cap/<opaque-capability>` through the daemon-backed source from §9.5.
 
-Native bridge installation is limited to the trusted Tilecast top-level world/frame. Navigating to uploaded media or a remote site never grants bridge capability.
+A remote website knowing a CAS hash is insufficient to read media because:
 
-Tests prove arbitrary remote pages cannot access trusted Tilecast runtime/media capabilities, receive bridge objects, enumerate/escape CAS, or make uploaded blobs execute as trusted code.
+- hashes are not media capabilities;
+- opaque capabilities are random and generation-bound;
+- the daemon validates renderer/presentation capability state on every media read;
+- untrusted website views never receive capability values.
+
+Qualification must still prove remote pages cannot use browser APIs to discover or exfiltrate those capabilities.
+
+Where practical, remote website zones use separate WebViews/processes/data managers that are created without the trusted runtime user-content manager/native bridge. They do not inherit privileged local-scheme handlers unnecessarily.
+
+Uploaded/media bytes receive strict non-executable MIME treatment and never become trusted runtime HTML/JS.
 
 ### 28.5 Native/JS bridge
 
-Expose only named, typed operations corresponding to the renderer IPC contract, such as `ready`, `progress`, `itemError`, `websiteState` and `previewReady`.
+Expose only named, typed operations such as `ready`, `progress`, `itemError`, `websiteState`, and `previewReady`.
 
 Never expose a generic native invocation function.
 
+The bridge is installed only in the trusted Tilecast runtime's isolated content world/user-content manager and only for the expected top-level trusted frame.
+
+Remote website WebViews/zones are created without that bridge registration. A remote iframe/site must not gain bridge access merely because it is visually embedded in a trusted layout.
+
+E0/WPE integration tests exercise the exact pinned WebKit API behavior for:
+
+- isolated content world;
+- top-frame versus child-frame delivery;
+- navigation away from trusted runtime;
+- new-window/pop-up attempts;
+- process crash/recreation.
+
+If the pinned WPE API cannot robustly frame/world-isolate the bridge, remote website content must run in a separate WebView/process boundary with no bridge-enabled user-content manager.
+
 ### 28.6 Website playback
 
-Remote website content remains hostile even when its URL was intentionally configured.
+Remote website content is hostile browser content even when intentionally configured.
 
-Before website capability is production-ready, WPE must prove navigation allowlisting, post-DNS destination policy, private/local egress policy, DNS-rebinding resistance, explicit proxy behavior, disabled downloads/external launches by default, bounded persistent storage, permission denial, timeout/reload behavior, YouTube IFrame behavior, WebProcess crash recovery, layout-zone lifecycle, WebKit subprocess sandboxing and denial of remote access to Tilecast native/local capabilities.
+V1 remote-site policy applies to every network-capable browser path, including:
 
-If WPE cannot enforce a requirement safely, that presentation requirement is **unsupported** until Tilecast adds the required boundary. It does not fall back to Electron.
+- document/subresource HTTP(S);
+- redirects and fresh DNS resolutions;
+- WebSockets;
+- EventSource/streaming fetch;
+- dedicated/shared workers;
+- service-worker fetch/cache;
+- image/media/font/script loads.
+
+Destination policy is enforced after DNS resolution and again at connection/re-resolution boundaries.
+
+Denied by default:
+
+```text
+IPv4 0.0.0.0/8
+IPv4 loopback 127.0.0.0/8
+IPv4 link-local 169.254.0.0/16
+RFC1918 private ranges
+CGNAT 100.64.0.0/10
+IPv4 multicast/reserved/non-global ranges as policy defines
+
+IPv6 ::/128
+IPv6 ::1/128
+IPv6 link-local fe80::/10
+IPv6 unique-local fc00::/7
+IPv6 multicast ff00::/8
+IPv4-mapped forms of denied IPv4 addresses
+other non-global/special ranges in the pinned policy table
+```
+
+Explicit operator-approved intranet origins/CIDRs may be allowed for a signage use case, but are part of the presentation requirement/policy and still use DNS-rebinding-safe checks.
+
+Browser proxy mode is explicit; ambient environment/system proxy inheritance is not accepted accidentally.
+
+V1 disables unless explicitly required by a future typed feature:
+
+- WebRTC/media capture/data channels;
+- microphone/camera/geolocation/notifications;
+- file chooser/uploads from local filesystem;
+- downloads;
+- external-protocol launches;
+- remote inspector/developer extras in production.
+
+Persistent website cookie/IndexedDB/Cache Storage/service-worker storage is bounded per site and globally and participates in renderer-data cleanup quotas.
+
+If WebKit APIs cannot enforce egress consistently across all browser channels, run website traffic behind an OS/network namespace/firewall boundary. Until one of those enforcement paths passes adversarial tests, website capability is unsupported rather than falling back to Electron.
+
+### 28.7 Presentation compatibility
 
 ### 28.7 Presentation compatibility
 
@@ -3392,9 +3485,17 @@ A peer may provide the bytes, but only an authorized deployment permits installa
 
 ### 30.2 Signed release sets and compatibility metadata
 
-Keep the existing offline/CI release signing model.
+Software releases use the existing **offline/CI release-signing authority**, not the online Edge state authority.
 
-A deployment selects one signed **release-set manifest**. It names the exact compatible component set:
+Normative release-set signing domain:
+
+```text
+TilecastRelease/release-set/v1
+```
+
+`release-set-v1.schema.json` is verified against the configured offline release public key.
+
+A deployment selects one signed release-set manifest containing:
 
 ```text
 releaseSetId
@@ -3404,21 +3505,37 @@ private WPE runtime version/hash/ABI
 required privileged-helper protocol
 ipcMinProtocol/ipcMaxProtocol
 stateSchemaMinReadable/stateSchemaMaxReadable/stateSchemaWritten
-rollbackCompatibleSetIds
+rollbackReadWriteCompatibleSetIds
 hostMode constraints
 minimum security-patched WPE build
 ```
 
-Artifacts remain independently hash/size verified, but activation/rollback changes the release set as one unit. Do not independently flip daemon, renderer and private runtime pointers into an untested combination.
+Artifacts are independently hash/size verified, but activation/rollback changes the set as one unit.
 
-CI must actually exercise declared compatibility. At minimum:
+Compatibility metadata is evidence only when CI/tests prove it.
 
-- previous supported daemon opens/checks the candidate-migrated DB;
-- candidate/previous IPC overlap is tested;
-- renderer/private-WPE ABI pair starts a smoke fixture;
-- rollback set passes its `--check-state`/equivalent compatibility probe.
+At minimum CI runs:
 
-Compatibility metadata is not accepted solely because a manifest claims it.
+1. candidate opens/migrates an N database;
+2. previous supported N binary opens the migrated DB;
+3. N performs representative **writes** against that migrated schema;
+4. candidate N+1 reopens/validates those N-written rows;
+5. daemon/renderer IPC overlap fixture;
+6. renderer/private-WPE ABI smoke;
+7. privileged helper protocol compatibility.
+
+Automatic rollback remains armed only while the schema is backward **read/write** compatible with the rollback set.
+
+Use expand/contract migrations:
+
+- expand in a backward-compatible release;
+- keep old columns/tables/semantics while rollback is possible;
+- confirm/settle the new release;
+- remove/contract old schema only in a later release after that rollback dependency is gone.
+
+Do not perform an irreversible schema contraction and still promise automatic binary rollback.
+
+### 30.3 Peer prefetch
 
 ### 30.3 Peer prefetch
 
@@ -3464,19 +3581,24 @@ Staging verification is FD/inode-pinned with no-follow semantics and fixed insta
 
 ### 30.6 Exclusive migration and activation
 
-Before an offline state-schema migration:
+Before offline state-schema work:
 
-1. stop the old `tilecastd` and bound renderer;
-2. acquire exclusive state DB ownership/lock;
-3. verify previous release-set state compatibility;
-4. run only the candidate migration whose result remains readable by the promised rollback set;
-5. install/verify the full release set;
-6. write root-owned pending/previous/current-set metadata;
-7. atomically switch `current-set`;
-8. fsync the parent directory;
-9. start candidate daemon/renderer.
+1. stop current `tilecastd` and renderer;
+2. acquire exclusive DB ownership/lock;
+3. verify candidate release set and rollback set;
+4. prove the migration is in the backward-read/write-compatible phase;
+5. run the expand migration;
+6. install/verify the complete release set;
+7. write root-owned pending/previous/current-set metadata;
+8. atomically switch `current-set`;
+9. fsync parent directory;
+10. start candidate daemon/renderer.
 
-If a migration is designed to run while the old daemon remains live, it must be an explicitly tested expand-only online migration that the old runtime understands. Do not let two daemon versions race one SQLite schema migration.
+If a migration is truly online, it must be explicitly expand-only and understood by the running old binary.
+
+Contract/irreversible cleanup is deferred until a later release after the automatic rollback window no longer depends on the older binary.
+
+### 30.7 External confirmation and rollback
 
 ### 30.7 External confirmation and rollback
 
