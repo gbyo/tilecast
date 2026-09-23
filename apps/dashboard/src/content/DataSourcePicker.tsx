@@ -20,11 +20,33 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { useId, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { api } from "../api/client";
 import type { DataSource, DataSourceProvider } from "../api/types";
-import { Button, StatusDot } from "../components/legacy-ui";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Input } from "../components/ui/input";
 import { ConnectDataFlow } from "./DataSourceCreateFlow";
 import { previewRecordMaps } from "./previewRecords";
 import { providerLabel, sourceIcon } from "./dataSourceProviderMeta";
@@ -157,30 +179,39 @@ function dataTypeLabel(type: string) {
 
 function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
   return (
-    <details className="data-format-guide" open>
-      <summary>
-        <span className="data-format-guide__icon" aria-hidden>
+    <Collapsible defaultOpen>
+      <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span aria-hidden="true">
           <Database size={18} />
         </span>
-        <span>
-          <strong>Data format</strong>
-          <small>{guide.shape}</small>
+        <span className="grid flex-1 gap-0.5">
+          <strong className="text-sm font-medium">Data format</strong>
+          <small className="text-xs text-muted-foreground">{guide.shape}</small>
         </span>
-        <ChevronDown size={16} aria-hidden />
-      </summary>
-      <div className="data-format-guide__body">
-        <p>{guide.summary}</p>
+        <ChevronDown size={16} aria-hidden="true" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="grid gap-2 px-1 pt-2">
+        <p className="text-sm text-muted-foreground">{guide.summary}</p>
         {guide.fields.length > 0 && (
-          <ul>
+          <ul className="grid gap-1.5">
             {guide.fields.map((field) => (
-              <li key={`${field.key}-${field.label}`}>
-                <span>
-                  <strong>{field.label}</strong>
-                  {field.required && <small>Required</small>}
+              <li key={`${field.key}-${field.label}`} className="grid gap-1">
+                <span className="flex flex-wrap items-center gap-2 text-sm">
+                  <strong className="font-medium">{field.label}</strong>
+                  {field.required && (
+                    <small className="text-xs text-muted-foreground">
+                      Required
+                    </small>
+                  )}
                 </span>
-                <span className="data-format-guide__types">
+                <span className="flex flex-wrap gap-1">
                   {field.types.map((type) => (
-                    <code key={type}>{dataTypeLabel(type)}</code>
+                    <code
+                      key={type}
+                      className="rounded-md bg-muted px-1.5 py-0.5 text-xs"
+                    >
+                      {dataTypeLabel(type)}
+                    </code>
                   ))}
                 </span>
               </li>
@@ -190,26 +221,40 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
         {/* One row of real data, as key and value pairs. Pretty-printed JSON put every
             key on its own line and wrapped long values again, which turned a two-field
             example into a tall column of punctuation an author has to read past. */}
-        <div className="data-format-guide__example">
-          <span>Example row</span>
-          <dl>
+        <div className="grid gap-1">
+          <span className="text-xs font-medium text-muted-foreground">
+            Example row
+          </span>
+          <dl className="grid gap-0.5 rounded-xl bg-muted p-2 text-sm">
             {Object.entries(guide.example).map(([key, entry]) => (
-              <div key={key}>
-                <dt>{key}</dt>
-                <dd>{String(entry)}</dd>
+              <div key={key} className="flex gap-2">
+                <dt className="font-medium">{key}</dt>
+                <dd className="text-muted-foreground">{String(entry)}</dd>
               </div>
             ))}
           </dl>
         </div>
-      </div>
-    </details>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
-function statusTone(status: unknown) {
-  if (status === "ready") return "success" as const;
-  if (status === "error") return "danger" as const;
-  return "info" as const;
+function statusDotClass(status: unknown) {
+  if (status === "ready") return "bg-emerald-500";
+  if (status === "error") return "bg-destructive";
+  return "bg-muted-foreground";
+}
+
+function SourceStatus({ status }: { status: unknown }) {
+  return (
+    <Badge variant="outline">
+      <span
+        className={`size-1.5 rounded-full ${statusDotClass(status)}`}
+        aria-hidden="true"
+      />
+      {statusLabel(status)}
+    </Badge>
+  );
 }
 
 function statusLabel(status: unknown) {
@@ -272,29 +317,33 @@ export function ConnectDataNotice({
   const connect = useConnectDataFlow(createProviders, csrf, onCreated);
   const canCreate = !disabled && Boolean(csrf);
   return (
-    <div className="data-source-picker__empty">
-      <span className="data-source-picker__empty-icon" aria-hidden="true">
-        <Database size={20} />
-      </span>
-      <div>
-        <strong>No compatible data connected yet</strong>
-        <p>
-          {message ??
-            (canCreate
-              ? "Connect a calendar, spreadsheet, feed, or table to fill this Widget."
-              : "Ask an editor to connect a compatible Data Source.")}
-        </p>
-      </div>
-      {canCreate && (
-        <Button
-          type="button"
-          variant="secondary"
-          compact
-          onClick={connect.open}
-        >
-          <Plus size={15} aria-hidden="true" /> Connect new data
-        </Button>
-      )}
+    <div className="grid gap-2">
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Database size={20} aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>No compatible data connected yet</EmptyTitle>
+          <EmptyDescription>
+            {message ??
+              (canCreate
+                ? "Connect a calendar, spreadsheet, feed, or table to fill this Widget."
+                : "Ask an editor to connect a compatible Data Source.")}
+          </EmptyDescription>
+        </EmptyHeader>
+        {canCreate && (
+          <EmptyContent>
+            <RheaButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={connect.open}
+            >
+              <Plus size={15} aria-hidden="true" /> Connect new data
+            </RheaButton>
+          </EmptyContent>
+        )}
+      </Empty>
       {connect.flow}
     </div>
   );
@@ -338,7 +387,6 @@ export function DataSourcePicker({
 }) {
   const connect = useConnectDataFlow(createProviders, csrf, onChange);
   const [choosing, setChoosing] = useState(false);
-  const dialogTitleId = useId();
   const selected = sources.find((source) => source.id === value);
   // A referenced source that is not in the compatible list — deleted, or no longer accepted by
   // this field — must be shown as missing rather than silently resolving to another source.
@@ -364,7 +412,7 @@ export function DataSourcePicker({
     .slice(0, sampleFieldLimit);
 
   return (
-    <div className="data-source-picker">
+    <div className="grid gap-2">
       {resolvedFormatGuide && (
         <DataFormatGuidePanel guide={resolvedFormatGuide} />
       )}
@@ -381,14 +429,14 @@ export function DataSourcePicker({
         />
       ) : (
         <>
-          <div className="field">
-            <span className="field__label">
+          <div className="grid gap-1">
+            <span className="text-sm font-medium">
               {label}
               {required ? " *" : ""}
             </span>
             <button
               type="button"
-              className="data-source-picker__trigger"
+              className="flex w-full items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
               aria-label={`${label}: ${
                 selected?.name ??
                 (missing ? "Unavailable Data Source" : "Choose data")
@@ -398,19 +446,19 @@ export function DataSourcePicker({
               disabled={disabled}
               onClick={() => setChoosing(true)}
             >
-              <span className="data-source-picker__trigger-icon" aria-hidden>
+              <span aria-hidden="true">
                 {selected ? (
                   sourceIcon(selected.provider, undefined, 20)
                 ) : (
                   <Database size={20} />
                 )}
               </span>
-              <span className="data-source-picker__trigger-copy">
-                <strong>
+              <span className="grid flex-1 gap-0.5">
+                <strong className="truncate text-sm font-medium">
                   {selected?.name ??
                     (missing ? "Unavailable Data Source" : "Choose data")}
                 </strong>
-                <small>
+                <small className="text-xs text-muted-foreground">
                   {selected
                     ? providerLabel(selected.provider)
                     : missing
@@ -420,59 +468,58 @@ export function DataSourcePicker({
                         }`}
                 </small>
               </span>
-              <ChevronRight size={18} aria-hidden />
+              <ChevronRight size={18} aria-hidden="true" />
             </button>
-            {description && <small>{description}</small>}
+            {description && (
+              <small className="text-xs text-muted-foreground">
+                {description}
+              </small>
+            )}
           </div>
           {missing && (
-            <p className="data-source-picker__missing" role="alert">
+            <p role="alert" className="text-sm text-destructive">
               The Data Source this was built with is no longer available. Choose
               another to keep this content working.
             </p>
           )}
           {selected && (
-            <div className="data-source-picker__detail">
-              <div className="data-source-picker__status">
-                <StatusDot
-                  tone={statusTone(selected.status)}
-                  label={statusLabel(selected.status)}
-                />
+            <div className="grid gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <SourceStatus status={selected.status} />
                 {recordCountLabel(selected.cachedRecordCount) && (
-                  <span className="data-source-picker__record-count">
+                  <span className="text-xs text-muted-foreground">
                     {recordCountLabel(selected.cachedRecordCount)}
                   </span>
                 )}
               </div>
               {samples.length > 0 && (
-                <dl className="data-source-picker__samples">
+                <dl className="grid gap-0.5 rounded-xl bg-muted p-2 text-sm">
                   {samples.map(([key, entry]) => (
-                    <div key={key}>
-                      <dt>{key}</dt>
-                      <dd>{entry}</dd>
+                    <div key={key} className="flex gap-2">
+                      <dt className="font-medium">{key}</dt>
+                      <dd className="text-muted-foreground">{entry}</dd>
                     </div>
                   ))}
                 </dl>
               )}
             </div>
           )}
-          {choosing && (
-            <DataSourceSelectionDialog
-              titleId={dialogTitleId}
-              value={value}
-              sources={sources}
-              allowEmpty={allowEmpty}
-              canCreate={canCreate}
-              onSelect={(id) => {
-                onChange(id);
-                setChoosing(false);
-              }}
-              onConnect={() => {
-                setChoosing(false);
-                connect.open();
-              }}
-              onClose={() => setChoosing(false)}
-            />
-          )}
+          <DataSourceSelectionDialog
+            open={choosing}
+            value={value}
+            sources={sources}
+            allowEmpty={allowEmpty}
+            canCreate={canCreate}
+            onSelect={(id) => {
+              onChange(id);
+              setChoosing(false);
+            }}
+            onConnect={() => {
+              setChoosing(false);
+              connect.open();
+            }}
+            onClose={() => setChoosing(false)}
+          />
         </>
       )}
       {connect.flow}
@@ -481,7 +528,7 @@ export function DataSourcePicker({
 }
 
 function DataSourceSelectionDialog({
-  titleId,
+  open,
   value,
   sources,
   allowEmpty,
@@ -490,7 +537,7 @@ function DataSourceSelectionDialog({
   onConnect,
   onClose,
 }: {
-  titleId: string;
+  open: boolean;
   value: string;
   sources: DataSource[];
   allowEmpty: boolean;
@@ -499,84 +546,112 @@ function DataSourceSelectionDialog({
   onConnect: () => void;
   onClose: () => void;
 }) {
-  return createPortal(
-    <div
-      className="details-backdrop data-source-select-backdrop"
-      role="presentation"
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLowerCase();
+  const visible = needle
+    ? sources.filter((source) =>
+        `${source.name} ${providerLabel(source.provider)}`
+          .toLowerCase()
+          .includes(needle),
+      )
+    : sources;
+  return (
+    <RheaDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          setQuery("");
+          onClose();
+        }
+      }}
     >
-      <section
-        className="asset-details source-editor data-source-select-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        <header>
-          <div>
-            <h2 id={titleId}>Choose data</h2>
-            <p>Select an existing compatible source or connect a new one.</p>
-          </div>
-          <button className="icon-button" aria-label="Close" onClick={onClose}>
-            <X size={18} aria-hidden />
-          </button>
-        </header>
-        <div className="source-editor__body">
-          <ul className="data-source-select__choices">
-            {allowEmpty && (
-              <li>
-                <button type="button" onClick={() => onSelect("")}>
-                  <span className="data-source-select__icon" aria-hidden>
-                    <X size={18} />
-                  </span>
-                  <span className="data-source-select__copy">
-                    <strong>No data</strong>
-                    <small>Leave this Widget disconnected.</small>
-                  </span>
-                  <span aria-hidden />
-                  {!value && <Check size={18} aria-label="Selected" />}
-                </button>
-              </li>
-            )}
-            {sources.map((source) => (
-              <li key={source.id}>
-                <button type="button" onClick={() => onSelect(source.id)}>
-                  <span className="data-source-select__icon" aria-hidden>
-                    {sourceIcon(source.provider, undefined, 20)}
-                  </span>
-                  <span className="data-source-select__copy">
-                    <strong>{source.name}</strong>
-                    <small>{providerLabel(source.provider)}</small>
-                  </span>
-                  <span className="data-source-select__status">
-                    <StatusDot
-                      tone={statusTone(source.status)}
-                      label={statusLabel(source.status)}
-                    />
-                    {recordCountLabel(source.cachedRecordCount) && (
-                      <small>
-                        {recordCountLabel(source.cachedRecordCount)}
-                      </small>
-                    )}
-                  </span>
-                  {value === source.id && (
-                    <Check size={18} aria-label="Selected" />
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <footer>
-          {canCreate && (
-            <Button type="button" variant="primary" onClick={onConnect}>
-              <Plus size={15} aria-hidden /> Connect new data
-            </Button>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Choose data</DialogTitle>
+          <DialogDescription>
+            Select an existing compatible source or connect a new one.
+          </DialogDescription>
+        </DialogHeader>
+        {sources.length > 1 && (
+          <Input
+            type="search"
+            value={query}
+            placeholder="Search sources"
+            aria-label="Search compatible sources"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        )}
+        <ul className="grid gap-1">
+          {allowEmpty && (
+            <li>
+              <button
+                type="button"
+                onClick={() => onSelect("")}
+                className="flex w-full items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span aria-hidden="true">
+                  <X size={18} />
+                </span>
+                <span className="grid flex-1 gap-0.5">
+                  <strong className="text-sm font-medium">No data</strong>
+                  <small className="text-xs text-muted-foreground">
+                    Leave this Widget disconnected.
+                  </small>
+                </span>
+                <span aria-hidden="true" />
+                {!value && <Check size={18} aria-label="Selected" />}
+              </button>
+            </li>
           )}
-          <Button type="button" variant="secondary" onClick={onClose}>
+          {visible.map((source) => (
+            <li key={source.id}>
+              <button
+                type="button"
+                onClick={() => onSelect(source.id)}
+                className="flex w-full items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span aria-hidden="true">
+                  {sourceIcon(source.provider, undefined, 20)}
+                </span>
+                <span className="grid flex-1 gap-0.5">
+                  <strong className="truncate text-sm font-medium">
+                    {source.name}
+                  </strong>
+                  <small className="text-xs text-muted-foreground">
+                    {providerLabel(source.provider)}
+                  </small>
+                </span>
+                <span className="grid items-end gap-1">
+                  <SourceStatus status={source.status} />
+                  {recordCountLabel(source.cachedRecordCount) && (
+                    <small className="text-xs text-muted-foreground">
+                      {recordCountLabel(source.cachedRecordCount)}
+                    </small>
+                  )}
+                </span>
+                {value === source.id && (
+                  <Check size={18} aria-label="Selected" />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {needle && visible.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No compatible sources match “{query}”.
+          </p>
+        )}
+        <DialogFooter>
+          {canCreate && (
+            <RheaButton type="button" onClick={onConnect}>
+              <Plus size={15} aria-hidden="true" /> Connect new data
+            </RheaButton>
+          )}
+          <RheaButton type="button" variant="secondary" onClick={onClose}>
             Cancel
-          </Button>
-        </footer>
-      </section>
-    </div>,
-    document.body,
+          </RheaButton>
+        </DialogFooter>
+      </DialogContent>
+    </RheaDialog>
   );
 }
