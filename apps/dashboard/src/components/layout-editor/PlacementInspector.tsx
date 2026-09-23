@@ -1,8 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   AppWindow,
   ArrowDown,
   ArrowUp,
+  ChevronDown,
   Copy,
   Eye,
   EyeOff,
@@ -23,8 +28,26 @@ import { useAuth } from "../../auth/AuthProvider";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button as RheaButton } from "../ui/button";
 import { Checkbox as RheaCheckbox } from "../ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../ui/collapsible";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "../ui/combobox";
 import { Field, FieldDescription, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../ui/input-group";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -32,8 +55,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { Slider as RheaSlider } from "../ui/slider";
 import { Switch as RheaSwitch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
+import {
+  ToggleGroup as RheaToggleGroup,
+  ToggleGroupItem as RheaToggleGroupItem,
+} from "../ui/toggle-group";
 import {
   ConnectDataNotice,
   DataSourcePicker,
@@ -44,12 +72,6 @@ const fitOptions = [
   { value: "contain", label: "Fit" },
   { value: "cover", label: "Fill" },
   { value: "stretch", label: "Stretch" },
-];
-
-const alignmentOptions = [
-  { value: "left", label: "Left" },
-  { value: "center", label: "Center" },
-  { value: "right", label: "Right" },
 ];
 
 const fallbackVisibilityOptions = [
@@ -107,6 +129,7 @@ export function NumberField({
   min = 0,
   max = 7680,
   step = 1,
+  unit,
 }: {
   label: string;
   value: number;
@@ -114,20 +137,99 @@ export function NumberField({
   min?: number;
   max?: number;
   step?: number;
+  unit?: string;
 }) {
   const id = `layout-number-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
-        id={id}
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={Number(value.toFixed(2))}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
+      <InputGroup>
+        <InputGroupInput
+          id={id}
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={Number(value.toFixed(2))}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        {unit ? (
+          <InputGroupAddon align="inline-end">
+            <span aria-hidden="true">{unit}</span>
+          </InputGroupAddon>
+        ) : null}
+      </InputGroup>
+    </Field>
+  );
+}
+
+// InspectorSection groups inspector controls under a collapsible heading.
+// Sections render open so every control keeps working exactly where authors
+// expect it; the headings and dividers replace the previous flat stack.
+export function InspectorSection({
+  title,
+  children,
+  defaultOpen = true,
+}: {
+  title: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <section className="grid gap-3 border-b border-border pb-4 last:border-0 last:pb-0">
+      <Collapsible defaultOpen={defaultOpen}>
+        <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg text-left text-sm font-medium">
+          {title}
+          <ChevronDown
+            size={15}
+            aria-hidden="true"
+            className="shrink-0 text-muted-foreground"
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="grid gap-3 pt-3">
+          {children}
+        </CollapsibleContent>
+      </Collapsible>
+    </section>
+  );
+}
+
+function AlignmentToggle({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <Field>
+      <FieldLabel id={`${id}-label`}>{label}</FieldLabel>
+      <RheaToggleGroup
+        aria-labelledby={`${id}-label`}
+        value={[value]}
+        onValueChange={(values) => {
+          const next = values[0];
+          if (next) onChange(next);
+        }}
+        multiple={false}
+        variant="outline"
+        size="sm"
+        spacing={1}
+      >
+        <RheaToggleGroupItem value="left" aria-label={`${label}: left`}>
+          <AlignLeft size={15} aria-hidden="true" />
+        </RheaToggleGroupItem>
+        <RheaToggleGroupItem value="center" aria-label={`${label}: center`}>
+          <AlignCenter size={15} aria-hidden="true" />
+        </RheaToggleGroupItem>
+        <RheaToggleGroupItem value="right" aria-label={`${label}: right`}>
+          <AlignRight size={15} aria-hidden="true" />
+        </RheaToggleGroupItem>
+      </RheaToggleGroup>
     </Field>
   );
 }
@@ -242,114 +344,151 @@ export function PlacementInspector({
   const primitive = item.primitive;
   return (
     <div className="grid gap-4">
-      <Field>
-        <FieldLabel htmlFor="placement-name">Layer name</FieldLabel>
-        <Input
-          id="placement-name"
-          value={item.name}
-          onChange={(event) =>
-            update((target) => (target.name = event.target.value))
-          }
-        />
-      </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <NumberField
-          label="X"
-          value={item.x}
-          onChange={(value) => update((target) => (target.x = value))}
-        />
-        <NumberField
-          label="Y"
-          value={item.y}
-          onChange={(value) => update((target) => (target.y = value))}
-        />
-        <NumberField
-          label="Width"
-          value={item.width}
-          min={1}
-          onChange={(value) => update((target) => (target.width = value))}
-        />
-        <NumberField
-          label="Height"
-          value={item.height}
-          min={1}
-          onChange={(value) => update((target) => (target.height = value))}
-        />
-      </div>
-      <NumberField
-        label="Opacity"
-        value={item.opacity}
-        min={0}
-        max={1}
-        step={0.05}
-        onChange={(value) => update((target) => (target.opacity = value))}
-      />
-      <div className="flex flex-wrap gap-1">
-        <RheaButton
-          type="button"
-          variant="ghost"
-          size="icon"
-          title="Move forward"
-          aria-label="Move forward"
-          onClick={() =>
-            update((target) => (target.layer = Math.min(999, target.layer + 1)))
-          }
-        >
-          <ArrowUp size={16} aria-hidden="true" />
-        </RheaButton>
-        <RheaButton
-          type="button"
-          variant="ghost"
-          size="icon"
-          title="Move backward"
-          aria-label="Move backward"
-          onClick={() =>
-            update((target) => (target.layer = Math.max(0, target.layer - 1)))
-          }
-        >
-          <ArrowDown size={16} aria-hidden="true" />
-        </RheaButton>
-        <RheaButton
-          type="button"
-          variant="ghost"
-          size="icon"
-          title="Duplicate"
-          aria-label="Duplicate"
-          onClick={duplicate}
-        >
-          <Copy size={16} aria-hidden="true" />
-        </RheaButton>
-        <RheaButton
-          type="button"
-          variant="ghost"
-          size="icon"
-          title={item.locked ? "Unlock" : "Lock"}
-          aria-label={item.locked ? "Unlock" : "Lock"}
-          onClick={() => update((target) => (target.locked = !target.locked))}
-        >
-          {item.locked ? (
-            <Lock size={16} aria-hidden="true" />
-          ) : (
-            <LockOpen size={16} aria-hidden="true" />
-          )}
-        </RheaButton>
-        <RheaButton
-          type="button"
-          variant="ghost"
-          size="icon"
-          title={item.visible ? "Hide" : "Show"}
-          aria-label={item.visible ? "Hide" : "Show"}
-          onClick={() => update((target) => (target.visible = !target.visible))}
-        >
-          {item.visible ? (
-            <Eye size={16} aria-hidden="true" />
-          ) : (
-            <EyeOff size={16} aria-hidden="true" />
-          )}
-        </RheaButton>
-      </div>
+      <InspectorSection title="Layer">
+        <Field>
+          <FieldLabel htmlFor="placement-name">Layer name</FieldLabel>
+          <Input
+            id="placement-name"
+            value={item.name}
+            onChange={(event) =>
+              update((target) => (target.name = event.target.value))
+            }
+          />
+        </Field>
+        <div className="flex flex-wrap gap-1">
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            title="Move forward"
+            aria-label="Move forward"
+            onClick={() =>
+              update(
+                (target) => (target.layer = Math.min(999, target.layer + 1)),
+              )
+            }
+          >
+            <ArrowUp size={16} aria-hidden="true" />
+          </RheaButton>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            title="Move backward"
+            aria-label="Move backward"
+            onClick={() =>
+              update((target) => (target.layer = Math.max(0, target.layer - 1)))
+            }
+          >
+            <ArrowDown size={16} aria-hidden="true" />
+          </RheaButton>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            title="Duplicate"
+            aria-label="Duplicate"
+            onClick={duplicate}
+          >
+            <Copy size={16} aria-hidden="true" />
+          </RheaButton>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            title={item.locked ? "Unlock" : "Lock"}
+            aria-label={item.locked ? "Unlock" : "Lock"}
+            onClick={() => update((target) => (target.locked = !target.locked))}
+          >
+            {item.locked ? (
+              <Lock size={16} aria-hidden="true" />
+            ) : (
+              <LockOpen size={16} aria-hidden="true" />
+            )}
+          </RheaButton>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            title={item.visible ? "Hide" : "Show"}
+            aria-label={item.visible ? "Hide" : "Show"}
+            onClick={() =>
+              update((target) => (target.visible = !target.visible))
+            }
+          >
+            {item.visible ? (
+              <Eye size={16} aria-hidden="true" />
+            ) : (
+              <EyeOff size={16} aria-hidden="true" />
+            )}
+          </RheaButton>
+        </div>
+        {canGroup && (
+          <RheaButton type="button" variant="secondary" onClick={group}>
+            <Group size={16} aria-hidden="true" />
+            Group selection
+          </RheaButton>
+        )}
+      </InspectorSection>
+      <InspectorSection title="Position & size">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <NumberField
+            label="X"
+            unit="px"
+            value={item.x}
+            onChange={(value) => update((target) => (target.x = value))}
+          />
+          <NumberField
+            label="Y"
+            unit="px"
+            value={item.y}
+            onChange={(value) => update((target) => (target.y = value))}
+          />
+          <NumberField
+            label="Width"
+            unit="px"
+            value={item.width}
+            min={1}
+            onChange={(value) => update((target) => (target.width = value))}
+          />
+          <NumberField
+            label="Height"
+            unit="px"
+            value={item.height}
+            min={1}
+            onChange={(value) => update((target) => (target.height = value))}
+          />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Appearance">
+        <Field>
+          <FieldLabel htmlFor="placement-opacity">Opacity</FieldLabel>
+          <div className="flex items-center gap-3">
+            <RheaSlider
+              id="placement-opacity"
+              aria-label="Layer opacity"
+              min={0}
+              max={100}
+              step={1}
+              value={[Math.round(item.opacity * 100)]}
+              onValueChange={(next) =>
+                update(
+                  (target) =>
+                    (target.opacity =
+                      Number(Array.isArray(next) ? (next[0] ?? 100) : next) /
+                      100),
+                )
+              }
+              className="flex-1"
+            />
+            <output className="w-12 shrink-0 text-right text-sm tabular-nums">
+              {Math.round(item.opacity * 100)}%
+            </output>
+          </div>
+        </Field>
+      </InspectorSection>
       {item.type === "widget" && (
-        <div className="grid gap-4">
+        <InspectorSection title="Widget">
           <div className="grid gap-4 sm:grid-cols-2">
             <InspectorSelect
               id="widget-fit"
@@ -362,13 +501,12 @@ export function PlacementInspector({
                 })
               }
             />
-            <InspectorSelect
+            <AlignmentToggle
               id="widget-alignment"
               label="Alignment"
               value={
                 (item.overrides?.alignment as string | undefined) ?? "center"
               }
-              options={alignmentOptions}
               onChange={(next) =>
                 update((target) => {
                   target.overrides = { ...target.overrides, alignment: next };
@@ -461,10 +599,10 @@ export function PlacementInspector({
             <AppWindow size={16} aria-hidden="true" />
             Edit shared Widget
           </RheaButton>
-        </div>
+        </InspectorSection>
       )}
       {item.type === "playlistZone" && (
-        <div className="grid gap-4">
+        <InspectorSection title="Playlist zone">
           <Alert>
             <AlertTitle>{playlist?.name ?? item.name}</AlertTitle>
             <AlertDescription>
@@ -531,6 +669,7 @@ export function PlacementInspector({
           </label>
           <NumberField
             label="Corner radius"
+            unit="px"
             value={item.playback?.cornerRadius ?? 0}
             max={1000}
             onChange={(value) =>
@@ -546,10 +685,10 @@ export function PlacementInspector({
           >
             Edit playlist
           </RheaButton>
-        </div>
+        </InspectorSection>
       )}
       {item.type === "asset" && (
-        <div className="grid gap-4">
+        <InspectorSection title="Media">
           <InspectorSelect
             id="asset-fit"
             label="Fit"
@@ -567,6 +706,7 @@ export function PlacementInspector({
           <div className="grid gap-4 sm:grid-cols-2">
             <NumberField
               label="Corner radius"
+              unit="px"
               value={item.playback?.cornerRadius ?? 0}
               max={1000}
               onChange={(value) =>
@@ -627,16 +767,10 @@ export function PlacementInspector({
               </label>
             </>
           )}
-        </div>
-      )}
-      {canGroup && (
-        <RheaButton type="button" variant="secondary" onClick={group}>
-          <Group size={16} aria-hidden="true" />
-          Group selection
-        </RheaButton>
+        </InspectorSection>
       )}
       {primitive?.kind === "group" && (
-        <>
+        <InspectorSection title="Group">
           <RheaButton type="button" variant="secondary" onClick={ungroup}>
             <Ungroup size={16} aria-hidden="true" />
             Ungroup
@@ -707,10 +841,10 @@ export function PlacementInspector({
               />
             </div>
           )}
-        </>
+        </InspectorSection>
       )}
       {primitive?.kind === "text" && (
-        <>
+        <InspectorSection title="Text">
           {!primitive.binding && dataSources.length === 0 ? (
             <ConnectDataNotice
               message="Connect data to bind this text to a live field."
@@ -886,6 +1020,7 @@ export function PlacementInspector({
               }
             />
             <NumberField
+              unit="px"
               label="Size"
               value={primitive.fontSize ?? 48}
               min={8}
@@ -908,11 +1043,10 @@ export function PlacementInspector({
                 )
               }
             />
-            <InspectorSelect
+            <AlignmentToggle
               id="text-align"
               label="Align"
               value={primitive.textAlign ?? "center"}
-              options={alignmentOptions}
               onChange={(next) =>
                 update(
                   (target) =>
@@ -948,6 +1082,7 @@ export function PlacementInspector({
               }
             />
             <NumberField
+              unit="px"
               label="Letter spacing"
               value={primitive.letterSpacing ?? 0}
               min={0}
@@ -958,6 +1093,7 @@ export function PlacementInspector({
               }
             />
             <NumberField
+              unit="px"
               label="Padding"
               value={primitive.padding ?? 0}
               max={300}
@@ -967,6 +1103,7 @@ export function PlacementInspector({
             />
             <NumberField
               label="Corner radius"
+              unit="px"
               value={primitive.cornerRadius ?? 0}
               max={1000}
               onChange={(value) =>
@@ -975,6 +1112,7 @@ export function PlacementInspector({
             />
             <NumberField
               label="Border"
+              unit="px"
               value={primitive.borderWidth ?? 0}
               max={100}
               onChange={(value) =>
@@ -1003,36 +1141,39 @@ export function PlacementInspector({
             />
             <span>Automatically fit text</span>
           </label>
-        </>
+        </InspectorSection>
       )}
       {primitive &&
         ["rectangle", "circle", "line"].includes(primitive.kind) && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ColorField
-              id="shape-fill"
-              label="Fill"
-              value={primitive.fillColor ?? "#2D7FF9"}
-              onChange={(next) =>
-                update((target) => (target.primitive!.fillColor = next))
-              }
-            />
-            <ColorField
-              id="shape-stroke"
-              label="Stroke"
-              value={primitive.strokeColor ?? "#FFFFFF"}
-              onChange={(next) =>
-                update((target) => (target.primitive!.strokeColor = next))
-              }
-            />
-            <NumberField
-              label="Stroke width"
-              value={primitive.strokeWidth ?? 0}
-              max={100}
-              onChange={(value) =>
-                update((target) => (target.primitive!.strokeWidth = value))
-              }
-            />
-          </div>
+          <InspectorSection title="Shape">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ColorField
+                id="shape-fill"
+                label="Fill"
+                value={primitive.fillColor ?? "#2D7FF9"}
+                onChange={(next) =>
+                  update((target) => (target.primitive!.fillColor = next))
+                }
+              />
+              <ColorField
+                id="shape-stroke"
+                label="Stroke"
+                value={primitive.strokeColor ?? "#FFFFFF"}
+                onChange={(next) =>
+                  update((target) => (target.primitive!.strokeColor = next))
+                }
+              />
+              <NumberField
+                label="Stroke width"
+                unit="px"
+                value={primitive.strokeWidth ?? 0}
+                max={100}
+                onChange={(value) =>
+                  update((target) => (target.primitive!.strokeWidth = value))
+                }
+              />
+            </div>
+          </InspectorSection>
         )}
     </div>
   );
@@ -1049,25 +1190,31 @@ function BindingFieldSelect({
   fields: string[];
   onChange: (next: string) => void;
 }) {
-  const options = fields.map((field) => ({ value: field, label: field }));
   return (
     <Field>
       <FieldLabel htmlFor={id}>Field</FieldLabel>
-      <RheaSelect
+      <Combobox
         value={value}
-        onValueChange={(next) => onChange(next ?? value)}
+        onValueChange={(next) => {
+          if (typeof next === "string" && next) onChange(next);
+        }}
       >
-        <SelectTrigger id={id} aria-label="Field">
-          <SelectValue>{optionLabel(options, value) || value}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {fields.map((field) => (
-            <SelectItem key={field} value={field}>
-              {field}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </RheaSelect>
+        <ComboboxInput
+          id={id}
+          aria-label="Field"
+          placeholder="Search fields…"
+        />
+        <ComboboxContent>
+          <ComboboxList>
+            {fields.map((field) => (
+              <ComboboxItem key={field} value={field}>
+                {field}
+              </ComboboxItem>
+            ))}
+          </ComboboxList>
+          <ComboboxEmpty>No fields match.</ComboboxEmpty>
+        </ComboboxContent>
+      </Combobox>
     </Field>
   );
 }

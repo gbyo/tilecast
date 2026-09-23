@@ -14,6 +14,21 @@ import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
+  Sheet as RheaSheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
+import {
+  Table as RheaTable,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -260,28 +275,6 @@ function ResponsesTab({
       }),
   });
 
-  if (selectedRecordId) {
-    return (
-      <div className="grid content-start gap-4">
-        <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onSelectRecord(null)}
-          >
-            ← Back to responses
-          </Button>
-        </div>
-        <RecordReview
-          form={form}
-          recordId={selectedRecordId}
-          csrf={csrf}
-          onAfterTransition={() => void records.refetch()}
-        />
-      </div>
-    );
-  }
-
   const total = records.data?.total ?? 0;
   const items = records.data?.items ?? [];
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -390,34 +383,22 @@ function ResponsesTab({
       ) : (
         <>
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[48rem] text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Submission
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Submitter
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    State
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Priority
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Updated
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Display window
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+            <RheaTable className="min-w-[48rem]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">Submission</TableHead>
+                  <TableHead scope="col">Submitter</TableHead>
+                  <TableHead scope="col">State</TableHead>
+                  <TableHead scope="col">Priority</TableHead>
+                  <TableHead scope="col">Updated</TableHead>
+                  <TableHead scope="col">Display window</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items.map((record) => (
-                  <tr
+                  <TableRow
                     key={record.id}
-                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted"
+                    className="cursor-pointer hover:bg-muted"
                     tabIndex={0}
                     role="button"
                     aria-label={`Review ${record.displayTitle || "untitled submission"}`}
@@ -429,13 +410,11 @@ function ResponsesTab({
                       }
                     }}
                   >
-                    <td className="px-3 py-2">
+                    <TableCell>
                       {record.displayTitle || "Untitled submission"}
-                    </td>
-                    <td className="px-3 py-2">
-                      {record.submitterName || "Unknown"}
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell>{record.submitterName || "Unknown"}</TableCell>
+                    <TableCell>
                       <Badge
                         {...formToneBadgeProps(
                           stateTone(form.workflow, record.state),
@@ -443,18 +422,18 @@ function ResponsesTab({
                       >
                         {stateLabel(form.workflow, record.state)}
                       </Badge>
-                    </td>
-                    <td className="px-3 py-2">{record.priority}</td>
-                    <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                    </TableCell>
+                    <TableCell>{record.priority}</TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums">
                       {new Date(record.updatedAt).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {displayWindow(record.displayAt, record.expiresAt)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </RheaTable>
           </div>
           <Pagination
             label="Responses pages"
@@ -465,6 +444,48 @@ function ResponsesTab({
             nextDisabled={page >= totalPages}
           />
         </>
+      )}
+      {selectedRecordId && (
+        <RheaSheet
+          open
+          onOpenChange={(open) => {
+            if (!open) onSelectRecord(null);
+          }}
+        >
+          <SheetContent
+            side="right"
+            className="overflow-y-auto sm:max-w-xl"
+            aria-label="Response detail"
+          >
+            <SheetHeader>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Response
+              </p>
+              <SheetTitle>Review submission</SheetTitle>
+              <SheetDescription>
+                The list stays in place behind this panel; closing returns to
+                it.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid content-start gap-4 px-4 pb-4">
+              <div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSelectRecord(null)}
+                >
+                  ← Back to responses
+                </Button>
+              </div>
+              <RecordReview
+                form={form}
+                recordId={selectedRecordId}
+                csrf={csrf}
+                onAfterTransition={() => void records.refetch()}
+              />
+            </div>
+          </SheetContent>
+        </RheaSheet>
       )}
     </div>
   );
