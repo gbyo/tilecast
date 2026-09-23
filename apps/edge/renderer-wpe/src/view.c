@@ -289,10 +289,10 @@ tc_view_create (TcHost *host, GError **error)
     return FALSE;
 
   host->web_context = webkit_web_context_new ();
-  /* The web-process sandbox must see the media plugin and the CAS, both
-   * read-only. Nothing else under the Edge state directory is exposed. */
+  /* The web-process sandbox sees the media plugin; media bytes are provided
+   * by tilecastd over its capability socket. */
   webkit_web_context_add_path_to_sandbox (host->web_context, host->gst_plugin_dir, TRUE);
-  webkit_web_context_add_path_to_sandbox (host->web_context, host->startup_cas_root, TRUE);
+  webkit_web_context_add_path_to_sandbox (host->web_context, host->media_socket, TRUE);
   host->network_session = webkit_network_session_new_ephemeral ();
   tc_schemes_register (host);
 

@@ -10,6 +10,25 @@ test_sha256 (void)
   g_assert_false (tc_is_sha256_hex ("../../../../etc/passwd"));
   g_assert_false (tc_is_sha256_hex (""));
   g_assert_false (tc_is_sha256_hex (NULL));
+  g_assert_true (tc_is_media_capability_uri ("tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_media_capability_uri ("tcmedia://sha256/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+  g_assert_false (tc_is_media_capability_uri ("tcmedia://cap/../../etc/passwd"));
+}
+
+static void
+test_variant_paths (void)
+{
+  char key[74];
+  g_assert_true (tc_is_canonical_uuid ("844f4a48-a47c-4fbd-8a84-f8d61cc64b6a"));
+  g_assert_false (tc_is_canonical_uuid ("844F4A48-A47C-4FBD-8A84-F8D61CC64B6A"));
+  g_assert_false (tc_is_canonical_uuid ("844f4a48a47c4fbd8a84f8d61cc64b6a"));
+  g_assert_true (
+    tc_parse_variant_path ("/844f4a48-a47c-4fbd-8a84-f8d61cc64b6a/46784d73-3daf-45cf-8ff0-7cb4a3d12852", key));
+  g_assert_cmpstr (key, ==, "844f4a48-a47c-4fbd-8a84-f8d61cc64b6a/46784d73-3daf-45cf-8ff0-7cb4a3d12852");
+  g_assert_false (
+    tc_parse_variant_path ("/844f4a48-a47c-4fbd-8a84-f8d61cc64b6a/../../../../etc/passwd/xxxxxxxxxxxxxxx", key));
+  g_assert_false (tc_parse_variant_path ("/844f4a48-a47c-4fbd-8a84-f8d61cc64b6a", key));
+  g_assert_false (tc_parse_variant_path (NULL, key));
 }
 
 static void
@@ -71,6 +90,7 @@ main (int argc, char **argv)
 {
   g_test_init (&argc, &argv, NULL);
   g_test_add_func ("/validate/sha256", test_sha256);
+  g_test_add_func ("/validate/variant-paths", test_variant_paths);
   g_test_add_func ("/validate/runtime-paths", test_runtime_paths);
   g_test_add_func ("/validate/ranges", test_ranges);
   g_test_add_func ("/validate/clean-paths", test_clean_paths);

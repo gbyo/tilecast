@@ -13,6 +13,20 @@ G_BEGIN_DECLS
 /* Exactly 64 lowercase hexadecimal characters. */
 gboolean tc_is_sha256_hex (const char *value);
 
+/* Exact opaque tcmedia URI form accepted from a daemon activation. */
+gboolean tc_is_media_capability_uri (const char *value);
+
+/* A canonical lowercase hyphenated UUID (8-4-4-4-12). */
+gboolean tc_is_canonical_uuid (const char *value);
+
+/*
+ * The path of a tcmedia://variant/<asset>/<variant> request ("/<uuid>/<uuid>"
+ * with canonical UUIDs). On success writes "<asset>/<variant>" (73 bytes plus
+ * NUL) into `key`. The reference runtime addresses a few media objects this
+ * way; the host resolves them only through daemon-provided aliases.
+ */
+gboolean tc_parse_variant_path (const char *path, char key[74]);
+
 /*
  * A path under the trusted runtime directory, as requested through
  * tilecast://runtime/<path>. Accepts only "/<name>" and "/fonts/<name>"

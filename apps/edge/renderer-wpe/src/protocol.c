@@ -16,7 +16,8 @@
  * Websites and YouTube need an isolation design first (docs/tilecast-edge.md §10.5), so they
  * are not advertised and tilecastd will not send them. */
 static const char *const RENDERER_FEATURES[] = {
-  "status-surfaces-v1", "image", "video", "render-tree-v1", "layout-v1", NULL,
+  "status-surfaces-v1", "image",           "video",           "render-tree-v1", "layout-v1", "plugin.brand_bug",
+  "plugin.countdown_bar", "plugin.alert_ticker", NULL,
 };
 
 static const char *
@@ -89,7 +90,7 @@ tc_protocol_send_health (TcHost *host, const char *state, const char *reason)
   tc_ipc_send_event (host, "renderer.health", json_builder_get_root (builder));
 }
 
-/* Parses a content list, rejecting any entry that is not a valid digest. */
+/* Parses a content list, rejecting any entry that is not a capability URI. */
 static GPtrArray *
 parse_content (JsonObject *data, const char *member, gboolean *ok)
 {
@@ -104,15 +105,15 @@ parse_content (JsonObject *data, const char *member, gboolean *ok)
   }
   for (guint i = 0; i < json_array_get_length (array); i++) {
     JsonObject *entry = json_array_get_object_element (array, i);
-    const char *sha = entry ? json_object_get_string_member_with_default (entry, "sha256", NULL) : NULL;
+    const char *uri = entry ? json_object_get_string_member_with_default (entry, "uri", NULL) : NULL;
     const char *mime = entry ? json_object_get_string_member_with_default (entry, "mimeType", NULL) : NULL;
     gint64 size = entry ? json_object_get_int_member_with_default (entry, "sizeBytes", -1) : -1;
-    if (!tc_is_sha256_hex (sha) || mime == NULL || size < 0) {
+    if (!tc_is_media_capability_uri (uri) || mime == NULL || size < 0) {
       *ok = FALSE;
       return refs;
     }
     TcContentRef *ref = g_new0 (TcContentRef, 1);
-    g_strlcpy (ref->sha256, sha, sizeof ref->sha256);
+    g_strlcpy (ref->uri, uri, sizeof ref->uri);
     ref->size_bytes = (guint64) size;
     ref->mime_type = g_strdup (mime);
     g_ptr_array_add (refs, ref);
@@ -149,21 +150,18 @@ node_to_json (JsonNode *node)
 static void
 handle_configure (TcHost *host, JsonObject *data)
 {
-  JsonObject *store = json_object_get_object_member (data, "contentStore");
-  const char *layout = store ? json_object_get_string_member_with_default (store, "layout", "") : "";
-  const char *root = store ? json_object_get_string_member_with_default (store, "root", NULL) : NULL;
-  if (g_strcmp0 (layout, "cas-sha256-v1") != 0 || !tc_is_clean_absolute_path (root)) {
-    g_warning ("protocol: ignoring renderer.configure with an unusable content store");
+  JsonObject *channel = json_object_get_object_member (data, "mediaChannel");
+  const char *protocol = channel ? json_object_get_string_member_with_default (channel, "protocol", "") : "";
+  const char *socket = channel ? json_object_get_string_member_with_default (channel, "socket", NULL) : NULL;
+  if (g_strcmp0 (protocol, "daemon-cap-v1") != 0 || !tc_is_clean_absolute_path (socket)) {
+    g_warning ("protocol: ignoring renderer.configure with an unusable media channel");
     return;
   }
-  if (g_strcmp0 (root, host->startup_cas_root) != 0) {
-    /* Video would read a different store than images; refuse to diverge. */
-    g_warning ("protocol: tilecastd's content store differs from --cas-root; media disabled");
-    tc_protocol_send_health (host, "degraded", "cas_root_mismatch");
+  if (g_strcmp0 (socket, host->media_socket) != 0) {
+    g_warning ("protocol: daemon media socket differs from --media-socket; media disabled");
+    tc_protocol_send_health (host, "degraded", "media_socket_mismatch");
     return;
   }
-  g_free (host->cas_root);
-  host->cas_root = g_strdup (root);
 }
 
 static void
@@ -187,16 +185,63 @@ handle_activate (TcHost *host, JsonObject *data, JsonNode *data_node)
     tc_view_deliver (host, "presentation.activate", host->current_activation_json);
 }
 
+static gboolean
+content_has_uri (GPtrArray *content, const char *uri)
+{
+  for (guint i = 0; i < content->len; i++) {
+    const TcContentRef *ref = g_ptr_array_index (content, i);
+    if (strcmp (ref->uri, uri) == 0)
+      return TRUE;
+  }
+  return FALSE;
+}
+
+/* Aliases map an asset/variant identity the reference runtime builds itself
+ * (the Brand Bug logo) to a capability this plugin state grants. Anything
+ * else makes the whole plugin state malformed. */
+static GHashTable *
+parse_aliases (JsonObject *data, GPtrArray *content, gboolean *ok)
+{
+  GHashTable *aliases = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+  *ok = TRUE;
+  if (!json_object_has_member (data, "aliases"))
+    return aliases;
+  JsonArray *array = json_object_get_array_member (data, "aliases");
+  if (array == NULL || json_array_get_length (array) > TC_MAX_CONTENT_REFS) {
+    *ok = FALSE;
+    return aliases;
+  }
+  for (guint i = 0; i < json_array_get_length (array); i++) {
+    JsonObject *entry = json_array_get_object_element (array, i);
+    const char *asset = entry ? json_object_get_string_member_with_default (entry, "assetId", NULL) : NULL;
+    const char *variant = entry ? json_object_get_string_member_with_default (entry, "variantId", NULL) : NULL;
+    const char *uri = entry ? json_object_get_string_member_with_default (entry, "uri", NULL) : NULL;
+    if (!tc_is_canonical_uuid (asset) || !tc_is_canonical_uuid (variant) || !tc_is_media_capability_uri (uri)
+        || !content_has_uri (content, uri)) {
+      *ok = FALSE;
+      return aliases;
+    }
+    g_hash_table_replace (aliases, g_strdup_printf ("%s/%s", asset, variant), g_strdup (uri));
+  }
+  return aliases;
+}
+
 static void
 handle_plugins (TcHost *host, JsonObject *data, JsonNode *data_node)
 {
   gboolean ok = FALSE;
   GPtrArray *content = parse_content (data, "content", &ok);
-  if (!ok) {
+  gboolean aliases_ok = FALSE;
+  GHashTable *aliases = ok ? parse_aliases (data, content, &aliases_ok) : NULL;
+  if (!ok || !aliases_ok) {
     g_ptr_array_unref (content);
+    if (aliases != NULL)
+      g_hash_table_unref (aliases);
     g_warning ("protocol: ignoring malformed plugin.state");
     return;
   }
+  g_hash_table_unref (host->media_aliases);
+  host->media_aliases = aliases;
   g_ptr_array_unref (host->plugin_content);
   host->plugin_content = content;
   /* Keep the activation's own content allowed alongside the new plugins. */

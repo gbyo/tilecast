@@ -14,6 +14,44 @@ tc_is_sha256_hex (const char *value)
   return TRUE;
 }
 
+gboolean
+tc_is_media_capability_uri (const char *value)
+{
+  static const char prefix[] = "tcmedia://cap/";
+  return value != NULL && g_str_has_prefix (value, prefix) && tc_is_sha256_hex (value + sizeof prefix - 1);
+}
+
+gboolean
+tc_is_canonical_uuid (const char *value)
+{
+  if (value == NULL || strlen (value) != 36)
+    return FALSE;
+  for (guint i = 0; i < 36; i++) {
+    gboolean hyphen = i == 8 || i == 13 || i == 18 || i == 23;
+    char c = value[i];
+    if (hyphen ? c != '-' : !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
+      return FALSE;
+  }
+  return TRUE;
+}
+
+gboolean
+tc_parse_variant_path (const char *path, char key[74])
+{
+  if (path == NULL || strlen (path) != 74 || path[0] != '/' || path[37] != '/')
+    return FALSE;
+  char asset[37], variant[37];
+  memcpy (asset, path + 1, 36);
+  asset[36] = '\0';
+  memcpy (variant, path + 38, 36);
+  variant[36] = '\0';
+  if (!tc_is_canonical_uuid (asset) || !tc_is_canonical_uuid (variant))
+    return FALSE;
+  memcpy (key, path + 1, 73);
+  key[73] = '\0';
+  return TRUE;
+}
+
 static gboolean
 name_is_allowed (const char *name)
 {

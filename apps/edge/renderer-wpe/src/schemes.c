@@ -2,7 +2,9 @@
  * URI scheme handlers. Both resolve identifiers, never paths:
  *
  *   tilecast://runtime/<allowlisted asset>  → <runtime dir>/<asset>
- *   tcmedia://sha256/<64 hex>               → <CAS root>/sha256/<ab>/<hex>
+ *   tcmedia://cap/<opaque>                  → daemon media capability channel
+ *   tcmedia://variant/<asset>/<variant>     → the capability the current plugin
+ *                                             state aliases to that variant
  *
  * A media request is served only when the digest is listed in the current
  * activation or plugin state, and only when the file's size matches what
@@ -11,6 +13,7 @@
  * seek; anything else gets the whole object.
  */
 #include "host.h"
+#include "media-client.h"
 #include "validate.h"
 
 #include <errno.h>
@@ -39,7 +42,7 @@ tc_bounded_stream_read (GInputStream *stream, void *buffer, gsize count, GCancel
 {
   (void) cancellable;
   TcBoundedStream *self = TC_BOUNDED_STREAM (stream);
-  if (self->remaining == 0)
+  if (count == 0 || self->remaining == 0)
     return 0;
   gsize want = (gsize) MIN ((guint64) count, self->remaining);
   gssize got;
@@ -101,6 +104,69 @@ bounded_stream_new (int fd, guint64 offset, guint64 length)
   return G_INPUT_STREAM (self);
 }
 
+/* ------------------------------------------------------ daemon media stream */
+
+#define TC_TYPE_MEDIA_STREAM (tc_media_stream_get_type ())
+G_DECLARE_FINAL_TYPE (TcMediaStream, tc_media_stream, TC, MEDIA_STREAM, GInputStream)
+
+struct _TcMediaStream {
+  GInputStream parent_instance;
+  char *socket_path;
+  char *capability;
+  guint64 offset;
+  guint64 remaining;
+};
+
+G_DEFINE_FINAL_TYPE (TcMediaStream, tc_media_stream, G_TYPE_INPUT_STREAM)
+
+static gssize
+tc_media_stream_read (GInputStream *stream, void *buffer, gsize count, GCancellable *cancellable, GError **error)
+{
+  (void) cancellable;
+  TcMediaStream *self = TC_MEDIA_STREAM (stream);
+  if (count == 0 || self->remaining == 0)
+    return 0;
+  guint32 want = (guint32) MIN (MIN ((guint64) count, self->remaining), (guint64) TC_MEDIA_MAX_READ);
+  if (!tc_media_read (self->socket_path, self->capability, self->offset, buffer, want, error))
+    return -1;
+  self->offset += want;
+  self->remaining -= want;
+  return want;
+}
+
+static void
+tc_media_stream_finalize (GObject *object)
+{
+  TcMediaStream *self = TC_MEDIA_STREAM (object);
+  g_free (self->socket_path);
+  g_free (self->capability);
+  G_OBJECT_CLASS (tc_media_stream_parent_class)->finalize (object);
+}
+
+static void
+tc_media_stream_class_init (TcMediaStreamClass *klass)
+{
+  G_OBJECT_CLASS (klass)->finalize = tc_media_stream_finalize;
+  G_INPUT_STREAM_CLASS (klass)->read_fn = tc_media_stream_read;
+}
+
+static void
+tc_media_stream_init (TcMediaStream *self)
+{
+  (void) self;
+}
+
+static GInputStream *
+media_stream_new (const char *socket_path, const char *capability, guint64 offset, guint64 length)
+{
+  TcMediaStream *self = g_object_new (TC_TYPE_MEDIA_STREAM, NULL);
+  self->socket_path = g_strdup (socket_path);
+  self->capability = g_strdup (capability);
+  self->offset = offset;
+  self->remaining = length;
+  return G_INPUT_STREAM (self);
+}
+
 /* ------------------------------------------------------------ helpers */
 
 void
@@ -112,11 +178,11 @@ tc_content_ref_free (gpointer data)
 }
 
 const TcContentRef *
-tc_host_find_content (TcHost *host, const char *sha256)
+tc_host_find_content (TcHost *host, const char *uri)
 {
   for (guint i = 0; i < host->content->len; i++) {
     const TcContentRef *ref = g_ptr_array_index (host->content, i);
-    if (strcmp (ref->sha256, sha256) == 0)
+    if (strcmp (ref->uri, uri) == 0)
       return ref;
   }
   return NULL;
@@ -138,6 +204,19 @@ finish (WebKitURISchemeRequest *request, int fd, guint64 offset, guint64 length,
   webkit_uri_scheme_response_set_status (response, status, NULL);
   webkit_uri_scheme_response_set_content_type (response, type);
   /* (transfer full): the response owns the headers from here on. */
+  if (headers != NULL)
+    webkit_uri_scheme_response_set_http_headers (response, headers);
+  webkit_uri_scheme_request_finish_with_response (request, response);
+}
+
+static void
+finish_media (WebKitURISchemeRequest *request, const char *socket_path, const char *capability, guint64 offset,
+              guint64 length, guint status, const char *type, SoupMessageHeaders *headers)
+{
+  g_autoptr (GInputStream) stream = media_stream_new (socket_path, capability, offset, length);
+  g_autoptr (WebKitURISchemeResponse) response = webkit_uri_scheme_response_new (stream, (gint64) length);
+  webkit_uri_scheme_response_set_status (response, status, NULL);
+  webkit_uri_scheme_response_set_content_type (response, type);
   if (headers != NULL)
     webkit_uri_scheme_response_set_http_headers (response, headers);
   webkit_uri_scheme_request_finish_with_response (request, response);
@@ -192,25 +271,42 @@ handle_media (WebKitURISchemeRequest *request, gpointer user_data)
   g_autoptr (GUri) uri = g_uri_parse (webkit_uri_scheme_request_get_uri (request), G_URI_FLAGS_ENCODED, NULL);
   const char *authority = uri ? g_uri_get_host (uri) : NULL;
   const char *path = uri ? g_uri_get_path (uri) : NULL;
-  const char *hex = path && path[0] == '/' ? path + 1 : NULL;
-  if (g_strcmp0 (authority, "sha256") != 0 || !tc_is_sha256_hex (hex) || g_uri_get_query (uri) != NULL) {
+  const char *full_uri = webkit_uri_scheme_request_get_uri (request);
+  if (uri == NULL || g_uri_get_query (uri) != NULL || g_uri_get_fragment (uri) != NULL
+      || g_uri_get_userinfo (uri) != NULL || g_uri_get_port (uri) != -1) {
     fail (request, G_IO_ERROR_NOT_FOUND, "not found");
     return;
   }
-  const TcContentRef *ref = tc_host_find_content (host, hex);
-  if (ref == NULL || host->cas_root == NULL) {
-    g_warning ("schemes: refused media %.12s that the current activation does not list", hex);
+  /* A variant URI is only a local name for a capability the daemon granted
+   * in the current plugin state; it never selects media by itself. */
+  char key[74];
+  if (g_strcmp0 (authority, "variant") == 0 && tc_parse_variant_path (path, key)) {
+    const char *alias = g_hash_table_lookup (host->media_aliases, key);
+    if (alias == NULL) {
+      fail (request, G_IO_ERROR_PERMISSION_DENIED, "not part of the current presentation");
+      return;
+    }
+    full_uri = alias;
+    authority = "cap";
+    path = alias + strlen ("tcmedia://cap");
+  }
+  const char *capability = path && path[0] == '/' ? path + 1 : NULL;
+  if (g_strcmp0 (authority, "cap") != 0 || capability == NULL || !tc_is_media_capability_uri (full_uri)) {
+    fail (request, G_IO_ERROR_NOT_FOUND, "not found");
+    return;
+  }
+  const TcContentRef *ref = tc_host_find_content (host, full_uri);
+  if (ref == NULL) {
+    g_warning ("schemes: refused media capability absent from the current activation");
     fail (request, G_IO_ERROR_PERMISSION_DENIED, "not part of the current presentation");
     return;
   }
-  char fanout[3] = { hex[0], hex[1], '\0' };
-  g_autofree char *file = g_build_filename (host->cas_root, "sha256", fanout, hex, NULL);
   guint64 size = 0;
-  int fd = open_regular (file, &size);
-  if (fd < 0 || size != ref->size_bytes) {
-    if (fd >= 0)
-      close (fd);
-    g_warning ("schemes: media %.12s is missing or has the wrong size", hex);
+  g_autofree char *mime_type = NULL;
+  g_autoptr (GError) media_error = NULL;
+  if (!tc_media_head (host->media_socket, capability, &size, &mime_type, &media_error) || size != ref->size_bytes
+      || g_strcmp0 (mime_type, ref->mime_type) != 0) {
+    g_warning ("schemes: daemon denied or mismatched media capability");
     fail (request, G_IO_ERROR_NOT_FOUND, "not available");
     return;
   }
@@ -220,27 +316,25 @@ handle_media (WebKitURISchemeRequest *request, gpointer user_data)
   guint64 start = 0, end = size == 0 ? 0 : size - 1;
   SoupMessageHeaders *headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
   soup_message_headers_append (headers, "Accept-Ranges", "bytes");
-  g_autofree char *etag = g_strdup_printf ("\"sha256:%s\"", hex);
-  soup_message_headers_append (headers, "ETag", etag);
   soup_message_headers_append (headers, "Cache-Control", "no-store");
   switch (tc_parse_range (range, size, &start, &end)) {
   case TC_RANGE_OK: {
     g_autofree char *content_range =
       g_strdup_printf ("bytes %" G_GUINT64_FORMAT "-%" G_GUINT64_FORMAT "/%" G_GUINT64_FORMAT, start, end, size);
     soup_message_headers_append (headers, "Content-Range", content_range);
-    finish (request, fd, start, end - start + 1, 206, ref->mime_type, headers);
+    finish_media (request, host->media_socket, capability, start, end - start + 1, 206, ref->mime_type, headers);
     break;
   }
   case TC_RANGE_UNSATISFIABLE: {
     g_autofree char *content_range = g_strdup_printf ("bytes */%" G_GUINT64_FORMAT, size);
     soup_message_headers_append (headers, "Content-Range", content_range);
-    finish (request, fd, 0, 0, 416, ref->mime_type, headers);
+    finish_media (request, host->media_socket, capability, 0, 0, 416, ref->mime_type, headers);
     break;
   }
   case TC_RANGE_NONE:
   case TC_RANGE_INVALID:
   default:
-    finish (request, fd, 0, size, 200, ref->mime_type, headers);
+    finish_media (request, host->media_socket, capability, 0, size, 200, ref->mime_type, headers);
     break;
   }
 }
