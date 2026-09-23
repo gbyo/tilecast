@@ -15,6 +15,7 @@ const SCHEMA_VERSION: u32 = 11;
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;
+const AUTOMATIC_VIDEO_LIMIT_BYTES: u64 = 256 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Asset {
@@ -32,6 +33,11 @@ pub struct Candidate {
     pub version: i64,
     pub screen_id: ScreenId,
     pub assets: Vec<Asset>,
+    /// Exact variants that must be verified before this candidate may activate.
+    pub required_downloads: Vec<Asset>,
+    /// Media with a server stream policy. WPE currently has no verified
+    /// streaming path; a later activation must reject these until it does.
+    pub streaming_assets: Vec<Asset>,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -48,6 +54,8 @@ pub enum ManifestError {
     Asset,
     #[error("manifest references an unavailable or ambiguous media variant")]
     Reference,
+    #[error("manifest has an unsupported delivery policy")]
+    DeliveryPolicy,
 }
 
 #[derive(Deserialize)]
@@ -86,6 +94,49 @@ struct WireItem {
     variant_id: Option<uuid::Uuid>,
     asset_type: String,
     layout_id: Option<uuid::Uuid>,
+    delivery_policy: String,
+}
+
+fn exact_asset(
+    value: &Value,
+    asset_key: &str,
+    variant_key: &str,
+    catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usize>,
+) -> Result<Option<usize>, ManifestError> {
+    let Some(asset) = value.get(asset_key).filter(|value| !value.is_null()) else { return Ok(None) };
+    let asset: uuid::Uuid =
+        asset.as_str().ok_or(ManifestError::Reference)?.parse().map_err(|_| ManifestError::Reference)?;
+    let variant: uuid::Uuid = value
+        .get(variant_key)
+        .and_then(Value::as_str)
+        .ok_or(ManifestError::Reference)?
+        .parse()
+        .map_err(|_| ManifestError::Reference)?;
+    catalog.get(&(asset, variant)).copied().map(Some).ok_or(ManifestError::Reference)
+}
+
+fn required_from_layout(
+    layout: &Value,
+    catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usize>,
+    required: &mut BTreeSet<usize>,
+) -> Result<(), ManifestError> {
+    let document = layout.get("document").ok_or(ManifestError::Structure)?;
+    if let Some(canvas) = document.get("canvas")
+        && let Some(index) = exact_asset(canvas, "backgroundAssetId", "backgroundVariantId", catalog)?
+    {
+        required.insert(index);
+    }
+    if let Some(placements) = document.get("placements") {
+        let placements = placements.as_array().ok_or(ManifestError::Structure)?;
+        for placement in placements {
+            if placement.get("type").and_then(Value::as_str) == Some("asset")
+                && let Some(index) = exact_asset(placement, "assetId", "variantId", catalog)?
+            {
+                required.insert(index);
+            }
+        }
+    }
+    Ok(())
 }
 
 impl Candidate {
@@ -101,7 +152,7 @@ impl Candidate {
             return Err(ManifestError::Bound);
         }
         let mut assets = Vec::with_capacity(wire.assets.len());
-        let mut by_variant = BTreeSet::new();
+        let mut by_variant = BTreeMap::new();
         let mut by_digest = BTreeMap::new();
         for source in wire.assets {
             let digest =
@@ -113,7 +164,7 @@ impl Candidate {
                 || !source.mime_type.is_ascii()
                 || source.mime_type.bytes().any(|byte| byte.is_ascii_control())
                 || OriginBlobSource::validate_path(&source.download_path).is_err()
-                || !by_variant.insert((source.asset_id, source.variant_id))
+                || by_variant.insert((source.asset_id, source.variant_id), assets.len()).is_some()
                 || by_digest.insert(digest, size_bytes).is_some_and(|old| old != size_bytes)
             {
                 return Err(ManifestError::Asset);
@@ -128,6 +179,8 @@ impl Candidate {
             });
         }
         let mut item_count = 0;
+        let mut required = BTreeSet::new();
+        let mut streaming = BTreeSet::new();
         for playlist in wire.playlist.into_iter().chain(wire.direct_fallback_playlist).chain(wire.playlists) {
             item_count += playlist.items.len();
             if item_count > MAX_ITEMS {
@@ -138,12 +191,70 @@ impl Candidate {
                     continue;
                 }
                 let Some(variant) = item.variant_id else { return Err(ManifestError::Reference) };
-                if !by_variant.contains(&(item.asset_id, variant)) {
-                    return Err(ManifestError::Reference);
+                let index = *by_variant.get(&(item.asset_id, variant)).ok_or(ManifestError::Reference)?;
+                let asset = &assets[index];
+                match item.delivery_policy.as_str() {
+                    "download" => {
+                        required.insert(index);
+                    }
+                    "stream" => {
+                        streaming.insert(index);
+                    }
+                    "automatic"
+                        if !asset.mime_type.starts_with("video/")
+                            || asset.size_bytes <= AUTOMATIC_VIDEO_LIMIT_BYTES =>
+                    {
+                        required.insert(index);
+                    }
+                    "automatic" => {
+                        streaming.insert(index);
+                    }
+                    _ => return Err(ManifestError::DeliveryPolicy),
                 }
             }
         }
-        Ok(Self { document, version: wire.manifest_version, screen_id: wire.screen_id, assets })
+        if let Some(branding) = document.get("branding").filter(|value| !value.is_null())
+            && let Some(index) = exact_asset(branding, "logoAssetId", "logoVariantId", &by_variant)?
+        {
+            required.insert(index);
+        }
+        if let Some(websites) = document.get("websites") {
+            for website in websites.as_array().ok_or(ManifestError::Structure)? {
+                if let Some(index) = exact_asset(website, "fallbackImageAssetId", "fallbackVariantId", &by_variant)? {
+                    required.insert(index);
+                }
+            }
+        }
+        for key in ["layout", "directFallbackLayout"] {
+            if let Some(layout) = document.get(key).filter(|value| !value.is_null()) {
+                required_from_layout(layout, &by_variant, &mut required)?;
+            }
+        }
+        if let Some(layouts) = document.get("layouts") {
+            for layout in layouts.as_array().ok_or(ManifestError::Structure)? {
+                required_from_layout(layout, &by_variant, &mut required)?;
+            }
+        }
+        if let Some(plugins) = document.get("plugins") {
+            for plugin in plugins.as_array().ok_or(ManifestError::Structure)? {
+                if plugin.get("type").and_then(Value::as_str) == Some("brand_bug")
+                    && let Some(config) = plugin.get("config")
+                    && let Some(index) = exact_asset(config, "imageAssetId", "imageVariantId", &by_variant)?
+                {
+                    required.insert(index);
+                }
+            }
+        }
+        let required_downloads = required.into_iter().map(|index| assets[index].clone()).collect();
+        let streaming_assets = streaming.into_iter().map(|index| assets[index].clone()).collect();
+        Ok(Self {
+            document,
+            version: wire.manifest_version,
+            screen_id: wire.screen_id,
+            assets,
+            required_downloads,
+            streaming_assets,
+        })
     }
 }
 
@@ -162,7 +273,8 @@ mod tests {
             "assets": [{"assetId": ASSET, "variantId": VARIANT, "sha256": DIGEST,
                 "fileSize": 100, "mimeType": "image/png",
                 "downloadPath": format!("/api/v1/player/assets/{ASSET}/variants/{VARIANT}")}],
-            "playlist": {"items": [{"assetId": ASSET, "variantId": VARIANT, "assetType": "image"}]},
+            "playlist": {"items": [{"assetId": ASSET, "variantId": VARIANT,
+                "assetType": "image", "deliveryPolicy": "automatic"}]},
             "playlists": []
         })
     }
@@ -172,6 +284,8 @@ mod tests {
         let parsed = Candidate::parse(candidate(), SCREEN.parse().unwrap()).unwrap();
         assert_eq!(parsed.version, 8);
         assert_eq!(parsed.assets[0].digest.to_hex(), DIGEST);
+        assert_eq!(parsed.required_downloads, parsed.assets);
+        assert!(parsed.streaming_assets.is_empty());
     }
 
     #[test]
@@ -194,5 +308,36 @@ mod tests {
         second["fileSize"] = serde_json::json!(101);
         value["assets"].as_array_mut().unwrap().push(second);
         assert_eq!(Candidate::parse(value, SCREEN.parse().unwrap()).unwrap_err(), ManifestError::Asset);
+    }
+
+    #[test]
+    fn stream_policy_is_explicit_and_required_fallbacks_are_exact() {
+        let mut value = candidate();
+        value["playlist"]["items"][0]["deliveryPolicy"] = serde_json::json!("stream");
+        value["branding"] = serde_json::json!({"logoAssetId": ASSET, "logoVariantId": VARIANT});
+        let parsed = Candidate::parse(value, SCREEN.parse().unwrap()).unwrap();
+        assert_eq!(parsed.required_downloads.len(), 1, "branding is cached independently of the item policy");
+        assert_eq!(parsed.streaming_assets.len(), 1);
+
+        let mut value = candidate();
+        value["branding"] = serde_json::json!({"logoAssetId": ASSET});
+        assert_eq!(Candidate::parse(value, SCREEN.parse().unwrap()).unwrap_err(), ManifestError::Reference);
+    }
+
+    #[test]
+    fn automatic_video_uses_the_existing_download_threshold() {
+        let mut value = candidate();
+        value["assets"][0]["mimeType"] = serde_json::json!("video/mp4");
+        value["assets"][0]["fileSize"] = serde_json::json!(AUTOMATIC_VIDEO_LIMIT_BYTES + 1);
+        let parsed = Candidate::parse(value, SCREEN.parse().unwrap()).unwrap();
+        assert!(parsed.required_downloads.is_empty());
+        assert_eq!(parsed.streaming_assets.len(), 1);
+
+        let mut value = candidate();
+        value["assets"][0]["mimeType"] = serde_json::json!("video/mp4");
+        value["assets"][0]["fileSize"] = serde_json::json!(AUTOMATIC_VIDEO_LIMIT_BYTES);
+        let parsed = Candidate::parse(value, SCREEN.parse().unwrap()).unwrap();
+        assert_eq!(parsed.required_downloads.len(), 1);
+        assert!(parsed.streaming_assets.is_empty());
     }
 }

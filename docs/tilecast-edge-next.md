@@ -155,7 +155,10 @@ Playback identifiers will be populated when W2 activates server content.
 The identity-gated server client now reads the existing manifest endpoint with
 bounded response size and conditional ETags. The daemon has a validation
 boundary for the server-compiled manifest's target screen, asset identities,
-hash/size claims and origin paths. It is not yet connected to preparation.
+hash/size claims and origin paths. It also derives the exact required-download
+variants from playlists, branding, website fallbacks, layouts and Brand Bug,
+and records variants requiring streaming separately. It is not yet connected
+to preparation.
 SQLite now has binding-scoped pending, active and previous manifest records,
 with atomic promotion after a future preparation step. Preparation,
 scheduling, renderer media capabilities and activation remain open. The final
