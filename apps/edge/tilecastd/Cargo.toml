@@ -17,6 +17,8 @@ edge-platform.workspace = true
 edge-protocol.workspace = true
 edge-server.workspace = true
 edge-state.workspace = true
+jiff.workspace = true
+ring.workspace = true
 rustix = { workspace = true, features = ["process"] }
 serde.workspace = true
 serde_json.workspace = true

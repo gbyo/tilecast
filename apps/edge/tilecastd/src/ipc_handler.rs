@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use edge_ipc::{IpcHandler, SessionHandle};
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ipc::Role;
-use edge_protocol::ipc::event::Event;
+use edge_protocol::ipc::event::{Event, EvidenceKind};
 use edge_protocol::ipc::message::ErrorBody;
 use edge_protocol::ipc::method::{Method, PingResult, ShowDiagnosticResult, SubmitServerUrlResult, error_codes};
 use edge_protocol::ipc::status::{
@@ -16,6 +16,8 @@ use edge_protocol::ipc::status::{
 use serde_json::Value;
 
 use crate::daemon::{DaemonContext, StateMode, VERSION, status_surface};
+use crate::media::RendererInstance;
+use crate::media_channel::process_start_ticks;
 use crate::presentation::ActivationSource;
 
 #[derive(Debug)]
@@ -59,6 +61,18 @@ impl IpcHandler for DaemonIpc {
 
     async fn session_opened(&self, session: SessionHandle) {
         if session.role() == Role::Renderer {
+            let peer = session.peer();
+            if let Some(pid) = peer.pid
+                && let Some(start_ticks) = process_start_ticks(pid)
+            {
+                if let Ok(mut registry) = self.context.media_registry.lock() {
+                    registry.bind_renderer(RendererInstance { session: session.id(), uid: peer.uid, pid, start_ticks });
+                } else {
+                    tracing::error!(component = "media", event = "registry_poisoned");
+                }
+            } else {
+                tracing::warn!(component = "media", event = "renderer_process_unavailable");
+            }
             let now = self.context.now().unix_millis();
             self.context.presentation.lock().await.renderer_connected(session, now);
         }
@@ -68,12 +82,24 @@ impl IpcHandler for DaemonIpc {
         let now = self.context.now();
         let mut engine = self.context.presentation.lock().await;
         match event {
-            Event::RendererReady(ready) => engine.renderer_ready(session, ready),
-            Event::PresentationAccepted(accepted) => engine.accepted(session, accepted.activation),
+            Event::RendererReady(ready) => engine.renderer_ready(session, ready, now.unix_millis()),
+            Event::PresentationAccepted(accepted) => {
+                engine.accepted(session, accepted.activation);
+                self.context.manifest_wake.notify_one();
+            }
             Event::PresentationRejected(rejected) => {
                 engine.rejected(session, rejected.activation, rejected.code.as_str());
             }
-            Event::RendererProgress(progress) => engine.progress(session, &progress, now),
+            Event::RendererProgress(progress) => {
+                let is_boundary = progress.kind == EvidenceKind::ItemTransition;
+                let meaningful = engine.progress(session, &progress, now);
+                if is_boundary && meaningful {
+                    self.context.manifest_item_boundary.store(true, Ordering::Relaxed);
+                    self.context.manifest_wake.notify_one();
+                } else if meaningful {
+                    self.context.manifest_wake.notify_one();
+                }
+            }
             Event::ItemError(item) => {
                 tracing::warn!(
                     component = "renderer",
@@ -157,6 +183,9 @@ impl IpcHandler for DaemonIpc {
 
     async fn session_closed(&self, session: &SessionHandle, _reason: &str) {
         if session.role() == Role::Renderer {
+            if let Ok(mut registry) = self.context.media_registry.lock() {
+                registry.unbind_renderer(session.id());
+            }
             self.context.presentation.lock().await.renderer_disconnected(session.id());
         }
     }
