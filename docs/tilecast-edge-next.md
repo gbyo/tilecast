@@ -6,8 +6,9 @@ continue without breaking the architecture.
 
 Read in this order:
 
-1. [`tilecast-edge.md`](tilecast-edge.md), including Amendment A1. The RFC is
-   binding. A1 supersedes the Electron-renderer and shadow-mode sections.
+1. The current `main` version of [`tilecast-edge.md`](tilecast-edge.md). It is
+   binding and supersedes this handoff wherever they differ. Amendment A1 and
+   older handoff text do not override the current RFC.
 2. [`apps/edge/AGENTS.md`](../apps/edge/AGENTS.md): fixed decisions and
    review rules.
 3. [`apps/edge/README.md`](../apps/edge/README.md): crates, dependency
@@ -26,7 +27,7 @@ Each work package below uses three headings:
 
 | Area                                     | State                                                                                                                                                                                        | Proof                                                                                                                                                                                  |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contracts (`edge-protocol`)              | Canonical JSON (JCS subset), signed envelopes (`server.change`, `server.snapshot`, `node.statement`), IPC v1, capability model, bounded types.                                               | 47 unit tests; cross-language fixtures in `packages/edge-protocol/fixtures` reproduced byte for byte by the Go signer (`internal/edge/fixtures_test.go`).                              |
+| Contracts (`edge-protocol`)              | Foundation JCS and signed-envelope contracts (`server.change`, `server.snapshot`, `node.statement`), IPC v1, capabilities and bounded types. These do not yet implement current RFC §15's three-stream/checkpoint model. | Foundation tests and fixtures pass; they do not prove conformance to the current signed-stream RFC. |
 | State (`edge-state`)                     | SQLite with embedded migrations, integrity check after unclean shutdown, typed repositories for every table.                                                                                 | 12 tests.                                                                                                                                                                              |
 | Daemon lifecycle                         | `Type=notify`, watchdog, recovery mode on state failure, clean shutdown with WAL checkpoint.                                                                                                 | `tilecastd/tests/daemon.rs`.                                                                                                                                                           |
 | Renderer IPC                             | Versioned framing, handshake, UID policy, backpressure, renderer supersession.                                                                                                               | 11 integration tests plus a policy unit test.                                                                                                                                          |
@@ -42,6 +43,13 @@ Each work package below uses three headings:
 All Rust checks pass on macOS and in the Linux image
 (`apps/edge/ci/test-linux.sh`). The Go suite passes with PostgreSQL.
 
+This table records foundation behavior. It is not evidence that P0 is complete
+against the current RFC. In particular, the existing global change feed,
+authority recovery, migration flow and packaging predate the final hardening
+in `main`; use the RFC's per-security, per-policy and per-screen streams,
+encrypted Edge Recovery Bundle, two-phase migration fence, and systemd socket
+ownership when finishing those areas.
+
 ### 1.2 What a migrated screen does today
 
 A screen migrated with `tilecastd import-legacy`:
@@ -50,17 +58,19 @@ A screen migrated with `tilecastd import-legacy`:
   device credential;
 - enrolls an Edge certificate, pins the Edge CA and authority, and reconciles
   the signed change feed;
+- conditionally fetches and validates the assigned player manifest, prepares
+  supported image/video assets through verified CAS, and sends prepared
+  server candidates to the presentation controller;
 - posts Edge status, which `GET /api/v1/edge/nodes` shows;
 - holds normal player WebSocket presence with an HTTP heartbeat fallback;
 - runs the peer fabric when `mesh.enabled`;
 - shows the status surface in the WPE renderer.
 
-It does **not** yet:
-
-- fetch the manifest, so it plays no server content;
-- run commands;
-- report proof of play or telemetry;
-- pair on its own (a fresh installation without legacy state cannot bind).
+The new manifest-to-WPE path has not yet been proven by one real-server E2E.
+The headless renderer suite uses fixture content and does not prove an assigned
+server presentation appeared on screen. Layouts, widgets and websites are also
+not supported by the current manifest mapper. Commands, fresh-install pairing
+and the production installer remain absent.
 
 Do not migrate a production screen before W0 through W5 and the real playback
 acceptance path are done.
@@ -105,30 +115,34 @@ These hold across every work package.
 
 Priority P0 blocks production use. P1 completes Edge v1. P2 follows.
 
-### W0 (P0, server) Back up and restore the Edge root
+### W0 (P0, server) Edge trust backup and restore
 
-The server backup archives the database, media and updates. It does not
-include `TILECAST_EDGE_ROOT` (`/data/edge`). After a restore the
-`edge_authority` row exists but its key files do not, so every Edge endpoint
-answers `edge_authority_unavailable` and every enrolled node is stranded. This
-is correct recovery behavior (keys are never regenerated silently), but the
-backup is incomplete.
+W0 is not implemented. Do not satisfy it by adding `/data/edge` to the
+ordinary unencrypted archive. Current RFC §§12.1–12.11 define a trust realm,
+independent security lineage, recoverable security snapshot and encrypted
+Edge Recovery Bundle (ERB). The ordinary backup must not contain raw CA or
+authority private keys.
 
-- **Use:** `internal/backup` (`files.go` staging, activation and rollback for
-  `mediaRoot` and `updatesRoot`; `manifest.go` path validation);
-  `edge.LoadOrInitAuthority` for the post-restore check.
-- **Implement:**
-  1. Add the Edge root as a third archived root when Edge is enabled, with the
-     same staging, activation, rollback and validation steps.
-  2. Decide and document how archives protect the two private keys. They are
-     installation secrets equal in weight to the database.
-  3. After restore, call `Service.Initialize` again and report
-     `ErrAuthorityMissing` in the restore result.
-  4. Integration test: back up, delete `/data/edge`, restore, enroll a node.
-- **Do not change:** a missing authority never generates new keys.
-
-Until W0 lands, operators must copy `/data/edge` with every backup
-([`deployment.md`](deployment.md)).
+- **Use:** `apps/server/internal/backup` staging/activation/rollback and path
+  validation; `apps/server/internal/edge.LoadOrInitAuthority` and
+  `Service.Initialize`.
+- **Implement:** ERB creation/import using a maintained authenticated
+  encryption format and operator-held recovery material; pair each ordinary
+  backup with security lineage/generation/head and an ERB fingerprint; stage
+  restored trust files until DB/files validate; overlay the matching or newer
+  security snapshot before publishing recovery state; create a fresh opaque
+  `stateIncarnationId` for rollback-style restore; preserve security lineage
+  and revocations; quarantine cross-installation mismatch pending explicit
+  trust reset/re-enrollment. Integrate ERB pointers into the existing
+  prepare/activate/finalize rollback transaction.
+- **Prove:** back up, enroll a node, restore after removing live recovery
+  material, restart/reinitialize, confirm the existing trust is recovered and
+  enroll/renew; reject malformed, stale and cross-installation ERBs; inject
+  restore failures before and after activation and prove DB/files/recovery
+  pointers roll back together.
+- **Do not change:** never silently regenerate missing authority keys or move
+  security generation backward. Do not claim whole-machine snapshot rollback
+  detection when every witness rolled back together.
 
 ### W1 (P0) Player presence: heartbeat and socket
 
@@ -152,33 +166,24 @@ Playback identifiers will be populated when W2 activates server content.
 
 ### W2 (P0) Manifest, downloads and activation
 
-The identity-gated server client now reads the existing manifest endpoint with
-bounded response size and conditional ETags. The daemon has a validation
-boundary for the server-compiled manifest's target screen, asset identities,
-hash/size claims and origin paths. It also derives the exact required-download
-variants from playlists, branding, website fallbacks, layouts and Brand Bug,
-and records variants requiring streaming separately. It is not yet connected
-to activation. The server link now fetches and reconciles manifests in a
-separate worker, uses peer-first/origin-second CAS preparation for the required
-download variants, and stores a prepared candidate as pending. Streaming
-variants currently fail preparation explicitly. SQLite has binding-scoped
-pending, active and previous records with atomic promotion; promotion is not
-yet called. A timezone-aware selector now resolves direct assignments,
-one-time and weekly schedules, quick presents and takeovers with the existing
-Linux player's half-open and DST rules; it is not yet wired into activation.
-The daemon now has an opaque, random, renderer-session-bound media capability
-registry with prepared/active/draining lifetimes. It serves bounded verified
-CAS HEAD/range reads through a Unix media socket, admitting only the current
-renderer process and descendants. WPE image and GStreamer consumers now read
-through this channel; the daemon rewrites internal digest references into
-opaque renderer-generation capabilities and does not expose the CAS root.
-Rust/C fixtures and the headless WPE E2E prove image and H.264 range reads,
-renderer crash recovery and daemon restart recovery. The channel rechecks the
-grant after opening the CAS object and before returning bytes. Its reconnectable
-socket still needs systemd socket-unit ownership per RFC §9.1. Connecting
-prepared server candidates to the presentation engine, promoting only after a
-renderer transition, and retaining cached playback through server outages
-remain open.
+W2 is partially implemented on PR #530. The server client fetches the
+existing player manifest with a bounded response and conditional ETags. The
+daemon validates screen/asset identity and download claims, prepares required
+image/video variants peer-first then origin through the existing verified CAS,
+stores active/pending/previous manifest records, and resolves schedule and
+availability selection. A server-manifest controller restores cached state,
+requests activation at item boundaries or bounded grace/takeover conditions,
+and promotes pending state only after renderer acceptance plus activation
+evidence. Version-scoped pins retain pending/active media and clear migration
+pins after confirmed activation. WPE image and H.264 access now uses the
+daemon's opaque renderer-generation capability channel; the renderer receives
+no CAS path or raw-digest authority.
+
+`apps/edge/ci/test-linux.sh` and the real-WPE headless fixture suite have
+passed for this slice. They prove daemon/WPE fixture playback and recovery,
+not the complete real-server assignment-to-WPE lifecycle. The W2 PR description
+lists the checks run for its current code; do not treat those suites as proof
+of the missing server-to-WPE acceptance path.
 
 - **Use:**
   - `edge_cas::Fetcher` with sources in this order:
@@ -194,48 +199,93 @@ remain open.
     `core/schedule.ts`, `core/selection.ts`, `core/download.ts`.
   - Wake on `feed::Wake::Change(ChangeType::ScreenPresentationChanged)` and
     `Wake::Resynced`; the server link already produces them.
-- **Implement:** fetch `/api/v1/player/manifest` with ETag, prepare every
-  required variant into the CAS, activate at item boundary, keep the previous
-  manifest for offline playback, and port schedule selection. Replace the
-  development fixture source; keep the fixture for CI.
-- **Server:** publish `screen.presentation.changed` (and
-  `screen.configuration.changed`) change envelopes through `edge.AppendChange`
-  inside the transactions that change assignments. Only `edge.node.revoked` is
-  published today.
-- **Do not change:** RFC §52.1: do not build a second presentation compiler.
-  The current `main` RFC §9.5 supersedes the old raw-digest media URI in this
-  handoff: WPE must use daemon-backed `tcmedia://cap/<opaque-capability>` and
-  must not receive the CAS root.
+- **Implement next:** complete one real-server E2E from assignment through
+  manifest reconciliation, CAS verification, WPE render and daemon-accepted
+  meaningful progress; then change assignment, reconcile authoritative state,
+  prepare the replacement and prove boundary/grace activation. Add offline
+  cached start, missing/corrupt peer with origin fallback, corrupt manifest
+  preserving the current presentation, renderer/daemon restart and update
+  during preparation cases. Finish every content kind the assigned
+  presentation requires or reject it during preflight while preserving the
+  last usable presentation.
+- **RFC alignment gate:** the current code still uses the older global change
+  feed and direct mutable manifest polling. Current RFC §§15–16 require fixed
+  security/policy/per-screen streams, a materialized projection at its exact
+  signed watermark, immutable presentation objects, and peer/server hints as
+  wakeups only. Reconcile server publication and node reconciliation with that
+  model before calling W2 complete; a feed hint or manifest response must not
+  become an alternate authority. Reuse the existing Tilecast manifest domain
+  semantics for presentation compilation.
+- **Packaging gate:** install the media/control/admin sockets using RFC
+  §27.1-owned socket units. The daemon currently binds its reconnectable
+  media socket itself.
+- **Do not change:** use opaque `tcmedia://cap/<opaque-capability>` grants
+  scoped to renderer and presentation generations; keep peer/origin bytes on
+  the verified CAS path; never give WPE the CAS root. Do not build a second
+  presentation compiler.
 
 ### W3 (P0) Commands
 
+- **Status:** command persistence/import exists, but no complete server poll,
+  typed executor, durable result reporting or crash-point lifecycle is
+  connected to the daemon.
 - **Use:** `edge_state::repo::commands` (`observe`, `advance`,
   `import_completed`); the imported legacy keys; `core/commands.ts`.
-- **Implement:** poll, acknowledge and report results. Record `executing`
-  before a disruptive command. Add crash-point tests for every transition.
-- **Do not change:** a command that the legacy player ran must not run again.
-  No arbitrary execution; each command type is a typed handler.
+- **Implement:** port the current command contract with explicit
+  idempotent/reconcilable, at-most-once-initiation and retryable-with-
+  reconciliation classes. Persist durable `executing` state before a
+  disruptive side effect; report status/results; add restart tests around
+  receive → persist → execute → complete/report. Bind authorization to the
+  state incarnation and reconcile old pending work after restore.
+- **Do not change:** preserve imported idempotency keys; never re-run a
+  legacy-executed command. No shell or arbitrary executable input. Commands
+  and update authorization stay direct server authority, not peer-relayed
+  state.
 
 ### W4 (P0) Pairing for new installations
 
+- **Status:** fresh installation pairing is not implemented. `submit_server_url`
+  remains unavailable; legacy import is not a pairing substitute.
 - **Use:** `setup.submit_server_url` (currently answers "not yet"),
   `url_policy`, `ServerClient`, `core/pairing.ts`,
   `daemon::set_node_identity(.., NodeIdentitySource::Generated, ..)`.
-- **Implement:** pairing session, visible code on the setup surface, private
-  poll, one-time enrollment, credential save. Generate the node ID before the
-  pairing request; the server screen's `player_installation_id` must equal it.
-- **Do not change:** never poll with the visible code; never store the poll
-  secret after enrollment.
+- **Implement:** fresh pairing with a pre-generated durable node/player ID,
+  visible six-character code, separate private polling credential, one-time
+  enrollment, credential persistence, and transition from setup to playback.
+  Use secure bootstrap constraints below. Keep legacy migration separate:
+  RFC §41 requires WPE/content preflight, a bounded server migration fence,
+  staged replacement credential, actual playback evidence and confirmation
+  that revokes the preserved legacy bearer.
+- **Do not change:** never poll with the visible code or persist the poll
+  secret after enrollment. HTTP plus matching installation ID is insufficient
+  to establish Edge CA/authority trust; follow current RFC §10.1 and fail
+  explicitly when secure trust bootstrap is unavailable.
 
 ### W5 (P0) Installer
 
+- **Status:** package units and a written legacy migration procedure exist;
+  there is no production installer, signed compatible release set, or RFC
+  migration state machine.
 - **Use:** `apps/edge/packaging/` (units, `sysusers.d`, `tmpfiles.d`, the
   procedure in `packaging/README.md`).
-- **Implement:** a package or installer script that performs the documented
-  procedure, including rollback on a failed import, and a signed release
-  artifact per `docs/player-updates.md`.
-- **Do not change:** no self-replacing binaries; the installer is the only
-  privileged step.
+- **Implement:** preflight the exact installed WPE profile and current/near-
+  horizon assigned content before transferring credential authority; use a
+  root-owned migration lock and service mutual exclusion; stage a compatible
+  signed Edge release set, import legacy state read-only, and implement
+  crash-safe abort/confirm/rollback steps from RFC §§30 and 41. Confirmation
+  must revoke the preserved legacy bearer; post-confirmation rollback is Edge
+  release rollback or explicit server-assisted legacy recovery, never offline
+  reuse of the old bearer. Sign releases with the established offline release
+  authority, separate from the online Edge authority. Add systemd-owned
+  renderer/control/media/admin sockets and test real permissions/activation.
+- **RFC reconciliation:** current `main` specifies the fixed service account
+  `tilecast-edge`; the older `apps/edge/AGENTS.md` and packaging files say
+  `tilecast`. Resolve that conflict in favor of the current RFC before
+  shipping, including filesystem/socket ownership and the restricted renderer
+  unit.
+- **Do not change:** `tilecastd` is not root and never replaces itself; the
+  installer/updater is the privileged boundary. Do not ship an unsigned or
+  independently activated daemon/renderer/runtime combination.
 
 ### W6 (P1) Proof of play and telemetry
 
@@ -247,8 +297,9 @@ remain open.
 ### W7 (P1) Studio view of Edge nodes
 
 - **Use:** `GET /api/v1/edge/nodes` (Owner and Administrator).
-- **Implement:** a Spectrum 2 view: Edge version, renderer state, mesh state
-  and peer count, cache use, certificate expiry, capabilities.
+- **Implement later:** the canonical shadcn Base UI + Rhea Studio surface for
+  Edge version, renderer state, mesh state/peer count, cache use, certificate
+  expiry and capabilities. See `docs/studio-rhea-redesign-plan.md`.
 - **Do not change:** Edge presence is a separate fact from server status
   (RFC §13.7). Do not merge them.
 
