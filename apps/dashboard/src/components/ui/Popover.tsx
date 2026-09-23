@@ -258,7 +258,7 @@ export function Popover({
       if (panelRef.current?.contains(event.target as Node)) return;
       close(false);
     };
-    const dismissOnResize = () => close(false);
+    const dismissOnResize = () => close();
     document.addEventListener("pointerdown", dismissOutside);
     document.addEventListener("keydown", dismissOnEscape);
     window.addEventListener("resize", dismissOnResize);
