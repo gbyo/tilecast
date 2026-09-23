@@ -5,8 +5,7 @@
   width: min(1180px, 100%);
 }
 
-.screens-page > .page-header,
-.screens-page > .view-tabs {
+.screens-page > .page-header {
   margin-bottom: 0;
 }
 

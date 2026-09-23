@@ -1,14 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
-  CalendarDays,
+  Archive,
+  Blocks,
+  CalendarClock,
   ClipboardCheck,
+  Database,
   Home,
-  Layers3,
-  Library,
+  Image,
+  ListVideo,
+  Megaphone,
   Monitor,
+  PanelsTopLeft,
   Puzzle,
   Settings,
+  Users,
 } from "lucide-react";
 import { Link } from "react-router";
 import { api } from "@/api/client";
@@ -19,23 +25,49 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarRail,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { canReviewForm } from "@/forms/capabilities";
 import { NavMain } from "./NavMain";
 import { NavSecondary } from "./NavSecondary";
 import { NavUser } from "./NavUser";
 
-/**
- * Monitor and Manage live at the bottom of the scrollable sidebar content,
- * pushed there with `mt-auto` so they sit near the footer without being in
- * it. The footer holds only the user menu: Settings is a workspace
- * destination, not an account action, and mixing it into the account
- * dropdown's neighborhood made it read as one. This deviates from plan
- * section 8.1 (Settings + user menu in SidebarFooter); the divider rationale
- * is that the footer border should separate the account menu from workspace
- * navigation, not split two workspace groups apart.
- */
+const navigationGroups = [
+  {
+    label: "Screens",
+    items: [
+      { title: "Fleet", url: "/screens", icon: <Monitor /> },
+      { title: "Display Groups", url: "/groups", icon: <Users /> },
+      { title: "Archive", url: "/screens/archive", icon: <Archive /> },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { title: "Media", url: "/assets", icon: <Image /> },
+      { title: "Widgets", url: "/widgets", icon: <Blocks /> },
+      { title: "Data Sources", url: "/data-sources", icon: <Database /> },
+    ],
+  },
+  {
+    label: "Presentations",
+    items: [
+      { title: "Playlists", url: "/playlists", icon: <ListVideo /> },
+      { title: "Layouts", url: "/layouts", icon: <PanelsTopLeft /> },
+      { title: "Campaigns", url: "/campaigns", icon: <Megaphone /> },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { title: "Schedules", url: "/schedules", icon: <CalendarClock /> },
+      { title: "Plugins", url: "/plugins", icon: <Puzzle /> },
+    ],
+  },
+];
+
 export function AppSidebar({
   user,
   onSignOut,
@@ -54,88 +86,50 @@ export function AppSidebar({
     canReviewForm(form.grantedCapabilities),
   );
 
+  const secondaryItems = [
+    { title: "Activity", url: "/activity", icon: <Activity /> },
+    ...(canReview
+      ? [
+          {
+            title: "Approvals",
+            url: "/approvals",
+            icon: <ClipboardCheck />,
+          },
+        ]
+      : []),
+    { title: "Settings", url: "/settings", icon: <Settings /> },
+  ];
+
   return (
-    <Sidebar variant="inset" collapsible="icon">
-      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border px-3">
-        <Link
-          to="/"
-          aria-label="Tilecast Overview"
-          className="flex min-w-0 items-center px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
-        >
-          <Brand iconOnlyOnCollapse />
-        </Link>
+    <Sidebar variant="inset" collapsible="offcanvas">
+      <SidebarHeader className="px-2 pt-3">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              className="px-2"
+              render={<Link to="/" aria-label="Tilecast Overview" />}
+            >
+              <Brand />
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="gap-0 py-2">
         <NavMain
-          label="Main"
-          items={[
-            { title: "Overview", url: "/", icon: <Home />, end: true },
-            {
-              title: "Screens",
-              url: "/screens",
-              icon: <Monitor />,
-              match: ["/groups"],
-              children: [
-                { title: "Fleet", url: "/screens" },
-                { title: "Display Groups", url: "/groups" },
-                { title: "Archive", url: "/screens/archive" },
-              ],
-            },
-            {
-              title: "Content",
-              url: "/assets",
-              icon: <Library />,
-              match: ["/widgets", "/data-sources"],
-              children: [
-                { title: "Media", url: "/assets" },
-                { title: "Widgets", url: "/widgets" },
-                { title: "Data Sources", url: "/data-sources" },
-              ],
-            },
-            {
-              title: "Presentations",
-              url: "/playlists",
-              icon: <Layers3 />,
-              match: ["/layouts", "/campaigns"],
-              children: [
-                { title: "Playlists", url: "/playlists" },
-                { title: "Layouts", url: "/layouts" },
-                { title: "Campaigns", url: "/campaigns" },
-              ],
-            },
-            {
-              title: "Schedules",
-              url: "/schedules",
-              icon: <CalendarDays />,
-            },
-            { title: "Plugins", url: "/plugins", icon: <Puzzle /> },
-          ]}
+          overview={{
+            title: "Overview",
+            url: "/",
+            icon: <Home />,
+            end: true,
+          }}
+          groups={navigationGroups}
         />
-        <NavSecondary
-          label="Monitor"
-          className="mt-auto"
-          items={[
-            { title: "Activity", url: "/activity", icon: <Activity /> },
-            ...(canReview
-              ? [
-                  {
-                    title: "Approvals",
-                    url: "/approvals",
-                    icon: <ClipboardCheck />,
-                  },
-                ]
-              : []),
-          ]}
-        />
-        <NavSecondary
-          label="Manage"
-          items={[{ title: "Settings", url: "/settings", icon: <Settings /> }]}
-        />
+        <NavSecondary className="mt-auto" items={secondaryItems} />
       </SidebarContent>
-      <SidebarFooter className="gap-1 border-t border-sidebar-border p-2">
+      <SidebarFooter className="p-2">
         <NavUser user={user} onSignOut={onSignOut} disabled={signOutDisabled} />
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   );
 }

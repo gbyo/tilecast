@@ -141,7 +141,6 @@ import { NativeAppEditor, YouTubeSourceEditor } from "../content/SourceEditors";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
 import { UsedByPanel } from "../content/UsedByPanel";
-import { WorkspaceTabs, contentTabs } from "../navigation/WorkspaceTabs";
 
 type QueueItem = {
   localId: string;
@@ -540,7 +539,6 @@ export function ContentPage() {
       onDragOver={(event) => event.preventDefault()}
       onDrop={libraryView === "active" ? dropFiles : undefined}
     >
-      <WorkspaceTabs label="Content library" tabs={contentTabs} />
       <header className="space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Media</h1>

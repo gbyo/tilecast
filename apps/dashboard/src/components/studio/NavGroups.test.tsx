@@ -2,7 +2,6 @@
 
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -29,16 +28,12 @@ function renderNav(pathname = "/") {
   );
 }
 
-describe("sidebar workspace groups", () => {
-  it("keeps group children collapsed away from their routes", () => {
-    renderNav("/");
+describe("static sidebar groups", () => {
+  it("keeps every destination visible and category labels noninteractive", () => {
+    renderNav();
 
-    expect(screen.getByRole("link", { name: "Screens" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Content" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Presentations" }),
-    ).toBeInTheDocument();
-    for (const child of [
+    for (const destination of [
+      "Overview",
       "Fleet",
       "Display Groups",
       "Archive",
@@ -48,102 +43,76 @@ describe("sidebar workspace groups", () => {
       "Playlists",
       "Layouts",
       "Campaigns",
+      "Schedules",
+      "Plugins",
+      "Activity",
+      "Settings",
     ]) {
-      expect(screen.queryByRole("link", { name: child })).toBeNull();
+      expect(screen.getByRole("link", { name: destination })).toBeVisible();
     }
+    for (const group of ["Screens", "Content", "Presentations", "Operations"]) {
+      expect(screen.getByText(group)).toBeVisible();
+      expect(screen.queryByRole("link", { name: group })).toBeNull();
+      expect(screen.queryByRole("button", { name: group })).toBeNull();
+    }
+    expect(
+      screen.queryByRole("button", { name: /Toggle .* submenu/ }),
+    ).toBeNull();
+    expect(document.querySelector('[data-slot="sidebar-menu-sub"]')).toBeNull();
   });
 
-  it("auto-expands the group that owns the active route", () => {
-    renderNav("/groups");
+  it("marks the most specific destination active for deep links", () => {
+    renderNav("/screens/archive/player-1");
 
-    const displayGroups = screen.getByRole("link", {
-      name: "Display Groups",
-    });
-    expect(displayGroups).toBeInTheDocument();
-    expect(displayGroups).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Fleet" })).toBeInTheDocument();
-    // Sibling groups stay collapsed.
-    expect(screen.queryByRole("link", { name: "Media" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Playlists" })).toBeNull();
-  });
-
-  it("expands Content for a nested widget editor route", () => {
-    renderNav("/widgets/widget-1");
-
-    expect(screen.getByRole("link", { name: "Widgets" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Archive" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("link", { name: "Media" })).toBeInTheDocument();
-  });
-
-  it("lets the user collapse an auto-expanded group", async () => {
-    const user = userEvent.setup();
-    renderNav("/assets");
-
-    expect(screen.getByRole("link", { name: "Media" })).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Toggle Content submenu" }),
-    );
-    expect(screen.queryByRole("link", { name: "Media" })).toBeNull();
-    // The parent stays a real link to the canonical route.
-    expect(screen.getByRole("link", { name: "Content" })).toHaveAttribute(
-      "href",
-      "/assets",
+    expect(screen.getByRole("link", { name: "Fleet" })).not.toHaveAttribute(
+      "aria-current",
+      "page",
     );
   });
 
-  it("lets the user expand a group without navigating", async () => {
-    const user = userEvent.setup();
-    renderNav("/");
-
-    await user.click(
-      screen.getByRole("button", { name: "Toggle Screens submenu" }),
-    );
-    expect(screen.getByRole("link", { name: "Fleet" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Archive" })).toHaveAttribute(
-      "href",
-      "/screens/archive",
-    );
-  });
-
-  it("keeps Monitor and Manage in the content near the bottom, with only the user menu in the footer", () => {
-    const { container } = renderNav("/");
-
-    for (const label of ["Monitor", "Manage"]) {
-      expect(screen.getByText(label)).toBeInTheDocument();
-    }
+  it("pushes secondary links to the bottom of SidebarContent and leaves only NavUser in the footer", () => {
+    const { container } = renderNav();
     const content = container.querySelector('[data-slot="sidebar-content"]');
     const footer = container.querySelector('[data-slot="sidebar-footer"]');
+    const secondaryGroup = content?.querySelector(".mt-auto");
+
     expect(content).not.toBeNull();
-    expect(footer).not.toBeNull();
-    for (const name of ["Activity", "Settings"]) {
-      const link = screen.getByRole("link", { name });
-      expect(content).toContainElement(link);
-      expect(footer).not.toContainElement(link);
-    }
-    // The footer holds the account menu trigger and nothing else navigational.
-    expect(
-      footer?.querySelector('[aria-label^="Open account menu"]'),
-    ).not.toBeNull();
-    expect(footer?.querySelectorAll("a[href]").length ?? 0).toBe(0);
+    expect(secondaryGroup).not.toBeNull();
+    expect(secondaryGroup).toContainElement(
+      screen.getByRole("link", { name: "Activity" }),
+    );
+    expect(secondaryGroup).toContainElement(
+      screen.getByRole("link", { name: "Settings" }),
+    );
+    expect(footer).toContainElement(
+      screen.getByRole("button", { name: /Open account menu/ }),
+    );
+    expect(footer?.querySelectorAll("a[href]")).toHaveLength(0);
+    expect(footer?.className).not.toContain("border-t");
   });
 });
 
-describe("sidebar capability gating", () => {
-  it("still shows Approvals only when the user can review", async () => {
-    const summary = (capabilities: FormSummary["grantedCapabilities"]) => ({
-      id: "form-1",
-      name: "Announcements",
-      description: "",
-      grantedCapabilities: capabilities,
-      submissionCounts: {
-        draft: 0,
-        submitted: 0,
-        changesRequested: 0,
-        total: 0,
-      },
-    });
+describe("sidebar Approvals capability", () => {
+  const summary = (
+    capabilities: FormSummary["grantedCapabilities"],
+  ): FormSummary => ({
+    id: "form-1",
+    name: "Announcements",
+    description: "",
+    grantedCapabilities: capabilities,
+    submissionCounts: {
+      draft: 0,
+      submitted: 0,
+      changesRequested: 0,
+      total: 0,
+    },
+  });
+
+  it("shows Approvals only when a form grants review", async () => {
     vi.spyOn(api, "listForms").mockResolvedValue([summary(["review"])]);
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },

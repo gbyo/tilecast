@@ -279,6 +279,11 @@ the database.
 Removed as dead: `.sidebar__nav-group` and `.sidebar__nav-label`, along with the three compact and
 responsive rules that referenced them. No component emits those classes now.
 
+The follow-up Base Vega navigation pass makes workspace destinations direct, static sidebar links.
+The Content, Presentations, and Screens route bars duplicated those links, so they were removed from
+their list and editor routes. Screen detail tabs remain because they switch views of the current
+screen.
+
 ## Phase 4 — Task-first entry — **removed**
 
 The four guided recipes added to Overview were removed. A short, hard-coded list made the Overview

@@ -14,7 +14,7 @@ export function NavSecondary({
   items,
   className,
 }: {
-  label: string;
+  label?: string;
   items: StudioNavItem[];
   className?: string;
 }) {
@@ -22,18 +22,13 @@ export function NavSecondary({
 
   return (
     <SidebarGroup className={className}>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      {label ? <SidebarGroupLabel>{label}</SidebarGroupLabel> : null}
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => {
             const active = item.end
               ? location.pathname === item.url
-              : item.match?.some(
-                  (path) =>
-                    location.pathname === path ||
-                    location.pathname.startsWith(`${path}/`),
-                ) ||
-                location.pathname === item.url ||
+              : location.pathname === item.url ||
                 location.pathname.startsWith(`${item.url}/`);
             return (
               <SidebarMenuItem key={item.url}>

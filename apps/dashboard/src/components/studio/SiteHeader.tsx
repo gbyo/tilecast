@@ -156,7 +156,7 @@ export function SiteHeader({
                           size="xs"
                           variant="muted"
                           render={<Link to={item.to} />}
-                          className="gap-2 rounded-xl px-2 py-2"
+                          className="gap-2 rounded-md px-2 py-2"
                         >
                           <ItemContent>
                             <ItemTitle>{item.title}</ItemTitle>
