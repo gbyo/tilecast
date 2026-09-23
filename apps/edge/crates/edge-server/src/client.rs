@@ -4,7 +4,7 @@
 //! unauthenticated endpoints; an [`AuthenticatedServer`], which is the only
 //! thing that can send the device credential, is obtained exclusively from
 //! [`ServerClient::verify_installation`] after `/api/v1/system/identity`
-//! reports the installation ID this player is bound to (AGENTS.md: "The
+//! reports the installation ID this node is bound to (AGENTS.md: "The
 //! player's saved installation ID must match before it sends a stored
 //! credential").
 //!
@@ -14,16 +14,24 @@
 //! network errors, 5xx or `screen_disabled`, matching the Linux player.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use edge_protocol::InstallationId;
+use futures_util::{SinkExt as _, StreamExt as _};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use tokio::net::TcpStream;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
+use tokio_tungstenite::tungstenite::protocol::{Message, WebSocketConfig};
+use tokio_tungstenite::{Connector, MaybeTlsStream, WebSocketStream, connect_async_tls_with_config};
 
 use crate::credential::DeviceCredential;
 use crate::url_policy::normalize_server_url;
 
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+pub const PLAYER_SOCKET_ACTIVITY_TIMEOUT: Duration = Duration::from_secs(95);
+/// The server's own manifest bound (five MiB) plus envelope overhead.
+pub const MAX_MANIFEST_BYTES: usize = 6 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ServerError {
@@ -91,11 +99,16 @@ struct ErrorBody {
     message: String,
 }
 
-fn tls_config() -> Result<rustls::ClientConfig, ServerError> {
+fn tls_config(
+    additional_roots: &[rustls::pki_types::CertificateDer<'static>],
+) -> Result<rustls::ClientConfig, ServerError> {
     let mut roots = rustls::RootCertStore::empty();
     let loaded = rustls_native_certs::load_native_certs();
     for certificate in loaded.certs {
         let _ = roots.add(certificate);
+    }
+    for certificate in additional_roots {
+        roots.add(certificate.clone()).map_err(|_| ServerError::Url("invalid trusted CA certificate".to_owned()))?;
     }
     let config = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
         .with_safe_default_protocol_versions()
@@ -109,14 +122,23 @@ fn tls_config() -> Result<rustls::ClientConfig, ServerError> {
 pub struct ServerClient {
     base_url: String,
     http: reqwest::Client,
+    tls_roots: Vec<rustls::pki_types::CertificateDer<'static>>,
 }
 
 impl ServerClient {
     /// Builds a client for a normalized server origin.
     pub fn new(server_url: &str) -> Result<Self, ServerError> {
+        Self::with_trust_roots(server_url, &[])
+    }
+
+    /// Adds operator-provided CA certificates while retaining normal hostname validation.
+    pub fn with_trust_roots(
+        server_url: &str,
+        additional_roots: &[rustls::pki_types::CertificateDer<'static>],
+    ) -> Result<Self, ServerError> {
         let base_url = normalize_server_url(server_url).map_err(|e| ServerError::Url(e.to_string()))?;
         let http = reqwest::Client::builder()
-            .use_preconfigured_tls(tls_config()?)
+            .use_preconfigured_tls(tls_config(additional_roots)?)
             // An idle bound for every request (large downloads included);
             // JSON calls add a total timeout on top.
             .read_timeout(REQUEST_TIMEOUT)
@@ -126,7 +148,7 @@ impl ServerClient {
             .user_agent(concat!("tilecastd/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|_| ServerError::Network)?;
-        Ok(Self { base_url, http })
+        Ok(Self { base_url, http, tls_roots: additional_roots.to_vec() })
     }
 
     pub fn base_url(&self) -> &str {
@@ -138,13 +160,13 @@ impl ServerClient {
     }
 
     pub async fn identity(&self) -> Result<ServerIdentity, ServerError> {
-        let response = self
-            .http
-            .get(self.url("/api/v1/system/identity"))
-            .timeout(REQUEST_TIMEOUT)
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+        let response =
+            self.http.get(self.url("/api/v1/system/identity")).timeout(REQUEST_TIMEOUT).send().await.map_err(
+                |error| {
+                    tracing::warn!(component = "server", event = "identity_request_failed", error = ?error);
+                    ServerError::Network
+                },
+            )?;
         decode(response).await
     }
 
@@ -199,6 +221,92 @@ impl std::fmt::Debug for AuthenticatedServer {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ManifestFetch {
+    NotModified,
+    Modified { document: serde_json::Value, etag: String },
+}
+
+/// Events from the existing Tilecast Player socket protocol.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlayerSocketEvent {
+    Hello,
+    Ping(String),
+    ManifestChanged,
+    ConfigChanged,
+    CommandsAvailable,
+    Closed,
+    Other,
+}
+
+/// A live socket obtained only from an identity-verified server.
+pub struct PlayerSocket {
+    stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    last_activity: Instant,
+}
+
+impl std::fmt::Debug for PlayerSocket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlayerSocket").finish_non_exhaustive()
+    }
+}
+
+impl PlayerSocket {
+    pub async fn next_event(&mut self) -> Result<PlayerSocketEvent, ServerError> {
+        let Some(message) = self.stream.next().await else { return Ok(PlayerSocketEvent::Closed) };
+        let event = match message.map_err(|_| ServerError::Network)? {
+            Message::Text(text) => {
+                if text.len() > 64 * 1024 {
+                    return Err(ServerError::Decode);
+                }
+                let value: serde_json::Value = serde_json::from_str(&text).map_err(|_| ServerError::Decode)?;
+                Ok(match value.get("type").and_then(serde_json::Value::as_str) {
+                    Some("server.hello") => PlayerSocketEvent::Hello,
+                    Some("server.ping") => PlayerSocketEvent::Ping(
+                        value
+                            .get("timestamp")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("")
+                            .chars()
+                            .take(40)
+                            .collect(),
+                    ),
+                    Some("manifest.changed") => PlayerSocketEvent::ManifestChanged,
+                    Some("config.changed") => PlayerSocketEvent::ConfigChanged,
+                    Some("commands.available") => PlayerSocketEvent::CommandsAvailable,
+                    _ => PlayerSocketEvent::Other,
+                })
+            }
+            Message::Close(_) => Ok(PlayerSocketEvent::Closed),
+            _ => Ok(PlayerSocketEvent::Other),
+        }?;
+        if event != PlayerSocketEvent::Closed {
+            self.last_activity = Instant::now();
+        }
+        Ok(event)
+    }
+
+    pub async fn send_pong(&mut self, timestamp: &str) -> Result<(), ServerError> {
+        let value = serde_json::json!({"type": "player.pong", "timestamp": timestamp});
+        self.send_json(value).await
+    }
+
+    pub async fn send_status(&mut self, heartbeat: &serde_json::Value, version: &str) -> Result<(), ServerError> {
+        self.send_json(serde_json::json!({
+            "type": "player.status", "protocolVersion": 1, "playerVersion": version, "payload": heartbeat,
+        }))
+        .await
+    }
+
+    async fn send_json(&mut self, value: serde_json::Value) -> Result<(), ServerError> {
+        let remaining = PLAYER_SOCKET_ACTIVITY_TIMEOUT.saturating_sub(self.last_activity.elapsed());
+        tokio::time::timeout(remaining, self.stream.send(Message::Text(value.to_string().into())))
+            .await
+            .map_err(|_| ServerError::Network)?
+            .map_err(|_| ServerError::Network)
+    }
+}
+
 impl AuthenticatedServer {
     pub fn installation_id(&self) -> InstallationId {
         self.installation_id
@@ -210,6 +318,34 @@ impl AuthenticatedServer {
 
     pub fn base_url(&self) -> &str {
         self.client.base_url()
+    }
+
+    /// The ordinary authenticated player WebSocket. It follows the server
+    /// address's scheme: `wss` for HTTPS, `ws` only where the URL policy
+    /// already allowed plain HTTP (private LAN addresses).
+    pub async fn player_socket(&self, version: &str) -> Result<PlayerSocket, ServerError> {
+        let (scheme, origin) = self.client.base_url.split_once("://").ok_or(ServerError::Decode)?;
+        let ws_scheme = if scheme == "https" { "wss" } else { "ws" };
+        let address = format!("{ws_scheme}://{origin}/api/v1/player/socket");
+        let mut request =
+            address.into_client_request().map_err(|_| ServerError::Url("invalid socket address".to_owned()))?;
+        request
+            .headers_mut()
+            .insert("authorization", self.credential.authorization_header().parse().map_err(|_| ServerError::Decode)?);
+        let tls = Connector::Rustls(Arc::new(tls_config(&self.client.tls_roots)?));
+        let config = WebSocketConfig::default().max_message_size(Some(64 * 1024)).max_frame_size(Some(64 * 1024));
+        let (stream, _) = tokio::time::timeout(
+            Duration::from_secs(15),
+            connect_async_tls_with_config(request, Some(config), false, Some(tls)),
+        )
+        .await
+        .map_err(|_| ServerError::Network)?
+        .map_err(|_| ServerError::Network)?;
+        let mut socket = PlayerSocket { stream, last_activity: Instant::now() };
+        socket
+            .send_json(serde_json::json!({"type": "player.hello", "protocolVersion": 1, "playerVersion": version}))
+            .await?;
+        Ok(socket)
     }
 
     fn raw_request(&self, method: reqwest::Method, path: &str) -> reqwest::RequestBuilder {
@@ -224,7 +360,7 @@ impl AuthenticatedServer {
         self.raw_request(method, path).timeout(REQUEST_TIMEOUT)
     }
 
-    /// `POST /api/v1/player/heartbeat`: the ordinary player contact path.
+    /// The normal player contact path. Edge status remains a separate, slower report.
     pub async fn player_heartbeat(&self, heartbeat: &serde_json::Value) -> Result<(), ServerError> {
         let response = self
             .request(reqwest::Method::POST, "/api/v1/player/heartbeat")
@@ -234,6 +370,45 @@ impl AuthenticatedServer {
             .map_err(|_| ServerError::Network)?;
         let _: serde_json::Value = decode(response).await?;
         Ok(())
+    }
+
+    /// Reads the existing server compiler's manifest without introducing an Edge compiler.
+    pub async fn player_manifest(&self, etag: Option<&str>) -> Result<ManifestFetch, ServerError> {
+        let mut request = self.request(reqwest::Method::GET, "/api/v1/player/manifest");
+        if let Some(etag) = etag {
+            if etag.len() > 200 {
+                return Err(ServerError::Decode);
+            }
+            let header = reqwest::header::HeaderValue::from_str(etag).map_err(|_| ServerError::Decode)?;
+            request = request.header(reqwest::header::IF_NONE_MATCH, header);
+        }
+        let mut response = request.send().await.map_err(|_| ServerError::Network)?;
+        if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+            return Ok(ManifestFetch::NotModified);
+        }
+        if !response.status().is_success() {
+            let _: serde_json::Value = decode(response).await?;
+            return Err(ServerError::Decode);
+        }
+        let etag = response
+            .headers()
+            .get(reqwest::header::ETAG)
+            .and_then(|value| value.to_str().ok())
+            .filter(|value| value.len() <= 200)
+            .ok_or(ServerError::Decode)?
+            .to_owned();
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|_| ServerError::Network)? {
+            if chunk.len() > MAX_MANIFEST_BYTES.saturating_sub(bytes.len()) {
+                return Err(ServerError::Decode);
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let envelope: Envelope<serde_json::Value> = serde_json::from_slice(&bytes).map_err(|_| ServerError::Decode)?;
+        if !envelope.data.is_object() {
+            return Err(ServerError::Decode);
+        }
+        Ok(ManifestFetch::Modified { document: envelope.data, etag })
     }
 
     /// Opens an authenticated download (for the origin blob source).
