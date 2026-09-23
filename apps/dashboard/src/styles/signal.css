@@ -29,26 +29,6 @@ p {
   text-wrap: pretty;
 }
 
-:focus-visible {
-  outline: 3px solid var(--tc-focus-ring-soft);
-  outline-offset: 2px;
-}
-
-:where(
-  button,
-  a.button,
-  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
-  select,
-  textarea,
-  .signal-select__trigger
-):focus-visible {
-  border-color: var(--tc-focus-ring);
-  outline: 0;
-  box-shadow:
-    inset 0 0 0 1px var(--tc-focus-ring),
-    0 0 0 3px var(--tc-focus-ring-soft);
-}
-
 .brand__logo {
   display: block;
   width: auto;
@@ -137,49 +117,6 @@ p {
   padding: 6px var(--tc-space-3);
   background: var(--tc-bg-surface);
   border-bottom: 1px solid var(--tc-border-default);
-}
-
-.layout-editor-toolbar .layout-save-state {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  margin-left: auto;
-  padding: 5px 8px;
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-caption);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--tc-radius-control);
-}
-
-.layout-editor-toolbar button.layout-save-state:not(:disabled) {
-  color: var(--tc-text-primary);
-  cursor: pointer;
-  background: var(--tc-bg-subtle);
-  border-color: var(--tc-border-default);
-}
-
-.layout-editor-toolbar button.layout-save-state:not(:disabled):hover {
-  border-color: var(--tc-border-strong);
-}
-
-.layout-save-state--unsaved {
-  color: var(--tc-status-warning) !important;
-}
-
-.layout-save-state--saving svg {
-  animation: layout-save-pulse 900ms ease-in-out infinite alternate;
-}
-
-.layout-save-state--conflict,
-.layout-save-state--error {
-  color: var(--tc-status-danger) !important;
-}
-
-@keyframes layout-save-pulse {
-  to {
-    opacity: 0.35;
-  }
 }
 
 .toolbar-divider {
@@ -840,47 +777,6 @@ p {
   }
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
-select,
-textarea {
-  min-height: var(--tc-control-height);
-  padding: 0 12px;
-  color: var(--tc-input-text);
-  background: var(--tc-input-bg);
-  border: 1px solid var(--tc-input-border);
-  border-radius: var(--tc-radius-control);
-}
-
-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
-select {
-  height: var(--tc-control-height);
-}
-
-textarea {
-  min-height: 88px;
-  padding-block: 10px;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: var(--tc-input-placeholder);
-  opacity: 1;
-}
-
-input:hover:not(:disabled),
-select:hover:not(:disabled),
-textarea:hover:not(:disabled) {
-  border-color: var(--tc-input-border);
-}
-
-input:disabled,
-select:disabled,
-textarea:disabled {
-  color: var(--tc-text-disabled);
-  background: var(--tc-input-disabled-bg);
-  cursor: not-allowed;
-}
-
 .field__error,
 .field-error {
   color: var(--tc-status-danger);
@@ -905,39 +801,43 @@ textarea:disabled {
   border-radius: var(--tc-radius-panel);
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-}
+/* Defaults for legacy tables that are not the shadcn Table. They live in the base layer so the
+   Tailwind utilities on a table's own cells always take precedence. */
+@layer base {
+  :where(table:not([data-slot="table"])) {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
 
-th {
-  height: 40px;
-  padding: 8px 12px;
-  color: var(--tc-text-secondary);
-  background: var(--tc-table-header-bg);
-  border-bottom: 1px solid var(--tc-border-default);
-  font: var(--tc-text-label);
-  text-align: left;
-}
+  :where(table:not([data-slot="table"])) th {
+    height: 40px;
+    padding: 8px 12px;
+    color: var(--tc-text-secondary);
+    background: var(--tc-table-header-bg);
+    border-bottom: 1px solid var(--tc-border-default);
+    font: var(--tc-text-label);
+    text-align: left;
+  }
 
-td {
-  min-height: 48px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--tc-border-default);
-  vertical-align: middle;
-}
+  :where(table:not([data-slot="table"])) td {
+    min-height: 48px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--tc-border-default);
+    vertical-align: middle;
+  }
 
-tr:last-child td {
-  border-bottom: 0;
-}
+  :where(table:not([data-slot="table"])) tr:last-child td {
+    border-bottom: 0;
+  }
 
-tbody tr:hover {
-  background: var(--tc-table-row-hover);
-}
+  :where(table:not([data-slot="table"])) tbody tr:hover {
+    background: var(--tc-table-row-hover);
+  }
 
-tbody tr {
-  transition: background var(--tc-motion-fast);
+  :where(table:not([data-slot="table"])) tbody tr {
+    transition: background var(--tc-motion-fast);
+  }
 }
 
 .dialog,
@@ -1106,22 +1006,6 @@ tbody tr {
   display: flex;
   align-items: center;
   gap: var(--tc-space-2);
-}
-
-.content-picker-toolbar {
-  display: grid;
-  grid-template-columns: minmax(190px, 1fr) auto 180px auto;
-  align-items: center;
-  gap: var(--tc-space-3);
-  padding: var(--tc-space-3) var(--tc-space-6);
-  border-bottom: 1px solid var(--tc-border-default);
-  background: var(--tc-bg-subtle);
-}
-
-.content-picker-filters {
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: thin;
 }
 
 .content-picker__library {
@@ -1795,17 +1679,6 @@ tbody tr {
   }
 }
 
-@media (max-width: 1024px) {
-  .content-picker-toolbar {
-    grid-template-columns: minmax(180px, 1fr) auto auto;
-  }
-
-  .content-picker-filters {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-}
-
 @media (max-width: 768px) {
   .content-picker-backdrop {
     padding: var(--tc-space-2);
@@ -1823,15 +1696,6 @@ tbody tr {
   .content-picker__primary-actions {
     flex-wrap: wrap;
     justify-content: flex-end;
-  }
-
-  .content-picker-toolbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding-inline: var(--tc-space-4);
-  }
-
-  .content-picker-toolbar > select {
-    grid-column: 1;
   }
 
   .content-picker__library,
@@ -1861,14 +1725,6 @@ tbody tr {
 
   .content-picker__primary-actions {
     justify-content: flex-start;
-  }
-
-  .content-picker-toolbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .content-picker-filters {
-    grid-column: 1 / -1;
   }
 
   .picker-library {

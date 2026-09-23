@@ -1,12 +1,11 @@
 :root {
   --tc-sidebar-bg: var(--sidebar-bg);
-  --tc-sidebar-border: var(--sidebar-border);
   --tc-sidebar-text: var(--sidebar-text);
   --tc-sidebar-text-active: var(--sidebar-text-active);
   --tc-sidebar-hover: var(--sidebar-hover);
   --tc-sidebar-active: color-mix(
     in srgb,
-    var(--accent) 22%,
+    var(--tc-accent) 22%,
     var(--tc-sidebar-bg)
   );
   --tc-button-primary-bg: var(--tc-action-primary);

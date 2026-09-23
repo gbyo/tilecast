@@ -24,10 +24,10 @@
 
 :root:not(.dark) {
   color-scheme: light;
-  --accent: #3e6fe0;
-  --accent-hover: #4d7ce6;
-  --accent-active: #3563cf;
-  --accent-focus-ring: rgb(62 111 224 / 25%);
+  --tc-accent: #3e6fe0;
+  --tc-accent-hover: #4d7ce6;
+  --tc-accent-active: #3563cf;
+  --tc-accent-focus-ring: rgb(62 111 224 / 25%);
   --control-primary-text: #ffffff;
   --control-border: #d4dce8;
   --control-label: #3d4c66;
@@ -42,7 +42,7 @@
   --divider: #e5eaf2;
   --topbar-bg: #ffffff;
   --sidebar-bg: #111b27;
-  --sidebar-border: #233143;
+  --tc-sidebar-border: #233143;
   --sidebar-text: #aab8c5;
   --sidebar-text-active: #ffffff;
   --sidebar-hover: #1a2837;
@@ -56,13 +56,17 @@
   --tc-text-inverse: var(--tc-neutral-0);
   --tc-border-default: var(--divider);
   --tc-border-strong: var(--tc-neutral-300);
-  --tc-action-primary: var(--accent);
-  --tc-action-primary-hover: var(--accent-hover);
-  --tc-action-primary-active: var(--accent-active);
-  --tc-action-primary-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --tc-action-primary: var(--tc-accent);
+  --tc-action-primary-hover: var(--tc-accent-hover);
+  --tc-action-primary-active: var(--tc-accent-active);
+  --tc-action-primary-soft: color-mix(
+    in srgb,
+    var(--tc-accent) 18%,
+    transparent
+  );
   --tc-identity-amber: var(--tc-amber-500);
-  --tc-focus-ring: var(--accent);
-  --tc-focus-ring-soft: var(--accent-focus-ring);
+  --tc-focus-ring: var(--tc-accent);
+  --tc-focus-ring-soft: var(--tc-accent-focus-ring);
   --tc-status-success-bg: var(--tc-green-50);
   --tc-status-warning-bg: var(--tc-orange-50);
   --tc-status-danger-bg: var(--tc-red-50);
@@ -79,10 +83,10 @@
 
 html.dark {
   color-scheme: dark;
-  --accent: #3e6fe0;
-  --accent-hover: #4d7ce6;
-  --accent-active: #3563cf;
-  --accent-focus-ring: rgb(62 111 224 / 25%);
+  --tc-accent: #3e6fe0;
+  --tc-accent-hover: #4d7ce6;
+  --tc-accent-active: #3563cf;
+  --tc-accent-focus-ring: rgb(62 111 224 / 25%);
   --control-primary-text: #ffffff;
   --control-border: #2a3d5c;
   --control-label: #c6d4ea;
@@ -97,7 +101,7 @@ html.dark {
   --divider: #2c3947;
   --topbar-bg: var(--tc-neutral-900);
   --sidebar-bg: #111b27;
-  --sidebar-border: #233143;
+  --tc-sidebar-border: #233143;
   --sidebar-text: #aab8c5;
   --sidebar-text-active: #ffffff;
   --sidebar-hover: #1a2837;
@@ -111,13 +115,17 @@ html.dark {
   --tc-text-inverse: var(--tc-neutral-950);
   --tc-border-default: var(--divider);
   --tc-border-strong: var(--tc-neutral-700);
-  --tc-action-primary: var(--accent);
-  --tc-action-primary-hover: var(--accent-hover);
-  --tc-action-primary-active: var(--accent-active);
-  --tc-action-primary-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --tc-action-primary: var(--tc-accent);
+  --tc-action-primary-hover: var(--tc-accent-hover);
+  --tc-action-primary-active: var(--tc-accent-active);
+  --tc-action-primary-soft: color-mix(
+    in srgb,
+    var(--tc-accent) 18%,
+    transparent
+  );
   --tc-identity-amber: var(--tc-amber-400);
-  --tc-focus-ring: var(--accent);
-  --tc-focus-ring-soft: var(--accent-focus-ring);
+  --tc-focus-ring: var(--tc-accent);
+  --tc-focus-ring-soft: var(--tc-accent-focus-ring);
   --tc-status-success-bg: #16372f;
   --tc-status-warning-bg: #3a2916;
   --tc-status-danger-bg: #3b2025;

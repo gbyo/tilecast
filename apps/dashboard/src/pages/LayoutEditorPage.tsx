@@ -1,8 +1,9 @@
+import { cn } from "cn";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
-  ContextMenu as RheaContextMenu,
+  ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -21,7 +22,7 @@ import {
 import { Input } from "../components/ui/input";
 import { Kbd } from "../components/ui/kbd";
 import {
-  Popover as RheaPopover,
+  Popover,
   PopoverContent,
   PopoverTrigger,
 } from "../components/ui/popover";
@@ -31,13 +32,13 @@ import {
   ResizablePanelGroup,
 } from "../components/ui/resizable";
 import {
-  Tooltip as RheaTooltip,
+  Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -1846,12 +1847,9 @@ export function LayoutEditorPage() {
           <EmptyTitle>Layout unavailable</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
-          <RheaButton
-            variant="secondary"
-            onClick={() => void navigate("/layouts")}
-          >
+          <Button variant="secondary" onClick={() => void navigate("/layouts")}>
             Back to Layouts
-          </RheaButton>
+          </Button>
         </EmptyContent>
       </Empty>
     );
@@ -1954,7 +1952,7 @@ export function LayoutEditorPage() {
                 }
               </strong>
             </div>
-            <RheaButton
+            <Button
               type="button"
               variant="default"
               className="layout-library-browse"
@@ -1968,7 +1966,7 @@ export function LayoutEditorPage() {
                   playlists: "Browse playlists",
                 }[sidebarSection]
               }
-            </RheaButton>
+            </Button>
             <div className="layout-panel-heading layout-panel-heading--sub">
               <strong>Recent</strong>
               <span>Drag to canvas</span>
@@ -2066,7 +2064,7 @@ export function LayoutEditorPage() {
               {[...document.placements]
                 .sort((a, b) => b.layer - a.layer)
                 .map((item) => (
-                  <RheaContextMenu key={item.id}>
+                  <ContextMenu key={item.id}>
                     <ContextMenuTrigger
                       render={
                         <div
@@ -2105,7 +2103,7 @@ export function LayoutEditorPage() {
                         <span>{item.name}</span>
                       </button>
                       <span className="layout-layer-actions">
-                        <RheaButton
+                        <Button
                           type="button"
                           variant="ghost"
                           size="icon-xs"
@@ -2132,8 +2130,8 @@ export function LayoutEditorPage() {
                           ) : (
                             <EyeOff size={13} aria-hidden="true" />
                           )}
-                        </RheaButton>
-                        <RheaButton
+                        </Button>
+                        <Button
                           type="button"
                           variant="ghost"
                           size="icon-xs"
@@ -2160,7 +2158,7 @@ export function LayoutEditorPage() {
                           ) : (
                             <LockOpen size={13} aria-hidden="true" />
                           )}
-                        </RheaButton>
+                        </Button>
                       </span>
                     </ContextMenuTrigger>
                     <ContextMenuContent aria-label={`Actions for ${item.name}`}>
@@ -2168,7 +2166,7 @@ export function LayoutEditorPage() {
                         items={placementMenuItems(item)}
                       />
                     </ContextMenuContent>
-                  </RheaContextMenu>
+                  </ContextMenu>
                 ))}
             </div>
             {!desktop && primary && (
@@ -2240,7 +2238,7 @@ export function LayoutEditorPage() {
     <main className="layout-stage">
       <div className="layout-stage-controls">
         <ButtonGroup aria-label="Canvas zoom">
-          <RheaButton
+          <Button
             variant="outline"
             size="sm"
             onClick={zoomOut}
@@ -2248,11 +2246,11 @@ export function LayoutEditorPage() {
             aria-label="Zoom out"
           >
             <ZoomOut size={16} aria-hidden="true" />
-          </RheaButton>
+          </Button>
           <ButtonGroupText aria-live="polite">
             {Math.round(zoom * 100)}%
           </ButtonGroupText>
-          <RheaButton
+          <Button
             variant="outline"
             size="sm"
             onClick={zoomIn}
@@ -2260,8 +2258,8 @@ export function LayoutEditorPage() {
             aria-label="Zoom in"
           >
             <ZoomIn size={16} aria-hidden="true" />
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={fitZoom}
@@ -2269,34 +2267,34 @@ export function LayoutEditorPage() {
             aria-label="Fit canvas to view"
           >
             <Maximize2 size={16} aria-hidden="true" />
-          </RheaButton>
+          </Button>
         </ButtonGroup>
         {/* The wrapping label names the checkbox; no extra aria-label. */}
         <label className="flex items-center gap-2 text-sm">
-          <RheaCheckbox
+          <Checkbox
             checked={snap}
             onCheckedChange={(checked) => setSnap(checked === true)}
           />
           Snap
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <RheaCheckbox
+          <Checkbox
             checked={safeArea}
             onCheckedChange={(checked) => setSafeArea(checked === true)}
           />
           Safe area
         </label>
-        <RheaPopover>
+        <Popover>
           <PopoverTrigger
             render={
-              <RheaButton
+              <Button
                 variant="ghost"
                 size="icon-sm"
                 title="Keyboard shortcuts"
                 aria-label="Keyboard shortcuts"
               >
                 <Keyboard size={16} aria-hidden="true" />
-              </RheaButton>
+              </Button>
             }
           />
           <PopoverContent
@@ -2370,9 +2368,9 @@ export function LayoutEditorPage() {
               </li>
             </ul>
           </PopoverContent>
-        </RheaPopover>
+        </Popover>
       </div>
-      <RheaContextMenu>
+      <ContextMenu>
         <ContextMenuTrigger
           render={
             <div
@@ -2479,13 +2477,13 @@ export function LayoutEditorPage() {
             }
           />
         </ContextMenuContent>
-      </RheaContextMenu>
+      </ContextMenu>
     </main>
   );
 
   return (
     <div className="layout-editor">
-      <RheaDialog
+      <Dialog
         open={renameTarget !== null}
         onOpenChange={(open) => {
           if (!open) setRenameTarget(null);
@@ -2517,28 +2515,28 @@ export function LayoutEditorPage() {
               </label>
             </div>
             <DialogFooter>
-              <RheaButton
+              <Button
                 variant="outline"
                 type="button"
                 onClick={() => setRenameTarget(null)}
               >
                 Cancel
-              </RheaButton>
-              <RheaButton
+              </Button>
+              <Button
                 type="submit"
                 disabled={!renameValue.trim() || rename.isPending}
               >
                 {renameTarget?.kind === "layout" && rename.isPending
                   ? "Renaming…"
                   : "Rename"}
-              </RheaButton>
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
-      </RheaDialog>
+      </Dialog>
       <div className="layout-editor-toolbar">
         <strong>{layoutQuery.data?.name}</strong>
-        <RheaButton
+        <Button
           variant="ghost"
           size="icon"
           title="Rename Layout"
@@ -2552,12 +2550,12 @@ export function LayoutEditorPage() {
           disabled={rename.isPending}
         >
           <Pencil size={16} aria-hidden="true" />
-        </RheaButton>
+        </Button>
         <span className="toolbar-divider" />
-        <RheaTooltip>
+        <Tooltip>
           <TooltipTrigger
             render={
-              <RheaButton
+              <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Undo"
@@ -2565,17 +2563,17 @@ export function LayoutEditorPage() {
                 disabled={!past.length}
               >
                 <Undo2 size={17} aria-hidden="true" />
-              </RheaButton>
+              </Button>
             }
           />
           <TooltipContent>
             Undo <Kbd>Ctrl+Z</Kbd>
           </TooltipContent>
-        </RheaTooltip>
-        <RheaTooltip>
+        </Tooltip>
+        <Tooltip>
           <TooltipTrigger
             render={
-              <RheaButton
+              <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Redo"
@@ -2583,15 +2581,15 @@ export function LayoutEditorPage() {
                 disabled={!future.length}
               >
                 <Redo2 size={17} aria-hidden="true" />
-              </RheaButton>
+              </Button>
             }
           />
           <TooltipContent>
             Redo <Kbd>Ctrl+Shift+Z</Kbd>
           </TooltipContent>
-        </RheaTooltip>
+        </Tooltip>
         <span className="toolbar-divider" />
-        <RheaButton
+        <Button
           variant="secondary"
           size="sm"
           onClick={() => {
@@ -2601,8 +2599,8 @@ export function LayoutEditorPage() {
         >
           <Scan size={16} aria-hidden="true" />
           Preview
-        </RheaButton>
-        <RheaButton
+        </Button>
+        <Button
           variant="secondary"
           size="sm"
           onClick={() => {
@@ -2612,12 +2610,22 @@ export function LayoutEditorPage() {
         >
           <History size={16} aria-hidden="true" />
           History
-        </RheaButton>
-        <RheaButton
+        </Button>
+        <Button
           type="button"
-          variant="ghost"
+          variant={
+            saveState === "unsaved" || saveState === "error"
+              ? "outline"
+              : "ghost"
+          }
           size="sm"
-          className={`layout-save-state layout-save-state--${saveState}`}
+          className={cn(
+            "ml-auto text-xs text-muted-foreground disabled:opacity-100",
+            saveState === "unsaved" && "text-amber-700 dark:text-amber-400",
+            (saveState === "conflict" || saveState === "error") &&
+              "text-destructive",
+            saveState === "saving" && "[&_svg]:animate-pulse",
+          )}
           onClick={() => void save()}
           disabled={
             saveState === "saved" ||
@@ -2643,9 +2651,9 @@ export function LayoutEditorPage() {
                 : saveState === "error"
                   ? "Retry save"
                   : "Save now"}
-        </RheaButton>
+        </Button>
         {canSubmit && (
-          <RheaButton
+          <Button
             variant="default"
             size="sm"
             disabled={saveState !== "saved" || publish.isPending}
@@ -2658,7 +2666,7 @@ export function LayoutEditorPage() {
               : canPublish
                 ? "Publish"
                 : "Submit for review"}
-          </RheaButton>
+          </Button>
         )}
       </div>
       {desktop ? (
@@ -2804,9 +2812,9 @@ export function LayoutEditorPage() {
                 {previewError}
               </span>
             )}
-            <RheaButton variant="secondary" onClick={() => setPreview(false)}>
+            <Button variant="secondary" onClick={() => setPreview(false)}>
               Close preview
-            </RheaButton>
+            </Button>
           </div>
           <div
             ref={previewFrameRef}
@@ -2881,12 +2889,12 @@ export function LayoutEditorPage() {
                       </span>
                       <code>{revision.documentSha256.slice(0, 12)}</code>
                     </div>
-                    <RheaButton
+                    <Button
                       variant="secondary"
                       onClick={() => restore.mutate(revision.id)}
                     >
                       Restore as draft
-                    </RheaButton>
+                    </Button>
                   </div>
                 ))
               ) : (
@@ -2894,12 +2902,9 @@ export function LayoutEditorPage() {
               )}
             </div>
             <footer>
-              <RheaButton
-                variant="secondary"
-                onClick={() => setHistoryOpen(false)}
-              >
+              <Button variant="secondary" onClick={() => setHistoryOpen(false)}>
                 Close
-              </RheaButton>
+              </Button>
             </footer>
           </section>
         </div>

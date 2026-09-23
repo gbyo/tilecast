@@ -4,7 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { api, ApiError } from "../api/client";
 import type {
   Asset,
@@ -14,6 +14,9 @@ import type {
 } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 import { DefinitionForm } from "./DefinitionForm";
 import { previewDatasetMaps, type PreviewDatasets } from "./previewRecords";
 import { DeclarativePresentationPreview } from "./SourceEditors";
@@ -317,32 +320,34 @@ function GenericEditorShell({
   children: ReactNode;
 }) {
   const subject = preview ? "Widget" : "Data Source";
+  const nameId = useId();
+  const detailId = useId();
   const details = (
     <div className="form-grid">
-      <label className="grid gap-1.5 text-sm font-medium">
-        <span>{subject} name</span>
-        <input
+      <Field>
+        <FieldLabel htmlFor={nameId}>{subject} name</FieldLabel>
+        <Input
+          id={nameId}
           value={name}
           disabled={readOnly}
           maxLength={180}
           onChange={(event) => setName(event.target.value)}
         />
-        <small className="font-normal text-muted-foreground">
-          Used to find this {subject} later.
-        </small>
-      </label>
-      <label className="grid gap-1.5 text-sm font-medium">
-        <span>Description</span>
-        <textarea
+        <FieldDescription>Used to find this {subject} later.</FieldDescription>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={detailId}>Description</FieldLabel>
+        <Textarea
+          id={detailId}
           value={detail}
           disabled={readOnly}
           maxLength={2000}
           onChange={(event) => setDetail(event.target.value)}
         />
-        <small className="font-normal text-muted-foreground">
+        <FieldDescription>
           Optional notes for other people managing this installation.
-        </small>
-      </label>
+        </FieldDescription>
+      </Field>
     </div>
   );
   return (

@@ -1,5 +1,9 @@
+import { useId } from "react";
 import { previewTimeInputValue, type PreviewTime } from "./previewTime";
 import { Button } from "../components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 /**
  * Sits under the Widget editor's "Live preview" heading and chooses the instant the preview renders
@@ -13,43 +17,44 @@ export function PreviewTimeControl({
   onChange: (time: PreviewTime) => void;
 }) {
   const fixed = value.mode === "fixed";
+  const inputId = useId();
   return (
-    <div className="preview-time" aria-label="Preview time">
-      <div className="preview-time__modes" role="group">
-        <button
-          type="button"
-          className={`preview-time__mode${fixed ? "" : " preview-time__mode--active"}`}
-          aria-pressed={!fixed}
-          onClick={() => onChange({ ...value, mode: "live" })}
-        >
-          Live
-        </button>
-        <button
-          type="button"
-          className={`preview-time__mode${fixed ? " preview-time__mode--active" : ""}`}
-          aria-pressed={fixed}
-          onClick={() =>
+    <div className="grid gap-2" role="group" aria-label="Preview time">
+      <ToggleGroup
+        aria-label="Preview time mode"
+        variant="outline"
+        size="sm"
+        className="justify-self-start"
+        multiple={false}
+        value={[value.mode]}
+        onValueChange={(next) => {
+          const mode = next[0];
+          if (mode === "live") onChange({ ...value, mode: "live" });
+          if (mode === "fixed")
             onChange({
               mode: "fixed",
               value: value.value || previewTimeInputValue(new Date()),
-            })
-          }
-        >
-          At a time
-        </button>
-      </div>
+            });
+        }}
+      >
+        <ToggleGroupItem value="live">Live</ToggleGroupItem>
+        <ToggleGroupItem value="fixed">At a time</ToggleGroupItem>
+      </ToggleGroup>
       {fixed && (
-        <div className="preview-time__picker">
-          <label className="preview-time__field">
-            <span className="text-xs font-medium">Preview date and time</span>
-            <input
+        <div className="flex flex-wrap items-end gap-2">
+          <Field className="min-w-0 flex-[1_1_12rem] gap-1">
+            <FieldLabel htmlFor={inputId} className="text-xs">
+              Preview date and time
+            </FieldLabel>
+            <Input
+              id={inputId}
               type="datetime-local"
               value={value.value}
               onChange={(event) =>
                 onChange({ mode: "fixed", value: event.target.value })
               }
             />
-          </label>
+          </Field>
           <Button
             type="button"
             variant="ghost"
@@ -64,11 +69,11 @@ export function PreviewTimeControl({
           </Button>
         </div>
       )}
-      <small>
+      <FieldDescription className="text-xs">
         {fixed
           ? "Clocks, dates, countdowns, and schedule selections render at this time, read in your own time zone. A thumbnail saved now captures this preview."
           : "The preview follows the current time."}
-      </small>
+      </FieldDescription>
     </div>
   );
 }

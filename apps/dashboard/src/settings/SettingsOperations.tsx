@@ -2,10 +2,10 @@ import { useConfirm } from "../components/ConfirmDialog";
 import { StatusDot } from "../components/StatusDot";
 import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Button as RheaButton, buttonVariants } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button, buttonVariants } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -14,7 +14,7 @@ import {
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -192,7 +192,7 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
                     {action.description}
                   </small>
                 </span>
-                <RheaButton
+                <Button
                   variant="ghost"
 
                   disabled={maintenance.isPending}
@@ -212,7 +212,7 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
                   {maintenance.isPending && maintenance.variables === action.id
                     ? "Running…"
                     : "Run"}
-                </RheaButton>
+                </Button>
               </div>
             ))}
           </div>
@@ -279,13 +279,13 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
             </p>
           </header>
           <div>
-            <RheaButton
+            <Button
               variant="default"
 
               onClick={() => void exportSettings()}
             >
               Export non-secret settings
-            </RheaButton>
+            </Button>
           </div>
         </section>
         <section className="grid content-start gap-3 rounded-xl border border-border p-4">
@@ -296,12 +296,14 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
               anything changes.
             </p>
           </header>
-          <label className="grid gap-1 text-sm font-medium">
-            Settings file
-            <input
+          <Field>
+            <FieldLabel htmlFor="settings-import-file">
+              Settings file
+            </FieldLabel>
+            <Input
+              id="settings-import-file"
               type="file"
               accept="application/json"
-              className="text-sm font-normal"
               onChange={(event) =>
                 void (async () => {
                   const file = event.target.files?.[0];
@@ -311,9 +313,9 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
                 })
               }
             />
-          </label>
+          </Field>
           <div>
-            <RheaButton
+            <Button
               variant="ghost"
 
               disabled={!document || previewMutation.isPending}
@@ -322,7 +324,7 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
               {previewMutation.isPending
                 ? "Validating…"
                 : "Validate and preview"}
-            </RheaButton>
+            </Button>
           </div>
           {preview && (
             <Alert role="status">
@@ -335,7 +337,7 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
                   {preview.screenPolicyCount} screen policies are present.
                 </p>
                 <div>
-                  <RheaButton
+                  <Button
                     variant="default"
 
                     disabled={apply.isPending}
@@ -349,7 +351,7 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
                     }}
                   >
                     Apply imported settings
-                  </RheaButton>
+                  </Button>
                 </div>
               </AlertDescription>
             </Alert>
@@ -642,7 +644,7 @@ export function PlayerUpdatesPanel({
           </div>
           {owner && (
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <RheaButton
+              <Button
                 variant="secondary"
                 disabled={check.isPending}
                 onClick={() => check.mutate()}
@@ -653,15 +655,15 @@ export function PlayerUpdatesPanel({
                   <RefreshCw size={16} aria-hidden="true" />
                 )}
                 {check.isPending ? "Synchronizing…" : "Sync from GitHub"}
-              </RheaButton>
-              <RheaButton
+              </Button>
+              <Button
                 variant="default"
                 aria-expanded={showUpload}
                 onClick={() => setShowUpload((visible) => !visible)}
               >
                 <Upload size={16} aria-hidden="true" />
                 Upload release
-              </RheaButton>
+              </Button>
             </div>
           )}
         </header>
@@ -696,7 +698,7 @@ export function PlayerUpdatesPanel({
               {owner &&
                 !githubFlow &&
                 (releases.data.githubAuth.canDisconnect ? (
-                  <RheaButton
+                  <Button
                     variant="ghost"
                     disabled={disconnectGitHub.isPending}
                     onClick={() => disconnectGitHub.mutate()}
@@ -709,9 +711,9 @@ export function PlayerUpdatesPanel({
                     {disconnectGitHub.isPending
                       ? "Disconnecting…"
                       : "Disconnect"}
-                  </RheaButton>
+                  </Button>
                 ) : !releases.data.githubAuth.connected ? (
-                  <RheaButton
+                  <Button
                     variant="secondary"
                     disabled={
                       !releases.data.githubAuth.available ||
@@ -725,7 +727,7 @@ export function PlayerUpdatesPanel({
                       <Github size={16} aria-hidden="true" />
                     )}
                     {startGitHubAuth.isPending ? "Starting…" : "Connect GitHub"}
-                  </RheaButton>
+                  </Button>
                 ) : null)}
             </div>
             {githubFlow && (
@@ -747,9 +749,9 @@ export function PlayerUpdatesPanel({
                   <ExternalLink size={16} aria-hidden="true" />
                   Open GitHub
                 </a>
-                <RheaButton variant="ghost" onClick={() => setGitHubFlow(null)}>
+                <Button variant="ghost" onClick={() => setGitHubFlow(null)}>
                   Cancel
-                </RheaButton>
+                </Button>
                 <small className="text-xs text-muted-foreground">
                   Waiting for authorization…
                 </small>
@@ -938,7 +940,7 @@ export function PlayerUpdatesPanel({
                                 />
                               )}
                               {purgeAction(release) && (
-                                <RheaButton
+                                <Button
                                   variant="ghost"
                                   size="sm"
                                   title={
@@ -961,7 +963,7 @@ export function PlayerUpdatesPanel({
                                   {purgeAction(release) === "delete"
                                     ? "Delete"
                                     : "Free file"}
-                                </RheaButton>
+                                </Button>
                               )}
                             </div>
                           </td>
@@ -978,7 +980,7 @@ export function PlayerUpdatesPanel({
                   Showing {visibleReleaseItems.length} of {releaseItems.length}{" "}
                   releases, newest first.
                 </span>
-                <RheaButton
+                <Button
                   variant="ghost"
                   size="sm"
                   aria-controls="player-releases-table-body"
@@ -988,12 +990,12 @@ export function PlayerUpdatesPanel({
                   {showAllReleases
                     ? "Show fewer releases"
                     : `Show all ${releaseItems.length} releases`}
-                </RheaButton>
+                </Button>
               </div>
             )}
           </>
         )}
-        <RheaDialog
+        <Dialog
           open={Boolean(purging)}
           onOpenChange={(open) => {
             if (!open) setPurging(undefined);
@@ -1043,11 +1045,11 @@ export function PlayerUpdatesPanel({
               </div>
             )}
             <DialogFooter>
-              <RheaButton variant="ghost" onClick={() => setPurging(undefined)}>
+              <Button variant="ghost" onClick={() => setPurging(undefined)}>
                 Cancel
-              </RheaButton>
+              </Button>
               {purging && (
-                <RheaButton
+                <Button
                   variant="destructive"
                   disabled={purge.isPending}
                   onClick={() => purge.mutate(purging)}
@@ -1060,11 +1062,11 @@ export function PlayerUpdatesPanel({
                   {purgeAction(purging) === "delete"
                     ? "Delete release"
                     : "Free cached file"}
-                </RheaButton>
+                </Button>
               )}
             </DialogFooter>
           </DialogContent>
-        </RheaDialog>
+        </Dialog>
       </section>
       {manageable && (
         <section className="grid gap-4 rounded-xl border border-border p-4">
@@ -1080,7 +1082,7 @@ export function PlayerUpdatesPanel({
               <FieldLabel htmlFor="deployment-release">
                 Verified release
               </FieldLabel>
-              <RheaSelect
+              <Select
                 name="release"
                 value={releaseId || "none"}
                 onValueChange={(next) =>
@@ -1119,11 +1121,11 @@ export function PlayerUpdatesPanel({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor="deployment-mode">Deployment mode</FieldLabel>
-              <RheaSelect
+              <Select
                 name="mode"
                 value={mode}
                 onValueChange={(next) => {
@@ -1153,7 +1155,7 @@ export function PlayerUpdatesPanel({
                     Maintenance window
                   </SelectItem>
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor="deployment-canary">
@@ -1306,7 +1308,7 @@ export function PlayerUpdatesPanel({
                 </span>
               )}
               {selectionCount > 0 && (
-                <RheaButton
+                <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
@@ -1315,10 +1317,10 @@ export function PlayerUpdatesPanel({
                   }}
                 >
                   Clear selection
-                </RheaButton>
+                </Button>
               )}
             </div>
-            <RheaButton
+            <Button
               variant="default"
               disabled={
                 !releaseId ||
@@ -1334,9 +1336,9 @@ export function PlayerUpdatesPanel({
                 <Rocket size={16} aria-hidden="true" />
               )}
               {deploy.isPending ? "Creating deployment…" : "Deploy update"}
-            </RheaButton>
+            </Button>
           </div>
-          <RheaDialog
+          <Dialog
             open={confirmDeploy}
             onOpenChange={(open) => {
               if (!open) setConfirmDeploy(false);
@@ -1369,13 +1371,10 @@ export function PlayerUpdatesPanel({
                 )}
               </div>
               <DialogFooter>
-                <RheaButton
-                  variant="ghost"
-                  onClick={() => setConfirmDeploy(false)}
-                >
+                <Button variant="ghost" onClick={() => setConfirmDeploy(false)}>
                   Cancel
-                </RheaButton>
-                <RheaButton
+                </Button>
+                <Button
                   variant="default"
                   disabled={deploy.isPending}
                   onClick={() => deploy.mutate()}
@@ -1386,10 +1385,10 @@ export function PlayerUpdatesPanel({
                     <Rocket size={16} aria-hidden="true" />
                   )}
                   Deploy update
-                </RheaButton>
+                </Button>
               </DialogFooter>
             </DialogContent>
-          </RheaDialog>
+          </Dialog>
         </section>
       )}
       <section className="grid gap-3 rounded-xl border border-border p-4">
@@ -1482,7 +1481,7 @@ export function PlayerUpdatesPanel({
                           to take it, which also keeps this table at four
                           columns: a column of its own for one button forced a
                           horizontal scroll in a narrow settings pane. */}
-                      <RheaButton
+                      <Button
                         variant="secondary"
                         size="sm"
                         onClick={() => setOpenDeployment(item.id)}
@@ -1490,7 +1489,7 @@ export function PlayerUpdatesPanel({
                         <ListChecks size={15} aria-hidden="true" />
                         {item.targetCount}{" "}
                         {item.targetCount === 1 ? "screen" : "screens"}
-                      </RheaButton>
+                      </Button>
                     </td>
                   </tr>
                 );
@@ -1544,7 +1543,7 @@ function ReleaseCacheButton({
   onDownload: () => void;
 }) {
   return (
-    <RheaButton
+    <Button
       variant="ghost"
       size="sm"
       title="Download and verify this release"
@@ -1553,7 +1552,7 @@ function ReleaseCacheButton({
     >
       {downloading ? <Spinner /> : <Download size={15} aria-hidden="true" />}
       {downloading ? "Downloading…" : "Download"}
-    </RheaButton>
+    </Button>
   );
 }
 
@@ -1727,9 +1726,10 @@ function PlayerReleaseUpload({
         <span className="text-sm text-muted-foreground">
           or choose all three files
         </span>
-        <input
+        <Input
           type="file"
           multiple
+          className="mx-auto max-w-sm"
           onChange={(event) =>
             event.target.files && selectFiles(event.target.files)
           }
@@ -1789,15 +1789,15 @@ function PlayerReleaseUpload({
         </div>
       )}
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <RheaButton
+        <Button
           variant="default"
 
           disabled={!ready || upload.isPending || phase === "complete"}
           onClick={() => upload.mutate()}
         >
           {upload.isPending ? "Importing release…" : "Upload and verify"}
-        </RheaButton>
-        <RheaButton
+        </Button>
+        <Button
           variant="ghost"
 
           disabled={upload.isPending}
@@ -1809,7 +1809,7 @@ function PlayerReleaseUpload({
           }}
         >
           Clear files
-        </RheaButton>
+        </Button>
       </div>
     </div>
   );
@@ -1828,7 +1828,7 @@ function Target({
   return (
     // The wrapping label names the checkbox; no extra aria-label.
     <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border p-2 text-sm">
-      <RheaCheckbox
+      <Checkbox
         checked={checked}
         onCheckedChange={(next) => onChange(next === true)}
       />

@@ -299,6 +299,7 @@ export function CsvSourceInput({
           <Textarea
             id={pasteId}
             rows={7}
+            className="min-h-36 resize-y font-mono text-xs"
             value={configuration.uploadedContent ?? ""}
             placeholder={
               "title,subtitle,date\nBoard meeting,Room 204,2026-08-12"

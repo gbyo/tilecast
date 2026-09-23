@@ -38,6 +38,12 @@ import type {
   DependencyNodeType,
 } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "../components/ui/input-group";
 import { Button, buttonVariants } from "../components/ui/button";
 import {
   Empty,
@@ -47,7 +53,7 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -558,10 +564,13 @@ export function DependencyGraphPage() {
               data-graph-chrome
               className="absolute top-3 left-3 z-10 grid min-h-9 grid-cols-[minmax(160px,260px)_142px_auto] items-center gap-1 rounded-md border border-border bg-card/95 p-1 text-muted-foreground shadow-sm max-[900px]:right-3 max-sm:grid-cols-[minmax(0,1fr)_116px]"
             >
-              <label className="flex h-[34px] min-w-0 flex-1 items-center gap-1 rounded border border-transparent bg-muted px-2 text-muted-foreground focus-within:border-primary">
-                <Search size={16} aria-hidden="true" className="shrink-0" />
-                <span className="sr-only">Search graph</span>
-                <input
+              <InputGroup className="h-[34px] min-w-0 border-transparent bg-muted shadow-none dark:bg-muted">
+                <InputGroupAddon>
+                  <Search aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  type="search"
+                  aria-label="Search graph"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   onKeyDown={(event) => {
@@ -570,20 +579,20 @@ export function DependencyGraphPage() {
                     }
                   }}
                   placeholder="Search nodes"
-                  className="h-full w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
                 />
                 {search && (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={() => setSearch("")}
-                    className="grid h-[26px] w-[26px] flex-none place-items-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
-                  >
-                    <X size={14} />
-                  </button>
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      size="icon-xs"
+                      aria-label="Clear search"
+                      onClick={() => setSearch("")}
+                    >
+                      <X aria-hidden="true" />
+                    </InputGroupButton>
+                  </InputGroupAddon>
                 )}
-              </label>
-              <RheaSelect
+              </InputGroup>
+              <Select
                 value={type}
                 onValueChange={(value) =>
                   setType((value as DependencyNodeType | "all") ?? "all")
@@ -607,7 +616,7 @@ export function DependencyGraphPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
               <span className="min-w-[34px] px-2 text-center text-xs text-muted-foreground tabular-nums max-sm:hidden">
                 {filtering
                   ? `${matchingNodes.length}/${data.nodes.length}`
