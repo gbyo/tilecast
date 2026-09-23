@@ -8,6 +8,7 @@ import { z } from "zod";
 import { api } from "../api/client";
 import type { BrandBug, BrandBugInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useConfirm } from "../components/ConfirmDialog";
 import { FormField } from "../components/FormField";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -144,6 +145,7 @@ function brandBugSummary(instance: BrandBug) {
 export function BrandBugsPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const instances = useQuery({
     queryKey: ["brand-bugs"],
     queryFn: api.brandBugs,
@@ -164,121 +166,126 @@ export function BrandBugsPage() {
     !instances.isLoading &&
     (instances.data?.items.length ?? 0) === 0;
   return (
-    <main className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid min-w-0 gap-1">
-          <Link
-            className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-            to="/plugins"
-          >
-            <ArrowLeft size={15} aria-hidden="true" /> Plugins
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Brand Bug / Watermark
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Corner marks stay on screen over playlists, Layouts, websites, and
-            Widgets without changing what is playing.
-          </p>
-        </div>
-        {manageable && (
-          <div className="flex flex-wrap items-center gap-2">
+    <>
+      {confirmDialog}
+      <main className="grid gap-4">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid min-w-0 gap-1">
             <Link
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              to="/plugins/brand-bug/new"
+              className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+              to="/plugins"
             >
-              <Plus size={16} aria-hidden="true" /> New instance
+              <ArrowLeft size={15} aria-hidden="true" /> Plugins
             </Link>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Brand Bug / Watermark
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Corner marks stay on screen over playlists, Layouts, websites, and
+              Widgets without changing what is playing.
+            </p>
+          </div>
+          {manageable && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                to="/plugins/brand-bug/new"
+              >
+                <Plus size={16} aria-hidden="true" /> New instance
+              </Link>
+            </div>
+          )}
+        </header>
+        {!manageable && (
+          <Alert>
+            <AlertDescription>
+              Owner or Administrator access is required to make changes.
+            </AlertDescription>
+          </Alert>
+        )}
+        {instances.isError && (
+          <Alert variant="destructive">
+            <AlertDescription>Brand bugs could not be loaded.</AlertDescription>
+          </Alert>
+        )}
+        {remove.isError && (
+          <Alert variant="destructive">
+            <AlertDescription>{remove.error.message}</AlertDescription>
+          </Alert>
+        )}
+        {showEmptyState ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Stamp size={24} aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>No brand bugs configured</EmptyTitle>
+              <EmptyDescription>
+                Create an instance to hold a logo, notice, or badge in a corner
+                of selected screens.
+              </EmptyDescription>
+            </EmptyHeader>
+            {manageable && (
+              <Link
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                to="/plugins/brand-bug/new"
+              >
+                Create instance
+              </Link>
+            )}
+          </Empty>
+        ) : (
+          <div className="grid gap-2">
+            {(instances.data?.items ?? []).map((instance) => (
+              <article
+                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
+                key={instance.id}
+              >
+                <div className="grid min-w-0 flex-1 gap-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-semibold">{instance.name}</h2>
+                    <Badge variant={instance.enabled ? "default" : "secondary"}>
+                      {instance.enabled ? "Enabled" : "Disabled"}
+                    </Badge>
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    {brandBugSummary(instance)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
+                    to={`/plugins/brand-bug/${instance.id}`}
+                  >
+                    Manage
+                  </Link>
+                  {manageable && (
+                    <RheaButton
+                      type="button"
+                      size="icon"
+                      variant="destructive"
+                      aria-label={`Delete ${instance.name}`}
+                      onClick={() => {
+                        void confirm({
+                          title: `Delete “${instance.name}”?`,
+                          body: "The mark will be removed from targeted Players.",
+                          action: "Delete",
+                          destructive: true,
+                        }).then((ok) => {
+                          if (ok) remove.mutate(instance.id);
+                        });
+                      }}
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </RheaButton>
+                  )}
+                </div>
+              </article>
+            ))}
           </div>
         )}
-      </header>
-      {!manageable && (
-        <Alert>
-          <AlertDescription>
-            Owner or Administrator access is required to make changes.
-          </AlertDescription>
-        </Alert>
-      )}
-      {instances.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>Brand bugs could not be loaded.</AlertDescription>
-        </Alert>
-      )}
-      {remove.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{remove.error.message}</AlertDescription>
-        </Alert>
-      )}
-      {showEmptyState ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Stamp size={24} aria-hidden="true" />
-            </EmptyMedia>
-            <EmptyTitle>No brand bugs configured</EmptyTitle>
-            <EmptyDescription>
-              Create an instance to hold a logo, notice, or badge in a corner of
-              selected screens.
-            </EmptyDescription>
-          </EmptyHeader>
-          {manageable && (
-            <Link
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              to="/plugins/brand-bug/new"
-            >
-              Create instance
-            </Link>
-          )}
-        </Empty>
-      ) : (
-        <div className="grid gap-2">
-          {(instances.data?.items ?? []).map((instance) => (
-            <article
-              className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
-              key={instance.id}
-            >
-              <div className="grid min-w-0 flex-1 gap-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base font-semibold">{instance.name}</h2>
-                  <Badge variant={instance.enabled ? "default" : "secondary"}>
-                    {instance.enabled ? "Enabled" : "Disabled"}
-                  </Badge>
-                </span>
-                <p className="text-sm text-muted-foreground">
-                  {brandBugSummary(instance)}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
-                  to={`/plugins/brand-bug/${instance.id}`}
-                >
-                  Manage
-                </Link>
-                {manageable && (
-                  <RheaButton
-                    type="button"
-                    size="icon"
-                    variant="destructive"
-                    aria-label={`Delete ${instance.name}`}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Delete “${instance.name}”? The mark will be removed from targeted Players.`,
-                        )
-                      )
-                        remove.mutate(instance.id);
-                    }}
-                  >
-                    <Trash2 size={16} aria-hidden="true" />
-                  </RheaButton>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </main>
+      </main>
+    </>
   );
 }
 

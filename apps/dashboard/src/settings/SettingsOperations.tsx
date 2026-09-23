@@ -1,4 +1,6 @@
-import { StatusDot, ViewTabs } from "../components/legacy-ui";
+import { useConfirm } from "../components/ConfirmDialog";
+import { StatusDot } from "../components/StatusDot";
+import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button as RheaButton, buttonVariants } from "../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
@@ -90,6 +92,7 @@ const maintenanceActions = [
 export function SystemPanel({ canManage }: { canManage: boolean }) {
   const auth = useAuth();
   const client = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const query = useQuery({
     queryKey: ["system-status"],
     queryFn: api.systemStatus,
@@ -111,105 +114,121 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
     );
   const s = query.data;
   return (
-    <div className="grid gap-4">
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Diagnostics</h3>
-          <p className="text-sm text-muted-foreground">
-            Runtime status without secrets or sensitive paths.
-          </p>
-        </header>
-        {query.error ? (
-          <Alert variant="destructive">
-            <AlertDescription>
-              System diagnostics could not be loaded. {query.error.message}
-            </AlertDescription>
-          </Alert>
-        ) : !s ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner aria-hidden="true" />
-            Loading diagnostics…
-          </p>
-        ) : (
-          <dl className="my-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Item
-              label="Tilecast"
-              value={`${s.tilecastVersion} · ${s.buildCommit}`}
-            />
-            <Item label="Uptime" value={formatDuration(s.uptimeSeconds)} />
-            <Item
-              label="Database"
-              value={`${s.database.status} · migration ${s.database.migrationVersion}`}
-            />
-            <Item label="PostgreSQL" value={s.database.postgresVersion} />
-            <Item
-              label="Media storage"
-              value={
-                typeof s.media.status === "string" ? s.media.status : "unknown"
-              }
-            />
-            <Item
-              label="Connected screens"
-              value={String(s.connectedScreens)}
-            />
-            <Item label="Pending commands" value={String(s.pendingCommands)} />
-            <Item
-              label="Processing jobs"
-              value={String(s.activeProcessingJobs)}
-            />
-            <Item label="Server timezone" value={s.serverTimezone} />
-          </dl>
-        )}
-      </section>
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Maintenance</h3>
-          <p className="text-sm text-muted-foreground">
-            Run approved maintenance tasks.
-          </p>
-        </header>
-        <div className="grid gap-2">
-          {maintenanceActions.map((action) => (
-            <div
-              key={action.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3"
-            >
-              <span className="grid gap-0.5">
-                <strong className="text-sm font-semibold">
-                  {action.label}
-                </strong>
-                <small className="text-xs text-muted-foreground">
-                  {action.description}
-                </small>
-              </span>
-              <RheaButton
-                variant="ghost"
-
-                disabled={maintenance.isPending}
-                onClick={() => {
-                  if (!action.confirm || confirm(`${action.label}?`))
-                    maintenance.mutate(action.id);
-                }}
+    <>
+      {confirmDialog}
+      <div className="grid gap-4">
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Diagnostics</h3>
+            <p className="text-sm text-muted-foreground">
+              Runtime status without secrets or sensitive paths.
+            </p>
+          </header>
+          {query.error ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                System diagnostics could not be loaded. {query.error.message}
+              </AlertDescription>
+            </Alert>
+          ) : !s ? (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner aria-hidden="true" />
+              Loading diagnostics…
+            </p>
+          ) : (
+            <dl className="my-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Item
+                label="Tilecast"
+                value={`${s.tilecastVersion} · ${s.buildCommit}`}
+              />
+              <Item label="Uptime" value={formatDuration(s.uptimeSeconds)} />
+              <Item
+                label="Database"
+                value={`${s.database.status} · migration ${s.database.migrationVersion}`}
+              />
+              <Item label="PostgreSQL" value={s.database.postgresVersion} />
+              <Item
+                label="Media storage"
+                value={
+                  typeof s.media.status === "string"
+                    ? s.media.status
+                    : "unknown"
+                }
+              />
+              <Item
+                label="Connected screens"
+                value={String(s.connectedScreens)}
+              />
+              <Item
+                label="Pending commands"
+                value={String(s.pendingCommands)}
+              />
+              <Item
+                label="Processing jobs"
+                value={String(s.activeProcessingJobs)}
+              />
+              <Item label="Server timezone" value={s.serverTimezone} />
+            </dl>
+          )}
+        </section>
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Maintenance</h3>
+            <p className="text-sm text-muted-foreground">
+              Run approved maintenance tasks.
+            </p>
+          </header>
+          <div className="grid gap-2">
+            {maintenanceActions.map((action) => (
+              <div
+                key={action.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3"
               >
-                {maintenance.isPending && maintenance.variables === action.id
-                  ? "Running…"
-                  : "Run"}
-              </RheaButton>
-            </div>
-          ))}
-        </div>
-        {maintenance.isSuccess && (
-          <Alert role="status">
-            <AlertDescription>Maintenance action completed.</AlertDescription>
-          </Alert>
-        )}
-        {maintenance.error && (
-          <Alert variant="destructive">
-            <AlertDescription>{maintenance.error.message}</AlertDescription>
-          </Alert>
-        )}
-      </section>
-    </div>
+                <span className="grid gap-0.5">
+                  <strong className="text-sm font-semibold">
+                    {action.label}
+                  </strong>
+                  <small className="text-xs text-muted-foreground">
+                    {action.description}
+                  </small>
+                </span>
+                <RheaButton
+                  variant="ghost"
+
+                  disabled={maintenance.isPending}
+                  onClick={() => {
+                    if (!action.confirm) {
+                      maintenance.mutate(action.id);
+                      return;
+                    }
+                    void confirm({
+                      title: `${action.label}?`,
+                      action: "Run",
+                    }).then((ok) => {
+                      if (ok) maintenance.mutate(action.id);
+                    });
+                  }}
+                >
+                  {maintenance.isPending && maintenance.variables === action.id
+                    ? "Running…"
+                    : "Run"}
+                </RheaButton>
+              </div>
+            ))}
+          </div>
+          {maintenance.isSuccess && (
+            <Alert role="status">
+              <AlertDescription>Maintenance action completed.</AlertDescription>
+            </Alert>
+          )}
+          {maintenance.error && (
+            <Alert variant="destructive">
+              <AlertDescription>{maintenance.error.message}</AlertDescription>
+            </Alert>
+          )}
+        </section>
+      </div>
+    </>
   );
 }
 function Item({ label, value }: { label: string; value: string }) {
@@ -223,6 +242,7 @@ function Item({ label, value }: { label: string; value: string }) {
 
 export function ImportExportPanel({ owner }: { owner: boolean }) {
   const auth = useAuth();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [document, setDocument] = useState<unknown>();
   const [preview, setPreview] = useState<{
     changedKeys: string[];
@@ -247,87 +267,96 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
       </Alert>
     );
   return (
-    <div className="grid gap-4">
-      <section className="grid content-start gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Export settings</h3>
-          <p className="text-sm text-muted-foreground">
-            Download organization settings and policy metadata without
-            credentials, secrets, or media files.
-          </p>
-        </header>
-        <div>
-          <RheaButton
-            variant="default"
+    <>
+      {confirmDialog}
+      <div className="grid gap-4">
+        <section className="grid content-start gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Export settings</h3>
+            <p className="text-sm text-muted-foreground">
+              Download organization settings and policy metadata without
+              credentials, secrets, or media files.
+            </p>
+          </header>
+          <div>
+            <RheaButton
+              variant="default"
 
-            onClick={() => void exportSettings()}
-          >
-            Export non-secret settings
-          </RheaButton>
-        </div>
-      </section>
-      <section className="grid content-start gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Import settings</h3>
-          <p className="text-sm text-muted-foreground">
-            Tilecast validates the document and shows a preview before anything
-            changes.
-          </p>
-        </header>
-        <label className="grid gap-1 text-sm font-medium">
-          Settings file
-          <input
-            type="file"
-            accept="application/json"
-            className="text-sm font-normal"
-            onChange={(event) =>
-              void (async () => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                setDocument(JSON.parse(await file.text()));
-                setPreview(null);
-              })
-            }
-          />
-        </label>
-        <div>
-          <RheaButton
-            variant="ghost"
+              onClick={() => void exportSettings()}
+            >
+              Export non-secret settings
+            </RheaButton>
+          </div>
+        </section>
+        <section className="grid content-start gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Import settings</h3>
+            <p className="text-sm text-muted-foreground">
+              Tilecast validates the document and shows a preview before
+              anything changes.
+            </p>
+          </header>
+          <label className="grid gap-1 text-sm font-medium">
+            Settings file
+            <input
+              type="file"
+              accept="application/json"
+              className="text-sm font-normal"
+              onChange={(event) =>
+                void (async () => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  setDocument(JSON.parse(await file.text()));
+                  setPreview(null);
+                })
+              }
+            />
+          </label>
+          <div>
+            <RheaButton
+              variant="ghost"
 
-            disabled={!document || previewMutation.isPending}
-            onClick={() => previewMutation.mutate()}
-          >
-            {previewMutation.isPending ? "Validating…" : "Validate and preview"}
-          </RheaButton>
-        </div>
-        {preview && (
-          <Alert role="status">
-            <AlertDescription className="grid gap-2">
-              <strong>
-                {preview.changedKeys.length} setting keys are valid.
-              </strong>
-              <p>
-                {preview.groupPolicyCount} group policies and{" "}
-                {preview.screenPolicyCount} screen policies are present.
-              </p>
-              <div>
-                <RheaButton
-                  variant="default"
+              disabled={!document || previewMutation.isPending}
+              onClick={() => previewMutation.mutate()}
+            >
+              {previewMutation.isPending
+                ? "Validating…"
+                : "Validate and preview"}
+            </RheaButton>
+          </div>
+          {preview && (
+            <Alert role="status">
+              <AlertDescription className="grid gap-2">
+                <strong>
+                  {preview.changedKeys.length} setting keys are valid.
+                </strong>
+                <p>
+                  {preview.groupPolicyCount} group policies and{" "}
+                  {preview.screenPolicyCount} screen policies are present.
+                </p>
+                <div>
+                  <RheaButton
+                    variant="default"
 
-                  disabled={apply.isPending}
-                  onClick={() => {
-                    if (confirm("Apply this validated settings document?"))
-                      apply.mutate();
-                  }}
-                >
-                  Apply imported settings
-                </RheaButton>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-      </section>
-    </div>
+                    disabled={apply.isPending}
+                    onClick={() => {
+                      void confirm({
+                        title: "Apply this validated settings document?",
+                        action: "Apply",
+                      }).then((ok) => {
+                        if (ok) apply.mutate();
+                      });
+                    }}
+                  >
+                    Apply imported settings
+                  </RheaButton>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+        </section>
+      </div>
+    </>
   );
 }
 async function exportSettings() {

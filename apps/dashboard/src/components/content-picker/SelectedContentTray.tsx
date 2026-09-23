@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import type { Asset } from "../../api/types";
+import { Button } from "../ui/button";
 
 export function SelectedContentTray({
   items,
@@ -15,26 +16,23 @@ export function SelectedContentTray({
     <div className="selected-content-tray">
       <div>
         <strong>{items.length} selected</strong>
-        <button
-          type="button"
-          className="button button--quiet button--compact"
-          onClick={onClear}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onClear}>
           Clear selection
-        </button>
+        </Button>
       </div>
       <ul>
         {items.map((asset) => (
           <li key={asset.id}>
             <span>{asset.name}</span>
-            <button
+            <Button
               type="button"
-              className="icon-button icon-button--compact"
+              variant="ghost"
+              size="icon-sm"
               aria-label={`Remove ${asset.name} from selection`}
               onClick={() => onRemove(asset.id)}
             >
               <X size={14} />
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

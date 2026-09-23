@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, History, RotateCcw } from "lucide-react";
 import { api } from "../api/client";
@@ -9,9 +9,67 @@ import type {
   BulkPreview,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { PageHeader, Select } from "../components/legacy-ui";
+import { PageHeader } from "../components/PageHeader";
 import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import "./FleetBulkPage.css";
+
+function BulkSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  hint,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly { value: string; label: string }[];
+  placeholder?: string;
+  hint?: string;
+}) {
+  const selected = options.find((option) => option.value === value);
+  return (
+    <div className="bulk-field">
+      <label htmlFor={id}>{label}</label>
+      <RheaSelect value={value} onValueChange={(next) => onChange(next ?? "")}>
+        <SelectTrigger id={id}>
+          <SelectValue placeholder={placeholder}>
+            {selected?.label ?? placeholder ?? value}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </RheaSelect>
+      {hint ? <p>{hint}</p> : null}
+    </div>
+  );
+}
+
+function BulkError({ children }: { children: ReactNode }) {
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
+  );
+}
 
 const actionLabels: Record<BulkAction, string> = {
   assign_playlist: "Assign a playlist",
@@ -131,8 +189,9 @@ export function FleetBulkPage() {
               <span className="bulk-count">
                 {selected.length} of {items.length} selected
               </span>
-              <button
-                className="button button--quiet button--compact"
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 disabled={items.length === 0}
                 onClick={() => {
@@ -141,7 +200,7 @@ export function FleetBulkPage() {
                 }}
               >
                 {allSelected ? "Select none" : "Select all"}
-              </button>
+              </Button>
             </div>
           </header>
 
@@ -200,122 +259,99 @@ export function FleetBulkPage() {
           </header>
 
           <div className="bulk-panel__body">
-            <div className="bulk-field">
-              <label htmlFor="bulk-action">Action</label>
-              <Select
-                id="bulk-action"
-                value={action}
-                onChange={(event) => {
-                  setAction(event.target.value as BulkAction);
-                  setPreview(undefined);
-                }}
-              >
-                {(Object.keys(actionLabels) as BulkAction[]).map((value) => (
-                  <option key={value} value={value}>
-                    {actionLabels[value]}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            <BulkSelect
+              id="bulk-action"
+              label="Action"
+              value={action}
+              onChange={(value) => {
+                setAction(value as BulkAction);
+                setPreview(undefined);
+              }}
+              options={(Object.keys(actionLabels) as BulkAction[]).map(
+                (value) => ({ value, label: actionLabels[value] }),
+              )}
+            />
 
             {action === "assign_playlist" && (
-              <div className="bulk-field">
-                <label htmlFor="bulk-playlist">Playlist</label>
-                <Select
-                  id="bulk-playlist"
-                  value={playlistId}
-                  onChange={(event) => {
-                    setPlaylistId(event.target.value);
-                    setPreview(undefined);
-                  }}
-                >
-                  <option value="">Select a playlist</option>
-                  {playlists.data?.items?.map((playlist) => (
-                    <option key={playlist.id} value={playlist.id}>
-                      {playlist.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+              <BulkSelect
+                id="bulk-playlist"
+                label="Playlist"
+                value={playlistId}
+                onChange={(value) => {
+                  setPlaylistId(value);
+                  setPreview(undefined);
+                }}
+                options={(playlists.data?.items ?? []).map((playlist) => ({
+                  value: playlist.id,
+                  label: playlist.name,
+                }))}
+                placeholder="Select a playlist"
+              />
             )}
 
             {action === "assign_layout" && (
-              <div className="bulk-field">
-                <label htmlFor="bulk-layout">Layout</label>
-                <Select
-                  id="bulk-layout"
-                  value={layoutId}
-                  onChange={(event) => {
-                    setLayoutId(event.target.value);
-                    setPreview(undefined);
-                  }}
-                >
-                  <option value="">Select a Layout</option>
-                  {layouts.data?.items?.map((layout) => (
-                    <option key={layout.id} value={layout.id}>
-                      {layout.name}
-                    </option>
-                  ))}
-                </Select>
-                <p>Only published Layouts can be assigned.</p>
-              </div>
+              <BulkSelect
+                id="bulk-layout"
+                label="Layout"
+                value={layoutId}
+                onChange={(value) => {
+                  setLayoutId(value);
+                  setPreview(undefined);
+                }}
+                options={(layouts.data?.items ?? []).map((layout) => ({
+                  value: layout.id,
+                  label: layout.name,
+                }))}
+                placeholder="Select a Layout"
+                hint="Only published Layouts can be assigned."
+              />
             )}
 
             {action === "set_enabled" && (
-              <div className="bulk-field">
-                <label htmlFor="bulk-enabled">Playback</label>
-                <Select
-                  id="bulk-enabled"
-                  value={enabled ? "enabled" : "disabled"}
-                  onChange={(event) => {
-                    setEnabled(event.target.value === "enabled");
-                    setPreview(undefined);
-                  }}
-                >
-                  <option value="enabled">Enable playback</option>
-                  <option value="disabled">Disable playback</option>
-                </Select>
-              </div>
+              <BulkSelect
+                id="bulk-enabled"
+                label="Playback"
+                value={enabled ? "enabled" : "disabled"}
+                onChange={(value) => {
+                  setEnabled(value === "enabled");
+                  setPreview(undefined);
+                }}
+                options={[
+                  { value: "enabled", label: "Enable playback" },
+                  { value: "disabled", label: "Disable playback" },
+                ]}
+              />
             )}
 
             {action === "send_command" && (
-              <div className="bulk-field">
-                <label htmlFor="bulk-command">Command</label>
-                <Select
-                  id="bulk-command"
-                  value={commandType}
-                  onChange={(event) => {
-                    setCommandType(event.target.value);
-                    setPreview(undefined);
-                  }}
-                >
-                  {bulkCommands.map((command) => (
-                    <option key={command.value} value={command.value}>
-                      {command.label}
-                    </option>
-                  ))}
-                </Select>
-                <p>A command cannot be undone once a Player collects it.</p>
-              </div>
+              <BulkSelect
+                id="bulk-command"
+                label="Command"
+                value={commandType}
+                onChange={(value) => {
+                  setCommandType(value);
+                  setPreview(undefined);
+                }}
+                options={bulkCommands.map((command) => ({
+                  value: command.value,
+                  label: command.label,
+                }))}
+                hint="A command cannot be undone once a Player collects it."
+              />
             )}
           </div>
 
-          {build.error && (
-            <div className="notice notice--error" role="alert">
-              {build.error.message}
-            </div>
-          )}
+          {build.error && <BulkError>{build.error.message}</BulkError>}
 
           <div className="bulk-panel__footer">
             <div className="bulk-panel__actions">
-              <button
-                className="button button--primary"
+              <Button
                 type="button"
                 disabled={!ready || build.isPending}
                 onClick={() => build.mutate()}
               >
                 {build.isPending ? "Checking…" : "Preview the change"}
-              </button>
+              </Button>
             </div>
           </div>
         </section>
@@ -357,7 +393,7 @@ export function FleetBulkPage() {
           </div>
 
           {result.failedCount > 0 && (
-            <div className="notice notice--error" role="alert">
+            <BulkError>
               Some screens did not change:
               <ul>
                 {result.results
@@ -368,14 +404,10 @@ export function FleetBulkPage() {
                     </li>
                   ))}
               </ul>
-            </div>
+            </BulkError>
           )}
 
-          {undo.error && (
-            <div className="notice notice--error" role="alert">
-              {undo.error.message}
-            </div>
-          )}
+          {undo.error && <BulkError>{undo.error.message}</BulkError>}
 
           {result.reversible && (
             <div className="bulk-panel__footer">
@@ -384,15 +416,15 @@ export function FleetBulkPage() {
                 minutes.
               </p>
               <div className="bulk-panel__actions">
-                <button
-                  className="button"
+                <Button
+                  variant="secondary"
                   type="button"
                   disabled={undo.isPending}
                   onClick={() => undo.mutate(result.id)}
                 >
                   <RotateCcw size={15} aria-hidden="true" />{" "}
                   {undo.isPending ? "Undoing…" : "Undo this change"}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -425,14 +457,15 @@ export function FleetBulkPage() {
                 {operation.reversible ? (
                   // Undo is consequential, so it keeps a visible outline rather
                   // than the quiet variant that reads as plain text at rest.
-                  <button
-                    className="button button--secondary button--compact"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     type="button"
                     disabled={undo.isPending}
                     onClick={() => undo.mutate(operation.id)}
                   >
                     Undo
-                  </button>
+                  </Button>
                 ) : (
                   <span className="bulk-history__note">
                     {operation.undoneAt ? "Undone" : "Undo window closed"}
@@ -490,9 +523,9 @@ function PreviewSection({
       </div>
 
       {preview.warnings.map((warning) => (
-        <div className="notice notice--info" key={warning} role="status">
-          {warning}
-        </div>
+        <Alert key={warning} role="status">
+          <AlertDescription>{warning}</AlertDescription>
+        </Alert>
       ))}
 
       <div className="bulk-rows">
@@ -514,13 +547,9 @@ function PreviewSection({
             </div>
             <span className="bulk-row__verdict">
               {row.blocked ? (
-                <span className="status-chip status-chip--offline">
-                  Skipped: {row.blocked}
-                </span>
+                <Badge variant="secondary">Skipped: {row.blocked}</Badge>
               ) : row.changes ? (
-                <span className="status-chip status-chip--recent">
-                  Will change
-                </span>
+                <Badge>Will change</Badge>
               ) : (
                 "No change"
               )}
@@ -529,23 +558,14 @@ function PreviewSection({
         ))}
       </div>
 
-      {error && (
-        <div className="notice notice--error" role="alert">
-          {error}
-        </div>
-      )}
+      {error && <BulkError>{error}</BulkError>}
 
       <div className="bulk-panel__footer">
         <div className="bulk-panel__actions">
-          <button
-            className="button button--quiet"
-            type="button"
-            onClick={onCancel}
-          >
+          <Button variant="ghost" type="button" onClick={onCancel}>
             Cancel
-          </button>
-          <button
-            className="button button--primary"
+          </Button>
+          <Button
             type="button"
             disabled={applying || preview.changeCount === 0}
             onClick={onApply}
@@ -553,7 +573,7 @@ function PreviewSection({
             {applying
               ? "Applying…"
               : `Change ${preview.changeCount} screen${preview.changeCount === 1 ? "" : "s"}`}
-          </button>
+          </Button>
         </div>
       </div>
     </section>

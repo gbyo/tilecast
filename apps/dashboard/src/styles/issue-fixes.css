@@ -16,24 +16,6 @@
   border-color: var(--tc-border-default);
 }
 
-.playlist-list small,
-.playlist-list a > span:not(:first-child),
-.timeline-heading p,
-.asset-card__body small,
-.source-card-actions > span {
-  color: var(--tc-text-secondary);
-}
-
-.playlist-list a {
-  color: var(--tc-text-primary);
-  border-color: var(--tc-border-default);
-}
-
-.playlist-list a:hover,
-.timeline-item:hover {
-  background: var(--tc-bg-subtle);
-}
-
 .source-editor textarea,
 .website-editor textarea,
 .layout-create-dialog textarea,
@@ -50,20 +32,6 @@
   overflow: visible;
   background: transparent;
   box-shadow: none;
-}
-
-/* Remove generic input chrome from inputs whose wrapper owns the search field. */
-.search-control {
-  min-width: 0;
-  color: var(--tc-text-secondary);
-  background: var(--tc-input-bg);
-  border: 1px solid var(--tc-input-border);
-  border-radius: var(--tc-radius-control);
-}
-
-.search-control:focus-within {
-  border-color: var(--tc-action-primary);
-  box-shadow: 0 0 0 3px var(--tc-focus-ring-soft);
 }
 
 :is(
@@ -191,36 +159,8 @@
   }
 }
 
-/* Make asset/App cards own their clickable preview and reliably show thumbnails. */
-.asset-card__open {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  color: inherit;
-  text-align: left;
-  background: transparent;
-  border: 0;
-}
-
-.asset-preview img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .asset-collection--list .asset-card {
   display: block;
-}
-
-.asset-collection--list .asset-card__open {
-  grid-template-columns: 120px minmax(0, 1fr) auto;
-  align-items: stretch;
-}
-
-.asset-collection--list .asset-preview {
-  width: 120px;
 }
 
 /* Fit the media controls without horizontal scrolling on normal desktop widths. */
@@ -262,38 +202,6 @@
   border-color: var(--tc-input-border);
 }
 
-.view-switch {
-  overflow: hidden;
-  background: var(--tc-bg-surface);
-  border-color: var(--tc-border-default);
-}
-
-.view-switch button {
-  color: var(--tc-text-secondary);
-}
-
-.view-switch button[aria-pressed="true"] {
-  color: var(--tc-action-primary);
-  background: var(--tc-action-primary-soft);
-}
-
-/* Compact App usage and actions into one stable footer row. */
-.source-card-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(3, max-content);
-  gap: 5px;
-  align-items: center;
-  padding: 8px 10px;
-}
-
-.source-card-actions > span {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .source-card-actions .button,
 .source-card-actions button {
   min-height: 30px;
@@ -302,284 +210,9 @@
   font-size: 11px;
 }
 
-/* Settings switches no longer look like a button wrapped around a switch. */
-.setting-switch {
-  min-width: 0;
-  min-height: 32px;
-  padding: 4px 0;
-  gap: 9px;
-  color: var(--tc-text-primary);
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-}
-
-.setting-switch > span {
-  width: 40px;
-  height: 22px;
-  padding: 2px;
-  background: var(--tc-border-strong);
-  border: 1px solid var(--tc-border-strong);
-  border-radius: var(--tc-radius-pill);
-  transition:
-    background var(--tc-motion-fast),
-    border-color var(--tc-motion-fast);
-}
-
-.setting-switch > span::before {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  background: var(--tc-bg-surface);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 25%);
-  transition: transform var(--tc-motion-fast);
-}
-
-.setting-switch[aria-checked="true"] > span {
-  background: var(--tc-action-primary);
-  border-color: var(--tc-action-primary);
-}
-
-.setting-switch[aria-checked="true"] > span::before {
-  margin: 0;
-  background: var(--tc-text-inverse);
-  transform: translateX(18px);
-}
-
-.setting-switch:disabled {
-  opacity: 0.55;
-}
-
-/* Compact, aligned diagnostics key/value grid. */
-.system-settings-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
-  gap: 0;
-  margin: 12px 0 0;
-  overflow: hidden;
-  background: var(--tc-bg-surface);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-card);
-}
-
-.system-settings-grid > div {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.75fr) minmax(0, 1fr);
-  gap: 12px;
-  align-items: baseline;
-  padding: 9px 12px;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--tc-border-default);
-}
-
-.system-settings-grid > div:nth-child(odd) {
-  border-right: 1px solid var(--tc-border-default);
-}
-
-.system-settings-grid > div:nth-last-child(-n + 2) {
-  border-bottom: 0;
-}
-
-.system-settings-grid dt {
-  color: var(--tc-text-secondary);
-  font-size: 12px;
-}
-
-.system-settings-grid dd {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--tc-text-primary);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: right;
-}
-
-/* Branding cards use semantic tokens and a predictable vertical card layout. */
-.branding-asset-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: stretch;
-}
-
-.branding-asset-card {
-  grid-template-columns: 1fr;
-  grid-template-rows: 150px minmax(0, 1fr);
-  gap: 12px;
-  min-width: 0;
-  padding: 14px;
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-surface);
-  border-color: var(--tc-border-default);
-  border-radius: var(--tc-radius-card);
-}
-
-.branding-asset-card__preview {
-  width: 100%;
-  min-height: 0;
-  color: var(--tc-text-secondary);
-  background: var(--tc-bg-subtle);
-  border-color: var(--tc-border-default);
-}
-
-.branding-asset-card__preview img {
-  max-height: 100%;
-}
-
-.branding-asset-card__body {
-  align-content: start;
-}
-
-.branding-asset-card__body p,
-.branding-asset-card__body small {
-  color: var(--tc-text-secondary);
-}
-
-.branding-asset-card__actions {
-  margin-top: auto;
-}
-
-.branding-workspace {
-  align-items: start;
-}
-
 /* Layout overview cards preserve the title and expose API errors. */
 .layout-library {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-}
-
-.layout-library-item {
-  grid-template-columns: minmax(112px, 38%) minmax(0, 1fr) auto;
-  min-width: 0;
-}
-
-.layout-library-item__preview {
-  width: 100%;
-  min-width: 0;
-}
-
-.layout-library-item__copy strong,
-.layout-library-item__copy span {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.layout-library-item__actions {
-  gap: 2px;
-}
-
-/* User management. */
-.user-management {
-  display: grid;
-  gap: 20px;
-  width: min(1100px, 100%);
-  margin: 0 auto;
-}
-
-.user-management__header,
-.user-management__form,
-.user-management__list {
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-surface);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-}
-
-.user-management__header,
-.user-management__form {
-  padding: 18px;
-}
-
-.user-management__header h2,
-.user-management__header p,
-.user-management__form h3,
-.user-management__form p {
-  margin: 0;
-}
-
-.user-management__header p,
-.user-management__form p {
-  margin-top: 5px;
-  color: var(--tc-text-secondary);
-}
-
-.user-management__fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 170px auto;
-  gap: 10px;
-  align-items: end;
-  margin-top: 16px;
-}
-
-.user-management__fields label,
-.user-row__editor label {
-  display: grid;
-  gap: 5px;
-  color: var(--tc-text-secondary);
-  font-size: 12px;
-}
-
-.user-management__fields input,
-.user-management__fields select,
-.user-row__editor input,
-.user-row__editor select {
-  width: 100%;
-}
-
-.user-management__list {
-  overflow: hidden;
-}
-
-.user-row {
-  display: grid;
-  grid-template-columns: minmax(190px, 1fr) minmax(360px, 1.4fr) auto;
-  gap: 14px;
-  align-items: center;
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--tc-border-default);
-}
-
-.user-row:last-child {
-  border-bottom: 0;
-}
-
-.user-row__identity {
-  display: grid;
-  min-width: 0;
-}
-
-.user-row__identity span,
-.user-row__identity small {
-  overflow: hidden;
-  color: var(--tc-text-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.user-row__editor {
-  display: grid;
-  grid-template-columns:
-    minmax(120px, 1fr) minmax(130px, 1fr) 145px minmax(150px, 1fr)
-    auto;
-  gap: 8px;
-  align-items: end;
-}
-
-.user-row__active {
-  display: flex !important;
-  flex-direction: row;
-  gap: 7px !important;
-  align-items: center;
-  min-height: 40px;
-  color: var(--tc-text-primary) !important;
-}
-
-.user-row__actions {
-  display: flex;
-  gap: 6px;
 }
 
 @media (max-width: 1180px) {
@@ -591,14 +224,6 @@
   .content-page:not(.apps-page) .view-switch {
     justify-self: start;
   }
-
-  .branding-asset-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .user-management__fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 760px) {
@@ -609,28 +234,5 @@
   .user-row,
   .user-row__editor {
     grid-template-columns: 1fr;
-  }
-
-  .system-settings-grid > div,
-  .system-settings-grid > div:nth-child(odd),
-  .system-settings-grid > div:nth-last-child(-n + 2) {
-    border-right: 0;
-    border-bottom: 1px solid var(--tc-border-default);
-  }
-
-  .system-settings-grid > div:last-child {
-    border-bottom: 0;
-  }
-
-  .asset-collection--list .asset-card__open {
-    grid-template-columns: 92px minmax(0, 1fr);
-  }
-
-  .asset-collection--list .asset-preview {
-    width: 92px;
-  }
-
-  .source-card-actions {
-    grid-template-columns: minmax(0, 1fr) repeat(3, max-content);
   }
 }

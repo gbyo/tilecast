@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { User } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import {
@@ -402,6 +403,7 @@ function UserEditorDialog({
     onSuccess: onChanged,
   });
   const isSelf = user.id === currentUser.id;
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   return (
     <RheaDialog
@@ -411,6 +413,7 @@ function UserEditorDialog({
       }}
     >
       <DialogContent className="max-w-lg">
+        {confirmDialog}
         <DialogHeader>
           <DialogTitle>Edit {user.name}</DialogTitle>
         </DialogHeader>
@@ -500,12 +503,14 @@ function UserEditorDialog({
               className="text-destructive hover:text-destructive"
               disabled={!user.mfaEnrolled || resetSecurity.isPending}
               onClick={() => {
-                if (
-                  confirm(
-                    `Clear every authenticator, passkey, and recovery code for ${user.name}? They will be signed out everywhere and must enroll again.`,
-                  )
-                )
-                  resetSecurity.mutate();
+                void confirm({
+                  title: `Clear every authenticator, passkey, and recovery code for ${user.name}?`,
+                  body: "They will be signed out everywhere and must enroll again.",
+                  action: "Reset",
+                  destructive: true,
+                }).then((ok) => {
+                  if (ok) resetSecurity.mutate();
+                });
               }}
             >
               <ShieldOff size={15} aria-hidden="true" />
@@ -546,7 +551,13 @@ function UserEditorDialog({
                 className="mr-auto text-destructive hover:text-destructive"
                 disabled={isSelf || deactivate.isPending}
                 onClick={() => {
-                  if (confirm(`Deactivate ${user.name}?`)) deactivate.mutate();
+                  void confirm({
+                    title: `Deactivate ${user.name}?`,
+                    action: "Deactivate",
+                    destructive: true,
+                  }).then((ok) => {
+                    if (ok) deactivate.mutate();
+                  });
                 }}
               >
                 <UserRoundX size={15} aria-hidden="true" />
@@ -559,12 +570,14 @@ function UserEditorDialog({
                 className="mr-auto text-destructive hover:text-destructive"
                 disabled={isSelf || permanentlyDelete.isPending}
                 onClick={() => {
-                  if (
-                    confirm(
-                      `Permanently delete ${user.name}? This removes their login, preferences, and security credentials. This cannot be undone.`,
-                    )
-                  )
-                    permanentlyDelete.mutate();
+                  void confirm({
+                    title: `Permanently delete ${user.name}?`,
+                    body: "This removes their login, preferences, and security credentials. This cannot be undone.",
+                    action: "Delete permanently",
+                    destructive: true,
+                  }).then((ok) => {
+                    if (ok) permanentlyDelete.mutate();
+                  });
                 }}
               >
                 <Trash2 size={15} aria-hidden="true" />

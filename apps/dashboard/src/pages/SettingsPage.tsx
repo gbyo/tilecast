@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Spinner } from "../components/ui/spinner";
 import { api, ApiError } from "../api/client";
@@ -14,9 +14,11 @@ import { BrandingAssets } from "../settings/BrandingAssets";
 import { normalizeSettingValues } from "../settings/settingValues";
 import {
   sectionFromPath,
+  settingsNavigation,
   type SettingsSectionId,
 } from "../settings/settingsNavigation";
 import { useNavigationWarning } from "../settings/useNavigationWarning";
+import { useConfirm } from "../components/ConfirmDialog";
 import {
   ImportExportPanel,
   PlayerUpdatesPanel,
@@ -77,11 +79,13 @@ export function SettingsPage() {
   const currentBaseline = baseline;
   const currentDirty = dirty.has(active);
   const organizationDirtyHere = organizationDirty.has(active);
-  useNavigationWarning(
+  const navigationWarning = useNavigationWarning(
     dirty.size > 0,
     "/settings",
     "Leave Settings with unsaved changes?",
   );
+  const navigate = useNavigate();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const saveOrganization = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       api.updateSettings(revision, values, auth.status?.csrfToken ?? ""),
@@ -133,42 +137,51 @@ export function SettingsPage() {
       </p>
     );
   return (
-    <SettingsShell
-      active={active}
-      dirty={dirty}
-      onNavigate={(next) => {
-        setSaved(undefined);
-        return (
-          next === active ||
-          !currentDirty ||
-          confirm(
-            "This section has unsaved changes. Keep them and open another Settings section?",
-          )
-        );
-      }}
-    >
-      <Destination
+    <>
+      {navigationWarning}
+      {confirmDialog}
+      <SettingsShell
         active={active}
-        manageable={manageable}
-        owner={owner}
-        definitions={currentDefinitions}
-        values={currentValues}
-        onChange={(key, value) => {
+        dirty={dirty}
+        onNavigate={(next) => {
           setSaved(undefined);
-          setDraft({ ...draft, [key]: value });
+          if (next === active || !currentDirty) return true;
+          const path = settingsNavigation
+            .flatMap((group) => group.items)
+            .find((item) => item.id === next)?.path;
+          void confirm({
+            title:
+              "This section has unsaved changes. Keep them and open another Settings section?",
+            action: "Discard changes",
+          }).then((ok) => {
+            if (ok && path) void navigate(`/settings/${path}`);
+          });
+          return false;
         }}
-        onRetentionDirtyChange={setRetentionDirty}
-      />
-      <SettingsActionBar
-        dirty={organizationDirtyHere}
-        saving={saveOrganization.isPending}
-        success={saved}
-        error={errorMessage(saveOrganization.error)}
-        onCancel={cancel}
-        onSave={save}
-        onReload={isConflict(saveOrganization.error) ? reload : undefined}
-      />
-    </SettingsShell>
+      >
+        <Destination
+          active={active}
+          manageable={manageable}
+          owner={owner}
+          definitions={currentDefinitions}
+          values={currentValues}
+          onChange={(key, value) => {
+            setSaved(undefined);
+            setDraft({ ...draft, [key]: value });
+          }}
+          onRetentionDirtyChange={setRetentionDirty}
+        />
+        <SettingsActionBar
+          dirty={organizationDirtyHere}
+          saving={saveOrganization.isPending}
+          success={saved}
+          error={errorMessage(saveOrganization.error)}
+          onCancel={cancel}
+          onSave={save}
+          onReload={isConflict(saveOrganization.error) ? reload : undefined}
+        />
+      </SettingsShell>
+    </>
   );
 }
 

@@ -2,6 +2,8 @@ import { Upload, X } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { api } from "../../api/client";
 import type { Asset } from "../../api/types";
+import { useConfirm } from "../ConfirmDialog";
+import { Button } from "../ui/button";
 import { droppedFiles } from "../content/dragDrop";
 
 type UploadItem = {
@@ -31,12 +33,21 @@ export function UploadContentDialog({
   const [items, setItems] = useState<UploadItem[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLElement>(null);
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const active = items.some((item) =>
     ["waiting", "uploading"].includes(item.state),
   );
   const close = () => {
-    if (!active || confirm("Uploads are still active. Close this upload view?"))
+    if (!active) {
       onClose();
+      return;
+    }
+    void confirm({
+      title: "Uploads are still active. Close this upload view?",
+      action: "Close",
+    }).then((ok) => {
+      if (ok) onClose();
+    });
   };
   const update = (id: string, value: Partial<UploadItem>) =>
     setItems((current) =>
@@ -88,98 +99,102 @@ export function UploadContentDialog({
     for (const file of droppedFiles(event.dataTransfer)) void upload(file);
   };
   return (
-    <div
-      className="content-picker-child-backdrop"
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          close();
-        }
-        if (event.key === "Tab" && dialog.current) {
-          const controls = [
-            ...dialog.current.querySelectorAll<HTMLElement>(
-              'button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
-            ),
-          ];
-          const first = controls[0];
-          const last = controls.at(-1);
-          if (
-            first &&
-            last &&
-            event.shiftKey &&
-            document.activeElement === first
-          ) {
-            event.preventDefault();
-            last.focus();
-          } else if (
-            first &&
-            last &&
-            !event.shiftKey &&
-            document.activeElement === last
-          ) {
-            event.preventDefault();
-            first.focus();
+    <>
+      {confirmDialog}
+      <div
+        className="content-picker-child-backdrop"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            close();
           }
-        }
-      }}
-    >
-      <section
-        ref={dialog}
-        className="upload-content-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="upload-content-title"
+          if (event.key === "Tab" && dialog.current) {
+            const controls = [
+              ...dialog.current.querySelectorAll<HTMLElement>(
+                'button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+              ),
+            ];
+            const first = controls[0];
+            const last = controls.at(-1);
+            if (
+              first &&
+              last &&
+              event.shiftKey &&
+              document.activeElement === first
+            ) {
+              event.preventDefault();
+              last.focus();
+            } else if (
+              first &&
+              last &&
+              !event.shiftKey &&
+              document.activeElement === last
+            ) {
+              event.preventDefault();
+              first.focus();
+            }
+          }
+        }}
       >
-        <header>
-          <div>
-            <h3 id="upload-content-title">Upload media</h3>
-            <p>Upload one or more images or videos.</p>
-          </div>
-          <button
-            autoFocus
-            className="icon-button"
-            aria-label="Close uploads"
-            onClick={close}
-          >
-            <X size={18} />
-          </button>
-        </header>
-        <button
-          type="button"
-          className="picker-upload-dropzone"
-          onClick={() => input.current?.click()}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={drop}
+        <section
+          ref={dialog}
+          className="upload-content-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="upload-content-title"
         >
-          <Upload size={24} />
-          <strong>Drop files here or choose files</strong>
-          <span>Images and videos · multiple files supported</span>
-        </button>
-        <input
-          ref={input}
-          className="visually-hidden"
-          type="file"
-          multiple
-          accept={accepted}
-          onChange={choose}
-        />
-        <div className="picker-upload-list" aria-live="polite">
-          {items.map((item) => (
-            <div key={item.id}>
-              <span>
-                <strong>{item.name}</strong>
-                <small>{item.error ?? item.state}</small>
-              </span>
-              <progress value={item.uploaded} max={item.size} />
+          <header>
+            <div>
+              <h3 id="upload-content-title">Upload media</h3>
+              <p>Upload one or more images or videos.</p>
             </div>
-          ))}
-        </div>
-        <footer>
-          <button className="button button--secondary" onClick={close}>
-            {closeLabel}
+            <Button
+              autoFocus
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Close uploads"
+              onClick={close}
+            >
+              <X size={18} />
+            </Button>
+          </header>
+          <button
+            type="button"
+            className="picker-upload-dropzone"
+            onClick={() => input.current?.click()}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={drop}
+          >
+            <Upload size={24} />
+            <strong>Drop files here or choose files</strong>
+            <span>Images and videos · multiple files supported</span>
           </button>
-        </footer>
-      </section>
-    </div>
+          <input
+            ref={input}
+            className="visually-hidden"
+            type="file"
+            multiple
+            accept={accepted}
+            onChange={choose}
+          />
+          <div className="picker-upload-list" aria-live="polite">
+            {items.map((item) => (
+              <div key={item.id}>
+                <span>
+                  <strong>{item.name}</strong>
+                  <small>{item.error ?? item.state}</small>
+                </span>
+                <progress value={item.uploaded} max={item.size} />
+              </div>
+            ))}
+          </div>
+          <footer>
+            <Button variant="secondary" onClick={close}>
+              {closeLabel}
+            </Button>
+          </footer>
+        </section>
+      </div>
+    </>
   );
 }

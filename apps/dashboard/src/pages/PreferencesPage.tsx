@@ -35,7 +35,7 @@ export function PreferencesPage() {
           draft[definition.key] ?? definition.default,
         ),
     );
-  useNavigationWarning(
+  const navigationWarning = useNavigationWarning(
     dirty,
     "/account",
     "Leave My Account with unsaved preference changes?",
@@ -60,6 +60,7 @@ export function PreferencesPage() {
     return <div className="table-loading">Loading preferences…</div>;
   return (
     <>
+      {navigationWarning}
       <SettingsSection
         section="preferences"
         definitions={definitions}

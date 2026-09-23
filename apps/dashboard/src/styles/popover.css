@@ -1,76 +1,3 @@
-/* The one anchored-popover surface. Before this, the account menu, both topbar
-   menus, three "more filters" panels, and the timezone picker each repeated the
-   elevated-overlay recipe in a different stylesheet, and two of them were
-   <details> elements that could not close on an outside click. */
-
-.signal-popover {
-  position: relative;
-  display: inline-flex;
-}
-
-/* Between the drawer layer (3000) and the select menu (3200): a popover sits
-   above the page and any drawer beneath it, while a Select or context menu
-   opened from inside it still paints on top. Inside a modal dialog the panel is
-   portaled into the dialog, where the top layer does the ordering and this value
-   no longer competes with the page. */
-.signal-popover__panel {
-  position: fixed;
-  z-index: 3100;
-  top: 0;
-  left: 0;
-  min-width: 11rem;
-  max-width: min(24rem, calc(100vw - 2 * var(--tc-space-4)));
-  overflow: auto;
-  overscroll-behavior: contain;
-  background: var(--tc-bg-elevated);
-  border: 1px solid var(--tc-border-strong);
-  border-radius: var(--tc-radius-overlay);
-  box-shadow: var(--tc-shadow-overlay);
-}
-
-.signal-popover__panel:focus-visible {
-  outline: none;
-}
-
-/* A form popover holds labelled controls in a column; a menu holds rows. These
-   are zero-specificity defaults, so a panel whose own children run edge to edge —
-   the notification list — sets its own padding without a specificity fight. */
-:where(.signal-popover__panel[role="dialog"]) {
-  display: grid;
-  gap: var(--tc-space-3);
-  padding: var(--tc-space-3);
-}
-
-:where(.signal-popover__panel[role="menu"]) {
-  padding: var(--tc-space-1);
-}
-
-/* Wrapped in :where() so these carry no specificity at all. They are defaults a
-   menu gets for free, and a consumer that needs its own row treatment — the
-   sidebar account menu tones Sign out as danger — overrides them with a plain
-   class rather than having to out-specify the shared layer. */
-:where(.signal-popover__panel[role="menu"] [role="menuitem"]) {
-  display: flex;
-  width: 100%;
-  min-height: 36px;
-  align-items: center;
-  gap: var(--tc-space-2);
-  padding: 0 var(--tc-space-2);
-  border: 0;
-  border-radius: var(--tc-radius-chip);
-  color: var(--tc-text-primary);
-  background: transparent;
-  font: var(--tc-text-body);
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-:where(.signal-popover__panel[role="menu"] [role="menuitem"]:hover),
-:where(.signal-popover__panel[role="menu"] [role="menuitem"]:focus-visible) {
-  background: var(--tc-table-row-hover);
-}
-
 /* A small entry so a surface reads as opening rather than blinking into place.
    `backwards`, never `both`: a filled transform left behind would quietly make
    the panel a containing block for any fixed-position child, which is the exact
@@ -88,30 +15,6 @@
   }
 }
 
-/* A popover's own header: the surface names itself, and a clear action sits
-   opposite where the reader already expects it from the filter toolbars. */
-.signal-popover__header {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: var(--tc-space-3);
-}
-
-.signal-popover__header > div {
-  display: grid;
-  gap: 2px;
-}
-
-.signal-popover__header strong {
-  font: var(--tc-text-label);
-}
-
-.signal-popover__header span,
-.signal-popover__header small {
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-supporting);
-}
-
 /* Active-filter count on a trigger. Same geometry as the .view-tabs count, and
    textual rather than colour-only so the number is the signal. */
 .signal-popover__count {
@@ -121,29 +24,4 @@
   background: var(--tc-action-primary-soft);
   font: var(--tc-text-supporting);
   font-weight: 600;
-}
-
-/* A trigger that belongs among filter controls rather than reading as a page
-   action: the field surface, border, radius, and height of the selects beside it. */
-.signal-popover__filter-trigger {
-  display: flex;
-  height: var(--tc-control-height);
-  align-items: center;
-  gap: var(--tc-space-2);
-  padding: 0 var(--tc-space-3);
-  border: 1px solid var(--tc-input-border);
-  border-radius: var(--tc-radius-control);
-  color: var(--tc-input-text);
-  background: var(--tc-input-bg);
-  font: var(--tc-text-body);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.signal-popover__filter-trigger:hover {
-  border-color: var(--tc-border-strong);
-}
-
-.signal-popover__filter-trigger[aria-expanded="true"] {
-  border-color: var(--tc-action-primary);
 }

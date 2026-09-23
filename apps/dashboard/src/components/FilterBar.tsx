@@ -8,15 +8,15 @@ import {
 } from "react";
 import { useSearchParams } from "react-router";
 import { X } from "lucide-react";
-import { DashboardSearch } from "../DashboardListToolbar";
-import { Input } from "../ui/input";
+import { DashboardSearch } from "./DashboardListToolbar";
+import { Input } from "./ui/input";
 import {
   Select as RheaSelect,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "./ui/select";
 
 export type FilterOption = { value: string; label: string };
 

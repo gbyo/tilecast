@@ -4,6 +4,7 @@ import { Send, Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { NotificationCategory, NotificationWebhook } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton } from "../components/ui/button";
@@ -86,14 +87,16 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
     mutationFn: (id: string) => api.testNotificationWebhook(id, csrf),
     onSuccess: refresh,
   });
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const removeWebhook = useMutation({
     mutationFn: async (webhook: NotificationWebhook) => {
-      if (
-        !confirm(
-          `Remove the webhook "${webhook.name}"? Its signing secret cannot be recovered, so the receiver will need a new one.`,
-        )
-      )
-        throw new CancelledAction();
+      const ok = await confirm({
+        title: `Remove the webhook "${webhook.name}"?`,
+        body: "Its signing secret cannot be recovered, so the receiver will need a new one.",
+        action: "Remove",
+        destructive: true,
+      });
+      if (!ok) throw new CancelledAction();
       return api.deleteNotificationWebhook(webhook.id, csrf);
     },
     onSuccess: refresh,
@@ -102,148 +105,151 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
   const emailConfigured = status.data?.emailConfigured ?? false;
 
   return (
-    <div className="grid gap-4">
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Email delivery</h3>
-          <p className="text-sm text-muted-foreground">
-            Tilecast sends through an SMTP relay configured on the server, not
-            through an account in Studio.
-          </p>
-        </header>
-        {status.isLoading ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner aria-hidden="true" />
-            Checking notification delivery…
-          </p>
-        ) : emailConfigured ? (
-          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <Badge variant="default">Available</Badge> An SMTP relay is
-            configured. Each account chooses what it receives under My Account →
-            Preferences.
-          </p>
-        ) : (
-          <Alert role="status">
-            <AlertDescription>
-              <strong>Email is unavailable.</strong>{" "}
-              {status.data?.emailUnavailableReason}
-              <br />
-              Set <code>TILECAST_SMTP_HOST</code> (and{" "}
-              <code>TILECAST_SMTP_PORT</code>,{" "}
-              <code>TILECAST_SMTP_USERNAME</code>,{" "}
-              <code>TILECAST_SMTP_PASSWORD</code> where the relay needs them),
-              then restart the server.
-            </AlertDescription>
-          </Alert>
-        )}
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="grid gap-1">
+    <>
+      {confirmDialog}
+      <div className="grid gap-4">
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Email delivery</h3>
             <p className="text-sm text-muted-foreground">
-              A test goes to your own notification address and ignores quiet
-              hours and subscriptions.
+              Tilecast sends through an SMTP relay configured on the server, not
+              through an account in Studio.
             </p>
-          </div>
-          <RheaButton
-            variant="secondary"
-            disabled={!emailConfigured || sendTest.isPending}
-            onClick={() => {
-              setTestResult(undefined);
-              sendTest.mutate();
-            }}
-          >
-            <Send size={15} aria-hidden="true" />{" "}
-            {sendTest.isPending ? "Sending…" : "Send a test to myself"}
-          </RheaButton>
-        </div>
-        {testResult && (
-          <p className="text-sm text-muted-foreground">{testResult}</p>
-        )}
-        {sendTest.error && (
-          <Alert variant="destructive">
-            <AlertDescription>{sendTest.error.message}</AlertDescription>
-          </Alert>
-        )}
-      </section>
-
-      {manageable && (
-        <>
-          <WebhookSection
-            webhooks={webhooks.data ?? []}
-            loading={webhooks.isLoading}
-            newSecret={newSecret}
-            onDismissSecret={() => setNewSecret(undefined)}
-            createError={createWebhook.error?.message}
-            testError={testWebhook.error?.message}
-            actionError={
-              toggleWebhook.error?.message ??
-              (removeWebhook.error instanceof CancelledAction
-                ? undefined
-                : removeWebhook.error?.message)
-            }
-            creating={createWebhook.isPending}
-            onCreate={(body) => {
-              setNewSecret(undefined);
-              createWebhook.mutate(body);
-            }}
-            onToggle={(webhook) => toggleWebhook.mutate(webhook)}
-            onTest={(id) => testWebhook.mutate(id)}
-            onRemove={(webhook) => removeWebhook.mutate(webhook)}
-          />
-
-          <section className="grid gap-3 rounded-xl border border-border p-4">
-            <header className="grid gap-1">
-              <h3 className="text-base font-semibold">Recent deliveries</h3>
+          </header>
+          {status.isLoading ? (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner aria-hidden="true" />
+              Checking notification delivery…
+            </p>
+          ) : emailConfigured ? (
+            <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <Badge variant="default">Available</Badge> An SMTP relay is
+              configured. Each account chooses what it receives under My Account
+              → Preferences.
+            </p>
+          ) : (
+            <Alert role="status">
+              <AlertDescription>
+                <strong>Email is unavailable.</strong>{" "}
+                {status.data?.emailUnavailableReason}
+                <br />
+                Set <code>TILECAST_SMTP_HOST</code> (and{" "}
+                <code>TILECAST_SMTP_PORT</code>,{" "}
+                <code>TILECAST_SMTP_USERNAME</code>,{" "}
+                <code>TILECAST_SMTP_PASSWORD</code> where the relay needs them),
+                then restart the server.
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid gap-1">
               <p className="text-sm text-muted-foreground">
-                What Tilecast tried to send, and what happened. A failure here
-                means the message did not arrive.
+                A test goes to your own notification address and ignores quiet
+                hours and subscriptions.
               </p>
-            </header>
-            {deliveries.isLoading ? (
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Spinner aria-hidden="true" />
-                Loading deliveries…
-              </p>
-            ) : !deliveries.data?.length ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyTitle>No deliveries</EmptyTitle>
-                  <EmptyDescription>
-                    Nothing has been sent yet. Deliveries appear here when a
-                    condition is reported.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <div className="grid gap-2">
-                {deliveries.data.map((delivery) => (
-                  <div
-                    key={delivery.id}
-                    className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-3"
-                  >
-                    <span className="grid gap-0.5">
-                      <strong className="text-sm font-semibold">
-                        {delivery.subject || delivery.eventKey}
-                      </strong>
-                      <small className="text-xs text-muted-foreground">
-                        {formatDate(delivery.createdAt)} · {delivery.channel} ·{" "}
-                        {delivery.target}
-                      </small>
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {delivery.status}
-                      {delivery.attempts > 1
-                        ? ` after ${delivery.attempts} attempts`
-                        : ""}
-                      {delivery.lastError ? ` — ${delivery.lastError}` : ""}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </>
-      )}
-    </div>
+            </div>
+            <RheaButton
+              variant="secondary"
+              disabled={!emailConfigured || sendTest.isPending}
+              onClick={() => {
+                setTestResult(undefined);
+                sendTest.mutate();
+              }}
+            >
+              <Send size={15} aria-hidden="true" />{" "}
+              {sendTest.isPending ? "Sending…" : "Send a test to myself"}
+            </RheaButton>
+          </div>
+          {testResult && (
+            <p className="text-sm text-muted-foreground">{testResult}</p>
+          )}
+          {sendTest.error && (
+            <Alert variant="destructive">
+              <AlertDescription>{sendTest.error.message}</AlertDescription>
+            </Alert>
+          )}
+        </section>
+
+        {manageable && (
+          <>
+            <WebhookSection
+              webhooks={webhooks.data ?? []}
+              loading={webhooks.isLoading}
+              newSecret={newSecret}
+              onDismissSecret={() => setNewSecret(undefined)}
+              createError={createWebhook.error?.message}
+              testError={testWebhook.error?.message}
+              actionError={
+                toggleWebhook.error?.message ??
+                (removeWebhook.error instanceof CancelledAction
+                  ? undefined
+                  : removeWebhook.error?.message)
+              }
+              creating={createWebhook.isPending}
+              onCreate={(body) => {
+                setNewSecret(undefined);
+                createWebhook.mutate(body);
+              }}
+              onToggle={(webhook) => toggleWebhook.mutate(webhook)}
+              onTest={(id) => testWebhook.mutate(id)}
+              onRemove={(webhook) => removeWebhook.mutate(webhook)}
+            />
+
+            <section className="grid gap-3 rounded-xl border border-border p-4">
+              <header className="grid gap-1">
+                <h3 className="text-base font-semibold">Recent deliveries</h3>
+                <p className="text-sm text-muted-foreground">
+                  What Tilecast tried to send, and what happened. A failure here
+                  means the message did not arrive.
+                </p>
+              </header>
+              {deliveries.isLoading ? (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Spinner aria-hidden="true" />
+                  Loading deliveries…
+                </p>
+              ) : !deliveries.data?.length ? (
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyTitle>No deliveries</EmptyTitle>
+                    <EmptyDescription>
+                      Nothing has been sent yet. Deliveries appear here when a
+                      condition is reported.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <div className="grid gap-2">
+                  {deliveries.data.map((delivery) => (
+                    <div
+                      key={delivery.id}
+                      className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-3"
+                    >
+                      <span className="grid gap-0.5">
+                        <strong className="text-sm font-semibold">
+                          {delivery.subject || delivery.eventKey}
+                        </strong>
+                        <small className="text-xs text-muted-foreground">
+                          {formatDate(delivery.createdAt)} · {delivery.channel}{" "}
+                          · {delivery.target}
+                        </small>
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {delivery.status}
+                        {delivery.attempts > 1
+                          ? ` after ${delivery.attempts} attempts`
+                          : ""}
+                        {delivery.lastError ? ` — ${delivery.lastError}` : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 

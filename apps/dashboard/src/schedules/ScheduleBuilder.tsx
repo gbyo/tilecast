@@ -26,6 +26,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { PlaylistPicker } from "../components/content-picker";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button as RheaButton } from "../components/ui/button";
 import {
@@ -111,6 +112,7 @@ export function ScheduleEditorPage() {
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const existing = useQuery({
     queryKey: ["schedules", id],
     queryFn: () => api.schedule(id!),
@@ -249,291 +251,311 @@ export function ScheduleEditorPage() {
       </div>
     );
   return (
-    <section className="schedule-builder-page">
-      <header className="schedule-builder-heading">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {id ? "Edit schedule" : "Create schedule"}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Build the playback rule, then review its effect before saving.
-        </p>
-      </header>
-      <form
-        className="schedule-builder"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setAttempted(true);
-          if (valid) save.mutate();
-        }}
-      >
-        <main className="schedule-builder__main">
-          <BuilderSection
-            number="1"
-            title="Content"
-            description="Name this schedule and choose what it should play."
-          >
-            <Field>
-              <FieldLabel htmlFor="schedule-name">
-                Schedule name <span aria-hidden="true">*</span>
-              </FieldLabel>
-              <Input
-                id="schedule-name"
-                value={input.name}
-                maxLength={180}
-                onChange={(event) => set("name", event.target.value)}
-                placeholder="Morning announcements"
-                aria-invalid={attempted && errors.name ? true : undefined}
-              />
-              {attempted && errors.name && (
-                <FieldError>{errors.name}</FieldError>
-              )}
-            </Field>
-            <div
-              className="schedule-segmented"
-              role="group"
-              aria-label="Schedule content type"
+    <>
+      {confirmDialog}
+      <section className="schedule-builder-page">
+        <header className="schedule-builder-heading">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {id ? "Edit schedule" : "Create schedule"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Build the playback rule, then review its effect before saving.
+          </p>
+        </header>
+        <form
+          className="schedule-builder"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setAttempted(true);
+            if (valid) save.mutate();
+          }}
+        >
+          <main className="schedule-builder__main">
+            <BuilderSection
+              number="1"
+              title="Content"
+              description="Name this schedule and choose what it should play."
             >
-              <button
-                type="button"
-                aria-pressed={!input.displayAction}
-                onClick={() => set("displayAction", undefined)}
+              <Field>
+                <FieldLabel htmlFor="schedule-name">
+                  Schedule name <span aria-hidden="true">*</span>
+                </FieldLabel>
+                <Input
+                  id="schedule-name"
+                  value={input.name}
+                  maxLength={180}
+                  onChange={(event) => set("name", event.target.value)}
+                  placeholder="Morning announcements"
+                  aria-invalid={attempted && errors.name ? true : undefined}
+                />
+                {attempted && errors.name && (
+                  <FieldError>{errors.name}</FieldError>
+                )}
+              </Field>
+              <div
+                className="schedule-segmented"
+                role="group"
+                aria-label="Schedule content type"
               >
-                Content
-              </button>
-              <button
-                type="button"
-                aria-pressed={Boolean(input.displayAction)}
-                onClick={() => {
-                  set("playlistId", undefined);
-                  set("layoutId", undefined);
-                  set(
-                    "displayAction",
-                    input.displayAction ?? { type: "display_power_on" },
-                  );
-                }}
-              >
-                Display Control
-              </button>
-            </div>
-            {input.displayAction ? (
-              <DisplayControlSelection
-                action={input.displayAction}
-                onChange={(displayAction) =>
-                  set("displayAction", displayAction)
-                }
-                error={attempted ? errors.playlistId : undefined}
-              />
-            ) : (
-              <PlaylistSelection
-                playlist={selectedPlaylistData}
-                layout={selectedLayout}
-                onChoose={() => setPlaylistOpen(true)}
-                error={attempted ? errors.playlistId : undefined}
-              />
-            )}
-          </BuilderSection>
-
-          <BuilderSection
-            number="2"
-            title="Timing"
-            description="Choose when this content takes precedence."
-          >
-            <div
-              className="schedule-segmented"
-              role="group"
-              aria-label="Schedule type"
-            >
-              <button
-                type="button"
-                aria-pressed={input.type === "weekly"}
-                onClick={() => set("type", "weekly")}
-              >
-                Weekly recurring
-              </button>
-              <button
-                type="button"
-                aria-pressed={input.type === "one_time"}
-                onClick={() => {
-                  if (!input.oneTimeStart) {
-                    const start = new Date();
-                    start.setMinutes(
-                      Math.ceil(start.getMinutes() / 15) * 15,
-                      0,
-                      0,
+                <button
+                  type="button"
+                  aria-pressed={!input.displayAction}
+                  onClick={() => set("displayAction", undefined)}
+                >
+                  Content
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={Boolean(input.displayAction)}
+                  onClick={() => {
+                    set("playlistId", undefined);
+                    set("layoutId", undefined);
+                    set(
+                      "displayAction",
+                      input.displayAction ?? { type: "display_power_on" },
                     );
-                    const end = new Date(start.getTime() + 60 * 60 * 1000);
-                    setInput((current) => ({
-                      ...current,
-                      type: "one_time",
-                      oneTimeStart: start.toISOString(),
-                      oneTimeEnd: end.toISOString(),
-                    }));
-                  } else set("type", "one_time");
-                }}
+                  }}
+                >
+                  Display Control
+                </button>
+              </div>
+              {input.displayAction ? (
+                <DisplayControlSelection
+                  action={input.displayAction}
+                  onChange={(displayAction) =>
+                    set("displayAction", displayAction)
+                  }
+                  error={attempted ? errors.playlistId : undefined}
+                />
+              ) : (
+                <PlaylistSelection
+                  playlist={selectedPlaylistData}
+                  layout={selectedLayout}
+                  onChoose={() => setPlaylistOpen(true)}
+                  error={attempted ? errors.playlistId : undefined}
+                />
+              )}
+            </BuilderSection>
+
+            <BuilderSection
+              number="2"
+              title="Timing"
+              description="Choose when this content takes precedence."
+            >
+              <div
+                className="schedule-segmented"
+                role="group"
+                aria-label="Schedule type"
               >
-                One-time event
-              </button>
-            </div>
-            {input.type === "weekly" ? (
-              <WeeklyTiming
-                input={input}
-                set={set}
-                showDateRange={showDateRange}
-                setShowDateRange={setShowDateRange}
-                errors={attempted ? errors : {}}
+                <button
+                  type="button"
+                  aria-pressed={input.type === "weekly"}
+                  onClick={() => set("type", "weekly")}
+                >
+                  Weekly recurring
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={input.type === "one_time"}
+                  onClick={() => {
+                    if (!input.oneTimeStart) {
+                      const start = new Date();
+                      start.setMinutes(
+                        Math.ceil(start.getMinutes() / 15) * 15,
+                        0,
+                        0,
+                      );
+                      const end = new Date(start.getTime() + 60 * 60 * 1000);
+                      setInput((current) => ({
+                        ...current,
+                        type: "one_time",
+                        oneTimeStart: start.toISOString(),
+                        oneTimeEnd: end.toISOString(),
+                      }));
+                    } else set("type", "one_time");
+                  }}
+                >
+                  One-time event
+                </button>
+              </div>
+              {input.type === "weekly" ? (
+                <WeeklyTiming
+                  input={input}
+                  set={set}
+                  showDateRange={showDateRange}
+                  setShowDateRange={setShowDateRange}
+                  errors={attempted ? errors : {}}
+                />
+              ) : (
+                <OneTimeTiming
+                  input={input}
+                  set={set}
+                  error={attempted ? errors.oneTime : undefined}
+                />
+              )}
+              <TimezonePicker
+                value={input.timezone}
+                onChange={(value) => set("timezone", value)}
+                error={attempted ? errors.timezone : undefined}
               />
-            ) : (
-              <OneTimeTiming
-                input={input}
-                set={set}
-                error={attempted ? errors.oneTime : undefined}
+              <div className="schedule-human-summary">
+                <CalendarDays size={18} />
+                <span>{describeScheduleTiming(input)}</span>
+              </div>
+            </BuilderSection>
+
+            <BuilderSection
+              number="3"
+              title="Targets"
+              description="Select independent screens or synchronized groups. Grouped screens are scheduled together."
+            >
+              <TargetPicker
+                targets={input.targets}
+                screens={screens.data?.items ?? []}
+                groups={groups.data?.items ?? []}
+                tab={targetTab}
+                setTab={setTargetTab}
+                search={targetSearch}
+                setSearch={setTargetSearch}
+                onChange={(targets) => set("targets", targets)}
+                error={attempted ? errors.targets : undefined}
               />
+            </BuilderSection>
+
+            <BuilderSection
+              number="4"
+              title="Advanced options"
+              description="Control availability, precedence, and administrator notes."
+              compact
+            >
+              {/* The wrapping label names the switch; no extra aria-label. */}
+              <label className="flex items-start gap-2 text-sm">
+                <RheaSwitch
+                  checked={input.enabled}
+                  onCheckedChange={(checked) =>
+                    set("enabled", checked === true)
+                  }
+                  className="mt-0.5"
+                />
+                <span className="grid gap-0.5">
+                  <strong className="font-medium">Enabled</strong>
+                  <small className="text-xs text-muted-foreground">
+                    Disabled schedules remain saved but do not affect playback.
+                  </small>
+                </span>
+              </label>
+              <PriorityControl
+                value={input.priority}
+                onChange={(value) => set("priority", value)}
+                error={attempted ? errors.priority : undefined}
+              />
+              <Field>
+                <FieldLabel htmlFor="schedule-description">
+                  Description
+                </FieldLabel>
+                <Textarea
+                  id="schedule-description"
+                  value={input.description}
+                  maxLength={2000}
+                  rows={3}
+                  onChange={(event) => set("description", event.target.value)}
+                />
+                <FieldDescription>
+                  Optional internal note shown in Studio.
+                </FieldDescription>
+              </Field>
+            </BuilderSection>
+          </main>
+
+          <ScheduleSummary
+            input={input}
+            playlist={selectedPlaylistData}
+            layout={selectedLayout}
+            targetCount={targetCount}
+            preview={preview}
+          />
+
+          <footer className="schedule-builder__actions">
+            <span>
+              {dirty
+                ? "Unsaved changes"
+                : id
+                  ? "All changes saved"
+                  : "Complete the required fields"}
+            </span>
+            {id && (
+              <RheaButton
+                type="button"
+                variant="destructive"
+                disabled={remove.isPending}
+                onClick={() =>
+                  void confirm({
+                    title: `Delete ${input.name}?`,
+                    action: "Delete",
+                    destructive: true,
+                  }).then((ok) => {
+                    if (ok) remove.mutate();
+                  })
+                }
+              >
+                Delete
+              </RheaButton>
             )}
-            <TimezonePicker
-              value={input.timezone}
-              onChange={(value) => set("timezone", value)}
-              error={attempted ? errors.timezone : undefined}
-            />
-            <div className="schedule-human-summary">
-              <CalendarDays size={18} />
-              <span>{describeScheduleTiming(input)}</span>
-            </div>
-          </BuilderSection>
-
-          <BuilderSection
-            number="3"
-            title="Targets"
-            description="Select independent screens or synchronized groups. Grouped screens are scheduled together."
-          >
-            <TargetPicker
-              targets={input.targets}
-              screens={screens.data?.items ?? []}
-              groups={groups.data?.items ?? []}
-              tab={targetTab}
-              setTab={setTargetTab}
-              search={targetSearch}
-              setSearch={setTargetSearch}
-              onChange={(targets) => set("targets", targets)}
-              error={attempted ? errors.targets : undefined}
-            />
-          </BuilderSection>
-
-          <BuilderSection
-            number="4"
-            title="Advanced options"
-            description="Control availability, precedence, and administrator notes."
-            compact
-          >
-            {/* The wrapping label names the switch; no extra aria-label. */}
-            <label className="flex items-start gap-2 text-sm">
-              <RheaSwitch
-                checked={input.enabled}
-                onCheckedChange={(checked) => set("enabled", checked === true)}
-                className="mt-0.5"
-              />
-              <span className="grid gap-0.5">
-                <strong className="font-medium">Enabled</strong>
-                <small className="text-xs text-muted-foreground">
-                  Disabled schedules remain saved but do not affect playback.
-                </small>
-              </span>
-            </label>
-            <PriorityControl
-              value={input.priority}
-              onChange={(value) => set("priority", value)}
-              error={attempted ? errors.priority : undefined}
-            />
-            <Field>
-              <FieldLabel htmlFor="schedule-description">
-                Description
-              </FieldLabel>
-              <Textarea
-                id="schedule-description"
-                value={input.description}
-                maxLength={2000}
-                rows={3}
-                onChange={(event) => set("description", event.target.value)}
-              />
-              <FieldDescription>
-                Optional internal note shown in Studio.
-              </FieldDescription>
-            </Field>
-          </BuilderSection>
-        </main>
-
-        <ScheduleSummary
-          input={input}
-          playlist={selectedPlaylistData}
-          layout={selectedLayout}
-          targetCount={targetCount}
-          preview={preview}
-        />
-
-        <footer className="schedule-builder__actions">
-          <span>
-            {dirty
-              ? "Unsaved changes"
-              : id
-                ? "All changes saved"
-                : "Complete the required fields"}
-          </span>
-          {id && (
             <RheaButton
               type="button"
-              variant="destructive"
-              disabled={remove.isPending}
-              onClick={() =>
-                confirm(`Delete ${input.name}?`) && remove.mutate()
-              }
+              variant="ghost"
+              onClick={() => {
+                if (!dirty) {
+                  void navigate("/schedules");
+                  return;
+                }
+                void confirm({
+                  title: "Discard unsaved schedule changes?",
+                  action: "Discard",
+                  destructive: true,
+                }).then((ok) => {
+                  if (ok) void navigate("/schedules");
+                });
+              }}
             >
-              Delete
+              Cancel
             </RheaButton>
-          )}
-          <RheaButton
-            type="button"
-            variant="ghost"
-            onClick={() => {
-              if (!dirty || confirm("Discard unsaved schedule changes?"))
-                void navigate("/schedules");
+            <RheaButton
+              type="submit"
+              disabled={!valid || !dirty || save.isPending}
+            >
+              {save.isPending ? "Saving…" : "Save schedule"}
+            </RheaButton>
+            {save.error && (
+              <span className="text-sm text-destructive" role="alert">
+                {save.error.message}
+              </span>
+            )}
+          </footer>
+        </form>
+        {playlistOpen && (
+          <PlaylistPicker
+            open
+            includeLayouts
+            confirmLabel="Use this presentation"
+            selectedId={input.layoutId ?? input.playlistId ?? ""}
+            onClose={() => setPlaylistOpen(false)}
+            onConfirm={(choice) => {
+              // A schedule targets one or the other, so choosing clears the other field.
+              set(
+                "playlistId",
+                choice.kind === "playlist" ? choice.playlist.id : undefined,
+              );
+              set(
+                "layoutId",
+                choice.kind === "layout" ? choice.layout.id : undefined,
+              );
+              setPlaylistOpen(false);
             }}
-          >
-            Cancel
-          </RheaButton>
-          <RheaButton
-            type="submit"
-            disabled={!valid || !dirty || save.isPending}
-          >
-            {save.isPending ? "Saving…" : "Save schedule"}
-          </RheaButton>
-          {save.error && (
-            <span className="text-sm text-destructive" role="alert">
-              {save.error.message}
-            </span>
-          )}
-        </footer>
-      </form>
-      {playlistOpen && (
-        <PlaylistPicker
-          open
-          includeLayouts
-          confirmLabel="Use this presentation"
-          selectedId={input.layoutId ?? input.playlistId ?? ""}
-          onClose={() => setPlaylistOpen(false)}
-          onConfirm={(choice) => {
-            // A schedule targets one or the other, so choosing clears the other field.
-            set(
-              "playlistId",
-              choice.kind === "playlist" ? choice.playlist.id : undefined,
-            );
-            set(
-              "layoutId",
-              choice.kind === "layout" ? choice.layout.id : undefined,
-            );
-            setPlaylistOpen(false);
-          }}
-        />
-      )}
-    </section>
+          />
+        )}
+      </section>
+    </>
   );
 }
 

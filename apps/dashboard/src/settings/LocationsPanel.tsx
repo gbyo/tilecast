@@ -4,6 +4,7 @@ import { MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { Location, LocationInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button as RheaButton } from "../components/ui/button";
 import {
@@ -50,6 +51,7 @@ export function formatLocationAddress(location?: Partial<Location>) {
 export function LocationsPanel({ canManage }: { canManage: boolean }) {
   const auth = useAuth();
   const client = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const query = useQuery({ queryKey: ["locations"], queryFn: api.locations });
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Location | "new">();
@@ -115,233 +117,241 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
     );
   };
   return (
-    <section className="grid gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-transparent bg-input/50 px-3 py-2">
-          <Search size={16} aria-hidden="true" className="shrink-0" />
-          <span className="sr-only">Search locations</span>
-          <Input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name or address"
-            className="border-0 bg-transparent p-0"
-          />
-        </label>
-        {canManage && (
-          <RheaButton variant="default" onClick={() => open("new")}>
-            <Plus size={16} aria-hidden="true" /> Add location
-          </RheaButton>
-        )}
-      </div>
-      {notice && (
-        <Alert role="status">
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
-      )}
-      {query.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            Location data failed to load. {query.error.message}
-          </AlertDescription>
-        </Alert>
-      )}
-      {query.isLoading ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Spinner aria-hidden="true" />
-          Loading locations…
-        </p>
-      ) : (
-        <div className="grid gap-2">
-          {matches.map((location) => (
-            <article
-              className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"
-              key={location.id}
-            >
-              <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
-                <MapPin size={17} aria-hidden="true" />
-              </span>
-              <span className="grid min-w-0 flex-1 gap-0.5">
-                <strong className="text-sm font-semibold">
-                  {location.name}
-                </strong>
-                <small className="text-xs text-muted-foreground">
-                  {formatLocationAddress(location) || "No address set"}
-                </small>
-              </span>
-              <span className="text-sm text-muted-foreground tabular-nums">
-                {location.screenCount} screen
-                {location.screenCount === 1 ? "" : "s"}
-              </span>
-              {canManage && (
-                <span className="flex items-center gap-1">
-                  <RheaButton
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Edit ${location.name}`}
-                    onClick={() => open(location)}
-                  >
-                    <Pencil size={16} aria-hidden="true" />
-                  </RheaButton>
-                  <RheaButton
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Delete ${location.name}`}
-                    disabled={remove.isPending}
-                    onClick={() => {
-                      if (
-                        confirm(
-                          location.screenCount
-                            ? `${location.name} still has screens assigned and cannot be deleted.`
-                            : `Delete ${location.name}?`,
-                        ) &&
-                        location.screenCount === 0
-                      )
-                        remove.mutate(location);
-                    }}
-                  >
-                    <Trash2 size={16} aria-hidden="true" />
-                  </RheaButton>
-                </span>
-              )}
-            </article>
-          ))}
-          {!matches.length && (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <MapPin size={24} aria-hidden="true" />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {search ? "No locations match" : "No locations yet"}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {search
-                    ? "Try a different name or address."
-                    : "Add a building or campus to assign it to screens."}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+    <>
+      {confirmDialog}
+      <section className="grid gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-transparent bg-input/50 px-3 py-2">
+            <Search size={16} aria-hidden="true" className="shrink-0" />
+            <span className="sr-only">Search locations</span>
+            <Input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search by name or address"
+              className="border-0 bg-transparent p-0"
+            />
+          </label>
+          {canManage && (
+            <RheaButton variant="default" onClick={() => open("new")}>
+              <Plus size={16} aria-hidden="true" /> Add location
+            </RheaButton>
           )}
         </div>
-      )}
-      <RheaDialog
-        open={Boolean(editing)}
-        onOpenChange={(open) => {
-          if (!open) setEditing(undefined);
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editing === "new" ? "Add location" : "Edit location"}
-            </DialogTitle>
-          </DialogHeader>
-          <form
-            className="grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              save.mutate();
-            }}
-          >
-            <LocationField
-              id="location-name"
-              label="Location name"
-              required
-              value={form.name}
-              onChange={(name) => setForm({ ...form, name })}
-            />
-            <LocationField
-              id="location-address-1"
-              label="Address line 1"
-              value={form.addressLine1}
-              onChange={(addressLine1) => setForm({ ...form, addressLine1 })}
-            />
-            <LocationField
-              id="location-address-2"
-              label="Address line 2"
-              value={form.addressLine2}
-              onChange={(addressLine2) => setForm({ ...form, addressLine2 })}
-            />
-            <div className="grid gap-4 sm:grid-cols-3">
-              <LocationField
-                id="location-city"
-                label="City"
-                value={form.city}
-                onChange={(city) => setForm({ ...form, city })}
-              />
-              <LocationField
-                id="location-state"
-                label="State"
-                value={form.state}
-                onChange={(state) => setForm({ ...form, state })}
-              />
-              <LocationField
-                id="location-postal-code"
-                label="ZIP / postal code"
-                value={form.postalCode}
-                onChange={(postalCode) => setForm({ ...form, postalCode })}
-              />
-            </div>
-            <LocationField
-              id="location-country"
-              label="Country"
-              value={form.country}
-              onChange={(country) => setForm({ ...form, country })}
-            />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <LocationField
-                id="location-latitude"
-                label="Latitude"
-                type="number"
-                value={form.latitude ?? ""}
-                onChange={(value) =>
-                  setForm({
-                    ...form,
-                    latitude: value === "" ? undefined : Number(value),
-                  })
-                }
-              />
-              <LocationField
-                id="location-longitude"
-                label="Longitude"
-                type="number"
-                value={form.longitude ?? ""}
-                onChange={(value) =>
-                  setForm({
-                    ...form,
-                    longitude: value === "" ? undefined : Number(value),
-                  })
-                }
-              />
-            </div>
-            {save.error && (
-              <Alert variant="destructive">
-                <AlertDescription>{save.error.message}</AlertDescription>
-              </Alert>
+        {notice && (
+          <Alert role="status">
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+        {query.isError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              Location data failed to load. {query.error.message}
+            </AlertDescription>
+          </Alert>
+        )}
+        {query.isLoading ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Spinner aria-hidden="true" />
+            Loading locations…
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {matches.map((location) => (
+              <article
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"
+                key={location.id}
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
+                  <MapPin size={17} aria-hidden="true" />
+                </span>
+                <span className="grid min-w-0 flex-1 gap-0.5">
+                  <strong className="text-sm font-semibold">
+                    {location.name}
+                  </strong>
+                  <small className="text-xs text-muted-foreground">
+                    {formatLocationAddress(location) || "No address set"}
+                  </small>
+                </span>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {location.screenCount} screen
+                  {location.screenCount === 1 ? "" : "s"}
+                </span>
+                {canManage && (
+                  <span className="flex items-center gap-1">
+                    <RheaButton
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Edit ${location.name}`}
+                      onClick={() => open(location)}
+                    >
+                      <Pencil size={16} aria-hidden="true" />
+                    </RheaButton>
+                    <RheaButton
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Delete ${location.name}`}
+                      disabled={remove.isPending}
+                      onClick={() => {
+                        if (location.screenCount > 0) {
+                          void confirm({
+                            title: `${location.name} still has screens assigned and cannot be deleted.`,
+                            action: "OK",
+                          });
+                          return;
+                        }
+                        void confirm({
+                          title: `Delete ${location.name}?`,
+                          action: "Delete",
+                          destructive: true,
+                        }).then((ok) => {
+                          if (ok) remove.mutate(location);
+                        });
+                      }}
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </RheaButton>
+                  </span>
+                )}
+              </article>
+            ))}
+            {!matches.length && (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <MapPin size={24} aria-hidden="true" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {search ? "No locations match" : "No locations yet"}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {search
+                      ? "Try a different name or address."
+                      : "Add a building or campus to assign it to screens."}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             )}
-            <DialogFooter>
-              <RheaButton
-                variant="ghost"
-                type="button"
-                onClick={() => setEditing(undefined)}
-              >
-                Cancel
-              </RheaButton>
-              <RheaButton
-                variant="default"
-                type="submit"
-                disabled={!form.name.trim() || save.isPending}
-              >
-                {save.isPending ? "Saving…" : "Save location"}
-              </RheaButton>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </RheaDialog>
-    </section>
+          </div>
+        )}
+        <RheaDialog
+          open={Boolean(editing)}
+          onOpenChange={(open) => {
+            if (!open) setEditing(undefined);
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {editing === "new" ? "Add location" : "Edit location"}
+              </DialogTitle>
+            </DialogHeader>
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                save.mutate();
+              }}
+            >
+              <LocationField
+                id="location-name"
+                label="Location name"
+                required
+                value={form.name}
+                onChange={(name) => setForm({ ...form, name })}
+              />
+              <LocationField
+                id="location-address-1"
+                label="Address line 1"
+                value={form.addressLine1}
+                onChange={(addressLine1) => setForm({ ...form, addressLine1 })}
+              />
+              <LocationField
+                id="location-address-2"
+                label="Address line 2"
+                value={form.addressLine2}
+                onChange={(addressLine2) => setForm({ ...form, addressLine2 })}
+              />
+              <div className="grid gap-4 sm:grid-cols-3">
+                <LocationField
+                  id="location-city"
+                  label="City"
+                  value={form.city}
+                  onChange={(city) => setForm({ ...form, city })}
+                />
+                <LocationField
+                  id="location-state"
+                  label="State"
+                  value={form.state}
+                  onChange={(state) => setForm({ ...form, state })}
+                />
+                <LocationField
+                  id="location-postal-code"
+                  label="ZIP / postal code"
+                  value={form.postalCode}
+                  onChange={(postalCode) => setForm({ ...form, postalCode })}
+                />
+              </div>
+              <LocationField
+                id="location-country"
+                label="Country"
+                value={form.country}
+                onChange={(country) => setForm({ ...form, country })}
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <LocationField
+                  id="location-latitude"
+                  label="Latitude"
+                  type="number"
+                  value={form.latitude ?? ""}
+                  onChange={(value) =>
+                    setForm({
+                      ...form,
+                      latitude: value === "" ? undefined : Number(value),
+                    })
+                  }
+                />
+                <LocationField
+                  id="location-longitude"
+                  label="Longitude"
+                  type="number"
+                  value={form.longitude ?? ""}
+                  onChange={(value) =>
+                    setForm({
+                      ...form,
+                      longitude: value === "" ? undefined : Number(value),
+                    })
+                  }
+                />
+              </div>
+              {save.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{save.error.message}</AlertDescription>
+                </Alert>
+              )}
+              <DialogFooter>
+                <RheaButton
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setEditing(undefined)}
+                >
+                  Cancel
+                </RheaButton>
+                <RheaButton
+                  variant="default"
+                  type="submit"
+                  disabled={!form.name.trim() || save.isPending}
+                >
+                  {save.isPending ? "Saving…" : "Save location"}
+                </RheaButton>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </RheaDialog>
+      </section>
+    </>
   );
 }
 

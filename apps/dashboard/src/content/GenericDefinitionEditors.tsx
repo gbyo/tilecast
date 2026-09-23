@@ -12,6 +12,8 @@ import type {
   DataSourceDetail,
   WidgetDefinition,
 } from "../api/types";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
 import { DefinitionForm } from "./DefinitionForm";
 import { previewDatasetMaps, type PreviewDatasets } from "./previewRecords";
 import { DeclarativePresentationPreview } from "./SourceEditors";
@@ -317,25 +319,27 @@ function GenericEditorShell({
   const subject = preview ? "Widget" : "Data Source";
   const details = (
     <div className="form-grid">
-      <label className="field">
-        <span className="field__label">{subject} name</span>
+      <label className="grid gap-1.5 text-sm font-medium">
+        <span>{subject} name</span>
         <input
           value={name}
           disabled={readOnly}
           maxLength={180}
           onChange={(event) => setName(event.target.value)}
         />
-        <small>Used to find this {subject} later.</small>
+        <small className="font-normal text-muted-foreground">
+          Used to find this {subject} later.
+        </small>
       </label>
-      <label className="field field--wide">
-        <span className="field__label">Description</span>
+      <label className="grid gap-1.5 text-sm font-medium">
+        <span>Description</span>
         <textarea
           value={detail}
           disabled={readOnly}
           maxLength={2000}
           onChange={(event) => setDetail(event.target.value)}
         />
-        <small>
+        <small className="font-normal text-muted-foreground">
           Optional notes for other people managing this installation.
         </small>
       </label>
@@ -351,9 +355,9 @@ function GenericEditorShell({
             <h2>{title}</h2>
             <p>{description}</p>
           </div>
-          <button className="button button--quiet" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Close
-          </button>
+          </Button>
         </header>
         {preview ? (
           <div className="widget-editor__layout">
@@ -371,9 +375,11 @@ function GenericEditorShell({
                 {children}
               </EditorSection>
               {error && (
-                <div className="notice notice--error">
-                  {error instanceof ApiError ? error.message : error.message}
-                </div>
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {error instanceof ApiError ? error.message : error.message}
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
             <aside className="widget-editor__preview" aria-label="Live preview">
@@ -390,24 +396,25 @@ function GenericEditorShell({
             {details}
             {children}
             {error && (
-              <div className="notice notice--error">
-                {error instanceof ApiError ? error.message : error.message}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {error instanceof ApiError ? error.message : error.message}
+                </AlertDescription>
+              </Alert>
             )}
           </div>
         )}
         <footer>
-          <button className="button button--quiet" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
           {!readOnly && (
-            <button
-              className="button button--primary"
+            <Button
               disabled={pending || saveDisabled || !name.trim()}
               onClick={onSave}
             >
               {pending ? "Saving…" : saveLabel}
-            </button>
+            </Button>
           )}
         </footer>
       </section>

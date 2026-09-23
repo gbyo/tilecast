@@ -1,13 +1,15 @@
 import {
   FilterBar,
-  TimeRangePicker,
-  ViewTabs,
-  resolveTimeRange,
   useUrlFilters,
   type FilterDefinition,
   type FilterOption,
+} from "../components/FilterBar";
+import {
+  TimeRangePicker,
+  resolveTimeRange,
   type TimeRangePreset,
-} from "../components/legacy-ui";
+} from "../components/TimeRangePicker";
+import { ViewTabs } from "../components/ViewTabs";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton } from "../components/ui/button";
 import { Input } from "../components/ui/input";

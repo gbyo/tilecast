@@ -1,11 +1,11 @@
-import { Input } from "../ui/input";
+import { Input } from "./ui/input";
 import {
   Select as RheaSelect,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "./ui/select";
 
 export type TimeRangePreset = "24h" | "7d" | "30d" | "custom";
 

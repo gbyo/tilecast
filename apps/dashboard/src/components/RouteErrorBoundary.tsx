@@ -1,4 +1,6 @@
 import { Component, type ReactNode } from "react";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { Button } from "./ui/button";
 
 type State = { error?: Error };
 
@@ -20,20 +22,22 @@ export class RouteErrorBoundary extends Component<
   render() {
     if (this.state.error) {
       return (
-        <div className="notice notice--error" role="alert">
-          <strong>This page could not be displayed.</strong>
-          <p>
+        <Alert variant="destructive">
+          <AlertTitle>This page could not be displayed.</AlertTitle>
+          <AlertDescription>
             {this.state.error.message ||
               "An unexpected error occurred while rendering this page."}
-          </p>
-          <button
+          </AlertDescription>
+          <Button
             type="button"
-            className="button button--secondary"
+            variant="secondary"
+            size="sm"
+            className="mt-2"
             onClick={() => this.setState({ error: undefined })}
           >
             Try again
-          </button>
-        </div>
+          </Button>
+        </Alert>
       );
     }
     return this.props.children;

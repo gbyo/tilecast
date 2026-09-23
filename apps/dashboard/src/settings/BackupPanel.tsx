@@ -3,6 +3,7 @@ import { Download, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { BackupArchive, BackupJob } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton, buttonVariants } from "../components/ui/button";
@@ -34,37 +35,47 @@ export function BackupPanel({ owner }: { owner: boolean }) {
     mutationFn: (id: string) => api.verifyBackup(id, csrf),
     onSuccess: refresh,
   });
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const restore = useMutation({
     mutationFn: async (archive: BackupArchive) => {
       const plan = await api.backupRestorePlan(archive.id);
       const identityWarning = plan.identityMismatch
-        ? `\n\nWARNING: This backup belongs to a different installation. Enrolled players will need to be reset and paired again.`
+        ? " WARNING: This backup belongs to a different installation. Enrolled players will need to be reset and paired again."
         : "";
-      if (
-        !confirm(
-          `Restore ${archive.fileName}?\n\nTilecast will become temporarily unavailable and current database and media state will be replaced. A pre-restore backup will be created first.${identityWarning}`,
-        )
-      )
-        throw new CancelledAction();
+      const ok = await confirm({
+        title: `Restore ${archive.fileName}?`,
+        body: `Tilecast will become temporarily unavailable and current database and media state will be replaced. A pre-restore backup will be created first.${identityWarning}`,
+        action: "Restore",
+        destructive: true,
+      });
+      if (!ok) throw new CancelledAction();
       return api.restoreBackup(archive.id, plan.identityMismatch, csrf);
     },
     onSuccess: refresh,
   });
   const remove = useMutation({
     mutationFn: async (archive: BackupArchive) => {
-      if (!confirm(`Delete ${archive.fileName}? This cannot be undone.`))
-        throw new CancelledAction();
+      const ok = await confirm({
+        title: `Delete ${archive.fileName}? This cannot be undone.`,
+        action: "Delete",
+        destructive: true,
+      });
+      if (!ok) throw new CancelledAction();
       try {
         return await api.deleteBackup(archive.id, false, csrf);
       } catch (error) {
         if (
           error instanceof ApiError &&
-          error.code === "last_backup_protected" &&
-          confirm(
-            "This is the last complete backup. Delete it anyway? You will have no known-good backup to restore.",
-          )
-        )
-          return api.deleteBackup(archive.id, true, csrf);
+          error.code === "last_backup_protected"
+        ) {
+          const force = await confirm({
+            title: "This is the last complete backup. Delete it anyway?",
+            body: "You will have no known-good backup to restore.",
+            action: "Delete",
+            destructive: true,
+          });
+          if (force) return api.deleteBackup(archive.id, true, csrf);
+        }
         throw error;
       }
     },
@@ -100,150 +111,156 @@ export function BackupPanel({ owner }: { owner: boolean }) {
     remove.error,
   ].find((error) => error && !(error instanceof CancelledAction));
   return (
-    <div className="grid gap-4">
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="grid gap-1">
-            <h3 className="text-base font-semibold">Installation backups</h3>
-            <p className="text-sm text-muted-foreground">
-              Full backups include the database, media files, thumbnails,
-              variants, and cached player updates.
-            </p>
-          </div>
-          <RheaButton
-            variant="default"
-            disabled={busy || create.isPending}
-            onClick={() => create.mutate()}
-          >
-            {create.isPending ? "Queuing…" : "Create backup"}
-          </RheaButton>
-        </div>
-        {data?.lastSuccessful && (
-          <p className="text-sm text-muted-foreground">
-            Last successful backup: {formatDate(data.lastSuccessful.createdAt)}
-            {data.schedule.nextRunAt
-              ? ` · Next scheduled: ${formatDate(data.schedule.nextRunAt)}`
-              : ""}
-          </p>
-        )}
-        {data?.currentJob && <JobProgress job={data.currentJob} />}
-        {actionError && (
-          <Alert variant="destructive">
-            <AlertDescription>{actionError.message}</AlertDescription>
-          </Alert>
-        )}
-      </section>
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Available backups</h3>
-          <p className="text-sm text-muted-foreground">
-            Verify an archive before relying on it or starting a restore.
-          </p>
-        </header>
-        {!data?.backups.length ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>No backups</EmptyTitle>
-              <EmptyDescription>
-                No backups have been created yet.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <div className="grid gap-2">
-            {data.backups.map((archive) => (
-              <article
-                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
-                key={archive.id}
-              >
-                <div className="grid min-w-0 flex-1 gap-1">
-                  <strong className="text-sm font-semibold break-all">
-                    {archive.fileName}
-                  </strong>
-                  <span className="text-sm text-muted-foreground">
-                    {formatDate(archive.createdAt)} ·{" "}
-                    {formatBytes(archive.sizeBytes)} · {archive.kind}
-                  </span>
-                  <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <Badge
-                      variant={
-                        archive.verification === "verified"
-                          ? "default"
-                          : "secondary"
-                      }
-                    >
-                      {archive.verification === "verified"
-                        ? "Verified"
-                        : archive.verification}
-                    </Badge>
-                    {" · "}Tilecast {archive.tilecastVersion} · schema{" "}
-                    {archive.schemaVersion}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <RheaButton
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => verify.mutate(archive.id)}
-                  >
-                    <ShieldCheck size={15} aria-hidden="true" /> Verify
-                  </RheaButton>
-                  <a
-                    className={buttonVariants({ variant: "ghost" })}
-                    href={`/api/v1/system/backups/${archive.id}/download`}
-                  >
-                    <Download size={15} aria-hidden="true" /> Download
-                  </a>
-                  <RheaButton
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => restore.mutate(archive)}
-                  >
-                    <RotateCcw size={15} aria-hidden="true" /> Restore
-                  </RheaButton>
-                  <RheaButton
-                    variant="destructive"
-                    disabled={busy}
-                    onClick={() => remove.mutate(archive)}
-                    aria-label={`Delete ${archive.fileName}`}
-                  >
-                    <Trash2 size={15} aria-hidden="true" /> Delete
-                  </RheaButton>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-      {!!data?.recentJobs.length && (
+    <>
+      {confirmDialog}
+      <div className="grid gap-4">
         <section className="grid gap-3 rounded-xl border border-border p-4">
-          <header>
-            <h3 className="text-base font-semibold">Recent backup activity</h3>
-          </header>
-          <div className="grid gap-2">
-            {data.recentJobs.slice(0, 5).map((job) => (
-              <div
-                key={job.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-3"
-              >
-                <span className="grid gap-0.5">
-                  <strong className="text-sm font-semibold">
-                    {title(job.kind)}
-                  </strong>
-                  <small className="text-xs text-muted-foreground">
-                    {formatDate(job.createdAt)} · {job.trigger}
-                  </small>
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {job.status}
-                  {job.errorMessage ? ` — ${job.errorMessage}` : ""}
-                </span>
-              </div>
-            ))}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid gap-1">
+              <h3 className="text-base font-semibold">Installation backups</h3>
+              <p className="text-sm text-muted-foreground">
+                Full backups include the database, media files, thumbnails,
+                variants, and cached player updates.
+              </p>
+            </div>
+            <RheaButton
+              variant="default"
+              disabled={busy || create.isPending}
+              onClick={() => create.mutate()}
+            >
+              {create.isPending ? "Queuing…" : "Create backup"}
+            </RheaButton>
           </div>
+          {data?.lastSuccessful && (
+            <p className="text-sm text-muted-foreground">
+              Last successful backup:{" "}
+              {formatDate(data.lastSuccessful.createdAt)}
+              {data.schedule.nextRunAt
+                ? ` · Next scheduled: ${formatDate(data.schedule.nextRunAt)}`
+                : ""}
+            </p>
+          )}
+          {data?.currentJob && <JobProgress job={data.currentJob} />}
+          {actionError && (
+            <Alert variant="destructive">
+              <AlertDescription>{actionError.message}</AlertDescription>
+            </Alert>
+          )}
         </section>
-      )}
-    </div>
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Available backups</h3>
+            <p className="text-sm text-muted-foreground">
+              Verify an archive before relying on it or starting a restore.
+            </p>
+          </header>
+          {!data?.backups.length ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No backups</EmptyTitle>
+                <EmptyDescription>
+                  No backups have been created yet.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <div className="grid gap-2">
+              {data.backups.map((archive) => (
+                <article
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
+                  key={archive.id}
+                >
+                  <div className="grid min-w-0 flex-1 gap-1">
+                    <strong className="text-sm font-semibold break-all">
+                      {archive.fileName}
+                    </strong>
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(archive.createdAt)} ·{" "}
+                      {formatBytes(archive.sizeBytes)} · {archive.kind}
+                    </span>
+                    <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      <Badge
+                        variant={
+                          archive.verification === "verified"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {archive.verification === "verified"
+                          ? "Verified"
+                          : archive.verification}
+                      </Badge>
+                      {" · "}Tilecast {archive.tilecastVersion} · schema{" "}
+                      {archive.schemaVersion}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <RheaButton
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => verify.mutate(archive.id)}
+                    >
+                      <ShieldCheck size={15} aria-hidden="true" /> Verify
+                    </RheaButton>
+                    <a
+                      className={buttonVariants({ variant: "ghost" })}
+                      href={`/api/v1/system/backups/${archive.id}/download`}
+                    >
+                      <Download size={15} aria-hidden="true" /> Download
+                    </a>
+                    <RheaButton
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => restore.mutate(archive)}
+                    >
+                      <RotateCcw size={15} aria-hidden="true" /> Restore
+                    </RheaButton>
+                    <RheaButton
+                      variant="destructive"
+                      disabled={busy}
+                      onClick={() => remove.mutate(archive)}
+                      aria-label={`Delete ${archive.fileName}`}
+                    >
+                      <Trash2 size={15} aria-hidden="true" /> Delete
+                    </RheaButton>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+        {!!data?.recentJobs.length && (
+          <section className="grid gap-3 rounded-xl border border-border p-4">
+            <header>
+              <h3 className="text-base font-semibold">
+                Recent backup activity
+              </h3>
+            </header>
+            <div className="grid gap-2">
+              {data.recentJobs.slice(0, 5).map((job) => (
+                <div
+                  key={job.id}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-3"
+                >
+                  <span className="grid gap-0.5">
+                    <strong className="text-sm font-semibold">
+                      {title(job.kind)}
+                    </strong>
+                    <small className="text-xs text-muted-foreground">
+                      {formatDate(job.createdAt)} · {job.trigger}
+                    </small>
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {job.status}
+                    {job.errorMessage ? ` — ${job.errorMessage}` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </>
   );
 }
 

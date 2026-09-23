@@ -15,6 +15,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
+import { useConfirm } from "../components/ConfirmDialog";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
@@ -83,15 +91,12 @@ export function GroupsPage() {
     queryKey: ["screen-groups"],
     queryFn: () => api.screenGroups(),
   });
+  const [createOpen, setCreateOpen] = useState(false);
   const create = useMutation({
-    mutationFn: (name: string) =>
-      api.createScreenGroup({ name, description: "" }, csrf),
+    mutationFn: (value: { name: string; description: string }) =>
+      api.createScreenGroup(value, csrf),
     onSuccess: () => client.invalidateQueries({ queryKey: ["screen-groups"] }),
   });
-  const createGroup = () => {
-    const name = prompt("Group name");
-    if (name) create.mutate(name);
-  };
 
   return (
     <section className="grid gap-4">
@@ -107,7 +112,7 @@ export function GroupsPage() {
         </div>
         {manageable && (
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton type="button" onClick={createGroup}>
+            <RheaButton type="button" onClick={() => setCreateOpen(true)}>
               Create Display Group
             </RheaButton>
           </div>
@@ -181,7 +186,7 @@ export function GroupsPage() {
               {manageable && (
                 <RheaButton
                   type="button"
-                  onClick={createGroup}
+                  onClick={() => setCreateOpen(true)}
                   className="mt-3"
                 >
                   Create Display Group
@@ -190,6 +195,19 @@ export function GroupsPage() {
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
+      )}
+      {createOpen && (
+        <GroupDialog
+          title="Create Display Group"
+          action="Create group"
+          initial={{ name: "", description: "" }}
+          pending={create.isPending}
+          onClose={() => setCreateOpen(false)}
+          onSave={(value) => {
+            create.mutate(value);
+            setCreateOpen(false);
+          }}
+        />
       )}
     </section>
   );
@@ -206,6 +224,8 @@ export function GroupDetailPage() {
   const [selectedPresentation, setSelectedPresentation] = useState("");
   const [airplayOpen, setAirplayOpen] = useState(false);
   const [quickPresentOpen, setQuickPresentOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const group = useQuery({
       queryKey: ["screen-groups", id],
       queryFn: () => api.screenGroup(id),
@@ -345,19 +365,26 @@ export function GroupDetailPage() {
             <RheaButton
               type="button"
               variant="ghost"
-              onClick={() => {
-                const name = prompt("Group name", groupData.name);
-                if (name)
-                  update.mutate({
-                    name,
-                    description:
-                      prompt("Description", groupData.description) ??
-                      groupData.description,
-                  });
-              }}
+              onClick={() => setEditOpen(true)}
             >
               Edit Display Group
             </RheaButton>
+            {editOpen && (
+              <GroupDialog
+                title="Edit Display Group"
+                action="Save changes"
+                initial={{
+                  name: groupData.name,
+                  description: groupData.description,
+                }}
+                pending={update.isPending}
+                onClose={() => setEditOpen(false)}
+                onSave={(value) => {
+                  update.mutate(value);
+                  setEditOpen(false);
+                }}
+              />
+            )}
             <RheaButton type="button" onClick={() => setAirplayOpen(true)}>
               Present · AirPlay
             </RheaButton>
@@ -372,16 +399,19 @@ export function GroupDetailPage() {
               type="button"
               variant="destructive"
               onClick={() => {
-                if (
-                  confirm(
-                    `Delete ${groupData.name}? Screens will not be deleted.`,
-                  )
-                )
-                  deleteGroup.mutate();
+                void confirm({
+                  title: `Delete ${groupData.name}?`,
+                  body: "Screens will not be deleted.",
+                  action: "Delete",
+                  destructive: true,
+                }).then((ok) => {
+                  if (ok) deleteGroup.mutate();
+                });
               }}
             >
               Delete Display Group
             </RheaButton>
+            {confirmDialog}
           </div>
         )}
       </header>
@@ -769,3 +799,76 @@ export function SchedulesPage() {
 }
 
 export { ScheduleEditorPage } from "../schedules/ScheduleBuilder";
+
+function GroupDialog({
+  title,
+  action,
+  initial,
+  pending,
+  onClose,
+  onSave,
+}: {
+  title: string;
+  action: string;
+  initial: { name: string; description: string };
+  pending: boolean;
+  onClose: () => void;
+  onSave: (value: { name: string; description: string }) => void;
+}) {
+  const [name, setName] = useState(initial.name);
+  const [description, setDescription] = useState(initial.description);
+  return (
+    <RheaDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (name.trim()) onSave({ name: name.trim(), description });
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <Field>
+              <FieldLabel htmlFor="group-name">Group name</FieldLabel>
+              <Input
+                id="group-name"
+                value={name}
+                autoFocus
+                maxLength={120}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="group-description">Description</FieldLabel>
+              <Input
+                id="group-description"
+                value={description}
+                maxLength={500}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+              <FieldDescription>
+                Screens in this group share fallback content, schedules, and
+                playback position.
+              </FieldDescription>
+            </Field>
+          </div>
+          <DialogFooter>
+            <RheaButton variant="outline" type="button" onClick={onClose}>
+              Cancel
+            </RheaButton>
+            <RheaButton type="submit" disabled={!name.trim() || pending}>
+              {pending ? "Saving…" : action}
+            </RheaButton>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </RheaDialog>
+  );
+}

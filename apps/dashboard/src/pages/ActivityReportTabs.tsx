@@ -24,7 +24,7 @@ import {
   TechnicalDetails,
   useActivityCursor,
 } from "./ActivityShared";
-import { MetricTile } from "../components/legacy-ui";
+import { MetricTile } from "../components/MetricTile";
 import { Button as RheaButton } from "../components/ui/button";
 import {
   Empty,

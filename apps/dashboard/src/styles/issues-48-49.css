@@ -9,19 +9,7 @@
   overflow-y: auto;
 }
 
-.user-edit-dialog {
-  width: 100%;
-  max-width: 100%;
-}
-
 .user-edit-dialog__fields .field {
-  min-width: 0;
-}
-
-.user-edit-dialog__fields input,
-.user-edit-dialog__fields select {
-  box-sizing: border-box;
-  width: 100%;
   min-width: 0;
 }
 

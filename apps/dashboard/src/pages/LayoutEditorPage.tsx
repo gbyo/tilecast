@@ -12,6 +12,13 @@ import {
   ContextMenuTrigger,
 } from "../components/ui/context-menu";
 import { Input } from "../components/ui/input";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import { CanvasInspector } from "../components/layout-editor/CanvasInspector";
 import { PlacementInspector } from "../components/layout-editor/PlacementInspector";
 import {
@@ -578,6 +585,12 @@ export function LayoutEditorPage() {
   const previewFrameRef = useRef<HTMLDivElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [picker, setPicker] = useState<"media" | "widgets" | "playlists">();
+  const [renameTarget, setRenameTarget] = useState<
+    | { kind: "placement"; id: string; name: string }
+    | { kind: "layout"; name: string }
+    | null
+  >(null);
+  const [renameValue, setRenameValue] = useState("");
   // Anything chosen through a picker can live outside the shelf query's first page, so
   // it is cached here and merged into the lookups the canvas renders from.
   const [pickedAssets, setPickedAssets] = useState<Asset[]>([]);
@@ -1258,18 +1271,38 @@ export function LayoutEditorPage() {
       }),
     );
   }, [selection, update]);
-  const renamePlacement = useCallback(
-    (target: LayoutPlacement) => {
-      const answer = window.prompt("Layer name", target.name);
-      if (answer === null) return;
-      const name = answer.trim();
-      if (!name || name === target.name) return;
+  const openRename = useCallback(
+    (
+      target:
+        | { kind: "placement"; id: string; name: string }
+        | { kind: "layout"; name: string },
+    ) => {
+      setRenameTarget(target);
+      setRenameValue(target.name);
+    },
+    [],
+  );
+  const saveRename = useCallback(() => {
+    const name = renameValue.trim();
+    if (!renameTarget || !name || name === renameTarget.name) {
+      setRenameTarget(null);
+      return;
+    }
+    if (renameTarget.kind === "layout") rename.mutate(name);
+    else {
+      const id = renameTarget.id;
       update((draft) => {
-        const item = draft.placements.find((one) => one.id === target.id);
+        const item = draft.placements.find((one) => one.id === id);
         if (item) item.name = name;
       });
+    }
+    setRenameTarget(null);
+  }, [rename, renameTarget, renameValue, update]);
+  const renamePlacement = useCallback(
+    (target: LayoutPlacement) => {
+      openRename({ kind: "placement", id: target.id, name: target.name });
     },
-    [update],
+    [openRename],
   );
   // One switch for the whole selection rather than a per-item toggle, so a mixed
   // selection resolves to a single predictable state.
@@ -1759,9 +1792,12 @@ export function LayoutEditorPage() {
     return (
       <div className="empty-state">
         <h2>Layout unavailable</h2>
-        <button className="button" onClick={() => void navigate("/layouts")}>
+        <RheaButton
+          variant="secondary"
+          onClick={() => void navigate("/layouts")}
+        >
           Back to Layouts
-        </button>
+        </RheaButton>
       </div>
     );
   if (layoutQuery.isLoading || !document)
@@ -1824,6 +1860,57 @@ export function LayoutEditorPage() {
   };
   return (
     <div className="layout-editor">
+      <RheaDialog
+        open={renameTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+      >
+        <DialogContent>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveRename();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>
+                {renameTarget?.kind === "layout"
+                  ? "Rename Layout"
+                  : "Rename layer"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span>Name</span>
+                <Input
+                  value={renameValue}
+                  autoFocus
+                  maxLength={120}
+                  onChange={(event) => setRenameValue(event.target.value)}
+                />
+              </label>
+            </div>
+            <DialogFooter>
+              <RheaButton
+                variant="outline"
+                type="button"
+                onClick={() => setRenameTarget(null)}
+              >
+                Cancel
+              </RheaButton>
+              <RheaButton
+                type="submit"
+                disabled={!renameValue.trim() || rename.isPending}
+              >
+                {renameTarget?.kind === "layout" && rename.isPending
+                  ? "Renaming…"
+                  : "Rename"}
+              </RheaButton>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </RheaDialog>
       <div className="layout-editor-toolbar">
         <strong>{layoutQuery.data?.name}</strong>
         <RheaButton
@@ -1832,12 +1919,10 @@ export function LayoutEditorPage() {
           title="Rename Layout"
           aria-label={`Rename ${layoutQuery.data?.name ?? "Layout"}`}
           onClick={() => {
-            const next = window.prompt(
-              "Layout name",
-              layoutQuery.data?.name ?? "",
-            );
-            if (next?.trim() && next.trim() !== layoutQuery.data?.name)
-              rename.mutate(next.trim());
+            openRename({
+              kind: "layout",
+              name: layoutQuery.data?.name ?? "",
+            });
           }}
           disabled={rename.isPending}
         >
