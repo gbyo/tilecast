@@ -792,7 +792,7 @@ extendedKeyUsage        clientAuth + serverAuth, critical
 serial                  positive unique random 128-bit value
 validity                server UTC with documented notBefore skew
 SAN/custom OIDs         installation ID, trustRealmId, durable node ID,
-                        screen binding, purpose
+                        screen binding, certificateGeneration, purpose
 purpose                 tilecast-edge-node
 ```
 
@@ -808,8 +808,12 @@ Peers validate:
 - CA chain/profile;
 - leaf BasicConstraints/KeyUsage/EKU;
 - exact certificate instance;
+- monotonic per-node `certificateGeneration`;
+- current security state's minimum accepted certificate generation;
 - validity;
 - revocation/disabled-node state.
+
+The server allocates certificate generations from recovered security state, not from ordinary restored device rows. Issuing a replacement certificate does not immediately invalidate the still-valid previous generation; the security state raises `minimumAcceptedCertificateGeneration` only when the replacement is committed/old generation is retired. This allows bounded overlap while preventing a stale restored server from minting a certificate generation that newer peers accept.
 
 Exact OID numbers/DER encodings are allocated in E0. Fixtures include wrong CA path length, missing critical extensions, wrong EKU, wrong purpose, wrong realm/installation/node/screen, malformed CSR and CSR-without-valid-proof-of-possession.
 
@@ -851,100 +855,143 @@ Certificate-instance revocations may leave the active security set only after `n
 
 Certificate expiry is a second safety boundary. Do not add online OCSP as an Edge availability dependency.
 
-## 12. Server-side Edge trust, recovery and secrets
+## 12. Server-side Edge trust, security lineage, recovery and secrets
 
-Edge introduces online private trust material that the current Tilecast full-installation backup format does not contain. Treat this as a first-class recovery problem.
+Edge adds online private trust/security state that ordinary Tilecast database/media backups cannot safely represent alone.
 
 ### 12.1 Trust realm
 
-Every Edge installation has a random 128-bit/UUID `trustRealmId`.
+Every Edge installation has a random `trustRealmId`.
 
 A trust realm contains:
 
-- the installation Edge CA and its private key;
-- the Edge authority signing-key chain;
-- the current `securityLineageId`;
-- the latest durable security checkpoint needed to prove that revocation/security state did not move backward.
+- installation Edge CA/private key;
+- Edge online authority signing-key chain;
+- current security lineage;
+- externally recoverable current security snapshot/checkpoint.
 
-`trustRealmId` is included in every Edge certificate and every authority-signed/node-signed Edge protocol document.
+`trustRealmId` appears in Edge certificates and signed Edge protocols.
 
-Losing the private trust material is not an ordinary state restore. If the trust realm cannot be recovered, Tilecast creates a new trust realm and requires Edge node re-enrollment. A peer can never transition another node into a different trust realm.
+Loss of the private trust realm is not an ordinary restore. Without a usable recovery bundle, create a new trust realm and re-enroll Edge nodes.
 
-### 12.2 State incarnation
+### 12.2 Ordinary state incarnation
 
-Ordinary configuration/content history uses an opaque random `stateIncarnationId`, not a numerically ordered recovery epoch.
+Configuration/content history uses opaque random `stateIncarnationId`.
 
-Normal operation keeps the same incarnation. A rollback-style server restore that may be older than state already accepted by players creates a new random incarnation.
+Create a new incarnation only for an explicit rollback-style restore/re-anchor where ordinary authoritative state may be older than state already accepted by players.
 
-Incarnation identifiers are never compared with greater-than/less-than rules. A node moves from incarnation A to B only after a direct authenticated Tilecast Server recovery re-anchor that explicitly names:
+Incarnations are not numerically ordered.
 
-- old trusted incarnation, when known;
-- new incarnation;
-- trust realm;
-- security lineage/checkpoint;
-- first stream checkpoints/snapshots in the new incarnation.
+A node changes ordinary state incarnation only through the direct authenticated recovery re-anchor.
 
-Peer relay cannot authorize an incarnation transition.
+Resource revisions and **policy/screen** stream sequences are comparable only inside one state incarnation.
 
-Resource revisions and stream sequences are comparable only inside one state incarnation. Accepting a trusted new incarnation atomically creates a new resource-watermark namespace; a restored manifest revision 42 may therefore legitimately replace revision 100 from the previous incarnation.
+### 12.3 Security lineage is independent of ordinary incarnation
 
-### 12.3 Security lineage
+Security state must continue across ordinary content/config restore.
 
-Security state is not allowed to roll backward merely because ordinary PostgreSQL state was restored.
+A random `securityLineageId` identifies one continuous security history inside a trust realm. `securityGeneration` is its monotonic sequence.
 
-A random `securityLineageId` identifies one continuous revocation/security history inside a trust realm. `securityGeneration` increases monotonically inside that lineage.
+The security stream therefore does **not** include `stateIncarnationId` in its identity or freshness rules.
 
-The minimum externally recoverable security checkpoint contains:
+A node that still uses ordinary incarnation A may accept a newer valid security generation from the same trust realm/lineage while the server is preparing/re-anchoring ordinary incarnation B.
+
+This preserves revocation/key updates across an unrelated ordinary-state recovery.
+
+### 12.4 Recoverable security snapshot
+
+A digest alone is insufficient to recover security state.
+
+The externally recoverable security snapshot contains enough canonical state to reconstruct/validate the current security generation, including at least:
 
 ```text
 trustRealmId
 securityLineageId
 securityGeneration
-securityStateDigest
-authorityKeyringDigest
-createdAt
+securityHeadDigest
+
+activeAuthorityEpoch
+authority keyring + activation/retirement boundaries
+
+revoked certificate instances
+disabled durable node IDs
+
+per-node:
+  highestIssuedCertificateGeneration
+  minimumAcceptedCertificateGeneration
+
+per-screen device-credential authorization:
+  credentialAuthorizationGeneration
+  currently authorized credential public IDs/credential IDs
+
+security policy/version fields required by the security stream
 ```
 
-An ordinary state restore may create a new `stateIncarnationId` while preserving the same security lineage/generation or moving it forward.
+The snapshot has a normative `securityStateDigest` and is authority-signed.
 
-If the server cannot prove that the recovered security checkpoint is at least as new as the checkpoint previously issued to the fleet, it enters `edge_security_recovery_required` and does **not**:
+It does **not** contain raw player credential secrets/hashes. Therefore an external security snapshot can reject a resurrected old credential, but cannot recreate a newer credential row/secret missing from the restored database. In that case recovery requires credential repair/re-pairing.
 
-- reopen Edge mTLS enrollment;
-- publish a lower security generation;
-- accept peer mesh as healthy;
-- resurrect certificates/nodes from the restored database.
+### 12.5 Player device credentials are security state
 
-Recovery then requires one of:
+Current Tilecast device credentials live in PostgreSQL and can otherwise be resurrected by an old database restore.
 
-1. import the matching/newer encrypted Edge Recovery Bundle; or
-2. explicitly reset the trust realm and re-enroll Edge nodes.
+After Edge security is enabled, device authentication additionally checks the recovered security projection:
 
-This prevents a database backup from resurrecting a compromised/revoked peer.
+- credential public/row ID must be in the current allowed set for that screen;
+- its authorization generation must meet the current security state;
+- revoked/superseded credentials remain rejected even if an old DB row says `revoked_at IS NULL`.
 
-### 12.4 Crash-safe recovery publication
+Every credential issue/replacement/revocation that changes the allowed set advances security state.
 
-A new state incarnation must be fully recoverable before any node can observe it.
+This includes the Electron → Edge migration credential confirmation in §41.
 
-Recovery order:
+### 12.6 Authority-key activation/retirement
 
-1. restore/validate PostgreSQL and server-managed files;
-2. recover/validate the Edge trust realm and latest security checkpoint;
-3. create a fresh `stateIncarnationId`;
-4. rebuild the materialized Edge projections and immutable objects for the new incarnation;
-5. create the initial signed stream checkpoints/snapshots and security state;
-6. fsync/atomically persist root/server recovery metadata that marks the new incarnation prepared;
-7. atomically mark that incarnation active in server recovery metadata;
-8. only then expose the recovery re-anchor/stream documents to players.
+Authority rotation is part of the security lineage.
 
-If the server crashes before step 7, the previous active recovery metadata remains authoritative. If it crashes after step 7, the new incarnation's initial documents already exist durably and can be re-served byte-for-byte.
+A transition at security generation G is signed by the authority key active at G and declares the next authority epoch active beginning at G+1.
 
-Do not publish a new incarnation and then try to finish constructing the state needed to recover it.
+Rules:
 
-### 12.5 Edge Recovery Bundle
+- security record G+1 and later use the new active authority;
+- old authority keys remain **historical-verification only** below their retirement boundary;
+- a retired key cannot sign a new current-state document, snapshot, object grant, recovery re-anchor, or stream extension;
+- ordinary policy/screen documents include `securityGenerationAtIssue`;
+- verifier confirms that `authorityEpoch` was active at that security generation;
+- if a node is missing history across an authority retirement boundary, it obtains a current active-authority snapshot/checkpoint rather than accepting an unanchored old-key extension from a peer.
 
-The current Tilecast backup archive is an ordinary tar-style full-installation backup of database/media/update files. Do **not** add raw Edge CA/authority private keys to that unencrypted archive.
+This prevents a compromised retired signing key from manufacturing fresh current state.
 
-Introduce a separate encrypted **Edge Recovery Bundle (ERB)** protected by an operator-held passphrase/recovery key that is not stored inside the bundle.
+The offline software release-signing key is separate from this online Edge authority.
+
+### 12.7 Crash-safe managed restore
+
+A managed rollback restore uses an **externally supplied/recovered security witness** before ordinary re-anchor.
+
+Order:
+
+1. restore/validate PostgreSQL/media/update files;
+2. import/validate the matching or newer ERB/security snapshot;
+3. overlay/reconcile recovered security state so revoked credentials/certs/nodes cannot reappear;
+4. create a new random ordinary `stateIncarnationId`;
+5. materialize and durably sign the global policy projection/checkpoint for the new incarnation;
+6. persist a recovery root describing the new incarnation + policy checkpoint;
+7. atomically mark that recovery root active;
+8. expose direct re-anchor for screens only after their own screen projection/snapshot is ready.
+
+Do not require every screen's immutable content/projection to be rebuilt before the installation recovery root becomes active.
+
+A screen may continue its previously trusted cached presentation while disconnected. When it contacts the restored server, the server prepares that screen's new-incarnation projection/snapshot first and only then sends the direct re-anchor for that screen.
+
+Keep enough previous-incarnation recovery material during this transition to handle nodes that have not re-anchored yet.
+
+The security stream remains on its existing lineage and can continue independently throughout this process.
+
+### 12.8 Edge Recovery Bundle
+
+The ordinary Tilecast backup archive must not contain raw Edge CA/authority private keys in its unencrypted tar payload.
+
+Use a separate encrypted **Edge Recovery Bundle (ERB)** protected by operator-held recovery material that is not stored inside the bundle.
 
 Conceptual contents:
 
@@ -952,62 +999,73 @@ Conceptual contents:
 formatVersion
 installationId
 trustRealmId
+
 Edge CA private/public material
-authority private/public keyring + transition chain
+online authority private/public keyring + transition chain
+
+full canonical current security snapshot
 securityLineageId
-latest security generation/checkpoint
-active state-incarnation recovery metadata
+securityGeneration
+securityHeadDigest
+securityStateDigest
+
 createdAt
 bundle checksum/authentication metadata
 ```
 
-Use a well-reviewed authenticated-encryption container such as age or an equivalent maintained format; do not invent custom encryption.
+The ERB deliberately does **not** restore ordinary screen/policy incarnation/projection state. Ordinary state always comes from the selected database backup and receives a fresh `stateIncarnationId` when rollback recovery is required.
+
+A newer ERB may accompany an older ordinary DB backup because security is allowed to move forward while ordinary state rolls back.
+
+Use a maintained authenticated-encryption format such as age or an equivalent reviewed container.
 
 Backup integration:
 
-- a full backup records the expected ERB fingerprint/created-at metadata;
-- ERB creation and ordinary backup creation use one documented recovery point or clearly report that the ERB is newer;
-- restore UI/CLI asks for the matching/newer ERB when Edge trust exists;
-- an ERB from a different installation/trust realm requires explicit destructive trust-realm reset handling, not automatic mixing.
+- force/obtain a durable security snapshot before recording the backup recovery point;
+- record the paired security lineage/generation/head digest and ERB fingerprint in backup metadata;
+- restore accepts the matching or newer security snapshot/ERB, never an older one;
+- cross-installation ERB mismatch requires explicit trust reset;
+- a stale/missing ERB never causes the server to publish lower security state.
 
-Restoring without a usable ERB is allowed only as an explicit `edge trust reset required` recovery path that re-enrolls Edge nodes.
+### 12.9 Existing restore transaction integration
 
-### 12.6 Key storage and rotation
+Tilecast's restore path already keeps pre-restore database/files so a failed restore can roll back.
 
-Persist live private trust material under the server data directory with owner-only permissions.
+Edge recovery files participate in the same prepare/activate/finalize contract:
 
-Requirements:
+- stage imported ERB/security snapshot and new recovery-root files separately;
+- do not replace active trust/recovery pointers before database/file restore validation succeeds;
+- if restore rolls back to pre-restore DB/files, restore the pre-restore active recovery pointers too;
+- only finalize/remove old recovery material after the whole restore succeeds.
 
-- cryptographically secure key generation;
-- temporary write + fsync + atomic rename + parent-directory fsync;
-- private files mode 0600;
-- never returned through dashboard APIs;
-- no key material in logs, audit metadata or ordinary database rows;
-- explicit authority rotation through a verifiable epoch transition chain;
-- explicit CA rotation plan with overlapping roots before enabling it.
+A failed restore must not leave a new trust/incarnation pointer beside the old database.
 
-Authority signing-key rotation does not change the state incarnation or security lineage. Before authority epoch N+1 signs ordinary state, epoch N signs a domain-separated transition object containing the new public key/fingerprint, epoch, activation boundary and overlap policy.
+### 12.10 What rollback can and cannot be detected
 
-### 12.7 Cross-installation restore
+Tilecast can make **managed restore** rollback-safe when it has a witness outside the state being rolled back: operator-supplied ERB/security checkpoint, hardware monotonic storage, or another explicitly trusted external witness.
 
-Tilecast can explicitly restore a backup whose installation ID differs from the running installation. Edge trust material makes this security-sensitive.
+Tilecast cannot automatically detect an arbitrary hypervisor/full-disk snapshot rollback if **every** database, trust file, recovery pointer and monotonic counter is rolled back together and no external witness is presented.
 
-Never combine:
+Do not claim otherwise.
 
-```text
-database installation B
-+
-trust realm / Edge CA from installation A
-```
+For installations that require protection from arbitrary whole-machine snapshot rollback, add one of:
 
-without an explicit migration procedure that proves they belong together.
+- operator-required external ERB/checkpoint during recovery;
+- TPM/secure monotonic storage;
+- separately protected recovery service/volume;
+- another reviewed monotonic witness.
 
-A confirmed cross-installation restore must either:
+Without such a witness, a rolled-back server must be treated as potentially stale until an administrator performs Edge recovery/re-anchor.
 
-- import the ERB that matches the restored installation/trust realm; or
-- quarantine/remove the old Edge trust material and enter trust-realm reset/re-enrollment.
+### 12.11 Cross-installation restore
 
-The server must not issue certificates or signed Edge state while database installation identity and recovered trust realm disagree.
+Never combine restored installation B with installation A's Edge trust realm.
+
+A confirmed cross-installation restore must either import the matching ERB for B or quarantine old trust material and enter trust-reset/re-enrollment.
+
+Do not issue Edge certificates, security state, or ordinary signed state while database installation identity and recovered trust realm disagree.
+
+## 13. Zenoh fabric design
 
 ## 13. Zenoh fabric design
 
