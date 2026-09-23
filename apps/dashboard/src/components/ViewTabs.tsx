@@ -49,7 +49,7 @@ export function ViewTabs<Value extends string>({
                   if (event.key === "ArrowRight") move(item.value, 1);
                   else if (event.key === "ArrowLeft") move(item.value, -1);
                 }}
-                className="rounded-none border-b-2 border-transparent px-0 text-muted-foreground hover:text-foreground data-[state=current]:border-primary data-[state=current]:font-semibold data-[state=current]:text-foreground"
+                className="rounded-none border-b-2 border-transparent px-0 text-muted-foreground hover:text-foreground data-[state=current]:border-b-primary data-[state=current]:font-semibold data-[state=current]:text-foreground"
               >
                 <span>{item.label}</span>
                 {item.marker && <small>{item.marker}</small>}

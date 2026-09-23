@@ -119,26 +119,33 @@ value.
 
 #### Studio control roles
 
-Control colors are theme-scoped. Components consume the aliases in
+Control colors are theme-scoped. Legacy Signal surfaces consume the aliases in
 `components.css`. They must not assume the dark palette is the default.
 
-| Token                 | Light value             | Dark value              | Use                                     |
-| --------------------- | ----------------------- | ----------------------- | --------------------------------------- |
-| `--accent`            | `#3E6FE0`               | `#3E6FE0`               | Primary actions, links, selected states |
-| `--accent-hover`      | `#4D7CE6`               | `#4D7CE6`               | Primary hover                           |
-| `--accent-active`     | `#3563CF`               | `#3563CF`               | Primary pressed state                   |
-| `--control-border`    | `#D4DCE8`               | `#2A3D5C`               | Secondary control border                |
-| `--control-label`     | `#3D4C66`               | `#C6D4EA`               | Secondary control label                 |
-| `--control-hover-bg`  | `#EEF2F8`               | `#16223A`               | Secondary hover fill                    |
-| `--field-bg`          | `#FFFFFF`               | `#111D31`               | Input and search background             |
-| `--field-border`      | `#D4DCE8`               | `#24344E`               | Input and search border                 |
-| `--field-text`        | `#1A2333`               | `#F5F7FA`               | Input and select values                 |
-| `--field-placeholder` | `#8494AB`               | `#66799A`               | Placeholder text                        |
-| `--chip-bg`           | `#EEF2F8`               | `#1A2942`               | Nested keycap and chip background       |
-| `--chip-border`       | `#D4DCE8`               | `#2A3D5C`               | Nested keycap and chip border           |
-| `--chip-text`         | `#61718C`               | `#7F93B3`               | Nested keycap and chip text             |
-| `--divider`           | `#E5EAF2`               | `#2C3947`               | Hairlines and utility-header dividers   |
-| `--accent-focus-ring` | 25% alpha of `--accent` | 25% alpha of `--accent` | Three-pixel keyboard-focus outer ring   |
+shadcn components never read these roles; they read the Base Vega tokens
+(`--background`, `--accent`, `--border`, `--input`, `--ring`, and the rest)
+defined in `apps/dashboard/src/styles.css`. The legacy roles therefore carry
+the `--tc-` prefix. An unprefixed legacy token with a shadcn name would win
+over the Vega value, because the legacy theme selectors are more specific, and
+would recolor every generated component.
+
+| Token                    | Light value                | Dark value                 | Use                                     |
+| ------------------------ | -------------------------- | -------------------------- | --------------------------------------- |
+| `--tc-accent`            | `#3E6FE0`                  | `#3E6FE0`                  | Primary actions, links, selected states |
+| `--tc-accent-hover`      | `#4D7CE6`                  | `#4D7CE6`                  | Primary hover                           |
+| `--tc-accent-active`     | `#3563CF`                  | `#3563CF`                  | Primary pressed state                   |
+| `--control-border`       | `#D4DCE8`                  | `#2A3D5C`                  | Secondary control border                |
+| `--control-label`        | `#3D4C66`                  | `#C6D4EA`                  | Secondary control label                 |
+| `--control-hover-bg`     | `#EEF2F8`                  | `#16223A`                  | Secondary hover fill                    |
+| `--field-bg`             | `#FFFFFF`                  | `#111D31`                  | Input and search background             |
+| `--field-border`         | `#D4DCE8`                  | `#24344E`                  | Input and search border                 |
+| `--field-text`           | `#1A2333`                  | `#F5F7FA`                  | Input and select values                 |
+| `--field-placeholder`    | `#8494AB`                  | `#66799A`                  | Placeholder text                        |
+| `--chip-bg`              | `#EEF2F8`                  | `#1A2942`                  | Nested keycap and chip background       |
+| `--chip-border`          | `#D4DCE8`                  | `#2A3D5C`                  | Nested keycap and chip border           |
+| `--chip-text`            | `#61718C`                  | `#7F93B3`                  | Nested keycap and chip text             |
+| `--divider`              | `#E5EAF2`                  | `#2C3947`                  | Hairlines and utility-header dividers   |
+| `--tc-accent-focus-ring` | 25% alpha of `--tc-accent` | 25% alpha of `--tc-accent` | Three-pixel keyboard-focus outer ring   |
 
 The Studio sidebar deliberately uses the same dark navigation tokens in light
 and dark appearances. This is an explicit contrast treatment, not inheritance
@@ -459,21 +466,25 @@ Authenticated Studio routes use one persistent 56px utility header above page
 content. It contains three stable regions:
 
 - The left region renders breadcrumbs from the route hierarchy. A top-level
-  route shows one semibold current-page label. Detail routes link muted
-  ancestors and render the entity name as the unlinked current page. Page
-  headings remain `h1` elements. Breadcrumbs are navigation, not headings.
+  route shows one semibold current-page label; a single breadcrumb is not an
+  empty state. Detail routes link muted ancestors and render the entity name
+  as the unlinked current page. Breadcrumbs come only from route `handle`
+  entries in `App.tsx`: every authenticated Studio route declares a
+  `breadcrumb`, and a detail route that names an entity declares a `resource`
+  so the header can resolve the name. Pages never render their own
+  breadcrumbs. Page headings remain `h1` elements. Breadcrumbs are navigation,
+  not headings.
 - The center region opens global search with `Command+K` on Apple platforms or
   `Control+K` elsewhere. The implemented search providers cover Studio route
   destinations, settings sections, and screen names. Additional entity
   providers may extend this registry without changing the palette interaction.
-- The right region contains active-alert notifications, the role-gated Pair
-  screen action, and the role-gated Create menu. Screen alerts link to screen
-  details. Failed Player update deployments link to Player update settings.
+- The right region contains active-alert notifications. Screen alerts link to
+  screen details. Failed Player update deployments link to Player update
+  settings. Page-level actions such as Pair screen and Create belong to each
+  page header, not the persistent header.
 
-The header uses existing surface, border, text, status, focus, radius, spacing,
-and button tokens. Below 900px, global search becomes an icon button and Pair
-screen becomes icon-only. Create retains its label. Every icon-only control
-requires an accessible name. The palette supports arrow-key selection, Enter
+The header is composed from the generated Breadcrumb, Button, Kbd, Popover, and
+Item components. Every icon-only control requires an accessible name. The palette supports arrow-key selection, Enter
 to navigate, and Escape to close. The global shortcut must not override text
 entry inside a dialog.
 
@@ -484,14 +495,15 @@ alternatives. Quiet actions reduce visual weight. Danger actions communicate a
 destructive consequence. Icon buttons are reserved for familiar actions where
 space is constrained and always require an accessible label.
 
-Default buttons are 36 px high and compact buttons are 30 px high. Loading
+Default buttons are 36 px high and compact (`sm`) buttons are 32 px high. Loading
 preserves the label's width, exposes busy state, and disables repeat activation.
 Disabled controls use a not-allowed cursor, but a disabled state must not be the
 only explanation of why an action is unavailable.
 
-Primary buttons use the solid action accent with pure white text. Secondary
-buttons use the shared control border and label tokens on a transparent fill.
-hover changes only the shared secondary hover fill. Underlines belong to inline
+Primary buttons use the Vega `primary` fill and `primary-foreground` text.
+Outline buttons use the Vega border on the background surface, and ghost
+buttons change only to the `accent` fill on hover. Links that act as buttons
+use `buttonVariants` rather than hand-copied classes. Underlines belong to inline
 text links, never button labels. Use at most one primary action per decision
 region.
 
@@ -506,21 +518,36 @@ the control. Required state must be available to assistive technology, not only
 shown as an asterisk. Errors identify the problem and, when known, how to fix
 it.
 
-Controls use the shared 36 px height, 8 px radius, field background, border,
-placeholder, disabled treatment, and focus tokens. Keyboard focus adds a 1 px
-accent border and a 3 px soft outer ring. Use the control that matches the data:
-Use the control that matches the data:
+Controls are the generated Base Vega components. Their height, radius, surface,
+border, placeholder, disabled treatment, focus ring, and dark-mode fill come
+from the component itself. Global element selectors such as `input`, `select`,
+or `textarea` must not style them: unlayered CSS outranks Tailwind utilities
+and silently replaces the Vega treatment. Use the control that matches the
+data:
 
 - checkbox for an independent choice.
 - switch for an immediate enabled/disabled setting.
-- radio group for a small set whose alternatives should remain visible.
-- Signal Select for a longer closed set, and
+- radio group or toggle group for a small set whose alternatives should
+  remain visible.
+- Select for a longer closed set, and
 - text input only when free entry is genuinely allowed.
 
-Signal Select supports groups, disabled options, visible selection, Escape,
-Arrow keys, Home, End, Enter, and Space. Its hidden native select preserves form
-values and change-event compatibility. It is not the visible interaction
-surface.
+Compose Select canonically. Pass the options to `items` on `Select` and render
+a bare `<SelectValue />`. Without `items`, `SelectValue` shows the raw value,
+such as an ID. Do not render the selected label yourself.
+
+List and filter toolbars follow the same rules everywhere:
+
+- Search uses `DashboardSearch`: an `InputGroup` with a leading search icon
+  and, when there is text, a clear `InputGroupButton` in an inline-end addon.
+- Each `SelectTrigger` gets an intentional width at the call site, sized to
+  its longest option, because the popup takes the trigger's width. Use
+  `max-sm:flex-1` so filters share a row evenly on phones. Never widen the
+  generated Select globally for one toolbar.
+- Controls in one toolbar share the default 36 px height. Do not mix `sm`
+  controls into a default-height row.
+- Grid and list view switches are outline toggle groups with `spacing={0}`.
+- The toolbar itself wraps with flex utilities and needs no page CSS.
 
 Settings translate bytes, durations, weekdays, enums, colors, and Android
 package lists at the UI boundary without changing stored values.

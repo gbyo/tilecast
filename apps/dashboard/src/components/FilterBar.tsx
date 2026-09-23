@@ -11,7 +11,7 @@ import { X } from "lucide-react";
 import { DashboardSearch } from "./DashboardListToolbar";
 import { Input } from "./ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -201,14 +201,14 @@ function FilterControl({
   const typed = useTypedFilter(value, onChange);
   if (definition.kind === "search") {
     return (
-      <span onBlur={typed.onBlur}>
+      <div className="contents" onBlur={typed.onBlur}>
         <DashboardSearch
           value={typed.value}
           onValueChange={typed.onChange}
           label={definition.label}
           placeholder={definition.placeholder}
         />
-      </span>
+      </div>
     );
   }
   if (definition.kind === "text") {
@@ -219,39 +219,39 @@ function FilterControl({
         placeholder={definition.placeholder}
         onChange={(event) => typed.onChange(event.target.value)}
         onBlur={typed.onBlur}
-        className="w-44"
+        className="w-44 max-sm:flex-1"
       />
     );
   }
   // Base UI selects need a non-empty value, so the empty "all" choice is
   // addressed by a sentinel that maps back to "" on the way out.
   const selectedValue = value || "__all__";
-  const selectedLabel =
-    definition.options.find((option) => option.value === value)?.label ??
-    definition.allLabel;
+  const items = [
+    { value: "__all__", label: definition.allLabel },
+    ...definition.options,
+  ];
   return (
-    <RheaSelect
+    <Select
+      items={items}
       value={selectedValue}
       onValueChange={(next) =>
         onChange(!next || next === "__all__" ? "" : next)
       }
     >
       <SelectTrigger
-        size="sm"
-        className="max-w-52"
+        className="w-48 max-sm:flex-1"
         aria-label={definition.label}
       >
-        <SelectValue>{selectedLabel}</SelectValue>
+        <SelectValue />
       </SelectTrigger>
-      <SelectContent align="start" alignItemWithTrigger={false}>
-        <SelectItem value="__all__">{definition.allLabel}</SelectItem>
-        {definition.options.map((option) => (
+      <SelectContent>
+        {items.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
           </SelectItem>
         ))}
       </SelectContent>
-    </RheaSelect>
+    </Select>
   );
 }
 

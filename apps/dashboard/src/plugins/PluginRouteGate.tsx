@@ -39,7 +39,7 @@ export function PluginRouteGate({
     return (
       <div className="grid gap-4" aria-busy="true">
         <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-40 rounded-2xl" />
+        <Skeleton className="h-40 rounded-xl" />
       </div>
     );
   // The server enforces installation on every mutation, so an unreadable

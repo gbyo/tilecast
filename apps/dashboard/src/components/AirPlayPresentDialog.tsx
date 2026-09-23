@@ -344,6 +344,15 @@ export function AirPlayPresentDialog({
               <label className="grid gap-1.5 text-sm font-medium">
                 <span>Duration</span>
                 <Select
+                  items={[
+                    { value: "15", label: "15 minutes" },
+                    { value: "30", label: "30 minutes" },
+                    { value: "60", label: "1 hour" },
+                    {
+                      value: "0",
+                      label: "Until stopped (24-hour safety deadline)",
+                    },
+                  ]}
                   value={String(durationMinutes)}
                   onValueChange={(value) => {
                     if (value) {
@@ -371,6 +380,14 @@ export function AirPlayPresentDialog({
                   validated.
                 </span>
                 <Select
+                  items={[
+                    { value: "auto", label: "Auto" },
+                    { value: "unicast", label: "Unicast fan-out" },
+                    {
+                      value: "multicast",
+                      label: "Multicast (falls back to unicast)",
+                    },
+                  ]}
                   value={transport}
                   onValueChange={(value) => {
                     if (
@@ -405,6 +422,13 @@ export function AirPlayPresentDialog({
                     : "Primary audio uses the selected or automatically chosen gateway."}
                 </span>
                 <Select
+                  items={[
+                    {
+                      value: "gateway_only",
+                      label: "Gateway / primary display only",
+                    },
+                    { value: "none", label: "No AirPlay audio" },
+                  ]}
                   value={audioMode}
                   onValueChange={(value) => {
                     if (value === "gateway_only" || value === "none") {

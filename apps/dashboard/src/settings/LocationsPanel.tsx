@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { Location, LocationInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
+import { DashboardSearch } from "../components/DashboardListToolbar";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -121,21 +122,16 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
       {confirmDialog}
       <section className="grid gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-transparent bg-input/50 px-3 py-2">
-            <Search size={16} aria-hidden="true" className="shrink-0" />
-            <span className="sr-only">Search locations</span>
-            <Input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by name or address"
-              className="border-0 bg-transparent p-0"
-            />
-          </label>
+          <DashboardSearch
+            value={search}
+            onValueChange={setSearch}
+            label="Search locations"
+            placeholder="Search by name or address"
+          />
           {canManage && (
-            <RheaButton variant="default" onClick={() => open("new")}>
+            <Button variant="default" onClick={() => open("new")}>
               <Plus size={16} aria-hidden="true" /> Add location
-            </RheaButton>
+            </Button>
           )}
         </div>
         {notice && (
@@ -179,7 +175,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                 </span>
                 {canManage && (
                   <span className="flex items-center gap-1">
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="ghost"
                       size="icon"
@@ -187,8 +183,8 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                       onClick={() => open(location)}
                     >
                       <Pencil size={16} aria-hidden="true" />
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       type="button"
                       variant="ghost"
                       size="icon"
@@ -212,7 +208,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                       }}
                     >
                       <Trash2 size={16} aria-hidden="true" />
-                    </RheaButton>
+                    </Button>
                   </span>
                 )}
               </article>
@@ -236,7 +232,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
             )}
           </div>
         )}
-        <RheaDialog
+        <Dialog
           open={Boolean(editing)}
           onOpenChange={(open) => {
             if (!open) setEditing(undefined);
@@ -332,24 +328,24 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                 </Alert>
               )}
               <DialogFooter>
-                <RheaButton
+                <Button
                   variant="ghost"
                   type="button"
                   onClick={() => setEditing(undefined)}
                 >
                   Cancel
-                </RheaButton>
-                <RheaButton
+                </Button>
+                <Button
                   variant="default"
                   type="submit"
                   disabled={!form.name.trim() || save.isPending}
                 >
                   {save.isPending ? "Saving…" : "Save location"}
-                </RheaButton>
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
-        </RheaDialog>
+        </Dialog>
       </section>
     </>
   );

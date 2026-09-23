@@ -24,7 +24,7 @@ import {
 import { LayoutPreview } from "../components/PresentationPreview";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -33,16 +33,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
-  ContextMenu as RheaContextMenu,
+  ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "../components/ui/context-menu";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -50,7 +50,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import {
-  DropdownMenu as RheaDropdownMenu,
+  DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -67,7 +67,7 @@ import {
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -75,12 +75,7 @@ import {
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
-import {
-  ToggleGroup as RheaToggleGroup,
-  ToggleGroupItem as RheaToggleGroupItem,
-} from "../components/ui/toggle-group";
-import { optionLabel } from "../content/data-sources/shared";
-import "./LayoutLibraryPage.css";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 const presets = [
   {
@@ -516,10 +511,10 @@ export function LayoutsPage() {
         </div>
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton type="button" onClick={() => setCreating(true)}>
+            <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               Create layout
-            </RheaButton>
+            </Button>
           </div>
         )}
       </header>
@@ -530,16 +525,18 @@ export function LayoutsPage() {
           label="Search layouts"
           placeholder="Search names, descriptions, or dimensions"
         />
-        <RheaSelect
+        <Select
+          items={layoutOrientationOptions}
           value={orientation}
           onValueChange={(next) =>
             setOrientation(next as LayoutLibraryOrientationFilter)
           }
         >
-          <SelectTrigger aria-label="Filter layouts by orientation">
-            <SelectValue>
-              {optionLabel(layoutOrientationOptions, orientation)}
-            </SelectValue>
+          <SelectTrigger
+            aria-label="Filter layouts by orientation"
+            className="w-40 max-sm:flex-1"
+          >
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {layoutOrientationOptions.map((option) => (
@@ -548,17 +545,19 @@ export function LayoutsPage() {
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
-        <RheaSelect
+        </Select>
+        <Select
+          items={layoutPublicationOptions}
           value={publication}
           onValueChange={(next) =>
             setPublication(next as LayoutLibraryPublicationFilter)
           }
         >
-          <SelectTrigger aria-label="Filter layouts by publication status">
-            <SelectValue>
-              {optionLabel(layoutPublicationOptions, publication)}
-            </SelectValue>
+          <SelectTrigger
+            aria-label="Filter layouts by publication status"
+            className="w-48 max-sm:flex-1"
+          >
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {layoutPublicationOptions.map((option) => (
@@ -567,13 +566,17 @@ export function LayoutsPage() {
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
-        <RheaSelect
+        </Select>
+        <Select
+          items={layoutSortOptions}
           value={sort}
           onValueChange={(next) => setSort(next as LayoutLibrarySort)}
         >
-          <SelectTrigger aria-label="Sort layouts">
-            <SelectValue>{optionLabel(layoutSortOptions, sort)}</SelectValue>
+          <SelectTrigger
+            aria-label="Sort layouts"
+            className="w-48 max-sm:flex-1"
+          >
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {layoutSortOptions.map((option) => (
@@ -582,22 +585,24 @@ export function LayoutsPage() {
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
-        <RheaToggleGroup
+        </Select>
+        <ToggleGroup
           aria-label="Layout view"
+          variant="outline"
+          spacing={0}
           value={[view]}
           onValueChange={(values) => {
             const next = values[0];
             if (next === "grid" || next === "list") setView(next);
           }}
         >
-          <RheaToggleGroupItem value="grid" aria-label="Grid view">
+          <ToggleGroupItem value="grid" aria-label="Grid view">
             <LayoutGrid size={16} aria-hidden="true" />
-          </RheaToggleGroupItem>
-          <RheaToggleGroupItem value="list" aria-label="List view">
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label="List view">
             <List size={16} aria-hidden="true" />
-          </RheaToggleGroupItem>
-        </RheaToggleGroup>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </DashboardListToolbar>
 
       {!layouts.isLoading && allLayouts.length > 0 && (
@@ -641,9 +646,9 @@ export function LayoutsPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <RheaButton type="button" onClick={() => setCreating(true)}>
+              <Button type="button" onClick={() => setCreating(true)}>
                 Create layout
-              </RheaButton>
+              </Button>
             </EmptyContent>
           )}
         </Empty>
@@ -659,13 +664,13 @@ export function LayoutsPage() {
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <RheaButton
+            <Button
               type="button"
               variant="outline"
               onClick={clearLibraryFilters}
             >
               Clear filters
-            </RheaButton>
+            </Button>
           </EmptyContent>
         </Empty>
       ) : (
@@ -680,7 +685,7 @@ export function LayoutsPage() {
             const publicationState = layoutPublicationState(layout);
             const menuLabel = `Actions for ${layout.name}`;
             return (
-              <RheaContextMenu key={layout.id}>
+              <ContextMenu key={layout.id}>
                 <ContextMenuTrigger
                   render={
                     <article
@@ -734,7 +739,7 @@ export function LayoutsPage() {
                       </small>
                     </span>
                   </button>
-                  <RheaDropdownMenu>
+                  <DropdownMenu>
                     <DropdownMenuTrigger
                       className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-xl bg-background/90 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
                       aria-label={menuLabel}
@@ -756,7 +761,7 @@ export function LayoutsPage() {
                         </Fragment>
                       ))}
                     </DropdownMenuContent>
-                  </RheaDropdownMenu>
+                  </DropdownMenu>
                 </ContextMenuTrigger>
                 <ContextMenuContent aria-label={menuLabel}>
                   {actionsFor(layout).map((action, index) => (
@@ -773,13 +778,13 @@ export function LayoutsPage() {
                     </Fragment>
                   ))}
                 </ContextMenuContent>
-              </RheaContextMenu>
+              </ContextMenu>
             );
           })}
         </div>
       )}
 
-      <RheaDialog
+      <Dialog
         open={creating}
         onOpenChange={(open) => {
           if (!open) closeCreate();
@@ -820,7 +825,7 @@ export function LayoutsPage() {
               <legend className="text-sm font-medium">Canvas size</legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {presets.map((item, index) => (
-                  <RheaButton
+                  <Button
                     type="button"
                     variant={preset === index ? "default" : "outline"}
                     className="h-auto items-center gap-3 p-3 text-left"
@@ -842,14 +847,14 @@ export function LayoutsPage() {
                         {item.width} × {item.height}
                       </small>
                     </span>
-                  </RheaButton>
+                  </Button>
                 ))}
               </div>
             </fieldset>
             <fieldset className="grid gap-2">
               <legend className="text-sm font-medium">Starting point</legend>
               <div className="grid gap-2 sm:grid-cols-2">
-                <RheaButton
+                <Button
                   type="button"
                   variant={template === "blank" ? "default" : "outline"}
                   className="h-auto items-center gap-3 p-3 text-left"
@@ -863,8 +868,8 @@ export function LayoutsPage() {
                       Start with an empty layout.
                     </small>
                   </span>
-                </RheaButton>
-                <RheaButton
+                </Button>
+                <Button
                   type="button"
                   variant={template === "announcement" ? "default" : "outline"}
                   className="h-auto items-center gap-3 p-3 text-left"
@@ -878,7 +883,7 @@ export function LayoutsPage() {
                       Begin with an accent bar and headline.
                     </small>
                   </span>
-                </RheaButton>
+                </Button>
               </div>
             </fieldset>
             {create.error && (
@@ -892,21 +897,21 @@ export function LayoutsPage() {
             )}
           </div>
           <DialogFooter>
-            <RheaButton type="button" variant="outline" onClick={closeCreate}>
+            <Button type="button" variant="outline" onClick={closeCreate}>
               Cancel
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               disabled={!name.trim() || create.isPending}
               onClick={() => create.mutate()}
             >
               {create.isPending ? "Creating…" : "Create layout"}
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
-      </RheaDialog>
+      </Dialog>
 
-      <RheaDialog
+      <Dialog
         open={Boolean(renaming)}
         onOpenChange={(open) => {
           if (!open) closeRename();
@@ -951,10 +956,10 @@ export function LayoutsPage() {
             )}
           </div>
           <DialogFooter>
-            <RheaButton type="button" variant="outline" onClick={closeRename}>
+            <Button type="button" variant="outline" onClick={closeRename}>
               Cancel
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               disabled={
                 !renaming ||
@@ -971,11 +976,11 @@ export function LayoutsPage() {
               }}
             >
               {rename.isPending ? "Saving…" : "Save name"}
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
-      </RheaDialog>
-      <RheaAlertDialog
+      </Dialog>
+      <AlertDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => {
           if (!open) setPendingDelete(null);
@@ -1006,7 +1011,7 @@ export function LayoutsPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
     </section>
   );
 }

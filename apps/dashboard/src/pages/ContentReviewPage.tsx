@@ -14,7 +14,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -171,13 +171,13 @@ export function ContentReviewPage() {
                 id: "review",
                 header: "",
                 cell: ({ row }) => (
-                  <RheaButton
+                  <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => setSelectedKey(key(row.original))}
                   >
                     Review
-                  </RheaButton>
+                  </Button>
                 ),
               }),
             ]
@@ -206,7 +206,7 @@ export function ContentReviewPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
+            className={buttonVariants({ variant: "outline" })}
             to="/content-review/submissions"
           >
             Open submission inbox
@@ -352,7 +352,7 @@ export function ContentReviewPage() {
             </p>
             {canDecide && (
               <div className="flex flex-wrap gap-2">
-                <RheaButton
+                <Button
                   type="button"
                   disabled={decide.isPending || selected.state === "approved"}
                   onClick={() =>
@@ -360,8 +360,8 @@ export function ContentReviewPage() {
                   }
                 >
                   <Check size={15} aria-hidden="true" /> Approve
-                </RheaButton>
-                <RheaButton
+                </Button>
+                <Button
                   type="button"
                   variant="secondary"
                   disabled={decide.isPending}
@@ -371,7 +371,7 @@ export function ContentReviewPage() {
                   }}
                 >
                   <Undo2 size={15} aria-hidden="true" /> Send back
-                </RheaButton>
+                </Button>
               </div>
             )}
           </SheetContent>
@@ -408,7 +408,7 @@ export function ContentReviewPage() {
             </FieldDescription>
           </Field>
           <DialogFooter>
-            <RheaButton
+            <Button
               variant="ghost"
               disabled={decide.isPending}
               onClick={() => {
@@ -417,8 +417,8 @@ export function ContentReviewPage() {
               }}
             >
               Cancel
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               disabled={decide.isPending}
               onClick={() => {
                 if (rejectItem)
@@ -430,7 +430,7 @@ export function ContentReviewPage() {
               }}
             >
               <Undo2 size={15} aria-hidden="true" /> Send back
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

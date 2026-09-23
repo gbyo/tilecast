@@ -6,7 +6,7 @@ import type {
 } from "../../api/types";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -19,21 +19,20 @@ function PickerSelect({
   value,
   onChange,
   options,
-  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: readonly { value: string; label: string }[];
-  placeholder?: string;
 }) {
-  const selected = options.find((option) => option.value === value);
   return (
-    <RheaSelect value={value} onValueChange={(next) => onChange(next ?? "")}>
-      <SelectTrigger aria-label={label} size="sm">
-        <SelectValue placeholder={placeholder}>
-          {selected?.label ?? placeholder ?? value}
-        </SelectValue>
+    <Select
+      items={options}
+      value={value}
+      onValueChange={(next) => onChange(next ?? "")}
+    >
+      <SelectTrigger aria-label={label} className="w-44 max-sm:flex-1">
+        <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {options.map((option) => (
@@ -42,7 +41,7 @@ function PickerSelect({
           </SelectItem>
         ))}
       </SelectContent>
-    </RheaSelect>
+    </Select>
   );
 }
 
@@ -105,7 +104,7 @@ export function ContentPickerToolbar({
     { value: "calendar", label: "Calendars", type: "widget" },
   ];
   return (
-    <div className="content-picker-toolbar">
+    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/50 px-6 py-3 max-md:px-4">
       <DashboardSearch
         autoFocus
         value={search}
@@ -114,7 +113,7 @@ export function ContentPickerToolbar({
         placeholder="Search content"
       />
       <ToggleGroup
-        className="content-picker-filters"
+        className="max-w-full overflow-x-auto"
         aria-label="Content type"
         multiple={false}
         value={[filter]}
@@ -183,6 +182,8 @@ export function ContentPickerToolbar({
       />
       <ToggleGroup
         aria-label="Content view"
+        variant="outline"
+        spacing={0}
         multiple={false}
         value={[view]}
         onValueChange={(next) => {

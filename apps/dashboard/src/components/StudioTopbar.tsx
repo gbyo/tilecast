@@ -351,8 +351,18 @@ function breadcrumbQueryKey(resource?: BreadcrumbResource, id?: string) {
       return ["playlists", id] as const;
     case "layout":
       return ["layout", id] as const;
+    case "campaign":
+      return ["campaign", id] as const;
     case "schedule":
       return ["schedules", id] as const;
+    case "form":
+      return ["form-data-source", id] as const;
+    case "countdown-bar":
+      return ["countdown-bar", id] as const;
+    case "brand-bug":
+      return ["brand-bug", id] as const;
+    case "noise-meter":
+      return ["noise-meter", id] as const;
     default:
       return ["breadcrumb", "none"] as const;
   }
@@ -375,8 +385,18 @@ function breadcrumbResource(resource: BreadcrumbResource, id: string) {
       return api.playlist(id);
     case "layout":
       return api.layout(id);
+    case "campaign":
+      return api.campaign(id);
     case "schedule":
       return api.schedule(id);
+    case "form":
+      return api.getForm(id);
+    case "countdown-bar":
+      return api.countdownBar(id);
+    case "brand-bug":
+      return api.brandBug(id);
+    case "noise-meter":
+      return api.noiseMeter(id);
   }
 }
 
@@ -485,7 +505,7 @@ function CommandPalette({
       className="w-[min(42rem,calc(100vw-2rem))]"
     >
       <Command
-        className="min-h-72 rounded-2xl p-1"
+        className="min-h-72 p-1"
         label="Search Tilecast"
         loop
         shouldFilter={false}

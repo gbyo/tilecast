@@ -22,11 +22,8 @@ import { PlaylistPicker } from "../components/content-picker";
 import { useConfirm } from "../components/ConfirmDialog";
 import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
-import {
-  ToggleGroup as RheaToggleGroup,
-  ToggleGroupItem as RheaToggleGroupItem,
-} from "../components/ui/toggle-group";
+import { Button } from "../components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import {
   Field,
   FieldDescription,
@@ -48,14 +45,14 @@ import {
   useComboboxAnchor,
 } from "../components/ui/combobox";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
-import { Switch as RheaSwitch } from "../components/ui/switch";
+import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
 import {
   conflictWinnerReason,
@@ -297,8 +294,10 @@ export function ScheduleEditorPage() {
                   <FieldError>{errors.name}</FieldError>
                 )}
               </Field>
-              <RheaToggleGroup
-                className="schedule-segmented"
+              <ToggleGroup
+                variant="outline"
+                spacing={0}
+                className="max-sm:w-full max-sm:*:flex-1"
                 aria-label="Schedule content type"
                 multiple={false}
                 value={[input.displayAction ? "display" : "content"]}
@@ -314,13 +313,11 @@ export function ScheduleEditorPage() {
                   }
                 }}
               >
-                <RheaToggleGroupItem value="content">
-                  Content
-                </RheaToggleGroupItem>
-                <RheaToggleGroupItem value="display">
+                <ToggleGroupItem value="content">Content</ToggleGroupItem>
+                <ToggleGroupItem value="display">
                   Display Control
-                </RheaToggleGroupItem>
-              </RheaToggleGroup>
+                </ToggleGroupItem>
+              </ToggleGroup>
               {input.displayAction ? (
                 <DisplayControlSelection
                   action={input.displayAction}
@@ -344,8 +341,10 @@ export function ScheduleEditorPage() {
               title="Timing"
               description="Choose when this content takes precedence."
             >
-              <RheaToggleGroup
-                className="schedule-segmented"
+              <ToggleGroup
+                variant="outline"
+                spacing={0}
+                className="max-sm:w-full max-sm:*:flex-1"
                 aria-label="Schedule type"
                 multiple={false}
                 value={[input.type]}
@@ -370,13 +369,13 @@ export function ScheduleEditorPage() {
                   }
                 }}
               >
-                <RheaToggleGroupItem value="weekly">
+                <ToggleGroupItem value="weekly">
                   Weekly recurring
-                </RheaToggleGroupItem>
-                <RheaToggleGroupItem value="one_time">
+                </ToggleGroupItem>
+                <ToggleGroupItem value="one_time">
                   One-time event
-                </RheaToggleGroupItem>
-              </RheaToggleGroup>
+                </ToggleGroupItem>
+              </ToggleGroup>
               {input.type === "weekly" ? (
                 <WeeklyTiming
                   input={input}
@@ -429,7 +428,7 @@ export function ScheduleEditorPage() {
             >
               {/* The wrapping label names the switch; no extra aria-label. */}
               <label className="flex items-start gap-2 text-sm">
-                <RheaSwitch
+                <Switch
                   checked={input.enabled}
                   onCheckedChange={(checked) =>
                     set("enabled", checked === true)
@@ -483,7 +482,7 @@ export function ScheduleEditorPage() {
                   : "Complete the required fields"}
             </span>
             {id && (
-              <RheaButton
+              <Button
                 type="button"
                 variant="destructive"
                 disabled={remove.isPending}
@@ -498,9 +497,9 @@ export function ScheduleEditorPage() {
                 }
               >
                 Delete
-              </RheaButton>
+              </Button>
             )}
-            <RheaButton
+            <Button
               type="button"
               variant="ghost"
               onClick={() => {
@@ -518,13 +517,10 @@ export function ScheduleEditorPage() {
               }}
             >
               Cancel
-            </RheaButton>
-            <RheaButton
-              type="submit"
-              disabled={!valid || !dirty || save.isPending}
-            >
+            </Button>
+            <Button type="submit" disabled={!valid || !dirty || save.isPending}>
               {save.isPending ? "Saving…" : "Save schedule"}
-            </RheaButton>
+            </Button>
             {save.error && (
               <span className="text-sm text-destructive" role="alert">
                 {save.error.message}
@@ -622,19 +618,14 @@ function PlaylistSelection({
                 : `${playlist!.itemCount} item${playlist!.itemCount === 1 ? "" : "s"} · ${duration}`}
             </span>
           </div>
-          <RheaButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onChoose}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={onChoose}>
             Change
-          </RheaButton>
+          </Button>
         </div>
       ) : (
-        <RheaButton type="button" variant="secondary" onClick={onChoose}>
+        <Button type="button" variant="secondary" onClick={onChoose}>
           Choose presentation
-        </RheaButton>
+        </Button>
       )}
       {error && (
         <span className="text-sm text-destructive" role="alert">
@@ -665,7 +656,7 @@ function DisplayControlSelection({
       <div className="schedule-control-action">
         <Field>
           <FieldLabel htmlFor="schedule-display-action">Action</FieldLabel>
-          <RheaSelect
+          <Select
             value={action.type}
             onValueChange={(next) => {
               if (next) setType(next);
@@ -681,7 +672,7 @@ function DisplayControlSelection({
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         {action.type === "display_set_input" && (
           <Field>
@@ -764,8 +755,9 @@ function WeeklyTiming({
   const overnight = (input.dailyEnd ?? "") <= (input.dailyStart ?? "");
   return (
     <div className="schedule-timing-fields">
-      <RheaToggleGroup
-        className="schedule-weekdays"
+      <ToggleGroup
+        className="grid w-full grid-cols-7 gap-2 max-sm:grid-cols-4"
+        variant="outline"
         aria-label="Active weekdays"
         multiple
         value={input.daysOfWeek.map(String)}
@@ -775,15 +767,16 @@ function WeeklyTiming({
         }}
       >
         {scheduleWeekdays.map((day) => (
-          <RheaToggleGroupItem
+          <ToggleGroupItem
             key={day.value}
             value={String(day.value)}
             aria-label={day.long}
+            className="h-11 w-full"
           >
             {day.short}
-          </RheaToggleGroupItem>
+          </ToggleGroupItem>
         ))}
-      </RheaToggleGroup>
+      </ToggleGroup>
       {errors.daysOfWeek && (
         <span className="text-sm text-destructive" role="alert">
           {errors.daysOfWeek}
@@ -825,14 +818,14 @@ function WeeklyTiming({
         </Alert>
       )}
       {!showDateRange ? (
-        <RheaButton
+        <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={() => setShowDateRange(true)}
         >
           Add date range
-        </RheaButton>
+        </Button>
       ) : (
         <div className="schedule-date-range">
           <Field>
@@ -857,7 +850,7 @@ function WeeklyTiming({
               onChange={(value) => set("endDate", value || undefined)}
             />
           </Field>
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="sm"
@@ -868,7 +861,7 @@ function WeeklyTiming({
             }}
           >
             Remove date range
-          </RheaButton>
+          </Button>
           {errors.dateRange && (
             <span className="text-sm text-destructive" role="alert">
               {errors.dateRange}
@@ -1090,8 +1083,10 @@ function TargetPicker({
     tab === "groups" ? "Search Display Groups" : "Search screens";
   return (
     <div className="schedule-target-picker">
-      <RheaToggleGroup
-        className="schedule-target-tabs"
+      <ToggleGroup
+        variant="outline"
+        spacing={0}
+        className="max-sm:w-full max-sm:*:flex-1"
         aria-label="Target type"
         multiple={false}
         value={[tab]}
@@ -1099,9 +1094,9 @@ function TargetPicker({
           if (next[0] === "screens" || next[0] === "groups") setTab(next[0]);
         }}
       >
-        <RheaToggleGroupItem value="screens">Screens</RheaToggleGroupItem>
-        <RheaToggleGroupItem value="groups">Display Groups</RheaToggleGroupItem>
-      </RheaToggleGroup>
+        <ToggleGroupItem value="screens">Screens</ToggleGroupItem>
+        <ToggleGroupItem value="groups">Display Groups</ToggleGroupItem>
+      </ToggleGroup>
       <div ref={anchor}>
         <Combobox
           multiple
@@ -1130,7 +1125,7 @@ function TargetPicker({
                     aria-label={option.name}
                   >
                     {option.name}
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="ghost"
                       size="icon-xs"
@@ -1146,7 +1141,7 @@ function TargetPicker({
                       }
                     >
                       <X size={14} aria-hidden="true" />
-                    </RheaButton>
+                    </Button>
                   </ComboboxChip>
                 ))}
                 <ComboboxChipsInput
@@ -1221,23 +1216,28 @@ function PriorityControl({
       <span className="text-sm text-muted-foreground">
         Higher-priority schedules win when times and targets overlap.
       </span>
-      <div role="radiogroup" aria-label="Schedule priority">
+      <ToggleGroup
+        variant="outline"
+        spacing={0}
+        className="max-sm:w-full max-sm:*:flex-1"
+        aria-label="Schedule priority"
+        multiple={false}
+        value={[preset]}
+        onValueChange={(next) => {
+          const option = next[0] as PriorityPreset | undefined;
+          if (option) choose(option);
+        }}
+      >
         {(["normal", "important", "special", "custom"] as PriorityPreset[]).map(
           (option) => (
-            <button
-              type="button"
-              role="radio"
-              aria-checked={preset === option}
-              key={option}
-              onClick={() => choose(option)}
-            >
+            <ToggleGroupItem key={option} value={option}>
               {option === "special"
                 ? "Special event"
                 : option.charAt(0).toUpperCase() + option.slice(1)}
-            </button>
+            </ToggleGroupItem>
           ),
         )}
-      </div>
+      </ToggleGroup>
       {preset === "custom" && (
         <Field>
           <FieldLabel htmlFor="schedule-custom-priority">

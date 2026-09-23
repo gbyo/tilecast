@@ -4,6 +4,7 @@ import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
+import { buttonVariants } from "../components/ui/button";
 import {
   activityParams,
   activityRequest,
@@ -125,7 +126,7 @@ export function NeedsAttentionPanel() {
           </p>
         </div>
         <Link
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
+          className={buttonVariants({ variant: "outline" })}
           to={buildActivityLink("incidents")}
         >
           All incidents

@@ -640,7 +640,7 @@ export function StructuredDataSourceEditor({
         className={
           page
             ? "grid w-full min-w-0 gap-5"
-            : "mx-auto grid w-full max-w-3xl gap-5 rounded-2xl bg-background p-5"
+            : "mx-auto grid w-full max-w-3xl gap-5 rounded-xl bg-background p-5"
         }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
@@ -1487,7 +1487,7 @@ export function StructuredDataSourceEditor({
             </Field>
           </div>
           {diagnostics.data && (
-            <div className="grid gap-1 rounded-2xl border border-border bg-card p-3">
+            <div className="grid gap-1 rounded-xl border border-border bg-card p-3">
               <strong className="text-sm font-medium">
                 Refresh diagnostics
               </strong>
@@ -1516,7 +1516,7 @@ export function StructuredDataSourceEditor({
             </div>
           )}
           {preview && (
-            <div className="grid gap-2 rounded-2xl border border-border bg-card p-3">
+            <div className="grid gap-2 rounded-xl border border-border bg-card p-3">
               <strong className="text-sm font-medium">
                 {preview.configuration.data.records.length} mapped items
               </strong>

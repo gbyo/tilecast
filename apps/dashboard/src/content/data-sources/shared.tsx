@@ -57,7 +57,7 @@ export function EditorFrame({
         className={
           page
             ? "grid w-full min-w-0 gap-5"
-            : "mx-auto grid w-full max-w-3xl gap-5 rounded-2xl bg-background p-5"
+            : "mx-auto grid w-full max-w-3xl gap-5 rounded-xl bg-background p-5"
         }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}

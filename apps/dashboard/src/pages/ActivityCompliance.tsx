@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -120,8 +120,6 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
   };
   const breakdown = data.breakdown;
 
-  const dimensionLabel =
-    dimensions.find((item) => item.value === dimension)?.label ?? dimension;
   return (
     <section
       className="grid gap-3 rounded-xl border border-border p-4"
@@ -140,7 +138,8 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
         </div>
         <label className="grid gap-1 text-xs font-medium">
           <span>Break down by</span>
-          <RheaSelect
+          <Select
+            items={dimensions}
             value={dimension}
             onValueChange={(next) => {
               if (next) setDimension(next);
@@ -151,16 +150,16 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
               className="w-40"
               aria-label="Break down by"
             >
-              <SelectValue>{dimensionLabel}</SelectValue>
+              <SelectValue />
             </SelectTrigger>
-            <SelectContent align="end" alignItemWithTrigger={false}>
+            <SelectContent>
               {dimensions.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
                   {item.label}
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </label>
       </header>
 

@@ -46,6 +46,7 @@ import type {
 import { useAuth } from "../auth/AuthProvider";
 import { ScreenContentChain } from "../content/ScreenContentChain";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
+import { DashboardSearch } from "../components/DashboardListToolbar";
 import { ScreenPresentationNetworkPanel } from "../components/ScreenPresentationNetworkPanel";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { FormField } from "../components/FormField";
@@ -59,15 +60,15 @@ import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton, buttonVariants } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button, buttonVariants } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -77,7 +78,7 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -85,7 +86,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import {
-  DropdownMenu as RheaDropdownMenu,
+  DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -111,12 +112,12 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import {
-  Popover as RheaPopover,
+  Popover,
   PopoverContent,
   PopoverTrigger,
 } from "../components/ui/popover";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectGroup,
   SelectItem,
@@ -124,13 +125,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import {
-  ToggleGroup as RheaToggleGroup,
-  ToggleGroupItem,
-} from "../components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { Skeleton } from "../components/ui/skeleton";
 import {
-  Tabs as RheaTabs,
+  Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
@@ -386,10 +384,21 @@ function LocationPicker({
   onChange: (value?: string) => void;
 }) {
   const selected = locations.find((location) => location.id === value);
+  const items = [
+    { value: "__unassigned__", label: "Unassigned" },
+    ...locations.map((location) => {
+      const address = formatLocationAddress(location);
+      return {
+        value: location.id,
+        label: address ? `${location.name} — ${address}` : location.name,
+      };
+    }),
+  ];
   return (
     <label className="grid gap-2 text-sm font-medium">
       <span>Location (optional)</span>
-      <RheaSelect
+      <Select
+        items={items}
         value={value ?? "__unassigned__"}
         onValueChange={(next) =>
           onChange(next === "__unassigned__" || !next ? undefined : next)
@@ -399,17 +408,13 @@ function LocationPicker({
           <SelectValue placeholder="Unassigned" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="__unassigned__">Unassigned</SelectItem>
-          {locations.map((location) => (
-            <SelectItem key={location.id} value={location.id}>
-              {location.name}
-              {formatLocationAddress(location)
-                ? ` — ${formatLocationAddress(location)}`
-                : ""}
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
             </SelectItem>
           ))}
         </SelectContent>
-      </RheaSelect>
+      </Select>
       {selected && formatLocationAddress(selected) && (
         <small className="text-xs text-muted-foreground">
           {formatLocationAddress(selected)}
@@ -572,7 +577,7 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
               </ul>
             </div>
             {canManage && (
-              <RheaButton
+              <Button
                 variant="destructive"
                 size="sm"
                 type="button"
@@ -582,12 +587,12 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
                 }}
               >
                 End takeover
-              </RheaButton>
+              </Button>
             )}
           </Alert>
         ))}
       </div>
-      <RheaDialog
+      <Dialog
         open={canceling !== null}
         onOpenChange={(open) => {
           if (!open) setCanceling(null);
@@ -622,24 +627,24 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
               />
             </label>
             <DialogFooter>
-              <RheaButton
+              <Button
                 variant="outline"
                 type="button"
                 onClick={() => setCanceling(null)}
               >
                 Keep takeover active
-              </RheaButton>
-              <RheaButton
+              </Button>
+              <Button
                 variant="destructive"
                 type="submit"
                 disabled={!canceling || cancel.isPending}
               >
                 {cancel.isPending ? "Ending…" : "End takeover"}
-              </RheaButton>
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
-      </RheaDialog>
+      </Dialog>
     </>
   );
 }
@@ -693,7 +698,7 @@ function FleetHoldButton({
 
   return (
     <div className="grid justify-items-start gap-1.5">
-      <RheaButton
+      <Button
         variant="destructive"
         type="button"
         disabled={disabled}
@@ -721,7 +726,7 @@ function FleetHoldButton({
           style={{ width: `${progress * 100}%` }}
         />
         {holding && holdingLabel ? holdingLabel : children}
-      </RheaButton>
+      </Button>
       {hint && (
         <span id={hintId} className="text-xs text-muted-foreground">
           {hint}
@@ -818,7 +823,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
   };
   return (
     <>
-      <RheaButton
+      <Button
         variant="outline"
         type="button"
         aria-haspopup="dialog"
@@ -829,8 +834,8 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
         {activeCount > 0 && (
           <Badge variant="secondary">{activeCount} active</Badge>
         )}
-      </RheaButton>
-      <RheaDialog open={open} onOpenChange={setOpen}>
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[min(90vh,54rem)] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Takeover</DialogTitle>
@@ -850,7 +855,11 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             </label>
             <label className="grid gap-2 text-sm font-medium">
               <span>Playlist</span>
-              <RheaSelect
+              <Select
+                items={(playlists.data?.items ?? []).map((playlist) => ({
+                  value: playlist.id,
+                  label: playlist.name,
+                }))}
                 value={playlistId || null}
                 onValueChange={(value) => setPlaylistId(value ?? "")}
               >
@@ -864,11 +873,17 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </label>
             <label className="grid gap-2 text-sm font-medium">
               <span>Expires in</span>
-              <RheaSelect
+              <Select
+                items={[
+                  { value: "15", label: "15 minutes" },
+                  { value: "60", label: "1 hour" },
+                  { value: "240", label: "4 hours" },
+                  { value: "1440", label: "24 hours" },
+                ]}
                 value={String(minutes)}
                 onValueChange={(value) => {
                   if (value) setMinutes(Number(value));
@@ -883,12 +898,12 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                   <SelectItem value="240">4 hours</SelectItem>
                   <SelectItem value="1440">24 hours</SelectItem>
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </label>
             <fieldset className="grid gap-3 border-t border-border pt-4">
               <legend className="text-sm font-semibold">Target screens</legend>
               <div className="flex flex-wrap items-center gap-3">
-                <RheaButton
+                <Button
                   variant="outline"
                   size="sm"
                   type="button"
@@ -901,7 +916,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                   }
                 >
                   All screens
-                </RheaButton>
+                </Button>
                 <span className="text-sm text-muted-foreground">
                   {screens.length} screen{screens.length === 1 ? "" : "s"} in
                   the fleet
@@ -913,7 +928,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                     className="flex min-w-0 items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm"
                     key={item.id}
                   >
-                    <RheaCheckbox
+                    <Checkbox
                       className="mt-0.5"
                       checked={screenIds.includes(item.id)}
                       onCheckedChange={(checked) =>
@@ -944,7 +959,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                     className="flex min-w-0 items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm"
                     key={group.id}
                   >
-                    <RheaCheckbox
+                    <Checkbox
                       className="mt-0.5"
                       checked={groupIds.includes(group.id)}
                       onCheckedChange={(checked) =>
@@ -990,13 +1005,13 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
               .
             </p>
             <div className="flex flex-wrap justify-end gap-2">
-              <RheaButton
+              <Button
                 variant="outline"
                 type="button"
                 onClick={() => setOpen(false)}
               >
                 Cancel
-              </RheaButton>
+              </Button>
               {everyScreenSelected ? (
                 <FleetHoldButton
                   holdMs={3000}
@@ -1010,23 +1025,20 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                     : "Hold to activate takeover"}
                 </FleetHoldButton>
               ) : (
-                <RheaButton
+                <Button
                   variant="destructive"
                   type="button"
                   disabled={!ready || activate.isPending}
                   onClick={() => beginActivation(false)}
                 >
                   {activate.isPending ? "Activating…" : "Activate takeover"}
-                </RheaButton>
+                </Button>
               )}
             </div>
           </DialogFooter>
         </DialogContent>
-      </RheaDialog>
-      <RheaAlertDialog
-        open={confirmationOpen}
-        onOpenChange={setConfirmationOpen}
-      >
+      </Dialog>
+      <AlertDialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Activate this takeover?</AlertDialogTitle>
@@ -1048,8 +1060,8 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
-      <RheaDialog open={passwordOpen} onOpenChange={setPasswordOpen}>
+      </AlertDialog>
+      <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
         <DialogContent>
           <form
             className="space-y-5"
@@ -1084,23 +1096,23 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
               </Alert>
             )}
             <DialogFooter>
-              <RheaButton
+              <Button
                 variant="outline"
                 type="button"
                 onClick={() => setPasswordOpen(false)}
               >
                 Cancel
-              </RheaButton>
-              <RheaButton
+              </Button>
+              <Button
                 type="submit"
                 disabled={!activationPassword || activate.isPending}
               >
                 {activate.isPending ? "Activating…" : "Confirm takeover"}
-              </RheaButton>
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
-      </RheaDialog>
+      </Dialog>
     </>
   );
 }
@@ -1374,20 +1386,12 @@ export function ScreenListContent({
           role="group"
           aria-label="Filter screens"
         >
-          <div className="relative min-w-56 flex-1 sm:max-w-md">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              aria-label="Search screens"
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search screens…"
-              className="pl-9"
-            />
-          </div>
+          <DashboardSearch
+            value={search}
+            onValueChange={setSearch}
+            label="Search screens"
+            placeholder="Search screens…"
+          />
           <FleetFilterSelect
             label="Status"
             value={status}
@@ -1435,9 +1439,9 @@ export function ScreenListContent({
               { value: "nothing", label: "Nothing assigned" },
             ]}
           />
-          <RheaPopover>
+          <Popover>
             <PopoverTrigger
-              render={<RheaButton variant="outline" size="sm" />}
+              render={<Button variant="outline" />}
               aria-label={`More screen filters${advancedFilterCount ? `, ${advancedFilterCount} active` : ""}`}
             >
               <SlidersHorizontal aria-hidden="true" /> More filters
@@ -1495,7 +1499,7 @@ export function ScreenListContent({
                 ]}
               />
             </PopoverContent>
-          </RheaPopover>
+          </Popover>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1523,9 +1527,9 @@ export function ScreenListContent({
                   </button>
                 </Badge>
               ))}
-              <RheaButton variant="ghost" size="xs" onClick={clearFilters}>
+              <Button variant="ghost" size="xs" onClick={clearFilters}>
                 Clear filters
-              </RheaButton>
+              </Button>
             </div>
           ) : (
             <span />
@@ -1545,6 +1549,7 @@ export function ScreenListContent({
             />
             <FleetFilterSelect
               label="Sort screens"
+              className="w-52 max-sm:flex-1"
               value={sort}
               onChange={setSort}
               options={[
@@ -1558,7 +1563,7 @@ export function ScreenListContent({
                 { value: "platform-asc", label: "Platform" },
               ]}
             />
-            <RheaToggleGroup
+            <ToggleGroup
               value={[view]}
               multiple={false}
               onValueChange={(values) => {
@@ -1569,7 +1574,6 @@ export function ScreenListContent({
               }}
               aria-label="Screen view"
               variant="outline"
-              size="sm"
               spacing={0}
             >
               <ToggleGroupItem value="table" aria-label="Table view">
@@ -1578,7 +1582,7 @@ export function ScreenListContent({
               <ToggleGroupItem value="grid" aria-label="Preview grid view">
                 <Grid2X2 aria-hidden="true" />
               </ToggleGroupItem>
-            </RheaToggleGroup>
+            </ToggleGroup>
           </div>
         </div>
       </div>
@@ -1591,13 +1595,13 @@ export function ScreenListContent({
       {selected.size > 0 && canManage && (
         <div className="flex flex-wrap items-center gap-2 border-l-2 border-primary bg-muted/50 px-3 py-2">
           <strong className="mr-2 text-sm">{selected.size} selected</strong>
-          <RheaButton
+          <Button
             variant="outline"
             size="sm"
             onClick={() => void restartSelected()}
           >
             <RefreshCw aria-hidden="true" /> Restart
-          </RheaButton>
+          </Button>
           <FleetFilterSelect
             label="Move selected screens to location"
             value={bulkLocation}
@@ -1610,20 +1614,20 @@ export function ScreenListContent({
               })),
             ]}
           />
-          <RheaButton
+          <Button
             variant="secondary"
             size="sm"
             onClick={() => void changeSelectedLocation()}
           >
             Move to location
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             variant="ghost"
             size="sm"
             onClick={() => setSelected(new Set())}
           >
             Clear selection
-          </RheaButton>
+          </Button>
         </div>
       )}
       {locationsError && (
@@ -1647,9 +1651,9 @@ export function ScreenListContent({
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <RheaButton variant="outline" size="sm" onClick={clearFilters}>
+            <Button variant="outline" size="sm" onClick={clearFilters}>
               Clear filters
-            </RheaButton>
+            </Button>
           </EmptyContent>
         </Empty>
       ) : visibleGroups.every((group) => collapsed.has(group.key)) ? (
@@ -1658,7 +1662,7 @@ export function ScreenListContent({
             <EmptyTitle>All groups are collapsed</EmptyTitle>
           </EmptyHeader>
           <EmptyContent>
-            <RheaButton
+            <Button
               variant="outline"
               size="sm"
               onClick={() => {
@@ -1667,7 +1671,7 @@ export function ScreenListContent({
               }}
             >
               Expand all groups
-            </RheaButton>
+            </Button>
           </EmptyContent>
         </Empty>
       ) : (
@@ -1681,7 +1685,7 @@ export function ScreenListContent({
               <section className="min-w-0 space-y-2" key={group.key}>
                 {groupBy !== "none" && (
                   <header className="flex flex-wrap items-center gap-2 border-b border-border py-2">
-                    <RheaButton
+                    <Button
                       variant="ghost"
                       size="icon-sm"
                       aria-expanded={!isCollapsed}
@@ -1693,9 +1697,9 @@ export function ScreenListContent({
                       ) : (
                         <ChevronDown size={16} aria-hidden="true" />
                       )}
-                    </RheaButton>
+                    </Button>
                     {canManage && (
-                      <RheaCheckbox
+                      <Checkbox
                         aria-label={`Select all screens in ${group.label}`}
                         checked={groupSelected}
                         onCheckedChange={(checked) => {
@@ -1814,36 +1818,33 @@ function FleetFilterSelect({
   className?: string;
 }) {
   const selectedValue = value || noFleetFilter;
+  const items = options.map((option) => ({
+    value: option.value || noFleetFilter,
+    label: option.label,
+  }));
 
   return (
-    <RheaSelect
+    <Select
+      items={items}
       value={selectedValue}
       onValueChange={(next) =>
         onChange(!next || next === noFleetFilter ? "" : next)
       }
     >
       <SelectTrigger
-        size="sm"
         aria-label={label}
-        className={`max-w-52 ${className ?? ""}`.trim()}
+        className={className ?? "w-40 max-sm:flex-1"}
       >
-        <SelectValue placeholder={label}>
-          {options.find(
-            (option) => (option.value || noFleetFilter) === selectedValue,
-          )?.label ?? label}
-        </SelectValue>
+        <SelectValue placeholder={label} />
       </SelectTrigger>
-      <SelectContent align="start" alignItemWithTrigger={false}>
-        {options.map((option) => (
-          <SelectItem
-            key={option.value || noFleetFilter}
-            value={option.value || noFleetFilter}
-          >
+      <SelectContent>
+        {items.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
             {option.label}
           </SelectItem>
         ))}
       </SelectContent>
-    </RheaSelect>
+    </Select>
   );
 }
 
@@ -1871,22 +1872,22 @@ function ScreenSummary({
         {screens.length} screen{screens.length === 1 ? "" : "s"} · {locations}{" "}
         location{locations === 1 ? "" : "s"}
       </span>
-      <RheaButton
+      <Button
         variant={status === "online" ? "secondary" : "ghost"}
         size="sm"
         aria-pressed={status === "online"}
         onClick={() => onStatus(status === "online" ? "" : "online")}
       >
         <strong className="tabular-nums">{online}</strong> Online
-      </RheaButton>
-      <RheaButton
+      </Button>
+      <Button
         variant={status === "attention" ? "secondary" : "ghost"}
         size="sm"
         aria-pressed={status === "attention"}
         onClick={() => onStatus(status === "attention" ? "" : "attention")}
       >
         <strong className="tabular-nums">{attention}</strong> Needs attention
-      </RheaButton>
+      </Button>
     </div>
   );
 }
@@ -2128,7 +2129,7 @@ export function ScreenGridCard({
   return (
     <article
       ref={ref}
-      className={`group min-w-0 overflow-hidden rounded-2xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
+      className={`group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
     >
       <Link
         to={detailHref}
@@ -2179,7 +2180,7 @@ export function ScreenGridCard({
       <div className="grid gap-3 p-3">
         <header className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
           {canManage && (
-            <RheaCheckbox
+            <Checkbox
               aria-label={`Select ${screen.name}`}
               checked={selected}
               onCheckedChange={(checked) => onSelect(checked === true)}
@@ -2199,9 +2200,9 @@ export function ScreenGridCard({
             </small>
           </span>
           <div className="shrink-0">
-            <RheaDropdownMenu>
+            <DropdownMenu>
               <DropdownMenuTrigger
-                render={<RheaButton variant="ghost" size="icon-sm" />}
+                render={<Button variant="ghost" size="icon-sm" />}
                 aria-label={`Actions for ${screen.name}`}
               >
                 <MoreHorizontal aria-hidden="true" />
@@ -2262,7 +2263,7 @@ export function ScreenGridCard({
                   </>
                 )}
               </DropdownMenuContent>
-            </RheaDropdownMenu>
+            </DropdownMenu>
           </div>
         </header>
         <div className="flex flex-wrap items-center gap-2">
@@ -2416,8 +2417,8 @@ export function PairScreenPage() {
   return (
     <section className="pair-card">
       <header>
-        <span className="empty-illustration">
-          <Link2 size={24} />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+          <Link2 className="size-5" aria-hidden="true" />
         </span>
         <div>
           <h2>Pair a screen</h2>
@@ -2440,7 +2441,7 @@ export function PairScreenPage() {
           error={form.formState.errors.code?.message}
           {...form.register("code")}
         />
-        <RheaButton type="submit">Find player</RheaButton>
+        <Button type="submit">Find player</Button>
         <Link className={buttonVariants({ variant: "ghost" })} to="/screens">
           Cancel
         </Link>
@@ -2680,7 +2681,13 @@ function ApprovalPanel({
         {destination === "replace_hardware" && (
           <label className="grid gap-2 text-sm font-medium">
             <span>Existing screen</span>
-            <RheaSelect
+            <Select
+              items={(screens.data?.items ?? []).map((screen) => ({
+                value: screen.id,
+                label: screen.location
+                  ? `${screen.name} — ${screen.location}`
+                  : screen.name,
+              }))}
               value={replacementScreenId || null}
               onValueChange={(value) => setReplacementScreenId(value ?? "")}
             >
@@ -2697,7 +2704,7 @@ function ApprovalPanel({
                     </SelectItem>
                   ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
             <small className="text-xs text-muted-foreground">
               The old credential is retired only after this player successfully
               enrolls.
@@ -2761,7 +2768,7 @@ function ApprovalPanel({
           <Textarea id="screenDescription" {...form.register("description")} />
         </Field>
         <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             className="text-destructive hover:text-destructive"
@@ -2769,18 +2776,18 @@ function ApprovalPanel({
             disabled={reject.isPending || approve.isPending}
           >
             Reject
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="submit"
             disabled={approve.isPending || reject.isPending}
           >
             {approve.isPending
               ? "Approving…"
               : pairingApprovalLabel(request, destination)}
-          </RheaButton>
+          </Button>
         </div>
       </form>
-      <RheaAlertDialog
+      <AlertDialog
         open={approvalConfirmation !== null}
         onOpenChange={(open) => {
           if (!open) setApprovalConfirmation(null);
@@ -2812,7 +2819,7 @@ function ApprovalPanel({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
     </section>
   );
 }
@@ -3105,12 +3112,12 @@ export function ScreenDetailPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canManageScreens(auth.status?.user) && (
-            <RheaButton size="sm" onClick={() => setQuickPresentOpen(true)}>
+            <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
               <Play aria-hidden="true" /> Present
-            </RheaButton>
+            </Button>
           )}
           {canManageScreens(auth.status?.user) && (
-            <RheaButton
+            <Button
               variant="outline"
               size="sm"
               onClick={() =>
@@ -3118,11 +3125,11 @@ export function ScreenDetailPage() {
               }
             >
               <RefreshCw aria-hidden="true" /> Restart
-            </RheaButton>
+            </Button>
           )}
-          <RheaDropdownMenu>
+          <DropdownMenu>
             <DropdownMenuTrigger
-              render={<RheaButton variant="outline" size="icon-sm" />}
+              render={<Button variant="outline" size="icon-sm" />}
               aria-label="More screen actions"
             >
               <MoreHorizontal aria-hidden="true" />
@@ -3143,7 +3150,7 @@ export function ScreenDetailPage() {
                 <Monitor aria-hidden="true" /> View content
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </RheaDropdownMenu>
+          </DropdownMenu>
         </div>
       </header>
       <AirPlayPresentDialog
@@ -3167,7 +3174,7 @@ export function ScreenDetailPage() {
         csrfToken={auth.status?.csrfToken ?? ""}
         onClose={() => setQuickPresentOpen(false)}
       />
-      <RheaDialog open={editingDetails} onOpenChange={setEditingDetails}>
+      <Dialog open={editingDetails} onOpenChange={setEditingDetails}>
         <DialogContent className="max-w-2xl">
           <form
             className="space-y-5"
@@ -3256,21 +3263,21 @@ export function ScreenDetailPage() {
               )}
             </label>
             <DialogFooter>
-              <RheaButton
+              <Button
                 variant="outline"
                 type="button"
                 onClick={() => setEditingDetails(false)}
               >
                 Cancel
-              </RheaButton>
-              <RheaButton type="submit" disabled={updateDetails.isPending}>
+              </Button>
+              <Button type="submit" disabled={updateDetails.isPending}>
                 {updateDetails.isPending ? "Saving…" : "Save details"}
-              </RheaButton>
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
-      </RheaDialog>
-      <RheaTabs
+      </Dialog>
+      <Tabs
         value={tab}
         onValueChange={selectTab}
         className="w-full min-w-0 gap-4"
@@ -3395,20 +3402,20 @@ export function ScreenDetailPage() {
                 />
               </dl>
               <div className="flex flex-wrap gap-2">
-                <RheaButton
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={() => selectTab("content")}
                 >
                   View content
-                </RheaButton>
-                <RheaButton
+                </Button>
+                <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => selectTab("activity")}
                 >
                   View activity
-                </RheaButton>
+                </Button>
               </div>
               <section
                 className="space-y-2"
@@ -3500,7 +3507,21 @@ export function ScreenDetailPage() {
               {canManageScreens(auth.status?.user) ? (
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1">
-                    <RheaSelect
+                    <Select
+                      items={[
+                        {
+                          value: "__none__",
+                          label: "No presentation assigned",
+                        },
+                        ...(playlists.data?.items ?? []).map((playlist) => ({
+                          value: `playlist:${playlist.id}`,
+                          label: playlist.name,
+                        })),
+                        ...(layouts.data?.items ?? []).map((layout) => ({
+                          value: `layout:${layout.id}`,
+                          label: layout.name,
+                        })),
+                      ]}
                       value={selectedPresentation || "__none__"}
                       onValueChange={(value) =>
                         setSelectedPresentation(
@@ -3543,9 +3564,9 @@ export function ScreenDetailPage() {
                             ))}
                         </SelectGroup>
                       </SelectContent>
-                    </RheaSelect>
+                    </Select>
                   </div>
-                  <RheaButton
+                  <Button
                     disabled={
                       assign.isPending ||
                       selectedPresentation ===
@@ -3562,7 +3583,7 @@ export function ScreenDetailPage() {
                       : assignment.data?.groups?.[0]
                         ? "Apply to Display Group"
                         : "Apply assignment"}
-                  </RheaButton>
+                  </Button>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -4142,7 +4163,7 @@ export function ScreenDetailPage() {
                               </p>
                             </div>
                             <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
-                              <RheaButton
+                              <Button
                                 variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
@@ -4153,8 +4174,8 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Test sleep
-                              </RheaButton>
-                              <RheaButton
+                              </Button>
+                              <Button
                                 variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
@@ -4165,7 +4186,7 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Test wake
-                              </RheaButton>
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -4178,7 +4199,7 @@ export function ScreenDetailPage() {
                             </p>
                           </div>
                           <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
-                            <RheaButton
+                            <Button
                               variant="outline"
                               disabled={command.isPending}
                               onClick={() =>
@@ -4189,8 +4210,8 @@ export function ScreenDetailPage() {
                               }
                             >
                               Retry recovery
-                            </RheaButton>
-                            <RheaButton
+                            </Button>
+                            <Button
                               variant="outline"
                               disabled={
                                 command.isPending || !reliability.data?.safeMode
@@ -4203,7 +4224,7 @@ export function ScreenDetailPage() {
                               }
                             >
                               Exit safe mode
-                            </RheaButton>
+                            </Button>
                           </div>
                         </div>
                         {reportsAutostart(reliability.data) && (
@@ -4230,7 +4251,7 @@ export function ScreenDetailPage() {
                               </p>
                             </div>
                             <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
-                              <RheaButton
+                              <Button
                                 variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
@@ -4241,8 +4262,8 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Set up autostart
-                              </RheaButton>
-                              <RheaButton
+                              </Button>
+                              <Button
                                 variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
@@ -4259,7 +4280,7 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Remove autostart
-                              </RheaButton>
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -4280,7 +4301,7 @@ export function ScreenDetailPage() {
                             <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 lg:grid-cols-4 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
                               {displayCapabilities.power && (
                                 <>
-                                  <RheaButton
+                                  <Button
                                     variant="outline"
                                     disabled={command.isPending}
                                     onClick={() =>
@@ -4291,8 +4312,8 @@ export function ScreenDetailPage() {
                                     }
                                   >
                                     Power on display
-                                  </RheaButton>
-                                  <RheaButton
+                                  </Button>
+                                  <Button
                                     variant="outline"
                                     disabled={command.isPending}
                                     onClick={() =>
@@ -4303,11 +4324,11 @@ export function ScreenDetailPage() {
                                     }
                                   >
                                     Power off display
-                                  </RheaButton>
+                                  </Button>
                                 </>
                               )}
                               {displayCapabilities.input && (
-                                <RheaButton
+                                <Button
                                   variant="outline"
                                   disabled={command.isPending}
                                   onClick={() =>
@@ -4328,10 +4349,10 @@ export function ScreenDetailPage() {
                                   }
                                 >
                                   Set display input
-                                </RheaButton>
+                                </Button>
                               )}
                               {displayCapabilities.volume && (
-                                <RheaButton
+                                <Button
                                   variant="outline"
                                   disabled={command.isPending}
                                   onClick={() =>
@@ -4353,11 +4374,11 @@ export function ScreenDetailPage() {
                                   }
                                 >
                                   Set display volume
-                                </RheaButton>
+                                </Button>
                               )}
                               {displayCapabilities.mute && (
                                 <>
-                                  <RheaButton
+                                  <Button
                                     variant="outline"
                                     disabled={command.isPending}
                                     onClick={() =>
@@ -4368,8 +4389,8 @@ export function ScreenDetailPage() {
                                     }
                                   >
                                     Mute display
-                                  </RheaButton>
-                                  <RheaButton
+                                  </Button>
+                                  <Button
                                     variant="outline"
                                     disabled={command.isPending}
                                     onClick={() =>
@@ -4380,11 +4401,11 @@ export function ScreenDetailPage() {
                                     }
                                   >
                                     Unmute display
-                                  </RheaButton>
+                                  </Button>
                                 </>
                               )}
                               {displayCapabilities.brightness && (
-                                <RheaButton
+                                <Button
                                   variant="outline"
                                   disabled={command.isPending}
                                   onClick={() =>
@@ -4408,9 +4429,9 @@ export function ScreenDetailPage() {
                                   }
                                 >
                                   Set display brightness
-                                </RheaButton>
+                                </Button>
                               )}
-                              <RheaButton
+                              <Button
                                 variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
@@ -4421,7 +4442,7 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Probe display capabilities
-                              </RheaButton>
+                              </Button>
                               {!hasDisplayControl && (
                                 <span className="text-sm text-muted-foreground">
                                   No HDMI-CEC or DDC/CI capability is currently
@@ -4444,7 +4465,7 @@ export function ScreenDetailPage() {
                               </p>
                             </div>
                             <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
-                              <RheaButton
+                              <Button
                                 variant="outline"
                                 disabled={command.isPending}
                                 onClick={() =>
@@ -4455,7 +4476,7 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 Test AirPlay support
-                              </RheaButton>
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -4485,7 +4506,7 @@ export function ScreenDetailPage() {
                                 ["run_player_self_test", "Run self-test"],
                               ] as const
                             ).map(([type, label]) => (
-                              <RheaButton
+                              <Button
                                 variant="outline"
                                 key={type}
                                 disabled={command.isPending}
@@ -4494,7 +4515,7 @@ export function ScreenDetailPage() {
                                 }
                               >
                                 {label}
-                              </RheaButton>
+                              </Button>
                             ))}
                           </div>
                         </div>
@@ -4515,23 +4536,23 @@ export function ScreenDetailPage() {
                     expire automatically.
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <RheaButton
+                    <Button
                       variant="outline"
                       onClick={() =>
                         command.mutate({ type: "sync_now", payload: {} })
                       }
                     >
                       Sync now
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       variant="outline"
                       onClick={() =>
                         command.mutate({ type: "reload_playback", payload: {} })
                       }
                     >
                       Reload playback
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       variant="outline"
                       onClick={() =>
                         command.mutate({
@@ -4541,8 +4562,8 @@ export function ScreenDetailPage() {
                       }
                     >
                       Identify screen
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       variant="destructive"
                       onClick={() =>
                         requestScreenCommand({
@@ -4558,8 +4579,8 @@ export function ScreenDetailPage() {
                       }
                     >
                       Clear media cache
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       variant="destructive"
                       onClick={() =>
                         requestScreenCommand({
@@ -4575,8 +4596,8 @@ export function ScreenDetailPage() {
                       }
                     >
                       Clear website data
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       variant="destructive"
                       onClick={() => {
                         const disabling = !assignment.data?.playbackDisabled;
@@ -4602,7 +4623,7 @@ export function ScreenDetailPage() {
                       {assignment.data?.playbackDisabled
                         ? "Enable playback"
                         : "Disable playback"}
-                    </RheaButton>
+                    </Button>
                   </div>
                   {command.isSuccess && (
                     <p className="text-sm text-muted-foreground">
@@ -4803,7 +4824,7 @@ export function ScreenDetailPage() {
                             : "Enabling allows the paired player to reconnect."}
                         </p>
                       </div>
-                      <RheaButton
+                      <Button
                         variant="outline"
                         onClick={() => stateMutation.mutate(!screen.enabled)}
                         disabled={stateMutation.isPending}
@@ -4813,7 +4834,7 @@ export function ScreenDetailPage() {
                           : screen.enabled
                             ? "Disable"
                             : "Enable"}
-                      </RheaButton>
+                      </Button>
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
                       <div>
@@ -4823,13 +4844,13 @@ export function ScreenDetailPage() {
                           player must pair again.
                         </p>
                       </div>
-                      <RheaButton
+                      <Button
                         variant="destructive"
                         onClick={() => setConfirmRevoke(true)}
                         disabled={!screen.hasActiveCredential}
                       >
                         Revoke pairing
-                      </RheaButton>
+                      </Button>
                     </div>
                   </section>
                 )}
@@ -4847,8 +4868,8 @@ export function ScreenDetailPage() {
             />
           </TabsContent>
         )}
-      </RheaTabs>
-      <RheaDialog
+      </Tabs>
+      <Dialog
         open={pendingDestination !== null}
         onOpenChange={(open) => {
           if (!open) setPendingDestination(null);
@@ -4863,24 +4884,24 @@ export function ScreenDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <RheaButton
+            <Button
               variant="outline"
               onClick={() => setPendingDestination(null)}
             >
               Keep editing
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               variant="destructive"
               onClick={() => {
                 if (pendingDestination) commitDestination(pendingDestination);
               }}
             >
               Discard changes
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
-      </RheaDialog>
-      <RheaAlertDialog open={confirmRevoke} onOpenChange={setConfirmRevoke}>
+      </Dialog>
+      <AlertDialog open={confirmRevoke} onOpenChange={setConfirmRevoke}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -4904,8 +4925,8 @@ export function ScreenDetailPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
-      <RheaAlertDialog
+      </AlertDialog>
+      <AlertDialog
         open={screenCommandAction?.kind === "confirm"}
         onOpenChange={(open) => {
           if (!open && screenCommandAction?.kind === "confirm") {
@@ -4946,8 +4967,8 @@ export function ScreenDetailPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
-      <RheaDialog
+      </AlertDialog>
+      <Dialog
         open={screenCommandAction?.kind === "input"}
         onOpenChange={(open) => {
           if (!open && screenCommandAction?.kind === "input") {
@@ -4993,21 +5014,21 @@ export function ScreenDetailPage() {
                 </p>
               )}
               <DialogFooter>
-                <RheaButton
+                <Button
                   variant="outline"
                   type="button"
                   onClick={() => setScreenCommandAction(null)}
                 >
                   Cancel
-                </RheaButton>
-                <RheaButton type="submit" disabled={command.isPending}>
+                </Button>
+                <Button type="submit" disabled={command.isPending}>
                   {screenCommandAction.confirmLabel}
-                </RheaButton>
+                </Button>
               </DialogFooter>
             </form>
           )}
         </DialogContent>
-      </RheaDialog>
+      </Dialog>
     </div>
   );
 }

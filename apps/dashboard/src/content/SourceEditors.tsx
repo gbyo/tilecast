@@ -150,7 +150,7 @@ export function WidgetProviderGallery({
           disabled ? `widget-availability-${definition.id}` : undefined
         }
         onClick={() => onChoose(definition.id)}
-        className="grid min-w-0 gap-2 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:border-foreground/20 disabled:opacity-60"
+        className="grid min-w-0 gap-2 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-foreground/20 disabled:opacity-60"
       >
         <span className="grid aspect-video w-full place-items-center overflow-hidden rounded-xl bg-muted">
           <WidgetThumbnail
@@ -196,7 +196,7 @@ export function WidgetProviderGallery({
         className={
           page
             ? "w-full min-w-0 space-y-5"
-            : "mx-auto w-full max-w-4xl space-y-5 rounded-2xl bg-background p-5"
+            : "mx-auto w-full max-w-4xl space-y-5 rounded-xl bg-background p-5"
         }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
@@ -729,7 +729,7 @@ export function NativeAppEditor({
         className={
           page
             ? "grid w-full min-w-0 gap-5"
-            : "mx-auto grid w-full max-w-5xl gap-5 rounded-2xl bg-background p-5"
+            : "mx-auto grid w-full max-w-5xl gap-5 rounded-xl bg-background p-5"
         }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
@@ -836,6 +836,10 @@ export function NativeAppEditor({
                       Time format
                     </FieldLabel>
                     <RheaSelect
+                      items={[
+                        { value: "12", label: "12-hour" },
+                        { value: "24", label: "24-hour" },
+                      ]}
                       value={(configuration as ClockWidgetConfig).format}
                       disabled={readOnly}
                       onValueChange={(next) =>
@@ -879,6 +883,12 @@ export function NativeAppEditor({
                     Date format
                   </FieldLabel>
                   <RheaSelect
+                    items={[
+                      { value: "full", label: "Full" },
+                      { value: "long", label: "Long" },
+                      { value: "medium", label: "Medium" },
+                      { value: "short", label: "Short" },
+                    ]}
                     value={(configuration as DateWidgetConfig).format}
                     disabled={readOnly}
                     onValueChange={(next) =>
@@ -944,6 +954,10 @@ export function NativeAppEditor({
                     <Field>
                       <FieldLabel htmlFor="countdown-mode">Mode</FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "countdown", label: "Count down" },
+                          { value: "count_up", label: "Count up" },
+                        ]}
                         value={(configuration as CountdownWidgetConfig).mode}
                         disabled={readOnly}
                         onValueChange={(next) =>
@@ -970,6 +984,13 @@ export function NativeAppEditor({
                     <Field>
                       <FieldLabel htmlFor="countdown-repeat">Repeat</FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "none", label: "Does not repeat" },
+                          { value: "daily", label: "Daily" },
+                          { value: "weekly", label: "Weekly" },
+                          { value: "monthly", label: "Monthly" },
+                          { value: "yearly", label: "Yearly" },
+                        ]}
                         value={
                           (configuration as CountdownWidgetConfig).recurrence ??
                           "none"
@@ -1005,6 +1026,14 @@ export function NativeAppEditor({
                     <Field>
                       <FieldLabel htmlFor="countdown-layout">Layout</FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "stacked", label: "Title above countdown" },
+                          {
+                            value: "horizontal",
+                            label: "Title beside countdown",
+                          },
+                          { value: "countdown_only", label: "Countdown only" },
+                        ]}
                         value={
                           (configuration as CountdownWidgetConfig).layout ??
                           "stacked"
@@ -1041,6 +1070,14 @@ export function NativeAppEditor({
                         Completion behavior
                       </FieldLabel>
                       <RheaSelect
+                        items={[
+                          {
+                            value: "completed_text",
+                            label: "Show completion text",
+                          },
+                          { value: "hide", label: "Hide" },
+                          { value: "count_up", label: "Continue counting up" },
+                        ]}
                         value={
                           (configuration as CountdownWidgetConfig)
                             .completionAction
@@ -1196,6 +1233,12 @@ export function NativeAppEditor({
                         Error correction
                       </FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "low", label: "Low" },
+                          { value: "medium", label: "Medium" },
+                          { value: "quartile", label: "Quartile" },
+                          { value: "high", label: "High" },
+                        ]}
                         value={
                           (configuration as QRCodeWidgetConfig).errorCorrection
                         }
@@ -1231,6 +1274,11 @@ export function NativeAppEditor({
                     <Field>
                       <FieldLabel htmlFor="qrcode-speed">Speed</FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "slow", label: "Slow" },
+                          { value: "normal", label: "Normal" },
+                          { value: "fast", label: "Fast" },
+                        ]}
                         value={(configuration as TickerWidgetConfig).speed}
                         disabled={readOnly}
                         onValueChange={(next) =>
@@ -1255,6 +1303,10 @@ export function NativeAppEditor({
                         Direction
                       </FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "left", label: "Left" },
+                          { value: "right", label: "Right" },
+                        ]}
                         value={(configuration as TickerWidgetConfig).direction}
                         disabled={readOnly}
                         onValueChange={(next) =>
@@ -1510,6 +1562,13 @@ export function NativeAppEditor({
                           Presentation
                         </FieldLabel>
                         <RheaSelect
+                          items={[
+                            {
+                              value: "single_record",
+                              label: "Fields from one record",
+                            },
+                            { value: "records", label: "Label and value rows" },
+                          ]}
                           value={
                             (configuration as DisplayWidgetConfig).mode ??
                             "single_record"
@@ -1676,6 +1735,21 @@ export function NativeAppEditor({
                                     Format
                                   </FieldLabel>
                                   <RheaSelect
+                                    items={[
+                                      { value: "text", label: "Text" },
+                                      { value: "number", label: "Number" },
+                                      { value: "integer", label: "Integer" },
+                                      { value: "percent", label: "Percent" },
+                                      { value: "currency", label: "Currency" },
+                                      {
+                                        value: "date-short",
+                                        label: "Short date",
+                                      },
+                                      {
+                                        value: "date-long",
+                                        label: "Long date",
+                                      },
+                                    ]}
                                     value={existing.format ?? "text"}
                                     disabled={readOnly}
                                     onValueChange={(next) =>
@@ -1720,6 +1794,11 @@ export function NativeAppEditor({
                                     Alignment
                                   </FieldLabel>
                                   <RheaSelect
+                                    items={[
+                                      { value: "left", label: "Left" },
+                                      { value: "center", label: "Center" },
+                                      { value: "right", label: "Right" },
+                                    ]}
                                     value={existing.alignment ?? "left"}
                                     disabled={readOnly}
                                     onValueChange={(next) =>
@@ -1934,6 +2013,12 @@ export function NativeAppEditor({
                     <Field>
                       <FieldLabel htmlFor="metric-format">Format</FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "number", label: "Number" },
+                          { value: "integer", label: "Integer" },
+                          { value: "percent", label: "Percent" },
+                          { value: "currency", label: "Currency" },
+                        ]}
                         value={(configuration as MetricWidgetConfig).format}
                         disabled={readOnly}
                         onValueChange={(next) =>
@@ -2010,6 +2095,11 @@ export function NativeAppEditor({
                         Alignment
                       </FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "left", label: "Left" },
+                          { value: "center", label: "Center" },
+                          { value: "right", label: "Right" },
+                        ]}
                         value={(configuration as MetricWidgetConfig).alignment}
                         disabled={readOnly}
                         onValueChange={(next) =>
@@ -2140,6 +2230,10 @@ export function NativeAppEditor({
                     <Field>
                       <FieldLabel htmlFor="cards-density">Density</FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "comfortable", label: "Comfortable" },
+                          { value: "compact", label: "Compact" },
+                        ]}
                         value={(configuration as CardsWidgetConfig).density}
                         disabled={readOnly}
                         onValueChange={(next) =>
@@ -2422,6 +2516,12 @@ export function NativeAppEditor({
                               Format
                             </FieldLabel>
                             <RheaSelect
+                              items={[
+                                { value: "number", label: "Number" },
+                                { value: "integer", label: "Integer" },
+                                { value: "percent", label: "Percent" },
+                                { value: "currency", label: "Currency" },
+                              ]}
                               value={metric.format ?? "number"}
                               disabled={readOnly}
                               onValueChange={(next) =>
@@ -2530,6 +2630,11 @@ export function NativeAppEditor({
                     <Field>
                       <FieldLabel htmlFor="chart-type">Chart type</FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "line", label: "Line" },
+                          { value: "bar", label: "Bar" },
+                          { value: "donut", label: "Donut" },
+                        ]}
                         value={(configuration as ChartWidgetConfig).chartType}
                         disabled={readOnly}
                         onValueChange={(next) =>
@@ -2848,6 +2953,10 @@ export function NativeAppEditor({
                         Orientation
                       </FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "vertical", label: "Vertical" },
+                          { value: "horizontal", label: "Horizontal" },
+                        ]}
                         value={
                           (configuration as TimelineWidgetConfig).orientation
                         }
@@ -2883,6 +2992,10 @@ export function NativeAppEditor({
                         Time format
                       </FieldLabel>
                       <RheaSelect
+                        items={[
+                          { value: "12", label: "12-hour" },
+                          { value: "24", label: "24-hour" },
+                        ]}
                         value={(configuration as WorldClockWidgetConfig).format}
                         disabled={readOnly}
                         onValueChange={(next) =>
@@ -4144,7 +4257,7 @@ export function YouTubeSourceEditor({
         className={
           page
             ? "grid w-full min-w-0 gap-5"
-            : "mx-auto grid w-full max-w-3xl gap-5 rounded-2xl bg-background p-5"
+            : "mx-auto grid w-full max-w-3xl gap-5 rounded-xl bg-background p-5"
         }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
@@ -4293,6 +4406,10 @@ export function YouTubeSourceEditor({
             Playlist item behavior
           </FieldLabel>
           <RheaSelect
+            items={[
+              { value: "until_end", label: "Play until video ends" },
+              { value: "fixed_duration", label: "Play for a fixed duration" },
+            ]}
             disabled={readOnly}
             value={configuration.playlistPlaybackMode}
             onValueChange={(next) =>
@@ -4337,6 +4454,11 @@ export function YouTubeSourceEditor({
         <Field>
           <FieldLabel htmlFor="youtube-failure">Failure behavior</FieldLabel>
           <RheaSelect
+            items={[
+              { value: "placeholder", label: "Show Tilecast placeholder" },
+              { value: "fallback_image", label: "Show fallback image" },
+              { value: "skip", label: "Skip playlist item" },
+            ]}
             disabled={readOnly}
             value={configuration.failureBehavior}
             onValueChange={(next) =>

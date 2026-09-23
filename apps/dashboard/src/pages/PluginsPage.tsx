@@ -122,7 +122,7 @@ export function PluginsPage() {
       {catalog.isLoading ? (
         <ItemGroup className="gap-2" aria-label="Loading plugins">
           {[0, 1].map((key) => (
-            <Skeleton key={key} className="h-24 rounded-2xl" />
+            <Skeleton key={key} className="h-24 rounded-xl" />
           ))}
         </ItemGroup>
       ) : installed.length === 0 && !catalog.isError ? (

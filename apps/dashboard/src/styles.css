@@ -5,14 +5,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-* {
-  box-sizing: border-box;
-}
-.settings-nav button.active {
-  color: var(--text);
-  border-left-color: var(--accent);
-  background: var(--surface);
-}
 .import-export {
   display: grid;
   gap: 16px;
@@ -52,12 +44,6 @@ body {
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
 .visually-hidden {
   position: absolute !important;
   width: 1px !important;
@@ -72,43 +58,13 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
-:focus-visible {
-  outline: 2px solid var(--tc-focus);
-  outline-offset: 2px;
-}
 .brand {
   display: flex;
   align-items: center;
   gap: 11px;
   color: inherit;
 }
-.brand__mark {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(2, 9px);
-  grid-template-rows: repeat(2, 9px);
-  gap: 2px;
-  width: 20px;
-  height: 20px;
-  transform: rotate(1deg);
-}
-.brand__mark span {
-  background: var(--tc-action-primary);
-  border-radius: 1px;
-}
-.brand__mark span:first-child {
-  grid-row: span 2;
-  background: var(--tc-identity-amber);
-}
-.brand__mark span:last-child {
-  background: var(--tc-neutral-100);
-}
-.auth-context p:not(.eyebrow) {
-  max-width: 480px;
-  color: var(--tc-sidebar-text);
-  font-size: 16px;
-  line-height: 1.65;
-}
+
 .eyebrow,
 .step-label {
   margin: 0;
@@ -122,25 +78,6 @@ a {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-}
-.field {
-  display: grid;
-  gap: 6px;
-}
-.field input {
-  width: 100%;
-  height: 39px;
-  padding: 7px 10px;
-  color: var(--tc-input-text);
-  background: var(--tc-input-bg);
-  border: 1px solid var(--tc-input-border);
-  border-radius: var(--tc-radius-sm);
-}
-.field input:hover {
-  border-color: var(--tc-border-strong);
-}
-.field input[aria-invalid="true"] {
-  border-color: var(--tc-danger);
 }
 .button {
   display: inline-flex;
@@ -185,20 +122,7 @@ a {
 .foundation {
   width: min(880px, 100%);
 }
-.status-badge {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  padding: 4px 7px;
-  color: var(--tc-status-success);
-  background: var(--tc-brand-soft);
-  border: 1px solid var(--tc-status-success-border);
-  border-radius: var(--tc-radius-sm);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
+
 .text-link {
   color: var(--tc-brand);
   font-weight: 650;
@@ -212,17 +136,6 @@ a {
   .spinner {
     animation-duration: 1.8s;
   }
-}
-
-.content-page {
-  width: min(1280px, 100%);
-}
-.content-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-  align-items: center;
-  margin-bottom: 16px;
 }
 
 .content-empty {
@@ -291,20 +204,7 @@ a {
   color: var(--tc-status-warning);
   border-color: var(--tc-status-warning-border);
 }
-.asset-collection--list .asset-card {
-  grid-template-columns: 120px 1fr auto;
-  border: 0;
-  border-bottom: 1px solid var(--tc-border);
-  border-radius: 0;
-}
-.asset-collection--list .asset-card:last-child {
-  border-bottom: 0;
-}
-.asset-collection--list .media-status {
-  position: static;
-  align-self: center;
-  margin-right: 15px;
-}
+
 .details-backdrop {
   position: fixed;
   z-index: 30;
@@ -339,16 +239,6 @@ a {
   margin: 0;
   font-size: 20px;
 }
-.asset-details .field {
-  margin-bottom: 14px;
-}
-.asset-details textarea {
-  min-height: 90px;
-  padding: 8px 10px;
-  resize: vertical;
-  border: 1px solid var(--tc-border-strong);
-  border-radius: var(--tc-radius-sm);
-}
 .asset-details dl {
   margin: 20px 0;
   border-top: 1px solid var(--tc-border);
@@ -381,13 +271,7 @@ a {
 .asset-details footer .button {
   margin: 0;
 }
-@media (max-width: 760px) {
-  .content-toolbar {
-    flex-wrap: wrap;
-  }
-}
 
-.playlists-page,
 .playlist-editor {
   width: min(1180px, 100%);
 }
@@ -429,17 +313,7 @@ a {
     animation: none;
   }
 }
-.editor-actions .button {
-  gap: 6px;
-  margin: 0;
-}
-.playlist-settings .button {
-  margin: 0;
-}
-.timeline-heading .button {
-  gap: 6px;
-  margin: 0;
-}
+
 .website-diagnostics {
   border-top: 1px solid var(--border);
   padding-top: 14px;
@@ -448,7 +322,6 @@ a {
   margin: 5px 0;
   color: var(--muted);
 }
-.settings-heading p,
 .settings-subsection header p,
 .settings-subsection__action p {
   color: var(--tc-ink-muted);
@@ -482,54 +355,18 @@ a {
   justify-content: space-between;
   gap: 18px;
 }
-.setting-copy {
-  display: grid;
-  gap: 4px;
-}
-.setting-copy label {
-  font-weight: 650;
-}
-.setting-copy p {
-  margin: 0;
-  color: var(--tc-ink-muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
-.setting-note,
+
 .setting-dependency {
   font-size: 12px;
 }
 .setting-dependency {
   color: var(--tc-ink-muted);
 }
-.setting-row--disabled .setting-copy,
-.setting-row--disabled .setting-control > :not(details) {
-  opacity: 0.58;
-}
-.setting-control {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-}
-.setting-control > input,
-.setting-control > select,
-.package-editor input,
+
 .color-control input[type="text"] {
   width: 100%;
 }
-.setting-control details {
-  color: var(--tc-ink-muted);
-  font-size: 11px;
-}
-.setting-control summary {
-  cursor: pointer;
-  width: max-content;
-}
-.setting-control details code {
-  display: block;
-  margin-top: 4px;
-  overflow-wrap: anywhere;
-}
+
 .field-error {
   color: var(--tc-danger) !important;
 }
@@ -556,14 +393,7 @@ a {
   display: grid;
   gap: 6px;
 }
-/* The bulk screen picker moved to src/pages/FleetBulkPage.css with the rest of
-   that page's styling. */
-.user-edit-dialog__scope {
-  display: grid;
-  gap: 10px;
-  padding: 14px 0;
-  border-top: 1px solid var(--tc-border);
-}
+
 .screen-scope-editor {
   display: grid;
   gap: 12px;
@@ -573,49 +403,27 @@ a {
   padding: 0;
   margin: 0;
 }
-.role-description,
-.review-note .field__label {
+.role-description {
   color: var(--tc-ink-muted);
   font-size: 12px;
 }
-.review-actions {
-  align-items: flex-end;
-}
-.review-note {
-  display: grid;
-  gap: 3px;
-  min-width: 220px;
-}
+
 .check-option {
   display: flex;
   align-items: center;
   gap: 7px;
   font-size: 13px;
 }
-.deployment-submit .button,
-.settings-inline-actions .button,
-.player-updates-table .button,
-.github-auth .button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-}
-.github-auth__summary > div span,
-.github-auth__configuration,
-.github-auth__message,
-.github-auth__device small {
+
+.github-auth__configuration {
   color: var(--tc-ink-muted);
 }
-.github-auth__summary .status-dot-label {
-  margin-left: 8px;
-}
+
 .github-auth__actions {
   display: flex;
   justify-content: flex-end;
 }
-.github-auth__configuration,
-.github-auth__message {
+.github-auth__configuration {
   grid-column: 1 / -1;
 }
 @media (max-width: 720px) {
@@ -624,70 +432,14 @@ a {
   }
 }
 
-@media (max-width: 1050px) {
-  .setting-row {
-    gap: 20px;
-  }
-}
-@media (max-width: 850px) {
-  .setting-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-  }
-  .deployment-fields,
-  .branding-workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 @media (max-width: 600px) {
   .settings-subsection {
     padding-top: 20px;
   }
-  .target-picker,
-  .system-settings-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
-.assignment-controls .button {
-  margin: 0;
-}
-.page-heading .button {
-  gap: 7px;
-  margin: 0;
-  text-decoration: none;
-}
+
 .screens-page {
   width: min(1120px, 100%);
-}
-.screen-empty {
-  display: grid;
-  min-height: 360px;
-  place-content: center;
-  justify-items: center;
-  padding: 42px;
-  text-align: center;
-  background: var(--tc-surface);
-  border: 1px solid var(--tc-border);
-  border-radius: var(--tc-radius-md);
-}
-.screen-empty h3 {
-  margin: 15px 0 6px;
-  font-size: 20px;
-}
-.screen-empty p {
-  max-width: 500px;
-  margin: 0 0 20px;
-  color: var(--tc-ink-muted);
-}
-.empty-illustration {
-  display: grid;
-  width: 54px;
-  height: 54px;
-  place-items: center;
-  color: var(--tc-brand);
-  background: var(--tc-brand-soft);
-  border: 1px solid var(--tc-status-success-border);
-  border-radius: var(--tc-radius-md);
 }
 /* The screen table, status chips, and pairing queue are defined once, in
    styles/screens.css. A second copy used to live here and the two disagreed about
@@ -735,9 +487,6 @@ a {
   grid-template-columns: 1fr auto auto;
   gap: 9px;
   align-items: end;
-}
-.pair-card form .field {
-  grid-column: 1 / -1;
 }
 .pair-card form .button {
   margin: 0;
@@ -808,24 +557,12 @@ a {
   display: grid;
   gap: 16px;
 }
-.field textarea {
-  min-height: 76px;
-  padding: 8px 10px;
-  resize: vertical;
-  color: var(--tc-ink);
-  background: white;
-  border: 1px solid var(--tc-border-strong);
-  border-radius: var(--tc-radius-sm);
-  font: inherit;
-}
-.detail-card,
-.danger-zone {
+.detail-card {
   background: var(--tc-surface);
   border: 1px solid var(--tc-border);
   border-radius: var(--tc-radius-md);
 }
-.detail-card h3,
-.danger-zone h3 {
+.detail-card h3 {
   padding: 13px 16px;
   margin: 0;
   border-bottom: 1px solid var(--tc-border);
@@ -834,9 +571,6 @@ a {
 @media (max-width: 620px) {
   .pair-card form {
     grid-template-columns: 1fr;
-  }
-  .pair-card form .field {
-    grid-column: auto;
   }
   .device-facts {
     grid-template-columns: 1fr;
@@ -984,6 +718,12 @@ a {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  /* A focus indicator for legacy controls that do not style their own. It lives in the base layer
+     so component utilities such as outline-none always take precedence. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   body {
     @apply bg-background text-foreground;

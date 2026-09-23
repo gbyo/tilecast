@@ -5,6 +5,14 @@ import { archivedScreens } from "../api/archivedScreens";
 import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { buttonVariants } from "../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
 
 const formatDate = (value?: string) =>
   value
@@ -40,19 +48,22 @@ export function ArchivedScreensPage() {
           Loading archived screens…
         </p>
       ) : screens.length === 0 ? (
-        <section className="screen-empty">
-          <span className="empty-illustration">
-            <Archive size={29} />
-          </span>
-          <h3>No archived screens</h3>
-          <p>Revoked player pairings will appear here automatically.</p>
-          <Link
-            className={buttonVariants({ variant: "default" })}
-            to="/screens"
-          >
-            Back to screens
-          </Link>
-        </section>
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Archive aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No archived screens</EmptyTitle>
+            <EmptyDescription>
+              Revoked player pairings will appear here automatically.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link className={buttonVariants()} to="/screens">
+              Back to screens
+            </Link>
+          </EmptyContent>
+        </Empty>
       ) : (
         <section className="detail-card" aria-label="Archived screens">
           <header>

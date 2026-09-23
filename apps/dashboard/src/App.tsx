@@ -265,7 +265,11 @@ export const studioRoutes: RouteObject[] = [
         },
         children: [
           { index: true, element: <ContentReviewPage /> },
-          { path: "submissions", element: <ContentSubmissionInboxPage /> },
+          {
+            path: "submissions",
+            element: <ContentSubmissionInboxPage />,
+            handle: { breadcrumb: "Submissions" },
+          },
         ],
       },
       {
@@ -373,30 +377,35 @@ export const studioRoutes: RouteObject[] = [
           },
           {
             path: "countdown-bar",
-            element: (
-              <PluginRouteGate pluginId="countdown_bar">
-                <CountdownBarsPage />
-              </PluginRouteGate>
-            ),
             handle: { breadcrumb: "Countdown Bar" },
-          },
-          {
-            path: "countdown-bar/new",
-            element: (
-              <PluginRouteGate pluginId="countdown_bar">
-                <CountdownBarEditorPage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "New instance" },
-          },
-          {
-            path: "countdown-bar/:id",
-            element: (
-              <PluginRouteGate pluginId="countdown_bar">
-                <CountdownBarEditorPage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "Countdown Bar instance" },
+            children: [
+              {
+                index: true,
+                element: (
+                  <PluginRouteGate pluginId="countdown_bar">
+                    <CountdownBarsPage />
+                  </PluginRouteGate>
+                ),
+              },
+              {
+                path: "new",
+                element: (
+                  <PluginRouteGate pluginId="countdown_bar">
+                    <CountdownBarEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "New instance" },
+              },
+              {
+                path: ":id",
+                element: (
+                  <PluginRouteGate pluginId="countdown_bar">
+                    <CountdownBarEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "Instance", resource: "countdown-bar" },
+              },
+            ],
           },
           {
             path: "emergency-alerts",
@@ -409,93 +418,113 @@ export const studioRoutes: RouteObject[] = [
           },
           {
             path: "forms",
-            element: (
-              <PluginRouteGate pluginId="forms">
-                <FormsPluginPage />
-              </PluginRouteGate>
-            ),
             handle: { breadcrumb: "Forms" },
-          },
-          {
-            path: "forms/new",
-            element: (
-              <PluginRouteGate pluginId="forms">
-                <CreateFormDataSourcePage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "Create form" },
-          },
-          {
-            path: "forms/:id",
-            element: (
-              <PluginRouteGate pluginId="forms">
-                <FormDataSourcePage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "Form", resource: "form" },
+            children: [
+              {
+                index: true,
+                element: (
+                  <PluginRouteGate pluginId="forms">
+                    <FormsPluginPage />
+                  </PluginRouteGate>
+                ),
+              },
+              {
+                path: "new",
+                element: (
+                  <PluginRouteGate pluginId="forms">
+                    <CreateFormDataSourcePage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "Create form" },
+              },
+              {
+                path: ":id",
+                element: (
+                  <PluginRouteGate pluginId="forms">
+                    <FormDataSourcePage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "Form", resource: "form" },
+              },
+            ],
           },
           {
             path: "brand-bug",
-            element: (
-              <PluginRouteGate pluginId="brand_bug">
-                <BrandBugsPage />
-              </PluginRouteGate>
-            ),
             handle: { breadcrumb: "Brand Bug / Watermark" },
-          },
-          {
-            path: "brand-bug/new",
-            element: (
-              <PluginRouteGate pluginId="brand_bug">
-                <BrandBugEditorPage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "New instance" },
-          },
-          {
-            path: "brand-bug/:id",
-            element: (
-              <PluginRouteGate pluginId="brand_bug">
-                <BrandBugEditorPage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "Brand Bug instance" },
+            children: [
+              {
+                index: true,
+                element: (
+                  <PluginRouteGate pluginId="brand_bug">
+                    <BrandBugsPage />
+                  </PluginRouteGate>
+                ),
+              },
+              {
+                path: "new",
+                element: (
+                  <PluginRouteGate pluginId="brand_bug">
+                    <BrandBugEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "New instance" },
+              },
+              {
+                path: ":id",
+                element: (
+                  <PluginRouteGate pluginId="brand_bug">
+                    <BrandBugEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "Instance", resource: "brand-bug" },
+              },
+            ],
           },
           {
             path: "noise-meter",
-            element: (
-              <PluginRouteGate pluginId="noise_meter">
-                <NoiseMetersPage />
-              </PluginRouteGate>
-            ),
             handle: { breadcrumb: "Noise Meter" },
-          },
-          {
-            path: "noise-meter/new",
-            element: (
-              <PluginRouteGate pluginId="noise_meter">
-                <NoiseMeterEditorPage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "New instance" },
-          },
-          {
-            path: "noise-meter/:id",
-            element: (
-              <PluginRouteGate pluginId="noise_meter">
-                <NoiseMeterEditorPage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "Noise Meter instance" },
-          },
-          {
-            path: "noise-meter/:id/history",
-            element: (
-              <PluginRouteGate pluginId="noise_meter">
-                <NoiseMeterHistoryPage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "History" },
+            children: [
+              {
+                index: true,
+                element: (
+                  <PluginRouteGate pluginId="noise_meter">
+                    <NoiseMetersPage />
+                  </PluginRouteGate>
+                ),
+              },
+              {
+                path: "new",
+                element: (
+                  <PluginRouteGate pluginId="noise_meter">
+                    <NoiseMeterEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "New instance" },
+              },
+              {
+                path: ":id",
+                handle: { breadcrumb: "Instance", resource: "noise-meter" },
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <PluginRouteGate pluginId="noise_meter">
+                        <NoiseMeterEditorPage />
+                      </PluginRouteGate>
+                    ),
+                  },
+                  {
+                    path: "history",
+                    element: (
+                      <PluginRouteGate pluginId="noise_meter">
+                        <NoiseMeterHistoryPage />
+                      </PluginRouteGate>
+                    ),
+                    handle: { breadcrumb: "History" },
+                  },
+                ],
+              },
+            ],
           },
         ],
       },

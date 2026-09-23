@@ -101,7 +101,7 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
 
   return (
     <section
-      className="min-w-0 space-y-4 rounded-2xl border border-border bg-card p-4"
+      className="min-w-0 space-y-4 rounded-xl border border-border bg-card p-4"
       aria-labelledby="screen-timeline-title"
     >
       <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">

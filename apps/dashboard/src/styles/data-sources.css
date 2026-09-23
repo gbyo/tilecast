@@ -52,18 +52,6 @@
   line-height: 1.45;
 }
 
-.csv-file-summary__detail {
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-supporting);
-}
-
-.csv-source-input textarea {
-  width: 100%;
-  min-height: 144px;
-  resize: vertical;
-  font: var(--tc-text-technical);
-}
-
 @media (max-width: 680px) {
   .csv-source-input__modes {
     width: 100%;
@@ -80,13 +68,6 @@
   color: var(--tc-text-primary);
   background: var(--tc-bg-surface);
   border-color: var(--tc-border-default);
-}
-
-.source-editor textarea,
-.asset-details textarea {
-  color: var(--tc-input-text);
-  background: var(--tc-input-bg);
-  border-color: var(--tc-input-border);
 }
 
 /* Widget authoring keeps the configuration grouped and the live result in view. */
@@ -151,7 +132,6 @@
 }
 
 .widget-editor__section-body .form-grid,
-.widget-editor__section-body .field,
 .widget-editor__section-body fieldset {
   margin: 0;
 }
@@ -174,14 +154,6 @@
   padding: 0;
   font-size: 13px;
   font-weight: 650;
-}
-
-.widget-editor__section-body .switch-row {
-  display: flex;
-  min-height: 32px;
-  align-items: center;
-  gap: var(--tc-space-2);
-  margin: 0;
 }
 
 .widget-editor__subsection {
@@ -244,62 +216,6 @@
 .widget-editor__preview > header span {
   color: var(--tc-text-secondary);
   font-size: 12px;
-}
-
-/* PreviewTimeControl: chooses whether the Widget preview follows the clock or a chosen instant. */
-.preview-time {
-  display: grid;
-  gap: var(--tc-space-2);
-}
-
-.preview-time small {
-  color: var(--tc-text-secondary);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.preview-time__modes {
-  display: inline-flex;
-  align-self: start;
-  padding: 2px;
-  background: var(--tc-bg-canvas);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-control);
-}
-
-.preview-time__mode {
-  padding: 4px 10px;
-  color: var(--tc-text-secondary);
-  font: inherit;
-  font-size: 12px;
-  background: none;
-  border: 0;
-  border-radius: calc(var(--tc-radius-control) - 2px);
-  cursor: pointer;
-}
-
-.preview-time__mode--active {
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-surface);
-  border: 1px solid var(--tc-border-default);
-}
-
-.preview-time__picker {
-  display: flex;
-  gap: var(--tc-space-2);
-  align-items: end;
-  flex-wrap: wrap;
-}
-
-.preview-time__field {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  flex: 1 1 190px;
-}
-
-.preview-time__field input {
-  width: 100%;
 }
 
 .widget-editor > footer {
