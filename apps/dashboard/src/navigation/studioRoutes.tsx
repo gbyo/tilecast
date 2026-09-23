@@ -9,7 +9,11 @@ export type BreadcrumbResource =
   | "playlist"
   | "layout"
   | "campaign"
-  | "schedule";
+  | "schedule"
+  | "form"
+  | "countdown-bar"
+  | "brand-bug"
+  | "noise-meter";
 
 export type StudioRouteHandle = {
   breadcrumb?: string;

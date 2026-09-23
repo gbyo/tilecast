@@ -28,6 +28,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { cn } from "cn";
 
 export type StudioBreadcrumb = { label: string; to: string };
 
@@ -57,7 +58,7 @@ export function SiteHeader({
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4 md:px-6">
       <SidebarTrigger aria-label="Toggle navigation" />
-      {breadcrumbs.length > 1 ? (
+      {breadcrumbs.length > 0 ? (
         <Breadcrumb className="min-w-0 flex-1">
           <BreadcrumbList className="flex-nowrap overflow-hidden">
             {breadcrumbs.map((item, index) => (
@@ -65,7 +66,12 @@ export function SiteHeader({
                 {index > 0 && <BreadcrumbSeparator />}
                 <BreadcrumbItem className="min-w-0">
                   {index === breadcrumbs.length - 1 ? (
-                    <BreadcrumbPage className="truncate">
+                    <BreadcrumbPage
+                      className={cn(
+                        "truncate",
+                        breadcrumbs.length === 1 && "font-semibold",
+                      )}
+                    >
                       {item.label}
                     </BreadcrumbPage>
                   ) : (

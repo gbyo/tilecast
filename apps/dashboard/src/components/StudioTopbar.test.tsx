@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useLocation } from "react-router";
@@ -115,6 +116,104 @@ function renderTopbar(
 }
 
 describe("StudioTopbar", () => {
+  function breadcrumbTrail() {
+    const nav = screen.getByRole("navigation", { name: "breadcrumb" });
+    return within(nav)
+      .getAllByRole("listitem")
+      .map((item) => ({
+        label: item.textContent,
+        href: item.querySelector("a")?.getAttribute("href") ?? null,
+        current: item.querySelector('[aria-current="page"]') !== null,
+      }));
+  }
+
+  it.each([
+    ["/", "Overview"],
+    ["/screens", "Screens"],
+    ["/groups", "Display Groups"],
+    ["/assets", "Media"],
+    ["/widgets", "Widgets"],
+    ["/data-sources", "Data Sources"],
+    ["/playlists", "Playlists"],
+    ["/layouts", "Layouts"],
+    ["/campaigns", "Campaigns"],
+    ["/schedules", "Schedules"],
+    ["/plugins", "Plugins"],
+    ["/activity", "Activity"],
+    ["/approvals", "Approvals"],
+    ["/account", "My Account"],
+  ])(
+    "shows the single current-page breadcrumb on top-level route %s",
+    (path, label) => {
+      renderTopbar(path);
+
+      expect(breadcrumbTrail()).toEqual([{ label, href: null, current: true }]);
+    },
+  );
+
+  it("links the ancestor on a two-level route", () => {
+    renderTopbar("/settings/general");
+
+    expect(breadcrumbTrail()).toEqual([
+      { label: "Settings", href: "/settings", current: false },
+      { label: "General", href: null, current: true },
+    ]);
+  });
+
+  it("names the entity as the current page on a detail route", async () => {
+    vi.spyOn(api, "layout").mockResolvedValue({
+      id: "layout-1",
+      name: "Lobby welcome",
+    } as Awaited<ReturnType<typeof api.layout>>);
+    renderTopbar("/layouts/layout-1");
+
+    await screen.findByText("Lobby welcome", {
+      selector: '[aria-current="page"]',
+    });
+    expect(breadcrumbTrail()).toEqual([
+      { label: "Layouts", href: "/layouts", current: false },
+      { label: "Lobby welcome", href: null, current: true },
+    ]);
+  });
+
+  it("keeps the plugin ancestor on a plugin instance route", async () => {
+    vi.spyOn(api, "countdownBar").mockResolvedValue({
+      id: "bar-1",
+      name: "Graduation countdown",
+    } as Awaited<ReturnType<typeof api.countdownBar>>);
+    renderTopbar("/plugins/countdown-bar/bar-1");
+
+    await screen.findByText("Graduation countdown", {
+      selector: '[aria-current="page"]',
+    });
+    expect(breadcrumbTrail()).toEqual([
+      { label: "Plugins", href: "/plugins", current: false },
+      {
+        label: "Countdown Bar",
+        href: "/plugins/countdown-bar",
+        current: false,
+      },
+      { label: "Graduation countdown", href: null, current: true },
+    ]);
+  });
+
+  it("names a campaign on its detail route", async () => {
+    vi.spyOn(api, "campaign").mockResolvedValue({
+      id: "campaign-1",
+      name: "Spring open house",
+    } as Awaited<ReturnType<typeof api.campaign>>);
+    renderTopbar("/campaigns/campaign-1");
+
+    await screen.findByText("Spring open house", {
+      selector: '[aria-current="page"]',
+    });
+    expect(breadcrumbTrail()[0]).toEqual({
+      label: "Campaigns",
+      href: "/campaigns",
+      current: false,
+    });
+  });
+
   it("builds a detail breadcrumb from the route hierarchy and entity data", async () => {
     renderTopbar("/screens/screen-1");
 
