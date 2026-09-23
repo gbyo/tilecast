@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { Link, useNavigate, useParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   Archive,
   CalendarRange,
@@ -10,6 +12,7 @@ import {
   Send,
 } from "lucide-react";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import type {
   Campaign,
   CampaignBlock,
@@ -68,12 +71,13 @@ function nextHour() {
 function makeBlock(
   type: CampaignBlock["contentType"],
   contentId: string,
+  t: TFunction<"alerts">,
 ): CampaignBlock {
   const start = new Date(Date.now() + 5 * 60 * 1000);
   start.setSeconds(0, 0);
   return {
     id: crypto.randomUUID(),
-    name: "Campaign block",
+    name: t("campaigns.editor.defaultBlockName"),
     contentType: type,
     contentId,
     priority: 0,
@@ -93,22 +97,20 @@ function snapshotForEdit(campaign: Campaign): CampaignSnapshot {
   };
 }
 
-const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 const blockScheduleOptions = [
-  { value: "one_time", label: "Fixed time" },
-  { value: "weekly", label: "Weekly window" },
-];
+  { value: "one_time", labelKey: "campaigns.editor.scheduleTypes.oneTime" },
+  { value: "weekly", labelKey: "campaigns.editor.scheduleTypes.weekly" },
+] as const;
 
 const blockContentOptions = [
-  { value: "playlist", label: "Playlist" },
-  { value: "layout", label: "Layout" },
-];
+  { value: "playlist", labelKey: "campaigns.editor.contentTypes.playlist" },
+  { value: "layout", labelKey: "campaigns.editor.contentTypes.layout" },
+] as const;
 
 const destinationTypeOptions = [
-  { value: "screen", label: "Screen" },
-  { value: "group", label: "Group" },
-];
+  { value: "screen", labelKey: "campaigns.editor.destinationTypes.screen" },
+  { value: "group", labelKey: "campaigns.editor.destinationTypes.group" },
+] as const;
 
 function dateTimeInput(value?: string) {
   if (!value) return "";
@@ -128,6 +130,7 @@ export function CampaignsPage() {
 }
 
 function CampaignLibrary() {
+  const { t } = useTranslation(["alerts", "common"]);
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const navigate = useNavigate();
@@ -155,17 +158,18 @@ function CampaignLibrary() {
     <section className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Campaigns</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("campaigns.library.title")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Coordinate immutable content releases across screens and groups. A
-            release reuses the scheduler and never changes what is live until it
-            is published.
+            {t("campaigns.library.description")}
           </p>
         </div>
         {canCreate && (
           <div className="flex flex-wrap items-center gap-2">
             <RheaButton type="button" onClick={() => setCreating(true)}>
-              <Plus size={16} aria-hidden="true" /> Create campaign
+              <Plus size={16} aria-hidden="true" />{" "}
+              {t("campaigns.library.createButton")}
             </RheaButton>
           </div>
         )}
@@ -181,10 +185,9 @@ function CampaignLibrary() {
             <EmptyMedia variant="icon">
               <CalendarRange size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No campaigns yet</EmptyTitle>
+            <EmptyTitle>{t("campaigns.library.emptyTitle")}</EmptyTitle>
             <EmptyDescription>
-              Create a campaign to coordinate content and destinations in one
-              reviewed release.
+              {t("campaigns.library.emptyBody")}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -199,11 +202,17 @@ function CampaignLibrary() {
               <div className="grid min-w-0 gap-0.5">
                 <strong className="truncate text-sm">{campaign.name}</strong>
                 <span className="truncate text-xs text-muted-foreground">
-                  {campaign.description || "No description"}
+                  {campaign.description || t("campaigns.library.noDescription")}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {campaign.draft.blocks.length} blocks ·{" "}
-                  {campaign.draft.destinations.length} destinations
+                  {t("campaigns.library.listMeta", {
+                    blocks: t("campaigns.library.blockCount", {
+                      count: campaign.draft.blocks.length,
+                    }),
+                    destinations: t("campaigns.library.destinationCount", {
+                      count: campaign.draft.destinations.length,
+                    }),
+                  })}
                 </span>
               </div>
               <Badge variant="secondary">{campaign.status}</Badge>
@@ -219,14 +228,16 @@ function CampaignLibrary() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Create campaign</DialogTitle>
+            <DialogTitle>{t("campaigns.library.createTitle")}</DialogTitle>
             <DialogDescription>
-              Name the campaign; blocks and destinations come next.
+              {t("campaigns.library.createDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <Field>
-              <FieldLabel htmlFor="campaign-create-name">Name</FieldLabel>
+              <FieldLabel htmlFor="campaign-create-name">
+                {t("campaigns.library.nameLabel")}
+              </FieldLabel>
               <Input
                 id="campaign-create-name"
                 autoFocus
@@ -242,14 +253,16 @@ function CampaignLibrary() {
           </div>
           <DialogFooter>
             <RheaButton type="button" variant="outline" onClick={closeCreate}>
-              Cancel
+              {t("common:actions.cancel")}
             </RheaButton>
             <RheaButton
               type="button"
               disabled={!name.trim() || create.isPending}
               onClick={() => create.mutate()}
             >
-              {create.isPending ? "Creating…" : "Create campaign"}
+              {create.isPending
+                ? t("campaigns.library.creating")
+                : t("campaigns.library.createSubmit")}
             </RheaButton>
           </DialogFooter>
         </DialogContent>
@@ -259,6 +272,8 @@ function CampaignLibrary() {
 }
 
 function CampaignEditor({ campaignId }: { campaignId: string }) {
+  const { t } = useTranslation(["alerts", "common"]);
+  const locale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const navigate = useNavigate();
@@ -420,6 +435,40 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     },
   });
 
+  const scheduleTypeOptions = useMemo(
+    () =>
+      blockScheduleOptions.map((option) => ({
+        value: option.value,
+        label: t(option.labelKey),
+      })),
+    [t],
+  );
+  const contentTypeOptions = useMemo(
+    () =>
+      blockContentOptions.map((option) => ({
+        value: option.value,
+        label: t(option.labelKey),
+      })),
+    [t],
+  );
+  const destinationTypeSelectOptions = useMemo(
+    () =>
+      destinationTypeOptions.map((option) => ({
+        value: option.value,
+        label: t(option.labelKey),
+      })),
+    [t],
+  );
+  // Short weekday names in the interface language. 2024-01-07 was a Sunday.
+  const weekdayNames = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, day) =>
+        new Date(2024, 0, 7 + day).toLocaleDateString(locale, {
+          weekday: "short",
+        }),
+      ),
+    [locale],
+  );
   const contentOptions = useMemo(
     () =>
       selectedType === "playlist"
@@ -459,7 +508,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   if (!campaign)
     return (
       <Alert variant="destructive">
-        <AlertDescription>Campaign not found.</AlertDescription>
+        <AlertDescription>{t("campaigns.editor.notFound")}</AlertDescription>
       </Alert>
     );
 
@@ -467,7 +516,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     if (!selectedContent) return;
     setDraft({
       ...draft,
-      blocks: [...draft.blocks, makeBlock(selectedType, selectedContent)],
+      blocks: [...draft.blocks, makeBlock(selectedType, selectedContent, t)],
     });
     setSelectedContent("");
   };
@@ -505,8 +554,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             {campaign.name}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {campaign.status} · draft {campaign.draftRevision}. Changes remain
-            private until this draft is submitted and published.
+            {t("campaigns.editor.subtitle", {
+              status: campaign.status,
+              revision: campaign.draftRevision,
+            })}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -516,7 +567,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             onClick={() => void preflightRun.mutate()}
             disabled={preflightRun.isPending}
           >
-            Preflight
+            {t("campaigns.editor.preflightButton")}
           </RheaButton>
           {canEdit && (
             <RheaButton
@@ -524,7 +575,8 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               onClick={() => save.mutate()}
               disabled={save.isPending}
             >
-              <Save size={16} aria-hidden="true" /> Save draft
+              <Save size={16} aria-hidden="true" />{" "}
+              {t("campaigns.editor.saveDraft")}
             </RheaButton>
           )}
           {canPublish && (
@@ -533,7 +585,8 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               onClick={() => publish.mutate()}
               disabled={publish.isPending}
             >
-              <Send size={16} aria-hidden="true" /> Submit / publish
+              <Send size={16} aria-hidden="true" />{" "}
+              {t("campaigns.editor.submitPublish")}
             </RheaButton>
           )}
           {canEdit && (
@@ -543,7 +596,8 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               onClick={() => setConfirmingArchive(true)}
               disabled={archive.isPending}
             >
-              <Archive size={16} aria-hidden="true" /> Archive
+              <Archive size={16} aria-hidden="true" />{" "}
+              {t("campaigns.editor.archiveButton")}
             </RheaButton>
           )}
         </div>
@@ -556,13 +610,15 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive {campaign.name}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("campaigns.editor.archiveTitle", { name: campaign.name })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Archiving stops its schedules. This cannot be undone.
+              {t("campaigns.editor.archiveBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={archive.isPending}
               onClick={() => {
@@ -570,7 +626,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 archive.mutate();
               }}
             >
-              Archive campaign
+              {t("campaigns.editor.archiveConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -602,8 +658,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
       {publish.isSuccess && (
         <Alert>
           <AlertDescription>
-            The campaign was submitted or published. Review the submission
-            status in Content review.
+            {t("campaigns.editor.publishedNotice")}
           </AlertDescription>
         </Alert>
       )}
@@ -611,14 +666,18 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
       <div className="grid gap-6">
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Draft definition</h3>
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.draftTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Every field below is part of the next immutable campaign release.
+              {t("campaigns.editor.draftHint")}
             </p>
           </header>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="campaign-name">Name</FieldLabel>
+              <FieldLabel htmlFor="campaign-name">
+                {t("campaigns.editor.nameLabel")}
+              </FieldLabel>
               <Input
                 id="campaign-name"
                 value={draft.name}
@@ -629,7 +688,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="campaign-timezone">Timezone</FieldLabel>
+              <FieldLabel htmlFor="campaign-timezone">
+                {t("campaigns.editor.timezoneLabel")}
+              </FieldLabel>
               <Input
                 id="campaign-timezone"
                 value={draft.timezone}
@@ -640,7 +701,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="campaign-start">Campaign start</FieldLabel>
+              <FieldLabel htmlFor="campaign-start">
+                {t("campaigns.editor.startLabel")}
+              </FieldLabel>
               <Input
                 id="campaign-start"
                 type="datetime-local"
@@ -655,7 +718,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="campaign-end">Campaign end</FieldLabel>
+              <FieldLabel htmlFor="campaign-end">
+                {t("campaigns.editor.endLabel")}
+              </FieldLabel>
               <Input
                 id="campaign-end"
                 type="datetime-local"
@@ -671,7 +736,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             </Field>
           </div>
           <Field>
-            <FieldLabel htmlFor="campaign-description">Description</FieldLabel>
+            <FieldLabel htmlFor="campaign-description">
+              {t("campaigns.editor.descriptionLabel")}
+            </FieldLabel>
             <Textarea
               id="campaign-description"
               value={draft.description}
@@ -685,9 +752,11 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
 
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Content blocks</h3>
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.blocksTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Blocks become ordinary schedules when their release is published.
+              {t("campaigns.editor.blocksHint")}
             </p>
           </header>
           {draft.blocks.map((block, index) => (
@@ -698,7 +767,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               <div className="grid gap-1">
                 {canEdit ? (
                   <Input
-                    aria-label={`Block ${index + 1} name`}
+                    aria-label={t("campaigns.editor.blockNameLabel", {
+                      index: index + 1,
+                    })}
                     value={block.name}
                     onChange={(event) =>
                       updateBlock(block.id, { name: event.target.value })
@@ -712,14 +783,14 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {block.type === "one_time"
-                    ? `${new Date(block.oneTimeStart ?? "").toLocaleString()} – ${new Date(block.oneTimeEnd ?? "").toLocaleString()}`
+                    ? `${new Date(block.oneTimeStart ?? "").toLocaleString(locale)} – ${new Date(block.oneTimeEnd ?? "").toLocaleString(locale)}`
                     : `${block.dailyStart ?? ""} – ${block.dailyEnd ?? ""}`}
                 </span>
                 {canEdit && (
                   <div className="grid gap-4 pt-2 sm:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor={`block-type-${block.id}`}>
-                        Schedule type
+                        {t("campaigns.editor.scheduleTypeLabel")}
                       </FieldLabel>
                       <RheaSelect
                         value={block.type}
@@ -731,14 +802,16 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       >
                         <SelectTrigger
                           id={`block-type-${block.id}`}
-                          aria-label={`Block ${index + 1} schedule type`}
+                          aria-label={t("campaigns.editor.scheduleTypeAria", {
+                            index: index + 1,
+                          })}
                         >
                           <SelectValue>
-                            {optionLabel(blockScheduleOptions, block.type)}
+                            {optionLabel(scheduleTypeOptions, block.type)}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {blockScheduleOptions.map((option) => (
+                          {scheduleTypeOptions.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>
@@ -748,7 +821,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     </Field>
                     <Field>
                       <FieldLabel htmlFor={`block-timezone-${block.id}`}>
-                        Timezone
+                        {t("campaigns.editor.blockTimezoneLabel")}
                       </FieldLabel>
                       <Input
                         id={`block-timezone-${block.id}`}
@@ -762,7 +835,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     </Field>
                     <Field>
                       <FieldLabel htmlFor={`block-priority-${block.id}`}>
-                        Priority
+                        {t("campaigns.editor.priorityLabel")}
                       </FieldLabel>
                       <Input
                         id={`block-priority-${block.id}`}
@@ -787,13 +860,13 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           })
                         }
                       />
-                      <span>Enabled</span>
+                      <span>{t("campaigns.editor.enabledLabel")}</span>
                     </label>
                     {block.type === "one_time" ? (
                       <>
                         <Field>
                           <FieldLabel htmlFor={`block-start-${block.id}`}>
-                            Starts
+                            {t("campaigns.editor.startsLabel")}
                           </FieldLabel>
                           <Input
                             id={`block-start-${block.id}`}
@@ -808,7 +881,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                         </Field>
                         <Field>
                           <FieldLabel htmlFor={`block-end-${block.id}`}>
-                            Ends
+                            {t("campaigns.editor.endsLabel")}
                           </FieldLabel>
                           <Input
                             id={`block-end-${block.id}`}
@@ -826,7 +899,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       <>
                         <Field>
                           <FieldLabel htmlFor={`block-range-start-${block.id}`}>
-                            Date range start
+                            {t("campaigns.editor.rangeStartLabel")}
                           </FieldLabel>
                           <Input
                             id={`block-range-start-${block.id}`}
@@ -841,7 +914,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                         </Field>
                         <Field>
                           <FieldLabel htmlFor={`block-range-end-${block.id}`}>
-                            Date range end
+                            {t("campaigns.editor.rangeEndLabel")}
                           </FieldLabel>
                           <Input
                             id={`block-range-end-${block.id}`}
@@ -856,7 +929,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                         </Field>
                         <Field>
                           <FieldLabel htmlFor={`block-daily-start-${block.id}`}>
-                            Daily start
+                            {t("campaigns.editor.dailyStartLabel")}
                           </FieldLabel>
                           <Input
                             id={`block-daily-start-${block.id}`}
@@ -871,7 +944,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                         </Field>
                         <Field>
                           <FieldLabel htmlFor={`block-daily-end-${block.id}`}>
-                            Daily end
+                            {t("campaigns.editor.dailyEndLabel")}
                           </FieldLabel>
                           <Input
                             id={`block-daily-end-${block.id}`}
@@ -886,10 +959,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                         </Field>
                         <fieldset className="grid gap-2 sm:col-span-2">
                           <legend className="text-sm font-medium">
-                            Weekdays
+                            {t("campaigns.editor.weekdaysLabel")}
                           </legend>
                           <div className="flex flex-wrap gap-x-4 gap-y-2">
-                            {weekdayLabels.map((label, day) => (
+                            {weekdayNames.map((label, day) => (
                               <label
                                 key={label}
                                 className="flex items-center gap-2 text-sm"
@@ -935,7 +1008,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     })
                   }
                 >
-                  Remove
+                  {t("campaigns.editor.removeButton")}
                 </RheaButton>
               )}
             </div>
@@ -944,7 +1017,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             <div className="grid items-end gap-4 sm:grid-cols-3">
               <Field>
                 <FieldLabel htmlFor="campaign-content-type">
-                  Content type
+                  {t("campaigns.editor.contentTypeLabel")}
                 </FieldLabel>
                 <RheaSelect
                   value={selectedType}
@@ -955,14 +1028,14 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 >
                   <SelectTrigger
                     id="campaign-content-type"
-                    aria-label="Content type"
+                    aria-label={t("campaigns.editor.contentTypeLabel")}
                   >
                     <SelectValue>
-                      {optionLabel(blockContentOptions, selectedType)}
+                      {optionLabel(contentTypeOptions, selectedType)}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {blockContentOptions.map((option) => (
+                    {contentTypeOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -971,16 +1044,24 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 </RheaSelect>
               </Field>
               <Field>
-                <FieldLabel htmlFor="campaign-content">Content</FieldLabel>
+                <FieldLabel htmlFor="campaign-content">
+                  {t("campaigns.editor.contentLabel")}
+                </FieldLabel>
                 <RheaSelect
                   value={selectedContent}
                   onValueChange={(next) => setSelectedContent(next as string)}
                 >
-                  <SelectTrigger id="campaign-content" aria-label="Content">
+                  <SelectTrigger
+                    id="campaign-content"
+                    aria-label={t("campaigns.editor.contentLabel")}
+                  >
                     <SelectValue>
                       {optionLabel(
                         [
-                          { value: "", label: "Select content" },
+                          {
+                            value: "",
+                            label: t("campaigns.editor.selectContent"),
+                          },
                           ...contentOptions.map((item) => ({
                             value: item.id,
                             label: item.name,
@@ -991,7 +1072,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Select content</SelectItem>
+                    <SelectItem value="">
+                      {t("campaigns.editor.selectContent")}
+                    </SelectItem>
                     {contentOptions.map((item) => (
                       <SelectItem value={item.id} key={item.id}>
                         {item.name}
@@ -1006,7 +1089,8 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 onClick={addBlock}
                 disabled={!selectedContent}
               >
-                <Plus size={16} aria-hidden="true" /> Add block
+                <Plus size={16} aria-hidden="true" />{" "}
+                {t("campaigns.editor.addBlock")}
               </RheaButton>
             </div>
           )}
@@ -1014,9 +1098,11 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
 
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Destinations</h3>
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.destinationsTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Choose the screens or groups that receive this release.
+              {t("campaigns.editor.destinationsHint")}
             </p>
           </header>
           <div className="grid gap-2">
@@ -1047,7 +1133,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       })
                     }
                   >
-                    Remove
+                    {t("campaigns.editor.removeButton")}
                   </RheaButton>
                 )}
               </div>
@@ -1057,7 +1143,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             <div className="grid items-end gap-4 sm:grid-cols-3">
               <Field>
                 <FieldLabel htmlFor="campaign-destination-type">
-                  Destination type
+                  {t("campaigns.editor.destinationTypeLabel")}
                 </FieldLabel>
                 <RheaSelect
                   value={destinationType}
@@ -1068,14 +1154,17 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 >
                   <SelectTrigger
                     id="campaign-destination-type"
-                    aria-label="Destination type"
+                    aria-label={t("campaigns.editor.destinationTypeLabel")}
                   >
                     <SelectValue>
-                      {optionLabel(destinationTypeOptions, destinationType)}
+                      {optionLabel(
+                        destinationTypeSelectOptions,
+                        destinationType,
+                      )}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {destinationTypeOptions.map((option) => (
+                    {destinationTypeSelectOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -1085,7 +1174,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               </Field>
               <Field>
                 <FieldLabel htmlFor="campaign-destination">
-                  Destination
+                  {t("campaigns.editor.destinationLabel")}
                 </FieldLabel>
                 <RheaSelect
                   value={destination}
@@ -1093,12 +1182,15 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 >
                   <SelectTrigger
                     id="campaign-destination"
-                    aria-label="Destination"
+                    aria-label={t("campaigns.editor.destinationLabel")}
                   >
                     <SelectValue>
                       {optionLabel(
                         [
-                          { value: "", label: "Select destination" },
+                          {
+                            value: "",
+                            label: t("campaigns.editor.selectDestination"),
+                          },
                           ...destinationOptions.map((item) => ({
                             value: item.id,
                             label: item.name,
@@ -1109,7 +1201,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Select destination</SelectItem>
+                    <SelectItem value="">
+                      {t("campaigns.editor.selectDestination")}
+                    </SelectItem>
                     {destinationOptions.map((item) => (
                       <SelectItem value={item.id} key={item.id}>
                         {item.name}
@@ -1124,7 +1218,8 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 onClick={addDestination}
                 disabled={!destination}
               >
-                <Plus size={16} aria-hidden="true" /> Add destination
+                <Plus size={16} aria-hidden="true" />{" "}
+                {t("campaigns.editor.addDestination")}
               </RheaButton>
             </div>
           )}
@@ -1132,10 +1227,11 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
 
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Preflight</h3>
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.preflightTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Publication checks referenced content, schedule windows, and
-              destination membership before any schedule changes are committed.
+              {t("campaigns.editor.preflightHint")}
             </p>
           </header>
           {preflight.data && (
@@ -1143,8 +1239,15 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               <AlertDescription>
                 <div>
                   {preflight.data.valid
-                    ? `Ready: ${preflight.data.blockCount} blocks can reach ${preflight.data.destinationCount} destinations.`
-                    : "The campaign cannot be published yet."}
+                    ? t("campaigns.editor.readySummary", {
+                        blocks: t("campaigns.editor.blockCount", {
+                          count: preflight.data.blockCount,
+                        }),
+                        destinations: t("campaigns.editor.destinationCount", {
+                          count: preflight.data.destinationCount,
+                        }),
+                      })
+                    : t("campaigns.editor.notReady")}
                 </div>
                 {preflight.data.issues.map((issue) => (
                   <div key={`${issue.code}:${issue.message}`}>
@@ -1158,10 +1261,11 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
 
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Release history</h3>
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.releasesTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Releases are immutable. Restoring one returns it to the draft for
-              review; it never rewrites history.
+              {t("campaigns.editor.releasesHint")}
             </p>
           </header>
           {releases.data?.items.map((release) => (
@@ -1171,13 +1275,17 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             >
               <div className="grid gap-0.5">
                 <strong className="text-sm">
-                  Release {release.releaseNumber}
+                  {t("campaigns.editor.releaseTitle", {
+                    number: release.releaseNumber,
+                  })}
                 </strong>
                 <span className="text-xs text-muted-foreground">
-                  {release.status} ·{" "}
-                  {release.publishedAt
-                    ? new Date(release.publishedAt).toLocaleString()
-                    : "not published"}
+                  {t("campaigns.editor.releaseMeta", {
+                    status: release.status,
+                    date: release.publishedAt
+                      ? new Date(release.publishedAt).toLocaleString(locale)
+                      : t("campaigns.editor.notPublished"),
+                  })}
                 </span>
               </div>
               {canEdit && (
@@ -1188,7 +1296,8 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   onClick={() => restore.mutate(release.id)}
                   disabled={restore.isPending}
                 >
-                  <RotateCcw size={16} aria-hidden="true" /> Restore to draft
+                  <RotateCcw size={16} aria-hidden="true" />{" "}
+                  {t("campaigns.editor.restoreDraft")}
                 </RheaButton>
               )}
             </div>
@@ -1197,10 +1306,11 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
 
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Publication history</h3>
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.publicationsTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Deployment history is separate from the security audit log.
-              Restore creates a draft; rollback creates a new release.
+              {t("campaigns.editor.publicationsHint")}
             </p>
           </header>
           {history.data?.items.map((publication) => (
@@ -1210,12 +1320,20 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             >
               <div className="grid gap-0.5">
                 <strong className="text-sm">
-                  Release {publication.revision}
+                  {t("campaigns.editor.releaseTitle", {
+                    number: publication.revision,
+                  })}
                 </strong>
                 <span className="text-xs text-muted-foreground">
-                  {publication.method} ·{" "}
-                  {new Date(publication.publishedAt).toLocaleString()} ·{" "}
-                  {publication.affectedScreenCount} screens
+                  {t("campaigns.editor.publicationMeta", {
+                    method: publication.method,
+                    date: new Date(publication.publishedAt).toLocaleString(
+                      locale,
+                    ),
+                    screens: t("campaigns.editor.screenCount", {
+                      count: publication.affectedScreenCount,
+                    }),
+                  })}
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1227,7 +1345,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     onClick={() => restorePublication.mutate(publication.id)}
                     disabled={restorePublication.isPending}
                   >
-                    Restore as draft
+                    {t("campaigns.editor.restoreAsDraft")}
                   </RheaButton>
                 )}
                 {canPublish && (
@@ -1238,7 +1356,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     onClick={() => rollback.mutate(publication.id)}
                     disabled={rollback.isPending}
                   >
-                    Roll back to this release
+                    {t("campaigns.editor.rollbackToRelease")}
                   </RheaButton>
                 )}
               </div>

@@ -6,11 +6,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { i18n } from "../i18n";
 import {
   emergencyDisplayLabel,
   emergencyPlaylistLabel,
   EmergencyAlertsPage,
 } from "./EmergencyAlertsPage";
+
+const t = i18n.getFixedT("en", "alerts");
 
 let role = "owner";
 
@@ -413,26 +416,32 @@ describe("Emergency Alerts plugin", () => {
 
   it("names what a rule will do without opening its editor", () => {
     expect(
-      emergencyDisplayLabel({
-        responseMode: "ticker",
-        presentationMode: "builtin",
-      }),
+      emergencyDisplayLabel(
+        {
+          responseMode: "ticker",
+          presentationMode: "builtin",
+        },
+        t,
+      ),
     ).toBe("Tilecast live NWS ticker bar");
     expect(
-      emergencyDisplayLabel({
-        responseMode: "takeover",
-        presentationMode: "playlist",
-        playlistName: "Closure",
-      }),
+      emergencyDisplayLabel(
+        {
+          responseMode: "takeover",
+          presentationMode: "playlist",
+          playlistName: "Closure",
+        },
+        t,
+      ),
     ).toBe("Closure");
   });
 
   it("makes playlist readiness visible before a weather rule is saved", () => {
-    expect(emergencyPlaylistLabel({ name: "Tornado", itemCount: 3 })).toBe(
+    expect(emergencyPlaylistLabel({ name: "Tornado", itemCount: 3 }, t)).toBe(
       "Tornado — 3 items",
     );
     expect(
-      emergencyPlaylistLabel({ name: "Closure draft", itemCount: 0 }),
+      emergencyPlaylistLabel({ name: "Closure draft", itemCount: 0 }, t),
     ).toBe("Closure draft — empty, add content first");
   });
 });
