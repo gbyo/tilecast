@@ -584,6 +584,17 @@ impl WriteSession {
         self.expected_size
     }
 
+    /// Records which source supplied the final verified bytes. A partial may
+    /// have been resumed through several sources; provenance follows the
+    /// source that completed the object, never a manifest's optimistic hint.
+    pub fn set_completed_source(&mut self, source: crate::source::SourceKind) {
+        self.meta.source = match source {
+            crate::source::SourceKind::Origin => RecordSource::Origin,
+            crate::source::SourceKind::Peer => RecordSource::Peer,
+            crate::source::SourceKind::Local => RecordSource::Local,
+        };
+    }
+
     fn file(&mut self) -> std::io::Result<&mut std::fs::File> {
         self.file.as_mut().ok_or_else(|| std::io::Error::other("write session closed"))
     }

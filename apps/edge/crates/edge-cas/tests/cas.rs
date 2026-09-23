@@ -141,6 +141,7 @@ async fn fetch_verifies_promotes_and_announces() {
     let sources: Vec<Arc<dyn BlobSource>> = vec![Arc::new(Scripted::new("peer-a", DATA))];
     let record = fetcher.fetch(&request(DATA), &sources, None).await.unwrap();
     assert_eq!(record.size_bytes, DATA.len() as u64);
+    assert_eq!(record.source_kind, RecordSource::Peer);
     let path = store.verified_path(&record.sha256).await.unwrap().unwrap();
     assert_eq!(std::fs::read(&path).unwrap(), DATA);
     assert!(path.ends_with(format!("sha256/{}/{}", record.sha256.fanout(), record.sha256.to_hex())));

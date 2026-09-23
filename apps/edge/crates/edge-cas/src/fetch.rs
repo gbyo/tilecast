@@ -116,35 +116,42 @@ impl Fetcher {
                         }
                         Err(PumpError::Store(error)) => return Err(error.into()),
                         Ok(()) if session.offset() < request.size_bytes => (AttemptOutcome::Transient, bytes),
-                        Ok(()) => match session.commit().await {
-                            Ok(record) => {
-                                report(observer, source.as_ref(), AttemptOutcome::Completed, bytes, started);
-                                return Ok(record);
+                        Ok(()) => {
+                            session.set_completed_source(source.kind());
+                            match session.commit().await {
+                                Ok(record) => {
+                                    report(observer, source.as_ref(), AttemptOutcome::Completed, bytes, started);
+                                    return Ok(record);
+                                }
+                                Err(CasError::SizeMismatch { .. } | CasError::DigestMismatch { .. }) => {
+                                    report(observer, source.as_ref(), AttemptOutcome::IntegrityFailure, bytes, started);
+                                    tracing::warn!(
+                                        component = "cas",
+                                        event = "integrity_failure",
+                                        sha256 = %request.digest.short(),
+                                        source_kind = source.kind().as_str(),
+                                        source = %source.label()
+                                    );
+                                    // The partial is gone; start over with the next source.
+                                    session = match self
+                                        .store
+                                        .begin_write(request.digest, request.size_bytes, request.meta.clone())
+                                        .await?
+                                    {
+                                        Some(session) => session,
+                                        None => {
+                                            return self
+                                                .store
+                                                .stat(&request.digest)
+                                                .await?
+                                                .ok_or(FetchError::Exhausted);
+                                        }
+                                    };
+                                    continue;
+                                }
+                                Err(error) => return Err(error.into()),
                             }
-                            Err(CasError::SizeMismatch { .. } | CasError::DigestMismatch { .. }) => {
-                                report(observer, source.as_ref(), AttemptOutcome::IntegrityFailure, bytes, started);
-                                tracing::warn!(
-                                    component = "cas",
-                                    event = "integrity_failure",
-                                    sha256 = %request.digest.short(),
-                                    source_kind = source.kind().as_str(),
-                                    source = %source.label()
-                                );
-                                // The partial is gone; start over with the next source.
-                                session = match self
-                                    .store
-                                    .begin_write(request.digest, request.size_bytes, request.meta.clone())
-                                    .await?
-                                {
-                                    Some(session) => session,
-                                    None => {
-                                        return self.store.stat(&request.digest).await?.ok_or(FetchError::Exhausted);
-                                    }
-                                };
-                                continue;
-                            }
-                            Err(error) => return Err(error.into()),
-                        },
+                        }
                     }
                 }
             };
