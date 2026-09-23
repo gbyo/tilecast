@@ -13,6 +13,7 @@ import {
   LANGUAGE_PREFERENCE_KEY,
   applyLanguagePreference,
   isLanguagePreference,
+  isLanguagePreviewDirty,
 } from "@/i18n";
 import { OperationsDashboard } from "./OperationsDashboard";
 import { EnrollmentWizard } from "./EnrollmentWizard";
@@ -84,10 +85,13 @@ export function DashboardShell() {
   useEffect(() => {
     // The cached value chose the starting language; the account's saved
     // preference is authoritative once it arrives.
-    if (isLanguagePreference(serverLanguage)) {
+    if (
+      !isLanguagePreviewDirty() &&
+      isLanguagePreference(serverLanguage)
+    ) {
       applyLanguagePreference(serverLanguage);
     }
-  }, [serverLanguage]);
+  }, [serverLanguage, preferences.dataUpdatedAt]);
   useEffect(() => {
     if (!auth.isLoading && !auth.status?.authenticated) {
       void navigate(
