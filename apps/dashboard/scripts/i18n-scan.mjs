@@ -123,6 +123,10 @@ function literalContext(node) {
         : null;
     }
     if (ts.isJsxExpression(current)) {
+      if (ts.isJsxAttribute(current.parent)) {
+        const name = attributeName(current.parent);
+        return translatableAttributes.has(name) ? `attribute ${name}` : null;
+      }
       return ts.isJsxElement(current.parent) || ts.isJsxFragment(current.parent)
         ? "jsx expression"
         : null;

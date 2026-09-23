@@ -8,6 +8,7 @@ import {
   detectBrowserLanguage,
   formatLocale,
   i18n,
+  previewLanguagePreference,
   readCachedLanguagePreference,
   resolveLanguage,
   translateKnown,
@@ -58,9 +59,12 @@ describe("i18n instance", () => {
     expect(i18n.t("count.items", { count: 21 })).toBe("21 элемент");
   });
 
-  it("caches an applied preference for the next page load", async () => {
-    applyLanguagePreference("es");
+  it("keeps draft previews out of the cache and persists saved preferences", async () => {
+    previewLanguagePreference("es");
     await vi.waitFor(() => expect(i18n.resolvedLanguage).toBe("es"));
+    expect(readCachedLanguagePreference()).toBe("system");
+
+    applyLanguagePreference("es");
     expect(readCachedLanguagePreference()).toBe("es");
   });
 
