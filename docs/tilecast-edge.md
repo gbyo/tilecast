@@ -1074,9 +1074,7 @@ The shipped/tested configuration fixture must include the full mutual-authentica
         "connect_private_key": "...",
         "connect_certificate": "...",
         "close_link_on_expiration": true,
-        "verify_name_on_connect": false,
-        "session_resumption": false,
-        "early_data_0rtt": false
+        "verify_name_on_connect": false
       }
     }
   }
@@ -1098,9 +1096,13 @@ All accepted paths verify the installation CA, certificate purpose, installation
 
 A node discovered over multicast is still not connected as a usable Tilecast peer until TLS mutual authentication and the selected logical-node binding both succeed.
 
-For v1, disable TLS session resumption for Edge peer mTLS unless the pinned Zenoh/rustls integration can prove that resumed sessions re-evaluate the exact certificate instance and current security generation. This keeps certificate rotation/revocation semantics simple.
+The JSON fixture above contains only keys supported by the pinned Zenoh configuration schema.
 
-Zero-RTT/early application data is disabled even if a future transport/library enables it by default. Edge application state is never accepted before the current peer identity/security state is established.
+For v1, TLS session resumption is an **implementation gate**, not a fictional Zenoh config key. The pinned Zenoh/rustls integration must either expose a supported hook that disables resumption or Tilecast must patch/vendor the TLS connector/listener so resumed sessions cannot bypass exact certificate-instance and current-security validation.
+
+Likewise, zero-RTT/early application data must be disabled in the actual pinned TLS stack. Do not add undocumented configuration keys and assume they work.
+
+If the selected Zenoh/rustls version cannot prove both properties, E5 does not enable production mesh.
 
 ### 13.4 Interface selection
 
@@ -2878,43 +2880,69 @@ An ambient-light provider may feed Context Engine, an explicit display-brightnes
 
 systemd becomes the Linux process supervisor rather than the last rung inside Electron.
 
-### 27.1 `tilecast-edge.service`
+### 27.1 systemd service and socket ownership
 
-Illustrative service properties:
+The daemon service uses the stable launcher from §7:
 
 ```ini
 [Service]
 Type=notify
 User=tilecast-edge
 Group=tilecast-edge
-ExecStart=/opt/tilecast-edge/current/bin/tilecastd
+ExecStart=/opt/tilecast-edge/launcher/tilecast-edge-launcher
 Restart=always
 RestartSec=2
 WatchdogSec=30s
-RuntimeDirectory=tilecast-edge
-RuntimeDirectoryMode=0750
 StateDirectory=tilecast-edge
 StateDirectoryMode=0700
 UMask=0077
 ```
 
-Create `renderer.sock`, `media.sock` and `admin.sock` with dedicated systemd `.socket` units and pass the listening file descriptors to `tilecastd`. Example ownership intent:
+Do **not** set `RuntimeDirectory=tilecast-edge` on the service while independent socket units own sockets below the same tree. The service must not remove the parent directory when it stops.
+
+Use `tmpfiles.d` or equivalent package-managed creation for:
+
+```text
+/run/tilecast-edge/              root:root              0755
+/run/tilecast-edge/renderer/     root:tilecast-renderer 0750
+/run/tilecast-edge/admin/        root:tilecast-admin    0750
+/run/tilecast-edge/health/       tilecast-edge:tilecast-edge 0700
+```
+
+Socket units listen on:
+
+```text
+/run/tilecast-edge/renderer/control.sock
+/run/tilecast-edge/renderer/media.sock
+/run/tilecast-edge/admin/admin.sock
+```
+
+with intent:
 
 ```ini
-# renderer/media socket units
+# renderer control/media
 SocketUser=tilecast-edge
 SocketGroup=tilecast-renderer
 SocketMode=0660
 
-# admin socket unit
+# admin
 SocketUser=tilecast-edge
 SocketGroup=tilecast-admin
 SocketMode=0660
 ```
 
-The Edge service must support the inherited listening descriptors at startup and must not unlink/rebind them itself. This keeps socket ownership independent from `UMask=0077` and avoids granting `tilecast-edge` extra group-management privilege.
+The parent/subdirectory traversal permissions are part of the integration test. A socket with mode 0660 is useless if its client group cannot traverse an ancestor directory.
 
-Add hardening after testing required hardware access:
+The socket units own/listen on their sockets and pass descriptors to `tilecastd`; the daemon never unlinks/rebinds them. Stopping/restarting `tilecast-edge.service` therefore cannot accidentally delete the socket namespace owned by socket units.
+
+The stable launcher:
+
+1. resolves `/opt/tilecast-edge/current-set`;
+2. validates that the selected set manifest/component paths remain inside the immutable release roots;
+3. verifies required component presence/permissions;
+4. execs the selected set's `tilecastd`.
+
+Add service hardening after testing required hardware access:
 
 ```text
 NoNewPrivileges=yes
@@ -2929,7 +2957,9 @@ RestrictSUIDSGID=yes
 RestrictRealtime=yes except where PipeWire setup explicitly needs otherwise
 ```
 
-Do not copy the current helper unit's settings blindly if they would block DRM/I²C/udev access. Build a tested capability matrix.
+Do not copy helper settings blindly when they would block qualified DRM/I²C/udev access. Maintain a tested capability matrix.
+
+### 27.2 Readiness
 
 ### 27.2 Readiness
 
@@ -3050,7 +3080,7 @@ Keep trusted Tilecast code and remote website content in distinct security world
 
 A trusted local runtime scheme may serve only embedded/versioned renderer files with a strict MIME allowlist and CSP. It is not CORS-enabled for arbitrary remote origins.
 
-Tilecast-owned media is referenced as `tcmedia://sha256/<digest>`. Video reaches GStreamer through the hardened Tilecast `GstURIHandler` source in §9.5. `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` is only a protocol opt-in and is never treated as the CAS security boundary.
+Tilecast-owned media is referenced by the trusted runtime through `tcmedia://cap/<opaque-capability>`. Video reaches GStreamer through the daemon-backed Tilecast `GstURIHandler` source in §9.5. `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` is only a protocol opt-in and is never treated as the CAS, origin, or presentation-authorization boundary.
 
 Native bridge installation is limited to the trusted Tilecast top-level world/frame. Navigating to uploaded media or a remote site never grants bridge capability.
 
