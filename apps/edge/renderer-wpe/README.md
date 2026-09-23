@@ -24,6 +24,8 @@ The Tilecast Linux display engine: a small C11/GLib embedder of WPE WebKit 2.54+
 - `tilecast` carries events: `runtime.ready`, `presentation.accepted`, `presentation.rejected`, `renderer.progress`, `renderer.item_error`.
 - `tilecastRequest` carries `setup.submit_server_url`.
 
+Layout and Widget items arrive as references (`{"layoutId"}`, `{"widgetAssetId"}`) with a projection context: the needed manifest subset, the corrected clock offset and a media alias table. `assemble-runtime.sh` prepends the reference player's own `renderLayout` and `renderWidget` (bundled from `apps/player-linux/dist/core` by `build-projection.mjs`, which refuses any other `require`) to the bridge, which projects the items before accepting the activation and re-projects them every 30 seconds. `tcmedia://variant/<asset>/<variant>` addresses in a projected tree, and the Brand Bug plugin's logo, resolve only through the alias table, and only to capabilities granted for the activation.
+
 The host copies only known, bounded fields into IPC events. Host-to-page delivery calls one fixed function with GVariant arguments; no script source is concatenated. The daemon replaces internal hash URIs with opaque, renderer-generation capabilities before sending an activation.
 
 ## Build and test
@@ -36,7 +38,7 @@ docker run --rm -v "$PWD/../../..:/src" -v tilecast-edge-target:/target \
   tilecast-edge-dev /src/apps/edge/renderer-wpe/ci/run-e2e.sh all
 ```
 
-`ci/run-e2e.sh` builds `tilecastd`, `tilecastctl` and the renderer, runs the C unit tests, assembles the runtime, and runs `tests/e2e_headless.py`. That script starts a real daemon and renderer on `WPE_PLATFORM=headless` and checks the lifecycle through `tilecastctl`.
+`ci/run-e2e.sh` builds `tilecastd`, `tilecastctl` and the renderer, runs the C unit tests, assembles the runtime, runs the projection tests (`tests/bridge_projection.test.mjs`), and runs `tests/e2e_headless.py`. That script starts a real daemon and renderer on `WPE_PLATFORM=headless` and checks the lifecycle through `tilecastctl`.
 
 `ci/run-conformance.sh` builds the test-only `tilecast-runtime-conformance` runner (`tests/conformance.c`) and runs the Player Runtime conformance fixtures under WPE WebKit headless, for comparison with the Electron run (`packages/player-runtime/conformance`).
 
