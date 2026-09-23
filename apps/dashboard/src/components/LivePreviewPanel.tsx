@@ -26,11 +26,16 @@ import "./LivePreviewPanel.css";
 const LEASE_RENEWAL_MILLIS = 30_000;
 const METADATA_REFRESH_MILLIS = 5_000;
 
+type LivePreviewDisplayState =
+  | ReturnType<typeof livePreviewState>
+  | "image-error";
+
 export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const auth = useAuth();
   const [renewalError, setRenewalError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now);
   const [watchingLive, setWatchingLive] = useState(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const screen = useQuery({
     queryKey: ["screens", screenId],
     queryFn: () => api.screen(screenId),
@@ -85,6 +90,15 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
     if (!preview.data?.imageAvailable) return null;
     return previewApi.imageUrl(screenId, preview.data.updatedAt);
   }, [preview.data?.imageAvailable, preview.data?.updatedAt, screenId]);
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [imageUrl]);
+
+  const displayState: LivePreviewDisplayState =
+    imageLoadFailed && imageUrl ? "image-error" : state;
+  const frameState =
+    displayState === "image-error" ? "capture-error" : displayState;
   const capturedAt = preview.data?.capturedAt
     ? new Date(preview.data.capturedAt)
     : null;
@@ -126,19 +140,22 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
         </div>
       </header>
 
-      <div className={`live-preview-frame live-preview-frame--${state}`}>
-        {(state === "live" || state === "stale") && imageUrl ? (
+      <div className={`live-preview-frame live-preview-frame--${frameState}`}>
+        {!imageLoadFailed &&
+        (state === "live" || state === "stale") &&
+        imageUrl ? (
           <img
             src={imageUrl}
             alt={`Current Tilecast output for ${screen.data?.name ?? "screen"}`}
+            onError={() => setImageLoadFailed(true)}
           />
         ) : (
           <PreviewState
-            state={state}
+            state={displayState}
             failureStatus={preview.data?.captureFailureStatus}
           />
         )}
-        {imageUrl && captureAge && (
+        {imageUrl && !imageLoadFailed && captureAge && (
           <span
             className={`live-preview-frame__banner live-preview-frame__banner--${captureAge.tone}`}
             title={
@@ -151,8 +168,8 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
       </div>
 
       <div className="live-preview-panel__status" aria-live="polite">
-        <strong>{stateLabel(state)}</strong>
-        <span>{stateDescription(state, renewalError)}</span>
+        <strong>{stateLabel(displayState)}</strong>
+        <span>{stateDescription(displayState, renewalError)}</span>
       </div>
 
       <dl className="live-preview-panel__meta">
@@ -198,7 +215,7 @@ function PreviewState({
   state,
   failureStatus,
 }: {
-  state: ReturnType<typeof livePreviewState>;
+  state: LivePreviewDisplayState;
   failureStatus?: string;
 }) {
   const content = {
@@ -210,6 +227,7 @@ function PreviewState({
       AlertTriangle,
       "The player could not capture its window.",
     ],
+    "image-error": [ImageOff, "The preview image could not be loaded."],
     live: [Monitor, "Live preview is ready."],
   } as const;
   const [Icon, message] = content[state] ?? [ImageOff, "Preview unavailable."];
@@ -221,7 +239,7 @@ function PreviewState({
   );
 }
 
-function stateLabel(state: ReturnType<typeof livePreviewState>) {
+function stateLabel(state: LivePreviewDisplayState) {
   return {
     loading: "Loading",
     live: "Live",
@@ -229,11 +247,12 @@ function stateLabel(state: ReturnType<typeof livePreviewState>) {
     stale: "Stale",
     unavailable: "Unavailable",
     "capture-error": "Capture error",
+    "image-error": "Image unavailable",
   }[state];
 }
 
 function stateDescription(
-  state: ReturnType<typeof livePreviewState>,
+  state: LivePreviewDisplayState,
   renewalError: string | null,
 ) {
   if (renewalError) return renewalError;
@@ -244,6 +263,7 @@ function stateDescription(
     stale: "The player has not delivered a recent capture.",
     unavailable: "The current player screen cannot be previewed.",
     "capture-error": "Use Refresh to request another capture.",
+    "image-error": "Use Refresh to request another preview image.",
   }[state];
 }
 
