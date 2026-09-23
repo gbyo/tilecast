@@ -95,6 +95,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-cas"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "edge-platform",
+ "edge-protocol",
+ "edge-state",
+ "futures-util",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "edge-ipc"
 version = "0.1.0"
 dependencies = [
@@ -227,6 +243,7 @@ checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
 dependencies = [
  "futures-core",
  "futures-macro",
+ "futures-sink",
  "futures-task",
  "pin-project-lite",
  "slab",
