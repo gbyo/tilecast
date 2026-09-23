@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
+import { useState } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -98,5 +99,55 @@ describe("ContextMenu submenus", () => {
     await user.click(screen.getByText("Copy"));
     expect(onSelect).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe("ContextMenu focus navigation", () => {
+  function Harness() {
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <button type="button">Before</button>
+        <button type="button" onClick={() => setOpen(true)}>
+          Actions
+        </button>
+        <button type="button">After</button>
+        {open && (
+          <ContextMenu
+            x={10}
+            y={10}
+            label="Actions"
+            items={[{ label: "Edit", onSelect: () => {} }]}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  it("lets Tab continue past the opener after dismissing the menu", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    expect(screen.getByRole("menuitem", { name: "Edit" })).toHaveFocus();
+
+    await user.tab();
+
+    expect(screen.queryByRole("menu", { name: "Actions" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "After" })).toHaveFocus();
+  });
+
+  it("lets Shift+Tab continue before the opener after dismissing the menu", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    expect(screen.getByRole("menuitem", { name: "Edit" })).toHaveFocus();
+
+    await user.tab({ shift: true });
+
+    expect(screen.queryByRole("menu", { name: "Actions" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Before" })).toHaveFocus();
   });
 });

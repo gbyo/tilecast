@@ -224,7 +224,10 @@ function MenuList({
       if (nested && onDismiss) onDismiss();
       else onClose();
     } else if (event.key === "Tab") {
-      event.preventDefault();
+      // Dismiss the menu but leave Tab's default action intact. The ContextMenu
+      // cleanup restores focus to the opener before the browser advances to the
+      // next/previous focusable control, so keyboard users can continue through
+      // the page instead of being trapped on the trigger.
       onClose();
     } else if (event.key === "ArrowLeft" && nested && onDismiss) {
       event.preventDefault();
