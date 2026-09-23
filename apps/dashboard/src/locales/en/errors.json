@@ -1,7 +1,20 @@
 {
   "generic": "Something went wrong. Try again.",
+  "fallback": {
+    "somethingWentWrong": "Something went wrong.",
+    "requestFailed": "The request failed.",
+    "uploadFailed": "Upload failed."
+  },
   "codes": {
     "forbidden": "Your role does not allow this action.",
-    "rate_limited": "Too many attempts. Wait a moment and try again."
+    "rate_limited": "Too many attempts. Wait a moment and try again.",
+    "authentication_required": "Authentication is required.",
+    "unauthenticated": "Sign in to continue.",
+    "internal_error": "Tilecast could not complete the request.",
+    "unknown_error": "Tilecast could not complete the request.",
+    "database_unavailable": "The database is not ready.",
+    "csrf_failed": "The request could not be verified.",
+    "conflict": "The record was modified by someone else. Reload and try again.",
+    "file_read_failed": "Could not read the selected file."
   }
 }

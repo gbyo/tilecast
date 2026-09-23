@@ -29,6 +29,8 @@ import { Spinner } from "../components/ui/spinner";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
   Download,
@@ -43,6 +45,7 @@ import {
   Upload,
 } from "lucide-react";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import { screenPlatformFamily } from "../playerPlatform";
 import type {
   GitHubDeviceStart,
@@ -390,6 +393,7 @@ export function PlayerUpdatesPanel({
 }) {
   const auth = useAuth();
   const client = useQueryClient();
+  const { t } = useTranslation("errors");
   const releases = useQuery({
     queryKey: ["player-releases"],
     queryFn: api.playerReleases,
@@ -811,13 +815,17 @@ export function PlayerUpdatesPanel({
           {cache.error && (
             <Alert variant="destructive">
               <AlertTitle>The release could not be cached.</AlertTitle>
-              <AlertDescription>{mutationError(cache.error)}</AlertDescription>
+              <AlertDescription>
+                {mutationError(cache.error, t)}
+              </AlertDescription>
             </Alert>
           )}
           {purge.error && (
             <Alert variant="destructive">
               <AlertTitle>The release could not be removed.</AlertTitle>
-              <AlertDescription>{mutationError(purge.error)}</AlertDescription>
+              <AlertDescription>
+                {mutationError(purge.error, t)}
+              </AlertDescription>
             </Alert>
           )}
           {purgeNotice && (
@@ -831,7 +839,7 @@ export function PlayerUpdatesPanel({
             {releases.isLoading
               ? "Loading releases…"
               : releases.error
-                ? `Releases could not be loaded. ${mutationError(releases.error)}`
+                ? `Releases could not be loaded. ${mutationError(releases.error, t)}`
                 : `No ${platformLabel} Player releases have been imported. Tilecast checks GitHub automatically; use Sync from GitHub to retry immediately.`}
           </div>
         ) : (
@@ -1293,7 +1301,9 @@ export function PlayerUpdatesPanel({
                 role={deploy.error ? undefined : "status"}
               >
                 <AlertDescription>
-                  {deploy.error ? mutationError(deploy.error) : deploySuccess}
+                  {deploy.error
+                    ? mutationError(deploy.error, t)
+                    : deploySuccess}
                 </AlertDescription>
               </Alert>
             </div>
@@ -1407,7 +1417,7 @@ export function PlayerUpdatesPanel({
             <Alert variant="destructive">
               <AlertTitle>Deployment history could not be loaded.</AlertTitle>
               <AlertDescription>
-                {mutationError(deployments.error)}
+                {mutationError(deployments.error, t)}
               </AlertDescription>
             </Alert>
           </div>
@@ -1855,8 +1865,10 @@ function UpdateStatus({ value }: { value: string }) {
           : "neutral";
   return <StatusDot tone={tone} label={humanize(value)} />;
 }
-function mutationError(error: unknown) {
-  return error instanceof Error ? error.message : "The request failed.";
+function mutationError(error: unknown, t: TFunction<"errors">): string {
+  return error instanceof Error
+    ? apiErrorMessage(error)
+    : t("fallback.requestFailed");
 }
 // One vocabulary for a screen's update state, shared with the deployment drawer
 // so a state never reads one way in a table and another way in a detail view.

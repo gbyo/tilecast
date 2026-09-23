@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { AlertCircle } from "lucide-react";
 import type {
@@ -12,6 +13,7 @@ import type {
   FormSchema,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button as RheaButton } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
@@ -54,6 +56,7 @@ export function SubmissionEditor({
   onCompleted: (recordId: string) => void;
 }) {
   const { t } = useTranslation("forms");
+  const { t: tErrors } = useTranslation("errors");
   const queryClient = useQueryClient();
 
   // Editing uses the record's immutable revision; a new submission uses the current published one.
@@ -256,7 +259,7 @@ export function SubmissionEditor({
           pendingUrl: objectUrl,
           pendingName: file.name,
           uploading: false,
-          error: conflictAwareMessage(error),
+          error: conflictAwareMessage(error, tErrors),
         },
       }));
     }
@@ -280,7 +283,7 @@ export function SubmissionEditor({
           ...current,
           [fieldKey]: {
             ...current[fieldKey],
-            error: conflictAwareMessage(error),
+            error: conflictAwareMessage(error, tErrors),
           },
         }));
       }
@@ -385,7 +388,7 @@ export function SubmissionEditor({
     try {
       await persist();
     } catch (error) {
-      setFormError(conflictAwareMessage(error));
+      setFormError(conflictAwareMessage(error, tErrors));
     } finally {
       setBusy("");
     }
@@ -423,7 +426,7 @@ export function SubmissionEditor({
       onCompleted(detail.id);
     } catch (error) {
       // The draft (and any uploads) are saved server-side; keep the editor so the user can retry.
-      setFormError(conflictAwareMessage(error));
+      setFormError(conflictAwareMessage(error, tErrors));
     } finally {
       setBusy("");
     }
@@ -626,13 +629,15 @@ function imagesFromDetail(
   return result;
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong.";
+function messageOf(error: unknown, t: TFunction<"errors">): string {
+  return error instanceof Error
+    ? apiErrorMessage(error)
+    : t("fallback.somethingWentWrong");
 }
 
-function conflictAwareMessage(error: unknown): string {
+function conflictAwareMessage(error: unknown, t: TFunction<"errors">): string {
   if (error instanceof ApiError && error.status === 409) {
     return "This submission changed elsewhere. Reload to see the latest version, then try again.";
   }
-  return messageOf(error);
+  return messageOf(error, t);
 }

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type {
@@ -8,6 +9,7 @@ import type {
   FormRecordDetail,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -112,6 +114,7 @@ function RecordReviewBody({
   onChanged: () => void;
 }) {
   const { t } = useTranslation(["forms", "common"]);
+  const { t: tErrors } = useTranslation("errors");
   const locale = useFormatLocale();
   const schema = detail.revision?.schema ??
     form.publishedRevision?.schema ?? { fields: [] };
@@ -217,7 +220,7 @@ function RecordReviewBody({
       if (err instanceof ApiError && err.status === 409) {
         await recover();
       }
-      setError(conflictMessage(err));
+      setError(conflictMessage(err, tErrors));
     } finally {
       setBusy(false);
     }
@@ -310,7 +313,7 @@ function RecordReviewBody({
       if (err instanceof ApiError && err.status === 409) await recover();
       setImages((current) => ({
         ...current,
-        [fieldKey]: { error: conflictMessage(err) },
+        [fieldKey]: { error: conflictMessage(err, tErrors) },
       }));
     }
   }
@@ -334,7 +337,7 @@ function RecordReviewBody({
       if (err instanceof ApiError && err.status === 409) await recover();
       setImages((current) => ({
         ...current,
-        [fieldKey]: { ...current[fieldKey], error: conflictMessage(err) },
+        [fieldKey]: { ...current[fieldKey], error: conflictMessage(err, tErrors) },
       }));
     }
   }
@@ -680,13 +683,15 @@ function imagesFromDetail(
   return result;
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong.";
+function messageOf(error: unknown, t: TFunction<"errors">): string {
+  return error instanceof Error
+    ? apiErrorMessage(error)
+    : t("fallback.somethingWentWrong");
 }
 
-function conflictMessage(error: unknown): string {
+function conflictMessage(error: unknown, t: TFunction<"errors">): string {
   if (error instanceof ApiError && error.status === 409) {
     return "This submission changed elsewhere. Reload to see the latest version, then try again.";
   }
-  return messageOf(error);
+  return messageOf(error, t);
 }

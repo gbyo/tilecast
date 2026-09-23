@@ -1,5 +1,6 @@
 import { Radio, Video, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { liveStreamApi, type LiveStreamSession } from "../api/liveStreams";
 import { Button } from "./ui/button";
 import {
@@ -26,6 +27,7 @@ export function LiveStreamDialog({
   csrfToken: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["alerts", "common"]);
   const [session, setSession] = useState<LiveStreamSession | null>(null);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export function LiveStreamDialog({
                 setError(
                   reason instanceof Error
                     ? reason.message
-                    : "The live stream lease could not be renewed.",
+                    : t("liveStream.leaseRenewError"),
                 );
               }
             });
@@ -72,7 +74,7 @@ export function LiveStreamDialog({
           setError(
             reason instanceof Error
               ? reason.message
-              : "The live stream could not be started.",
+              : t("liveStream.startError"),
           );
         }
       });
@@ -86,7 +88,9 @@ export function LiveStreamDialog({
           .catch(() => undefined);
       }
     };
-  }, [csrfToken, open, screenId]);
+    // `t` is a dependency so a language change restarts this ephemeral
+    // preview with labels in the new language.
+  }, [csrfToken, open, screenId, t]);
 
   return (
     <Dialog
@@ -97,21 +101,19 @@ export function LiveStreamDialog({
     >
       <DialogContent className="w-[min(920px,calc(100vw-2rem))] max-w-none">
         <DialogHeader>
-          <DialogTitle>Live stream · {screenName}</DialogTitle>
-          <DialogDescription>
-            Ephemeral player output, relayed only while this window is open.
-          </DialogDescription>
+          <DialogTitle>
+            {t("liveStream.title", { name: screenName })}
+          </DialogTitle>
+          <DialogDescription>{t("liveStream.description")}</DialogDescription>
         </DialogHeader>
         <div className="relative grid aspect-video w-full place-items-center overflow-hidden rounded-lg border border-border bg-[#080b0f]">
           {session ? (
             <img
               className="block size-full object-contain"
               src={liveStreamApi.mjpegUrl(screenId, session.id)}
-              alt={`Live Tilecast output from ${screenName}`}
+              alt={t("liveStream.imageAlt", { name: screenName })}
               onLoad={() => setPlaying(true)}
-              onError={() =>
-                setError("The live stream connection ended unexpectedly.")
-              }
+              onError={() => setError(t("liveStream.connectionEnded"))}
             />
           ) : null}
           {!playing && (
@@ -122,15 +124,15 @@ export function LiveStreamDialog({
               {error ? (
                 <>
                   <WifiOff className="size-7" aria-hidden="true" />
-                  <strong>Stream unavailable</strong>
+                  <strong>{t("liveStream.unavailable")}</strong>
                   <span className="text-sm text-slate-300">{error}</span>
                 </>
               ) : (
                 <>
                   <Video className="size-7" aria-hidden="true" />
-                  <strong>Connecting to player…</strong>
+                  <strong>{t("liveStream.connecting")}</strong>
                   <span className="text-sm text-slate-300">
-                    Waiting for the first frame.
+                    {t("liveStream.waitingFrame")}
                   </span>
                 </>
               )}
@@ -139,27 +141,35 @@ export function LiveStreamDialog({
           {playing && (
             <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-black/80 px-2 py-1 text-xs font-bold uppercase tracking-wide text-white">
               <Radio className="size-3.5 text-red-400" aria-hidden="true" />
-              Live
+              {t("liveStream.liveBadge")}
             </span>
           )}
         </div>
         <div className="mt-3.5 grid gap-1 text-sm text-muted-foreground">
           <p className="m-0">
-            Targeting{" "}
-            <strong>
-              {session
-                ? `${Math.round(1_000 / session.frameIntervalMillis)} FPS · ${session.maxWidth}×${session.maxHeight}`
-                : "8 FPS · 640×360"}
-            </strong>
-            . Actual refresh depends on the player and network.
+            <Trans
+              i18nKey="liveStream.targetLine"
+              ns="alerts"
+              values={{
+                target: session
+                  ? t("liveStream.targetValue", {
+                      fps: Math.round(1_000 / session.frameIntervalMillis),
+                      width: session.maxWidth,
+                      height: session.maxHeight,
+                    })
+                  : t("liveStream.targetValue", {
+                      fps: 8,
+                      width: 640,
+                      height: 360,
+                    }),
+              }}
+              components={{ strong: <strong /> }}
+            />
           </p>
-          <p className="m-0">
-            This stream is relayed only while this window is open. Frames are
-            never saved to snapshots, live preview, Activity, or backups.
-          </p>
+          <p className="m-0">{t("liveStream.privacyNote")}</p>
         </div>
         <DialogFooter>
-          <Button onClick={onClose}>Stop watching</Button>
+          <Button onClick={onClose}>{t("liveStream.stopWatching")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,11 @@
 {
+  "a11y": {
+    "loading": "Cargando",
+    "more": "Más",
+    "sidebarDescription": "Muestra la barra lateral móvil.",
+    "sidebarTitle": "Barra lateral",
+    "toggleSidebar": "Alternar barra lateral"
+  },
   "actions": {
     "back": "Atrás",
     "cancel": "Cancelar",
@@ -7,10 +14,14 @@
     "delete": "Eliminar",
     "edit": "Editar",
     "next": "Siguiente",
+    "previous": "Anterior",
+    "remove": "Eliminar",
     "retry": "Reintentar",
     "save": "Guardar",
     "saveChanges": "Guardar cambios",
-    "saving": "Guardando…"
+    "saving": "Guardando…",
+    "skip": "Omitir",
+    "submit": "Enviar"
   },
   "status": {
     "loading": "Cargando…"

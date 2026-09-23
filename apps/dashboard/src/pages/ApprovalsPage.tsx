@@ -5,6 +5,8 @@ import {
   useTable,
 } from "@tanstack/react-table";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Link } from "react-router";
 import { ClipboardCheck } from "lucide-react";
 import { api } from "../api/client";
@@ -38,6 +40,7 @@ const columnHelper = createColumnHelper<typeof features, FormApprovalItem>();
 // may review, approve, or manage. Opening an item routes to the shared record review in the form's
 // Responses tab. Items leave the inbox automatically once they are no longer pending.
 export function ApprovalsPage() {
+  const { t } = useTranslation(["review", "common"]);
   const [page, setPage] = useState(1);
   const approvals = useQuery({
     queryKey: ["approvals", page],
@@ -53,12 +56,12 @@ export function ApprovalsPage() {
       columnHelper.columns([
         columnHelper.display({
           id: "form",
-          header: "Form",
+          header: t("approvals.table.form"),
           cell: ({ row }) => row.original.formName,
         }),
         columnHelper.display({
           id: "submission",
-          header: "Submission",
+          header: t("approvals.table.submission"),
           cell: ({ row }) => {
             const item = row.original;
             return (
@@ -66,26 +69,27 @@ export function ApprovalsPage() {
                 to={recordHref(item.dataSourceId, item.recordId)}
                 className="font-medium text-primary hover:underline"
               >
-                {item.title || "Untitled submission"}
+                {item.title || t("approvals.untitledSubmission")}
               </Link>
             );
           },
         }),
         columnHelper.display({
           id: "submitter",
-          header: "Submitter",
-          cell: ({ row }) => row.original.submitterName || "Unknown",
+          header: t("approvals.table.submitter"),
+          cell: ({ row }) =>
+            row.original.submitterName || t("approvals.unknownSubmitter"),
         }),
         columnHelper.display({
           id: "state",
-          header: "State",
+          header: t("approvals.table.state"),
           cell: ({ row }) => (
             <Badge variant="secondary">{row.original.stateLabel}</Badge>
           ),
         }),
         columnHelper.display({
           id: "submitted",
-          header: "Submitted",
+          header: t("approvals.table.submitted"),
           cell: ({ row }) => (
             <span className="whitespace-nowrap tabular-nums">
               {new Date(row.original.submittedAt).toLocaleString()}
@@ -94,10 +98,10 @@ export function ApprovalsPage() {
         }),
         columnHelper.display({
           id: "window",
-          header: "Display window",
+          header: t("approvals.table.displayWindow"),
           cell: ({ row }) => (
             <span className="whitespace-nowrap">
-              {displayWindow(row.original.displayAt, row.original.expiresAt)}
+              {displayWindow(t, row.original.displayAt, row.original.expiresAt)}
             </span>
           ),
         }),
@@ -109,16 +113,19 @@ export function ApprovalsPage() {
             return (
               <Link
                 to={recordHref(item.dataSourceId, item.recordId)}
-                aria-label={`Review ${item.title || "untitled submission"} from ${item.formName}`}
+                aria-label={t("approvals.reviewActionLabel", {
+                  title: item.title || t("approvals.untitledSubmissionInline"),
+                  formName: item.formName,
+                })}
                 className="font-medium text-primary hover:underline"
               >
-                Review
+                {t("approvals.table.reviewAction")}
               </Link>
             );
           },
         }),
       ]),
-    [],
+    [t],
   );
   const table = useTable({
     features,
@@ -131,27 +138,29 @@ export function ApprovalsPage() {
     <div className="grid gap-4">
       <header className="grid gap-1">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Forms
+          {t("approvals.eyebrow")}
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight">Approvals</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("approvals.title")}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Submissions awaiting a review decision across your forms.
+          {t("approvals.description")}
         </p>
       </header>
 
       {approvals.isError && (
         <Alert variant="destructive">
-          <AlertTitle>Could not load approvals</AlertTitle>
+          <AlertTitle>{t("approvals.loadErrorTitle")}</AlertTitle>
           <AlertDescription>
             {approvals.error instanceof Error
               ? approvals.error.message
-              : "Please try again."}
+              : t("approvals.loadErrorFallback")}
           </AlertDescription>
         </Alert>
       )}
 
       {approvals.isLoading ? (
-        <div className="grid gap-2" aria-label="Loading approvals">
+        <div className="grid gap-2" aria-label={t("approvals.loading")}>
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-12 w-full" />
         </div>
@@ -161,9 +170,9 @@ export function ApprovalsPage() {
             <EmptyMedia variant="icon">
               <ClipboardCheck size={28} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>Nothing to review</EmptyTitle>
+            <EmptyTitle>{t("approvals.emptyTitle")}</EmptyTitle>
             <EmptyDescription>
-              There are no submissions awaiting your decision right now.
+              {t("approvals.emptyDescription")}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -201,8 +210,12 @@ export function ApprovalsPage() {
             </Table>
           </div>
           <Pagination
-            label="Approvals pages"
-            status={`Page ${page} of ${totalPages} · ${total} pending`}
+            label={t("approvals.paginationLabel")}
+            status={t("approvals.paginationStatus", {
+              page,
+              totalPages,
+              total,
+            })}
             previous={() => setPage((current) => Math.max(1, current - 1))}
             next={() => setPage((current) => Math.min(totalPages, current + 1))}
             previousDisabled={page <= 1}
@@ -219,11 +232,15 @@ function recordHref(formId: string, recordId: string) {
 }
 
 function displayWindow(
+  t: TFunction<"review">,
   displayAt: string | null | undefined,
   expiresAt: string | null | undefined,
 ): string {
   const start = displayAt ? new Date(displayAt).toLocaleDateString() : null;
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString() : null;
   if (!start && !end) return "—";
-  return `${start ?? "now"} → ${end ?? "∞"}`;
+  return t("approvals.displayWindow.range", {
+    start: start ?? t("approvals.displayWindow.now"),
+    end: end ?? "∞",
+  });
 }

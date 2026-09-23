@@ -363,7 +363,7 @@ describe("Remove plugin", () => {
 
   it("gives Emergency Alerts steps that match each blocker", () => {
     expect(
-      blockerInstruction([
+      blockerInstruction(i18n.getFixedT("en", "plugins"), [
         { kind: "alert_monitor", count: 1, label: "enabled monitor" },
         { kind: "alert_rule", count: 2, label: "alert rules" },
         { kind: "alert_activation", count: 1, label: "active alert" },
