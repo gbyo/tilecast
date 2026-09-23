@@ -9,14 +9,27 @@ Electron player's on-disk format, then checks that tilecastd:
    untouched, and refuses a second import as already complete;
 2. verifies installation identity and then makes ordinary player contact
    (`POST /api/v1/player/heartbeat`) the dashboard can see on the screen;
-3. deletes the credential only after the server says it was revoked.
+3. with a real tilecast-renderer-wpe (``--renderer``), plays what the
+   dashboard assigns through the ordinary manifest: an uploaded image and
+   video in a published playlist, then a published Layout containing a clock
+   Widget, each committed only after the renderer's own evidence and reported
+   back in the ordinary heartbeat; and plays the committed Layout from its
+   cache after a restart with the server stopped;
+4. deletes the credential only after the server says it was revoked.
 
 No Edge-specific server configuration or endpoint is involved: Edge 1 uses
 the same player API as every other Tilecast player.
 
-Requirements: Go, cargo, a local PostgreSQL where the current user may
-create databases. Usage: apps/edge/ci/e2e_server.py (from the repository root).
+Requirements: Go, cargo, FFmpeg, a local PostgreSQL where the current user
+may create databases. Usage (from the repository root):
+
+    apps/edge/ci/e2e_server.py [--renderer BIN --runtime-dir DIR --gst-plugin-dir DIR]
+
+apps/edge/ci/run-e2e-server.sh runs it with the renderer in the
+tilecast-edge-e2e image.
 """
+
+import argparse
 
 import hashlib
 import http.cookiejar
@@ -51,10 +64,11 @@ class Client:
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
         self.csrf = None
 
-    def call(self, method, path, body=None, headers=None, expect=None):
-        data = json.dumps(body).encode() if body is not None else None
+    def call(self, method, path, body=None, headers=None, expect=None, raw=None):
+        data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
         request = urllib.request.Request(BASE + path, data=data, method=method)
-        request.add_header("Content-Type", "application/json")
+        if raw is None:
+            request.add_header("Content-Type", "application/json")
         if self.csrf and method not in ("GET", "HEAD"):
             request.add_header("X-CSRF-Token", self.csrf)
         for key, value in (headers or {}).items():
@@ -66,7 +80,7 @@ class Client:
             status, payload = error.code, error.read()
         except urllib.error.URLError:
             status, payload = 0, b""
-        if expect is not None and status != expect:
+        if expect is not None and status not in (expect if isinstance(expect, tuple) else (expect,)):
             # Never echo a credential or token, even from a throwaway server.
             text = re.sub(r"(tc_device_|Token\":\")[A-Za-z0-9._-]+", r"\1[redacted]", payload[:400].decode(errors="replace"))
             raise AssertionError(f"{method} {path}: {status} {text}")
@@ -83,6 +97,77 @@ def wait_for(predicate, what, timeout=60):
     raise AssertionError(f"timed out waiting for {what}")
 
 
+def upload(client, path, mime):
+    """Uploads a file through the dashboard's resumable upload API and waits
+    for server-side processing to finish."""
+    with open(path, "rb") as handle:
+        data = handle.read()
+    _, created = client.call("POST", "/api/v1/uploads",
+                             {"filename": os.path.basename(path), "mimeType": mime, "sizeBytes": len(data)},
+                             expect=(200, 201))
+    upload_id = created["data"]["id"]
+    client.call("PATCH", f"/api/v1/uploads/{upload_id}", raw=data, expect=(200, 204),
+                headers={"Content-Type": "application/offset+octet-stream", "Upload-Offset": "0"})
+    _, asset = client.call("POST", f"/api/v1/uploads/{upload_id}/complete", expect=(200, 201))
+    asset_id = asset["data"]["id"]
+
+    def ready():
+        _, current = client.call("GET", f"/api/v1/assets/{asset_id}", expect=200)
+        state = current["data"].get("processingStatus")
+        assert state != "failed", current["data"]
+        return current["data"] if state == "ready" else None
+
+    return wait_for(ready, f"processing of {os.path.basename(path)}", timeout=120)
+
+
+def item(asset_id, duration_ms=None):
+    body = {"assetId": asset_id, "fitMode": "contain", "transition": "none", "audioEnabled": False, "volume": 0,
+            "deliveryPolicy": "download"}
+    if duration_ms is not None:
+        body["durationMs"] = duration_ms
+    return body
+
+
+def evidence(log_path, since, kinds):
+    """Evidence kinds the daemon accepted from the renderer after byte
+    offset ``since`` of its log, once every kind in ``kinds`` was seen."""
+    with open(log_path, encoding="utf-8", errors="replace") as handle:
+        handle.seek(since)
+        text = handle.read()
+    seen = {kind for kind in kinds if any(kind in line for line in text.splitlines() if "evidence_accepted" in line)}
+    return seen if seen == set(kinds) else None
+
+
+class Renderer:
+    """A real tilecast-renderer-wpe on WPE_PLATFORM=headless."""
+
+    def __init__(self, args, runtime, work):
+        self.args, self.runtime, self.work = args, runtime, work
+        self.process = None
+
+    def start(self):
+        env = dict(os.environ)
+        # Containers without unprivileged user namespaces cannot run WebKit's
+        # bubblewrap sandbox. CI only; production keeps the sandbox.
+        env.setdefault("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1")
+        log = open(os.path.join(self.work, "renderer.log"), "a")
+        wait_for(lambda: os.path.exists(os.path.join(self.runtime, "edge.sock")), "daemon socket", timeout=30)
+        self.process = subprocess.Popen(
+            [self.args.renderer, "--platform=headless", f"--socket={os.path.join(self.runtime, 'edge.sock')}",
+             f"--media-socket={os.path.join(self.runtime, 'media.sock')}", f"--runtime-dir={self.args.runtime_dir}",
+             f"--gst-plugin-dir={self.args.gst_plugin_dir}", "--headless-size=1280x720", "--console"],
+            stdout=log, stderr=subprocess.STDOUT, env=env)
+        return self.process
+
+    def stop(self):
+        if self.process and self.process.poll() is None:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+
+
 def tree(root):
     out = {}
     for base, _, files in os.walk(root):
@@ -94,6 +179,13 @@ def tree(root):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--renderer", help="tilecast-renderer-wpe binary; enables the content phase")
+    parser.add_argument("--runtime-dir", help="assembled trusted web runtime (renderer-wpe/assemble-runtime.sh)")
+    parser.add_argument("--gst-plugin-dir", help="directory holding the tcmediasrc GStreamer plugin")
+    args = parser.parse_args()
+    if args.renderer and not (args.runtime_dir and args.gst_plugin_dir):
+        parser.error("--renderer needs --runtime-dir and --gst-plugin-dir")
     work = tempfile.mkdtemp(prefix="tilecast-edge-e2e-")
     processes = []
     try:
@@ -105,12 +197,14 @@ def main():
         target = os.path.join(os.environ.get("CARGO_TARGET_DIR", os.path.join(EDGE, "target")), "debug")
         tilecastd, tilecastctl = os.path.join(target, "tilecastd"), os.path.join(target, "tilecastctl")
 
-        # This test uploads no media, so when FFmpeg is not installed the
-        # server's startup probe (`<tool> -version`) is answered by a stub
-        # that refuses every other invocation.
+        # Without the content phase nothing is uploaded, so when FFmpeg is not
+        # installed the server's startup probe (`<tool> -version`) is answered
+        # by a stub that refuses every other invocation.
         tools = {}
         for tool in ("ffmpeg", "ffprobe"):
             found = shutil.which(tool)
+            if not found and args.renderer:
+                raise AssertionError(f"the content phase needs {tool}")
             if not found:
                 found = os.path.join(work, tool)
                 with open(found, "w") as handle:
@@ -186,6 +280,8 @@ def main():
         config = os.path.join(work, "edge.toml")
         with open(config, "w") as handle:
             handle.write(f'[paths]\nstate_dir = "{state}"\nruntime_dir = "{runtime}"\n[log]\nformat = "text"\n')
+            if args.renderer:
+                handle.write(f'[renderer]\nbinary = "{args.renderer}"\nstall_threshold_seconds = 60\n')
 
         run(tilecastd, "--config", config, "import-legacy", "--from", legacy)
         again = subprocess.run([tilecastd, "--config", config, "import-legacy", "--from", legacy],
@@ -213,6 +309,130 @@ def main():
         assert daemon_status["server"]["identityVerifiedAt"], status.stdout
         assert daemon_status["playerId"] == player_id, status.stdout
 
+        if args.renderer:
+            daemon_log_path = os.path.join(work, "tilecastd.log")
+            renderer = Renderer(args, runtime, work)
+            processes.append(renderer.start())
+
+            last_assignment = {}
+
+            def reported(version):
+                _, assignment = client.call("GET", f"/api/v1/screens/{screen_id}/playlist-assignment", expect=200)
+                data = assignment["data"] or {}
+                last_assignment.update(data)
+                return data if data.get("playerActiveManifestVersion") == version else None
+
+            # An uploaded image and video in a published playlist.
+            media = os.path.join(work, "media")
+            os.makedirs(media)
+            ffmpeg = lambda *argv: run(tools["ffmpeg"], "-loglevel", "error", "-y", *argv)  # noqa: E731
+            ffmpeg("-f", "lavfi", "-i", "testsrc=size=1280x720:rate=1", "-frames:v", "1",
+                   os.path.join(media, "still.png"))
+            ffmpeg("-f", "lavfi", "-i", "testsrc=size=1280x720:rate=30", "-t", "4", "-c:v", "libx264",
+                   "-profile:v", "baseline", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                   os.path.join(media, "clip.mp4"))
+            image = upload(client, os.path.join(media, "still.png"), "image/png")
+            video = upload(client, os.path.join(media, "clip.mp4"), "video/mp4")
+            _, playlist = client.call("POST", "/api/v1/playlists",
+                                      {"name": "Lobby loop", "description": "", "sourceType": "static"},
+                                      expect=(200, 201))
+            playlist_id = playlist["data"]["id"]
+            client.call("POST", f"/api/v1/playlists/{playlist_id}/items", item(image["id"], 3000), expect=(200, 201))
+            _, playlist = client.call("POST", f"/api/v1/playlists/{playlist_id}/items", item(video["id"]),
+                                      expect=(200, 201))
+            client.call("POST", f"/api/v1/playlists/{playlist_id}/publish",
+                        {"expectedDraftRevision": playlist["data"]["draftRevision"]}, expect=(200, 201))
+            mark = os.path.getsize(daemon_log_path)
+            _, assignment = client.call("PUT", f"/api/v1/screens/{screen_id}/playlist-assignment",
+                                        {"playlistId": playlist_id}, expect=200)
+            playlist_version = assignment["data"]["manifestVersion"]
+            wait_for(lambda: evidence(daemon_log_path, mark, ("image_shown", "video_progress", "item_transition")),
+                     "image and video playback evidence", timeout=180)
+            try:
+                shown = wait_for(lambda: reported(playlist_version), "the heartbeat to report the playlist", timeout=150)
+            except AssertionError:
+                print("assignment:", {k: v for k, v in last_assignment.items() if "anifest" in k or "current" in k})
+                print("screen:", client.call("GET", f"/api/v1/screens/{screen_id}")[1]["data"].get("lastHeartbeatAt"))
+                subprocess.run(["psql", "-d", DATABASE, "-c",
+                                "SELECT screen_id, active_manifest_version, playback_state, updated_at "
+                                "FROM screen_player_status"], check=False)
+                raise
+            assert shown["selectionSource"] == "direct_fallback", shown
+            assert shown["currentPlaylistId"] == playlist_id, shown
+            print("playlist: manifest", playlist_version, "committed and reported; item", shown.get("currentItemId"))
+
+            def published_layout(name, widget_config):
+                _, widget = client.call("POST", "/api/v1/widgets", {**widget_config, "name": name, "description": ""},
+                                        expect=(200, 201))
+                _, layout = client.call("POST", "/api/v1/layouts", {
+                    "name": name, "description": "", "orientation": "landscape",
+                    "canvasWidth": 1920, "canvasHeight": 1080}, expect=(200, 201))
+                layout_id = layout["data"]["id"]
+                document = {"schemaVersion": 2,
+                            "canvas": {"width": 1920, "height": 1080, "orientation": "landscape",
+                                       "backgroundColor": "#101820", "safeAreaPercent": 0,
+                                       "backgroundAssetId": image["id"]},
+                            "placements": [{"id": str(uuid.uuid4()), "type": "widget", "name": name, "x": 160,
+                                            "y": 140, "width": 800, "height": 600, "layer": 1, "opacity": 1,
+                                            "visible": True, "locked": False, "widgetId": widget["data"]["id"]}]}
+                _, layout = client.call("PUT", f"/api/v1/layouts/{layout_id}/draft",
+                                        {"expectedDraftRevision": layout["data"]["draftRevision"],
+                                         "document": document}, expect=200)
+                client.call("POST", f"/api/v1/layouts/{layout_id}/publish",
+                            {"expectedDraftRevision": layout["data"]["draftRevision"]}, expect=(200, 201))
+                return layout_id
+
+            # The server negotiates widgets against the capabilities this
+            # player reports: a Clock needs environment.time, which Edge does
+            # not claim (a ticking projection would restart playback), so the
+            # assignment is refused before anything reaches the player.
+            clock = published_layout("Lobby clock", {"provider": "clock", "configuration": {
+                "timezone": "UTC", "format": "24", "showSeconds": False,
+                "foregroundColor": "#ffffff", "backgroundColor": "#111111"}})
+            status, refused = client.call("PUT", f"/api/v1/screens/{screen_id}/playlist-assignment",
+                                          {"layoutId": clock})
+            assert status == 409 and refused["error"]["code"] == "playlist_conflict", (status, refused)
+            assert "environment.time" in refused["error"]["message"], refused
+
+            # A published Layout with a QR Code Widget over the uploaded
+            # image, assigned directly.
+            layout_id = published_layout("Visit us", {"provider": "qrcode", "configuration": {
+                "value": "https://tilecast.example/visit", "label": "Visit us", "errorCorrection": "medium",
+                "foregroundColor": "#ffffff", "backgroundColor": "#111111"}})
+            mark = os.path.getsize(daemon_log_path)
+            _, assignment = client.call("PUT", f"/api/v1/screens/{screen_id}/playlist-assignment",
+                                        {"layoutId": layout_id}, expect=200)
+            layout_version = assignment["data"]["manifestVersion"]
+            wait_for(lambda: evidence(daemon_log_path, mark, ("layout_shown", "layout_zone_rendered")), "layout evidence",
+                     timeout=180)
+            wait_for(lambda: reported(layout_version), "the heartbeat to report the layout", timeout=150)
+            print("layout: manifest", layout_version, "committed through the reference projection")
+
+            # Offline: the committed Layout plays from the cache with the
+            # server stopped and the player restarted.
+            server = processes[0]
+            renderer.stop()
+            processes.remove(renderer.process)
+            daemon.send_signal(signal.SIGTERM)
+            assert daemon.wait(timeout=20) == 0, "tilecastd did not stop cleanly"
+            processes.remove(daemon)
+            server.terminate()
+            server.wait(timeout=20)
+            mark = os.path.getsize(daemon_log_path)
+            daemon = subprocess.Popen([tilecastd, "--config", config, "run"], stdout=daemon_log, stderr=subprocess.STDOUT)
+            processes.append(daemon)
+            processes.append(renderer.start())
+            wait_for(lambda: evidence(daemon_log_path, mark, ("layout_shown",)), "cached layout offline", timeout=120)
+            offline = json.loads(subprocess.run([tilecastctl, "--socket", socket, "--json", "status"], check=True,
+                                                capture_output=True, text=True).stdout)
+            assert offline["link"]["state"] == "retrying", offline["link"]
+            assert offline["renderer"]["state"] == "healthy", offline["renderer"]
+            print("offline: committed layout restored from cache without the server")
+            renderer.stop()
+            processes.remove(renderer.process)
+            processes[0] = subprocess.Popen([server_bin], env=env, stdout=server_log, stderr=subprocess.STDOUT)
+            wait_for(lambda: client.call("GET", "/readyz")[0] == 200, "server readiness after restart")
+
         daemon.send_signal(signal.SIGTERM)
         assert daemon.wait(timeout=20) == 0, "tilecastd did not stop cleanly"
         processes.remove(daemon)
@@ -225,7 +445,8 @@ def main():
         credential_path = os.path.join(state, "identity", "device-credential")
         wait_for(lambda: not os.path.exists(credential_path), "credential removal after revocation")
         assert tree(legacy) == before, "legacy state changed"
-        print("PASS: import, identity gate, player contact, revocation")
+        print("PASS: import, identity gate, player contact, " + ("content, offline cache, " if args.renderer else "")
+              + "revocation")
         return 0
     except Exception:
         for name in ("server.log", "tilecastd.log"):
@@ -233,7 +454,13 @@ def main():
             if os.path.exists(path):
                 print(f"==== {name}", file=sys.stderr)
                 with open(path) as handle:
-                    print(handle.read()[-6000:], file=sys.stderr)
+                    text = handle.read()
+                if name == "server.log":
+                    notable = [line for line in text.splitlines()
+                               if '"level":"WARN"' in line or '"level":"ERROR"' in line or "/player/" in line]
+                    print("\n".join(notable[-40:]), file=sys.stderr)
+                else:
+                    print(text[-6000:], file=sys.stderr)
         raise
     finally:
         for process in processes:
