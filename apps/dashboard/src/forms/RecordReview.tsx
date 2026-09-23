@@ -337,7 +337,10 @@ function RecordReviewBody({
       if (err instanceof ApiError && err.status === 409) await recover();
       setImages((current) => ({
         ...current,
-        [fieldKey]: { ...current[fieldKey], error: conflictMessage(err, tErrors) },
+        [fieldKey]: {
+          ...current[fieldKey],
+          error: conflictMessage(err, tErrors),
+        },
       }));
     }
   }
