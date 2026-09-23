@@ -398,6 +398,89 @@ export function PlaylistEditorPage() {
     setEditorError("");
   };
 
+  const sequence = (
+    <>
+      <PlaylistPlaybackDefaults
+        items={items}
+        sourceType={sourceType}
+        canManage={canManage}
+        transition={commonTransition}
+        imageDuration={imageDuration}
+        transitionPending={bulkUpdate.isPending}
+        imageDurationPending={bulkUpdate.isPending}
+        onTransitionChange={(transition) => {
+          setPlaybackMessage("");
+          bulkUpdate.mutate({ transition });
+        }}
+        onImageDurationChange={(seconds) => {
+          setPlaybackMessage("");
+          bulkUpdate.mutate({ durationMs: Math.round(seconds * 1000) });
+        }}
+        onOpenDetails={openDetails}
+      />
+      <PlaylistTimeline
+        items={items}
+        sourceType={sourceType}
+        canManage={editableTimeline}
+        selectedItemId={selectedItemId}
+        playlistTransition={commonTransition}
+        draggedItemId={draggedItemId}
+        onSelect={selectItem}
+        onMove={(itemId, offset) => {
+          if (!editableTimeline) return;
+          commitOrder(movePlaylistItem(items, itemId, offset));
+        }}
+        onMoveToEdge={(itemId, edge) => {
+          if (!editableTimeline) return;
+          commitOrder(movePlaylistItemToEdge(items, itemId, edge));
+        }}
+        onDragStart={setDraggedItemId}
+        onDragEnd={() => setDraggedItemId(undefined)}
+        onDrop={handleDrop}
+        onAddContent={() => {
+          setAddFailure("");
+          setPicker(true);
+        }}
+        onAddLayout={() => {
+          setAddFailure("");
+          setLayoutPicker(true);
+        }}
+      />
+      <div className="grid min-w-0 gap-4">
+        <UsedByPanel
+          compact
+          emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."
+          groups={[
+            {
+              label: "Layouts",
+              items: (playlist.layoutUsage ?? []).map((layout) => ({
+                id: layout.id,
+                name: layout.name,
+                hint: layout.published ? "Published" : "Draft",
+              })),
+              to: (layoutId) => `/layouts/${layoutId}`,
+            },
+            {
+              label: "Screens",
+              items: playlist.usage?.screens ?? [],
+              to: (screenId) => `/screens/${screenId}`,
+            },
+            {
+              label: "Schedules",
+              items: playlist.usage?.schedules ?? [],
+              to: (scheduleId) => `/schedules/${scheduleId}`,
+            },
+            {
+              label: "Campaigns",
+              items: playlist.usage?.campaigns ?? [],
+              to: (campaignId) => `/campaigns/${campaignId}`,
+            },
+          ]}
+        />
+      </div>
+    </>
+  );
+
   return (
     <section className="grid gap-4">
       <PlaylistEditorHeader
@@ -459,92 +542,13 @@ export function PlaylistEditorPage() {
           aria-label="Playlist sequence and inspector"
         >
           <ResizablePanel
-            defaultSize={62}
-            minSize={35}
+            defaultSize="62%"
+            minSize="35%"
             id="playlist-sequence"
             aria-label="Playlist sequence"
           >
             <div className="grid min-w-0 content-start gap-6 pr-4">
-              <PlaylistPlaybackDefaults
-                items={items}
-                sourceType={sourceType}
-                canManage={canManage}
-                transition={commonTransition}
-                imageDuration={imageDuration}
-                transitionPending={bulkUpdate.isPending}
-                imageDurationPending={bulkUpdate.isPending}
-                onTransitionChange={(transition) => {
-                  setPlaybackMessage("");
-                  bulkUpdate.mutate({ transition });
-                }}
-                onImageDurationChange={(seconds) => {
-                  setPlaybackMessage("");
-                  bulkUpdate.mutate({
-                    durationMs: Math.round(seconds * 1000),
-                  });
-                }}
-                onOpenDetails={openDetails}
-              />
-              <PlaylistTimeline
-                items={items}
-                sourceType={sourceType}
-                canManage={editableTimeline}
-                selectedItemId={selectedItemId}
-                playlistTransition={commonTransition}
-                draggedItemId={draggedItemId}
-                onSelect={selectItem}
-                onMove={(itemId, offset) => {
-                  if (!editableTimeline) return;
-                  commitOrder(movePlaylistItem(items, itemId, offset));
-                }}
-                onMoveToEdge={(itemId, edge) => {
-                  if (!editableTimeline) return;
-                  commitOrder(movePlaylistItemToEdge(items, itemId, edge));
-                }}
-                onDragStart={setDraggedItemId}
-                onDragEnd={() => setDraggedItemId(undefined)}
-                onDrop={handleDrop}
-                onAddContent={() => {
-                  setAddFailure("");
-                  setPicker(true);
-                }}
-                onAddLayout={() => {
-                  setAddFailure("");
-                  setLayoutPicker(true);
-                }}
-              />
-              <div className="grid min-w-0 gap-4">
-                <UsedByPanel
-                  compact
-                  emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."
-                  groups={[
-                    {
-                      label: "Layouts",
-                      items: (playlist.layoutUsage ?? []).map((layout) => ({
-                        id: layout.id,
-                        name: layout.name,
-                        hint: layout.published ? "Published" : "Draft",
-                      })),
-                      to: (layoutId) => `/layouts/${layoutId}`,
-                    },
-                    {
-                      label: "Screens",
-                      items: playlist.usage?.screens ?? [],
-                      to: (screenId) => `/screens/${screenId}`,
-                    },
-                    {
-                      label: "Schedules",
-                      items: playlist.usage?.schedules ?? [],
-                      to: (scheduleId) => `/schedules/${scheduleId}`,
-                    },
-                    {
-                      label: "Campaigns",
-                      items: playlist.usage?.campaigns ?? [],
-                      to: (campaignId) => `/campaigns/${campaignId}`,
-                    },
-                  ]}
-                />
-              </div>
+              {sequence}
             </div>
           </ResizablePanel>
           <ResizableHandle
@@ -552,8 +556,8 @@ export function PlaylistEditorPage() {
             aria-label="Resize sequence and inspector panes"
           />
           <ResizablePanel
-            defaultSize={38}
-            minSize={25}
+            defaultSize="38%"
+            minSize="25%"
             id="playlist-inspector"
             aria-label="Inspector"
           >
@@ -651,86 +655,7 @@ export function PlaylistEditorPage() {
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
-        <>
-          <PlaylistPlaybackDefaults
-            items={items}
-            sourceType={sourceType}
-            canManage={canManage}
-            transition={commonTransition}
-            imageDuration={imageDuration}
-            transitionPending={bulkUpdate.isPending}
-            imageDurationPending={bulkUpdate.isPending}
-            onTransitionChange={(transition) => {
-              setPlaybackMessage("");
-              bulkUpdate.mutate({ transition });
-            }}
-            onImageDurationChange={(seconds) => {
-              setPlaybackMessage("");
-              bulkUpdate.mutate({ durationMs: Math.round(seconds * 1000) });
-            }}
-            onOpenDetails={openDetails}
-          />
-          <PlaylistTimeline
-            items={items}
-            sourceType={sourceType}
-            canManage={editableTimeline}
-            selectedItemId={selectedItemId}
-            playlistTransition={commonTransition}
-            draggedItemId={draggedItemId}
-            onSelect={selectItem}
-            onMove={(itemId, offset) => {
-              if (!editableTimeline) return;
-              commitOrder(movePlaylistItem(items, itemId, offset));
-            }}
-            onMoveToEdge={(itemId, edge) => {
-              if (!editableTimeline) return;
-              commitOrder(movePlaylistItemToEdge(items, itemId, edge));
-            }}
-            onDragStart={setDraggedItemId}
-            onDragEnd={() => setDraggedItemId(undefined)}
-            onDrop={handleDrop}
-            onAddContent={() => {
-              setAddFailure("");
-              setPicker(true);
-            }}
-            onAddLayout={() => {
-              setAddFailure("");
-              setLayoutPicker(true);
-            }}
-          />
-          <div className="grid min-w-0 gap-4">
-            <UsedByPanel
-              compact
-              emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."
-              groups={[
-                {
-                  label: "Layouts",
-                  items: (playlist.layoutUsage ?? []).map((layout) => ({
-                    id: layout.id,
-                    name: layout.name,
-                    hint: layout.published ? "Published" : "Draft",
-                  })),
-                  to: (layoutId) => `/layouts/${layoutId}`,
-                },
-                {
-                  label: "Screens",
-                  items: playlist.usage?.screens ?? [],
-                  to: (screenId) => `/screens/${screenId}`,
-                },
-                {
-                  label: "Schedules",
-                  items: playlist.usage?.schedules ?? [],
-                  to: (scheduleId) => `/schedules/${scheduleId}`,
-                },
-                {
-                  label: "Campaigns",
-                  items: playlist.usage?.campaigns ?? [],
-                  to: (campaignId) => `/campaigns/${campaignId}`,
-                },
-              ]}
-            />
-          </div>
-        </>
+        sequence
       )}
 
       {!desktop && selectedItem && (

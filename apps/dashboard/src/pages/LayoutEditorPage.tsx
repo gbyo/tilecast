@@ -1903,6 +1903,576 @@ export function LayoutEditorPage() {
         ((event.clientY - bounds.top) / bounds.height) * document.canvas.height,
     });
   };
+  const librarySidebar = (
+    <aside className="layout-editor-left">
+      <nav className="layout-sidebar-nav" aria-label="Layout builder">
+        {(
+          [
+            ["media", "Media", ImageIcon],
+            ["widgets", "Widgets", AppWindow],
+            ["playlists", "Playlists", ListVideo],
+            ["elements", "Elements", RectangleHorizontal],
+            ["layers", "Layers", BoxSelect],
+            ["settings", "Settings", Settings],
+          ] as const
+        ).map(([section, label, Icon]) => (
+          <button
+            key={section}
+            type="button"
+            className={sidebarSection === section ? "is-active" : ""}
+            aria-pressed={sidebarSection === section}
+            onClick={() => setSidebarSection(section)}
+          >
+            <Icon size={18} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="layout-sidebar-panel">
+        {(sidebarSection === "media" ||
+          sidebarSection === "widgets" ||
+          sidebarSection === "playlists") && (
+          <>
+            <div className="layout-panel-heading">
+              <strong>
+                {
+                  {
+                    media: "Media",
+                    widgets: "Widgets",
+                    playlists: "Playlists",
+                  }[sidebarSection]
+                }
+              </strong>
+            </div>
+            <RheaButton
+              type="button"
+              variant="default"
+              className="layout-library-browse"
+              onClick={() => setPicker(sidebarSection)}
+            >
+              <Search size={16} aria-hidden="true" />
+              {
+                {
+                  media: "Browse media library",
+                  widgets: "Browse apps",
+                  playlists: "Browse playlists",
+                }[sidebarSection]
+              }
+            </RheaButton>
+            <div className="layout-panel-heading layout-panel-heading--sub">
+              <strong>Recent</strong>
+              <span>Drag to canvas</span>
+            </div>
+            <div className="layout-content-shelf">
+              {recentLibraryItems.map((item) => {
+                const asset = item.kind === "asset" ? item.asset : undefined;
+                const playlist =
+                  item.kind === "playlist" ? item.playlist : undefined;
+                const name = asset?.name ?? playlist?.name ?? "";
+                return (
+                  <button
+                    key={`${item.kind}-${asset?.id ?? playlist?.id}`}
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = "copy";
+                      event.dataTransfer.setData(
+                        "application/x-tilecast-layout-library",
+                        JSON.stringify({
+                          kind: item.kind,
+                          id: asset?.id ?? playlist?.id,
+                        }),
+                      );
+                    }}
+                    onClick={() => addLibraryItem(item)}
+                    title={`Add ${name}`}
+                  >
+                    <span className="layout-content-shelf__preview">
+                      {asset?.thumbnailUrl ? (
+                        <img
+                          src={asset.thumbnailUrl}
+                          alt=""
+                          draggable={false}
+                        />
+                      ) : asset?.type === "widget" ? (
+                        <AppWindow size={18} />
+                      ) : playlist ? (
+                        <ListVideo size={18} />
+                      ) : (
+                        <ImageIcon size={18} />
+                      )}
+                    </span>
+                    <span>
+                      <strong>{name}</strong>
+                      <small>
+                        {playlist
+                          ? `${playlist.itemCount} items`
+                          : (asset?.widget?.provider ?? asset?.type)}
+                      </small>
+                    </span>
+                  </button>
+                );
+              })}
+              {!recentLibraryItems.length && (
+                <p className="layout-content-shelf__empty">
+                  No recently created {sidebarSection}. Use the browse button
+                  above to search the whole library.
+                </p>
+              )}
+            </div>
+          </>
+        )}
+        {sidebarSection === "elements" && (
+          <>
+            <div className="layout-panel-heading">
+              <strong>Elements</strong>
+            </div>
+            <div className="layout-add-grid">
+              <button onClick={() => addPrimitive("text")}>
+                <Type size={20} />
+                Text
+              </button>
+              <button onClick={() => addPrimitive("rectangle")}>
+                <RectangleHorizontal size={20} />
+                Rectangle
+              </button>
+              <button onClick={() => addPrimitive("circle")}>
+                <Circle size={20} />
+                Circle
+              </button>
+              <button onClick={() => addPrimitive("line")}>
+                <Minus size={20} />
+                Line
+              </button>
+            </div>
+          </>
+        )}
+        {sidebarSection === "layers" && (
+          <>
+            <div className="layout-panel-heading">
+              <strong>Layers</strong>
+              <span>{document.placements.length}</span>
+            </div>
+            <div className="layout-layers">
+              {[...document.placements]
+                .sort((a, b) => b.layer - a.layer)
+                .map((item) => (
+                  <RheaContextMenu key={item.id}>
+                    <ContextMenuTrigger
+                      render={
+                        <div
+                          className={`layout-layer-row${
+                            selection.has(item.id) ? " is-selected" : ""
+                          }`}
+                          onContextMenu={(event) =>
+                            openPlacementMenu(event, item)
+                          }
+                        />
+                      }
+                    >
+                      <button
+                        type="button"
+                        className="layout-layer-select"
+                        aria-pressed={selection.has(item.id)}
+                        onClick={(event) =>
+                          setSelection(
+                            new Set(
+                              event.shiftKey
+                                ? [...selection, item.id]
+                                : [item.id],
+                            ),
+                          )
+                        }
+                      >
+                        <span className="layout-layer-icon">
+                          {item.primitive?.kind === "text" ? (
+                            <Type size={14} />
+                          ) : item.primitive?.kind === "group" ? (
+                            <Group size={14} />
+                          ) : (
+                            <BoxSelect size={14} />
+                          )}
+                        </span>
+                        <span>{item.name}</span>
+                      </button>
+                      <span className="layout-layer-actions">
+                        <RheaButton
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          className="layout-layer-toggle"
+                          aria-label={
+                            item.visible
+                              ? `Hide ${item.name}`
+                              : `Show ${item.name}`
+                          }
+                          aria-pressed={item.visible}
+                          title={item.visible ? "Hide" : "Show"}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            update((d) => {
+                              const target = d.placements.find(
+                                (x) => x.id === item.id,
+                              );
+                              if (target) target.visible = !target.visible;
+                            });
+                          }}
+                        >
+                          {item.visible ? (
+                            <Eye size={13} aria-hidden="true" />
+                          ) : (
+                            <EyeOff size={13} aria-hidden="true" />
+                          )}
+                        </RheaButton>
+                        <RheaButton
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          className="layout-layer-toggle"
+                          aria-label={
+                            item.locked
+                              ? `Unlock ${item.name}`
+                              : `Lock ${item.name}`
+                          }
+                          aria-pressed={item.locked}
+                          title={item.locked ? "Unlock" : "Lock"}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            update((d) => {
+                              const target = d.placements.find(
+                                (x) => x.id === item.id,
+                              );
+                              if (target) target.locked = !target.locked;
+                            });
+                          }}
+                        >
+                          {item.locked ? (
+                            <Lock size={13} aria-hidden="true" />
+                          ) : (
+                            <LockOpen size={13} aria-hidden="true" />
+                          )}
+                        </RheaButton>
+                      </span>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent aria-label={`Actions for ${item.name}`}>
+                      <LayoutEditorMenuEntries
+                        items={placementMenuItems(item)}
+                      />
+                    </ContextMenuContent>
+                  </RheaContextMenu>
+                ))}
+            </div>
+            {!desktop && primary && (
+              <div className="layout-layer-inspector">
+                <div className="layout-panel-heading">
+                  <strong>Selected layer</strong>
+                  <span>{selected.length} selected</span>
+                </div>
+                <PlacementInspector
+                  item={primary}
+                  content={
+                    primary.widgetId
+                      ? contentByID.get(primary.widgetId)
+                      : primary.assetId
+                        ? contentByID.get(primary.assetId)
+                        : undefined
+                  }
+                  playlist={
+                    primary.playlistId
+                      ? playlistByID.get(primary.playlistId)
+                      : undefined
+                  }
+                  dataSources={dataSources}
+                  update={(change) => mutateSelected(change)}
+                  duplicate={duplicateSelection}
+                  group={groupSelection}
+                  ungroup={ungroupSelection}
+                  canGroup={selection.size > 1}
+                />
+              </div>
+            )}
+          </>
+        )}
+        {sidebarSection === "settings" && (
+          <>
+            <div className="layout-panel-heading">
+              <strong>Layout settings</strong>
+            </div>
+            <CanvasInspector document={document} update={update} />
+            {layoutQuery.data && (
+              <UsedByPanel
+                emptyMessage="No campaign, screen, or schedule shows this Layout yet."
+                groups={[
+                  {
+                    label: "Screens",
+                    items: layoutQuery.data.usage.screens,
+                    to: (screenId) => `/screens/${screenId}`,
+                  },
+                  {
+                    label: "Schedules",
+                    items: layoutQuery.data.usage.schedules,
+                    to: (scheduleId) => `/schedules/${scheduleId}`,
+                  },
+                  {
+                    label: "Campaigns",
+                    items: layoutQuery.data.usage.campaigns,
+                    to: (campaignId) => `/campaigns/${campaignId}`,
+                  },
+                ]}
+              />
+            )}
+          </>
+        )}
+      </div>
+    </aside>
+  );
+
+  const stage = (
+    <main className="layout-stage">
+      <div className="layout-stage-controls">
+        <ButtonGroup aria-label="Canvas zoom">
+          <RheaButton
+            variant="outline"
+            size="sm"
+            onClick={zoomOut}
+            title="Zoom out"
+            aria-label="Zoom out"
+          >
+            <ZoomOut size={16} aria-hidden="true" />
+          </RheaButton>
+          <ButtonGroupText aria-live="polite">
+            {Math.round(zoom * 100)}%
+          </ButtonGroupText>
+          <RheaButton
+            variant="outline"
+            size="sm"
+            onClick={zoomIn}
+            title="Zoom in"
+            aria-label="Zoom in"
+          >
+            <ZoomIn size={16} aria-hidden="true" />
+          </RheaButton>
+          <RheaButton
+            variant="outline"
+            size="sm"
+            onClick={fitZoom}
+            title="Fit canvas to view"
+            aria-label="Fit canvas to view"
+          >
+            <Maximize2 size={16} aria-hidden="true" />
+          </RheaButton>
+        </ButtonGroup>
+        {/* The wrapping label names the checkbox; no extra aria-label. */}
+        <label className="flex items-center gap-2 text-sm">
+          <RheaCheckbox
+            checked={snap}
+            onCheckedChange={(checked) => setSnap(checked === true)}
+          />
+          Snap
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <RheaCheckbox
+            checked={safeArea}
+            onCheckedChange={(checked) => setSafeArea(checked === true)}
+          />
+          Safe area
+        </label>
+        <RheaPopover>
+          <PopoverTrigger
+            render={
+              <RheaButton
+                variant="ghost"
+                size="icon-sm"
+                title="Keyboard shortcuts"
+                aria-label="Keyboard shortcuts"
+              >
+                <Keyboard size={16} aria-hidden="true" />
+              </RheaButton>
+            }
+          />
+          <PopoverContent
+            side="bottom"
+            align="center"
+            aria-label="Canvas keyboard shortcuts"
+          >
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Keyboard shortcuts
+            </p>
+            <ul className="grid gap-2 text-sm">
+              <li className="flex items-center justify-between gap-3">
+                <span>Save</span>
+                <span className="flex items-center gap-1">
+                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>S</Kbd>
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Undo / redo</span>
+                <span className="flex items-center gap-1">
+                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>Z</Kbd>
+                  <Kbd>⇧</Kbd>
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Duplicate</span>
+                <span className="flex items-center gap-1">
+                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>D</Kbd>
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Copy / paste</span>
+                <span className="flex items-center gap-1">
+                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>C</Kbd>
+                  <Kbd>V</Kbd>
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Select all</span>
+                <span className="flex items-center gap-1">
+                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>A</Kbd>
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Group / ungroup</span>
+                <span className="flex items-center gap-1">
+                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>G</Kbd>
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Arrange (Shift: front/back)</span>
+                <span className="flex items-center gap-1">
+                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>[</Kbd>
+                  <Kbd>]</Kbd>
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Delete selection</span>
+                <Kbd>Del</Kbd>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Nudge (Shift: 10px)</span>
+                <Kbd>← ↑ ↓ →</Kbd>
+              </li>
+            </ul>
+          </PopoverContent>
+        </RheaPopover>
+      </div>
+      <RheaContextMenu>
+        <ContextMenuTrigger
+          render={
+            <div
+              className="layout-stage-scroll"
+              onPointerDown={(event) => {
+                if (event.button === 0) setSelection(new Set());
+              }}
+              onContextMenuCapture={() => setMenuTarget({ kind: "canvas" })}
+            />
+          }
+        >
+          <div
+            ref={canvasRef}
+            className="layout-canvas"
+            onDragOver={(event) => {
+              if (
+                event.dataTransfer.types.includes(
+                  "application/x-tilecast-layout-library",
+                )
+              ) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "copy";
+              }
+            }}
+            onDrop={dropLibraryItem}
+            style={{
+              aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
+              width: `${zoom * 100}%`,
+              backgroundColor: document.canvas.backgroundColor,
+            }}
+          >
+            {document.canvas.backgroundAssetId &&
+              contentByID.get(document.canvas.backgroundAssetId)?.type ===
+                "image" && (
+                <img
+                  className="layout-preview-background"
+                  src={api.assetPreviewUrl(document.canvas.backgroundAssetId)}
+                  alt=""
+                  draggable={false}
+                />
+              )}
+            {safeArea && (
+              <div
+                className="layout-safe-area"
+                style={{ inset: `${document.canvas.safeAreaPercent}%` }}
+              />
+            )}
+            {guides.x !== undefined && (
+              <span
+                className="layout-guide layout-guide--vertical"
+                style={{
+                  left: `${(guides.x / document.canvas.width) * 100}%`,
+                }}
+              />
+            )}
+            {guides.y !== undefined && (
+              <span
+                className="layout-guide layout-guide--horizontal"
+                style={{
+                  top: `${(guides.y / document.canvas.height) * 100}%`,
+                }}
+              />
+            )}
+            {[...document.placements]
+              .sort((a, b) => a.layer - b.layer)
+              .map((item) => (
+                <PlacementView
+                  key={item.id}
+                  item={item}
+                  content={
+                    item.widgetId
+                      ? contentByID.get(item.widgetId)
+                      : item.assetId
+                        ? contentByID.get(item.assetId)
+                        : undefined
+                  }
+                  playlist={
+                    item.playlistId
+                      ? playlistByID.get(item.playlistId)
+                      : undefined
+                  }
+                  assetsById={contentByID}
+                  canvas={document.canvas}
+                  selected={selection.has(item.id)}
+                  onPointerDown={(event) => beginMove(event, item)}
+                  onResize={(event) => beginMove(event, item, true)}
+                  onContextMenu={(event) => openPlacementMenu(event, item)}
+                />
+              ))}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent
+          aria-label={
+            menuTarget?.kind === "placement"
+              ? `Actions for ${menuTarget.item.name}`
+              : "Canvas actions"
+          }
+        >
+          <LayoutEditorMenuEntries
+            items={
+              menuTarget?.kind === "placement"
+                ? placementMenuItems(menuTarget.item)
+                : canvasMenuItems()
+            }
+          />
+        </ContextMenuContent>
+      </RheaContextMenu>
+    </main>
+  );
+
   return (
     <div className="layout-editor">
       <RheaDialog
@@ -2090,335 +2660,11 @@ export function LayoutEditorPage() {
         >
           <ResizablePanel
             id="layout-library-pane"
-            defaultSize={24}
-            minSize={15}
+            defaultSize="24%"
+            minSize="15%"
             className="layout-editor-pane"
           >
-            <aside className="layout-editor-left">
-              <nav className="layout-sidebar-nav" aria-label="Layout builder">
-                {(
-                  [
-                    ["media", "Media", ImageIcon],
-                    ["widgets", "Widgets", AppWindow],
-                    ["playlists", "Playlists", ListVideo],
-                    ["elements", "Elements", RectangleHorizontal],
-                    ["layers", "Layers", BoxSelect],
-                    ["settings", "Settings", Settings],
-                  ] as const
-                ).map(([section, label, Icon]) => (
-                  <button
-                    key={section}
-                    type="button"
-                    className={sidebarSection === section ? "is-active" : ""}
-                    aria-pressed={sidebarSection === section}
-                    onClick={() => setSidebarSection(section)}
-                  >
-                    <Icon size={18} />
-                    <span>{label}</span>
-                  </button>
-                ))}
-              </nav>
-              <div className="layout-sidebar-panel">
-                {(sidebarSection === "media" ||
-                  sidebarSection === "widgets" ||
-                  sidebarSection === "playlists") && (
-                  <>
-                    <div className="layout-panel-heading">
-                      <strong>
-                        {
-                          {
-                            media: "Media",
-                            widgets: "Widgets",
-                            playlists: "Playlists",
-                          }[sidebarSection]
-                        }
-                      </strong>
-                    </div>
-                    <RheaButton
-                      type="button"
-                      variant="default"
-                      className="layout-library-browse"
-                      onClick={() => setPicker(sidebarSection)}
-                    >
-                      <Search size={16} aria-hidden="true" />
-                      {
-                        {
-                          media: "Browse media library",
-                          widgets: "Browse apps",
-                          playlists: "Browse playlists",
-                        }[sidebarSection]
-                      }
-                    </RheaButton>
-                    <div className="layout-panel-heading layout-panel-heading--sub">
-                      <strong>Recent</strong>
-                      <span>Drag to canvas</span>
-                    </div>
-                    <div className="layout-content-shelf">
-                      {recentLibraryItems.map((item) => {
-                        const asset =
-                          item.kind === "asset" ? item.asset : undefined;
-                        const playlist =
-                          item.kind === "playlist" ? item.playlist : undefined;
-                        const name = asset?.name ?? playlist?.name ?? "";
-                        return (
-                          <button
-                            key={`${item.kind}-${asset?.id ?? playlist?.id}`}
-                            draggable
-                            onDragStart={(event) => {
-                              event.dataTransfer.effectAllowed = "copy";
-                              event.dataTransfer.setData(
-                                "application/x-tilecast-layout-library",
-                                JSON.stringify({
-                                  kind: item.kind,
-                                  id: asset?.id ?? playlist?.id,
-                                }),
-                              );
-                            }}
-                            onClick={() => addLibraryItem(item)}
-                            title={`Add ${name}`}
-                          >
-                            <span className="layout-content-shelf__preview">
-                              {asset?.thumbnailUrl ? (
-                                <img
-                                  src={asset.thumbnailUrl}
-                                  alt=""
-                                  draggable={false}
-                                />
-                              ) : asset?.type === "widget" ? (
-                                <AppWindow size={18} />
-                              ) : playlist ? (
-                                <ListVideo size={18} />
-                              ) : (
-                                <ImageIcon size={18} />
-                              )}
-                            </span>
-                            <span>
-                              <strong>{name}</strong>
-                              <small>
-                                {playlist
-                                  ? `${playlist.itemCount} items`
-                                  : (asset?.widget?.provider ?? asset?.type)}
-                              </small>
-                            </span>
-                          </button>
-                        );
-                      })}
-                      {!recentLibraryItems.length && (
-                        <p className="layout-content-shelf__empty">
-                          No recently created {sidebarSection}. Use the browse
-                          button above to search the whole library.
-                        </p>
-                      )}
-                    </div>
-                  </>
-                )}
-                {sidebarSection === "elements" && (
-                  <>
-                    <div className="layout-panel-heading">
-                      <strong>Elements</strong>
-                    </div>
-                    <div className="layout-add-grid">
-                      <button onClick={() => addPrimitive("text")}>
-                        <Type size={20} />
-                        Text
-                      </button>
-                      <button onClick={() => addPrimitive("rectangle")}>
-                        <RectangleHorizontal size={20} />
-                        Rectangle
-                      </button>
-                      <button onClick={() => addPrimitive("circle")}>
-                        <Circle size={20} />
-                        Circle
-                      </button>
-                      <button onClick={() => addPrimitive("line")}>
-                        <Minus size={20} />
-                        Line
-                      </button>
-                    </div>
-                  </>
-                )}
-                {sidebarSection === "layers" && (
-                  <>
-                    <div className="layout-panel-heading">
-                      <strong>Layers</strong>
-                      <span>{document.placements.length}</span>
-                    </div>
-                    <div className="layout-layers">
-                      {[...document.placements]
-                        .sort((a, b) => b.layer - a.layer)
-                        .map((item) => (
-                          <RheaContextMenu key={item.id}>
-                            <ContextMenuTrigger
-                              render={
-                                <div
-                                  className={`layout-layer-row${
-                                    selection.has(item.id) ? " is-selected" : ""
-                                  }`}
-                                  onContextMenu={(event) =>
-                                    openPlacementMenu(event, item)
-                                  }
-                                />
-                              }
-                            >
-                              <button
-                                type="button"
-                                className="layout-layer-select"
-                                aria-pressed={selection.has(item.id)}
-                                onClick={(event) =>
-                                  setSelection(
-                                    new Set(
-                                      event.shiftKey
-                                        ? [...selection, item.id]
-                                        : [item.id],
-                                    ),
-                                  )
-                                }
-                              >
-                                <span className="layout-layer-icon">
-                                  {item.primitive?.kind === "text" ? (
-                                    <Type size={14} />
-                                  ) : item.primitive?.kind === "group" ? (
-                                    <Group size={14} />
-                                  ) : (
-                                    <BoxSelect size={14} />
-                                  )}
-                                </span>
-                                <span>{item.name}</span>
-                              </button>
-                              <span className="layout-layer-actions">
-                                <RheaButton
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  className="layout-layer-toggle"
-                                  aria-label={
-                                    item.visible
-                                      ? `Hide ${item.name}`
-                                      : `Show ${item.name}`
-                                  }
-                                  aria-pressed={item.visible}
-                                  title={item.visible ? "Hide" : "Show"}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    update((d) => {
-                                      const target = d.placements.find(
-                                        (x) => x.id === item.id,
-                                      );
-                                      if (target)
-                                        target.visible = !target.visible;
-                                    });
-                                  }}
-                                >
-                                  {item.visible ? (
-                                    <Eye size={13} aria-hidden="true" />
-                                  ) : (
-                                    <EyeOff size={13} aria-hidden="true" />
-                                  )}
-                                </RheaButton>
-                                <RheaButton
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  className="layout-layer-toggle"
-                                  aria-label={
-                                    item.locked
-                                      ? `Unlock ${item.name}`
-                                      : `Lock ${item.name}`
-                                  }
-                                  aria-pressed={item.locked}
-                                  title={item.locked ? "Unlock" : "Lock"}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    update((d) => {
-                                      const target = d.placements.find(
-                                        (x) => x.id === item.id,
-                                      );
-                                      if (target)
-                                        target.locked = !target.locked;
-                                    });
-                                  }}
-                                >
-                                  {item.locked ? (
-                                    <Lock size={13} aria-hidden="true" />
-                                  ) : (
-                                    <LockOpen size={13} aria-hidden="true" />
-                                  )}
-                                </RheaButton>
-                              </span>
-                            </ContextMenuTrigger>
-                            <ContextMenuContent
-                              aria-label={`Actions for ${item.name}`}
-                            >
-                              <LayoutEditorMenuEntries
-                                items={placementMenuItems(item)}
-                              />
-                            </ContextMenuContent>
-                          </RheaContextMenu>
-                        ))}
-                    </div>
-                    {!desktop && primary && (
-                      <div className="layout-layer-inspector">
-                        <div className="layout-panel-heading">
-                          <strong>Selected layer</strong>
-                          <span>{selected.length} selected</span>
-                        </div>
-                        <PlacementInspector
-                          item={primary}
-                          content={
-                            primary.widgetId
-                              ? contentByID.get(primary.widgetId)
-                              : primary.assetId
-                                ? contentByID.get(primary.assetId)
-                                : undefined
-                          }
-                          playlist={
-                            primary.playlistId
-                              ? playlistByID.get(primary.playlistId)
-                              : undefined
-                          }
-                          dataSources={dataSources}
-                          update={(change) => mutateSelected(change)}
-                          duplicate={duplicateSelection}
-                          group={groupSelection}
-                          ungroup={ungroupSelection}
-                          canGroup={selection.size > 1}
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-                {sidebarSection === "settings" && (
-                  <>
-                    <div className="layout-panel-heading">
-                      <strong>Layout settings</strong>
-                    </div>
-                    <CanvasInspector document={document} update={update} />
-                    {layoutQuery.data && (
-                      <UsedByPanel
-                        emptyMessage="No campaign, screen, or schedule shows this Layout yet."
-                        groups={[
-                          {
-                            label: "Screens",
-                            items: layoutQuery.data.usage.screens,
-                            to: (screenId) => `/screens/${screenId}`,
-                          },
-                          {
-                            label: "Schedules",
-                            items: layoutQuery.data.usage.schedules,
-                            to: (scheduleId) => `/schedules/${scheduleId}`,
-                          },
-                          {
-                            label: "Campaigns",
-                            items: layoutQuery.data.usage.campaigns,
-                            to: (campaignId) => `/campaigns/${campaignId}`,
-                          },
-                        ]}
-                      />
-                    )}
-                  </>
-                )}
-              </div>
-            </aside>
+            {librarySidebar}
           </ResizablePanel>
           <ResizableHandle
             withHandle
@@ -2426,260 +2672,11 @@ export function LayoutEditorPage() {
           />
           <ResizablePanel
             id="layout-stage-pane"
-            defaultSize={52}
-            minSize={30}
+            defaultSize="52%"
+            minSize="30%"
             className="layout-editor-pane"
           >
-            <main className="layout-stage">
-              <div className="layout-stage-controls">
-                <ButtonGroup aria-label="Canvas zoom">
-                  <RheaButton
-                    variant="outline"
-                    size="sm"
-                    onClick={zoomOut}
-                    title="Zoom out"
-                    aria-label="Zoom out"
-                  >
-                    <ZoomOut size={16} aria-hidden="true" />
-                  </RheaButton>
-                  <ButtonGroupText aria-live="polite">
-                    {Math.round(zoom * 100)}%
-                  </ButtonGroupText>
-                  <RheaButton
-                    variant="outline"
-                    size="sm"
-                    onClick={zoomIn}
-                    title="Zoom in"
-                    aria-label="Zoom in"
-                  >
-                    <ZoomIn size={16} aria-hidden="true" />
-                  </RheaButton>
-                  <RheaButton
-                    variant="outline"
-                    size="sm"
-                    onClick={fitZoom}
-                    title="Fit canvas to view"
-                    aria-label="Fit canvas to view"
-                  >
-                    <Maximize2 size={16} aria-hidden="true" />
-                  </RheaButton>
-                </ButtonGroup>
-                {/* The wrapping label names the checkbox; no extra aria-label. */}
-                <label className="flex items-center gap-2 text-sm">
-                  <RheaCheckbox
-                    checked={snap}
-                    onCheckedChange={(checked) => setSnap(checked === true)}
-                  />
-                  Snap
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <RheaCheckbox
-                    checked={safeArea}
-                    onCheckedChange={(checked) => setSafeArea(checked === true)}
-                  />
-                  Safe area
-                </label>
-                <RheaPopover>
-                  <PopoverTrigger
-                    render={
-                      <RheaButton
-                        variant="ghost"
-                        size="icon-sm"
-                        title="Keyboard shortcuts"
-                        aria-label="Keyboard shortcuts"
-                      >
-                        <Keyboard size={16} aria-hidden="true" />
-                      </RheaButton>
-                    }
-                  />
-                  <PopoverContent
-                    side="bottom"
-                    align="center"
-                    aria-label="Canvas keyboard shortcuts"
-                  >
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      Keyboard shortcuts
-                    </p>
-                    <ul className="grid gap-2 text-sm">
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Save</span>
-                        <span className="flex items-center gap-1">
-                          <Kbd>Ctrl/⌘</Kbd>
-                          <Kbd>S</Kbd>
-                        </span>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Undo / redo</span>
-                        <span className="flex items-center gap-1">
-                          <Kbd>Ctrl/⌘</Kbd>
-                          <Kbd>Z</Kbd>
-                          <Kbd>⇧</Kbd>
-                        </span>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Duplicate</span>
-                        <span className="flex items-center gap-1">
-                          <Kbd>Ctrl/⌘</Kbd>
-                          <Kbd>D</Kbd>
-                        </span>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Copy / paste</span>
-                        <span className="flex items-center gap-1">
-                          <Kbd>Ctrl/⌘</Kbd>
-                          <Kbd>C</Kbd>
-                          <Kbd>V</Kbd>
-                        </span>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Select all</span>
-                        <span className="flex items-center gap-1">
-                          <Kbd>Ctrl/⌘</Kbd>
-                          <Kbd>A</Kbd>
-                        </span>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Group / ungroup</span>
-                        <span className="flex items-center gap-1">
-                          <Kbd>Ctrl/⌘</Kbd>
-                          <Kbd>G</Kbd>
-                        </span>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Arrange (Shift: front/back)</span>
-                        <span className="flex items-center gap-1">
-                          <Kbd>Ctrl/⌘</Kbd>
-                          <Kbd>[</Kbd>
-                          <Kbd>]</Kbd>
-                        </span>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Delete selection</span>
-                        <Kbd>Del</Kbd>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Nudge (Shift: 10px)</span>
-                        <Kbd>← ↑ ↓ →</Kbd>
-                      </li>
-                    </ul>
-                  </PopoverContent>
-                </RheaPopover>
-              </div>
-              <RheaContextMenu>
-                <ContextMenuTrigger
-                  render={
-                    <div
-                      className="layout-stage-scroll"
-                      onPointerDown={(event) => {
-                        if (event.button === 0) setSelection(new Set());
-                      }}
-                      onContextMenuCapture={() =>
-                        setMenuTarget({ kind: "canvas" })
-                      }
-                    />
-                  }
-                >
-                  <div
-                    ref={canvasRef}
-                    className="layout-canvas"
-                    onDragOver={(event) => {
-                      if (
-                        event.dataTransfer.types.includes(
-                          "application/x-tilecast-layout-library",
-                        )
-                      ) {
-                        event.preventDefault();
-                        event.dataTransfer.dropEffect = "copy";
-                      }
-                    }}
-                    onDrop={dropLibraryItem}
-                    style={{
-                      aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
-                      width: `${zoom * 100}%`,
-                      backgroundColor: document.canvas.backgroundColor,
-                    }}
-                  >
-                    {document.canvas.backgroundAssetId &&
-                      contentByID.get(document.canvas.backgroundAssetId)
-                        ?.type === "image" && (
-                        <img
-                          className="layout-preview-background"
-                          src={api.assetPreviewUrl(
-                            document.canvas.backgroundAssetId,
-                          )}
-                          alt=""
-                          draggable={false}
-                        />
-                      )}
-                    {safeArea && (
-                      <div
-                        className="layout-safe-area"
-                        style={{ inset: `${document.canvas.safeAreaPercent}%` }}
-                      />
-                    )}
-                    {guides.x !== undefined && (
-                      <span
-                        className="layout-guide layout-guide--vertical"
-                        style={{
-                          left: `${(guides.x / document.canvas.width) * 100}%`,
-                        }}
-                      />
-                    )}
-                    {guides.y !== undefined && (
-                      <span
-                        className="layout-guide layout-guide--horizontal"
-                        style={{
-                          top: `${(guides.y / document.canvas.height) * 100}%`,
-                        }}
-                      />
-                    )}
-                    {[...document.placements]
-                      .sort((a, b) => a.layer - b.layer)
-                      .map((item) => (
-                        <PlacementView
-                          key={item.id}
-                          item={item}
-                          content={
-                            item.widgetId
-                              ? contentByID.get(item.widgetId)
-                              : item.assetId
-                                ? contentByID.get(item.assetId)
-                                : undefined
-                          }
-                          playlist={
-                            item.playlistId
-                              ? playlistByID.get(item.playlistId)
-                              : undefined
-                          }
-                          assetsById={contentByID}
-                          canvas={document.canvas}
-                          selected={selection.has(item.id)}
-                          onPointerDown={(event) => beginMove(event, item)}
-                          onResize={(event) => beginMove(event, item, true)}
-                          onContextMenu={(event) =>
-                            openPlacementMenu(event, item)
-                          }
-                        />
-                      ))}
-                  </div>
-                </ContextMenuTrigger>
-                <ContextMenuContent
-                  aria-label={
-                    menuTarget?.kind === "placement"
-                      ? `Actions for ${menuTarget.item.name}`
-                      : "Canvas actions"
-                  }
-                >
-                  <LayoutEditorMenuEntries
-                    items={
-                      menuTarget?.kind === "placement"
-                        ? placementMenuItems(menuTarget.item)
-                        : canvasMenuItems()
-                    }
-                  />
-                </ContextMenuContent>
-              </RheaContextMenu>
-            </main>
+            {stage}
           </ResizablePanel>
           {selection.size > 0 && primary ? (
             <>
@@ -2689,8 +2686,8 @@ export function LayoutEditorPage() {
               />
               <ResizablePanel
                 id="layout-inspector-pane"
-                defaultSize={24}
-                minSize={18}
+                defaultSize="24%"
+                minSize="18%"
                 className="layout-editor-pane"
               >
                 <aside
@@ -2729,580 +2726,8 @@ export function LayoutEditorPage() {
         </ResizablePanelGroup>
       ) : (
         <>
-          <aside className="layout-editor-left">
-            <nav className="layout-sidebar-nav" aria-label="Layout builder">
-              {(
-                [
-                  ["media", "Media", ImageIcon],
-                  ["widgets", "Widgets", AppWindow],
-                  ["playlists", "Playlists", ListVideo],
-                  ["elements", "Elements", RectangleHorizontal],
-                  ["layers", "Layers", BoxSelect],
-                  ["settings", "Settings", Settings],
-                ] as const
-              ).map(([section, label, Icon]) => (
-                <button
-                  key={section}
-                  type="button"
-                  className={sidebarSection === section ? "is-active" : ""}
-                  aria-pressed={sidebarSection === section}
-                  onClick={() => setSidebarSection(section)}
-                >
-                  <Icon size={18} />
-                  <span>{label}</span>
-                </button>
-              ))}
-            </nav>
-            <div className="layout-sidebar-panel">
-              {(sidebarSection === "media" ||
-                sidebarSection === "widgets" ||
-                sidebarSection === "playlists") && (
-                <>
-                  <div className="layout-panel-heading">
-                    <strong>
-                      {
-                        {
-                          media: "Media",
-                          widgets: "Widgets",
-                          playlists: "Playlists",
-                        }[sidebarSection]
-                      }
-                    </strong>
-                  </div>
-                  <RheaButton
-                    type="button"
-                    variant="default"
-                    className="layout-library-browse"
-                    onClick={() => setPicker(sidebarSection)}
-                  >
-                    <Search size={16} aria-hidden="true" />
-                    {
-                      {
-                        media: "Browse media library",
-                        widgets: "Browse apps",
-                        playlists: "Browse playlists",
-                      }[sidebarSection]
-                    }
-                  </RheaButton>
-                  <div className="layout-panel-heading layout-panel-heading--sub">
-                    <strong>Recent</strong>
-                    <span>Drag to canvas</span>
-                  </div>
-                  <div className="layout-content-shelf">
-                    {recentLibraryItems.map((item) => {
-                      const asset =
-                        item.kind === "asset" ? item.asset : undefined;
-                      const playlist =
-                        item.kind === "playlist" ? item.playlist : undefined;
-                      const name = asset?.name ?? playlist?.name ?? "";
-                      return (
-                        <button
-                          key={`${item.kind}-${asset?.id ?? playlist?.id}`}
-                          draggable
-                          onDragStart={(event) => {
-                            event.dataTransfer.effectAllowed = "copy";
-                            event.dataTransfer.setData(
-                              "application/x-tilecast-layout-library",
-                              JSON.stringify({
-                                kind: item.kind,
-                                id: asset?.id ?? playlist?.id,
-                              }),
-                            );
-                          }}
-                          onClick={() => addLibraryItem(item)}
-                          title={`Add ${name}`}
-                        >
-                          <span className="layout-content-shelf__preview">
-                            {asset?.thumbnailUrl ? (
-                              <img
-                                src={asset.thumbnailUrl}
-                                alt=""
-                                draggable={false}
-                              />
-                            ) : asset?.type === "widget" ? (
-                              <AppWindow size={18} />
-                            ) : playlist ? (
-                              <ListVideo size={18} />
-                            ) : (
-                              <ImageIcon size={18} />
-                            )}
-                          </span>
-                          <span>
-                            <strong>{name}</strong>
-                            <small>
-                              {playlist
-                                ? `${playlist.itemCount} items`
-                                : (asset?.widget?.provider ?? asset?.type)}
-                            </small>
-                          </span>
-                        </button>
-                      );
-                    })}
-                    {!recentLibraryItems.length && (
-                      <p className="layout-content-shelf__empty">
-                        No recently created {sidebarSection}. Use the browse
-                        button above to search the whole library.
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-              {sidebarSection === "elements" && (
-                <>
-                  <div className="layout-panel-heading">
-                    <strong>Elements</strong>
-                  </div>
-                  <div className="layout-add-grid">
-                    <button onClick={() => addPrimitive("text")}>
-                      <Type size={20} />
-                      Text
-                    </button>
-                    <button onClick={() => addPrimitive("rectangle")}>
-                      <RectangleHorizontal size={20} />
-                      Rectangle
-                    </button>
-                    <button onClick={() => addPrimitive("circle")}>
-                      <Circle size={20} />
-                      Circle
-                    </button>
-                    <button onClick={() => addPrimitive("line")}>
-                      <Minus size={20} />
-                      Line
-                    </button>
-                  </div>
-                </>
-              )}
-              {sidebarSection === "layers" && (
-                <>
-                  <div className="layout-panel-heading">
-                    <strong>Layers</strong>
-                    <span>{document.placements.length}</span>
-                  </div>
-                  <div className="layout-layers">
-                    {[...document.placements]
-                      .sort((a, b) => b.layer - a.layer)
-                      .map((item) => (
-                        <RheaContextMenu key={item.id}>
-                          <ContextMenuTrigger
-                            render={
-                              <div
-                                className={`layout-layer-row${
-                                  selection.has(item.id) ? " is-selected" : ""
-                                }`}
-                                onContextMenu={(event) =>
-                                  openPlacementMenu(event, item)
-                                }
-                              />
-                            }
-                          >
-                            <button
-                              type="button"
-                              className="layout-layer-select"
-                              aria-pressed={selection.has(item.id)}
-                              onClick={(event) =>
-                                setSelection(
-                                  new Set(
-                                    event.shiftKey
-                                      ? [...selection, item.id]
-                                      : [item.id],
-                                  ),
-                                )
-                              }
-                            >
-                              <span className="layout-layer-icon">
-                                {item.primitive?.kind === "text" ? (
-                                  <Type size={14} />
-                                ) : item.primitive?.kind === "group" ? (
-                                  <Group size={14} />
-                                ) : (
-                                  <BoxSelect size={14} />
-                                )}
-                              </span>
-                              <span>{item.name}</span>
-                            </button>
-                            <span className="layout-layer-actions">
-                              <RheaButton
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                className="layout-layer-toggle"
-                                aria-label={
-                                  item.visible
-                                    ? `Hide ${item.name}`
-                                    : `Show ${item.name}`
-                                }
-                                aria-pressed={item.visible}
-                                title={item.visible ? "Hide" : "Show"}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  update((d) => {
-                                    const target = d.placements.find(
-                                      (x) => x.id === item.id,
-                                    );
-                                    if (target)
-                                      target.visible = !target.visible;
-                                  });
-                                }}
-                              >
-                                {item.visible ? (
-                                  <Eye size={13} aria-hidden="true" />
-                                ) : (
-                                  <EyeOff size={13} aria-hidden="true" />
-                                )}
-                              </RheaButton>
-                              <RheaButton
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                className="layout-layer-toggle"
-                                aria-label={
-                                  item.locked
-                                    ? `Unlock ${item.name}`
-                                    : `Lock ${item.name}`
-                                }
-                                aria-pressed={item.locked}
-                                title={item.locked ? "Unlock" : "Lock"}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  update((d) => {
-                                    const target = d.placements.find(
-                                      (x) => x.id === item.id,
-                                    );
-                                    if (target) target.locked = !target.locked;
-                                  });
-                                }}
-                              >
-                                {item.locked ? (
-                                  <Lock size={13} aria-hidden="true" />
-                                ) : (
-                                  <LockOpen size={13} aria-hidden="true" />
-                                )}
-                              </RheaButton>
-                            </span>
-                          </ContextMenuTrigger>
-                          <ContextMenuContent
-                            aria-label={`Actions for ${item.name}`}
-                          >
-                            <LayoutEditorMenuEntries
-                              items={placementMenuItems(item)}
-                            />
-                          </ContextMenuContent>
-                        </RheaContextMenu>
-                      ))}
-                  </div>
-                  {!desktop && primary && (
-                    <div className="layout-layer-inspector">
-                      <div className="layout-panel-heading">
-                        <strong>Selected layer</strong>
-                        <span>{selected.length} selected</span>
-                      </div>
-                      <PlacementInspector
-                        item={primary}
-                        content={
-                          primary.widgetId
-                            ? contentByID.get(primary.widgetId)
-                            : primary.assetId
-                              ? contentByID.get(primary.assetId)
-                              : undefined
-                        }
-                        playlist={
-                          primary.playlistId
-                            ? playlistByID.get(primary.playlistId)
-                            : undefined
-                        }
-                        dataSources={dataSources}
-                        update={(change) => mutateSelected(change)}
-                        duplicate={duplicateSelection}
-                        group={groupSelection}
-                        ungroup={ungroupSelection}
-                        canGroup={selection.size > 1}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-              {sidebarSection === "settings" && (
-                <>
-                  <div className="layout-panel-heading">
-                    <strong>Layout settings</strong>
-                  </div>
-                  <CanvasInspector document={document} update={update} />
-                  {layoutQuery.data && (
-                    <UsedByPanel
-                      emptyMessage="No campaign, screen, or schedule shows this Layout yet."
-                      groups={[
-                        {
-                          label: "Screens",
-                          items: layoutQuery.data.usage.screens,
-                          to: (screenId) => `/screens/${screenId}`,
-                        },
-                        {
-                          label: "Schedules",
-                          items: layoutQuery.data.usage.schedules,
-                          to: (scheduleId) => `/schedules/${scheduleId}`,
-                        },
-                        {
-                          label: "Campaigns",
-                          items: layoutQuery.data.usage.campaigns,
-                          to: (campaignId) => `/campaigns/${campaignId}`,
-                        },
-                      ]}
-                    />
-                  )}
-                </>
-              )}
-            </div>
-          </aside>
-          <main className="layout-stage">
-            <div className="layout-stage-controls">
-              <ButtonGroup aria-label="Canvas zoom">
-                <RheaButton
-                  variant="outline"
-                  size="sm"
-                  onClick={zoomOut}
-                  title="Zoom out"
-                  aria-label="Zoom out"
-                >
-                  <ZoomOut size={16} aria-hidden="true" />
-                </RheaButton>
-                <ButtonGroupText aria-live="polite">
-                  {Math.round(zoom * 100)}%
-                </ButtonGroupText>
-                <RheaButton
-                  variant="outline"
-                  size="sm"
-                  onClick={zoomIn}
-                  title="Zoom in"
-                  aria-label="Zoom in"
-                >
-                  <ZoomIn size={16} aria-hidden="true" />
-                </RheaButton>
-                <RheaButton
-                  variant="outline"
-                  size="sm"
-                  onClick={fitZoom}
-                  title="Fit canvas to view"
-                  aria-label="Fit canvas to view"
-                >
-                  <Maximize2 size={16} aria-hidden="true" />
-                </RheaButton>
-              </ButtonGroup>
-              {/* The wrapping label names the checkbox; no extra aria-label. */}
-              <label className="flex items-center gap-2 text-sm">
-                <RheaCheckbox
-                  checked={snap}
-                  onCheckedChange={(checked) => setSnap(checked === true)}
-                />
-                Snap
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <RheaCheckbox
-                  checked={safeArea}
-                  onCheckedChange={(checked) => setSafeArea(checked === true)}
-                />
-                Safe area
-              </label>
-              <RheaPopover>
-                <PopoverTrigger
-                  render={
-                    <RheaButton
-                      variant="ghost"
-                      size="icon-sm"
-                      title="Keyboard shortcuts"
-                      aria-label="Keyboard shortcuts"
-                    >
-                      <Keyboard size={16} aria-hidden="true" />
-                    </RheaButton>
-                  }
-                />
-                <PopoverContent
-                  side="bottom"
-                  align="center"
-                  aria-label="Canvas keyboard shortcuts"
-                >
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    Keyboard shortcuts
-                  </p>
-                  <ul className="grid gap-2 text-sm">
-                    <li className="flex items-center justify-between gap-3">
-                      <span>Save</span>
-                      <span className="flex items-center gap-1">
-                        <Kbd>Ctrl/⌘</Kbd>
-                        <Kbd>S</Kbd>
-                      </span>
-                    </li>
-                    <li className="flex items-center justify-between gap-3">
-                      <span>Undo / redo</span>
-                      <span className="flex items-center gap-1">
-                        <Kbd>Ctrl/⌘</Kbd>
-                        <Kbd>Z</Kbd>
-                        <Kbd>⇧</Kbd>
-                      </span>
-                    </li>
-                    <li className="flex items-center justify-between gap-3">
-                      <span>Duplicate</span>
-                      <span className="flex items-center gap-1">
-                        <Kbd>Ctrl/⌘</Kbd>
-                        <Kbd>D</Kbd>
-                      </span>
-                    </li>
-                    <li className="flex items-center justify-between gap-3">
-                      <span>Copy / paste</span>
-                      <span className="flex items-center gap-1">
-                        <Kbd>Ctrl/⌘</Kbd>
-                        <Kbd>C</Kbd>
-                        <Kbd>V</Kbd>
-                      </span>
-                    </li>
-                    <li className="flex items-center justify-between gap-3">
-                      <span>Select all</span>
-                      <span className="flex items-center gap-1">
-                        <Kbd>Ctrl/⌘</Kbd>
-                        <Kbd>A</Kbd>
-                      </span>
-                    </li>
-                    <li className="flex items-center justify-between gap-3">
-                      <span>Group / ungroup</span>
-                      <span className="flex items-center gap-1">
-                        <Kbd>Ctrl/⌘</Kbd>
-                        <Kbd>G</Kbd>
-                      </span>
-                    </li>
-                    <li className="flex items-center justify-between gap-3">
-                      <span>Arrange (Shift: front/back)</span>
-                      <span className="flex items-center gap-1">
-                        <Kbd>Ctrl/⌘</Kbd>
-                        <Kbd>[</Kbd>
-                        <Kbd>]</Kbd>
-                      </span>
-                    </li>
-                    <li className="flex items-center justify-between gap-3">
-                      <span>Delete selection</span>
-                      <Kbd>Del</Kbd>
-                    </li>
-                    <li className="flex items-center justify-between gap-3">
-                      <span>Nudge (Shift: 10px)</span>
-                      <Kbd>← ↑ ↓ →</Kbd>
-                    </li>
-                  </ul>
-                </PopoverContent>
-              </RheaPopover>
-            </div>
-            <RheaContextMenu>
-              <ContextMenuTrigger
-                render={
-                  <div
-                    className="layout-stage-scroll"
-                    onPointerDown={(event) => {
-                      if (event.button === 0) setSelection(new Set());
-                    }}
-                    onContextMenuCapture={() =>
-                      setMenuTarget({ kind: "canvas" })
-                    }
-                  />
-                }
-              >
-                <div
-                  ref={canvasRef}
-                  className="layout-canvas"
-                  onDragOver={(event) => {
-                    if (
-                      event.dataTransfer.types.includes(
-                        "application/x-tilecast-layout-library",
-                      )
-                    ) {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "copy";
-                    }
-                  }}
-                  onDrop={dropLibraryItem}
-                  style={{
-                    aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
-                    width: `${zoom * 100}%`,
-                    backgroundColor: document.canvas.backgroundColor,
-                  }}
-                >
-                  {document.canvas.backgroundAssetId &&
-                    contentByID.get(document.canvas.backgroundAssetId)?.type ===
-                      "image" && (
-                      <img
-                        className="layout-preview-background"
-                        src={api.assetPreviewUrl(
-                          document.canvas.backgroundAssetId,
-                        )}
-                        alt=""
-                        draggable={false}
-                      />
-                    )}
-                  {safeArea && (
-                    <div
-                      className="layout-safe-area"
-                      style={{ inset: `${document.canvas.safeAreaPercent}%` }}
-                    />
-                  )}
-                  {guides.x !== undefined && (
-                    <span
-                      className="layout-guide layout-guide--vertical"
-                      style={{
-                        left: `${(guides.x / document.canvas.width) * 100}%`,
-                      }}
-                    />
-                  )}
-                  {guides.y !== undefined && (
-                    <span
-                      className="layout-guide layout-guide--horizontal"
-                      style={{
-                        top: `${(guides.y / document.canvas.height) * 100}%`,
-                      }}
-                    />
-                  )}
-                  {[...document.placements]
-                    .sort((a, b) => a.layer - b.layer)
-                    .map((item) => (
-                      <PlacementView
-                        key={item.id}
-                        item={item}
-                        content={
-                          item.widgetId
-                            ? contentByID.get(item.widgetId)
-                            : item.assetId
-                              ? contentByID.get(item.assetId)
-                              : undefined
-                        }
-                        playlist={
-                          item.playlistId
-                            ? playlistByID.get(item.playlistId)
-                            : undefined
-                        }
-                        assetsById={contentByID}
-                        canvas={document.canvas}
-                        selected={selection.has(item.id)}
-                        onPointerDown={(event) => beginMove(event, item)}
-                        onResize={(event) => beginMove(event, item, true)}
-                        onContextMenu={(event) =>
-                          openPlacementMenu(event, item)
-                        }
-                      />
-                    ))}
-                </div>
-              </ContextMenuTrigger>
-              <ContextMenuContent
-                aria-label={
-                  menuTarget?.kind === "placement"
-                    ? `Actions for ${menuTarget.item.name}`
-                    : "Canvas actions"
-                }
-              >
-                <LayoutEditorMenuEntries
-                  items={
-                    menuTarget?.kind === "placement"
-                      ? placementMenuItems(menuTarget.item)
-                      : canvasMenuItems()
-                  }
-                />
-              </ContextMenuContent>
-            </RheaContextMenu>
-          </main>
+          {librarySidebar}
+          {stage}
         </>
       )}
       {/* Mounted on demand, like the playlist editor: the picker keeps its search and

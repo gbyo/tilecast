@@ -98,6 +98,29 @@ describe("FormBuilder field list", () => {
     expect(fieldOrder()).toEqual(["Edit Beta", "Edit Alpha", "Edit Gamma"]);
   });
 
+  it("keeps focus on a field as it moves", () => {
+    renderBuilder();
+    const alpha = screen.getByRole("button", { name: "Edit Alpha" });
+    alpha.focus();
+    fireEvent.keyDown(alpha, { key: "ArrowDown", altKey: true });
+    expect(screen.getByRole("button", { name: "Edit Alpha" })).toHaveFocus();
+  });
+
+  it("keeps the selected field selected when an earlier field is deleted", async () => {
+    mockDesktop();
+    renderBuilder();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Beta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Alpha" }));
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: /Delete field/ }),
+    );
+    expect(fieldOrder()).toEqual(["Edit Beta", "Edit Gamma"]);
+    expect(screen.getByRole("button", { name: "Edit Beta" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+  });
+
   it("moves a field to the top from the row menu", async () => {
     renderBuilder();
     fireEvent.click(screen.getByRole("button", { name: "Actions for Gamma" }));

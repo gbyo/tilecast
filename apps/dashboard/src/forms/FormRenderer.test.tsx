@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { FormSchema } from "../api/types";
-import { FormRenderer } from "./FormRenderer";
+import { FormRenderer, type FormValues } from "./FormRenderer";
 
 afterEach(cleanup);
 
@@ -194,6 +196,40 @@ describe("FormRenderer", () => {
     expect(
       screen.getByRole("combobox", { name: "Choice" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows the selected option's label rather than its value", async () => {
+    function Harness() {
+      const [values, setValues] = useState<FormValues>({});
+      return (
+        <FormRenderer
+          schema={{
+            fields: [
+              {
+                key: "choice",
+                label: "Choice",
+                control: "select",
+                options: [
+                  { value: "a", label: "Alpha" },
+                  { value: "b", label: "Beta" },
+                  { value: "c", label: "Gamma" },
+                  { value: "d", label: "Delta" },
+                ],
+              },
+            ],
+          }}
+          values={values}
+          onChange={(key, value) =>
+            setValues((current) => ({ ...current, [key]: value }))
+          }
+        />
+      );
+    }
+    render(<Harness />);
+    const combobox = screen.getByRole("combobox", { name: "Choice" });
+    await userEvent.click(combobox);
+    await userEvent.click(await screen.findByRole("option", { name: "Beta" }));
+    expect(combobox).toHaveTextContent("Beta");
   });
 
   it("renders text inputs through the shared input control", () => {

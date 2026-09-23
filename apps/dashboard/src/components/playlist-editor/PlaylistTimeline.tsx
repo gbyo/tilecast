@@ -154,7 +154,7 @@ export function PlaylistTimeline({
         </Empty>
       ) : (
         <>
-          <ScrollArea className="max-h-[32rem]">
+          <ScrollArea className="**:data-[slot=scroll-area-viewport]:max-h-[32rem]">
             <div
               className="grid gap-2 pr-3"
               role="list"

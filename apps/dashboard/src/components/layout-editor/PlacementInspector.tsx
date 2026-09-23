@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   AlignCenter,
   AlignLeft,
@@ -139,7 +139,7 @@ export function NumberField({
   step?: number;
   unit?: string;
 }) {
-  const id = `layout-number-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const id = `layout-number-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${useId()}`;
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -1194,6 +1194,7 @@ function BindingFieldSelect({
     <Field>
       <FieldLabel htmlFor={id}>Field</FieldLabel>
       <Combobox
+        items={fields}
         value={value}
         onValueChange={(next) => {
           if (typeof next === "string" && next) onChange(next);
@@ -1205,14 +1206,14 @@ function BindingFieldSelect({
           placeholder="Search fields…"
         />
         <ComboboxContent>
+          <ComboboxEmpty>No fields match.</ComboboxEmpty>
           <ComboboxList>
-            {fields.map((field) => (
+            {(field: string) => (
               <ComboboxItem key={field} value={field}>
                 {field}
               </ComboboxItem>
-            ))}
+            )}
           </ComboboxList>
-          <ComboboxEmpty>No fields match.</ComboboxEmpty>
         </ComboboxContent>
       </Combobox>
     </Field>

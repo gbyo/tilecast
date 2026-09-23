@@ -414,6 +414,7 @@ function FieldControl({
     case "select":
       return (
         <RheaSelect
+          items={field.options ?? []}
           value={stringValue}
           onValueChange={(next) => {
             if (typeof next === "string") emit(next);
