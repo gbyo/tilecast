@@ -1,7 +1,9 @@
 import { Upload, X } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Asset } from "../../api/types";
+import { apiErrorMessage } from "../../i18n";
 import { useConfirm } from "../ConfirmDialog";
 import { Button } from "../ui/button";
 import { droppedFiles } from "../content/dragDrop";
@@ -31,6 +33,7 @@ export function UploadContentDialog({
   onClose: () => void;
 }) {
   const [items, setItems] = useState<UploadItem[]>([]);
+  const { t } = useTranslation("errors");
   const input = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -86,7 +89,10 @@ export function UploadContentDialog({
     } catch (error) {
       update(id, {
         state: "failed",
-        error: error instanceof Error ? error.message : "Upload failed.",
+        error:
+          error instanceof Error
+            ? apiErrorMessage(error)
+            : t("fallback.uploadFailed"),
       });
     }
   };

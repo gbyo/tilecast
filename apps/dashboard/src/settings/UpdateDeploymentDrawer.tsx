@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { RefreshCw, Search, XCircle } from "lucide-react";
 import { StatusDot } from "../components/StatusDot";
 import { ViewTabs } from "../components/ViewTabs";
@@ -18,6 +20,7 @@ import {
 import { Spinner } from "../components/ui/spinner";
 import { api } from "../api/client";
 import type { Screen, UpdateDeploymentScreen } from "../api/types";
+import { apiErrorMessage } from "../i18n";
 import { useAuth } from "../auth/AuthProvider";
 import {
   bucketCounts,
@@ -49,6 +52,7 @@ export function UpdateDeploymentDrawer({
   const [filter, setFilter] = useState<ScreenFilter>("all");
   const [search, setSearch] = useState("");
   const [actionError, setActionError] = useState("");
+  const { t } = useTranslation("errors");
   const detail = useQuery({
     queryKey: ["update-deployment", deploymentId],
     queryFn: () => api.updateDeployment(deploymentId),
@@ -74,14 +78,14 @@ export function UpdateDeploymentDrawer({
       ),
     onMutate: () => setActionError(""),
     onSuccess: invalidate,
-    onError: (error: unknown) => setActionError(errorMessage(error)),
+    onError: (error: unknown) => setActionError(errorMessage(error, t)),
   });
   const cancel = useMutation({
     mutationFn: () =>
       api.cancelUpdateDeployment(deploymentId, auth.status?.csrfToken ?? ""),
     onMutate: () => setActionError(""),
     onSuccess: invalidate,
-    onError: (error: unknown) => setActionError(errorMessage(error)),
+    onError: (error: unknown) => setActionError(errorMessage(error, t)),
   });
 
   const deployment = detail.data;
@@ -121,7 +125,9 @@ export function UpdateDeploymentDrawer({
           {detail.error && (
             <Alert variant="destructive">
               <AlertTitle>Screen statuses could not be loaded.</AlertTitle>
-              <AlertDescription>{errorMessage(detail.error)}</AlertDescription>
+              <AlertDescription>
+                {errorMessage(detail.error, t)}
+              </AlertDescription>
             </Alert>
           )}
           {actionError && (
@@ -446,8 +452,10 @@ function segmentFillClass(tone: string) {
   }
 }
 
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "The request failed.";
+function errorMessage(error: unknown, t: TFunction<"errors">): string {
+  return error instanceof Error
+    ? apiErrorMessage(error)
+    : t("fallback.requestFailed");
 }
 
 function humanize(value: string) {
