@@ -174,8 +174,21 @@ async fn handshake_times_out() {
     harness.shutdown.cancel();
 }
 
+/// Root is always admitted with every role (policy, see `PeerPolicy`), so
+/// UID-refusal tests are meaningful only for a non-root test process.
+fn running_as_root() -> bool {
+    let root = uid() == 0;
+    if root {
+        eprintln!("skipped: the test process is root, which the peer policy always admits");
+    }
+    root
+}
+
 #[tokio::test]
 async fn role_and_admin_policy_follow_peer_uid() {
+    if running_as_root() {
+        return;
+    }
     // This process is only an observer: tilecastctl yes, renderer and admin no.
     let mut policy = PeerPolicy::for_daemon_uid(uid().wrapping_add(4242));
     policy.observer_uids.insert(uid());
@@ -194,6 +207,9 @@ async fn role_and_admin_policy_follow_peer_uid() {
 
 #[tokio::test]
 async fn unadmitted_uid_is_dropped_silently() {
+    if running_as_root() {
+        return;
+    }
     let harness = start(PeerPolicy::for_daemon_uid(uid().wrapping_add(4242))).await;
     let result = IpcClient::connect(&harness.path, renderer()).await;
     assert!(matches!(result, Err(ClientError::Io(_))), "{result:?}");

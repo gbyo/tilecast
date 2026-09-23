@@ -576,3 +576,21 @@ async fn read_loop(
         }
     }
 }
+
+#[cfg(test)]
+mod policy_tests {
+    use super::*;
+
+    #[test]
+    fn root_administers_but_is_not_a_renderer_and_others_are_refused() {
+        let mut policy = PeerPolicy::for_daemon_uid(990);
+        policy.observer_uids.insert(1000);
+        assert!(policy.admits(0) && policy.is_admin(0) && policy.permits_role(0, Role::Tilecastctl));
+        assert!(!policy.permits_role(0, Role::Renderer), "root must not impersonate the renderer");
+        assert!(policy.permits_role(990, Role::Renderer) && policy.is_admin(990));
+        assert!(policy.admits(1000) && policy.permits_role(1000, Role::Tilecastctl) && !policy.is_admin(1000));
+        assert!(!policy.permits_role(1000, Role::Renderer));
+        assert!(!policy.admits(1001));
+        assert!(!policy.permits_role(990, Role::SessionBridge), "reserved role");
+    }
+}

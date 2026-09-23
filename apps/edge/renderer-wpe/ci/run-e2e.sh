@@ -6,6 +6,7 @@
 #   docker run --rm -v "$PWD:/src" -v tilecast-edge-target:/target \
 #     tilecast-edge-dev /src/apps/edge/renderer-wpe/ci/run-e2e.sh [scenario]
 set -euo pipefail
+ulimit -c 0
 scenario=${1:-all}
 export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/target/cargo}
 export CARGO_HOME=${CARGO_HOME_CACHE:-/target/cargo-home}
