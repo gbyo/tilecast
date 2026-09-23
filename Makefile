@@ -1,4 +1,4 @@
-.PHONY: android-build android-check bootstrap build check dev-dashboard dev-server docs-check format helper-check test
+.PHONY: android-build android-check bootstrap build check dev-dashboard dev-server docs-check edge-check edge-e2e edge-linux edge-test format helper-check test
 
 bootstrap:
 	npm install
@@ -26,6 +26,21 @@ check:
 # NetworkManager daemon.
 helper-check:
 	python3 -m unittest discover -s apps/player-linux/helper
+
+# Tilecast Edge (apps/edge). edge-linux and the renderer end-to-end run need
+# the tilecast-edge-dev image (apps/edge/README.md).
+edge-check:
+	cd apps/edge && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings
+
+edge-test:
+	cd apps/edge && cargo test --workspace
+
+edge-linux:
+	docker run --rm -v "$(CURDIR):/src" -v tilecast-edge-target:/target tilecast-edge-dev /src/apps/edge/ci/test-linux.sh
+
+edge-e2e:
+	python3 apps/edge/ci/e2e_server.py
+	docker run --rm -v "$(CURDIR):/src" -v tilecast-edge-target:/target tilecast-edge-dev /src/apps/edge/renderer-wpe/ci/run-e2e.sh
 
 android-build:
 	cd apps/player-android && ./gradlew assembleDebug assembleRelease
