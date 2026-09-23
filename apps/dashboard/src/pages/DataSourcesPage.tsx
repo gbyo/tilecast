@@ -26,7 +26,7 @@ import {
 } from "../components/DashboardListToolbar";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -35,16 +35,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
-  ContextMenu as RheaContextMenu,
+  ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "../components/ui/context-menu";
 import {
-  DropdownMenu as RheaDropdownMenu,
+  DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -59,7 +59,7 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -116,6 +116,12 @@ export function DataSourcesPage() {
     queryKey: ["content-definitions"],
     queryFn: api.contentDefinitions,
   });
+  const providerOptions = [
+    { value: "", label: "All Data Source types" },
+    ...(definitions.data?.dataSources ?? [])
+      .filter((item) => item.id !== "form")
+      .map((item) => ({ value: item.id, label: item.name })),
+  ];
   const definitionsByProvider = new Map<string, DataSourceDefinition>(
     (definitions.data?.dataSources ?? [])
       .filter((item) => item.id !== "form")
@@ -176,12 +182,12 @@ export function DataSourcesPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Data Sources</h1>
           {canManage && (
-            <RheaButton
+            <Button
               type="button"
               onClick={() => void navigate("/data-sources/new")}
             >
               <Plus size={16} aria-hidden="true" /> Create Data Source
-            </RheaButton>
+            </Button>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
@@ -195,35 +201,30 @@ export function DataSourcesPage() {
           label="Search Data Sources"
           placeholder="Search Data Sources"
         />
-        <RheaSelect
+        <Select
+          items={providerOptions}
           value={provider}
           onValueChange={(next) => {
             if (typeof next === "string") setProvider(next);
           }}
-          aria-label="Filter by Data Source provider"
         >
-          <SelectTrigger aria-label="Filter by Data Source provider">
-            <SelectValue>
-              {(definitions.data?.dataSources ?? []).find(
-                (item) => item.id === provider,
-              )?.name ?? "All Data Source types"}
-            </SelectValue>
+          <SelectTrigger
+            aria-label="Filter by Data Source provider"
+            className="w-52 max-sm:flex-1"
+          >
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Data Source types</SelectItem>
-            {(definitions.data?.dataSources ?? [])
-              .filter((item) => item.id !== "form")
-              .map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.name}
-                </SelectItem>
-              ))}
+            {providerOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
           </SelectContent>
-        </RheaSelect>
-        <RheaButton
+        </Select>
+        <Button
           type="button"
           variant="outline"
-          size="sm"
           aria-label="Sort by updated"
           aria-pressed={!sortAscending}
           onClick={() => setSortAscending((current) => !current)}
@@ -234,7 +235,7 @@ export function DataSourcesPage() {
             <ArrowDown size={16} aria-hidden="true" />
           )}
           Updated
-        </RheaButton>
+        </Button>
       </DashboardListToolbar>
       {dataSources.isError && (
         <Alert variant="destructive">
@@ -273,12 +274,12 @@ export function DataSourcesPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <RheaButton
+              <Button
                 type="button"
                 onClick={() => void navigate("/data-sources/new")}
               >
                 Create Data Source
-              </RheaButton>
+              </Button>
             </EmptyContent>
           )}
         </Empty>
@@ -318,7 +319,7 @@ export function DataSourcesPage() {
           </Table>
         </div>
       )}
-      <RheaAlertDialog
+      <AlertDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => {
           if (!open) setPendingDelete(null);
@@ -349,7 +350,7 @@ export function DataSourcesPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
     </section>
   );
 }
@@ -366,7 +367,7 @@ function DataSourceRow({
   const menuLabel = `Actions for ${source.name}`;
   const updated = new Date(source.updatedAt);
   return (
-    <RheaContextMenu>
+    <ContextMenu>
       <ContextMenuTrigger render={<TableRow data-slot="data-source-row" />}>
         <TableCell>
           <Link
@@ -405,7 +406,7 @@ function DataSourceRow({
           </Link>
         </TableCell>
         <TableCell>
-          <RheaDropdownMenu>
+          <DropdownMenu>
             <DropdownMenuTrigger
               className="inline-flex size-7 items-center justify-center rounded-xl hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
               aria-label={menuLabel}
@@ -427,7 +428,7 @@ function DataSourceRow({
                 </Fragment>
               ))}
             </DropdownMenuContent>
-          </RheaDropdownMenu>
+          </DropdownMenu>
         </TableCell>
       </ContextMenuTrigger>
       <ContextMenuContent aria-label={menuLabel}>
@@ -445,7 +446,7 @@ function DataSourceRow({
           </Fragment>
         ))}
       </ContextMenuContent>
-    </RheaContextMenu>
+    </ContextMenu>
   );
 }
 
@@ -521,9 +522,9 @@ export function DataSourceEditorPage({
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <RheaButton type="button" onClick={close}>
+            <Button type="button" onClick={close}>
               Back to Data Sources
-            </RheaButton>
+            </Button>
           </EmptyContent>
         </Empty>
       </section>
@@ -557,9 +558,9 @@ export function DataSourceEditorPage({
             </EmptyTitle>
           </EmptyHeader>
           <EmptyContent>
-            <RheaButton type="button" onClick={close}>
+            <Button type="button" onClick={close}>
               Back to Data Sources
-            </RheaButton>
+            </Button>
           </EmptyContent>
         </Empty>
       )}

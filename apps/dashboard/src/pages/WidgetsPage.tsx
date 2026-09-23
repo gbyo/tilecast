@@ -3,7 +3,7 @@ import { Grid2X2, List, Plus } from "lucide-react";
 import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   Empty,
   EmptyContent,
@@ -13,17 +13,14 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
-import {
-  ToggleGroup as RheaToggleGroup,
-  ToggleGroupItem,
-} from "../components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -72,6 +69,10 @@ export function WidgetsPage() {
     queryFn: api.contentDefinitions,
   });
   const filterProviders = definitions.data?.widgets ?? [];
+  const providerOptions = [
+    { value: "", label: "All Widget types" },
+    ...filterProviders.map((item) => ({ value: item.id, label: item.name })),
+  ];
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateWidget(id, csrf),
     onSuccess: (widget) => {
@@ -85,12 +86,9 @@ export function WidgetsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Widgets</h1>
           {canManage && (
-            <RheaButton
-              type="button"
-              onClick={() => void navigate("/widgets/new")}
-            >
+            <Button type="button" onClick={() => void navigate("/widgets/new")}>
               <Plus size={16} aria-hidden="true" /> Create Widget
-            </RheaButton>
+            </Button>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
@@ -104,18 +102,18 @@ export function WidgetsPage() {
           label="Search Widgets"
           placeholder="Search Widgets"
         />
-        <RheaSelect
+        <Select
+          items={providerOptions}
           value={provider}
           onValueChange={(next) => {
             if (typeof next === "string") setProvider(next);
           }}
-          aria-label="Filter by Widget provider"
         >
-          <SelectTrigger aria-label="Filter by Widget provider">
-            <SelectValue>
-              {filterProviders.find((item) => item.id === provider)?.name ??
-                "All Widget types"}
-            </SelectValue>
+          <SelectTrigger
+            aria-label="Filter by Widget provider"
+            className="w-56 max-sm:flex-1"
+          >
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">All Widget types</SelectItem>
@@ -125,9 +123,11 @@ export function WidgetsPage() {
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
-        <RheaToggleGroup
+        </Select>
+        <ToggleGroup
           aria-label="View"
+          variant="outline"
+          spacing={0}
           multiple={false}
           value={[view]}
           onValueChange={(next) => {
@@ -141,7 +141,7 @@ export function WidgetsPage() {
           <ToggleGroupItem value="list" aria-label="List view">
             <List size={16} aria-hidden="true" />
           </ToggleGroupItem>
-        </RheaToggleGroup>
+        </ToggleGroup>
       </DashboardListToolbar>
       {widgets.isError && (
         <Alert variant="destructive">
@@ -171,12 +171,12 @@ export function WidgetsPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <RheaButton
+              <Button
                 type="button"
                 onClick={() => void navigate("/widgets/new")}
               >
                 Create Widget
-              </RheaButton>
+              </Button>
             </EmptyContent>
           )}
         </Empty>
@@ -283,9 +283,9 @@ export function WidgetEditorPage() {
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <RheaButton type="button" onClick={close}>
+            <Button type="button" onClick={close}>
               Back to Widgets
-            </RheaButton>
+            </Button>
           </EmptyContent>
         </Empty>
       </section>

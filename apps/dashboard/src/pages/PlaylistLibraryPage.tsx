@@ -17,7 +17,7 @@ import {
   DashboardSearch,
 } from "../components/DashboardListToolbar";
 import { PlaylistPreview } from "../components/PresentationPreview";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   Empty,
   EmptyContent,
@@ -27,18 +27,14 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
-import {
-  ToggleGroup as RheaToggleGroup,
-  ToggleGroupItem as RheaToggleGroupItem,
-} from "../components/ui/toggle-group";
-import { optionLabel } from "../content/data-sources/shared";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
 
 export type { PlaylistPreviewItem } from "../api/types";
@@ -235,10 +231,10 @@ export function PlaylistLibraryPage() {
         </div>
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton type="button" onClick={() => setCreating(true)}>
+            <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               Create playlist
-            </RheaButton>
+            </Button>
           </div>
         )}
       </header>
@@ -249,14 +245,16 @@ export function PlaylistLibraryPage() {
           label="Search playlists"
           placeholder="Search names, descriptions, or previewed content"
         />
-        <RheaSelect
+        <Select
+          items={playlistFilterOptions}
           value={filter}
           onValueChange={(next) => setFilter(next as PlaylistLibraryFilter)}
         >
-          <SelectTrigger aria-label="Filter playlists">
-            <SelectValue>
-              {optionLabel(playlistFilterOptions, filter)}
-            </SelectValue>
+          <SelectTrigger
+            aria-label="Filter playlists"
+            className="w-48 max-sm:flex-1"
+          >
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {playlistFilterOptions.map((option) => (
@@ -265,13 +263,17 @@ export function PlaylistLibraryPage() {
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
-        <RheaSelect
+        </Select>
+        <Select
+          items={playlistSortOptions}
           value={sort}
           onValueChange={(next) => setSort(next as PlaylistLibrarySort)}
         >
-          <SelectTrigger aria-label="Sort playlists">
-            <SelectValue>{optionLabel(playlistSortOptions, sort)}</SelectValue>
+          <SelectTrigger
+            aria-label="Sort playlists"
+            className="w-44 max-sm:flex-1"
+          >
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {playlistSortOptions.map((option) => (
@@ -280,22 +282,24 @@ export function PlaylistLibraryPage() {
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
-        <RheaToggleGroup
+        </Select>
+        <ToggleGroup
           aria-label="Playlist view"
+          variant="outline"
+          spacing={0}
           value={[view]}
           onValueChange={(values) => {
             const next = values[0];
             if (next === "grid" || next === "list") setView(next);
           }}
         >
-          <RheaToggleGroupItem value="grid" aria-label="Grid view">
+          <ToggleGroupItem value="grid" aria-label="Grid view">
             <LayoutGrid size={16} aria-hidden="true" />
-          </RheaToggleGroupItem>
-          <RheaToggleGroupItem value="list" aria-label="List view">
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label="List view">
             <List size={16} aria-hidden="true" />
-          </RheaToggleGroupItem>
-        </RheaToggleGroup>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </DashboardListToolbar>
 
       {!query.isLoading && allPlaylists.length > 0 && (
@@ -324,9 +328,9 @@ export function PlaylistLibraryPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <RheaButton type="button" onClick={() => setCreating(true)}>
+              <Button type="button" onClick={() => setCreating(true)}>
                 Create playlist
-              </RheaButton>
+              </Button>
             </EmptyContent>
           )}
         </Empty>
@@ -342,13 +346,13 @@ export function PlaylistLibraryPage() {
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <RheaButton
+            <Button
               type="button"
               variant="outline"
               onClick={clearLibraryFilters}
             >
               Clear filters
-            </RheaButton>
+            </Button>
           </EmptyContent>
         </Empty>
       ) : (

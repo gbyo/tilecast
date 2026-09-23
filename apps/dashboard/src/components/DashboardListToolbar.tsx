@@ -30,17 +30,19 @@ export function DashboardSearch({
   label,
   placeholder,
   autoFocus = false,
+  className,
 }: {
   value: string;
   onValueChange: (value: string) => void;
   label: string;
   placeholder: string;
   autoFocus?: boolean;
+  className?: string;
 }) {
   return (
-    <InputGroup className="w-full max-w-105 flex-1 basis-70">
+    <InputGroup className={cn("w-full max-w-105 flex-1 basis-70", className)}>
       <InputGroupAddon>
-        <Search size={16} aria-hidden="true" />
+        <Search aria-hidden="true" />
       </InputGroupAddon>
       <InputGroupInput
         type="search"
@@ -51,12 +53,15 @@ export function DashboardSearch({
         aria-label={label}
       />
       {value && (
-        <InputGroupButton
-          aria-label={`Clear ${label.toLowerCase()}`}
-          onClick={() => onValueChange("")}
-        >
-          <X size={14} aria-hidden="true" />
-        </InputGroupButton>
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            aria-label={`Clear ${label.toLowerCase()}`}
+            onClick={() => onValueChange("")}
+          >
+            <X aria-hidden="true" />
+          </InputGroupButton>
+        </InputGroupAddon>
       )}
     </InputGroup>
   );

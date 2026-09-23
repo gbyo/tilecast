@@ -11,10 +11,10 @@ import {
 } from "../components/TimeRangePicker";
 import { ViewTabs } from "../components/ViewTabs";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
-  Popover as RheaPopover,
+  Popover,
   PopoverContent,
   PopoverTrigger,
 } from "../components/ui/popover";
@@ -356,7 +356,7 @@ export function ActivityPage() {
             screen events, and administrator history.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-end gap-2">
           <TimeRangePicker
             preset={preset}
             onPresetChange={(value) => setRange("range", value)}
@@ -367,11 +367,11 @@ export function ActivityPage() {
           />
           {exportHref && (
             <a
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
+              className={buttonVariants({ variant: "outline" })}
               href={exportHref}
               title="Export the current date range and filters"
             >
-              <Download size={15} aria-hidden="true" /> Export CSV
+              <Download aria-hidden="true" /> Export CSV
             </a>
           )}
         </div>
@@ -393,12 +393,12 @@ export function ActivityPage() {
           label={`${activityTabs.find((item) => item.value === tab)?.label} filters`}
         >
           {tab === "proof" && (
-            <RheaPopover>
+            <Popover>
               <PopoverTrigger
-                render={<RheaButton variant="outline" size="sm" />}
+                render={<Button variant="outline" />}
                 aria-label={`Advanced filters${activeAdvanced.length ? `, ${activeAdvanced.length} active` : ""}`}
               >
-                <SlidersHorizontal size={15} aria-hidden="true" />
+                <SlidersHorizontal aria-hidden="true" />
                 <span>More filters</span>
                 {activeAdvanced.length > 0 && (
                   <Badge variant="secondary">{activeAdvanced.length}</Badge>
@@ -417,7 +417,7 @@ export function ActivityPage() {
                     </small>
                   </div>
                   {activeAdvanced.length > 0 && (
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="ghost"
                       size="sm"
@@ -427,7 +427,7 @@ export function ActivityPage() {
                       }}
                     >
                       Clear
-                    </RheaButton>
+                    </Button>
                   )}
                 </div>
                 <div className="grid gap-2">
@@ -448,7 +448,7 @@ export function ActivityPage() {
                   ))}
                 </div>
               </PopoverContent>
-            </RheaPopover>
+            </Popover>
           )}
         </FilterBar>
       )}

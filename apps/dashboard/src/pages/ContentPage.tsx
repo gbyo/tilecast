@@ -37,7 +37,7 @@ import {
 } from "../components/DashboardListToolbar";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -56,22 +56,22 @@ import {
   AttachmentTitle,
 } from "../components/ui/attachment";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
 import {
-  ContextMenu as RheaContextMenu,
+  ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "../components/ui/context-menu";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -79,7 +79,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import {
-  DropdownMenu as RheaDropdownMenu,
+  DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -105,14 +105,14 @@ import {
 } from "../components/ui/item";
 import { Progress } from "../components/ui/progress";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
 import {
-  Sheet as RheaSheet,
+  Sheet,
   SheetContent,
   SheetFooter,
   SheetHeader,
@@ -120,12 +120,9 @@ import {
 } from "../components/ui/sheet";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
-import { Switch as RheaSwitch } from "../components/ui/switch";
+import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
-import {
-  ToggleGroup as RheaToggleGroup,
-  ToggleGroupItem,
-} from "../components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import type {
   Asset,
   AssetStatus,
@@ -224,15 +221,21 @@ function SingleToggleGroup<Value extends string>({
   value,
   onChange,
   options,
+  variant,
+  spacing,
 }: {
   label: string;
   value: Value;
   onChange: (value: Value) => void;
   options: readonly { value: Value; label: ReactNode; text: string }[];
+  variant?: "default" | "outline";
+  spacing?: number;
 }) {
   return (
-    <RheaToggleGroup
+    <ToggleGroup
       aria-label={label}
+      variant={variant}
+      spacing={spacing}
       multiple={false}
       value={[value]}
       onValueChange={(next) => {
@@ -249,7 +252,7 @@ function SingleToggleGroup<Value extends string>({
           {option.label}
         </ToggleGroupItem>
       ))}
-    </RheaToggleGroup>
+    </ToggleGroup>
   );
 }
 
@@ -260,6 +263,7 @@ function FilterSelect({
   options,
   id,
   disabled,
+  className,
 }: {
   label: string;
   value: string | undefined;
@@ -267,20 +271,24 @@ function FilterSelect({
   options: readonly { value: string; label: string }[];
   id?: string;
   disabled?: boolean;
+  className?: string;
 }) {
   const resolved = value ?? "";
-  const selectedLabel =
-    options.find((option) => option.value === resolved)?.label ?? resolved;
   return (
-    <RheaSelect
+    <Select
+      items={options}
       value={resolved}
       disabled={disabled}
       onValueChange={(next) => {
         if (typeof next === "string") onChange(next);
       }}
     >
-      <SelectTrigger id={id} aria-label={id ? undefined : label}>
-        <SelectValue>{selectedLabel}</SelectValue>
+      <SelectTrigger
+        id={id}
+        aria-label={id ? undefined : label}
+        className={className}
+      >
+        <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {options.map((option) => (
@@ -289,7 +297,7 @@ function FilterSelect({
           </SelectItem>
         ))}
       </SelectContent>
-    </RheaSelect>
+    </Select>
   );
 }
 
@@ -543,12 +551,9 @@ export function ContentPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Media</h1>
           {canManage && libraryView === "active" && (
-            <RheaButton
-              type="button"
-              onClick={() => fileInput.current?.click()}
-            >
+            <Button type="button" onClick={() => fileInput.current?.click()}>
               <Upload size={16} aria-hidden="true" /> Upload assets
-            </RheaButton>
+            </Button>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
@@ -643,7 +648,7 @@ export function ContentPage() {
         </section>
       )}
 
-      <DashboardListToolbar className="content-toolbar dashboard-list-toolbar--dense">
+      <DashboardListToolbar>
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
@@ -662,6 +667,7 @@ export function ContentPage() {
         />
         <FilterSelect
           label="Filter by status"
+          className="w-40 max-sm:flex-1"
           value={status}
           onChange={setStatus}
           options={[
@@ -677,6 +683,7 @@ export function ContentPage() {
           <>
             <FilterSelect
               label="Filter by folder"
+              className="w-44 max-sm:flex-1"
               value={folderFilter}
               onChange={setFolderFilter}
               options={[
@@ -689,6 +696,7 @@ export function ContentPage() {
             />
             <FilterSelect
               label="Filter by collection"
+              className="w-44 max-sm:flex-1"
               value={collectionFilter}
               onChange={setCollectionFilter}
               options={[
@@ -701,6 +709,7 @@ export function ContentPage() {
             />
             <FilterSelect
               label="Filter by tag"
+              className="w-44 max-sm:flex-1"
               value={tagFilter}
               onChange={setTagFilter}
               options={[
@@ -715,6 +724,7 @@ export function ContentPage() {
         )}
         <FilterSelect
           label="Sort media"
+          className="w-44 max-sm:flex-1"
           value={sort}
           onChange={setSort}
           options={[
@@ -730,7 +740,7 @@ export function ContentPage() {
           folderFilter ||
           collectionFilter ||
           tagFilter) && (
-          <RheaButton
+          <Button
             variant="ghost"
             type="button"
             onClick={() => {
@@ -743,10 +753,12 @@ export function ContentPage() {
             }}
           >
             Reset filters
-          </RheaButton>
+          </Button>
         )}
         <SingleToggleGroup
           label="View"
+          variant="outline"
+          spacing={0}
           value={view}
           onChange={setView}
           options={[
@@ -796,10 +808,7 @@ export function ContentPage() {
           onDelete={() => setConfirmBulkDelete(true)}
         />
       )}
-      <RheaAlertDialog
-        open={confirmBulkDelete}
-        onOpenChange={setConfirmBulkDelete}
-      >
+      <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -817,7 +826,7 @@ export function ContentPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
 
       {assets.isError && (
         <Alert variant="destructive">
@@ -890,7 +899,7 @@ export function ContentPage() {
           }}
         />
       )}
-      <RheaAlertDialog
+      <AlertDialog
         open={confirmArchiveAsset !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmArchiveAsset(null);
@@ -922,8 +931,8 @@ export function ContentPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
-      <RheaAlertDialog
+      </AlertDialog>
+      <AlertDialog
         open={confirmDeleteAsset !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmDeleteAsset(null);
@@ -954,7 +963,7 @@ export function ContentPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
     </section>
   );
 }
@@ -996,9 +1005,9 @@ export function ContentEmpty({
       </EmptyHeader>
       {canManage && !archived && (
         <EmptyContent>
-          <RheaButton variant="outline" onClick={onChoose}>
+          <Button variant="outline" onClick={onChoose}>
             Choose files
-          </RheaButton>
+          </Button>
         </EmptyContent>
       )}
     </Empty>
@@ -1085,7 +1094,7 @@ export function AssetCollection({
     return (
       <ItemGroup>
         {items.map((asset) => (
-          <RheaContextMenu key={asset.id}>
+          <ContextMenu key={asset.id}>
             <ContextMenuTrigger className="contents">
               <MediaAssetListRow
                 asset={asset}
@@ -1097,7 +1106,7 @@ export function AssetCollection({
               />
             </ContextMenuTrigger>
             <AssetContextMenu asset={asset} actions={actionsFor(asset)} />
-          </RheaContextMenu>
+          </ContextMenu>
         ))}
       </ItemGroup>
     );
@@ -1276,7 +1285,7 @@ function MediaAssetCard({
   // The card root is the right-click target itself, so assisted-technology and
   // test hooks keep working: `asset-card` stays a stable structural hook.
   return (
-    <RheaContextMenu>
+    <ContextMenu>
       <ContextMenuTrigger
         render={
           <article
@@ -1285,7 +1294,7 @@ function MediaAssetCard({
         }
       >
         {onToggle && (
-          <RheaCheckbox
+          <Checkbox
             aria-label={`Select ${asset.name}`}
             checked={selected}
             onCheckedChange={() => onToggle()}
@@ -1293,9 +1302,9 @@ function MediaAssetCard({
           />
         )}
         {showMenu && actions.length > 0 && (
-          <RheaDropdownMenu>
+          <DropdownMenu>
             <DropdownMenuTrigger
-              render={<RheaButton variant="ghost" size="icon-sm" />}
+              render={<Button variant="ghost" size="icon-sm" />}
               aria-label={`Actions for ${asset.name}`}
               className="absolute top-2 right-2 z-10 bg-background/90"
             >
@@ -1304,7 +1313,7 @@ function MediaAssetCard({
             <DropdownMenuContent align="end">
               <AssetMenuContents actions={actions} />
             </DropdownMenuContent>
-          </RheaDropdownMenu>
+          </DropdownMenu>
         )}
         <button
           type="button"
@@ -1338,16 +1347,16 @@ function MediaAssetCard({
             </span>
             {canManage && (
               <>
-                <RheaButton
+                <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={onSelect}
                 >
                   Edit
-                </RheaButton>
+                </Button>
                 {onDuplicate && (
-                  <RheaButton
+                  <Button
                     type="button"
                     variant="ghost"
                     size="sm"
@@ -1355,10 +1364,10 @@ function MediaAssetCard({
                     aria-label={`Duplicate ${asset.name}`}
                   >
                     <Copy size={14} aria-hidden="true" /> Duplicate
-                  </RheaButton>
+                  </Button>
                 )}
                 {onArchive && (
-                  <RheaButton
+                  <Button
                     type="button"
                     variant="ghost"
                     size="sm"
@@ -1366,7 +1375,7 @@ function MediaAssetCard({
                     aria-label={`Archive ${asset.name}`}
                   >
                     <Archive size={14} aria-hidden="true" /> Archive
-                  </RheaButton>
+                  </Button>
                 )}
               </>
             )}
@@ -1374,7 +1383,7 @@ function MediaAssetCard({
         )}
       </ContextMenuTrigger>
       <AssetContextMenu asset={asset} actions={actions} />
-    </RheaContextMenu>
+    </ContextMenu>
   );
 }
 
@@ -1397,7 +1406,7 @@ function MediaAssetListRow({
   return (
     <Item size="sm">
       {onToggle && (
-        <RheaCheckbox
+        <Checkbox
           aria-label={`Select ${asset.name}`}
           checked={selected}
           onCheckedChange={() => onToggle()}
@@ -1421,9 +1430,9 @@ function MediaAssetListRow({
       <Badge variant={status.variant}>{status.label}</Badge>
       {actions.length > 0 && (
         <ItemActions>
-          <RheaDropdownMenu>
+          <DropdownMenu>
             <DropdownMenuTrigger
-              render={<RheaButton variant="ghost" size="icon-sm" />}
+              render={<Button variant="ghost" size="icon-sm" />}
               aria-label={`Actions for ${asset.name}`}
             >
               <EllipsisVertical aria-hidden="true" />
@@ -1431,7 +1440,7 @@ function MediaAssetListRow({
             <DropdownMenuContent align="end">
               <AssetMenuContents actions={actions} />
             </DropdownMenuContent>
-          </RheaDropdownMenu>
+          </DropdownMenu>
         </ItemActions>
       )}
     </Item>
@@ -1488,7 +1497,7 @@ export function CreateOrganizerDialog({
   });
   const copy = organizerCopy[kind];
   return (
-    <RheaDialog
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -1540,17 +1549,17 @@ export function CreateOrganizerDialog({
             </Alert>
           )}
           <DialogFooter>
-            <RheaButton variant="outline" type="button" onClick={onClose}>
+            <Button variant="outline" type="button" onClick={onClose}>
               Cancel
-            </RheaButton>
-            <RheaButton type="submit" disabled={create.isPending}>
+            </Button>
+            <Button type="submit" disabled={create.isPending}>
               {create.isPending && <Spinner aria-hidden="true" />}
               {copy.title}
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
-    </RheaDialog>
+    </Dialog>
   );
 }
 
@@ -1606,10 +1615,10 @@ function ManageOrganizerRow({
             onChange={(event) => setValue(event.target.value)}
             className="min-w-32 flex-1"
           />
-          <RheaButton type="submit" size="sm" disabled={busy}>
+          <Button type="submit" size="sm" disabled={busy}>
             Save
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="button"
             variant="ghost"
             size="sm"
@@ -1620,7 +1629,7 @@ function ManageOrganizerRow({
             }}
           >
             Cancel
-          </RheaButton>
+          </Button>
         </form>
       ) : (
         <>
@@ -1629,15 +1638,15 @@ function ManageOrganizerRow({
             <span className="font-normal text-muted-foreground">({count})</span>
           </span>
           <span className="flex flex-wrap items-center gap-1">
-            <RheaButton
+            <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={() => setEditing(true)}
             >
               <Pencil size={13} aria-hidden="true" /> Rename
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               variant="destructive"
               size="sm"
@@ -1645,9 +1654,9 @@ function ManageOrganizerRow({
               onClick={() => setConfirmDelete(true)}
             >
               <Trash2 size={13} aria-hidden="true" /> Delete
-            </RheaButton>
+            </Button>
           </span>
-          <RheaAlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+          <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
@@ -1668,7 +1677,7 @@ function ManageOrganizerRow({
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
-          </RheaAlertDialog>
+          </AlertDialog>
         </>
       )}
       {error && <FieldError>{error}</FieldError>}
@@ -1756,7 +1765,7 @@ function ManageOrganizationDialog({
     },
   ];
   return (
-    <RheaDialog
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -1800,7 +1809,7 @@ function ManageOrganizationDialog({
           ))}
         </div>
       </DialogContent>
-    </RheaDialog>
+    </Dialog>
   );
 }
 
@@ -1904,41 +1913,41 @@ function ContentOrganizer({
     >
       {!archiveMode && assetIds.length === 0 && (
         <div className="flex flex-wrap items-center gap-1">
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => setCreating("folder")}
           >
             <FolderPlus size={15} aria-hidden="true" /> Create folder
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => setCreating("collection")}
           >
             <Library size={15} aria-hidden="true" /> Create collection
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => setCreating("tag")}
           >
             <Tags size={15} aria-hidden="true" /> Create tag
-          </RheaButton>
+          </Button>
           {(folders.length > 0 ||
             collections.length > 0 ||
             tags.length > 0) && (
-            <RheaButton
+            <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={() => setManaging(true)}
             >
               <Pencil size={15} aria-hidden="true" /> Manage
-            </RheaButton>
+            </Button>
           )}
         </div>
       )}
@@ -1948,35 +1957,30 @@ function ContentOrganizer({
             {assetIds.length} selected
           </strong>
           <span className="flex flex-wrap items-center gap-1">
-            <RheaButton
+            <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={onSelectAll}
             >
               Select page
-            </RheaButton>
-            <RheaButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onClear}
-            >
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={onClear}>
               Clear
-            </RheaButton>
+            </Button>
           </span>
           <span className="flex flex-wrap items-center gap-1">
             {!archiveMode && (
-              <RheaButton
+              <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => setOrganizing(true)}
               >
                 <Folder size={15} aria-hidden="true" /> Organize
-              </RheaButton>
+              </Button>
             )}
-            <RheaButton
+            <Button
               type="button"
               variant="ghost"
               size="sm"
@@ -1989,9 +1993,9 @@ function ContentOrganizer({
                 <Archive size={15} aria-hidden="true" />
               )}
               {archiveMode ? "Restore" : "Archive"}
-            </RheaButton>
+            </Button>
             {archiveMode && (
-              <RheaButton
+              <Button
                 type="button"
                 variant="destructive"
                 size="sm"
@@ -1999,7 +2003,7 @@ function ContentOrganizer({
                 onClick={() => void run(onDelete)}
               >
                 <Trash2 size={15} aria-hidden="true" /> Delete permanently
-              </RheaButton>
+              </Button>
             )}
           </span>
         </div>
@@ -2028,7 +2032,7 @@ function ContentOrganizer({
         />
       )}
       {organizing && (
-        <RheaDialog
+        <Dialog
           open
           onOpenChange={(open) => {
             if (!open) setOrganizing(false);
@@ -2108,23 +2112,23 @@ function ContentOrganizer({
               </Field>
             </div>
             <DialogFooter>
-              <RheaButton
+              <Button
                 variant="outline"
                 type="button"
                 onClick={() => setOrganizing(false)}
               >
                 Cancel
-              </RheaButton>
-              <RheaButton
+              </Button>
+              <Button
                 type="button"
                 disabled={!folderId && !tagId && !collectionId}
                 onClick={() => void apply()}
               >
                 Apply changes
-              </RheaButton>
+              </Button>
             </DialogFooter>
           </DialogContent>
-        </RheaDialog>
+        </Dialog>
       )}
     </div>
   );
@@ -2268,7 +2272,7 @@ export function AssetOrganization({
             No tags yet. Create tags from the media library toolbar.
           </p>
         ) : (
-          <RheaToggleGroup
+          <ToggleGroup
             multiple
             aria-label="Tags"
             value={[...assetTagIds]}
@@ -2298,7 +2302,7 @@ export function AssetOrganization({
                 {tag.name}
               </ToggleGroupItem>
             ))}
-          </RheaToggleGroup>
+          </ToggleGroup>
         )}
       </Field>
       <Field>
@@ -2309,7 +2313,7 @@ export function AssetOrganization({
             toolbar.
           </p>
         ) : (
-          <RheaToggleGroup
+          <ToggleGroup
             multiple
             aria-label="Collections"
             value={[...assetCollectionIds]}
@@ -2339,7 +2343,7 @@ export function AssetOrganization({
                 {collection.name}
               </ToggleGroupItem>
             ))}
-          </RheaToggleGroup>
+          </ToggleGroup>
         )}
       </Field>
       {organize.isError && (
@@ -2397,7 +2401,7 @@ function MediaAssetDetails({
   });
   const [confirmArchive, setConfirmArchive] = useState(false);
   return (
-    <RheaSheet
+    <Sheet
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -2525,32 +2529,29 @@ function MediaAssetDetails({
         </div>
         {canManage && (
           <SheetFooter className="flex-col items-stretch gap-2">
-            <RheaButton
+            <Button
               onClick={() => mutation.mutate()}
               disabled={mutation.isPending}
             >
               {mutation.isPending && <Spinner aria-hidden="true" />}
               Save changes
-            </RheaButton>
+            </Button>
             {asset.processingStatus === "failed" && (
-              <RheaButton
+              <Button
                 variant="outline"
                 onClick={() =>
                   void api.retryAsset(asset.id, csrf).then(onChanged)
                 }
               >
                 Retry processing
-              </RheaButton>
+              </Button>
             )}
-            <RheaButton
-              variant="outline"
-              onClick={() => setConfirmArchive(true)}
-            >
+            <Button variant="outline" onClick={() => setConfirmArchive(true)}>
               <Archive size={15} aria-hidden="true" /> Archive asset
-            </RheaButton>
+            </Button>
           </SheetFooter>
         )}
-        <RheaAlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+        <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
@@ -2577,9 +2578,9 @@ function MediaAssetDetails({
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
-        </RheaAlertDialog>
+        </AlertDialog>
       </SheetContent>
-    </RheaSheet>
+    </Sheet>
   );
 }
 
@@ -2831,7 +2832,7 @@ export function WebsiteEditor({
             </p>
           </Field>
           <Field orientation="horizontal">
-            <RheaSwitch
+            <Switch
               id="website-js"
               aria-label="JavaScript enabled"
               disabled={readOnly}
@@ -2841,7 +2842,7 @@ export function WebsiteEditor({
             <FieldLabel htmlFor="website-js">JavaScript enabled</FieldLabel>
           </Field>
           <Field orientation="horizontal">
-            <RheaSwitch
+            <Switch
               id="website-dom"
               aria-label="DOM storage enabled"
               disabled={readOnly}
@@ -2975,24 +2976,24 @@ export function WebsiteEditor({
       )}
       <div className="flex flex-wrap items-center gap-2">
         {!readOnly && (
-          <RheaButton disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button disabled={save.isPending} onClick={() => save.mutate()}>
             {save.isPending && <Spinner aria-hidden="true" />}
             Save website
-          </RheaButton>
+          </Button>
         )}
-        <RheaButton variant="outline" onClick={requestClose}>
+        <Button variant="outline" onClick={requestClose}>
           Cancel
-        </RheaButton>
+        </Button>
         {asset && !readOnly && (
-          <RheaButton
+          <Button
             variant="destructive"
             onClick={() => setConfirmDeleteWebsite(true)}
           >
             Delete website
-          </RheaButton>
+          </Button>
         )}
       </div>
-      <RheaAlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+      <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -3009,8 +3010,8 @@ export function WebsiteEditor({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
-      <RheaAlertDialog
+      </AlertDialog>
+      <AlertDialog
         open={confirmDeleteWebsite}
         onOpenChange={setConfirmDeleteWebsite}
       >
@@ -3032,7 +3033,7 @@ export function WebsiteEditor({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
     </div>
   );
   if (page) {
@@ -3043,7 +3044,7 @@ export function WebsiteEditor({
             <h1 className="text-xl font-semibold">{title}</h1>
             <p className="text-sm text-muted-foreground">{subtitle}</p>
           </div>
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -3051,14 +3052,14 @@ export function WebsiteEditor({
             onClick={requestClose}
           >
             <X aria-hidden="true" />
-          </RheaButton>
+          </Button>
         </div>
         {form}
       </section>
     );
   }
   return (
-    <RheaDialog
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open) requestClose();
@@ -3071,6 +3072,6 @@ export function WebsiteEditor({
         </DialogHeader>
         {form}
       </DialogContent>
-    </RheaDialog>
+    </Dialog>
   );
 }

@@ -204,6 +204,13 @@ export function QuickPresentDialog({
             <div className="grid gap-2 text-sm font-medium">
               <span>Duration</span>
               <Select
+                items={[
+                  { value: "5", label: "5 minutes" },
+                  { value: "15", label: "15 minutes" },
+                  { value: "30", label: "30 minutes" },
+                  { value: "60", label: "1 hour" },
+                  { value: "0", label: "Until stopped" },
+                ]}
                 value={String(durationMinutes)}
                 onValueChange={(value) => {
                   if (value) {

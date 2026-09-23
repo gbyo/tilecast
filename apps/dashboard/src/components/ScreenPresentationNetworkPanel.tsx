@@ -222,6 +222,13 @@ export function ScreenPresentationNetworkPanel({
               gateway session.
             </span>
             <Select
+              items={[
+                { value: "__unassigned__", label: "No Presentation Network" },
+                ...(networks.data?.items ?? []).map((network) => ({
+                  value: network.id,
+                  label: `${network.name} · ${network.ssid}`,
+                })),
+              ]}
               value={selected || "__unassigned__"}
               onValueChange={(value) =>
                 setSelected(value === "__unassigned__" ? "" : (value ?? ""))

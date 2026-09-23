@@ -1,6 +1,6 @@
 import { DateTimeInput } from "./date-picker";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -88,6 +88,13 @@ export function resolveTimeRange(
   };
 }
 
+const timeRangeItems: { value: TimeRangePreset; label: string }[] = [
+  { value: "24h", label: "Last 24 hours" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "custom", label: "Custom range" },
+];
+
 export function TimeRangePicker({
   preset,
   onPresetChange,
@@ -113,30 +120,24 @@ export function TimeRangePicker({
     >
       <span className="grid gap-1 text-xs font-medium">
         <span>Date range</span>
-        <RheaSelect
+        <Select
+          items={timeRangeItems}
           value={preset}
           onValueChange={(next) => {
             if (next) onPresetChange(next);
           }}
         >
-          <SelectTrigger size="sm" className="w-36" aria-label="Date range">
-            <SelectValue>
-              {preset === "24h"
-                ? "Last 24 hours"
-                : preset === "7d"
-                  ? "Last 7 days"
-                  : preset === "30d"
-                    ? "Last 30 days"
-                    : "Custom range"}
-            </SelectValue>
+          <SelectTrigger className="w-40" aria-label="Date range">
+            <SelectValue />
           </SelectTrigger>
-          <SelectContent align="start" alignItemWithTrigger={false}>
-            <SelectItem value="24h">Last 24 hours</SelectItem>
-            <SelectItem value="7d">Last 7 days</SelectItem>
-            <SelectItem value="30d">Last 30 days</SelectItem>
-            <SelectItem value="custom">Custom range</SelectItem>
+          <SelectContent>
+            {timeRangeItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
           </SelectContent>
-        </RheaSelect>
+        </Select>
       </span>
       {preset === "custom" && (
         <>

@@ -25,7 +25,7 @@ import {
   useActivityCursor,
 } from "./ActivityShared";
 import { MetricTile } from "../components/MetricTile";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -34,14 +34,14 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
 import {
-  Sheet as RheaSheet,
+  Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -177,23 +177,24 @@ export function ProofTab({
             </div>
             <label className="grid gap-1 text-xs font-medium">
               <span>Group by</span>
-              <RheaSelect
+              <Select
+                items={proofDimensionOptions}
                 value={dimension}
                 onValueChange={(next) => {
                   if (next) setDimension(next);
                 }}
               >
                 <SelectTrigger size="sm" className="w-44" aria-label="Group by">
-                  <SelectValue>{proofDimensionLabel(dimension)}</SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
-                <SelectContent align="end" alignItemWithTrigger={false}>
+                <SelectContent>
                   {proofDimensionOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </label>
           </header>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
@@ -390,32 +391,32 @@ export function ProofTab({
             </EmptyHeader>
             <div className="flex flex-wrap justify-center gap-2">
               {hasActiveFilters ? (
-                <RheaButton
+                <Button
                   type="button"
                   variant="secondary"
                   onClick={onClearFilters}
                 >
                   Clear filters
-                </RheaButton>
+                </Button>
               ) : (
                 <>
                   {canExtendRange && (
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="secondary"
                       onClick={onExtendRange}
                     >
                       Last 7 days
-                    </RheaButton>
+                    </Button>
                   )}
                   {onViewScreenEvents && (
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="ghost"
                       onClick={onViewScreenEvents}
                     >
                       View screen events
-                    </RheaButton>
+                    </Button>
                   )}
                 </>
               )}
@@ -466,7 +467,7 @@ function ProofDetailsDrawer({
   });
 
   return (
-    <RheaSheet
+    <Sheet
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -575,7 +576,7 @@ function ProofDetailsDrawer({
           )}
         </div>
       </SheetContent>
-    </RheaSheet>
+    </Sheet>
   );
 }
 
@@ -598,13 +599,6 @@ const proofDimensionOptions = [
   { value: "presentation", label: "Playlist or Layout" },
   { value: "schedule", label: "Schedule" },
 ];
-
-function proofDimensionLabel(value: string) {
-  return (
-    proofDimensionOptions.find((option) => option.value === value)?.label ??
-    value
-  );
-}
 
 function formatFullWhen(value: string) {
   return new Date(value).toLocaleString([], {

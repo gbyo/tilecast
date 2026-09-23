@@ -119,6 +119,42 @@ describe("layout library page", () => {
     ).toHaveAttribute("src", savedLayout.previewImageUrl);
   });
 
+  it("labels each toolbar filter with its option label, not its value", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("button", { name: "Edit Lobby" });
+
+    const orientation = screen.getByRole("combobox", {
+      name: "Filter layouts by orientation",
+    });
+    expect(orientation).toHaveTextContent("All orientations");
+    expect(
+      screen.getByRole("combobox", {
+        name: "Filter layouts by publication status",
+      }),
+    ).toHaveTextContent("All statuses");
+    expect(
+      screen.getByRole("combobox", { name: "Sort layouts" }),
+    ).toHaveTextContent("Recently updated");
+
+    await user.click(orientation);
+    await user.click(await screen.findByRole("option", { name: "Portrait" }));
+
+    expect(orientation).toHaveTextContent("Portrait");
+    expect(orientation).not.toHaveTextContent("portrait");
+    expect(
+      screen.queryByRole("button", { name: "Edit Lobby" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses the shared search field for the layout library", async () => {
+    renderPage();
+    const search = await screen.findByRole("searchbox", {
+      name: "Search layouts",
+    });
+    expect(search.closest('[data-slot="input-group"]')).not.toBeNull();
+  });
+
   it("renames a layout from its card menu", async () => {
     const user = userEvent.setup();
     renderPage();
