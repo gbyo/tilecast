@@ -441,36 +441,6 @@ a {
 .screens-page {
   width: min(1120px, 100%);
 }
-.screen-empty {
-  display: grid;
-  min-height: 360px;
-  place-content: center;
-  justify-items: center;
-  padding: 42px;
-  text-align: center;
-  background: var(--tc-surface);
-  border: 1px solid var(--tc-border);
-  border-radius: var(--tc-radius-md);
-}
-.screen-empty h3 {
-  margin: 15px 0 6px;
-  font-size: 20px;
-}
-.screen-empty p {
-  max-width: 500px;
-  margin: 0 0 20px;
-  color: var(--tc-ink-muted);
-}
-.empty-illustration {
-  display: grid;
-  width: 54px;
-  height: 54px;
-  place-items: center;
-  color: var(--tc-brand);
-  background: var(--tc-brand-soft);
-  border: 1px solid var(--tc-status-success-border);
-  border-radius: var(--tc-radius-md);
-}
 /* The screen table, status chips, and pairing queue are defined once, in
    styles/screens.css. A second copy used to live here and the two disagreed about
    column counts and responsive behaviour, which is what pushed rows out of

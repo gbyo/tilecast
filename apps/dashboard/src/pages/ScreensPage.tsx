@@ -2417,8 +2417,8 @@ export function PairScreenPage() {
   return (
     <section className="pair-card">
       <header>
-        <span className="empty-illustration">
-          <Link2 size={24} />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+          <Link2 className="size-5" aria-hidden="true" />
         </span>
         <div>
           <h2>Pair a screen</h2>

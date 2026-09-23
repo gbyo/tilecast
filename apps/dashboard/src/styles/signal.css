@@ -164,9 +164,10 @@ p {
 }
 
 .layout-sidebar-nav button.is-active {
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-surface);
-  border-color: var(--tc-action-primary);
+  color: var(--foreground);
+  background: var(--background);
+  border-color: var(--input);
+  font-weight: 500;
 }
 
 .layout-sidebar-panel {
@@ -360,8 +361,8 @@ p {
 }
 
 .layout-layers .layout-layer-row.is-selected {
-  background: var(--tc-sidebar-active);
-  border-color: var(--tc-action-primary);
+  background: var(--accent);
+  border-color: var(--input);
 }
 
 /* The select control is a real button; the visibility/lock toggles beside it
@@ -1042,9 +1043,9 @@ p {
 }
 
 .picker-content-card.is-selected {
-  border-color: var(--tc-action-primary);
-  box-shadow: inset 0 0 0 2px var(--tc-action-primary);
-  background: var(--tc-action-primary-soft);
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+  background: var(--accent);
 }
 
 .picker-content-card.is-new::after {
@@ -1054,8 +1055,8 @@ p {
   left: var(--tc-space-2);
   padding: 2px var(--tc-space-2);
   border-radius: var(--tc-radius-pill);
-  color: var(--tc-text-inverse);
-  background: var(--tc-action-primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
   font-size: 11px;
   font-weight: 650;
 }
@@ -1088,10 +1089,10 @@ p {
   width: 28px;
   height: 28px;
   place-items: center;
-  border: 2px solid var(--tc-bg-surface);
+  border: 2px solid var(--background);
   border-radius: 50%;
-  color: var(--tc-text-inverse);
-  background: var(--tc-action-primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
 }
 
 .picker-content-card__details {
@@ -1288,7 +1289,7 @@ p {
 
 .picker-upload-list progress {
   width: 100%;
-  accent-color: var(--tc-action-primary);
+  accent-color: var(--primary);
 }
 
 /* Schedule Builder */
@@ -1315,9 +1316,9 @@ p {
 }
 
 .schedule-builder-section {
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-  background: var(--tc-bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
 }
 
 .schedule-builder-section > header {
@@ -1325,7 +1326,7 @@ p {
   align-items: flex-start;
   gap: var(--tc-space-3);
   padding: var(--tc-space-4) var(--tc-space-6);
-  border-bottom: 1px solid var(--tc-border-default);
+  border-bottom: 1px solid var(--border);
 }
 
 .schedule-builder-section > header > span {
@@ -1335,9 +1336,9 @@ p {
   flex: 0 0 auto;
   place-items: center;
   border-radius: 50%;
-  color: var(--tc-action-primary);
-  background: var(--tc-action-primary-soft);
-  font-weight: 700;
+  color: var(--foreground);
+  background: var(--muted);
+  font-weight: 600;
 }
 
 .schedule-builder-section h3,
@@ -1412,63 +1413,9 @@ p {
   color: var(--tc-text-secondary);
 }
 
-.schedule-segmented,
-.schedule-target-tabs,
-.schedule-priority > div[role="radiogroup"] {
-  display: flex;
-  width: fit-content;
-  padding: 3px;
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-control);
-  background: var(--tc-bg-subtle);
-}
-
-.schedule-segmented button,
-.schedule-target-tabs button,
-.schedule-priority > div[role="radiogroup"] button {
-  min-height: 36px;
-  padding: 0 var(--tc-space-3);
-  border: 0;
-  border-radius: var(--tc-radius-chip);
-  color: var(--tc-text-secondary);
-  background: transparent;
-}
-
-.schedule-segmented button[aria-pressed="true"],
-.schedule-target-tabs button[aria-selected="true"],
-.schedule-priority button[aria-checked="true"] {
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-surface);
-  box-shadow: inset 0 0 0 1px var(--tc-border-strong);
-  font-weight: 650;
-}
-
 .schedule-timing-fields {
   display: grid;
   gap: var(--tc-space-3);
-}
-
-/* One weekday row for every surface that picks weekdays, so a Monday reads the
-   same in Schedules and in the Countdown Bar editor. */
-.schedule-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(48px, 1fr));
-  gap: var(--tc-space-2);
-}
-
-.schedule-weekdays button {
-  min-height: 44px;
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-control);
-  color: var(--tc-text-secondary);
-  background: var(--tc-bg-surface);
-}
-
-.schedule-weekdays button[aria-pressed="true"] {
-  border-color: var(--tc-action-primary);
-  color: var(--tc-action-primary);
-  background: var(--tc-action-primary-soft);
-  font-weight: 650;
 }
 
 .schedule-time-pair,
@@ -1500,19 +1447,15 @@ p {
   gap: var(--tc-space-3);
 }
 
-.schedule-priority > div[role="radiogroup"] {
-  flex-wrap: wrap;
-}
-
 .schedule-builder-summary {
   position: sticky;
   top: 76px;
   display: grid;
   gap: var(--tc-space-4);
   padding: var(--tc-space-4);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-  background: var(--tc-bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
 }
 
 .schedule-builder-summary h3 {
@@ -1637,25 +1580,10 @@ p {
     padding: var(--tc-space-3);
   }
 
-  .schedule-weekdays {
-    grid-template-columns: repeat(4, minmax(52px, 1fr));
-  }
-
   .schedule-time-pair,
   .schedule-datetime-pair,
   .schedule-date-range {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .schedule-segmented,
-  .schedule-target-tabs,
-  .schedule-priority > div[role="radiogroup"] {
-    width: 100%;
-  }
-
-  .schedule-segmented button,
-  .schedule-target-tabs button {
-    flex: 1;
   }
 
   .schedule-playlist-card {
