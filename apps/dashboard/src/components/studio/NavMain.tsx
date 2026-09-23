@@ -1,173 +1,89 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Link, useLocation } from "react-router";
-import { ChevronRight } from "lucide-react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { useLocation, Link } from "react-router";
+import type { ReactNode } from "react";
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-
-export type StudioNavChild = {
-  title: string;
-  url: string;
-};
 
 export type StudioNavItem = {
   title: string;
   url: string;
   icon: ReactNode;
   end?: boolean;
-  match?: string[];
-  children?: StudioNavChild[];
 };
 
-function matches(pathname: string, url: string, end?: boolean) {
-  if (end) return pathname === url;
-  return pathname === url || pathname.startsWith(`${url}/`);
+export type StudioNavGroup = {
+  label?: string;
+  items: StudioNavItem[];
+};
+
+function activeUrl(pathname: string, items: StudioNavItem[]) {
+  return items
+    .filter(
+      (item) =>
+        pathname === item.url ||
+        (!item.end && pathname.startsWith(`${item.url}/`)),
+    )
+    .sort((left, right) => right.url.length - left.url.length)[0]?.url;
 }
 
-function matchesAny(
-  pathname: string,
-  item: Pick<StudioNavItem, "url" | "end" | "match">,
-) {
-  if (matches(pathname, item.url, item.end)) return true;
-  return Boolean(item.match?.some((path) => matches(pathname, path)));
-}
-
-/** The child that owns the route: exact match wins, else longest prefix. */
-function activeChild(
-  pathname: string,
-  children: StudioNavChild[],
-): StudioNavChild | undefined {
-  const exact = children.find((child) => pathname === child.url);
-  if (exact) return exact;
-  let best: StudioNavChild | undefined;
-  for (const child of children) {
-    if (!pathname.startsWith(`${child.url}/`)) continue;
-    if (!best || child.url.length > best.url.length) best = child;
-  }
-  return best;
-}
-
-function FlatItem({ item, active }: { item: StudioNavItem; active: boolean }) {
+function NavigationGroup({
+  label,
+  items,
+  currentUrl,
+}: StudioNavGroup & { currentUrl?: string }) {
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        tooltip={item.title}
-        isActive={active}
-        render={
-          <Link to={item.url} aria-current={active ? "page" : undefined} />
-        }
-      >
-        {item.icon}
-        <span>{item.title}</span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
-}
-
-function GroupItem({ item }: { item: StudioNavItem }) {
-  const location = useLocation();
-  const pathname = location.pathname;
-  const owned = activeChild(pathname, item.children ?? []);
-  const groupActive =
-    matchesAny(pathname, item) ||
-    (item.children ?? []).some((child) => matches(pathname, child.url));
-  // The group opens on its own when the active route lives inside it, and
-  // the user can still collapse or expand it afterwards. Navigating to
-  // another route in the same group re-opens it.
-  const [open, setOpen] = useState(groupActive);
-  useEffect(() => {
-    if (groupActive) setOpen(true);
-  }, [groupActive, item.title]);
-  return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      render={<SidebarMenuItem />}
-    >
-      <SidebarMenuButton
-        tooltip={item.title}
-        isActive={groupActive}
-        render={
-          <Link to={item.url} aria-current={groupActive ? "page" : undefined} />
-        }
-      >
-        {item.icon}
-        <span>{item.title}</span>
-      </SidebarMenuButton>
-      <CollapsibleTrigger
-        aria-label={`Toggle ${item.title} submenu`}
-        aria-expanded={open}
-        render={<SidebarMenuAction className="aria-expanded:rotate-90" />}
-      >
-        <ChevronRight aria-hidden="true" />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <SidebarMenuSub>
-          {(item.children ?? []).map((child) => {
-            const childActive = owned === child;
+    <SidebarGroup>
+      {label ? <SidebarGroupLabel>{label}</SidebarGroupLabel> : null}
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => {
+            const active = item.url === currentUrl;
             return (
-              <SidebarMenuSubItem key={child.url}>
-                <SidebarMenuSubButton
-                  isActive={childActive}
+              <SidebarMenuItem key={item.url}>
+                <SidebarMenuButton
+                  tooltip={item.title}
+                  isActive={active}
                   render={
                     <Link
-                      to={child.url}
-                      aria-current={childActive ? "page" : undefined}
+                      to={item.url}
+                      aria-current={active ? "page" : undefined}
                     />
                   }
                 >
-                  <span>{child.title}</span>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
+                  {item.icon}
+                  <span>{item.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             );
           })}
-        </SidebarMenuSub>
-      </CollapsibleContent>
-    </Collapsible>
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 }
 
 export function NavMain({
-  label = "Main",
-  items,
+  overview,
+  groups,
 }: {
-  label?: string;
-  items: StudioNavItem[];
+  overview: StudioNavItem;
+  groups: StudioNavGroup[];
 }) {
-  const location = useLocation();
+  const { pathname } = useLocation();
+  const items = [overview, ...groups.flatMap((group) => group.items)];
+  const currentUrl = activeUrl(pathname, items);
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {items.map((item) =>
-            item.children?.length ? (
-              <GroupItem key={item.title} item={item} />
-            ) : (
-              <FlatItem
-                key={item.url}
-                item={item}
-                active={matchesAny(location.pathname, item)}
-              />
-            ),
-          )}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+    <>
+      <NavigationGroup items={[overview]} currentUrl={currentUrl} />
+      {groups.map((group) => (
+        <NavigationGroup key={group.label} {...group} currentUrl={currentUrl} />
+      ))}
+    </>
   );
 }

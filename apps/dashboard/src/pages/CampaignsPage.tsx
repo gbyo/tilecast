@@ -17,7 +17,6 @@ import type {
   CampaignSnapshot,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog as RheaAlertDialog,
@@ -154,7 +153,6 @@ function CampaignLibrary() {
 
   return (
     <section className="grid gap-4">
-      <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">Campaigns</h1>
@@ -501,7 +499,6 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
 
   return (
     <section className="grid gap-4">
-      <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">

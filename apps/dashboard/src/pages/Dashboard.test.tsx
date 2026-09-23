@@ -38,46 +38,52 @@ const summary = (
 });
 
 describe("SidebarNavigation", () => {
-  it("shows the main workspace destinations", () => {
+  it("shows every primary destination as a direct route", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([summary(["submit"])]);
     renderNav();
 
     expect(
       screen.getByRole("link", { name: "Tilecast Overview" }),
     ).toBeTruthy();
-    for (const destination of [
-      "Overview",
-      "Screens",
-      "Content",
-      "Presentations",
-      "Schedules",
-      "Plugins",
-      "Activity",
-      "Settings",
-    ]) {
-      expect(screen.getByRole("link", { name: destination })).toBeTruthy();
+    const routes = {
+      Overview: "/",
+      Fleet: "/screens",
+      "Display Groups": "/groups",
+      Archive: "/screens/archive",
+      Media: "/assets",
+      Widgets: "/widgets",
+      "Data Sources": "/data-sources",
+      Playlists: "/playlists",
+      Layouts: "/layouts",
+      Campaigns: "/campaigns",
+      Schedules: "/schedules",
+      Plugins: "/plugins",
+      Activity: "/activity",
+      Settings: "/settings",
+    };
+    for (const [destination, route] of Object.entries(routes)) {
+      expect(screen.getByRole("link", { name: destination })).toHaveAttribute(
+        "href",
+        route,
+      );
+    }
+    for (const group of ["Screens", "Content", "Presentations", "Operations"]) {
+      expect(screen.getByText(group)).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: group })).toBeNull();
+      expect(screen.queryByRole("button", { name: group })).toBeNull();
     }
     expect(screen.queryByRole("link", { name: "Approvals" })).toBeNull();
   });
 
-  it("marks Content active for its nested editor routes", () => {
+  it("marks the matching nested destination active", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([]);
     renderNav("/widgets/widget-1");
 
-    expect(screen.getByRole("link", { name: "Content" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Widgets" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(
-      screen.getByRole("link", { name: "Presentations" }),
-    ).not.toHaveAttribute("aria-current", "page");
-  });
-
-  it("marks Presentations active for a nested Layout route", () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([]);
-    renderNav("/layouts/layout-1");
-
-    expect(screen.getByRole("link", { name: "Presentations" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Media" })).not.toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -88,17 +94,5 @@ describe("SidebarNavigation", () => {
     renderNav();
 
     expect(await screen.findByRole("link", { name: "Approvals" })).toBeTruthy();
-  });
-
-  it("keeps the main destination labels visible", () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([]);
-    renderNav("/assets");
-
-    expect(
-      screen.getByRole("link", { name: "Tilecast Overview" }),
-    ).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Content" })).toHaveTextContent(
-      "Content",
-    );
   });
 });

@@ -17,7 +17,6 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
-import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
 import { PlaylistEditorPage } from "../components/playlist-editor/PlaylistEditor";
 import {
   canManagePlaylists,
@@ -63,7 +62,6 @@ export function PlaylistsPage() {
   };
   return (
     <section className="grid gap-4">
-      <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">Playlists</h1>

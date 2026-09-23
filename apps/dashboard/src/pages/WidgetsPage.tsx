@@ -41,7 +41,6 @@ import { GenericWidgetEditor } from "../content/GenericDefinitionEditors";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { WidgetSnapshotBackfill } from "../content/WidgetSnapshotBackfill";
 import { inAppPath, withParam } from "../navigation/returnPaths";
-import { WorkspaceTabs, contentTabs } from "../navigation/WorkspaceTabs";
 import {
   AssetCollection,
   WebsiteEditor,
@@ -82,7 +81,6 @@ export function WidgetsPage() {
   });
   return (
     <section className="w-full min-w-0 space-y-5">
-      <WorkspaceTabs label="Content library" tabs={contentTabs} />
       <header className="space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Widgets</h1>

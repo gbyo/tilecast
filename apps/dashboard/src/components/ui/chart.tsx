@@ -1,13 +1,7 @@
-"use client";
-
 import * as React from "react";
 import { cn } from "cn";
 import * as RechartsPrimitive from "recharts";
-import type {
-  LegendPayload,
-  TooltipPayloadEntry,
-  TooltipValueType,
-} from "recharts";
+import type { TooltipValueType } from "recharts";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
@@ -133,26 +127,20 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
-}: React.ComponentProps<"div"> & {
-  active?: boolean;
-  payload?: readonly TooltipPayloadEntry<TooltipValueType, TooltipNameType>[];
-  label?: React.ReactNode;
-  labelClassName?: string;
-  labelFormatter?: (
-    label: React.ReactNode,
-    payload: readonly TooltipPayloadEntry<TooltipValueType, TooltipNameType>[],
-  ) => React.ReactNode;
-  formatter?: RechartsPrimitive.DefaultTooltipContentProps<
-    TooltipValueType,
-    TooltipNameType
-  >["formatter"];
-  color?: string;
-  hideLabel?: boolean;
-  hideIndicator?: boolean;
-  indicator?: "line" | "dot" | "dashed";
-  nameKey?: string;
-  labelKey?: string;
-}) {
+}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
+  React.ComponentProps<"div"> & {
+    hideLabel?: boolean;
+    hideIndicator?: boolean;
+    indicator?: "line" | "dot" | "dashed";
+    nameKey?: string;
+    labelKey?: string;
+  } & Omit<
+    RechartsPrimitive.DefaultTooltipContentProps<
+      TooltipValueType,
+      TooltipNameType
+    >,
+    "accessibilityLayer"
+  >) {
   const { config } = useChart();
 
   const tooltipLabel = React.useMemo(() => {
@@ -200,7 +188,7 @@ function ChartTooltipContent({
   return (
     <div
       className={cn(
-        "grid min-w-32 items-start gap-1.5 rounded-xl bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-lg ring-1 ring-foreground/5 dark:ring-foreground/10",
+        "grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
         className,
       )}
     >
@@ -290,9 +278,7 @@ function ChartLegendContent({
 }: React.ComponentProps<"div"> & {
   hideIcon?: boolean;
   nameKey?: string;
-  verticalAlign?: RechartsPrimitive.DefaultLegendContentProps["verticalAlign"];
-  payload?: readonly LegendPayload[];
-}) {
+} & RechartsPrimitive.DefaultLegendContentProps) {
   const { config } = useChart();
 
   if (!payload?.length) {
@@ -357,13 +343,10 @@ function getPayloadConfigFromPayload(
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function getStringProperty(
-  record: Record<string, unknown>,
-  key: string,
-): string | undefined {
+function getStringProperty(record: Record<string, unknown>, key: string) {
   const value = record[key];
   return typeof value === "string" ? value : undefined;
 }

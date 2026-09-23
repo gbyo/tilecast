@@ -82,7 +82,6 @@ import { DataSourceEditor } from "../content/data-sources/dispatcher";
 import { providerLabel, sourceIcon } from "../content/dataSourceProviderMeta";
 import { SourceStatus } from "../content/DataSourcePicker";
 import { UsedByPanel } from "../content/UsedByPanel";
-import { WorkspaceTabs, contentTabs } from "../navigation/WorkspaceTabs";
 import { canManageContent } from "./ContentPage";
 import { CreateFormDataSourcePage } from "./CreateFormDataSourcePage";
 import { FormDataSourcePage } from "./FormDataSourcePage";
@@ -173,7 +172,6 @@ export function DataSourcesPage() {
 
   return (
     <section className="w-full min-w-0 space-y-5">
-      <WorkspaceTabs label="Content library" tabs={contentTabs} />
       <header className="space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Data Sources</h1>

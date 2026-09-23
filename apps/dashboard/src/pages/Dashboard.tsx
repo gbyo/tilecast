@@ -12,14 +12,17 @@ import { StudioTopbar } from "@/components/StudioTopbar";
 import { OperationsDashboard } from "./OperationsDashboard";
 import { EnrollmentWizard } from "./EnrollmentWizard";
 
-const sidebarCompactKey = "tilecast.sidebar.compact";
+const sidebarOpenKey = "tilecast.sidebar.open";
+const legacySidebarCompactKey = "tilecast.sidebar.compact";
 const appearanceKey = "tilecast.appearance";
 
-function readSidebarCompact() {
+function readSidebarOpen() {
   try {
-    return window.localStorage.getItem(sidebarCompactKey) === "true";
+    const saved = window.localStorage.getItem(sidebarOpenKey);
+    if (saved === "true" || saved === "false") return saved === "true";
+    return window.localStorage.getItem(legacySidebarCompactKey) !== "true";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -38,7 +41,7 @@ export function DashboardShell() {
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarCompact, setSidebarCompact] = useState(readSidebarCompact);
+  const [sidebarOpen, setSidebarOpen] = useState(readSidebarOpen);
   // Enrollment is latched because confirming the first factor clears the session
   // flag before the wizard finishes offering recovery codes and passkeys.
   const [enrolling, setEnrolling] = useState(false);
@@ -51,11 +54,11 @@ export function DashboardShell() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(sidebarCompactKey, String(sidebarCompact));
+      window.localStorage.setItem(sidebarOpenKey, String(sidebarOpen));
     } catch {
       // The built-in sidebar still works when browser storage is unavailable.
     }
-  }, [sidebarCompact]);
+  }, [sidebarOpen]);
   const serverAppearance =
     typeof preferences.data?.values?.["preference.appearance"] === "string"
       ? String(preferences.data.values["preference.appearance"])
@@ -116,10 +119,7 @@ export function DashboardShell() {
       density={density}
       reducedMotion={reducedMotion}
     >
-      <SidebarProvider
-        open={!sidebarCompact}
-        onOpenChange={(open) => setSidebarCompact(!open)}
-      >
+      <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <AppSidebar
           user={user}
           onSignOut={() => void auth.logout()}

@@ -43,7 +43,6 @@ import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { SpanWallEditor } from "../components/SpanWallEditor";
 import { DisplayControlGroupActions } from "../components/DisplayControlGroupActions";
-import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
 
 const canManage = (role?: string) =>
   role === "owner" || role === "administrator";
@@ -118,7 +117,6 @@ export function GroupsPage() {
           </div>
         )}
       </header>
-      <ScreenManagementTabs />
       {q.isError && (
         <Alert variant="destructive">
           <AlertDescription>
@@ -442,7 +440,6 @@ export function GroupDetailPage() {
         csrfToken={csrf}
         onClose={() => setQuickPresentOpen(false)}
       />
-      <ScreenManagementTabs />
 
       <section className="grid gap-3 rounded-xl border border-border p-4">
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
@@ -735,7 +732,6 @@ export function SchedulesPage() {
           </div>
         )}
       </header>
-      <ScreenManagementTabs />
       <section className="grid gap-1 rounded-xl border border-border p-4">
         <h2 className="text-base font-semibold">Schedule timeline</h2>
         <p className="text-sm text-muted-foreground">

@@ -43,8 +43,8 @@ export function NavUser({
             }
             aria-label={`Open account menu for ${user.name}`}
           >
-            <Avatar className="size-8 rounded-lg">
-              <AvatarFallback className="rounded-lg">{initial}</AvatarFallback>
+            <Avatar className="size-8 rounded-md">
+              <AvatarFallback className="rounded-md">{initial}</AvatarFallback>
             </Avatar>
             <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{user.name}</span>

@@ -50,7 +50,6 @@ import { ScreenPresentationNetworkPanel } from "../components/ScreenPresentation
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { FormField } from "../components/FormField";
 import { FireTvAccessibilityAdbPanel } from "../components/FireTvAccessibilityAdbPanel";
-import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
 import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { formatLocationAddress } from "../settings/LocationsPanel";
 import { isAndroidScreen } from "../playerPlatform";
@@ -487,7 +486,6 @@ export function ScreensPage() {
           {manageable && <TakeoverAction screens={screens.data?.items ?? []} />}
         </div>
       </header>
-      <ScreenManagementTabs />
       <ActiveTakeoverBanners canManage={manageable} />
       {screens.isError && (
         <div className="notice notice--error">{screens.error.message}</div>
@@ -3068,7 +3066,6 @@ export function ScreenDetailPage() {
   };
   return (
     <div className="w-full min-w-0 space-y-5">
-      <ScreenManagementTabs />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">

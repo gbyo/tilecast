@@ -10,7 +10,6 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
-import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -172,7 +171,6 @@ export function FleetBulkPage() {
         title="Bulk changes"
         description="Apply one change to many screens. Tilecast shows exactly what will change before anything happens, including screens pulled in by a Display Group."
       />
-      <ScreenManagementTabs />
 
       <div className="bulk-workspace">
         <section className="bulk-panel" aria-labelledby="bulk-screens-heading">

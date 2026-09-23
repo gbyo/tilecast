@@ -5,7 +5,6 @@ import { archivedScreens } from "../api/archivedScreens";
 import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { buttonVariants } from "../components/ui/button";
-import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
 
 const formatDate = (value?: string) =>
   value
@@ -29,7 +28,6 @@ export function ArchivedScreensPage() {
         title="Screen archive"
         description="Players with revoked pairings are retained for history but are detached from all live Tilecast configuration."
       />
-      <ScreenManagementTabs />
 
       {archived.isError && (
         <Alert variant="destructive">

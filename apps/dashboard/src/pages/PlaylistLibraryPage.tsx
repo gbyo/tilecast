@@ -17,7 +17,6 @@ import {
   DashboardSearch,
 } from "../components/DashboardListToolbar";
 import { PlaylistPreview } from "../components/PresentationPreview";
-import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
 import { Button as RheaButton } from "../components/ui/button";
 import {
   Empty,
@@ -227,7 +226,6 @@ export function PlaylistLibraryPage() {
 
   return (
     <section className="grid gap-4">
-      <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">Playlists</h1>
