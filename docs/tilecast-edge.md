@@ -1510,12 +1510,12 @@ Before serving bytes:
 2. certificate purpose/installation/node identity is valid.
 3. exact certificate instance is not revoked and durable node is enabled.
 4. hash matches a verified local blob.
-5. at least one logical reference authorizes the request:
-   - `installation_peerable`; or
-   - `target_granted` with a valid authority-signed grant whose audience matches the authenticated caller.
-6. `origin_only` and `never_on_player` references are never peer-served.
+5. compute the current **effective hash sharing policy** from every live confidentiality-relevant reference; do not OR permissions together;
+6. if effective policy is `installation_peerable`, serve to an otherwise valid same-realm node;
+7. if effective policy is `target_granted`, require a non-expired authority-signed grant whose hash/size/reference/audience match the authenticated caller and whose grant generation is not below the current security policy;
+8. if effective policy is `origin_only` or `never_on_player`, refuse peer serving.
 
-Hash alone is not an authorization identifier. The blob table therefore does not calculate permissive peerability by OR-ing every reference together.
+Hash alone is not an authorization identifier. A formerly installation-peerable plaintext hash also cannot become retroactively confidential after other nodes already received it; sensitive transitions require a new protected byte variant/hash.
 
 For outbound peer fetch, availability reply contains authenticated node identity plus bounded endpoint. The requester validates peer HTTPS certificate node ID against the advertisement.
 
