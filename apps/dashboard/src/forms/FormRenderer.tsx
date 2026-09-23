@@ -1,5 +1,6 @@
 import { useId } from "react";
 import type { FormField, FormSchema } from "../api/types";
+import { Button } from "../components/ui/button";
 import { isPresentationControl } from "./formSchema";
 
 // FormValues maps a field key to its current value. Multi-select uses string[]; others use string
@@ -494,7 +495,7 @@ function ImageField({
       )}
       {!disabled && (
         <div className="form-renderer__image-actions">
-          <label className="button button--secondary button--compact">
+          <Button variant="secondary" size="sm" render={<label />}>
             {hasImage ? "Replace image" : "Choose image"}
             <input
               id={id}
@@ -511,16 +512,17 @@ function ImageField({
                 event.target.value = "";
               }}
             />
-          </label>
+          </Button>
           {hasImage && (
-            <button
+            <Button
               type="button"
-              className="button button--quiet button--compact"
+              variant="ghost"
+              size="sm"
               disabled={state?.uploading}
               onClick={() => onRemove(fieldKey)}
             >
               Remove
-            </button>
+            </Button>
           )}
         </div>
       )}

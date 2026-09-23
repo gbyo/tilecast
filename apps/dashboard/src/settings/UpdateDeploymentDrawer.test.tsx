@@ -92,11 +92,10 @@ describe("Update deployment drawer", () => {
   it("states each screen's status in words, not only colour", async () => {
     renderDrawer();
     expect(await screen.findByText("Atrium")).toBeTruthy();
-    const labels = Array.from(
-      document.querySelectorAll(
-        ".deployment-screen__status > .status-dot-label",
-      ),
-    ).map((node) => node.textContent);
+    const statuses = document.querySelectorAll(".deployment-screen__status");
+    const labels = Array.from(statuses).map(
+      (node) => node.textContent?.match(/Failed|Downloading|Updated/)?.[0],
+    );
     expect(labels).toEqual(["Failed", "Downloading", "Updated"]);
     // The player's own error explains the failure rather than a generic line.
     expect(screen.getByText("Not enough storage on the device.")).toBeTruthy();

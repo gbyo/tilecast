@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { IntegrationScope, IntegrationToken } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton } from "../components/ui/button";
@@ -119,14 +120,16 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
       void refresh();
     },
   });
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const revoke = useMutation({
     mutationFn: async (token: IntegrationToken) => {
-      if (
-        !confirm(
-          `Revoke "${token.name}"? Anything using it stops working immediately, and a revoked token cannot be re-enabled.`,
-        )
-      )
-        throw new CancelledAction();
+      const ok = await confirm({
+        title: `Revoke "${token.name}"?`,
+        body: "Anything using it stops working immediately, and a revoked token cannot be re-enabled.",
+        action: "Revoke",
+        destructive: true,
+      });
+      if (!ok) throw new CancelledAction();
       return api.revokeIntegrationToken(token.id, csrf);
     },
     onSuccess: refresh,
@@ -142,258 +145,263 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
     );
 
   return (
-    <div className="grid gap-4">
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Integration tokens</h3>
-          <p className="text-sm text-muted-foreground">
-            Grant selected integrations without sharing a Studio password.
-          </p>
-        </header>
+    <>
+      {confirmDialog}
+      <div className="grid gap-4">
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Integration tokens</h3>
+            <p className="text-sm text-muted-foreground">
+              Grant selected integrations without sharing a Studio password.
+            </p>
+          </header>
 
-        {secret && (
-          <Alert role="status">
-            <AlertDescription className="grid gap-2">
-              <span>
-                <strong>Copy this token now.</strong> Shown once.
-              </span>
-              <pre className="overflow-x-auto rounded-xl border border-border bg-muted p-3 font-mono text-xs break-all">
-                {secret}
-              </pre>
-              {notice}
-              <div>
-                <RheaButton
-                  variant="ghost"
-                  onClick={() => {
-                    setSecret(undefined);
-                    setNotice(undefined);
-                  }}
-                >
-                  I have copied it
-                </RheaButton>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {tokens.isLoading ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner aria-hidden="true" />
-            Loading tokens…
-          </p>
-        ) : !tokens.data?.length ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>No tokens</EmptyTitle>
-              <EmptyDescription>No integration tokens exist.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <div className="grid gap-2">
-            {tokens.data.map((token) => (
-              <article
-                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
-                key={token.id}
-              >
-                <div className="grid min-w-0 flex-1 gap-1">
-                  <strong className="text-sm font-semibold">
-                    {token.name}
-                  </strong>
-                  <span className="text-sm text-muted-foreground">
-                    {token.scopes
-                      .map((scope) => scopeLabels[scope])
-                      .join(" · ")}
-                  </span>
-                  <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <Badge
-                      variant={
-                        status(token) === "Active" ? "default" : "secondary"
-                      }
-                    >
-                      {status(token)}
-                    </Badge>
-                    {" · "}
-                    {token.lastUsedAt
-                      ? `Last used ${new Date(token.lastUsedAt).toLocaleString()}`
-                      : "Never used"}
-                    {expiryNote(token) ? ` · ${expiryNote(token)}` : ""}
-                    {token.dataSourceIds.length > 0
-                      ? ` · Limited to ${token.dataSourceIds.length} Data Source${token.dataSourceIds.length === 1 ? "" : "s"}`
-                      : ""}
-                  </span>
+          {secret && (
+            <Alert role="status">
+              <AlertDescription className="grid gap-2">
+                <span>
+                  <strong>Copy this token now.</strong> Shown once.
+                </span>
+                <pre className="overflow-x-auto rounded-xl border border-border bg-muted p-3 font-mono text-xs break-all">
+                  {secret}
+                </pre>
+                {notice}
+                <div>
+                  <RheaButton
+                    variant="ghost"
+                    onClick={() => {
+                      setSecret(undefined);
+                      setNotice(undefined);
+                    }}
+                  >
+                    I have copied it
+                  </RheaButton>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {!token.revokedAt && (
-                    <RheaButton
-                      variant="destructive"
-                      onClick={() => revoke.mutate(token)}
-                      aria-label={`Revoke ${token.name}`}
-                    >
-                      <Trash2 size={15} aria-hidden="true" /> Revoke
-                    </RheaButton>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-        {revoke.error && !(revoke.error instanceof CancelledAction) && (
-          <Alert variant="destructive">
-            <AlertDescription>{revoke.error.message}</AlertDescription>
-          </Alert>
-        )}
-      </section>
-
-      <section className="grid gap-4 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Create a token</h3>
-        </header>
-        <form
-          className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setSecret(undefined);
-            create.mutate();
-          }}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid content-start gap-1">
-              <label htmlFor="token-name" className="text-sm font-medium">
-                Name
-              </label>
-              <p className="text-sm text-muted-foreground">
-                Name the system that will use it, so the delivery record and the
-                audit log say who did what.
-              </p>
-            </div>
-            <div className="grid content-start gap-2">
-              <Input
-                id="token-name"
-                value={name}
-                required
-                maxLength={120}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid content-start gap-1">
-              <label className="text-sm font-medium">Capabilities</label>
-            </div>
-            <div className="grid content-start gap-2">
-              {allScopes.map((scope) => (
-                <label
-                  key={scope}
-                  className="flex cursor-pointer items-start gap-2 text-sm"
-                >
-                  <RheaCheckbox
-                    checked={scopes.includes(scope)}
-                    onCheckedChange={(checked) =>
-                      setScopes(
-                        checked === true
-                          ? [...scopes, scope]
-                          : scopes.filter((item) => item !== scope),
-                      )
-                    }
-                  />
-                  <span className="grid gap-0.5">
-                    {scopeLabels[scope]}
-                    <small className="text-xs text-muted-foreground">
-                      {scopeDescriptions[scope]}
-                    </small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid content-start gap-1">
-              <label htmlFor="token-expires" className="text-sm font-medium">
-                Expires on
-              </label>
-              <p className="text-sm text-muted-foreground">
-                The token stops working at the end of this day. Leave it empty
-                for a token that never expires, and revoke it when the system
-                using it is retired.
-              </p>
-            </div>
-            <div className="grid content-start gap-2">
-              <Input
-                id="token-expires"
-                type="date"
-                value={expiresOn}
-                // Today is the earliest useful choice: it expires tonight. The
-                // server refuses anything already past regardless.
-                min={localDate(new Date())}
-                onChange={(event) => setExpiresOn(event.target.value)}
-              />
-            </div>
-          </div>
-
-          {scopes.includes("data_source:write") && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid content-start gap-1">
-                <label className="text-sm font-medium">
-                  Limit to Data Sources
-                </label>
-                <p className="text-sm text-muted-foreground">
-                  Select none to allow every Manual Table Data Source. Naming
-                  them is the safer default.
-                </p>
-              </div>
-              <div className="grid content-start gap-2">
-                {sources.isLoading ? (
-                  <span className="text-xs text-muted-foreground">
-                    Loading Data Sources…
-                  </span>
-                ) : !sources.data?.items?.length ? (
-                  <span className="text-xs text-muted-foreground">
-                    No Manual Table Data Sources exist yet.
-                  </span>
-                ) : (
-                  sources.data.items.map((source) => (
-                    <label
-                      key={source.id}
-                      className="flex cursor-pointer items-center gap-2 text-sm"
-                    >
-                      <RheaCheckbox
-                        checked={sourceIds.includes(source.id)}
-                        onCheckedChange={(checked) =>
-                          setSourceIds(
-                            checked === true
-                              ? [...sourceIds, source.id]
-                              : sourceIds.filter((id) => id !== source.id),
-                          )
-                        }
-                      />
-                      <span>{source.name}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {create.error && (
-            <Alert variant="destructive">
-              <AlertDescription>{create.error.message}</AlertDescription>
+              </AlertDescription>
             </Alert>
           )}
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <RheaButton
-              variant="default"
-              type="submit"
-              disabled={create.isPending || scopes.length === 0}
-            >
-              {create.isPending ? "Creating…" : "Create token"}
-            </RheaButton>
-          </div>
-        </form>
-      </section>
-    </div>
+          {tokens.isLoading ? (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner aria-hidden="true" />
+              Loading tokens…
+            </p>
+          ) : !tokens.data?.length ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No tokens</EmptyTitle>
+                <EmptyDescription>
+                  No integration tokens exist.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <div className="grid gap-2">
+              {tokens.data.map((token) => (
+                <article
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
+                  key={token.id}
+                >
+                  <div className="grid min-w-0 flex-1 gap-1">
+                    <strong className="text-sm font-semibold">
+                      {token.name}
+                    </strong>
+                    <span className="text-sm text-muted-foreground">
+                      {token.scopes
+                        .map((scope) => scopeLabels[scope])
+                        .join(" · ")}
+                    </span>
+                    <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      <Badge
+                        variant={
+                          status(token) === "Active" ? "default" : "secondary"
+                        }
+                      >
+                        {status(token)}
+                      </Badge>
+                      {" · "}
+                      {token.lastUsedAt
+                        ? `Last used ${new Date(token.lastUsedAt).toLocaleString()}`
+                        : "Never used"}
+                      {expiryNote(token) ? ` · ${expiryNote(token)}` : ""}
+                      {token.dataSourceIds.length > 0
+                        ? ` · Limited to ${token.dataSourceIds.length} Data Source${token.dataSourceIds.length === 1 ? "" : "s"}`
+                        : ""}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!token.revokedAt && (
+                      <RheaButton
+                        variant="destructive"
+                        onClick={() => revoke.mutate(token)}
+                        aria-label={`Revoke ${token.name}`}
+                      >
+                        <Trash2 size={15} aria-hidden="true" /> Revoke
+                      </RheaButton>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+          {revoke.error && !(revoke.error instanceof CancelledAction) && (
+            <Alert variant="destructive">
+              <AlertDescription>{revoke.error.message}</AlertDescription>
+            </Alert>
+          )}
+        </section>
+
+        <section className="grid gap-4 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Create a token</h3>
+          </header>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSecret(undefined);
+              create.mutate();
+            }}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid content-start gap-1">
+                <label htmlFor="token-name" className="text-sm font-medium">
+                  Name
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Name the system that will use it, so the delivery record and
+                  the audit log say who did what.
+                </p>
+              </div>
+              <div className="grid content-start gap-2">
+                <Input
+                  id="token-name"
+                  value={name}
+                  required
+                  maxLength={120}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid content-start gap-1">
+                <label className="text-sm font-medium">Capabilities</label>
+              </div>
+              <div className="grid content-start gap-2">
+                {allScopes.map((scope) => (
+                  <label
+                    key={scope}
+                    className="flex cursor-pointer items-start gap-2 text-sm"
+                  >
+                    <RheaCheckbox
+                      checked={scopes.includes(scope)}
+                      onCheckedChange={(checked) =>
+                        setScopes(
+                          checked === true
+                            ? [...scopes, scope]
+                            : scopes.filter((item) => item !== scope),
+                        )
+                      }
+                    />
+                    <span className="grid gap-0.5">
+                      {scopeLabels[scope]}
+                      <small className="text-xs text-muted-foreground">
+                        {scopeDescriptions[scope]}
+                      </small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid content-start gap-1">
+                <label htmlFor="token-expires" className="text-sm font-medium">
+                  Expires on
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  The token stops working at the end of this day. Leave it empty
+                  for a token that never expires, and revoke it when the system
+                  using it is retired.
+                </p>
+              </div>
+              <div className="grid content-start gap-2">
+                <Input
+                  id="token-expires"
+                  type="date"
+                  value={expiresOn}
+                  // Today is the earliest useful choice: it expires tonight. The
+                  // server refuses anything already past regardless.
+                  min={localDate(new Date())}
+                  onChange={(event) => setExpiresOn(event.target.value)}
+                />
+              </div>
+            </div>
+
+            {scopes.includes("data_source:write") && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid content-start gap-1">
+                  <label className="text-sm font-medium">
+                    Limit to Data Sources
+                  </label>
+                  <p className="text-sm text-muted-foreground">
+                    Select none to allow every Manual Table Data Source. Naming
+                    them is the safer default.
+                  </p>
+                </div>
+                <div className="grid content-start gap-2">
+                  {sources.isLoading ? (
+                    <span className="text-xs text-muted-foreground">
+                      Loading Data Sources…
+                    </span>
+                  ) : !sources.data?.items?.length ? (
+                    <span className="text-xs text-muted-foreground">
+                      No Manual Table Data Sources exist yet.
+                    </span>
+                  ) : (
+                    sources.data.items.map((source) => (
+                      <label
+                        key={source.id}
+                        className="flex cursor-pointer items-center gap-2 text-sm"
+                      >
+                        <RheaCheckbox
+                          checked={sourceIds.includes(source.id)}
+                          onCheckedChange={(checked) =>
+                            setSourceIds(
+                              checked === true
+                                ? [...sourceIds, source.id]
+                                : sourceIds.filter((id) => id !== source.id),
+                            )
+                          }
+                        />
+                        <span>{source.name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {create.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{create.error.message}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <RheaButton
+                variant="default"
+                type="submit"
+                disabled={create.isPending || scopes.length === 0}
+              >
+                {create.isPending ? "Creating…" : "Create token"}
+              </RheaButton>
+            </div>
+          </form>
+        </section>
+      </div>
+    </>
   );
 }
 

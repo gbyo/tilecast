@@ -1,10 +1,50 @@
+import { Grid2X2, List } from "lucide-react";
 import type {
   ContentCollection,
   ContentFolder,
   ContentTag,
 } from "../../api/types";
-import { Select, ToggleGroup, ViewToggle } from "../legacy-ui";
+import { ToggleGroup } from "../ToggleGroup";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { DashboardSearch } from "../DashboardListToolbar";
+
+function PickerSelect({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly { value: string; label: string }[];
+  placeholder?: string;
+}) {
+  const selected = options.find((option) => option.value === value);
+  return (
+    <RheaSelect value={value} onValueChange={(next) => onChange(next ?? "")}>
+      <SelectTrigger aria-label={label} size="sm">
+        <SelectValue placeholder={placeholder}>
+          {selected?.label ?? placeholder ?? value}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </RheaSelect>
+  );
+}
 
 export type ContentPickerFilter =
   "all" | "image" | "video" | "source" | "website" | "youtube" | "calendar";
@@ -83,58 +123,70 @@ export function ContentPickerToolbar({
           .map(({ value, label }) => ({ value, label }))}
       />
       {folders.length > 0 && onFolderFilter && (
-        <Select
-          aria-label="Filter by folder"
+        <PickerSelect
+          label="Filter by folder"
           value={folderFilter}
-          onChange={(event) => onFolderFilter(event.target.value)}
-        >
-          <option value="">All folders</option>
-          {folders.map((folder) => (
-            <option key={folder.id} value={folder.id}>
-              {folder.name}
-            </option>
-          ))}
-        </Select>
+          onChange={onFolderFilter}
+          options={[
+            { value: "", label: "All folders" },
+            ...folders.map((folder) => ({
+              value: folder.id,
+              label: folder.name,
+            })),
+          ]}
+        />
       )}
       {collections.length > 0 && onCollectionFilter && (
-        <Select
-          aria-label="Filter by collection"
+        <PickerSelect
+          label="Filter by collection"
           value={collectionFilter}
-          onChange={(event) => onCollectionFilter(event.target.value)}
-        >
-          <option value="">All collections</option>
-          {collections.map((collection) => (
-            <option key={collection.id} value={collection.id}>
-              {collection.name}
-            </option>
-          ))}
-        </Select>
+          onChange={onCollectionFilter}
+          options={[
+            { value: "", label: "All collections" },
+            ...collections.map((collection) => ({
+              value: collection.id,
+              label: collection.name,
+            })),
+          ]}
+        />
       )}
       {tags.length > 0 && onTagFilter && (
-        <Select
-          aria-label="Filter by tag"
+        <PickerSelect
+          label="Filter by tag"
           value={tagFilter}
-          onChange={(event) => onTagFilter(event.target.value)}
-        >
-          <option value="">All tags</option>
-          {tags.map((tag) => (
-            <option key={tag.id} value={tag.id}>
-              {tag.name}
-            </option>
-          ))}
-        </Select>
+          onChange={onTagFilter}
+          options={[
+            { value: "", label: "All tags" },
+            ...tags.map((tag) => ({ value: tag.id, label: tag.name })),
+          ]}
+        />
       )}
-      <Select
-        aria-label="Sort content"
+      <PickerSelect
+        label="Sort content"
         value={sort}
-        onChange={(event) => onSort(event.target.value)}
-      >
-        <option value="updated">Recently updated</option>
-        <option value="newest">Newest</option>
-        <option value="oldest">Oldest</option>
-        <option value="name">Name</option>
-      </Select>
-      <ViewToggle value={view} onValueChange={onView} label="Content view" />
+        onChange={onSort}
+        options={[
+          { value: "updated", label: "Recently updated" },
+          { value: "newest", label: "Newest" },
+          { value: "oldest", label: "Oldest" },
+          { value: "name", label: "Name" },
+        ]}
+      />
+      <ToggleGroup
+        label="Content view"
+        value={view}
+        onValueChange={onView}
+        items={[
+          {
+            value: "grid",
+            label: <Grid2X2 size={16} aria-label="Grid view" />,
+          },
+          {
+            value: "list",
+            label: <List size={16} aria-label="List view" />,
+          },
+        ]}
+      />
     </div>
   );
 }

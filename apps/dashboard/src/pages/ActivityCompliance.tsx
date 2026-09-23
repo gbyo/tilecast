@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MetricTile, type ResolvedTimeRange } from "../components/legacy-ui";
+import { MetricTile } from "../components/MetricTile";
+import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import {
   Select as RheaSelect,
   SelectContent,

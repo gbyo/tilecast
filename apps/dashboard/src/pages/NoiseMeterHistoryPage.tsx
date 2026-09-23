@@ -9,8 +9,9 @@ import type {
   NoiseHistoryRange,
   NoiseHistorySummary,
 } from "../api/types";
-import { ToggleGroup, ViewTabs } from "../components/legacy-ui";
-import { MetricTile } from "../components/legacy-ui/MetricTile";
+import { ViewTabs } from "../components/ViewTabs";
+import { MetricTile } from "../components/MetricTile";
+import { ToggleGroup } from "../components/ToggleGroup";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { buttonVariants } from "../components/ui/button";
 import {

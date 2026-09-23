@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Clipboard, ExternalLink, Github } from "lucide-react";
@@ -6,8 +6,17 @@ import { useLocation } from "react-router";
 import { api } from "../api/client";
 import type { GitHubDeviceStart } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Dialog } from "./legacy-ui";
-import "./GitHubOAuthSetupPortal.css";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Button, buttonVariants } from "./ui/button";
+import {
+  Dialog as RheaDialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { Input } from "./ui/input";
 
 type ActiveFlow = GitHubDeviceStart & { retryAfterSeconds: number };
 
@@ -184,9 +193,9 @@ export function GitHubOAuthSetupPortal() {
     <>
       {target &&
         createPortal(
-          <button
+          <Button
             type="button"
-            className="button button--secondary"
+            variant="secondary"
             onClick={() => {
               setMessage("");
               setSetupOpen(true);
@@ -194,30 +203,32 @@ export function GitHubOAuthSetupPortal() {
           >
             <Github size={16} aria-hidden="true" />
             Connect GitHub
-          </button>,
+          </Button>,
           target,
         )}
-      <Dialog
+      <RheaDialog
         open={setupOpen}
-        title="Set up GitHub connection"
-        onClose={() => setSetupOpen(false)}
+        onOpenChange={(open) => {
+          if (!open) setSetupOpen(false);
+        }}
       >
-        <div className="github-oauth-setup">
-          <p className="github-oauth-setup__intro">
-            Create one GitHub OAuth App for this Tilecast installation. Tilecast
-            only needs the public Client ID; do not create or paste a client
-            secret.
-          </p>
-
-          <section className="github-oauth-setup__step">
-            <span className="github-oauth-setup__number">1</span>
-            <div>
-              <h3>Create the OAuth App</h3>
-              <p>
-                Open GitHub Developer Settings and register a new OAuth App.
-              </p>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Set up GitHub connection</DialogTitle>
+            <DialogDescription>
+              Create one GitHub OAuth App for this Tilecast installation.
+              Tilecast only needs the public Client ID; do not create or paste a
+              client secret.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <SetupStep
+              number="1"
+              title="Create the OAuth App"
+              body="Open GitHub Developer Settings and register a new OAuth App."
+            >
               <a
-                className="button button--secondary"
+                className={buttonVariants({ variant: "secondary" })}
                 href="https://github.com/settings/applications/new"
                 target="_blank"
                 rel="noreferrer"
@@ -225,17 +236,13 @@ export function GitHubOAuthSetupPortal() {
                 <ExternalLink size={16} aria-hidden="true" />
                 Open GitHub OAuth Apps
               </a>
-            </div>
-          </section>
+            </SetupStep>
 
-          <section className="github-oauth-setup__step">
-            <span className="github-oauth-setup__number">2</span>
-            <div>
-              <h3>Enter these exact values</h3>
-              <p>
-                GitHub requires a callback URL even though Tilecast signs in
-                through Device Flow.
-              </p>
+            <SetupStep
+              number="2"
+              title="Enter these exact values"
+              body="GitHub requires a callback URL even though Tilecast signs in through Device Flow."
+            >
               <CopyValue
                 label="Application name"
                 value={setupValues.applicationName}
@@ -254,28 +261,27 @@ export function GitHubOAuthSetupPortal() {
                 copied={copied}
                 onCopy={copy}
               />
-              <div className="github-oauth-setup__device-flow">
-                <Check size={18} aria-hidden="true" />
+              <div className="flex items-center gap-2 rounded-[var(--tc-radius-control)] bg-primary/10 px-3 py-2.5 text-sm">
+                <Check
+                  size={18}
+                  aria-hidden="true"
+                  className="shrink-0 text-primary"
+                />
                 <span>
                   Turn on <strong>Enable Device Flow</strong> before registering
                   the application.
                 </span>
               </div>
-            </div>
-          </section>
+            </SetupStep>
 
-          <section className="github-oauth-setup__step">
-            <span className="github-oauth-setup__number">3</span>
-            <div>
-              <h3>Paste the Client ID</h3>
-              <p>
-                After GitHub registers the app, copy its Client ID and paste it
-                below. Tilecast saves it in persistent application data and then
-                starts sign-in immediately.
-              </p>
-              <label className="field">
-                <span className="field__label">GitHub Client ID</span>
-                <input
+            <SetupStep
+              number="3"
+              title="Paste the Client ID"
+              body="After GitHub registers the app, copy its Client ID and paste it below. Tilecast saves it in persistent application data and then starts sign-in immediately."
+            >
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span>GitHub Client ID</span>
+                <Input
                   value={clientId}
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -284,63 +290,98 @@ export function GitHubOAuthSetupPortal() {
                   onChange={(event) => setClientId(event.target.value)}
                 />
               </label>
-            </div>
-          </section>
+            </SetupStep>
 
-          {message && (
-            <div className="notice notice--error" role="alert">
-              {message}
-            </div>
-          )}
-          <footer className="github-oauth-setup__actions">
-            <button
+            {message && (
+              <Alert variant="destructive">
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
               type="button"
-              className="button button--quiet"
+              variant="ghost"
               onClick={() => setSetupOpen(false)}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="button button--primary"
               disabled={!validClientID(clientId) || configure.isPending}
               onClick={() => configure.mutate()}
             >
               <Github size={16} aria-hidden="true" />
               {configure.isPending ? "Saving…" : "Save and connect"}
-            </button>
-          </footer>
-        </div>
-      </Dialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </RheaDialog>
 
-      <Dialog
+      <RheaDialog
         open={Boolean(flow)}
-        title="Authorize Tilecast on GitHub"
-        onClose={() => setFlow(null)}
+        onOpenChange={(open) => {
+          if (!open) setFlow(null);
+        }}
       >
-        {flow && (
-          <div className="github-oauth-device">
-            <p>
-              Open GitHub, enter this one-time code, and approve the Tilecast
-              OAuth App. This window will update automatically.
-            </p>
-            <strong className="github-oauth-device__code">
-              {flow.userCode}
-            </strong>
-            <a
-              className="button button--primary"
-              href={flow.verificationUri}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <ExternalLink size={16} aria-hidden="true" />
-              Open GitHub
-            </a>
-            <small>Waiting for authorization…</small>
-          </div>
-        )}
-      </Dialog>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Authorize Tilecast on GitHub</DialogTitle>
+          </DialogHeader>
+          {flow && (
+            <div className="grid w-full max-w-md gap-4 justify-items-center text-center">
+              <p className="m-0 text-sm text-muted-foreground">
+                Open GitHub, enter this one-time code, and approve the Tilecast
+                OAuth App. This window will update automatically.
+              </p>
+              <strong className="rounded-[var(--tc-radius-control)] border border-border bg-muted px-4 py-3 font-mono text-2xl tracking-[0.12em]">
+                {flow.userCode}
+              </strong>
+              <a
+                className={buttonVariants({ variant: "default" })}
+                href={flow.verificationUri}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink size={16} aria-hidden="true" />
+                Open GitHub
+              </a>
+              <small className="text-muted-foreground">
+                Waiting for authorization…
+              </small>
+            </div>
+          )}
+        </DialogContent>
+      </RheaDialog>
     </>
+  );
+}
+
+function SetupStep({
+  number,
+  title,
+  body,
+  children,
+}: {
+  number: string;
+  title: string;
+  body: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="grid grid-cols-[30px_minmax(0,1fr)] gap-3 border-t border-border pt-4">
+      <span
+        aria-hidden="true"
+        className="grid size-7 place-items-center rounded-full bg-primary text-[13px] font-bold text-primary-foreground"
+      >
+        {number}
+      </span>
+      <div className="grid min-w-0 content-start gap-2.5">
+        <h3 className="m-0 mt-0.5 text-base font-semibold">{title}</h3>
+        <p className="m-0 text-sm text-muted-foreground">{body}</p>
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -356,13 +397,14 @@ function CopyValue({
   onCopy: (label: string, value: string) => Promise<void>;
 }) {
   return (
-    <label className="github-oauth-copy">
+    <label className="grid gap-1 text-xs text-muted-foreground">
       <span>{label}</span>
-      <span>
-        <input value={value} readOnly />
-        <button
+      <span className="grid grid-cols-[minmax(0,1fr)_auto] gap-1.5">
+        <Input value={value} readOnly className="h-8 text-xs" />
+        <Button
           type="button"
-          className="icon-button"
+          variant="ghost"
+          size="icon-sm"
           title={`Copy ${label}`}
           aria-label={`Copy ${label}`}
           onClick={() => void onCopy(label, value)}
@@ -372,7 +414,7 @@ function CopyValue({
           ) : (
             <Clipboard size={16} aria-hidden="true" />
           )}
-        </button>
+        </Button>
       </span>
     </label>
   );

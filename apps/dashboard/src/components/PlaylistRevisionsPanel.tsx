@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { History } from "lucide-react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { Button } from "./ui/button";
 
 const initialRevisionCount = 5;
 const revisionPageSize = 10;
@@ -112,8 +113,9 @@ export function PlaylistRevisionsPanel({
             </span>
             <span className="backup-job-status">
               {canRestore && revision.restorable ? (
-                <button
-                  className="button button--quiet button--compact"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   disabled={restore.isPending}
                   onClick={() => {
                     setResult(undefined);
@@ -121,7 +123,7 @@ export function PlaylistRevisionsPanel({
                   }}
                 >
                   <History size={14} /> Restore
-                </button>
+                </Button>
               ) : revision.isCurrent ? (
                 "Current"
               ) : (
@@ -136,9 +138,10 @@ export function PlaylistRevisionsPanel({
         visibleRevisionCount > initialRevisionCount) && (
         <div className="form-actions">
           {hiddenRevisionCount > 0 && (
-            <button
+            <Button
               type="button"
-              className="button button--quiet button--compact"
+              variant="ghost"
+              size="sm"
               onClick={() =>
                 setVisibleRevisionCount((current) =>
                   Math.min(current + revisionPageSize, revisionItems.length),
@@ -148,16 +151,17 @@ export function PlaylistRevisionsPanel({
               Show {Math.min(revisionPageSize, hiddenRevisionCount)} older
               revision
               {Math.min(revisionPageSize, hiddenRevisionCount) === 1 ? "" : "s"}
-            </button>
+            </Button>
           )}
           {visibleRevisionCount > initialRevisionCount && (
-            <button
+            <Button
               type="button"
-              className="button button--quiet button--compact"
+              variant="ghost"
+              size="sm"
               onClick={() => setVisibleRevisionCount(initialRevisionCount)}
             >
               Show recent only
-            </button>
+            </Button>
           )}
         </div>
       )}

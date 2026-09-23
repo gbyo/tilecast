@@ -80,7 +80,6 @@ describe("permanent user deletion", () => {
           ),
         );
       });
-    vi.spyOn(globalThis, "confirm").mockReturnValue(true);
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -96,6 +95,10 @@ describe("permanent user deletion", () => {
     await userEvent.click(within(row!).getByRole("button", { name: "Edit" }));
     await userEvent.click(
       screen.getByRole("button", { name: "Delete permanently" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Delete permanently" }),
     );
 
     await waitFor(() => {

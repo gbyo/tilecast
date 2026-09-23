@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { MetricTile, type ResolvedTimeRange } from "../components/legacy-ui";
+import { MetricTile } from "../components/MetricTile";
+import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import {

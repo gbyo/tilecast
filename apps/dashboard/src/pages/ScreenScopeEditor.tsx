@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ScreenScope } from "../api/types";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
 
 // No selection means the whole fleet. That is stated rather than implied,
 // because an empty list of grants reads equally well as "nothing", and getting
@@ -78,11 +80,11 @@ export function ScreenScopeEditor({
       </p>
 
       {scopes.isLoading ? (
-        <div className="table-loading">Loading scope…</div>
+        <p className="text-sm text-muted-foreground">Loading scope…</p>
       ) : (
         <>
           <fieldset className="setting-control--checks">
-            <legend className="field__label">Locations</legend>
+            <legend className="text-xs font-medium">Locations</legend>
             {!locations.data?.items?.length ? (
               <span className="setting-dependency">No locations exist.</span>
             ) : (
@@ -106,7 +108,7 @@ export function ScreenScopeEditor({
           </fieldset>
 
           <fieldset className="setting-control--checks">
-            <legend className="field__label">Display Groups</legend>
+            <legend className="text-xs font-medium">Display Groups</legend>
             {!groups.data?.items?.length ? (
               <span className="setting-dependency">
                 No Display Groups exist.
@@ -133,19 +135,18 @@ export function ScreenScopeEditor({
 
           <div className="settings-subsection__action">
             <div>{saved && <span>Screen scope saved.</span>}</div>
-            <button
-              className="button"
+            <Button
               type="button"
               disabled={disabled || save.isPending}
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save screen scope"}
-            </button>
+            </Button>
           </div>
           {save.error && (
-            <div className="notice notice--error" role="alert">
-              {save.error.message}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>{save.error.message}</AlertDescription>
+            </Alert>
           )}
         </>
       )}

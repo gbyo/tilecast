@@ -9,11 +9,11 @@ import {
 } from "lucide-react";
 import {
   MetricTile,
-  ToggleGroup,
   type MetricDelta,
   type MetricDirection,
-  type ResolvedTimeRange,
-} from "../components/legacy-ui";
+} from "../components/MetricTile";
+import { ToggleGroup } from "../components/ToggleGroup";
+import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Badge } from "../components/ui/badge";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
 import {

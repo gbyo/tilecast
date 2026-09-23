@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Archive, MonitorOff } from "lucide-react";
 import { Link } from "react-router";
 import { archivedScreens } from "../api/archivedScreens";
-import { PageHeader } from "../components/legacy-ui";
+import { PageHeader } from "../components/PageHeader";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { buttonVariants } from "../components/ui/button";
 import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
 
 const formatDate = (value?: string) =>
@@ -30,11 +32,15 @@ export function ArchivedScreensPage() {
       <ScreenManagementTabs />
 
       {archived.isError && (
-        <div className="notice notice--error">{archived.error.message}</div>
+        <Alert variant="destructive">
+          <AlertDescription>{archived.error.message}</AlertDescription>
+        </Alert>
       )}
 
       {archived.isLoading ? (
-        <div className="table-loading">Loading archived screens…</div>
+        <p className="text-sm text-muted-foreground">
+          Loading archived screens…
+        </p>
       ) : screens.length === 0 ? (
         <section className="screen-empty">
           <span className="empty-illustration">
@@ -42,7 +48,10 @@ export function ArchivedScreensPage() {
           </span>
           <h3>No archived screens</h3>
           <p>Revoked player pairings will appear here automatically.</p>
-          <Link className="button button--primary" to="/screens">
+          <Link
+            className={buttonVariants({ variant: "default" })}
+            to="/screens"
+          >
             Back to screens
           </Link>
         </section>

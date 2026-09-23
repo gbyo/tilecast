@@ -9,6 +9,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { Asset, WidgetProvider } from "../../api/types";
 import { ContentLibraryGrid } from "./ContentLibraryGrid";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Button } from "../ui/button";
 import {
   ContentPickerToolbar,
   type ContentPickerFilter,
@@ -281,28 +283,23 @@ export function ContentPicker({
           </div>
           <div className="content-picker__primary-actions">
             {(allowed.has("image") || allowed.has("video")) && (
-              <button
-                className="button button--secondary"
-                onClick={() => setChild("upload")}
-              >
+              <Button variant="secondary" onClick={() => setChild("upload")}>
                 <Upload size={16} /> Upload media
-              </button>
+              </Button>
             )}
             {allowed.has("widget") && onCreateWidget && (
-              <button
-                className="button button--secondary"
-                onClick={onCreateWidget}
-              >
+              <Button variant="secondary" onClick={onCreateWidget}>
                 <Globe2 size={16} /> Create widget
-              </button>
+              </Button>
             )}
-            <button
-              className="icon-button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="Close content picker"
               onClick={onClose}
             >
               <X size={18} />
-            </button>
+            </Button>
           </div>
         </header>
         <ContentPickerToolbar
@@ -329,15 +326,18 @@ export function ContentPicker({
           {library.isLoading ? (
             <div className="table-loading">Loading content…</div>
           ) : library.isError ? (
-            <div className="notice notice--error">
-              <strong>Content could not be loaded.</strong>
-              <button
-                className="button button--quiet"
-                onClick={() => void library.refetch()}
-              >
-                Try again
-              </button>
-            </div>
+            <Alert variant="destructive">
+              <AlertTitle>Content could not be loaded.</AlertTitle>
+              <AlertDescription>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void library.refetch()}
+                >
+                  Try again
+                </Button>
+              </AlertDescription>
+            </Alert>
           ) : combined.length === 0 ? (
             <div className="content-empty">
               <h3>No matching content</h3>
@@ -354,15 +354,16 @@ export function ContentPicker({
                 onToggle={toggle}
               />
               {library.hasNextPage && (
-                <button
-                  className="button button--secondary picker-load-more"
+                <Button
+                  variant="secondary"
+                  className="picker-load-more"
                   disabled={library.isFetchingNextPage}
                   onClick={() => void library.fetchNextPage()}
                 >
                   {library.isFetchingNextPage
                     ? "Loading…"
                     : "Load more content"}
-                </button>
+                </Button>
               )}
             </>
           )}
@@ -397,18 +398,17 @@ export function ContentPicker({
             {selectionPreparing ? " · waiting for processing" : ""}
           </span>
           <div>
-            <button className="button button--quiet" onClick={onClose}>
+            <Button variant="ghost" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              className="button button--primary"
+            </Button>
+            <Button
               disabled={chosen.length === 0 || selectionPreparing || confirming}
               onClick={() => void confirm()}
             >
               {confirming
                 ? "Adding…"
                 : `${confirmLabel}${chosen.length > 0 ? ` (${chosen.length})` : ""}`}
-            </button>
+            </Button>
           </div>
         </footer>
       </section>

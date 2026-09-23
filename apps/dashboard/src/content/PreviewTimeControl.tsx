@@ -1,4 +1,5 @@
 import { previewTimeInputValue, type PreviewTime } from "./previewTime";
+import { Button } from "../components/ui/button";
 
 /**
  * Sits under the Widget editor's "Live preview" heading and chooses the instant the preview renders
@@ -40,7 +41,7 @@ export function PreviewTimeControl({
       {fixed && (
         <div className="preview-time__picker">
           <label className="preview-time__field">
-            <span className="field__label">Preview date and time</span>
+            <span className="text-xs font-medium">Preview date and time</span>
             <input
               type="datetime-local"
               value={value.value}
@@ -49,9 +50,9 @@ export function PreviewTimeControl({
               }
             />
           </label>
-          <button
+          <Button
             type="button"
-            className="button button--quiet"
+            variant="ghost"
             onClick={() =>
               onChange({
                 mode: "fixed",
@@ -60,7 +61,7 @@ export function PreviewTimeControl({
             }
           >
             Reset to now
-          </button>
+          </Button>
         </div>
       )}
       <small>

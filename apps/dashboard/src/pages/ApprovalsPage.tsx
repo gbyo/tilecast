@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { ClipboardCheck } from "lucide-react";
 import { api } from "../api/client";
-import { Pagination } from "../components/legacy-ui";
+import { Pagination } from "../components/Pagination";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import {

@@ -5,7 +5,11 @@ import { Check, Clock3, Send, Undo2 } from "lucide-react";
 import { api } from "../api/client";
 import type { ContentSubmission, SubmissionStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Button, Notice, PageHeader } from "../components/legacy-ui";
+import { PageHeader } from "../components/PageHeader";
+import { ViewTabs } from "../components/ViewTabs";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button, buttonVariants } from "../components/ui/button";
 
 const filters: { value: "" | SubmissionStatus; label: string }[] = [
   { value: "in_review", label: "Needs review" },
@@ -79,38 +83,40 @@ export function ContentSubmissionInboxPage() {
         title="Content review"
         description="Every submission freezes the exact draft a reviewer saw. Publishing creates a new immutable runtime revision; later edits stay private until submitted again."
         actions={
-          <Link className="button" to="/content-review">
+          <Link
+            className={buttonVariants({ variant: "secondary" })}
+            to="/content-review"
+          >
             Open legacy revision queue
           </Link>
         }
       />
       {query.data && (
-        <Notice variant="info">
-          Policy: <strong>{query.data.policy}</strong>. Self-approval is{" "}
-          {query.data.allowSelfApproval ? "allowed" : "disabled"}; approved
-          submissions{" "}
-          {query.data.autoPublishOnApproval
-            ? "publish automatically"
-            : "wait for an explicit publish or schedule action"}
-          .
-        </Notice>
+        <Alert role="status">
+          <AlertDescription>
+            Policy: <strong>{query.data.policy}</strong>. Self-approval is{" "}
+            {query.data.allowSelfApproval ? "allowed" : "disabled"}; approved
+            submissions{" "}
+            {query.data.autoPublishOnApproval
+              ? "publish automatically"
+              : "wait for an explicit publish or schedule action"}
+            .
+          </AlertDescription>
+        </Alert>
       )}
-      <nav className="view-tabs" aria-label="Submission state">
-        {filters.map((item) => (
-          <button
-            className="button button--quiet"
-            aria-current={filter === item.value ? "page" : undefined}
-            key={item.label}
-            onClick={() => setFilter(item.value)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
+      <ViewTabs
+        label="Submission state"
+        value={filter}
+        items={filters}
+        onValueChange={setFilter}
+      />
       {query.isLoading ? (
-        <div className="table-loading">Loading submissions…</div>
+        <p className="text-sm text-muted-foreground">Loading submissions…</p>
       ) : query.error ? (
-        <Notice variant="danger">{query.error.message}</Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Could not load submissions</AlertTitle>
+          <AlertDescription>{query.error.message}</AlertDescription>
+        </Alert>
       ) : !items.length ? (
         <div className="empty-card">No submissions match this view.</div>
       ) : (
@@ -147,7 +153,11 @@ export function ContentSubmissionInboxPage() {
           ))}
         </div>
       )}
-      {error && <Notice variant="danger">{error.message}</Notice>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error.message}</AlertDescription>
+        </Alert>
+      )}
     </section>
   );
 }
@@ -203,11 +213,7 @@ function SubmissionRow({
           {item.submitterName ? `by ${item.submitterName}` : ""}
         </span>
         <span>
-          <span
-            className={`status-badge status-badge--${statusBadge(item.status)}`}
-          >
-            {statusLabel(item.status)}
-          </span>
+          <SubmissionBadge status={item.status} />
           {item.newerWorkingDraft && " · A newer private draft exists"}
         </span>
         <span>
@@ -234,7 +240,7 @@ function SubmissionRow({
         {canReview && item.status === "in_review" && (
           <>
             <label className="review-note">
-              <span className="field__label">Review note</span>
+              <span className="text-xs font-medium">Review note</span>
               <input
                 value={note}
                 onChange={(event) => onNote(event.target.value)}
@@ -243,10 +249,11 @@ function SubmissionRow({
                 }
               />
             </label>
-            <Button variant="primary" disabled={disabled} onClick={approve}>
+            <Button disabled={disabled} onClick={approve}>
               <Check size={15} /> Approve
             </Button>
             <Button
+              variant="secondary"
               disabled={disabled || !note.trim()}
               onClick={requestChanges}
             >
@@ -256,11 +263,11 @@ function SubmissionRow({
         )}
         {canPublish && item.status === "approved" && (
           <>
-            <Button variant="primary" disabled={disabled} onClick={publish}>
+            <Button disabled={disabled} onClick={publish}>
               <Send size={15} /> Publish now
             </Button>
             <label className="review-note">
-              <span className="field__label">Publish at</span>
+              <span className="text-xs font-medium">Publish at</span>
               <input
                 type="datetime-local"
                 value={schedule}
@@ -268,6 +275,7 @@ function SubmissionRow({
               />
             </label>
             <Button
+              variant="secondary"
               disabled={disabled || !schedule}
               onClick={schedulePublication}
             >
@@ -276,7 +284,11 @@ function SubmissionRow({
           </>
         )}
         {canPublish && item.status === "scheduled" && (
-          <Button disabled={disabled} onClick={cancelSchedule}>
+          <Button
+            variant="secondary"
+            disabled={disabled}
+            onClick={cancelSchedule}
+          >
             Cancel schedule
           </Button>
         )}
@@ -298,10 +310,14 @@ function statusLabel(status: SubmissionStatus) {
   }[status];
 }
 
-function statusBadge(status: SubmissionStatus) {
-  if (status === "published") return "online";
-  if (status === "publication_failed" || status === "changes_requested")
-    return "offline";
-  if (status === "approved" || status === "scheduled") return "recent";
-  return "stale";
+function SubmissionBadge({ status }: { status: SubmissionStatus }) {
+  const variant =
+    status === "published"
+      ? "default"
+      : status === "publication_failed" || status === "changes_requested"
+        ? "destructive"
+        : status === "approved" || status === "scheduled"
+          ? "secondary"
+          : "outline";
+  return <Badge variant={variant}>{statusLabel(status)}</Badge>;
 }

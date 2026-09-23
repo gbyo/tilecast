@@ -1,14 +1,17 @@
 import { ClipboardPaste, Link, RotateCcw, UploadCloud } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { StructuredSourceConfig } from "../api/types";
+import { ToggleGroup } from "../components/ToggleGroup";
 import {
-  Button,
-  Field,
-  IconButton,
-  Input,
-  Notice,
-  Textarea,
-} from "../components/legacy-ui";
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
@@ -98,6 +101,8 @@ export function CsvSourceInput({
   onChange: (patch: Partial<StructuredSourceConfig>) => void;
 }) {
   const inputId = useId();
+  const urlId = useId();
+  const pasteId = useId();
   const fileInput = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<CsvInputMode>(() =>
     configuration.uploaded
@@ -170,41 +175,41 @@ export function CsvSourceInput({
   return (
     <fieldset className="csv-source-input">
       <legend>CSV connection</legend>
-      <div className="csv-source-input__modes" aria-label="CSV connection type">
-        <Button
-          type="button"
-          className={mode === "upload" ? "is-selected" : ""}
-          variant="quiet"
-          compact
-          aria-pressed={mode === "upload"}
-          disabled={readOnly}
-          onClick={() => switchMode("upload")}
-        >
-          <UploadCloud size={15} /> Upload
-        </Button>
-        <Button
-          type="button"
-          className={mode === "url" ? "is-selected" : ""}
-          variant="quiet"
-          compact
-          aria-pressed={mode === "url"}
-          disabled={readOnly}
-          onClick={() => switchMode("url")}
-        >
-          <Link size={15} /> Hosted URL
-        </Button>
-        <Button
-          type="button"
-          className={mode === "paste" ? "is-selected" : ""}
-          variant="quiet"
-          compact
-          aria-pressed={mode === "paste"}
-          disabled={readOnly}
-          onClick={() => switchMode("paste")}
-        >
-          <ClipboardPaste size={15} /> Paste data
-        </Button>
-      </div>
+      <ToggleGroup
+        className="csv-source-input__modes"
+        label="CSV connection type"
+        value={mode}
+        onValueChange={switchMode}
+        items={[
+          {
+            value: "upload",
+            label: (
+              <>
+                <UploadCloud size={15} /> Upload
+              </>
+            ),
+            disabled: readOnly,
+          },
+          {
+            value: "url",
+            label: (
+              <>
+                <Link size={15} /> Hosted URL
+              </>
+            ),
+            disabled: readOnly,
+          },
+          {
+            value: "paste",
+            label: (
+              <>
+                <ClipboardPaste size={15} /> Paste data
+              </>
+            ),
+            disabled: readOnly,
+          },
+        ]}
+      />
 
       {mode === "upload" && !configuration.uploaded && (
         <div
@@ -231,7 +236,7 @@ export function CsvSourceInput({
           <Button
             type="button"
             variant="secondary"
-            compact
+            size="sm"
             onClick={() => fileInput.current?.click()}
           >
             Choose file
@@ -249,14 +254,21 @@ export function CsvSourceInput({
       )}
 
       {mode === "upload" && configuration.uploaded && (
-        <Notice
-          variant="success"
-          title={fileName || "CSV data ready"}
-          action={
-            !readOnly ? (
-              <IconButton
+        <Alert role="status">
+          <AlertTitle>{fileName || "CSV data ready"}</AlertTitle>
+          <AlertDescription>
+            {fileSize === undefined
+              ? "Stored CSV data will remain attached unless you replace it"
+              : `${formatBytes(fileSize)} · ${inspection?.rowCount ?? 0} data rows · ${inspection?.columns?.length ?? 0} columns`}
+          </AlertDescription>
+          {!readOnly && (
+            <AlertAction>
+              <Button
                 type="button"
-                label="Choose a different CSV file"
+                variant="ghost"
+                size="icon-sm"
+                title="Choose a different CSV file"
+                aria-label="Choose a different CSV file"
                 onClick={() => {
                   onChange({ uploadedContent: undefined, uploaded: false });
                   setFileName("");
@@ -266,24 +278,17 @@ export function CsvSourceInput({
                 }}
               >
                 <RotateCcw size={16} />
-              </IconButton>
-            ) : undefined
-          }
-        >
-          <span className="csv-file-summary__detail">
-            {fileSize === undefined
-              ? "Stored CSV data will remain attached unless you replace it"
-              : `${formatBytes(fileSize)} · ${inspection?.rowCount ?? 0} data rows · ${inspection?.columns?.length ?? 0} columns`}
-          </span>
-        </Notice>
+              </Button>
+            </AlertAction>
+          )}
+        </Alert>
       )}
 
       {mode === "url" && (
-        <Field
-          label="Direct CSV URL"
-          description="Tilecast refreshes a public HTTPS URL automatically. Use a direct CSV response, not a spreadsheet sharing page."
-        >
+        <Field>
+          <FieldLabel htmlFor={urlId}>Direct CSV URL</FieldLabel>
           <Input
+            id={urlId}
             type="url"
             value={configuration.url ?? ""}
             placeholder="https://example.org/menu.csv"
@@ -296,15 +301,18 @@ export function CsvSourceInput({
               })
             }
           />
+          <FieldDescription>
+            Tilecast refreshes a public HTTPS URL automatically. Use a direct
+            CSV response, not a spreadsheet sharing page.
+          </FieldDescription>
         </Field>
       )}
 
       {mode === "paste" && (
-        <Field
-          label="CSV data"
-          description="Include column names in the first row. Comma, semicolon, tab, and pipe delimiters are supported."
-        >
+        <Field>
+          <FieldLabel htmlFor={pasteId}>CSV data</FieldLabel>
           <Textarea
+            id={pasteId}
             rows={7}
             value={configuration.uploadedContent ?? ""}
             placeholder={
@@ -313,20 +321,28 @@ export function CsvSourceInput({
             disabled={readOnly}
             onChange={(event) => applyContent(event.target.value)}
           />
+          <FieldDescription>
+            Include column names in the first row. Comma, semicolon, tab, and
+            pipe delimiters are supported.
+          </FieldDescription>
         </Field>
       )}
 
       {mode === "paste" && inspection && configuration.uploaded && (
-        <Notice
-          variant="info"
-          title={`${inspection.columns.length} columns detected`}
-        >
-          {inspection.rowCount} data rows. Available columns:{" "}
-          {inspection.columns.join(", ")}.
-        </Notice>
+        <Alert role="status">
+          <AlertTitle>{inspection.columns.length} columns detected</AlertTitle>
+          <AlertDescription>
+            {inspection.rowCount} data rows. Available columns:{" "}
+            {inspection.columns.join(", ")}.
+          </AlertDescription>
+        </Alert>
       )}
 
-      {error && <Notice variant="danger">{error}</Notice>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </fieldset>
   );
 }

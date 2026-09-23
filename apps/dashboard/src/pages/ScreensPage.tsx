@@ -2431,10 +2431,8 @@ export function PairScreenPage() {
           error={form.formState.errors.code?.message}
           {...form.register("code")}
         />
-        <button className="button button--primary" type="submit">
-          Find player
-        </button>
-        <Link className="button button--quiet" to="/screens">
+        <RheaButton type="submit">Find player</RheaButton>
+        <Link className={buttonVariants({ variant: "ghost" })} to="/screens">
           Cancel
         </Link>
       </form>
@@ -2745,28 +2743,31 @@ function ApprovalPanel({
             {...form.register("roomNumber")}
           />
         </div>
-        <label className="field" htmlFor="screenDescription">
-          <span className="field__label">Description (optional)</span>
+        <label
+          className="grid gap-1.5 text-sm font-medium"
+          htmlFor="screenDescription"
+        >
+          <span>Description (optional)</span>
           <textarea id="screenDescription" {...form.register("description")} />
         </label>
         <div className="form-actions">
-          <button
+          <RheaButton
             type="button"
-            className="button button--danger-quiet"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
             onClick={() => reject.mutate()}
             disabled={reject.isPending || approve.isPending}
           >
             Reject
-          </button>
-          <button
+          </RheaButton>
+          <RheaButton
             type="submit"
-            className="button button--primary"
             disabled={approve.isPending || reject.isPending}
           >
             {approve.isPending
               ? "Approving…"
               : pairingApprovalLabel(request, destination)}
-          </button>
+          </RheaButton>
         </div>
       </form>
       <RheaAlertDialog
