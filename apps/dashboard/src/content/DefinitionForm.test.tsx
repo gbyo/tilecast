@@ -84,16 +84,16 @@ function catalog(dataSources: DataSourceDefinition[]) {
   } as ContentDefinitionCatalog;
 }
 
-// Field pickers use the shared Select primitive, which renders a visually hidden native <select>
-// behind a trigger button, so option text is read from that native element rather than through the
-// option role. The Data Source control is a chooser dialog and is driven directly.
-function optionsFor(labelText: string | RegExp) {
-  const field = screen
-    .getAllByText(labelText)
-    .map((match) => match.closest("label"))
-    .find(Boolean);
-  const select = field?.querySelector("select");
-  return Array.from(select?.options ?? []).map((option) => option.textContent);
+// Field pickers use the Rhea Select primitive: a combobox trigger with popup
+// options and no native select element, so option text is read by opening the
+// dropdown. The Data Source control is a chooser dialog and is driven directly.
+async function optionsFor(labelText: string | RegExp) {
+  const trigger = screen.getByRole("combobox", { name: labelText });
+  await userEvent.click(trigger);
+  const options = await screen.findAllByRole("option");
+  const texts = options.map((option) => option.textContent);
+  await userEvent.keyboard("{Escape}");
+  return texts;
 }
 
 function form(
@@ -477,14 +477,14 @@ describe("DefinitionForm data source controls", () => {
 
     // Each picker lists only its own source's fields. Before the fix both listed the source at
     // the hardcoded `dataSourceId` key, so the second picker showed the wrong schema.
-    await waitFor(() =>
-      expect(optionsFor("Primary field")).toContain("Lunch (text)"),
+    await waitFor(async () =>
+      expect(await optionsFor("Primary field")).toContain("Lunch (text)"),
     );
-    await waitFor(() =>
-      expect(optionsFor("Compare field")).toContain("Dinner (text)"),
+    await waitFor(async () =>
+      expect(await optionsFor("Compare field")).toContain("Dinner (text)"),
     );
-    expect(optionsFor("Primary field")).not.toContain("Dinner (text)");
-    expect(optionsFor("Compare field")).not.toContain("Lunch (text)");
+    expect(await optionsFor("Primary field")).not.toContain("Dinner (text)");
+    expect(await optionsFor("Compare field")).not.toContain("Lunch (text)");
   });
 
   it("tells the author to choose a Data Source before offering fields", async () => {
@@ -507,8 +507,8 @@ describe("DefinitionForm data source controls", () => {
       },
     ]);
 
-    await waitFor(() =>
-      expect(optionsFor("Primary field")).toEqual([
+    await waitFor(async () =>
+      expect(await optionsFor("Primary field")).toEqual([
         "Select a Data Source first",
       ]),
     );

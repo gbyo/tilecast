@@ -13,7 +13,8 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../api/client";
 import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
-import { DataSourceEditor } from "./DataSourceEditors";
+import { Button as RheaButton } from "../components/ui/button";
+import { DataSourceEditor } from "./data-sources/dispatcher";
 import {
   providerGalleryDescription,
   providerLabel,
@@ -103,42 +104,68 @@ export function DataSourceProviderGallery({
     }
   };
   return (
-    <div className="details-backdrop" role={page ? undefined : "presentation"}>
+    <div
+      className={
+        page
+          ? "grid w-full min-w-0 gap-5"
+          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+      }
+      role={page ? undefined : "presentation"}
+    >
       <section
         ref={dialogRef}
-        className="source-gallery"
+        className={
+          page
+            ? "grid w-full min-w-0 gap-5"
+            : "mx-auto grid w-full max-w-3xl gap-5 rounded-2xl bg-background p-5"
+        }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
         aria-labelledby="data-source-gallery-title"
         onKeyDown={trapTab}
       >
-        <header>
-          <div>
-            <h2 id="data-source-gallery-title">Create Data Source</h2>
-            <p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h2
+              id="data-source-gallery-title"
+              className="text-xl font-semibold"
+            >
+              Create Data Source
+            </h2>
+            <p className="text-sm text-muted-foreground">
               {description ??
                 `Choose what you are connecting. Every provider uses the same compact, predictable setup pattern. ${definitions.offered.length} typed projectors are available in the current server catalog.`}
             </p>
           </div>
-          <button className="icon-button" aria-label="Close" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </header>
-        <div className="source-provider-grid">
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <X size={18} aria-hidden="true" />
+          </RheaButton>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
           {definitions.offered.map((definition) => (
-            <button
+            <RheaButton
               type="button"
               key={definition.id}
+              variant="outline"
+              className="h-auto flex-col items-start gap-1 p-4 text-left"
               onClick={() => onChoose(definition.id)}
             >
               {sourceIcon(definition.id, definition, 30)}
-              <strong>{definition.name}</strong>
-              <span>{providerGalleryDescription(definition)}</span>
-            </button>
+              <strong className="text-sm">{definition.name}</strong>
+              <span className="text-xs font-normal text-muted-foreground">
+                {providerGalleryDescription(definition)}
+              </span>
+            </RheaButton>
           ))}
         </div>
         {!definitions.isLoading && definitions.offered.length === 0 && (
-          <p className="source-gallery__empty">
+          <p className="text-sm text-muted-foreground">
             No Data Source providers are available in this installation.
           </p>
         )}
@@ -168,61 +195,61 @@ export function DataSourceCreateShell({
       ? definition.name
       : providerLabel(provider);
   return (
-    <div
-      className={`data-source-create-shell data-source-create-shell--${provider}`}
-    >
-      <header className="data-source-create-shell__header">
-        <button
-          className="button button--quiet"
-          type="button"
-          onClick={onClose}
-        >
-          <ArrowLeft size={16} /> {backLabel}
-        </button>
-        <div>
-          <span className="data-source-create-shell__icon">
+    <div className="grid w-full min-w-0 gap-5">
+      <div className="grid gap-4">
+        <RheaButton type="button" variant="ghost" onClick={onClose}>
+          <ArrowLeft size={16} aria-hidden="true" /> {backLabel}
+        </RheaButton>
+        <div className="flex items-start gap-3">
+          <span className="text-muted-foreground">
             {sourceIcon(provider, definition)}
           </span>
-          <div>
-            <p className="eyebrow">{copy.eyebrow}</p>
-            <h2>Create {label} Data Source</h2>
-            <p>{copy.description}</p>
+          <div className="space-y-1">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {copy.eyebrow}
+            </p>
+            <h2 className="text-xl font-semibold">
+              Create {label} Data Source
+            </h2>
+            <p className="text-sm text-muted-foreground">{copy.description}</p>
           </div>
         </div>
-      </header>
-      <div className="data-source-create-shell__layout">
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside
-          className="data-source-create-shell__guide"
+          className="grid content-start gap-4 rounded-xl border p-4"
           aria-label="Data Source setup guidance"
         >
           {copy.steps.length > 0 && (
-            <>
-              <h3>Setup checklist</h3>
-              <ol>
+            <div className="grid gap-2">
+              <h3 className="text-sm font-medium">Setup checklist</h3>
+              <ol className="grid gap-2">
                 {copy.steps.map((step, index) => (
-                  <li key={step}>
-                    <span>{index + 1}</span>
-                    <p>{step}</p>
+                  <li key={step} className="flex items-start gap-2 text-sm">
+                    <span className="grid size-5 shrink-0 place-content-center rounded-full bg-muted text-xs font-medium">
+                      {index + 1}
+                    </span>
+                    <p className="text-muted-foreground">{step}</p>
                   </li>
                 ))}
               </ol>
-            </>
+            </div>
           )}
           {copy.tip && (
-            <div className="data-source-create-shell__tip">
-              <Lightbulb size={17} />
-              <div>
-                <strong>Good to know</strong>
-                <p>{copy.tip}</p>
+            <div className="flex items-start gap-2 rounded-lg bg-muted p-3">
+              <Lightbulb size={17} aria-hidden="true" className="shrink-0" />
+              <div className="grid gap-1">
+                <strong className="text-sm">Good to know</strong>
+                <p className="text-sm text-muted-foreground">{copy.tip}</p>
               </div>
             </div>
           )}
-          <p className="data-source-create-shell__advanced-note">
-            <Check size={15} /> Advanced filtering and cache controls are
-            optional.
+          <p className="flex items-start gap-2 text-xs text-muted-foreground">
+            <Check size={15} aria-hidden="true" className="shrink-0" /> Advanced
+            filtering and cache controls are optional.
           </p>
         </aside>
-        <div className="data-source-create-shell__editor">
+        <div className="grid min-w-0 content-start">
           <DataSourceEditor
             provider={provider}
             csrf={csrf}
@@ -275,11 +302,11 @@ export function ConnectDataFlow({
     );
   return createPortal(
     <div
-      className="details-backdrop data-source-connect-backdrop"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
       role="presentation"
     >
       <section
-        className="data-source-connect-dialog"
+        className="relative mx-auto grid w-full max-w-5xl gap-5 rounded-2xl bg-background p-5"
         role="dialog"
         aria-modal="true"
         aria-label={`Create ${
@@ -288,13 +315,16 @@ export function ConnectDataFlow({
             : providerLabel(provider)
         } Data Source`}
       >
-        <button
-          className="icon-button data-source-connect-dialog__close"
+        <RheaButton
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4"
           aria-label="Close"
           onClick={onClose}
         >
-          <X size={18} aria-hidden />
-        </button>
+          <X size={18} aria-hidden="true" />
+        </RheaButton>
         <DataSourceCreateShell
           provider={provider}
           definition={definition}

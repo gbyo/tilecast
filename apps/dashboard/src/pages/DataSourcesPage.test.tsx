@@ -165,17 +165,27 @@ describe("Data Source card actions", () => {
     expect(screen.queryByText("Staff announcements")).toBeNull();
   });
 
-  it("confirms before deleting a Data Source", async () => {
+  it("confirms in a dialog before deleting a Data Source", async () => {
     const remove = vi
       .spyOn(api, "deleteDataSource")
       .mockResolvedValue(undefined);
-    const confirmed = vi.spyOn(window, "confirm").mockReturnValue(false);
     renderPage();
     fireEvent.click(
       await screen.findByRole("button", { name: "Actions for District news" }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
-    expect(confirmed).toHaveBeenCalledWith("Delete District news?");
+    expect(
+      screen.getByRole("alertdialog", { name: "Delete District news?" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(remove).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for District news" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(remove).toHaveBeenCalledWith("source-1", "csrf-token"),
+    );
   });
 });

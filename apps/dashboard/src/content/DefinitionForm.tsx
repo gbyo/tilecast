@@ -7,8 +7,20 @@ import type {
   DataSourceDefinition,
   DataSourceField,
 } from "../api/types";
-import { Select } from "../components/legacy-ui";
+import { Button as RheaButton } from "../components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Switch as RheaSwitch } from "../components/ui/switch";
+import { Textarea } from "../components/ui/textarea";
 import { DataSourcePicker, type DataFormatGuide } from "./DataSourcePicker";
+import { optionLabel } from "./data-sources/shared";
 
 type Values = Record<string, unknown>;
 
@@ -108,7 +120,7 @@ export function DefinitionForm({
     onChange({ ...value, [key]: next });
 
   return (
-    <div className="form-grid">
+    <div className="grid gap-4">
       {fields.map((field) => (
         <DefinitionControl
           key={field.key}
@@ -323,12 +335,8 @@ function DefinitionControl({
     disabled: readOnly,
     required: field.required,
   };
-  const label = (
-    <span className="field__label">
-      {field.label}
-      {field.required ? " *" : ""}
-    </span>
-  );
+  const requiredMark = field.required ? " *" : "";
+  const labelText = `${field.label}${requiredMark}`;
   if (field.control === "data_source")
     return (
       <DataSourcePicker
@@ -345,36 +353,38 @@ function DefinitionControl({
       />
     );
   if (field.control === "boolean")
+    // The wrapping label names the switch; the span carries the label text
+    // alone so the accessible name stays exact, with no extra aria-label.
     return (
-      <div className="field definition-switch-field">
-        {label}
-        <button
-          type="button"
-          role="switch"
-          aria-label={field.label}
-          aria-checked={!!value}
-          className="setting-switch"
-          disabled={readOnly}
-          onClick={() => setValue(!value)}
-        >
-          <span aria-hidden="true" />
-          <strong>{value ? "On" : "Off"}</strong>
-        </button>
-        {field.description && <small>{field.description}</small>}
-      </div>
+      <Field>
+        <label className="flex items-center gap-2 text-sm">
+          <RheaSwitch
+            checked={!!value}
+            disabled={readOnly}
+            onCheckedChange={(checked) => setValue(checked === true)}
+          />
+          <span>{labelText}</span>
+        </label>
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
     );
   if (field.control === "multiline_text")
     return (
-      <label className="field field--wide">
-        {label}
-        <textarea
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <Textarea
+          id={`definition-${field.key}`}
           {...common}
           value={fieldText(value)}
           maxLength={field.maxLength}
           onChange={(event) => setValue(event.target.value)}
         />
-        {field.description && <small>{field.description}</small>}
-      </label>
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
     );
   if (
     field.control === "select" ||
@@ -406,32 +416,42 @@ function DefinitionControl({
       field.control === "data_source_field" && !fieldSourceID
         ? "Select a Data Source first"
         : "Select…";
+    const labeledOptions = [{ value: "", label: placeholder }, ...options];
     return (
-      <label className="field">
-        {label}
-        <Select
-          {...common}
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <RheaSelect
           value={fieldText(value)}
-          onChange={(event) => setValue(event.target.value)}
+          disabled={readOnly}
+          required={field.required}
+          onValueChange={(next) => setValue(next)}
         >
-          <option value="">{placeholder}</option>
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-        {field.description && <small>{field.description}</small>}
-      </label>
+          <SelectTrigger id={`definition-${field.key}`} aria-label={labelText}>
+            <SelectValue>
+              {optionLabel(labeledOptions, fieldText(value))}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {labeledOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </RheaSelect>
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
     );
   }
   if (field.control === "repeating_group") {
     const items = Array.isArray(value) ? (value as Values[]) : [];
     return (
-      <fieldset className="field field--wide">
-        <legend>{field.label}</legend>
+      <fieldset className="grid gap-3">
+        <legend className="text-sm font-medium">{labelText}</legend>
         {items.map((item, index) => (
-          <div className="source-mapping-row" key={index}>
+          <div className="grid gap-3 rounded-lg border p-3" key={index}>
             <DefinitionForm
               fields={field.itemFields ?? []}
               value={item}
@@ -446,27 +466,28 @@ function DefinitionControl({
               }
             />
             {!readOnly && (
-              <button
+              <RheaButton
                 type="button"
-                className="icon-button"
+                variant="ghost"
+                size="icon"
                 aria-label={`Remove ${field.label} item ${index + 1}`}
                 onClick={() =>
                   setValue(items.filter((_, current) => current !== index))
                 }
               >
-                <Trash2 size={15} />
-              </button>
+                <Trash2 size={15} aria-hidden="true" />
+              </RheaButton>
             )}
           </div>
         ))}
         {!readOnly && items.length < (field.maximumItems ?? 0) && (
-          <button
+          <RheaButton
             type="button"
-            className="button button--quiet"
+            variant="outline"
             onClick={() => setValue([...items, {}])}
           >
-            <Plus size={15} /> Add item
-          </button>
+            <Plus size={15} aria-hidden="true" /> Add item
+          </RheaButton>
         )}
       </fieldset>
     );
@@ -484,9 +505,10 @@ function DefinitionControl({
               ? "url"
               : "text";
   return (
-    <label className="field">
-      {label}
-      <input
+    <Field>
+      <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+      <Input
+        id={`definition-${field.key}`}
         {...common}
         type={inputType}
         value={fieldText(value)}
@@ -506,7 +528,9 @@ function DefinitionControl({
           )
         }
       />
-      {field.description && <small>{field.description}</small>}
-    </label>
+      {field.description && (
+        <FieldDescription>{field.description}</FieldDescription>
+      )}
+    </Field>
   );
 }
