@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -71,6 +72,7 @@ export function IncidentsTab({
   hasActiveFilters: boolean;
   onClearFilters: () => void;
 }) {
+  const { t } = useTranslation("activity");
   const [selected, setSelected] = useState<Incident | null>(null);
   const canAct = useCanActOnIncidents();
   const act = useIncidentAction();
@@ -98,19 +100,22 @@ export function IncidentsTab({
     <>
       <section className="grid gap-3 rounded-xl border border-border p-4">
         <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Incidents</h3>
+          <h3 className="text-base font-semibold">{t("incidents.tabTitle")}</h3>
           <p className="text-sm text-muted-foreground">
             {filters["dateBasis"]
-              ? `Incidents by ${filters["dateBasis"]} date over ${range.label}.`
-              : "Current incidents. Add a date basis to report over the selected range instead."}
+              ? t("incidents.tabDescriptionRanged", {
+                  basis: filters["dateBasis"],
+                  range: range.label,
+                })
+              : t("incidents.tabDescriptionCurrent")}
           </p>
         </header>
         {items.length === 0 ? (
           <EmptyState
             message={
               hasActiveFilters
-                ? "No incidents match these filters."
-                : "No incidents have been recorded."
+                ? t("incidents.emptyFiltered")
+                : t("incidents.emptyNone")
             }
           />
         ) : (
@@ -131,7 +136,7 @@ export function IncidentsTab({
               variant="secondary"
               onClick={onClearFilters}
             >
-              Clear filters
+              {t("shared.clearFilters")}
             </RheaButton>
           </div>
         )}
@@ -171,6 +176,7 @@ function IncidentDrawer({
   pending: boolean;
   error?: string;
 }) {
+  const { t } = useTranslation(["activity", "common"]);
   const query = useQuery({
     queryKey: ["activity", "incident", incident.id],
     queryFn: () => activityRequest<IncidentDetail>(`/incidents/${incident.id}`),
@@ -199,7 +205,7 @@ function IncidentDrawer({
                 to={screenActivityLink(incident.primaryScreenId)}
                 className="text-sm font-medium text-primary hover:underline"
               >
-                Open the screen&apos;s Activity
+                {t("incidents.drawer.openScreenActivity")}
               </Link>
             )}
           </div>
@@ -222,10 +228,12 @@ function IncidentDrawer({
           <IncidentFacts incident={incident} />
 
           <section className="grid gap-1">
-            <h4 className="text-sm font-semibold">Recovery path</h4>
+            <h4 className="text-sm font-semibold">
+              {t("incidents.drawer.recoveryPath")}
+            </h4>
             {/* Stated from what was recorded, including when nothing has. */}
             <p className="text-sm text-muted-foreground">
-              {detail?.recoveryPath ?? "Loading…"}
+              {detail?.recoveryPath ?? t("common:status.loading")}
             </p>
           </section>
 
@@ -233,7 +241,10 @@ function IncidentDrawer({
 
           {detail && (
             <>
-              <DrawerSection title="Timeline" empty="No timeline entries.">
+              <DrawerSection
+                title={t("incidents.drawer.sections.timeline")}
+                empty={t("incidents.drawer.sections.timelineEmpty")}
+              >
                 {detail.timeline.map((entry) => (
                   <TimelineEntry
                     key={entry.id}
@@ -247,8 +258,8 @@ function IncidentDrawer({
               </DrawerSection>
 
               <DrawerSection
-                title="Related raw events"
-                empty="No screen events were recorded while this incident was live."
+                title={t("incidents.drawer.sections.events")}
+                empty={t("incidents.drawer.sections.eventsEmpty")}
               >
                 {detail.relatedEvents.map((event) => (
                   <TimelineEntry
@@ -264,8 +275,8 @@ function IncidentDrawer({
               </DrawerSection>
 
               <DrawerSection
-                title="Playback during the incident"
-                empty="No playback sessions overlapped this incident."
+                title={t("incidents.drawer.sections.playback")}
+                empty={t("incidents.drawer.sections.playbackEmpty")}
               >
                 {detail.proofSessions.map((session) => (
                   <TimelineEntry
@@ -280,13 +291,15 @@ function IncidentDrawer({
                         session.contentName ||
                         session.presentationName ||
                         session.contentId ||
-                        "Presentation"
+                        t("shared.unnamedPresentation")
                       }
                     />
                     {session.actualDurationMs != null &&
                       ` · ${formatDuration(session.actualDurationMs)}`}
                     {session.terminalReason &&
-                      ` · ended ${humanize(session.terminalReason).toLowerCase()}`}{" "}
+                      ` · ${t("incidents.drawer.sessionEnded", {
+                        reason: humanize(session.terminalReason).toLowerCase(),
+                      })}`}{" "}
                     <ResultBadge value={session.result} />
                   </TimelineEntry>
                 ))}
@@ -296,8 +309,8 @@ function IncidentDrawer({
                   categories, so they arrive in the related-events stream above and
                   are surfaced here as their own view of it. */}
               <DrawerSection
-                title="Commands and updates"
-                empty="No commands or updates ran during this incident."
+                title={t("incidents.drawer.sections.commands")}
+                empty={t("incidents.drawer.sections.commandsEmpty")}
               >
                 {detail.relatedEvents
                   .filter((event) =>
@@ -316,8 +329,8 @@ function IncidentDrawer({
               </DrawerSection>
 
               <DrawerSection
-                title="Administrative changes"
-                empty="No administrative changes touched this screen during the incident."
+                title={t("incidents.drawer.sections.audit")}
+                empty={t("incidents.drawer.sections.auditEmpty")}
               >
                 {detail.auditChanges.map((record) => (
                   <TimelineEntry
@@ -332,7 +345,10 @@ function IncidentDrawer({
               </DrawerSection>
 
               {detail.screens.length > 0 && (
-                <DrawerSection title="Affected screens" empty="">
+                <DrawerSection
+                  title={t("incidents.drawer.sections.screens")}
+                  empty=""
+                >
                   {detail.screens.map((screen) => (
                     <div key={screen.screenId} className="text-sm">
                       <Link
