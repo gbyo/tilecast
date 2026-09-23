@@ -1,0 +1,113 @@
+{
+  "media": [
+    { "id": "still", "file": "media/still.png", "mimeType": "image/png" },
+    { "id": "clip", "file": "media/clip.mp4", "mimeType": "video/mp4" }
+  ],
+  "presentation": {
+    "state": "playing",
+    "takeover": false,
+    "generation": 1,
+    "synchronized": false,
+    "items": [
+      {
+        "id": "item-image",
+        "kind": "image",
+        "src": "media:still",
+        "durationMs": 3000,
+        "fitMode": "contain",
+        "audioEnabled": false,
+        "volume": 1.0,
+        "videoStartOffsetMs": null,
+        "videoEndOffsetMs": null
+      },
+      {
+        "id": "item-video",
+        "kind": "video",
+        "src": "media:clip",
+        "durationMs": null,
+        "fitMode": "contain",
+        "audioEnabled": false,
+        "volume": 1.0,
+        "videoStartOffsetMs": null,
+        "videoEndOffsetMs": null
+      },
+      {
+        "id": "item-widget",
+        "kind": "widget",
+        "src": "",
+        "durationMs": 3000,
+        "fitMode": "contain",
+        "audioEnabled": false,
+        "volume": 1.0,
+        "videoStartOffsetMs": null,
+        "videoEndOffsetMs": null,
+        "widget": {
+          "background": "#123456",
+          "root": {
+            "t": "box",
+            "style": {
+              "direction": "column",
+              "justify": "center",
+              "align": "center",
+              "gap": 16
+            },
+            "children": [
+              {
+                "t": "text",
+                "value": "Tilecast Edge",
+                "style": { "fontSize": 72, "color": "#ffffff" }
+              },
+              {
+                "t": "text",
+                "value": "Rendered by WPE",
+                "style": { "fontSize": 36, "color": "#cccccc" }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "item-layout",
+        "kind": "layout",
+        "src": "",
+        "durationMs": 3000,
+        "fitMode": "contain",
+        "audioEnabled": false,
+        "volume": 1.0,
+        "videoStartOffsetMs": null,
+        "videoEndOffsetMs": null,
+        "layout": {
+          "canvasWidth": 1920,
+          "canvasHeight": 1080,
+          "background": "#000000",
+          "zones": [
+            {
+              "id": "zone-text",
+              "x": 0,
+              "y": 0,
+              "width": 960,
+              "height": 1080,
+              "layer": 0,
+              "opacity": 1,
+              "render": {
+                "t": "text",
+                "value": "Layout zone",
+                "style": { "fontSize": 64, "color": "#ffffff" }
+              }
+            },
+            {
+              "id": "zone-image",
+              "x": 960,
+              "y": 0,
+              "width": 960,
+              "height": 1080,
+              "layer": 0,
+              "opacity": 1,
+              "image": { "src": "media:still", "fit": "cover" }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
