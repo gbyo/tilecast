@@ -154,6 +154,25 @@ async fn fetch_verifies_promotes_and_announces() {
     assert_eq!(again.sha256, record.sha256);
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn daemon_media_open_rejects_symlink_and_truncated_object() {
+    use std::os::unix::fs::symlink;
+
+    let env = env();
+    let store = store(&env).await;
+    let source = env.dir.path().join("source.png");
+    std::fs::write(&source, DATA).unwrap();
+    let digest = Sha256Digest::of(DATA);
+    store.import_file(&source, digest, DATA.len() as u64, meta()).await.unwrap();
+    let path = store.verified_path(&digest).await.unwrap().unwrap();
+    std::fs::write(&path, &DATA[..DATA.len() - 1]).unwrap();
+    assert!(matches!(store.open_verified(&digest).await, Err(CasError::SizeMismatch { .. })));
+    std::fs::remove_file(&path).unwrap();
+    symlink(&source, &path).unwrap();
+    assert!(store.open_verified(&digest).await.is_err());
+}
+
 #[tokio::test]
 async fn corrupt_same_size_bytes_never_enter_the_store() {
     let env = env();

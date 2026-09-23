@@ -282,9 +282,8 @@ impl ContentStore {
         Ok(self.inner.db.run(move |c| repo::get_object(c, &digest)).await?)
     }
 
-    /// Path of a verified object, for trusted local consumers that read by
-    /// path (the renderer resolves the same layout from the CAS root). Only
-    /// returned after verification; suspect objects are re-hashed first.
+    /// Path of a verified object for trusted daemon-side local consumers.
+    /// Only returned after verification; suspect objects are re-hashed first.
     pub async fn verified_path(&self, digest: &Sha256Digest) -> Result<Option<PathBuf>, CasError> {
         match self.ensure_verified(digest).await? {
             Some(_) => {
@@ -295,7 +294,7 @@ impl ContentStore {
         }
     }
 
-    /// Opens a verified object for reading (peer serving).
+    /// Opens a verified object for daemon-owned peer or renderer media serving.
     pub async fn open_verified(
         &self,
         digest: &Sha256Digest,
@@ -303,13 +302,30 @@ impl ContentStore {
         let Some(record) = self.ensure_verified(digest).await? else {
             return Ok(None);
         };
-        match std::fs::File::open(object_path(&self.inner.cas_dir, digest)) {
-            Ok(file) => {
+        let path = object_path(&self.inner.cas_dir, digest);
+        match rustix::fs::open(
+            &path,
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::NOFOLLOW,
+            rustix::fs::Mode::empty(),
+        ) {
+            Ok(fd) => {
+                let file = std::fs::File::from(fd);
+                let metadata = file.metadata()?;
+                if !metadata.is_file() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "CAS object is not a regular file",
+                    )
+                    .into());
+                }
+                if metadata.len() != record.size_bytes {
+                    return Err(CasError::SizeMismatch { expected: record.size_bytes, actual: metadata.len() });
+                }
                 self.touch(digest);
                 Ok(Some((file, record)))
             }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(error) => Err(error.into()),
+            Err(rustix::io::Errno::NOENT) => Ok(None),
+            Err(error) => Err(std::io::Error::from(error).into()),
         }
     }
 

@@ -674,6 +674,7 @@ dependencies = [
  "edge-protocol",
  "edge-state",
  "futures-util",
+ "rustix",
  "tempfile",
  "thiserror",
  "tokio",

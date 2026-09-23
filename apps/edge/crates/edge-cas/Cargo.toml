@@ -14,6 +14,7 @@ edge-platform.workspace = true
 edge-protocol.workspace = true
 edge-state.workspace = true
 futures-util.workspace = true
+rustix.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "sync", "rt", "time"] }
 tracing.workspace = true
