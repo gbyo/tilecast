@@ -1,1 +1,175 @@
-{}
+{
+  "approvals": {
+    "eyebrow": "Forms",
+    "title": "Approvals",
+    "description": "Submissions awaiting a review decision across your forms.",
+    "table": {
+      "form": "Form",
+      "submission": "Submission",
+      "submitter": "Submitter",
+      "state": "State",
+      "submitted": "Submitted",
+      "displayWindow": "Display window",
+      "reviewAction": "Review"
+    },
+    "untitledSubmission": "Untitled submission",
+    "untitledSubmissionInline": "untitled submission",
+    "unknownSubmitter": "Unknown",
+    "reviewActionLabel": "Review {{title}} from {{formName}}",
+    "loadErrorTitle": "Could not load approvals",
+    "loadErrorFallback": "Please try again.",
+    "loading": "Loading approvals",
+    "emptyTitle": "Nothing to review",
+    "emptyDescription": "There are no submissions awaiting your decision right now.",
+    "paginationLabel": "Approvals pages",
+    "paginationStatus": "Page {{page}} of {{totalPages}} · {{total}} pending",
+    "displayWindow": {
+      "now": "now",
+      "range": "{{start}} → {{end}}"
+    }
+  },
+  "contentReview": {
+    "title": "Content review",
+    "description": "A playlist or Layout must be approved at its current revision before it can go on a screen. Editing approved content sends it back here.",
+    "openInbox": "Open submission inbox",
+    "notRequiredNotice": "Approval is not required on this installation, so nothing here blocks assignment. An Owner or Administrator can turn it on under <settingsLink>Settings, Content review</settingsLink>.",
+    "filterLabel": "Review state",
+    "filterAll": "All",
+    "loading": "Loading the review queue",
+    "emptyPending": "Nothing is waiting for review",
+    "emptyOther": "Nothing to show",
+    "table": {
+      "content": "Content",
+      "state": "State",
+      "screens": "On screens",
+      "reviewAction": "Review"
+    },
+    "state": {
+      "pending": "Waiting for review",
+      "approved": "Approved",
+      "rejected": "Sent back"
+    },
+    "contentType": {
+      "playlist": "Playlist",
+      "layout": "Layout"
+    },
+    "contentTypeName": {
+      "playlist": "playlist",
+      "layout": "layout"
+    },
+    "itemMeta": "{{type}} · revision {{revision}} · updated {{updatedAt}}",
+    "itemMetaWithAuthor": "{{type}} · revision {{revision}} · {{author}} · updated {{updatedAt}}",
+    "assignedScreens_one": "Already on {{count}} screen",
+    "assignedScreens_other": "Already on {{count}} screens",
+    "sheet": {
+      "lastNote": "Last note: {{note}}",
+      "openContent": "Open {{type}}"
+    },
+    "actions": {
+      "approve": "Approve",
+      "sendBack": "Send back"
+    },
+    "rejectDialog": {
+      "title": "Send back for changes",
+      "description": "An optional note tells the author what to fix.",
+      "noteLabel": "Note",
+      "notePlaceholder": "What must change before this can be approved?",
+      "noteHint": "Recorded with the decision and shown to the author."
+    },
+    "toast": {
+      "approved": "Content approved.",
+      "sentBack": "Content sent back.",
+      "decisionFailed": "Could not record the decision."
+    }
+  },
+  "submissions": {
+    "title": "Content review",
+    "description": "Every submission freezes the exact draft a reviewer saw. Publishing creates a new immutable runtime revision; later edits stay private until submitted again.",
+    "openLegacyQueue": "Open legacy revision queue",
+    "policyNotice": "Policy: <strong>{{policy}}</strong>. Self-approval is {{selfApproval}}; approved submissions {{behavior}}.",
+    "policy": {
+      "selfApprovalAllowed": "allowed",
+      "selfApprovalDisabled": "disabled",
+      "behaviorAuto": "publish automatically",
+      "behaviorManual": "wait for an explicit publish or schedule action"
+    },
+    "filterLabel": "Submission state",
+    "filters": {
+      "needsReview": "Needs review",
+      "changesRequested": "Changes requested",
+      "approved": "Approved",
+      "scheduled": "Scheduled",
+      "publicationFailed": "Publication failed",
+      "published": "Published",
+      "allHistory": "All history"
+    },
+    "status": {
+      "inReview": "Needs review",
+      "changesRequested": "Changes requested",
+      "approved": "Approved",
+      "scheduled": "Scheduled",
+      "published": "Published",
+      "superseded": "Superseded",
+      "cancelled": "Cancelled",
+      "publicationFailed": "Publication failed"
+    },
+    "table": {
+      "submission": "Submission",
+      "status": "Status",
+      "impact": "Impact",
+      "reviewAction": "Review"
+    },
+    "loading": "Loading submissions…",
+    "loadErrorTitle": "Could not load submissions",
+    "emptyTitle": "No submissions match this view",
+    "emptyDescription": "Submissions appear here once content is submitted for review.",
+    "itemMeta": "Draft revision {{revision}} · submitted {{submittedAt}}",
+    "itemMetaWithSubmitter": "Draft revision {{revision}} · submitted {{submittedAt}} by {{submitter}}",
+    "itemImpact": "Published revision {{published}} · {{screens}} screens across {{locations}} locations",
+    "detail": {
+      "status": "Status",
+      "publishedRevision": "Published revision",
+      "impact": "Impact",
+      "snapshotHash": "Snapshot SHA-256",
+      "noRevision": "none",
+      "coverage": "{{screens}} screens across {{locations}} locations",
+      "newerDraft": "A newer private draft exists.",
+      "reviewNote": "Review note: {{note}}",
+      "viewSnapshot": "View exact submitted snapshot",
+      "cancelSchedule": "Cancel schedule",
+      "openContent": "Open content"
+    },
+    "reviewForm": {
+      "noteLabel": "Review note",
+      "notePlaceholder": "Optional note recorded with approval",
+      "approve": "Approve",
+      "requestChanges": "Request changes"
+    },
+    "rejectDialog": {
+      "title": "Request changes",
+      "description": "A reason is required so the author knows what to fix.",
+      "reasonLabel": "Reason for sending back",
+      "reasonPlaceholder": "What must change before this can be approved?",
+      "reasonHint": "Recorded with the decision and shown to the author.",
+      "confirm": "Send back"
+    },
+    "publish": {
+      "publishNow": "Publish now",
+      "publishAtLabel": "Publish at",
+      "publishAtHint": "Schedule publication for a future date and time.",
+      "schedule": "Schedule"
+    },
+    "toast": {
+      "approved": "Submission approved.",
+      "changesRequested": "Changes requested.",
+      "published": "Submission published.",
+      "scheduled": "Publication scheduled.",
+      "scheduleCancelled": "Schedule cancelled.",
+      "approveFailed": "Could not approve.",
+      "requestChangesFailed": "Could not request changes.",
+      "publishFailed": "Could not publish.",
+      "scheduleFailed": "Could not schedule.",
+      "cancelScheduleFailed": "Could not cancel the schedule."
+    }
+  }
+}
