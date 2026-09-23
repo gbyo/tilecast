@@ -47,6 +47,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
 import type {
   AuditPage,
   EventPage,
@@ -224,12 +229,12 @@ export function ProofTab({
             />
           </div>
           {(summary.data?.items?.length ?? 0) > 0 && (
-            <details className="grid gap-2 rounded-xl border border-border p-3">
-              <summary className="flex cursor-pointer items-center gap-1 text-sm font-medium">
+            <Collapsible className="grid gap-2 rounded-xl border border-border p-3">
+              <CollapsibleTrigger className="flex cursor-pointer items-center gap-1 text-left text-sm font-medium">
                 View {dimensionLabel(dimension)} breakdown
                 <ChevronRight size={15} aria-hidden="true" />
-              </summary>
-              <div className="grid gap-2">
+              </CollapsibleTrigger>
+              <CollapsibleContent className="grid gap-2">
                 {summary.data?.items?.slice(0, 12).map((item) => (
                   <div
                     key={item.key}
@@ -252,8 +257,8 @@ export function ProofTab({
                     </span>
                   </div>
                 ))}
-              </div>
-            </details>
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </section>
       )}
@@ -280,29 +285,7 @@ export function ProofTab({
                 {records.map((item) => (
                   <tr
                     key={item.id}
-                    tabIndex={0}
-                    onClick={(event) => {
-                      if (
-                        (event.target as HTMLElement).closest(
-                          "a, button, input, select, summary, details",
-                        )
-                      )
-                        return;
-                      setSelectedRecord(item);
-                    }}
-                    onKeyDown={(event) => {
-                      if (
-                        (event.target as HTMLElement).closest(
-                          "a, button, input, select, summary, details",
-                        )
-                      )
-                        return;
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelectedRecord(item);
-                      }
-                    }}
-                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted"
+                    className="border-b border-border last:border-0 hover:bg-muted"
                   >
                     <td className="px-3 py-2 whitespace-nowrap tabular-nums">
                       <time>{formatWhen(item.startedAt)}</time>
@@ -373,7 +356,14 @@ export function ProofTab({
                       <ResultBadge value={item.result} />
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      <ChevronRight size={17} aria-hidden="true" />
+                      <button
+                        type="button"
+                        aria-label={`Open details for ${item.screenName} playback`}
+                        className="rounded-md p-1 hover:bg-muted hover:text-foreground"
+                        onClick={() => setSelectedRecord(item)}
+                      >
+                        <ChevronRight size={17} aria-hidden="true" />
+                      </button>
                     </td>
                   </tr>
                 ))}

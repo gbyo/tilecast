@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 import type { PlaylistItem } from "../../api/types";
 import { Button as RheaButton } from "../ui/button";
 import { Field, FieldDescription, FieldLabel } from "../ui/field";
-import { Input } from "../ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../ui/input-group";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -148,10 +152,9 @@ export function PlaylistPlaybackDefaults({
               No image items
             </span>
           ) : (
-            <div className="flex items-center gap-2">
-              <Input
+            <InputGroup className="w-40">
+              <InputGroupInput
                 id="playlist-image-duration"
-                className="w-28"
                 aria-label="Playlist image duration in seconds"
                 type="number"
                 min="1"
@@ -173,8 +176,10 @@ export function PlaylistPlaybackDefaults({
                   }
                 }}
               />
-              <span className="text-sm text-muted-foreground">seconds</span>
-            </div>
+              <InputGroupAddon align="inline-end">
+                <span aria-hidden="true">s</span>
+              </InputGroupAddon>
+            </InputGroup>
           )}
           <FieldDescription>
             {tagDriven

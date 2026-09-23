@@ -12,7 +12,7 @@ import {
   type MetricDelta,
   type MetricDirection,
 } from "../components/MetricTile";
-import { ToggleGroup } from "../components/ToggleGroup";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Badge } from "../components/ui/badge";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
@@ -336,17 +336,20 @@ function ImportantTimeline({ items }: { items: Overview["timeline"] }) {
         </div>
         {domains.length > 1 && (
           <ToggleGroup
-            label="Filter the timeline by domain"
-            value={domain}
-            onValueChange={setDomain}
-            items={[
-              { value: "all", label: "All" },
-              ...domains.map((value) => ({
-                value,
-                label: humanize(value),
-              })),
-            ]}
-          />
+            aria-label="Filter the timeline by domain"
+            multiple={false}
+            value={[domain]}
+            onValueChange={(next) => {
+              if (next[0] !== undefined) setDomain(next[0]);
+            }}
+          >
+            <ToggleGroupItem value="all">All</ToggleGroupItem>
+            {domains.map((value) => (
+              <ToggleGroupItem key={value} value={value}>
+                {humanize(value)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         )}
       </header>
       {visible.length === 0 ? (

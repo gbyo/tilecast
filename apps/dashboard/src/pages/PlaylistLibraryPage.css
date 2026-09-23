@@ -2,19 +2,6 @@
   min-width: 0;
 }
 
-.playlist-library-toolbar .dashboard-search {
-  max-width: 520px;
-}
-
-.playlist-library-toolbar .signal-select {
-  flex: 0 1 190px;
-  min-width: 170px;
-}
-
-.playlist-library-toolbar .view-toggle {
-  margin-left: auto;
-}
-
 .playlist-library-summary {
   margin: -4px 0 var(--tc-space-3);
   color: var(--tc-text-secondary);
@@ -233,10 +220,6 @@
 }
 
 @media (max-width: 860px) {
-  .playlist-library-toolbar .view-toggle {
-    margin-left: 0;
-  }
-
   .playlist-library--list .playlist-library-card > a {
     grid-template-columns: 150px minmax(0, 1fr);
   }
@@ -261,15 +244,6 @@
 @media (max-width: 620px) {
   .playlist-library {
     grid-template-columns: 1fr;
-  }
-
-  .playlist-library-toolbar .signal-select {
-    flex: 1 1 150px;
-    min-width: 0;
-  }
-
-  .playlist-library-toolbar .view-toggle {
-    margin-left: auto;
   }
 
   .playlist-library--list .playlist-library-card > a {

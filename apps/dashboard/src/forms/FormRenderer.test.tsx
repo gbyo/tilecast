@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { useState } from "react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { FormSchema } from "../api/types";
-import { FormRenderer } from "./FormRenderer";
+import { FormRenderer, type FormValues } from "./FormRenderer";
 
 afterEach(cleanup);
 
@@ -139,5 +141,113 @@ describe("FormRenderer", () => {
       />,
     );
     expect(screen.queryByText(/characters left/)).not.toBeInTheDocument();
+  });
+
+  it("renders a short option list as a radio group that writes one value", () => {
+    const onChange = vi.fn();
+    render(
+      <FormRenderer
+        schema={{
+          fields: [
+            {
+              key: "choice",
+              label: "Choice",
+              control: "select",
+              options: [
+                { value: "a", label: "Alpha" },
+                { value: "b", label: "Beta" },
+              ],
+            },
+          ],
+        }}
+        onChange={onChange}
+      />,
+    );
+    expect(
+      screen.getByRole("radiogroup", { name: "Choice" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Alpha" })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "Beta" }));
+    expect(onChange).toHaveBeenCalledWith("choice", "b");
+  });
+
+  it("renders a long option list as a dropdown instead of radios", () => {
+    render(
+      <FormRenderer
+        schema={{
+          fields: [
+            {
+              key: "choice",
+              label: "Choice",
+              control: "select",
+              options: [
+                { value: "a", label: "Alpha" },
+                { value: "b", label: "Beta" },
+                { value: "c", label: "Gamma" },
+                { value: "d", label: "Delta" },
+              ],
+            },
+          ],
+        }}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Choice" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the selected option's label rather than its value", async () => {
+    function Harness() {
+      const [values, setValues] = useState<FormValues>({});
+      return (
+        <FormRenderer
+          schema={{
+            fields: [
+              {
+                key: "choice",
+                label: "Choice",
+                control: "select",
+                options: [
+                  { value: "a", label: "Alpha" },
+                  { value: "b", label: "Beta" },
+                  { value: "c", label: "Gamma" },
+                  { value: "d", label: "Delta" },
+                ],
+              },
+            ],
+          }}
+          values={values}
+          onChange={(key, value) =>
+            setValues((current) => ({ ...current, [key]: value }))
+          }
+        />
+      );
+    }
+    render(<Harness />);
+    const combobox = screen.getByRole("combobox", { name: "Choice" });
+    await userEvent.click(combobox);
+    await userEvent.click(await screen.findByRole("option", { name: "Beta" }));
+    expect(combobox).toHaveTextContent("Beta");
+  });
+
+  it("renders text inputs through the shared input control", () => {
+    render(
+      <FormRenderer
+        schema={{
+          fields: [
+            { key: "title", label: "Title", control: "short_text" },
+            { key: "body", label: "Body", control: "long_text" },
+          ],
+        }}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText(/Title/)).toHaveAttribute(
+      "data-slot",
+      "input",
+    );
+    expect(screen.getByLabelText(/Body/).tagName).toBe("TEXTAREA");
   });
 });

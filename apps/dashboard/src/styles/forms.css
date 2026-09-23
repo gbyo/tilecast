@@ -1,61 +1,4 @@
-.form-builder__field-item.is-selected {
-  border-color: var(--tc-action-primary);
-  background: var(--tc-action-primary-soft, var(--tc-bg-subtle));
-}
-
-.form-builder__palette-title,
-.form-builder__inspector-title {
-  margin: 0 0 var(--tc-space-2);
-  font-size: 0.85rem;
-  color: var(--tc-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* The palette sits directly beneath the field list in the same panel; separate the two so "Add a
-   field" does not read as another list entry. */
-.form-builder__palette {
-  padding-top: var(--tc-space-3);
-  border-top: 1px solid var(--tc-border-default);
-}
-
-.form-builder__palette-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--tc-space-1);
-}
-
-.form-builder__palette-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--tc-space-2);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-control);
-  background: var(--tc-bg-canvas);
-  cursor: pointer;
-  text-align: left;
-}
-
-.form-builder__palette-item span {
-  font-size: 0.7rem;
-  color: var(--tc-text-secondary);
-}
-
-.form-builder__palette-item:hover:not(:disabled) {
-  border-color: var(--tc-border-strong);
-  background: var(--tc-bg-subtle);
-}
-
-.form-builder__palette-item:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* These are all bare or lightly-styled buttons with no default focus treatment of their own. */
-.form-builder__field-select:focus-visible,
-.form-builder__palette-item:focus-visible,
-.form-builder__field-controls button:focus-visible,
 .form-workflow__state-actions button:focus-visible,
 .form-workflow__row-actions button:focus-visible,
 .form-view-form__ordered button:focus-visible {
@@ -75,14 +18,6 @@
 
 .form-view-form__filter-row > .button {
   margin-left: auto;
-}
-
-/* The workflow and views notices list their validation messages as a <ul>, which would otherwise
-   inherit the browser's default indent inside the notice. */
-.form-workflow .notice ul,
-.form-view-form .notice ul {
-  margin: 0;
-  padding-left: var(--tc-space-4);
 }
 
 /* Renderer */

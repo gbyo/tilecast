@@ -13,30 +13,6 @@
   border-left-color: var(--accent);
   background: var(--surface);
 }
-.setting-row {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(180px, 320px);
-  gap: 24px;
-  align-items: center;
-  padding: 15px 0;
-  border-bottom: 1px solid var(--border);
-}
-.setting-row > span {
-  display: grid;
-  gap: 4px;
-}
-.setting-row small {
-  color: var(--muted);
-}
-.setting-row em {
-  font-size: 12px;
-  color: var(--warning);
-  font-style: normal;
-}
-.setting-row input:not([type="checkbox"]),
-.setting-row select {
-  width: 100%;
-}
 .import-export {
   display: grid;
   gap: 16px;
@@ -48,20 +24,13 @@
   padding: 16px;
   border: 1px solid var(--border);
 }
-html[data-density="compact"] .setting-row {
-  padding: 9px 0;
-}
 html[data-reduced-motion="true"] *,
 html[data-reduced-motion="true"] *::before,
 html[data-reduced-motion="true"] *::after {
   animation-duration: 0.01ms !important;
   transition-duration: 0.01ms !important;
 }
-@media (max-width: 850px) {
-  .setting-row {
-    grid-template-columns: 1fr;
-  }
-}
+
 /* Takeover styling lives in styles/screens.css alongside the rest of
    the Screens page. */
 .operations {
@@ -188,18 +157,6 @@ a {
   cursor: not-allowed;
   opacity: 0.62;
 }
-.notice {
-  padding: 10px 12px;
-  margin: -8px 0 19px;
-  border: 1px solid;
-  border-radius: var(--tc-radius-sm);
-  font-size: 13px;
-}
-.notice--error {
-  color: var(--tc-status-danger);
-  background: var(--tc-status-danger-bg);
-  border-color: var(--tc-status-danger-border);
-}
 .spinner {
   width: 22px;
   height: 22px;
@@ -242,26 +199,6 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.empty-state {
-  width: min(620px, 100%);
-  padding: 42px;
-  background: var(--tc-surface);
-  border: 1px solid var(--tc-border);
-  border-radius: var(--tc-radius-md);
-}
-.empty-state__index {
-  color: var(--tc-brand);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-}
-.empty-state h2 {
-  margin: 12px 0 8px;
-  font-size: 23px;
-}
-.empty-state p {
-  color: var(--tc-ink-muted);
-}
 .text-link {
   color: var(--tc-brand);
   font-weight: 650;
@@ -287,24 +224,7 @@ a {
   align-items: center;
   margin-bottom: 16px;
 }
-.content-organizer__create,
-.content-organizer__bulk {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-}
-.content-toolbar select,
-.search-control {
-  min-height: 36px;
-  color: var(--tc-ink);
-  background: var(--tc-surface);
-  border: 1px solid var(--tc-border-strong);
-  border-radius: var(--tc-radius-sm);
-}
-.content-toolbar select {
-  padding: 6px 30px 6px 9px;
-}
+
 .content-empty {
   display: grid;
   min-height: 360px;
@@ -562,34 +482,6 @@ a {
   justify-content: space-between;
   gap: 18px;
 }
-.presentation-networks-settings__toolbar .button,
-.presentation-network-row__actions .button,
-.screen-presentation-network-panel__actions .button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.presentation-network-assignments .checkbox-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-.screen-presentation-network-panel__controls > .field {
-  flex: 1 1 320px;
-}
-.setting-row {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(240px, 330px);
-  gap: 32px;
-  align-items: center;
-  min-height: 72px;
-  padding: 14px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--tc-border) 65%, transparent);
-}
-.setting-row:last-child {
-  border-bottom: 0;
-}
 .setting-copy {
   display: grid;
   gap: 4px;
@@ -641,44 +533,8 @@ a {
 .field-error {
   color: var(--tc-danger) !important;
 }
-.notice--warning {
-  margin-top: 20px;
-  border-left: 3px solid var(--tc-warning);
-}
-.backup-list,
 .backup-job-list {
   display: grid;
-}
-.backup-row {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
-  gap: 20px;
-  align-items: center;
-  padding: 15px 0;
-  border-bottom: 1px solid var(--tc-border);
-}
-.backup-row__details {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-.backup-row__details strong {
-  overflow-wrap: anywhere;
-}
-.backup-row__details > span {
-  color: var(--tc-ink-muted);
-  font-size: 12px;
-}
-.backup-row__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 7px;
-}
-.backup-row__actions .button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
 }
 .backup-job-list > div {
   display: flex;
@@ -695,14 +551,6 @@ a {
 .backup-job-status {
   color: var(--tc-ink-muted);
   font-size: 12px;
-}
-@media (max-width: 900px) {
-  .backup-row {
-    grid-template-columns: 1fr;
-  }
-  .backup-row__actions {
-    justify-content: flex-start;
-  }
 }
 .setting-control--checks {
   display: grid;
@@ -831,10 +679,6 @@ a {
   margin: 0 0 20px;
   color: var(--tc-ink-muted);
 }
-.screen-empty .button {
-  margin: 0;
-  text-decoration: none;
-}
 .empty-illustration {
   display: grid;
   width: 54px;
@@ -844,44 +688,6 @@ a {
   background: var(--tc-brand-soft);
   border: 1px solid var(--tc-status-success-border);
   border-radius: var(--tc-radius-md);
-}
-/* The in-panel empty state.
-
-   .screen-empty above is the page-sized version: it owns the whole viewport
-   area when a fleet has no screens. .empty-card is the small one that sits in
-   a slot inside a panel or settings subsection when a list came back empty —
-   backups, webhooks, integration tokens, deliveries, snapshots, the review
-   queue, and the content-health all-clear. In most of those it is the sibling
-   branch of the same ternary as .table-loading, so it carries the same surface
-   and reads as the same slot rather than as bare text on the page background.
-   Inner rhythm matches .bulk-empty in pages/FleetBulkPage.css, which is this
-   pattern already namespaced for the Bulk changes page.
-
-   Not the EmptyState component from components/ui: that renders a standalone
-   .empty-state card at min(620px, 100%) with page-level padding and an <h2>,
-   and it takes title and message as strings. Dropping it into these eight
-   slots would nest a wide card inside a panel that already has a border, and
-   two of the messages carry a link or interpolated thresholds rather than a
-   plain string. */
-.empty-card {
-  display: grid;
-  justify-items: center;
-  gap: var(--tc-space-1);
-  padding: var(--tc-space-8) var(--tc-space-4);
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-body);
-  text-align: center;
-  background: var(--tc-bg-surface);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-}
-/* Some of these lead with a one-line headline over the explanation. */
-.empty-card strong {
-  color: var(--tc-text-primary);
-  font: var(--tc-text-label);
-}
-.empty-card p {
-  margin: 0;
 }
 /* The screen table, status chips, and pairing queue are defined once, in
    styles/screens.css. A second copy used to live here and the two disagreed about
@@ -1011,18 +817,6 @@ a {
   border: 1px solid var(--tc-border-strong);
   border-radius: var(--tc-radius-sm);
   font: inherit;
-}
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 9px;
-}
-.form-actions .button {
-  margin: 0;
-}
-/* Destructive action sits apart from the confirming actions on the right. */
-.form-actions .button--danger-quiet {
-  margin-right: auto;
 }
 .detail-card,
 .danger-zone {

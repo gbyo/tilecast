@@ -79,6 +79,7 @@ describe("Content review", () => {
       .mockResolvedValue(undefined);
     renderPage();
     const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Review" }));
     await user.click(await screen.findByRole("button", { name: "Approve" }));
 
     await waitFor(() => expect(decide).toHaveBeenCalled());
@@ -97,8 +98,16 @@ describe("Content review", () => {
       .mockResolvedValue(undefined);
     renderPage();
     const user = userEvent.setup();
-    await user.type(await screen.findByRole("textbox"), "Wrong date");
-    await user.click(screen.getByRole("button", { name: "Send back" }));
+    await user.click(await screen.findByRole("button", { name: "Review" }));
+    await user.click(await screen.findByRole("button", { name: "Send back" }));
+    const dialog = await screen.findByRole("dialog");
+    const note = await screen.findByLabelText("Note");
+    await user.type(note, "Wrong date");
+    const confirm = screen
+      .getAllByRole("button", { name: "Send back" })
+      .find((button) => dialog.contains(button));
+    expect(confirm).toBeTruthy();
+    await user.click(confirm!);
 
     await waitFor(() => expect(decide).toHaveBeenCalled());
     const [, , decision] = decide.mock.calls[0] ?? [];
@@ -113,6 +122,7 @@ describe("Content review", () => {
     });
     renderPage();
     expect(await screen.findByText("Cafeteria Menu")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Review" })).toBe(null);
     expect(screen.queryByRole("button", { name: "Approve" })).toBe(null);
     expect(screen.queryByRole("button", { name: "Send back" })).toBe(null);
   });
