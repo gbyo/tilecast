@@ -153,10 +153,12 @@ Playback identifiers will be populated when W2 activates server content.
 ### W2 (P0) Manifest, downloads and activation
 
 The identity-gated server client now reads the existing manifest endpoint with
-bounded response size and conditional ETags. Preparation, scheduling,
-renderer media capabilities and activation remain open. The final RFC requires
-replacing the foundation's raw digest media URI/CAS-root access before real
-server content is activated.
+bounded response size and conditional ETags. The daemon has a validation
+boundary for the server-compiled manifest's target screen, asset identities,
+hash/size claims and origin paths. It is not yet connected to preparation.
+Preparation, scheduling, renderer media capabilities and activation remain
+open. The final RFC requires replacing the foundation's raw digest media
+URI/CAS-root access before real server content is activated.
 
 - **Use:**
   - `edge_cas::Fetcher` with sources in this order:

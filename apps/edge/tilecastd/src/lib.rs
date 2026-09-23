@@ -26,6 +26,7 @@ pub mod identity_status;
 pub mod ipc_handler;
 pub mod legacy_import;
 pub mod logging;
+pub mod manifest;
 pub mod presentation;
 pub mod server_link;
 pub mod supervisor;
