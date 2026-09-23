@@ -1,16 +1,23 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { ToggleGroup } from "./ui";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { Badge } from "./ui/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "./ui/empty";
+import { Skeleton } from "./ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import { AlertTriangle, Activity } from "lucide-react";
 import {
   activityRequest,
-  EmptyState,
-  ErrorNotice,
   formatDuration,
   formatWhen,
   humanize,
-  Loading,
-  ResourceLink,
 } from "../pages/ActivityShared";
 import { buildActivityLink } from "../pages/activityLinks";
 
@@ -94,71 +101,118 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
 
   return (
     <section
-      className="screen-timeline"
+      className="min-w-0 space-y-4 rounded-2xl border border-border bg-card p-4"
       aria-labelledby="screen-timeline-title"
     >
-      <header>
-        <div>
-          <h3 id="screen-timeline-title">Timeline</h3>
-          <p>
+      <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 id="screen-timeline-title" className="text-sm font-semibold">
+            Timeline
+          </h3>
+          <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">
             Everything recorded for this screen, in one order: state changes,
             playback, failures, commands, updates, incidents, and administrative
             changes.
           </p>
         </div>
-        <div className="screen-timeline__controls">
-          <ToggleGroup
-            label="Timeline range"
-            value={range}
-            onValueChange={setRange}
-            items={ranges}
-          />
-        </div>
+        <ToggleGroup
+          aria-label="Timeline range"
+          value={[range]}
+          onValueChange={(values) => values[0] && setRange(values[0])}
+          multiple={false}
+          variant="outline"
+          size="sm"
+          spacing={1}
+          className="flex-wrap"
+        >
+          {ranges.map((item) => (
+            <ToggleGroupItem key={item.value} value={item.value}>
+              {item.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </header>
 
       {query.data?.status && <CurrentStatus status={query.data.status} />}
 
-      <div className="screen-timeline__filters">
-        <ToggleGroup
-          label="Filter the timeline by domain"
-          value={domain}
-          onValueChange={setDomain}
-          items={domains}
-        />
-      </div>
+      <ToggleGroup
+        aria-label="Filter the timeline by domain"
+        value={[domain || "__all__"]}
+        onValueChange={(values) => {
+          if (values[0]) setDomain(values[0] === "__all__" ? "" : values[0]);
+        }}
+        multiple={false}
+        variant="outline"
+        size="sm"
+        spacing={1}
+        className="flex-wrap"
+      >
+        {domains.map((item) => (
+          <ToggleGroupItem
+            key={item.value || "__all__"}
+            value={item.value || "__all__"}
+          >
+            {item.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
 
-      {query.isLoading && <Loading />}
-      {query.error && <ErrorNotice error={query.error} />}
+      {query.isLoading && (
+        <div className="space-y-2" aria-label="Loading timeline">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      )}
+      {query.error && (
+        <Alert variant="destructive">
+          <AlertTriangle aria-hidden="true" />
+          <AlertTitle>Timeline could not be loaded</AlertTitle>
+          <AlertDescription>{query.error.message}</AlertDescription>
+        </Alert>
+      )}
       {query.data &&
         // Go marshals an empty slice as null, so the collection is defaulted
         // rather than indexed into blindly.
         ((query.data.entries ?? []).length === 0 ? (
-          <EmptyState
-            message={
-              domain
-                ? "Nothing in this domain during the selected period."
-                : "Nothing has been recorded for this screen in this period."
-            }
-          />
+          <Empty className="min-h-36 border-dashed p-5">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Activity aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle role="heading" aria-level={4}>
+                {domain
+                  ? "Nothing in this domain during the selected period."
+                  : "Nothing has been recorded for this screen in this period."}
+              </EmptyTitle>
+              <EmptyDescription>
+                Choose another period or domain to review earlier activity.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <ol className="screen-timeline__entries">
+          <ol className="divide-y divide-border">
             {(query.data.entries ?? []).map((entry) => (
               <li
                 key={entry.id}
-                className={`screen-timeline__entry screen-timeline__entry--${entry.severity}`}
+                className={`grid min-w-0 gap-x-3 gap-y-1 border-l-2 py-3 pl-3 sm:grid-cols-[8rem_7rem_minmax(0,1fr)] ${entry.severity === "critical" || entry.severity === "error" ? "border-l-destructive" : entry.severity === "warning" ? "border-l-amber-500" : "border-l-transparent"}`}
               >
-                <time dateTime={entry.timestamp}>
+                <time
+                  className="text-xs text-muted-foreground"
+                  dateTime={entry.timestamp}
+                >
                   {formatWhen(entry.timestamp)}
                 </time>
-                <span
-                  className={`activity-domain activity-domain--${entry.domain}`}
-                >
-                  {entry.domain}
-                </span>
-                <div>
-                  <strong>{entry.title}</strong>
-                  {entry.description && <small>{entry.description}</small>}
-                  <span className="screen-timeline__facts">
+                <Badge variant="secondary" className="justify-self-start">
+                  {humanize(entry.domain)}
+                </Badge>
+                <div className="grid min-w-0 gap-1">
+                  <strong className="text-sm font-medium">{entry.title}</strong>
+                  {entry.description && (
+                    <p className="break-words text-sm text-muted-foreground">
+                      {entry.description}
+                    </p>
+                  )}
+                  <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     {entry.durationMs != null && (
                       <span>{formatDuration(entry.durationMs)}</span>
                     )}
@@ -169,15 +223,17 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
                       entry.durationMs == null && <span>Still open</span>}
                     {entry.result && <span>{humanize(entry.result)}</span>}
                     {entry.linkType === "incident" ? (
-                      <Link to={buildActivityLink("incidents")}>
+                      <Link
+                        className="underline underline-offset-4"
+                        to={buildActivityLink("incidents")}
+                      >
                         View incident
                       </Link>
                     ) : (
                       entry.linkId && (
-                        <ResourceLink
+                        <TimelineResourceLink
                           type={entry.linkType}
                           id={entry.linkId}
-                          label="Open"
                         />
                       )
                     )}
@@ -193,33 +249,47 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
 
 function CurrentStatus({ status }: { status: ScreenTimeline["status"] }) {
   return (
-    <dl className="screen-timeline__status">
+    <dl className="grid gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:grid-cols-2 xl:grid-cols-4">
       <div>
-        <dt>Health</dt>
-        <dd>
-          <span
-            className={`screen-timeline__health screen-timeline__health--${status.health}`}
+        <dt className="text-xs text-muted-foreground">Health</dt>
+        <dd className="mt-1 grid gap-1 text-sm">
+          <Badge
+            variant={
+              status.health === "offline"
+                ? "destructive"
+                : status.health === "impaired"
+                  ? "secondary"
+                  : "outline"
+            }
+            className="justify-self-start"
           >
             {humanize(status.health)}
-          </span>
+          </Badge>
           {/* The reason is shown beside the classification so it is never an
               unexplained label. */}
           <small>{humanize(status.healthReason)}</small>
         </dd>
       </div>
       <div>
-        <dt>Current presentation</dt>
-        <dd>{status.currentPresentation || "Not reported"}</dd>
+        <dt className="text-xs text-muted-foreground">Current presentation</dt>
+        <dd className="mt-1 break-words text-sm">
+          {status.currentPresentation || "Not reported"}
+        </dd>
       </div>
       <div>
-        <dt>Current item</dt>
-        <dd>{status.currentItem || "Not reported"}</dd>
+        <dt className="text-xs text-muted-foreground">Current item</dt>
+        <dd className="mt-1 break-words text-sm">
+          {status.currentItem || "Not reported"}
+        </dd>
       </div>
       <div>
-        <dt>Current incident</dt>
-        <dd>
+        <dt className="text-xs text-muted-foreground">Current incident</dt>
+        <dd className="mt-1 break-words text-sm">
           {status.currentIncident ? (
-            <Link to={buildActivityLink("incidents")}>
+            <Link
+              className="underline underline-offset-4"
+              to={buildActivityLink("incidents")}
+            >
               {status.currentIncident}
             </Link>
           ) : (
@@ -228,21 +298,55 @@ function CurrentStatus({ status }: { status: ScreenTimeline["status"] }) {
         </dd>
       </div>
       <div>
-        <dt>Last healthy playback</dt>
-        <dd>{formatOptional(status.lastHealthyPlayback)}</dd>
+        <dt className="text-xs text-muted-foreground">Last healthy playback</dt>
+        <dd className="mt-1 text-sm">
+          {formatOptional(status.lastHealthyPlayback)}
+        </dd>
       </div>
       <div>
-        <dt>Last manifest activation</dt>
-        <dd>{formatOptional(status.lastManifestActivation)}</dd>
+        <dt className="text-xs text-muted-foreground">
+          Last manifest activation
+        </dt>
+        <dd className="mt-1 text-sm">
+          {formatOptional(status.lastManifestActivation)}
+        </dd>
       </div>
       <div>
-        <dt>Last heartbeat</dt>
-        <dd>{formatOptional(status.lastHeartbeatAt)}</dd>
+        <dt className="text-xs text-muted-foreground">Last heartbeat</dt>
+        <dd className="mt-1 text-sm">
+          {formatOptional(status.lastHeartbeatAt)}
+        </dd>
       </div>
       <div>
-        <dt>Player version</dt>
-        <dd>{status.playerVersion || "Not reported"}</dd>
+        <dt className="text-xs text-muted-foreground">Player version</dt>
+        <dd className="mt-1 text-sm">
+          {status.playerVersion || "Not reported"}
+        </dd>
       </div>
     </dl>
+  );
+}
+
+function TimelineResourceLink({ type, id }: { type?: string; id: string }) {
+  const path =
+    type === "screen"
+      ? `/screens/${id}`
+      : type === "playlist"
+        ? `/playlists/${id}`
+        : type === "layout"
+          ? `/layouts/${id}`
+          : type === "schedule"
+            ? `/schedules/${id}`
+            : ["asset", "media", "widget", "source"].includes(type ?? "")
+              ? `/assets?search=${encodeURIComponent(id)}`
+              : type === "user"
+                ? "/settings/users"
+                : undefined;
+  return path ? (
+    <Link className="underline underline-offset-4" to={path}>
+      Open
+    </Link>
+  ) : (
+    "Open"
   );
 }

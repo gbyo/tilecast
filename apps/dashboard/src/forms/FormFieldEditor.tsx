@@ -7,7 +7,7 @@ import {
   Notice,
   Select,
   Textarea,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { validateKey } from "./formKeys";
 import {
   CONTROLS,

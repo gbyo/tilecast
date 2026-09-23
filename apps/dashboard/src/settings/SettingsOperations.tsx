@@ -6,7 +6,7 @@ import {
   StatusDot,
   TableContainer,
   ViewTabs,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

@@ -134,32 +134,26 @@ afterEach(() => {
 });
 
 async function tabList() {
-  return await screen.findByRole("navigation", { name: "Screen details" });
+  return await screen.findByRole("tablist", { name: "Screen details" });
 }
 
 describe("screen detail tabs", () => {
-  it("organizes settings, health, and maintenance under Manage", async () => {
+  it("maps legacy reliability links to the Device health section", async () => {
     renderDetail("/screens/screen-1?tab=reliability");
 
     const tabs = await tabList();
     expect(
       within(tabs)
-        .getByRole("button", { name: "Manage" })
-        .getAttribute("aria-current"),
-    ).toBe("page");
-    expect(
-      within(tabs).queryByRole("button", { name: "Player settings" }),
-    ).toBeNull();
-    expect(
-      within(tabs).queryByRole("button", { name: "Reliability" }),
-    ).toBeNull();
-    expect(within(tabs).queryByRole("button", { name: "Commands" })).toBeNull();
-    const manageTabs = await screen.findByRole("navigation", {
-      name: "Manage screen sections",
+        .getByRole("tab", { name: "Device" })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(within(tabs).queryByRole("tab", { name: "Reliability" })).toBeNull();
+    const deviceTabs = await screen.findByRole("navigation", {
+      name: "Device sections",
     });
     expect(
-      within(manageTabs)
-        .getByRole("button", { name: "Health" })
+      within(deviceTabs)
+        .getByRole("link", { name: "Health" })
         .getAttribute("aria-current"),
     ).toBe("page");
     expect(
@@ -168,22 +162,18 @@ describe("screen detail tabs", () => {
     expect(screen.queryByTestId("screen-behavior")).toBeNull();
   });
 
-  it("shows only the selected Manage workspace", async () => {
+  it("shows only the selected detail workspace", async () => {
     const user = userEvent.setup();
     renderDetail("/screens/screen-1?tab=reliability");
 
-    const manageTabs = await screen.findByRole("navigation", {
-      name: "Manage screen sections",
-    });
-    await user.click(
-      within(manageTabs).getByRole("button", { name: "Settings" }),
-    );
+    const tabs = await tabList();
+    await user.click(within(tabs).getByRole("tab", { name: "Settings" }));
 
     expect(await screen.findByTestId("screen-behavior")).toBeTruthy();
     expect(
       screen.queryByRole("heading", { name: "Health & recovery" }),
     ).toBeNull();
-    expect(screen.getByText("?tab=manage")).toBeTruthy();
+    expect(screen.getByText("?tab=settings")).toBeTruthy();
   });
 
   it("does not append snapshot history to the Overview sidebar", async () => {
@@ -195,30 +185,27 @@ describe("screen detail tabs", () => {
     ).toBeNull();
   });
 
-  it("places snapshot history in its own tab", async () => {
+  it("keeps the legacy snapshot URL on Overview and opens its history", async () => {
     renderDetail("/screens/screen-1?tab=snapshots");
 
+    expect(await screen.findByTestId("preview")).toBeTruthy();
     expect(
-      await screen.findByRole("heading", {
-        name: "Snapshot history",
-        level: 3,
-      }),
+      screen.getByText("Snapshot history", { selector: "summary" }),
     ).toBeTruthy();
-    expect(screen.queryByTestId("preview")).toBeNull();
     expect(
-      screen.queryByRole("heading", { name: "Screen overview" }),
-    ).toBeNull();
+      await screen.findByRole("heading", { name: "Overview", level: 2 }),
+    ).toBeTruthy();
   });
 
   it("renders exactly one Activity tab, owned by the shared tab strip", async () => {
     renderDetail("/screens/screen-1?tab=activity");
 
     const tabs = await tabList();
-    expect(
-      within(tabs).getAllByRole("button", { name: "Activity" }),
-    ).toHaveLength(1);
+    expect(within(tabs).getAllByRole("tab", { name: "Activity" })).toHaveLength(
+      1,
+    );
     // Nothing outside the tab strip may inject a second control.
-    expect(screen.getAllByRole("button", { name: "Activity" })).toHaveLength(1);
+    expect(screen.getAllByRole("tab", { name: "Activity" })).toHaveLength(1);
   });
 
   it("marks the Activity tab as the selected one and nothing else", async () => {
@@ -226,8 +213,8 @@ describe("screen detail tabs", () => {
 
     const tabs = await tabList();
     const current = within(tabs)
-      .getAllByRole("button")
-      .filter((button) => button.getAttribute("aria-current") === "page");
+      .getAllByRole("tab")
+      .filter((tab) => tab.getAttribute("aria-selected") === "true");
     expect(current).toHaveLength(1);
     expect(current[0]?.textContent).toContain("Activity");
   });
@@ -236,7 +223,7 @@ describe("screen detail tabs", () => {
     renderDetail("/screens/screen-1?tab=activity");
 
     expect(
-      await screen.findByRole("heading", { name: "Activity", level: 3 }),
+      await screen.findByRole("heading", { name: "Activity", level: 2 }),
     ).toBeTruthy();
     expect(
       screen.queryByRole("heading", { name: "Screen overview" }),
@@ -262,13 +249,11 @@ describe("screen detail tabs", () => {
     renderDetail("/screens/screen-1");
 
     const tabs = await tabList();
-    await user.click(within(tabs).getByRole("button", { name: "Activity" }));
+    await user.click(within(tabs).getByRole("tab", { name: "Activity" }));
 
-    await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain("tab=activity"),
-    );
+    await waitFor(() => expect(screen.getByText("?tab=activity")).toBeTruthy());
     expect(
-      await screen.findByRole("heading", { name: "Activity", level: 3 }),
+      await screen.findByRole("heading", { name: "Activity", level: 2 }),
     ).toBeTruthy();
   });
 
@@ -277,16 +262,16 @@ describe("screen detail tabs", () => {
     renderDetail("/screens/screen-1?tab=activity");
 
     const tabs = await tabList();
-    const activity = within(tabs).getByRole("button", { name: "Activity" });
+    const activity = within(tabs).getByRole("tab", { name: "Activity" });
     activity.focus();
     await user.keyboard("{ArrowRight}");
-    expect(document.activeElement?.textContent).toContain("Manage");
+    expect(document.activeElement?.textContent).toContain("Device");
     await user.keyboard("{ArrowLeft}{ArrowLeft}");
     expect(document.activeElement?.textContent).toContain("Content");
     await user.keyboard("{Home}");
     expect(document.activeElement?.textContent).toContain("Overview");
     await user.keyboard("{End}");
-    expect(document.activeElement?.textContent).toContain("Manage");
+    expect(document.activeElement?.textContent).toContain("Settings");
   });
 
   it("falls back to Overview when the tab in the URL is not a real tab", async () => {
@@ -296,7 +281,7 @@ describe("screen detail tabs", () => {
     // or the preview panel silently disappears.
     expect(await screen.findByTestId("preview")).toBeTruthy();
     expect(
-      await screen.findByRole("heading", { name: "Screen overview" }),
+      await screen.findByRole("heading", { name: "Overview", level: 2 }),
     ).toBeTruthy();
   });
 
@@ -334,7 +319,7 @@ describe("screen detail tabs", () => {
 
   it("does not reach outside its own subtree to place a tab", async () => {
     renderDetail("/screens/screen-1?tab=activity");
-    await screen.findByRole("heading", { name: "Activity", level: 3 });
+    await screen.findByRole("heading", { name: "Activity", level: 2 });
 
     // A stray strip added after mount must not attract a portalled button.
     const stray = document.createElement("nav");

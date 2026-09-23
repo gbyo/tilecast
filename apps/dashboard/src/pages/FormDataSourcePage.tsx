@@ -22,7 +22,7 @@ import {
   TableContainer,
   Textarea,
   ViewTabs,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { FormBuilder } from "../forms/FormBuilder";
 import { FormRenderer } from "../forms/FormRenderer";
 import { RecordReview } from "../forms/RecordReview";

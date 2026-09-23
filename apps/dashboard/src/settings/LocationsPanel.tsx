@@ -4,7 +4,7 @@ import { MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { Location, LocationInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Button, Dialog } from "../components/ui";
+import { Button, Dialog } from "../components/legacy-ui";
 
 const emptyLocation: LocationInput = {
   name: "",

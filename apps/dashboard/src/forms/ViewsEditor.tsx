@@ -18,7 +18,7 @@ import {
   Select,
   StatusBadge,
   TableContainer,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import {
   availableOutputFields,
   isTimeField,

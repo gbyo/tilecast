@@ -10,7 +10,7 @@ import {
   EmptyState,
   Field,
   PageHeader,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import {
   DashboardListToolbar,
   DashboardSearch,

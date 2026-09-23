@@ -9,7 +9,7 @@ import {
   type FilterDefinition,
   type FilterOption,
   type TimeRangePreset,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";

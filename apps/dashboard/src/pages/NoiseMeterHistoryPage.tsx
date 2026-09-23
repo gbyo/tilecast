@@ -19,8 +19,8 @@ import {
   Select,
   ToggleGroup,
   ViewTabs,
-} from "../components/ui";
-import { MetricTile } from "../components/ui/MetricTile";
+} from "../components/legacy-ui";
+import { MetricTile } from "../components/legacy-ui/MetricTile";
 import "./NoiseMeterHistoryPage.css";
 
 const ranges: { value: NoiseHistoryRange; label: string }[] = [

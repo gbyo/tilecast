@@ -9,7 +9,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { Link } from "react-router";
-import { Button, PageHeader, Popover, StatusBadge } from "../ui";
+import { Button, PageHeader, Popover, StatusBadge } from "../legacy-ui";
 import type { Playlist } from "../../api/types";
 import { playlistDurationLabel } from "./playlistEditorModel";
 

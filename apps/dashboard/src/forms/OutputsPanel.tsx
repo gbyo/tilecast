@@ -8,7 +8,7 @@ import {
   Spinner,
   StatusBadge,
   TableContainer,
-} from "../components/ui";
+} from "../components/legacy-ui";
 
 // OutputsPanel shows the generated dataset for each saved view plus projection status, and lets a
 // manager manually rebuild. Preview records come from the cached projection, so only output-eligible

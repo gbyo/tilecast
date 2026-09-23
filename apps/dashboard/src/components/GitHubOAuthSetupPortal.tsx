@@ -6,7 +6,7 @@ import { useLocation } from "react-router";
 import { api } from "../api/client";
 import type { GitHubDeviceStart } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Dialog } from "./ui";
+import { Dialog } from "./legacy-ui";
 import "./GitHubOAuthSetupPortal.css";
 
 type ActiveFlow = GitHubDeviceStart & { retryAfterSeconds: number };

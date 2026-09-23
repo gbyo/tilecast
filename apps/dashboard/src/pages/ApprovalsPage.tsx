@@ -11,7 +11,7 @@ import {
   Spinner,
   StatusBadge,
   TableContainer,
-} from "../components/ui";
+} from "../components/legacy-ui";
 
 const PAGE_SIZE = 25;
 

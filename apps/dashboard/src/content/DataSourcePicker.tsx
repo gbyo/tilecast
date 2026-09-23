@@ -24,7 +24,7 @@ import { useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../api/client";
 import type { DataSource, DataSourceProvider } from "../api/types";
-import { Button, StatusDot } from "../components/ui";
+import { Button, StatusDot } from "../components/legacy-ui";
 import { ConnectDataFlow } from "./DataSourceCreateFlow";
 import { previewRecordMaps } from "./previewRecords";
 import { providerLabel, sourceIcon } from "./dataSourceProviderMeta";

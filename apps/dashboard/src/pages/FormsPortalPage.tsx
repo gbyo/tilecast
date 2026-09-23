@@ -19,7 +19,7 @@ import {
   Pagination,
   Spinner,
   StatusBadge,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { SubmissionEditor } from "../forms/SubmissionEditor";
 import { canSubmitToForm } from "../forms/capabilities";
 import { stateLabel, stateTone } from "../forms/formStatus";

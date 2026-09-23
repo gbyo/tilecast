@@ -1,5 +1,5 @@
-import { ContextMenu, Select, useContextMenu } from "../components/ui";
-import type { ContextMenuItem } from "../components/ui";
+import { ContextMenu, Select, useContextMenu } from "../components/legacy-ui";
+import type { ContextMenuItem } from "../components/legacy-ui";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {

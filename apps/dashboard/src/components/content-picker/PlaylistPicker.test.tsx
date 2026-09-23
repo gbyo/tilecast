@@ -142,11 +142,13 @@ describe("PlaylistPicker", () => {
         ],
       }),
     ]);
-    const { container } = picker();
+    picker();
 
     await screen.findByRole("button", { name: /Lobby loop/ });
     expect(
-      container.querySelector('img[src="/api/v1/assets/welcome/thumbnail"]'),
+      document.body.querySelector(
+        'img[src="/api/v1/assets/welcome/thumbnail"]',
+      ),
     ).toBeInTheDocument();
   });
 
@@ -168,14 +170,16 @@ describe("PlaylistPicker", () => {
     };
     listLayouts([hero, layout("wip", "Draft only", 0)]);
     const confirm = vi.fn();
-    const { container } = picker(confirm, true);
+    picker(confirm, true);
     const user = userEvent.setup();
 
     // An unpublished Layout has no revision a player could show.
     expect(await screen.findByText("Hero wall")).toBeInTheDocument();
     expect(screen.queryByText("Draft only")).not.toBeInTheDocument();
     expect(
-      container.querySelector('img[src="/api/v1/layouts/hero/preview-image"]'),
+      document.body.querySelector(
+        'img[src="/api/v1/layouts/hero/preview-image"]',
+      ),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Hero wall/ }));

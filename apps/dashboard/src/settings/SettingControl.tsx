@@ -1,4 +1,4 @@
-import { Select } from "../components/ui";
+import { Select } from "../components/legacy-ui";
 import { useId, useMemo, useState } from "react";
 import { signalColors } from "@tilecast/design-tokens/values";
 import type { SettingDefinition } from "../api/types";

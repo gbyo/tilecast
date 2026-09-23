@@ -1,5 +1,5 @@
 import { Save, Tag } from "lucide-react";
-import { Button, Drawer, Field, Select } from "../ui";
+import { Button, Drawer, Field, Select } from "../legacy-ui";
 import type { ContentTag } from "../../api/types";
 
 export function PlaylistDetailsDrawer({

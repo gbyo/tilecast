@@ -6,7 +6,7 @@ import {
   PageHeader,
   Select,
   ViewToggle,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronRight, ListVideo, Plus, Tags } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";

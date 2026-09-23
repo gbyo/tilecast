@@ -1,6 +1,6 @@
 import { AlertCircle, Check, Info, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button, Drawer, Field, Select } from "../ui";
+import { Button, Drawer, Field, Select } from "../legacy-ui";
 import type { PlaylistItem, PlaylistItemInput } from "../../api/types";
 import {
   itemInput,

@@ -32,7 +32,7 @@ import {
   PageHeader,
   Popover,
   Switch,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { PlaylistPicker } from "../components/content-picker";
 import {
   conflictWinnerReason,

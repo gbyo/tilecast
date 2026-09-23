@@ -80,7 +80,7 @@ describe("dark-mode danger tokens", () => {
   const palette = declarationsIn(readTokenFile("colors.css"), ":root");
   const semantic = readTokenFile("semantic.css");
   const base = declarationsIn(semantic, ":root");
-  const dark = declarationsIn(semantic, 'html[data-theme="dark"]');
+  const dark = declarationsIn(semantic, "html.dark");
   const scopes = [palette, base, dark];
 
   const danger = resolveToken("--tc-status-danger", ...scopes);

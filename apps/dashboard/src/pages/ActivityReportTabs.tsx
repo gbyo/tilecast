@@ -1,4 +1,4 @@
-import { Drawer, Select } from "../components/ui";
+import { Drawer, Select } from "../components/legacy-ui";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";

@@ -3675,191 +3675,7 @@ tbody tr {
   }
 }
 
-/* Screen detail navigation and compact player policy editor */
-.screen-detail {
-  width: min(1000px, 100%);
-}
-
-.screen-detail--manage .policy-editor {
-  padding-bottom: var(--tc-space-6);
-}
-
-.screen-manage__navigation {
-  padding: var(--tc-space-4) var(--tc-space-5) 0;
-  margin-bottom: var(--tc-space-5);
-  background: var(--tc-bg-surface);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-}
-
-.screen-manage__navigation-copy {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--tc-space-4);
-}
-
-.screen-manage__navigation-copy h2,
-.screen-manage__navigation-copy p {
-  margin: 0;
-}
-
-.screen-manage__navigation-copy h2 {
-  font-size: 18px;
-}
-
-.screen-manage__navigation-copy p {
-  margin-top: var(--tc-space-1);
-  color: var(--tc-text-secondary);
-}
-
-.screen-manage-tabs {
-  margin: var(--tc-space-4) 0 0;
-}
-
-.screen-manage-tabs button {
-  min-height: 40px;
-}
-
-.screen-detail__heading-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--tc-space-3);
-}
-
-.screen-details-editor {
-  margin: 0 0 var(--tc-space-5);
-  padding: var(--tc-space-4) var(--tc-space-5);
-  background: var(--tc-bg-surface);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-}
-
-.screen-details-editor > header h3,
-.screen-details-editor > header p {
-  margin: 0;
-}
-
-.screen-details-editor > header h3 {
-  font-size: 15px;
-}
-
-.screen-details-editor > header p {
-  margin-top: var(--tc-space-1);
-  color: var(--tc-text-secondary);
-  font-size: 13px;
-}
-
-.screen-details-editor form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--tc-space-4);
-  margin-top: var(--tc-space-4);
-}
-
-.screen-details-editor__description,
-.screen-details-editor__actions,
-.screen-details-editor .notice {
-  grid-column: 1 / -1;
-}
-
-.screen-details-editor__description textarea {
-  min-height: 76px;
-}
-
-.screen-details-editor__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--tc-space-2);
-}
-
-.screen-overview,
-.screen-detail > .operations {
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-  background: var(--tc-bg-surface);
-}
-
-.screen-overview > header,
-.screen-detail > .operations > h3,
-.screen-detail > .operations > p {
-  margin: 0;
-  padding-inline: var(--tc-space-6);
-}
-
-.screen-detail > .operations > .heading-actions {
-  flex-wrap: wrap;
-  align-items: center;
-  padding-inline: var(--tc-space-6);
-  padding-bottom: var(--tc-space-4);
-  margin-top: var(--tc-space-4);
-}
-
-.screen-detail > .operations > .command-history {
-  padding: 0 var(--tc-space-6) var(--tc-space-6);
-}
-
-.screen-detail > .operations > .command-history:not(:empty) {
-  padding-top: var(--tc-space-4);
-  border-top: 1px solid var(--tc-border-default);
-}
-
-.screen-overview > header {
-  padding-block: var(--tc-space-4);
-  border-bottom: 1px solid var(--tc-border-default);
-}
-
-.screen-overview h3,
-.screen-overview p {
-  margin: 0;
-}
-
-.screen-overview p {
-  margin-top: var(--tc-space-1);
-  color: var(--tc-text-secondary);
-  font-size: 13px;
-}
-
-.screen-overview__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 0;
-}
-
-.screen-overview__grid > div {
-  display: grid;
-  grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1.2fr);
-  gap: var(--tc-space-4);
-  align-items: center;
-  min-height: 52px;
-  padding: var(--tc-space-3) var(--tc-space-6);
-  border-bottom: 1px solid var(--tc-border-default);
-}
-
-.screen-overview__grid > div:nth-child(odd) {
-  border-right: 1px solid var(--tc-border-default);
-}
-
-.screen-overview__grid dt {
-  color: var(--tc-text-secondary);
-  font-size: 13px;
-}
-
-.screen-overview__grid dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-weight: 600;
-  text-align: right;
-  text-transform: capitalize;
-}
-
-.screen-overview__links {
-  display: flex;
-  gap: var(--tc-space-2);
-  padding: var(--tc-space-3) var(--tc-space-6);
-}
-
-.screen-overview__links button,
+/* Compact policy controls retained on screen settings. */
 .policy-revert {
   min-height: 32px;
   padding: 0 var(--tc-space-2);
@@ -4147,14 +3963,6 @@ tbody tr {
 }
 
 @media (max-width: 768px) {
-  .screen-overview__grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .screen-overview__grid > div:nth-child(odd) {
-    border-right: 0;
-  }
-
   .policy-toolbar {
     position: static;
   }
@@ -4182,29 +3990,6 @@ tbody tr {
 }
 
 @media (max-width: 480px) {
-  .screen-detail-tabs button {
-    padding-inline: var(--tc-space-3);
-  }
-
-  .screen-detail-tabs__dirty {
-    display: none;
-  }
-
-  .screen-overview__grid > div {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--tc-space-1);
-    align-items: start;
-  }
-
-  .screen-overview__grid dd {
-    text-align: left;
-  }
-
-  .screen-overview__links {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .policy-toolbar {
     align-items: stretch;
     flex-direction: column;
@@ -4660,64 +4445,7 @@ tbody tr {
   gap: var(--tc-space-2);
 }
 
-.readiness-panel {
-  margin: var(--tc-space-5, 20px) var(--tc-space-6) var(--tc-space-4);
-  border: 1px solid var(--tc-border-default);
-  border-left: 3px solid var(--tc-action-primary);
-  border-radius: var(--tc-radius-panel);
-  background: var(--tc-bg-subtle);
-}
-
-.readiness-panel__heading {
-  display: flex;
-  gap: var(--tc-space-4);
-  align-items: start;
-  justify-content: space-between;
-  padding: var(--tc-space-4);
-  border-bottom: 1px solid var(--tc-border-default);
-}
-
-.readiness-panel__heading h4,
-.readiness-panel__heading p {
-  margin: 0;
-}
-
-.readiness-panel__heading p {
-  margin-top: var(--tc-space-1);
-  color: var(--tc-text-secondary);
-  font-size: 12px;
-}
-
-.readiness-panel .detail-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 0;
-}
-
-@media (max-width: 700px) {
-  .readiness-panel {
-    margin-inline: var(--tc-space-4);
-  }
-
-  .readiness-panel__heading,
-  .readiness-panel .detail-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .readiness-panel__heading {
-    flex-direction: column;
-  }
-}
-
 @media (max-width: 600px) {
-  .screen-detail__heading-actions {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .screen-details-editor form {
-    grid-template-columns: 1fr;
-  }
   .content-add-menu > div {
     right: auto;
     left: 0;
@@ -4902,10 +4630,7 @@ tbody tr {
   color: var(--tc-input-text);
   background: transparent;
 }
-/* Row-level overflow action. Borderless on purpose — .icon-button carries a
-   visible border, which would put an outlined control on every row of every list. */
-.screen-row__actions button,
-.screen-card header button,
+/* Borderless location-list action button. */
 .location-list__actions button {
   display: grid;
   place-items: center;
@@ -4917,8 +4642,6 @@ tbody tr {
   background: transparent;
   cursor: pointer;
 }
-.screen-row__actions button:hover,
-.screen-card header button:hover,
 .location-list__actions button:hover {
   color: var(--tc-text-primary);
   background: var(--tc-bg-subtle);
@@ -5156,29 +4879,7 @@ tbody tr {
   color: var(--tc-input-text);
 }
 
-/* Shared playlist chooser. Same shell as the other dialogs; the list scrolls on its own
-   so the search field and the confirm footer stay put while browsing. */
-.dialog.playlist-picker {
-  display: flex;
-  width: min(560px, calc(100vw - 32px));
-  max-height: min(720px, calc(100dvh - 32px));
-  flex-direction: column;
-  gap: var(--tc-space-3);
-  overflow: hidden;
-}
-
-.dialog.playlist-picker > .dashboard-search {
-  height: var(--tc-control-height-sm);
-  min-height: var(--tc-control-height-sm);
-  padding-inline: var(--tc-space-2);
-}
-
-.playlist-picker__description {
-  margin: 0;
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-supporting);
-}
-
+/* The generated Dialog owns the shell; the result list keeps its selection preview. */
 .playlist-picker__results {
   display: grid;
   align-content: start;
@@ -5265,12 +4966,4 @@ tbody tr {
 .playlist-picker__label small {
   color: var(--tc-text-secondary);
   font: var(--tc-text-caption);
-}
-
-.playlist-picker__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--tc-space-2);
-  padding-top: var(--tc-space-3);
-  border-top: 1px solid var(--tc-border-default);
 }

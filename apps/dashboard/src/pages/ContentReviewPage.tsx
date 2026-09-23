@@ -5,7 +5,7 @@ import { Check, Undo2 } from "lucide-react";
 import { api } from "../api/client";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { PageHeader } from "../components/ui";
+import { PageHeader } from "../components/legacy-ui";
 
 const stateLabels: Record<ContentReviewState, string> = {
   pending: "Waiting for review",

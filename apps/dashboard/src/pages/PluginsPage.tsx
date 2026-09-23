@@ -39,7 +39,7 @@ import {
   Select,
   StatusBadge,
   ViewTabs,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { scheduleWeekdays } from "../schedules/scheduleBuilderModel";
 import "./PluginsPage.css";
 

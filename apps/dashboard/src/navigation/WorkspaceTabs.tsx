@@ -8,12 +8,15 @@
 // `/layouts`), so no deep link, breadcrumb, or search entry has to move. These are real links
 // rather than buttons so a tab can be opened in a new tab like any other destination.
 import {
+  Archive,
   Blocks,
   CalendarRange,
   Database,
   Image,
   ListVideo,
+  Monitor,
   PanelsTopLeft,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
@@ -28,6 +31,12 @@ export const contentTabs: readonly WorkspaceTab[] = [
   { label: "Media", to: "/assets", icon: Image },
   { label: "Widgets", to: "/widgets", icon: Blocks },
   { label: "Data", to: "/data-sources", icon: Database },
+];
+
+export const screenTabs: readonly WorkspaceTab[] = [
+  { label: "Fleet", to: "/screens", icon: Monitor },
+  { label: "Display Groups", to: "/groups", icon: Users },
+  { label: "Archive", to: "/screens/archive", icon: Archive },
 ];
 
 export const presentationTabs: readonly WorkspaceTab[] = [

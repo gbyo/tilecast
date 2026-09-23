@@ -1,14 +1,24 @@
 (() => {
+  const root = document.documentElement;
+  const applyClass = (appearance) => {
+    const dark =
+      appearance === "dark" ||
+      (appearance === "system" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    root.classList.toggle("dark", dark);
+  };
   try {
     const value = localStorage.getItem("tilecast.appearance");
-    document.documentElement.dataset.theme = [
-      "light",
-      "dark",
-      "system",
-    ].includes(value)
+    const appearance = ["light", "dark", "system"].includes(value)
       ? value
       : "system";
+    applyClass(appearance);
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .addEventListener("change", () => {
+        applyClass(appearance);
+      });
   } catch {
-    document.documentElement.dataset.theme = "system";
+    applyClass("system");
   }
 })();

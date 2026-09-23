@@ -112,7 +112,7 @@ describe("ScreenContentChain playlist leg", () => {
     chain({ playlistId: "playlist-1", playlistName: "Images only" });
 
     expect(
-      await screen.findByText("Nothing in this playlist reads a Data Source."),
+      await screen.findByText(/Nothing in this playlist reads a data source/i),
     ).toBeTruthy();
   });
 
@@ -140,8 +140,12 @@ describe("ScreenContentChain playlist leg", () => {
     expect(screen.queryByText("Other")).toBeNull();
   });
 
-  it("renders nothing when the screen has no assignment", () => {
-    const { container } = chain({});
-    expect(container).toBeEmptyDOMElement();
+  it("explains the absence of a direct assignment", () => {
+    chain({});
+    expect(
+      screen.getByText(/No content is assigned directly to this screen/),
+    ).toHaveTextContent(
+      "Schedules and Display Group assignments can still select content for playback.",
+    );
   });
 });

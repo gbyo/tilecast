@@ -1,8 +1,15 @@
 import { Radio, Video, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { liveStreamApi, type LiveStreamSession } from "../api/liveStreams";
-import { Button, Dialog } from "./ui";
-import "./LiveStreamDialog.css";
+import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 const LEASE_RENEWAL_MILLIS = 7_000;
 
@@ -84,63 +91,77 @@ export function LiveStreamDialog({
   return (
     <Dialog
       open={open}
-      title={`Live stream · ${screenName}`}
-      onClose={onClose}
-      className="live-stream-dialog"
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
     >
-      <div className="live-stream-dialog__viewer">
-        {session ? (
-          <img
-            src={liveStreamApi.mjpegUrl(screenId, session.id)}
-            alt={`Live Tilecast output from ${screenName}`}
-            onLoad={() => setPlaying(true)}
-            onError={() =>
-              setError("The live stream connection ended unexpectedly.")
-            }
-          />
-        ) : null}
-        {!playing && (
-          <div className="live-stream-dialog__waiting" aria-live="polite">
-            {error ? (
-              <>
-                <WifiOff size={30} aria-hidden="true" />
-                <strong>Stream unavailable</strong>
-                <span>{error}</span>
-              </>
-            ) : (
-              <>
-                <Video size={30} aria-hidden="true" />
-                <strong>Connecting to player…</strong>
-                <span>Waiting for the first frame.</span>
-              </>
-            )}
-          </div>
-        )}
-        {playing && (
-          <span className="live-stream-dialog__live">
-            <Radio size={13} aria-hidden="true" />
-            Live
-          </span>
-        )}
-      </div>
-      <div className="live-stream-dialog__details">
-        <p>
-          Targeting{" "}
-          <strong>
-            {session
-              ? `${Math.round(1_000 / session.frameIntervalMillis)} FPS · ${session.maxWidth}×${session.maxHeight}`
-              : "8 FPS · 640×360"}
-          </strong>
-          . Actual refresh depends on the player and network.
-        </p>
-        <p>
-          This stream is relayed only while this window is open. Frames are
-          never saved to snapshots, live preview, Activity, or backups.
-        </p>
-      </div>
-      <footer className="dialog-actions">
-        <Button onClick={onClose}>Stop watching</Button>
-      </footer>
+      <DialogContent className="w-[min(920px,calc(100vw-2rem))] max-w-none">
+        <DialogHeader>
+          <DialogTitle>Live stream · {screenName}</DialogTitle>
+          <DialogDescription>
+            Ephemeral player output, relayed only while this window is open.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="relative grid aspect-video w-full place-items-center overflow-hidden rounded-lg border border-border bg-[#080b0f]">
+          {session ? (
+            <img
+              className="block size-full object-contain"
+              src={liveStreamApi.mjpegUrl(screenId, session.id)}
+              alt={`Live Tilecast output from ${screenName}`}
+              onLoad={() => setPlaying(true)}
+              onError={() =>
+                setError("The live stream connection ended unexpectedly.")
+              }
+            />
+          ) : null}
+          {!playing && (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-slate-100"
+              aria-live="polite"
+            >
+              {error ? (
+                <>
+                  <WifiOff className="size-7" aria-hidden="true" />
+                  <strong>Stream unavailable</strong>
+                  <span className="text-sm text-slate-300">{error}</span>
+                </>
+              ) : (
+                <>
+                  <Video className="size-7" aria-hidden="true" />
+                  <strong>Connecting to player…</strong>
+                  <span className="text-sm text-slate-300">
+                    Waiting for the first frame.
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+          {playing && (
+            <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-black/80 px-2 py-1 text-xs font-bold uppercase tracking-wide text-white">
+              <Radio className="size-3.5 text-red-400" aria-hidden="true" />
+              Live
+            </span>
+          )}
+        </div>
+        <div className="mt-3.5 grid gap-1 text-sm text-muted-foreground">
+          <p className="m-0">
+            Targeting{" "}
+            <strong>
+              {session
+                ? `${Math.round(1_000 / session.frameIntervalMillis)} FPS · ${session.maxWidth}×${session.maxHeight}`
+                : "8 FPS · 640×360"}
+            </strong>
+            . Actual refresh depends on the player and network.
+          </p>
+          <p className="m-0">
+            This stream is relayed only while this window is open. Frames are
+            never saved to snapshots, live preview, Activity, or backups.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose}>Stop watching</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }

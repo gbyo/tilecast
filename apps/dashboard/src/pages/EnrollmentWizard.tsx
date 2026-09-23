@@ -13,7 +13,7 @@ import {
 import { Brand } from "../components/Brand";
 import { FormField } from "../components/FormField";
 import { SecurityQr } from "../components/SecurityQr";
-import { Button } from "../components/ui";
+import { Button } from "../components/legacy-ui";
 import { securityKey } from "./SecurityPage";
 import "./EnrollmentWizard.css";
 

@@ -5,7 +5,7 @@ import { Check, Clock3, Send, Undo2 } from "lucide-react";
 import { api } from "../api/client";
 import type { ContentSubmission, SubmissionStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Button, Notice, PageHeader } from "../components/ui";
+import { Button, Notice, PageHeader } from "../components/legacy-ui";
 
 const filters: { value: "" | SubmissionStatus; label: string }[] = [
   { value: "in_review", label: "Needs review" },

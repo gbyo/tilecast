@@ -24,7 +24,7 @@ import {
   Field,
   Notice,
   PageHeader,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
 
 function nextHour() {

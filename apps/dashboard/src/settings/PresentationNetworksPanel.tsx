@@ -16,7 +16,7 @@ import {
   Field,
   Select,
   Textarea,
-} from "../components/ui";
+} from "../components/legacy-ui";
 
 type NetworkDraft = Omit<PresentationNetworkInput, "secret"> & {
   identity: string;

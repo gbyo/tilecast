@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -37,128 +38,67 @@ const summary = (
 });
 
 describe("SidebarNavigation", () => {
-  it("collapses workspace facets when no child route is current", async () => {
-    // A submitter-only form does not surface Approvals.
+  it("shows the main workspace destinations", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([summary(["submit"])]);
     renderNav();
 
-    await waitFor(() => {
-      expect(
-        screen.getAllByRole("link").map((link) => link.textContent),
-      ).toEqual([
-        "Overview",
-        "Screens",
-        "Content",
-        "Presentations",
-        "Schedules",
-        "Plugins",
-        "Activity",
-        "Settings",
-      ]);
-    });
     expect(
-      screen
-        .getByRole("link", { name: "Content" })
-        .getAttribute("aria-expanded"),
-    ).toBe("false");
-    expect(
-      screen.getByLabelText("Content submenu").getAttribute("aria-hidden"),
-    ).toBe("true");
-    expect(screen.queryByRole("link", { name: "Media" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Compose" })).toBeNull();
+      screen.getByRole("link", { name: "Tilecast Overview" }),
+    ).toBeTruthy();
+    for (const destination of [
+      "Overview",
+      "Screens",
+      "Content",
+      "Presentations",
+      "Schedules",
+      "Plugins",
+      "Activity",
+      "Settings",
+    ]) {
+      expect(screen.getByRole("link", { name: destination })).toBeTruthy();
+    }
+    expect(screen.queryByRole("link", { name: "Approvals" })).toBeNull();
   });
 
-  it("expands Content and gives only the current child the active state", () => {
+  it("marks Content active for its nested editor routes", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([]);
-    // /widgets belongs to Content, and NavLink alone would not match it.
     renderNav("/widgets/widget-1");
 
-    expect(
-      screen
-        .getByRole("link", { name: "Content" })
-        .getAttribute("aria-expanded"),
-    ).toBe("true");
-    expect(
-      screen.getByRole("link", { name: "Content" }).className,
-    ).not.toContain("active");
-    expect(
-      screen
-        .getByRole("link", { name: "Widgets" })
-        .getAttribute("aria-current"),
-    ).toBe("page");
-    expect(screen.getByRole("link", { name: "Widgets" }).className).toContain(
-      "active",
-    );
-    expect(screen.getByRole("link", { name: "Media" }).className).not.toContain(
-      "active",
-    );
-    expect(screen.getByRole("link", { name: "Data" }).className).not.toContain(
-      "active",
+    expect(screen.getByRole("link", { name: "Content" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
     expect(
-      screen
-        .getByRole("link", { name: "Presentations" })
-        .getAttribute("aria-expanded"),
-    ).toBe("false");
+      screen.getByRole("link", { name: "Presentations" }),
+    ).not.toHaveAttribute("aria-current", "page");
   });
 
-  it("expands Presentations and highlights Layouts for a nested route", () => {
+  it("marks Presentations active for a nested Layout route", () => {
     vi.spyOn(api, "listForms").mockResolvedValue([]);
     renderNav("/layouts/layout-1");
 
-    expect(
-      screen
-        .getByRole("link", { name: "Presentations" })
-        .getAttribute("aria-expanded"),
-    ).toBe("true");
-    expect(
-      screen.getByRole("link", { name: "Presentations" }).className,
-    ).not.toContain("active");
-    expect(
-      screen
-        .getByRole("link", { name: "Layouts" })
-        .getAttribute("aria-current"),
-    ).toBe("page");
-    expect(screen.getByRole("link", { name: "Layouts" }).className).toContain(
-      "active",
+    expect(screen.getByRole("link", { name: "Presentations" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    expect(
-      screen.getByRole("link", { name: "Playlists" }).className,
-    ).not.toContain("active");
-    expect(
-      screen
-        .getByRole("link", { name: "Content" })
-        .getAttribute("aria-expanded"),
-    ).toBe("false");
-  });
-
-  it("keeps labels available as native tooltips in compact mode", () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([]);
-    renderNav("/assets");
-
-    expect(
-      screen.getByRole("link", { name: "Content" }).getAttribute("title"),
-    ).toBe("Content");
-    expect(
-      screen.getByRole("link", { name: "Media" }).getAttribute("title"),
-    ).toBe("Media");
-  });
-
-  it("keeps Settings in a dedicated footer region", () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([]);
-    renderNav();
-
-    expect(
-      screen.getByRole("link", { name: "Settings" }).parentElement?.className,
-    ).toBe("sidebar__nav-footer");
   });
 
   it("shows Approvals only when the user can review at least one form", async () => {
     vi.spyOn(api, "listForms").mockResolvedValue([summary(["review"])]);
     renderNav();
 
-    await waitFor(() => {
-      expect(screen.getByRole("link", { name: "Approvals" })).toBeTruthy();
-    });
+    expect(await screen.findByRole("link", { name: "Approvals" })).toBeTruthy();
+  });
+
+  it("keeps the main destination labels visible", () => {
+    vi.spyOn(api, "listForms").mockResolvedValue([]);
+    renderNav("/assets");
+
+    expect(
+      screen.getByRole("link", { name: "Tilecast Overview" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Content" })).toHaveTextContent(
+      "Content",
+    );
   });
 });

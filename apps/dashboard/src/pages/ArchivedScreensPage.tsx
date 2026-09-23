@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Archive, MonitorOff } from "lucide-react";
 import { Link } from "react-router";
 import { archivedScreens } from "../api/archivedScreens";
-import { PageHeader } from "../components/ui";
+import { PageHeader } from "../components/legacy-ui";
+import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
 
 const formatDate = (value?: string) =>
   value
@@ -26,13 +27,7 @@ export function ArchivedScreensPage() {
         title="Screen archive"
         description="Players with revoked pairings are retained for history but are detached from all live Tilecast configuration."
       />
-      <nav className="screen-primary-tabs" aria-label="Screen management">
-        <Link to="/screens">Screens</Link>
-        <Link to="/groups">Display Groups</Link>
-        <Link to="/screens/archive" aria-current="page">
-          Archive
-        </Link>
-      </nav>
+      <ScreenManagementTabs />
 
       {archived.isError && (
         <div className="notice notice--error">{archived.error.message}</div>

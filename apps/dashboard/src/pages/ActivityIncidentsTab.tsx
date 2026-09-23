@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { Drawer, type ResolvedTimeRange } from "../components/ui";
+import { Drawer, type ResolvedTimeRange } from "../components/legacy-ui";
 import {
   activityParams,
   activityRequest,

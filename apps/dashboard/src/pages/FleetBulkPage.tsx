@@ -9,7 +9,7 @@ import type {
   BulkPreview,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { PageHeader, Select } from "../components/ui";
+import { PageHeader, Select } from "../components/legacy-ui";
 import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
 import "./FleetBulkPage.css";
 
@@ -114,7 +114,7 @@ export function FleetBulkPage() {
         title="Bulk changes"
         description="Apply one change to many screens. Tilecast shows exactly what will change before anything happens, including screens pulled in by a Display Group."
       />
-      <ScreenManagementTabs current="bulk" />
+      <ScreenManagementTabs />
 
       <div className="bulk-workspace">
         <section className="bulk-panel" aria-labelledby="bulk-screens-heading">

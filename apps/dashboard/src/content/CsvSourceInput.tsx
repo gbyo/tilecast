@@ -8,7 +8,7 @@ import {
   Input,
   Notice,
   Textarea,
-} from "../components/ui";
+} from "../components/legacy-ui";
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 

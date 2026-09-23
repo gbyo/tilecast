@@ -10,7 +10,7 @@ import {
   ViewToggle,
   useContextMenu,
   type ContextMenuItem,
-} from "../components/ui";
+} from "../components/legacy-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   EllipsisVertical,

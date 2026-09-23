@@ -3,7 +3,7 @@ import { ArrowLeft, ClipboardList, Plus } from "lucide-react";
 import { Link } from "react-router";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
-import { EmptyState, Notice, PageHeader } from "../components/ui";
+import { EmptyState, Notice, PageHeader } from "../components/legacy-ui";
 import { canManageContent } from "./ContentPage";
 import "./PluginsPage.css";
 

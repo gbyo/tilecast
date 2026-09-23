@@ -1,4 +1,10 @@
-export function Brand({ compact = false }: { compact?: boolean }) {
+export function Brand({
+  compact = false,
+  iconOnlyOnCollapse = false,
+}: {
+  compact?: boolean;
+  iconOnlyOnCollapse?: boolean;
+}) {
   if (compact)
     return (
       <img
@@ -14,7 +20,11 @@ export function Brand({ compact = false }: { compact?: boolean }) {
         <span />
         <span />
       </span>
-      <span className="brand__name">Tilecast</span>
+      <span
+        className={`brand__name ${iconOnlyOnCollapse ? "group-data-[collapsible=icon]:hidden" : ""}`.trim()}
+      >
+        Tilecast
+      </span>
     </div>
   );
 }

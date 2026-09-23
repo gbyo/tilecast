@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -69,12 +70,11 @@ describe("screen management", () => {
         <ScreenListContent screens={[]} loading={false} canManage />
       </MemoryRouter>,
     );
-    expect(
-      screen.getByRole("heading", { name: "No screens paired" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Pair your first screen" }),
-    ).toHaveAttribute("href", "/screens/pair");
+    expect(screen.getByText("No screens paired")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Pair screen" })).toHaveAttribute(
+      "href",
+      "/screens/pair",
+    );
   });
 
   it("explains restrictions in the viewer empty state", () => {
@@ -154,7 +154,7 @@ describe("screen management", () => {
     expect(link).toHaveTextContent("Lobby");
     expect(link).not.toHaveTextContent("android-tv");
     expect(link).not.toHaveTextContent("1920×1080");
-    const row = screen.getByRole("article");
+    const row = screen.getByRole("row", { name: /Lobby/ });
     expect(within(row).getByText("Online")).toBeInTheDocument();
     expect(within(row).getByText(/1920×1080/)).toBeInTheDocument();
   });
@@ -241,19 +241,21 @@ describe("screen management", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
+    const open = vi.fn();
 
     render(
       <QueryClientProvider client={queryClient}>
-        <ScreenGridCard
-          screen={item}
-          csrfToken="csrf-token"
-          selected={false}
-          canManage={false}
-          showLocation
-          onSelect={vi.fn()}
-          onOpen={vi.fn()}
-          onMenu={vi.fn()}
-        />
+        <MemoryRouter>
+          <ScreenGridCard
+            screen={item}
+            csrfToken="csrf-token"
+            selected={false}
+            canManage={false}
+            showLocation
+            onSelect={vi.fn()}
+            onOpen={open}
+          />
+        </MemoryRouter>
       </QueryClientProvider>,
     );
 
@@ -266,6 +268,14 @@ describe("screen management", () => {
     expect(
       screen.getByAltText("Latest preview from Lobby"),
     ).toBeInTheDocument();
+    const interaction = userEvent.setup();
+    await interaction.click(
+      screen.getByRole("button", { name: "Actions for Lobby" }),
+    );
+    expect(
+      await screen.findByRole("menuitem", { name: "Open screen" }),
+    ).toBeTruthy();
+    expect(open).not.toHaveBeenCalled();
   });
 
   it("does not confuse requested Managed Kiosk with effective capability", () => {

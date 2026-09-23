@@ -3,7 +3,7 @@ import type {
   ContentFolder,
   ContentTag,
 } from "../../api/types";
-import { Select, ToggleGroup, ViewToggle } from "../ui";
+import { Select, ToggleGroup, ViewToggle } from "../legacy-ui";
 import { DashboardSearch } from "../DashboardListToolbar";
 
 export type ContentPickerFilter =
