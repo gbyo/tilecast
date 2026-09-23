@@ -5,14 +5,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import {
-  CalendarDays,
-  Check,
-  ChevronDown,
-  Clock3,
-  Search,
-  X,
-} from "lucide-react";
+import { CalendarDays, Clock3, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
@@ -27,8 +20,13 @@ import type {
 import { useAuth } from "../auth/AuthProvider";
 import { PlaylistPicker } from "../components/content-picker";
 import { useConfirm } from "../components/ConfirmDialog";
+import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button as RheaButton } from "../components/ui/button";
+import {
+  ToggleGroup as RheaToggleGroup,
+  ToggleGroupItem as RheaToggleGroupItem,
+} from "../components/ui/toggle-group";
 import {
   Field,
   FieldDescription,
@@ -37,10 +35,18 @@ import {
 } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
-  Popover as RheaPopover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../components/ui/popover";
+  Combobox,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxChip,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "../components/ui/combobox";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -61,7 +67,6 @@ import {
   scheduleIsDirty,
   schedulePreviewTimestamp,
   scheduleWeekdays,
-  setTargetSelected,
   validateScheduleInput,
   type PriorityPreset,
 } from "./scheduleBuilderModel";
@@ -292,33 +297,30 @@ export function ScheduleEditorPage() {
                   <FieldError>{errors.name}</FieldError>
                 )}
               </Field>
-              <div
+              <RheaToggleGroup
                 className="schedule-segmented"
-                role="group"
                 aria-label="Schedule content type"
-              >
-                <button
-                  type="button"
-                  aria-pressed={!input.displayAction}
-                  onClick={() => set("displayAction", undefined)}
-                >
-                  Content
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={Boolean(input.displayAction)}
-                  onClick={() => {
+                multiple={false}
+                value={[input.displayAction ? "display" : "content"]}
+                onValueChange={(next) => {
+                  if (next[0] === "content") set("displayAction", undefined);
+                  else if (next[0] === "display") {
                     set("playlistId", undefined);
                     set("layoutId", undefined);
                     set(
                       "displayAction",
                       input.displayAction ?? { type: "display_power_on" },
                     );
-                  }}
-                >
+                  }
+                }}
+              >
+                <RheaToggleGroupItem value="content">
+                  Content
+                </RheaToggleGroupItem>
+                <RheaToggleGroupItem value="display">
                   Display Control
-                </button>
-              </div>
+                </RheaToggleGroupItem>
+              </RheaToggleGroup>
               {input.displayAction ? (
                 <DisplayControlSelection
                   action={input.displayAction}
@@ -342,22 +344,14 @@ export function ScheduleEditorPage() {
               title="Timing"
               description="Choose when this content takes precedence."
             >
-              <div
+              <RheaToggleGroup
                 className="schedule-segmented"
-                role="group"
                 aria-label="Schedule type"
-              >
-                <button
-                  type="button"
-                  aria-pressed={input.type === "weekly"}
-                  onClick={() => set("type", "weekly")}
-                >
-                  Weekly recurring
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={input.type === "one_time"}
-                  onClick={() => {
+                multiple={false}
+                value={[input.type]}
+                onValueChange={(next) => {
+                  if (next[0] === "weekly") set("type", "weekly");
+                  else if (next[0] === "one_time") {
                     if (!input.oneTimeStart) {
                       const start = new Date();
                       start.setMinutes(
@@ -373,11 +367,16 @@ export function ScheduleEditorPage() {
                         oneTimeEnd: end.toISOString(),
                       }));
                     } else set("type", "one_time");
-                  }}
-                >
+                  }
+                }}
+              >
+                <RheaToggleGroupItem value="weekly">
+                  Weekly recurring
+                </RheaToggleGroupItem>
+                <RheaToggleGroupItem value="one_time">
                   One-time event
-                </button>
-              </div>
+                </RheaToggleGroupItem>
+              </RheaToggleGroup>
               {input.type === "weekly" ? (
                 <WeeklyTiming
                   input={input}
@@ -765,25 +764,26 @@ function WeeklyTiming({
   const overnight = (input.dailyEnd ?? "") <= (input.dailyStart ?? "");
   return (
     <div className="schedule-timing-fields">
-      <div className="schedule-weekdays" aria-label="Active weekdays">
+      <RheaToggleGroup
+        className="schedule-weekdays"
+        aria-label="Active weekdays"
+        multiple
+        value={input.daysOfWeek.map(String)}
+        onValueChange={(next) => {
+          const days = next.map(Number).sort((a, b) => a - b);
+          if (days.length > 0) set("daysOfWeek", days);
+        }}
+      >
         {scheduleWeekdays.map((day) => (
-          <button
-            type="button"
+          <RheaToggleGroupItem
             key={day.value}
-            aria-pressed={input.daysOfWeek.includes(day.value)}
-            onClick={() =>
-              set(
-                "daysOfWeek",
-                input.daysOfWeek.includes(day.value)
-                  ? input.daysOfWeek.filter((value) => value !== day.value)
-                  : [...input.daysOfWeek, day.value],
-              )
-            }
+            value={String(day.value)}
+            aria-label={day.long}
           >
             {day.short}
-          </button>
+          </RheaToggleGroupItem>
         ))}
-      </div>
+      </RheaToggleGroup>
       {errors.daysOfWeek && (
         <span className="text-sm text-destructive" role="alert">
           {errors.daysOfWeek}
@@ -839,26 +839,22 @@ function WeeklyTiming({
             <FieldLabel htmlFor="schedule-start-date">
               First active date
             </FieldLabel>
-            <Input
+            <DateInput
               id="schedule-start-date"
-              type="date"
               value={input.startDate ?? ""}
-              onChange={(event) =>
-                set("startDate", event.target.value || undefined)
-              }
+              max={input.endDate}
+              onChange={(value) => set("startDate", value || undefined)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="schedule-end-date">
               Last active date
             </FieldLabel>
-            <Input
+            <DateInput
               id="schedule-end-date"
-              type="date"
               value={input.endDate ?? ""}
-              onChange={(event) =>
-                set("endDate", event.target.value || undefined)
-              }
+              min={input.startDate}
+              onChange={(value) => set("endDate", value || undefined)}
             />
           </Field>
           <RheaButton
@@ -897,25 +893,20 @@ function OneTimeTiming({
     <div className="schedule-timing-fields">
       <div className="schedule-datetime-pair">
         <Field>
-          <FieldLabel htmlFor="schedule-onetime-start">Starts</FieldLabel>
-          <Input
+          <FieldLabel htmlFor="schedule-onetime-start-date">Starts</FieldLabel>
+          <DateTimeInput
             id="schedule-onetime-start"
-            type="datetime-local"
             value={localDateTime(input.oneTimeStart)}
-            onChange={(event) =>
-              set("oneTimeStart", toISOString(event.target.value))
-            }
+            onChange={(value) => set("oneTimeStart", toISOString(value))}
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="schedule-onetime-end">Ends</FieldLabel>
-          <Input
+          <FieldLabel htmlFor="schedule-onetime-end-date">Ends</FieldLabel>
+          <DateTimeInput
             id="schedule-onetime-end"
-            type="datetime-local"
             value={localDateTime(input.oneTimeEnd)}
-            onChange={(event) =>
-              set("oneTimeEnd", toISOString(event.target.value))
-            }
+            min={localDateTime(input.oneTimeStart)}
+            onChange={(value) => set("oneTimeEnd", toISOString(value))}
           />
         </Field>
       </div>
@@ -948,69 +939,38 @@ function TimezonePicker({
       timezoneLabel(zone).toLowerCase().includes(search.toLowerCase()),
     )
     .slice(0, 80);
-  const [open, setOpen] = useState(false);
   return (
     <div className="schedule-timezone">
-      <span className="text-sm font-medium" id="schedule-timezone-label">
-        Timezone <span aria-hidden="true">*</span>
-      </span>
-      <RheaPopover
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) setSearch("");
-        }}
-      >
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              className="schedule-timezone__trigger"
-              aria-labelledby="schedule-timezone-label"
-            />
-          }
+      <Field>
+        <FieldLabel htmlFor="schedule-timezone">
+          Timezone <span aria-hidden="true">*</span>
+        </FieldLabel>
+        <Combobox
+          items={zones}
+          filteredItems={filtered}
+          value={value}
+          onValueChange={(next) => {
+            if (typeof next === "string" && next) onChange(next);
+          }}
+          itemToStringLabel={timezoneLabel}
+          onInputValueChange={setSearch}
         >
-          <span>{timezoneLabel(value)}</span>
-          <ChevronDown size={17} aria-hidden="true" />
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="schedule-timezone__menu grid max-h-80 gap-2 overflow-auto p-2"
-          aria-label="Timezone"
-        >
-          <label className="flex items-center gap-2 rounded-xl border border-border px-2">
-            <Search
-              size={16}
-              aria-hidden="true"
-              className="shrink-0 text-muted-foreground"
-            />
-            <Input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search city or region"
-              aria-label="Search timezones"
-              className="border-0 shadow-none focus-visible:ring-0"
-            />
-          </label>
-          <div className="grid gap-0.5">
-            {filtered.map((zone) => (
-              <button
-                type="button"
-                key={zone}
-                className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted ${zone === value ? "bg-muted font-medium" : ""}`}
-                onClick={() => {
-                  onChange(zone);
-                  setOpen(false);
-                }}
-              >
-                {timezoneLabel(zone)}
-                {zone === value && <Check size={16} aria-hidden="true" />}
-              </button>
-            ))}
-          </div>
-        </PopoverContent>
-      </RheaPopover>
+          <ComboboxInput
+            id="schedule-timezone"
+            placeholder="Search city or region"
+          />
+          <ComboboxContent>
+            <ComboboxEmpty>No timezones match this search.</ComboboxEmpty>
+            <ComboboxList>
+              {(zone: string) => (
+                <ComboboxItem key={zone} value={zone}>
+                  {timezoneLabel(zone)}
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      </Field>
       {error && (
         <span className="text-sm text-destructive" role="alert">
           {error}
@@ -1046,123 +1006,181 @@ function TargetPicker({
       group.screens.map((screen) => [screen.id, group] as const),
     ),
   );
-  const add = (target: ScheduleTarget) => {
-    onChange(setTargetSelected(targets, target, true));
-  };
-  const remove = (target: ScheduleTarget) =>
-    onChange(setTargetSelected(targets, target, false));
-  const query = search.toLowerCase();
-  const results =
-    tab === "screens"
-      ? screens
-          .filter((screen) =>
-            `${screen.name} ${screen.location}`.toLowerCase().includes(query),
-          )
-          .map((screen) => {
-            const group = screenGroups.get(screen.id);
-            return group
-              ? {
-                  type: "group" as const,
-                  id: group.id,
-                  name: group.name,
-                  detail: `Display Group: ${group.name}`,
-                }
-              : {
-                  type: "screen" as const,
-                  id: screen.id,
-                  name: screen.name,
-                  detail: screen.location || "No location",
-                };
-          })
-      : groups
-          .filter((group) => group.name.toLowerCase().includes(query))
-          .map((group) => ({
-            type: "group" as const,
+  const anchor = useComboboxAnchor();
+  // Grouped screens schedule as their Display Group. Dedupe so a group with
+  // several matching screens still offers one row.
+  const screenOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const options: TargetOption[] = [];
+    for (const screen of screens) {
+      const group = screenGroups.get(screen.id);
+      const option: TargetOption = group
+        ? {
+            key: `group:${group.id}`,
+            type: "group",
             id: group.id,
             name: group.name,
-            detail: `${group.membershipCount} screen${group.membershipCount === 1 ? "" : "s"}`,
-          }));
+            detail: `Display Group: ${group.name}`,
+          }
+        : {
+            key: `screen:${screen.id}`,
+            type: "screen",
+            id: screen.id,
+            name: screen.name,
+            detail: screen.location || "No location",
+          };
+      if (!seen.has(option.key)) {
+        seen.add(option.key);
+        options.push(option);
+      }
+    }
+    return options;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screens, groups]);
+  const groupOptions: TargetOption[] = groups.map((group) => ({
+    key: `group:${group.id}`,
+    type: "group",
+    id: group.id,
+    name: group.name,
+    detail: `${group.membershipCount} screen${group.membershipCount === 1 ? "" : "s"}`,
+  }));
+  const known = useMemo(
+    () =>
+      new Map(
+        [...screenOptions, ...groupOptions].map((option) => [
+          option.key,
+          option,
+        ]),
+      ),
+    [screenOptions, groupOptions],
+  );
+  const query = search.toLowerCase();
+  const tabOptions = tab === "screens" ? screenOptions : groupOptions;
+  // An option survives when a screen behind it matches, exactly as the
+  // previous list did; group rows are deduped to one per group.
+  const matchingKeys = new Set(
+    screens
+      .filter((screen) =>
+        `${screen.name} ${screen.location}`.toLowerCase().includes(query),
+      )
+      .map((screen) => {
+        const group = screenGroups.get(screen.id);
+        return group ? `group:${group.id}` : `screen:${screen.id}`;
+      }),
+  );
+  const results = tabOptions.filter((option) =>
+    tab === "screens"
+      ? matchingKeys.has(option.key)
+      : option.name.toLowerCase().includes(query),
+  );
+  const selectedKeys = new Set(
+    targets.map((target) => `${target.type}:${target.id}`),
+  );
+  const selected = targets.map(
+    (target) =>
+      known.get(`${target.type}:${target.id}`) ?? {
+        key: `${target.type}:${target.id}`,
+        type: target.type,
+        id: target.id,
+        name: target.name ?? "Selected target",
+        detail: "",
+      },
+  );
+  const searchLabel =
+    tab === "groups" ? "Search Display Groups" : "Search screens";
   return (
     <div className="schedule-target-picker">
-      {targets.length > 0 && (
-        <div className="schedule-target-chips">
-          {targets.map((target) => (
-            <span key={`${target.type}-${target.id}`}>
-              {target.name ?? "Selected target"}
-              <button
-                type="button"
-                aria-label={`Remove ${target.name ?? "target"}`}
-                onClick={() => remove(target)}
-              >
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <div
+      <RheaToggleGroup
         className="schedule-target-tabs"
-        role="tablist"
         aria-label="Target type"
+        multiple={false}
+        value={[tab]}
+        onValueChange={(next) => {
+          if (next[0] === "screens" || next[0] === "groups") setTab(next[0]);
+        }}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "screens"}
-          onClick={() => setTab("screens")}
-        >
-          Screens
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "groups"}
-          onClick={() => setTab("groups")}
-        >
-          Display Groups
-        </button>
-      </div>
-      <label className="schedule-picker-search">
-        <Search size={17} aria-hidden="true" />
-        <Input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={
-            tab === "groups" ? "Search Display Groups" : "Search screens"
+        <RheaToggleGroupItem value="screens">Screens</RheaToggleGroupItem>
+        <RheaToggleGroupItem value="groups">Display Groups</RheaToggleGroupItem>
+      </RheaToggleGroup>
+      <div ref={anchor}>
+        <Combobox
+          multiple
+          items={tabOptions}
+          filteredItems={results}
+          value={selected}
+          onValueChange={(next) =>
+            onChange(
+              next.map((option) => ({
+                type: option.type,
+                id: option.id,
+                name: option.name,
+              })),
+            )
           }
-          aria-label={
-            tab === "groups" ? "Search Display Groups" : "Search screens"
-          }
-        />
-      </label>
-      <div className="schedule-target-results">
-        {results.map((result) => {
-          const selected = targets.some(
-            (target) => target.type === result.type && target.id === result.id,
-          );
-          return (
-            <button
-              type="button"
-              key={result.id}
-              disabled={selected}
-              onClick={() =>
-                add({ type: result.type, id: result.id, name: result.name })
-              }
-            >
-              <span>
-                <strong>{result.name}</strong>
-                <small>{result.detail}</small>
-              </span>
-              <span>{selected ? "Selected" : "Add"}</span>
-            </button>
-          );
-        })}
-        {!results.length && (
-          <p className="text-sm text-muted-foreground">
-            No {tab} match this search.
-          </p>
-        )}
+          isItemEqualToValue={(a, b) => a.key === b.key}
+          onInputValueChange={setSearch}
+        >
+          <ComboboxValue>
+            {(value: TargetOption[]) => (
+              <ComboboxChips aria-label="Selected targets">
+                {value.map((option) => (
+                  <ComboboxChip
+                    key={option.key}
+                    showRemove={false}
+                    aria-label={option.name}
+                  >
+                    {option.name}
+                    <RheaButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="-ml-0.5 size-4.5 opacity-50 hover:opacity-100"
+                      aria-label={`Remove ${option.name}`}
+                      onClick={() =>
+                        onChange(
+                          targets.filter(
+                            (target) =>
+                              `${target.type}:${target.id}` !== option.key,
+                          ),
+                        )
+                      }
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </RheaButton>
+                  </ComboboxChip>
+                ))}
+                <ComboboxChipsInput
+                  placeholder={searchLabel}
+                  aria-label={searchLabel}
+                />
+              </ComboboxChips>
+            )}
+          </ComboboxValue>
+          <ComboboxContent anchor={anchor}>
+            <ComboboxEmpty>No {tab} match this search.</ComboboxEmpty>
+            <ComboboxList>
+              {(option: TargetOption) => (
+                <ComboboxItem
+                  key={option.key}
+                  value={option}
+                  disabled={selectedKeys.has(option.key)}
+                >
+                  <span className="grid min-w-0 flex-1 gap-0.5 text-left">
+                    <strong className="truncate font-medium">
+                      {option.name}
+                    </strong>
+                    <small className="truncate text-xs text-muted-foreground">
+                      {option.detail}
+                    </small>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {selectedKeys.has(option.key) ? "Selected" : "Add"}
+                  </span>
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
       </div>
       {error && (
         <span className="text-sm text-destructive" role="alert">
@@ -1172,6 +1190,14 @@ function TargetPicker({
     </div>
   );
 }
+
+type TargetOption = {
+  key: string;
+  type: ScheduleTarget["type"];
+  id: string;
+  name: string;
+  detail: string;
+};
 
 function PriorityControl({
   value,

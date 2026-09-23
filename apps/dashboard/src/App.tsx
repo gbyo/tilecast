@@ -1,4 +1,5 @@
 import { Navigate, useRoutes, type RouteObject } from "react-router";
+import { Toaster } from "./components/ui/sonner";
 import { AssetFilterPortal } from "./components/AssetFilterPortal";
 import { GitHubOAuthSetupPortal } from "./components/GitHubOAuthSetupPortal";
 import { StudioRoutesProvider } from "./navigation/studioRoutes";
@@ -589,6 +590,7 @@ export function App() {
       <StudioRoutesProvider routes={studioRoutes}>
         <RoutedApp />
       </StudioRoutesProvider>
+      <Toaster richColors closeButton />
     </>
   );
 }
