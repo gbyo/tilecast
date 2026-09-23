@@ -20,6 +20,8 @@ import {
   useNavigate,
   type RouteObject,
 } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import type { PluginSummary, Screen, ScreenStatus, User } from "../api/types";
 import { hasStudioRoute, pluginsQueryKey } from "../plugins/pluginCatalog";
@@ -42,14 +44,16 @@ import { Kbd } from "./ui/kbd";
 import { SiteHeader } from "./studio/SiteHeader";
 import { UploadContentDialog } from "./content-picker/UploadContentDialog";
 
+// Command categories are translation keys into palette.groups. Display names
+// are resolved with t() at render in groupCommandResults.
 type CommandGroupName =
-  | "Quick actions"
-  | "Screens"
-  | "Content"
-  | "Presentations"
-  | "Scheduling"
-  | "Administration"
-  | "Navigation";
+  | "quickActions"
+  | "screens"
+  | "content"
+  | "presentations"
+  | "scheduling"
+  | "administration"
+  | "navigation";
 
 type CommandAction = "upload-media";
 
@@ -75,23 +79,31 @@ type CommandProvider = {
   results: () => (Omit<CommandResult, "score"> & { keywords?: string[] })[];
 };
 
-const statusLabels: Record<ScreenStatus, string> = {
-  online: "Online",
-  recent: "Recently online",
-  stale: "Stale",
-  offline: "Offline",
-  disabled: "Disabled",
-  revoked: "Pairing revoked",
+const statusLabelKeys: Record<
+  ScreenStatus,
+  | "palette.screenStatus.online"
+  | "palette.screenStatus.recent"
+  | "palette.screenStatus.stale"
+  | "palette.screenStatus.offline"
+  | "palette.screenStatus.disabled"
+  | "palette.screenStatus.revoked"
+> = {
+  online: "palette.screenStatus.online",
+  recent: "palette.screenStatus.recent",
+  stale: "palette.screenStatus.stale",
+  offline: "palette.screenStatus.offline",
+  disabled: "palette.screenStatus.disabled",
+  revoked: "palette.screenStatus.revoked",
 };
 
 const commandGroupOrder: CommandGroupName[] = [
-  "Quick actions",
-  "Screens",
-  "Content",
-  "Presentations",
-  "Scheduling",
-  "Administration",
-  "Navigation",
+  "quickActions",
+  "screens",
+  "content",
+  "presentations",
+  "scheduling",
+  "administration",
+  "navigation",
 ];
 
 const defaultRouteIds = new Set([
@@ -143,16 +155,16 @@ function resultIcon(to: string) {
 }
 
 function routeGroup(to: string): CommandGroupName {
-  if (to.startsWith("/screens") || to.startsWith("/groups")) return "Screens";
+  if (to.startsWith("/screens") || to.startsWith("/groups")) return "screens";
   if (
     to.startsWith("/assets") ||
     to.startsWith("/widgets") ||
     to.startsWith("/data-sources")
   )
-    return "Content";
+    return "content";
   if (to.startsWith("/playlists") || to.startsWith("/layouts"))
-    return "Presentations";
-  if (to.startsWith("/schedules")) return "Scheduling";
+    return "presentations";
+  if (to.startsWith("/schedules")) return "scheduling";
   if (
     to.startsWith("/settings") ||
     to.startsWith("/preferences") ||
@@ -160,8 +172,8 @@ function routeGroup(to: string): CommandGroupName {
     to.startsWith("/approvals") ||
     to.startsWith("/activity")
   )
-    return "Administration";
-  return "Navigation";
+    return "administration";
+  return "navigation";
 }
 
 function collectRouteResults(routes: readonly RouteObject[]) {
@@ -188,57 +200,70 @@ function collectRouteResults(routes: readonly RouteObject[]) {
   return results;
 }
 
-function collectActionResults(permissions: CommandPermissions) {
+type NavigationT = TFunction<"navigation", undefined>;
+
+// Search aliases stay in English in every language: they are matching tokens,
+// not displayed text, and the locale files hold strings only.
+// i18n-ignore: command-palette search aliases below
+const actionKeywords = {
+  pairScreen: ["add screen", "new device", "player"],
+  uploadMedia: ["content", "asset", "file"],
+  createPlaylist: ["new presentation"],
+  createLayout: ["new presentation", "canvas"],
+  createSchedule: ["new deployment", "publish"],
+} as const;
+
+function collectActionResults(t: NavigationT, permissions: CommandPermissions) {
   const results: (Omit<CommandResult, "score"> & { keywords?: string[] })[] =
     [];
   if (permissions.canPair) {
     results.push({
       id: "action:pair-screen",
-      label: "Pair a screen",
-      description: "Connect a new signage player",
+      label: t("palette.actions.pairScreen.label"),
+      description: t("palette.actions.pairScreen.description"),
       to: "/screens/pair",
-      category: "Quick actions",
+      category: "quickActions",
       Icon: MonitorCheck,
-      keywords: ["add screen", "new device", "player"],
+      keywords: [...actionKeywords.pairScreen],
     });
   }
   if (permissions.canCreate) {
     results.push(
       {
         id: "action:upload-media",
-        label: "Upload media",
-        description: "Add images, videos, or documents",
+        label: t("palette.actions.uploadMedia.label"),
+        description: t("palette.actions.uploadMedia.description"),
         action: "upload-media",
-        category: "Quick actions",
+        category: "quickActions",
         Icon: Upload,
-        keywords: ["content", "asset", "file"],
+        keywords: [...actionKeywords.uploadMedia],
       },
       {
         id: "action:create-playlist",
-        label: "Create playlist",
-        description: "Build a new fullscreen presentation",
+        label: t("palette.actions.createPlaylist.label"),
+        description: t("palette.actions.createPlaylist.description"),
         to: "/playlists?create=1",
-        category: "Quick actions",
+        category: "quickActions",
         Icon: ListVideo,
-        keywords: ["new presentation"],
+        keywords: [...actionKeywords.createPlaylist],
       },
       {
         id: "action:create-layout",
-        label: "Create layout",
-        description: "Arrange content on a presentation canvas",
+        label: t("palette.actions.createLayout.label"),
+        description: t("palette.actions.createLayout.description"),
         to: "/layouts?create=1",
-        category: "Quick actions",
+        category: "quickActions",
         Icon: Layers3,
-        keywords: ["new presentation", "canvas"],
+        keywords: [...actionKeywords.createLayout],
       },
       {
         id: "action:create-schedule",
-        label: "Create schedule",
-        description: "Plan where and when content plays",
+        label: t("palette.actions.createSchedule.label"),
+        description: t("palette.actions.createSchedule.description"),
         to: "/schedules/new",
-        category: "Quick actions",
+        category: "quickActions",
         Icon: CalendarClock,
-        keywords: ["new deployment", "publish"],
+        keywords: [...actionKeywords.createSchedule],
       },
     );
   }
@@ -250,18 +275,20 @@ function collectActionResults(permissions: CommandPermissions) {
  * plugin is an ordinary destination; an uninstalled one is offered as a
  * discovery result that opens Add plugin on it, never as its management page.
  */
-function collectPluginResults(plugins: PluginSummary[]) {
+function collectPluginResults(t: NavigationT, plugins: PluginSummary[]) {
   return plugins.map((plugin) => ({
     id: `plugin:${plugin.id}`,
     label: plugin.name,
-    description: plugin.installed ? "Plugin" : "Plugin · Not installed",
+    description: plugin.installed
+      ? t("palette.plugin")
+      : t("palette.pluginNotInstalled"),
     to:
       plugin.installed && hasStudioRoute(plugin.managementPath)
         ? plugin.managementPath
         : plugin.installed
           ? "/plugins"
           : `/plugins?add=${encodeURIComponent(plugin.id)}`,
-    category: "Navigation" as const,
+    category: "navigation" as const,
     Icon: Puzzle,
     keywords: [plugin.category, plugin.description, ...plugin.capabilities],
   }));
@@ -273,20 +300,21 @@ export function buildCommandResults(
   query: string,
   permissions: CommandPermissions = { canCreate: true, canPair: true },
   plugins: PluginSummary[] = [],
+  t: NavigationT,
 ) {
   const providers: CommandProvider[] = [
-    { id: "actions", results: () => collectActionResults(permissions) },
+    { id: "actions", results: () => collectActionResults(t, permissions) },
     { id: "routes", results: () => collectRouteResults(routes) },
-    { id: "plugins", results: () => collectPluginResults(plugins) },
+    { id: "plugins", results: () => collectPluginResults(t, plugins) },
     {
       id: "screens",
       results: () =>
         screens.map((screen) => ({
           id: `screen:${screen.id}`,
           label: screen.name,
-          description: `${statusLabels[screen.status]}${screen.location ? ` · ${screen.location}` : ""}`,
+          description: `${t(statusLabelKeys[screen.status])}${screen.location ? ` · ${screen.location}` : ""}`,
           to: `/screens/${screen.id}`,
-          category: "Screens" as const,
+          category: "screens" as const,
           Icon: Monitor,
           keywords: [
             screen.location,
@@ -321,17 +349,17 @@ export function buildCommandResults(
   if (!normalizedQuery) {
     return results.filter(
       (result) =>
-        result.category === "Quick actions" || defaultRouteIds.has(result.id),
+        result.category === "quickActions" || defaultRouteIds.has(result.id),
     );
   }
 
   return results.slice(0, 20);
 }
 
-function groupCommandResults(results: CommandResult[]) {
+function groupCommandResults(t: NavigationT, results: CommandResult[]) {
   return commandGroupOrder
     .map((name) => ({
-      name,
+      name: t(`palette.groups.${name}` as const),
       results: results.filter((result) => result.category === name),
     }))
     .filter((group) => group.results.length > 0);
@@ -465,6 +493,7 @@ function CommandPalette({
   canPair: boolean;
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation(["navigation", "common"]);
   const [query, setQuery] = useState("");
   // Read only while searching; the catalog is shared with the Plugins page.
   const plugins = useQuery({
@@ -478,8 +507,9 @@ function CommandPalette({
     query,
     { canCreate, canPair },
     plugins.data?.items ?? [],
+    t,
   );
-  const groups = groupCommandResults(results);
+  const groups = groupCommandResults(t, results);
 
   useEffect(() => {
     if (open) setQuery("");
@@ -500,13 +530,13 @@ function CommandPalette({
       onOpenChange={(nextOpen) => {
         if (!nextOpen) onClose();
       }}
-      title="Search Tilecast"
-      description="Find a workspace, screen, or quick action."
+      title={t("palette.title")}
+      description={t("palette.description")}
       className="w-[min(42rem,calc(100vw-2rem))]"
     >
       <Command
         className="min-h-72 p-1"
-        label="Search Tilecast"
+        label={t("palette.label")}
         loop
         shouldFilter={false}
       >
@@ -514,14 +544,17 @@ function CommandPalette({
           autoFocus
           value={query}
           onValueChange={setQuery}
-          placeholder="Search screens, media, playlists…"
-          aria-label="Search Tilecast"
+          placeholder={t("palette.placeholder")}
+          aria-label={t("palette.label")}
         />
-        <CommandList label="Search results" className="max-h-[min(65vh,28rem)]">
+        <CommandList
+          label={t("palette.resultsLabel")}
+          className="max-h-[min(65vh,28rem)]"
+        >
           <CommandEmpty>
             {query.trim()
-              ? `No results for “${query.trim()}”.`
-              : "No destinations available."}
+              ? t("palette.noResults", { query: query.trim() })
+              : t("palette.noDestinations")}
           </CommandEmpty>
           {groups.map((group) => (
             <CommandGroup heading={group.name} key={group.name}>
@@ -549,14 +582,18 @@ function CommandPalette({
         </CommandList>
         <div className="flex items-center gap-3 border-t px-3 py-2 text-xs text-muted-foreground">
           <span>
-            <Kbd>↑</Kbd> <Kbd>↓</Kbd> move
+            {/* i18n-ignore: arrow-key glyphs, not language text */}
+            <Kbd>↑</Kbd> <Kbd>↓</Kbd> {t("palette.hints.move")}
           </span>
           <span>
-            <Kbd>Enter</Kbd> open
+            {/* i18n-ignore: key name, not language text */}
+            <Kbd>Enter</Kbd> {t("palette.hints.open")}
           </span>
           <span>
-            <Kbd>Esc</Kbd> close
+            {/* i18n-ignore: key name, not language text */}
+            <Kbd>Esc</Kbd> {t("palette.hints.close")}
           </span>
+          {/* i18n-ignore: keyboard shortcut glyphs, not language text */}
           <span className="ml-auto">{platformShortcut()}</span>
         </div>
       </Command>

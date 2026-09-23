@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { studioRoutes } from "../App";
 import type { PluginSummary } from "../api/types";
 import { buildCommandResults } from "../components/StudioTopbar";
+import { i18n } from "../i18n";
 import { PluginsPage } from "../pages/PluginsPage";
 import { catalogPlugin } from "./catalogFixtures";
 import { PluginActionsMenu, blockerInstruction } from "./PluginActionsMenu";
@@ -394,6 +395,7 @@ describe("Plugin navigation", () => {
       "noise",
       undefined,
       catalog,
+      i18n.getFixedT("en", "navigation"),
     );
     const noise = results.find((result) => result.id === "plugin:noise_meter");
     expect(noise).toMatchObject({
@@ -406,6 +408,7 @@ describe("Plugin navigation", () => {
       "countdown",
       undefined,
       catalog,
+      i18n.getFixedT("en", "navigation"),
     ).find((result) => result.id === "plugin:countdown_bar");
     expect(countdown).toMatchObject({
       description: "Plugin · Not installed",
