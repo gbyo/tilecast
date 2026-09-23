@@ -40,16 +40,49 @@ func (s *Service) SetManifestInvalidator(invalidator ManifestInvalidator) {
 	s.invalidator = invalidator
 }
 
+// CatalogPlugin is one registry definition joined with this installation's
+// state. Installed, configured, and active are separate questions: an installed
+// Emergency Alerts plugin with monitoring switched off is valid, and a plugin is
+// never "enabled" by being installed.
 type CatalogPlugin struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Description   string `json:"description"`
-	Enabled       bool   `json:"enabled"`
-	InstanceCount int    `json:"instanceCount"`
+	ID          string `json:"id"`
+	Version     int    `json:"version"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	Icon        string `json:"icon"`
+
+	ManagementPath string `json:"managementPath"`
+
+	InstanceNounSingular string `json:"instanceNounSingular"`
+	InstanceNounPlural   string `json:"instanceNounPlural"`
+
+	Requirements  []Requirement `json:"requirements"`
+	Capabilities  []string      `json:"capabilities"`
+	Documentation string        `json:"documentation,omitempty"`
+
+	Installed   bool `json:"installed"`
+	Installable bool `json:"installable"`
+
+	Configured    bool `json:"configured"`
+	Active        bool `json:"active"`
+	InstanceCount int  `json:"instanceCount"`
+
+	Attention []PluginAttention `json:"attention"`
+}
+
+// PluginAttention is a bounded, advisory status note. It never blocks
+// installation or configuration.
+type PluginAttention struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 type Catalog struct {
 	Items []CatalogPlugin `json:"items"`
+	// UnsupportedInstallations are installation rows this release does not
+	// recognize. They are preserved and inert.
+	UnsupportedInstallations []UnsupportedInstallation `json:"unsupportedInstallations"`
 }
 
 type CountdownBarInput struct {
@@ -145,87 +178,151 @@ type ManifestAlertTickerConfig struct {
 // implied so a player only has to compare one field to decide what shows.
 const alertTickerPriority = 1000
 
-// Catalog reports every built-in plugin with the state Studio needs to describe
-// it. A plugin whose own tables are empty still appears, disabled and with no
-// instances: the catalog is the list of what Tilecast can do, not of what an
-// installation happens to have configured.
+// pluginStatus is the plugin-specific part of a catalog entry.
+type pluginStatus struct {
+	configured bool
+	active     bool
+	count      int
+	attention  []PluginAttention
+}
+
+// Catalog reports every plugin this release can run with its installation and
+// status. A plugin that is not installed still appears: the catalog is the list
+// of what Tilecast can do, and Studio decides how to separate installed from
+// available.
 func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
-	var countdownEnabled bool
-	var countdownCount int
-	if err := s.db.QueryRow(ctx,
-		`SELECT COALESCE(bool_or(enabled),FALSE),count(*) FROM countdown_bar_instances`).
-		Scan(&countdownEnabled, &countdownCount); err != nil {
+	installed, unsupported, err := s.installations(ctx)
+	if err != nil {
 		return Catalog{}, err
 	}
-	// Emergency Alerts is enabled by its monitor, not by its rules: monitoring
-	// switched on with no rule yet is a half-finished setup, and reporting it as
-	// disabled would hide that from the person who switched it on. The rules are
-	// its instances, which is what the count says.
-	var alertsEnabled bool
-	var alertRules int
+	statuses, err := s.pluginStatuses(ctx)
+	if err != nil {
+		return Catalog{}, err
+	}
+	items := []CatalogPlugin{}
+	for _, definition := range registry {
+		items = append(items, catalogEntry(definition, installed[definition.ID], statuses[definition.ID]))
+	}
+	return Catalog{Items: items, UnsupportedInstallations: unsupported}, nil
+}
+
+// CatalogItem reports one known plugin in the catalog shape.
+func (s *Service) CatalogItem(ctx context.Context, id string) (CatalogPlugin, error) {
+	catalog, err := s.Catalog(ctx)
+	if err != nil {
+		return CatalogPlugin{}, err
+	}
+	for _, item := range catalog.Items {
+		if item.ID == id {
+			return item, nil
+		}
+	}
+	return CatalogPlugin{}, ErrPluginNotFound
+}
+
+func catalogEntry(d Definition, installed bool, status pluginStatus) CatalogPlugin {
+	requirements := append([]Requirement{}, d.Requirements...)
+	capabilities := append([]string{}, d.Capabilities...)
+	attention := []PluginAttention{}
+	if installed {
+		attention = append(attention, status.attention...)
+	} else if status.count > 0 {
+		// Feature data without an installation does nothing at runtime. Say so,
+		// rather than letting the data look like a working feature.
+		attention = append(attention, PluginAttention{
+			Code:    "data_without_installation",
+			Message: fmt.Sprintf("%d %s exist but %s is not installed, so they have no effect.", status.count, nounFor(d, status.count), d.Name),
+		})
+	}
+	return CatalogPlugin{
+		ID: d.ID, Version: d.Version, Name: d.Name, Description: d.Description,
+		Category: d.Category, Icon: d.Icon, ManagementPath: d.ManagementPath,
+		InstanceNounSingular: d.InstanceNounSingular, InstanceNounPlural: d.InstanceNounPlural,
+		Requirements: requirements, Capabilities: capabilities, Documentation: d.Documentation,
+		Installed: installed, Installable: d.Installable,
+		Configured: status.configured, Active: status.active, InstanceCount: status.count,
+		Attention: attention,
+	}
+}
+
+func nounFor(d Definition, count int) string {
+	if count == 1 {
+		return d.InstanceNounSingular
+	}
+	return d.InstanceNounPlural
+}
+
+// pluginStatuses reads each plugin's own tables. The rules are deliberately
+// plugin-specific; see docs/plugins.md for what configured and active mean for
+// each one.
+func (s *Service) pluginStatuses(ctx context.Context) (map[string]pluginStatus, error) {
+	statuses := map[string]pluginStatus{}
+	for id, table := range map[string]string{
+		CountdownBarID: "countdown_bar_instances",
+		BrandBugID:     "brand_bug_instances",
+		NoiseMeterID:   "noise_meter_instances",
+	} {
+		var status pluginStatus
+		// table is a literal from this map, never request input.
+		if err := s.db.QueryRow(ctx, `SELECT COALESCE(bool_or(enabled),FALSE),count(*) FROM `+table).
+			Scan(&status.active, &status.count); err != nil {
+			return nil, err
+		}
+		status.configured = status.count > 0
+		statuses[id] = status
+	}
+
+	noise := statuses[NoiseMeterID]
+	var linuxPlayers bool
+	if err := s.db.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM screens WHERE platform='linux' AND archived_at IS NULL)`).
+		Scan(&linuxPlayers); err != nil {
+		return nil, err
+	}
+	if !linuxPlayers {
+		noise.attention = append(noise.attention, PluginAttention{
+			Code:    "no_compatible_player",
+			Message: "No Linux Player is paired yet. Meters take effect once a Linux Player with a microphone is added.",
+		})
+	}
+	statuses[NoiseMeterID] = noise
+
+	// Emergency Alerts is active when its monitor is switched on, and its rules
+	// are its instances. A monitor with areas chosen but no rule is configured
+	// but will never respond, which is worth pointing out.
+	var alerts pluginStatus
+	var targeted bool
+	var lastError string
 	if err := s.db.QueryRow(ctx, `SELECT
 		COALESCE((SELECT enabled FROM alert_monitor WHERE singleton),FALSE),
-		(SELECT count(*) FROM alert_rules)`).Scan(&alertsEnabled, &alertRules); err != nil {
-		return Catalog{}, err
+		COALESCE((SELECT cardinality(areas)+cardinality(zones)>0 FROM alert_monitor WHERE singleton),FALSE),
+		COALESCE((SELECT last_error_code FROM alert_monitor WHERE singleton AND enabled),''),
+		(SELECT count(*) FROM alert_rules)`).Scan(&alerts.active, &targeted, &lastError, &alerts.count); err != nil {
+		return nil, err
 	}
-	var formCount int
+	alerts.configured = targeted || alerts.count > 0
+	if alerts.active && alerts.count == 0 {
+		alerts.attention = append(alerts.attention, PluginAttention{
+			Code: "no_alert_rules", Message: "Monitoring is on but no alert rule will respond to a matching alert.",
+		})
+	}
+	if lastError != "" {
+		alerts.attention = append(alerts.attention, PluginAttention{
+			Code: "poll_failing", Message: "The most recent National Weather Service poll did not succeed.",
+		})
+	}
+	statuses[EmergencyAlertsID] = alerts
+
+	var forms pluginStatus
 	if err := s.db.QueryRow(ctx,
 		`SELECT count(*) FROM data_sources WHERE provider='form' AND deleted_at IS NULL`).
-		Scan(&formCount); err != nil {
-		return Catalog{}, err
+		Scan(&forms.count); err != nil {
+		return nil, err
 	}
-	var brandBugEnabled bool
-	var brandBugCount int
-	if err := s.db.QueryRow(ctx,
-		`SELECT COALESCE(bool_or(enabled),FALSE),count(*) FROM brand_bug_instances`).
-		Scan(&brandBugEnabled, &brandBugCount); err != nil {
-		return Catalog{}, err
-	}
-	var noiseMeterEnabled bool
-	var noiseMeterCount int
-	if err := s.db.QueryRow(ctx,
-		`SELECT COALESCE(bool_or(enabled),FALSE),count(*) FROM noise_meter_instances`).
-		Scan(&noiseMeterEnabled, &noiseMeterCount); err != nil {
-		return Catalog{}, err
-	}
-	return Catalog{Items: []CatalogPlugin{
-		{
-			ID: "countdown_bar", Name: "Countdown Bar",
-			Description:   "Show a timed bottom bar without interrupting the content already playing.",
-			Enabled:       countdownEnabled,
-			InstanceCount: countdownCount,
-		},
-		{
-			ID: "emergency_alerts", Name: "Emergency Alerts",
-			Description:   "Watch official NWS weather alerts and respond automatically while one is active, with a fullscreen takeover or a ticker bar.",
-			Enabled:       alertsEnabled,
-			InstanceCount: alertRules,
-		},
-		{
-			ID: "forms", Name: "Forms",
-			Description:   "Collect submissions, run approval workflows, and publish approved records to Widgets.",
-			Enabled:       true,
-			InstanceCount: formCount,
-		},
-		{
-			ID: "brand_bug", Name: "Brand Bug / Watermark",
-			Description:   "Keep a logo, sponsor mark, legal notice, campaign badge, or location label in a corner over all normal content.",
-			Enabled:       brandBugEnabled,
-			InstanceCount: brandBugCount,
-		},
-		{
-			ID: "noise_meter", Name: "Noise Meter",
-			Description:   "Watch room noise with a microphone on the Linux Player and show a bottom bar only while the room stays too loud.",
-			Enabled:       noiseMeterEnabled,
-			InstanceCount: noiseMeterCount,
-		},
-		{
-			ID: "dependency_graph", Name: "Dependency Graph",
-			Description:   "Trace how Data Sources, content, Layouts, playlists, schedules, groups, and screens connect.",
-			Enabled:       true,
-			InstanceCount: 1,
-		},
-	}}, nil
+	forms.configured = forms.count > 0
+	forms.active = forms.count > 0
+	statuses[FormsID] = forms
+	return statuses, nil
 }
 
 func (s *Service) ListCountdownBars(ctx context.Context) ([]CountdownBar, error) {
@@ -397,6 +494,9 @@ func (s *Service) writeCountdownBar(ctx context.Context, id, organizationID, use
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if err = LockInstallation(ctx, tx, CountdownBarID); err != nil {
+		return err
+	}
 	if err = validateTargets(ctx, tx, input.TargetScope, input.TargetIDs); err != nil {
 		return err
 	}
@@ -627,31 +727,39 @@ func (s *Service) bumpPlugin(ctx context.Context, tx pgx.Tx, pluginType string, 
 	return notes, err
 }
 
-// ManifestForScreen projects every enabled instance of every built-in plugin
-// that applies to one screen, in a stable order. Bars from different plugins
-// travel in one array and carry their own priority, so the player decides what
-// occupies the bar from the manifest alone rather than from the order the server
-// happened to query in.
+// ManifestForScreen projects every enabled instance of every installed built-in
+// plugin that applies to one screen, in a stable order. Installation is checked
+// first: configuration left behind for a plugin that is not installed — after a
+// restore, a downgrade, or a manual edit — never reaches a Player. Bars from
+// different plugins travel in one array and carry their own priority, so the
+// player decides what occupies the bar from the manifest alone rather than from
+// the order the server happened to query in.
 func (s *Service) ManifestForScreen(ctx context.Context, screenID uuid.UUID) ([]ManifestPlugin, error) {
-	out, err := s.countdownBarsForScreen(ctx, screenID)
+	installed, _, err := s.installations(ctx)
 	if err != nil {
 		return nil, err
 	}
-	tickers, err := s.alertTickersForScreen(ctx, screenID)
-	if err != nil {
-		return nil, err
+	projections := []struct {
+		id      string
+		project func(context.Context, uuid.UUID) ([]ManifestPlugin, error)
+	}{
+		{CountdownBarID, s.countdownBarsForScreen},
+		{EmergencyAlertsID, s.alertTickersForScreen},
+		{BrandBugID, s.brandBugsForScreen},
+		{NoiseMeterID, s.noiseMetersForScreen},
 	}
-	out = append(out, tickers...)
-	bugs, err := s.brandBugsForScreen(ctx, screenID)
-	if err != nil {
-		return nil, err
+	out := []ManifestPlugin{}
+	for _, projection := range projections {
+		if !installed[projection.id] {
+			continue
+		}
+		items, err := projection.project(ctx, screenID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, items...)
 	}
-	out = append(out, bugs...)
-	meters, err := s.noiseMetersForScreen(ctx, screenID)
-	if err != nil {
-		return nil, err
-	}
-	return append(out, meters...), nil
+	return out, nil
 }
 
 // alertTickersForScreen projects live Emergency Alerts activations whose rule

@@ -62,6 +62,16 @@ func (s *Service) RecordNoiseHistory(ctx context.Context, screenID uuid.UUID, re
 	if len(records) > MaxNoiseHistoryBatch {
 		return 0, fmt.Errorf("%w: a heartbeat may carry at most %d noise history records", ErrInvalid, MaxNoiseHistoryBatch)
 	}
+	// An uninstalled Noise Meter projects no meter, so a Player should have
+	// nothing to report; anything that arrives anyway is consumed and dropped
+	// rather than rejected, which would make the Player resend it forever.
+	installed, err := s.IsInstalled(ctx, NoiseMeterID)
+	if err != nil {
+		return 0, err
+	}
+	if !installed {
+		return len(records), nil
+	}
 	// The instance is resolved from the screen's own targeting, never from the
 	// request: a Player does not get to name which meter it is reporting for.
 	var instanceID *uuid.UUID

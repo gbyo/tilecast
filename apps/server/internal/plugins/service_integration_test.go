@@ -77,6 +77,7 @@ func TestCountdownBarLifecycleAndManifestTargeting(t *testing.T) {
 	}
 
 	service := NewService(pool, nil)
+	installPluginsForTest(t, pool, CountdownBarID, EmergencyAlertsID)
 	input := validInput()
 	input.ContentPadding = intPointer(0)
 	input.TextScale = 175
@@ -175,16 +176,18 @@ func TestCountdownBarLifecycleAndManifestTargeting(t *testing.T) {
 	for _, item := range catalog.Items {
 		byID[item.ID] = item
 	}
-	if len(catalog.Items) != 6 || byID["countdown_bar"].Name == "" || byID["emergency_alerts"].Name == "" ||
-		byID["forms"].Name == "" || byID["brand_bug"].Name == "" || byID["noise_meter"].Name == "" ||
-		byID["dependency_graph"].Name == "" {
-		t.Fatalf("catalog = %+v, want Countdown Bar, Emergency Alerts, Forms, Brand Bug, Noise Meter, and Dependency Graph", catalog.Items)
+	if len(catalog.Items) != 5 || byID["countdown_bar"].Name == "" || byID["emergency_alerts"].Name == "" ||
+		byID["forms"].Name == "" || byID["brand_bug"].Name == "" || byID["noise_meter"].Name == "" {
+		t.Fatalf("catalog = %+v, want Countdown Bar, Emergency Alerts, Forms, Brand Bug, and Noise Meter", catalog.Items)
 	}
-	if alerts := byID["emergency_alerts"]; alerts.Enabled || alerts.InstanceCount != 0 {
-		t.Fatalf("unconfigured Emergency Alerts = %+v, want disabled with no rules", alerts)
+	if _, listed := byID["dependency_graph"]; listed {
+		t.Fatal("Dependency Graph is a system tool, not an installable plugin")
 	}
-	if forms := byID["forms"]; !forms.Enabled || forms.InstanceCount != 0 {
-		t.Fatalf("unconfigured Forms = %+v, want enabled with no forms", forms)
+	if alerts := byID["emergency_alerts"]; !alerts.Installed || alerts.Active || alerts.Configured || alerts.InstanceCount != 0 {
+		t.Fatalf("unconfigured Emergency Alerts = %+v, want installed, inactive, with no rules", alerts)
+	}
+	if forms := byID["forms"]; forms.Installed || forms.Active || forms.InstanceCount != 0 {
+		t.Fatalf("uninstalled Forms = %+v, want not installed with no forms", forms)
 	}
 	graph, err := service.DependencyGraph(ctx, []uuid.UUID{targetedScreen, otherScreen})
 	if err != nil {
@@ -221,9 +224,9 @@ func TestCountdownBarLifecycleAndManifestTargeting(t *testing.T) {
 		if item.ID != "emergency_alerts" {
 			continue
 		}
-		// Monitoring is what "enabled" means here; the rules are the instances.
-		if !item.Enabled || item.InstanceCount != 1 {
-			t.Fatalf("configured Emergency Alerts = %+v, want enabled with one rule", item)
+		// Monitoring is what "active" means here; the rules are the instances.
+		if !item.Active || !item.Configured || item.InstanceCount != 1 {
+			t.Fatalf("configured Emergency Alerts = %+v, want active with one rule", item)
 		}
 	}
 

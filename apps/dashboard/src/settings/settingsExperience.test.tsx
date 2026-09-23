@@ -34,8 +34,13 @@ describe("settings presentation", () => {
       "Content and playback",
       "Player management",
       "Operations",
+      "System tools",
     ]);
     expect(sectionFromPath("/settings/player/reliability")).toBe("reliability");
+    // Dependency Graph is a system tool, not an installable plugin.
+    expect(sectionFromPath("/settings/dependency-graph")).toBe(
+      "dependency-graph",
+    );
     expect(sectionFromPath("/settings")).toBe("general");
     // Automatic weather alerts are the Emergency Alerts plugin; what is left
     // in Settings is the policy for a Takeover someone starts by hand.

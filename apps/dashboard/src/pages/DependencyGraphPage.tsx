@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   CalendarClock,
   Database,
@@ -316,6 +315,11 @@ function RelationshipList({
   );
 }
 
+/**
+ * A Studio system tool rather than a plugin: it has no installation and
+ * projects nothing to Players. It renders inside Settings, which supplies the
+ * page heading.
+ */
 export function DependencyGraphPage() {
   const graph = useQuery({
     queryKey: ["dependency-graph"],
@@ -509,22 +513,7 @@ export function DependencyGraphPage() {
   }, [selected]);
 
   return (
-    <main className="mx-auto grid w-full gap-4 px-4 py-6 sm:px-6">
-      <header className="mx-auto grid w-full max-w-6xl gap-1">
-        <Link
-          to="/plugins"
-          className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft size={15} aria-hidden="true" /> Plugins
-        </Link>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Dependency Graph
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Follow content and data through presentations, schedules, groups, and
-          screens.
-        </p>
-      </header>
+    <div className="grid w-full gap-4 pt-5">
       {graph.isError && (
         <Alert variant="destructive" className="mx-auto w-full max-w-6xl">
           <AlertDescription>
@@ -859,6 +848,6 @@ export function DependencyGraphPage() {
           )}
         </div>
       )}
-    </main>
+    </div>
   );
 }

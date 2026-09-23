@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
+	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
 // FormInput creates a new Form Data Source.
@@ -50,6 +51,9 @@ func (s *Service) CreateForm(ctx context.Context, user uuid.UUID, in FormInput) 
 		return Form{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	if err := plugins.LockInstallation(ctx, tx, plugins.FormsID); err != nil {
+		return Form{}, err
+	}
 
 	var organizationID uuid.UUID
 	if err := tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&organizationID); err != nil {

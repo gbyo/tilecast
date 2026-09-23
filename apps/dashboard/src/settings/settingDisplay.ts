@@ -364,6 +364,7 @@ export const subsectionOrder: Record<
   "presentation-networks": [],
   system: [],
   "import-export": [],
+  "dependency-graph": [],
 };
 
 const hiddenSettingKeys = new Set(["power.black_screen_fallback"]);

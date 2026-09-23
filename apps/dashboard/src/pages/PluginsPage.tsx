@@ -1,125 +1,213 @@
-import { useQuery } from "@tanstack/react-query";
-import {
-  AudioLines,
-  ClipboardList,
-  Clock3,
-  Network,
-  Puzzle,
-  Siren,
-  Stamp,
-  type LucideIcon,
-} from "lucide-react";
-import { Link } from "react-router";
-import { api } from "../api/client";
-import { Alert, AlertDescription } from "../components/ui/alert";
+import { useState } from "react";
+import { CircleAlert, Plus, Puzzle } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import type { PluginSummary } from "../api/types";
+import { useAuth } from "../auth/AuthProvider";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
+import { Button, buttonVariants } from "../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
+import { Skeleton } from "../components/ui/skeleton";
+import { PluginCatalogDialog } from "../plugins/PluginCatalogDialog";
+import {
+  hasStudioRoute,
+  instanceSummary,
+  pluginStatus,
+  usePluginCatalog,
+  usePluginLifecycle,
+} from "../plugins/pluginCatalog";
+import { PluginIcon } from "../plugins/PluginIcon";
+import { canManage } from "../plugins/shared";
 
 /**
- * How Studio presents each plugin the server reports. The server owns the
- * catalog; this is only the icon and the page that manages it. A plugin Studio
- * does not recognise still gets a card — a newer server must not silently drop
- * a feature from the list — it just carries the generic icon and no link.
+ * Plugins lists what this installation has chosen to add. Everything else the
+ * release offers lives behind Add plugin. `?add=<plugin id>` opens the catalog
+ * on that plugin, which is how global search reaches an uninstalled one.
  */
-const pluginPresentation: Record<
-  string,
-  { icon: LucideIcon; path: string; instanceNoun: [string, string] }
-> = {
-  countdown_bar: {
-    icon: Clock3,
-    path: "/plugins/countdown-bar",
-    instanceNoun: ["instance", "instances"],
-  },
-  emergency_alerts: {
-    icon: Siren,
-    path: "/plugins/emergency-alerts",
-    instanceNoun: ["alert rule", "alert rules"],
-  },
-  forms: {
-    icon: ClipboardList,
-    path: "/plugins/forms",
-    instanceNoun: ["form", "forms"],
-  },
-  brand_bug: {
-    icon: Stamp,
-    path: "/plugins/brand-bug",
-    instanceNoun: ["mark", "marks"],
-  },
-  noise_meter: {
-    icon: AudioLines,
-    path: "/plugins/noise-meter",
-    instanceNoun: ["meter", "meters"],
-  },
-  dependency_graph: {
-    icon: Network,
-    path: "/plugins/dependency-graph",
-    instanceNoun: ["map", "maps"],
-  },
-};
-
 export function PluginsPage() {
-  const plugins = useQuery({ queryKey: ["plugins"], queryFn: api.plugins });
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const catalog = usePluginCatalog();
+  const { install } = usePluginLifecycle(auth.status?.csrfToken ?? "");
+  const canInstall = canManage(auth.status?.user?.role);
+  const addParam = searchParams.get("add");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const dialogOpen = addParam !== null;
+  const focusedId =
+    selectedId ?? (addParam && addParam !== "1" ? addParam : null);
+
+  const plugins = catalog.data?.items ?? [];
+  const installed = plugins.filter((plugin) => plugin.installed);
+  const unsupported = catalog.data?.unsupportedInstallations ?? [];
+
+  const openCatalog = () => {
+    install.reset();
+    setSearchParams({ add: "1" });
+  };
+  const closeCatalog = () => {
+    setSelectedId(null);
+    install.reset();
+    setSearchParams({});
+  };
+  const onInstall = (plugin: PluginSummary) => {
+    install.mutate(plugin.id, {
+      onSuccess: () => {
+        setSelectedId(null);
+        if (hasStudioRoute(plugin.managementPath)) {
+          void navigate(plugin.managementPath);
+        } else {
+          setSearchParams({});
+        }
+      },
+    });
+  };
+
   return (
     <main className="grid gap-4">
-      <header className="grid gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Plugins</h1>
-        <p className="text-sm text-muted-foreground">
-          Built-in Tilecast features that can affect Player behavior outside
-          playlists and Layout zones.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Plugins</h1>
+          <p className="text-sm text-muted-foreground">
+            Add optional Tilecast features and integrations to this
+            installation.
+          </p>
+        </div>
+        {installed.length > 0 && (
+          <Button onClick={openCatalog}>
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            Add plugin
+          </Button>
+        )}
       </header>
-      {plugins.isError && (
+
+      {catalog.isError && (
         <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
           <AlertDescription>Plugins could not be loaded.</AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {(plugins.data?.items ?? []).map((plugin) => {
-          const presentation = pluginPresentation[plugin.id];
-          const Icon = presentation?.icon ?? Puzzle;
-          const [one, many] = presentation?.instanceNoun ?? [
-            "instance",
-            "instances",
-          ];
-          return (
-            <article
-              className="grid gap-3 rounded-xl border border-border p-4"
-              key={plugin.id}
-            >
-              <span className="flex items-center gap-2">
-                <span
-                  className="flex size-10 items-center justify-center rounded-xl bg-muted"
-                  aria-hidden="true"
-                >
-                  <Icon size={24} />
-                </span>
-                <span className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base font-semibold">{plugin.name}</h2>
-                  <Badge variant={plugin.enabled ? "default" : "secondary"}>
-                    {plugin.enabled ? "Enabled" : "Disabled"}
-                  </Badge>
-                </span>
-              </span>
-              <p className="text-sm text-muted-foreground">
-                {plugin.description}
-              </p>
-              <span className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span className="text-muted-foreground tabular-nums">
-                  {plugin.instanceCount} configured{" "}
-                  {plugin.instanceCount === 1 ? one : many}
-                </span>
-                {presentation && (
-                  <Link
-                    to={presentation.path}
-                    className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
-                  >
-                    Manage plugin
-                  </Link>
-                )}
-              </span>
-            </article>
-          );
-        })}
-      </div>
+
+      {unsupported.length > 0 && (
+        <Alert>
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle>Plugins from a newer Tilecast release</AlertTitle>
+          <AlertDescription>
+            {unsupported.map((item) => item.pluginId).join(", ")}{" "}
+            {unsupported.length === 1 ? "is" : "are"} recorded as installed but
+            not part of this release. {unsupported.length === 1 ? "It" : "They"}{" "}
+            will not run, and {unsupported.length === 1 ? "its" : "their"} data
+            is kept for when the newer release returns.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {catalog.isLoading ? (
+        <ItemGroup className="gap-2" aria-label="Loading plugins">
+          {[0, 1].map((key) => (
+            <Skeleton key={key} className="h-24 rounded-2xl" />
+          ))}
+        </ItemGroup>
+      ) : installed.length === 0 && !catalog.isError ? (
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Puzzle aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No plugins installed</EmptyTitle>
+            <EmptyDescription>
+              Add only the optional features this Tilecast installation needs.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button onClick={openCatalog}>
+              <Plus data-icon="inline-start" aria-hidden="true" />
+              {canInstall ? "Add plugin" : "Browse plugins"}
+            </Button>
+          </EmptyContent>
+        </Empty>
+      ) : (
+        <ItemGroup className="gap-2" aria-label="Installed plugins">
+          {installed.map((plugin) => (
+            <InstalledPlugin key={plugin.id} plugin={plugin} />
+          ))}
+        </ItemGroup>
+      )}
+
+      <PluginCatalogDialog
+        open={dialogOpen}
+        onOpenChange={(open) => (open ? openCatalog() : closeCatalog())}
+        plugins={plugins}
+        selectedId={focusedId}
+        onSelect={(id) => {
+          install.reset();
+          setSelectedId(id);
+          if (!id) setSearchParams({ add: "1" });
+        }}
+        canInstall={canInstall}
+        installing={install.isPending}
+        installError={install.error?.message}
+        onInstall={onInstall}
+      />
     </main>
+  );
+}
+
+function InstalledPlugin({ plugin }: { plugin: PluginSummary }) {
+  const status = pluginStatus(plugin);
+  return (
+    <Item variant="outline">
+      <ItemMedia variant="image" className="bg-muted">
+        <PluginIcon icon={plugin.icon} />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle>{plugin.name}</ItemTitle>
+        <ItemDescription>{plugin.description}</ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        {hasStudioRoute(plugin.managementPath) && (
+          <Link
+            to={plugin.managementPath}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            aria-label={`Open ${plugin.name}`}
+          >
+            Open
+          </Link>
+        )}
+      </ItemActions>
+      <ItemFooter className="justify-start gap-2 text-sm text-muted-foreground">
+        <span className="tabular-nums">{instanceSummary(plugin)}</span>
+        <span aria-hidden="true">·</span>
+        <Badge variant={status === "Attention" ? "outline" : "secondary"}>
+          {status === "Attention" && <CircleAlert aria-hidden="true" />}
+          {status}
+        </Badge>
+        {plugin.attention[0] && (
+          <span className="flex items-center gap-1 text-xs">
+            {status !== "Attention" && (
+              <CircleAlert className="size-3.5" aria-hidden="true" />
+            )}
+            {plugin.attention[0].message}
+          </span>
+        )}
+      </ItemFooter>
+    </Item>
   );
 }

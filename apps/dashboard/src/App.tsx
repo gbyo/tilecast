@@ -47,7 +47,7 @@ import {
 import { FormsPluginPage } from "./pages/FormsPluginPage";
 import { CreateFormDataSourcePage } from "./pages/CreateFormDataSourcePage";
 import { FormDataSourcePage } from "./pages/FormDataSourcePage";
-import { DependencyGraphPage } from "./pages/DependencyGraphPage";
+import { PluginRouteGate } from "./plugins/PluginRouteGate";
 import { CampaignsPage } from "./pages/CampaignsPage";
 
 const search = (
@@ -56,6 +56,21 @@ const search = (
   to: string,
   keywords?: string[],
 ) => ({ label, description, to, keywords });
+
+const settingsSearch: Partial<
+  Record<string, { description: string; keywords: string[] }>
+> = {
+  "dependency-graph": {
+    description: "Trace content, presentations, schedules, groups, and screens",
+    keywords: [
+      "content map",
+      "used by",
+      "relationships",
+      "impact",
+      "system tools",
+    ],
+  },
+};
 
 export const studioRoutes: RouteObject[] = [
   { path: "/setup", element: <AuthPage mode="setup" /> },
@@ -343,119 +358,143 @@ export const studioRoutes: RouteObject[] = [
           breadcrumb: "Plugins",
           search: search(
             "Plugins",
-            "Manage built-in features that operate outside playlists",
+            "Add and manage optional Tilecast features",
             "/plugins",
-            [
-              "countdown bar",
-              "emergency alerts",
-              "brand bug",
-              "watermark",
-              "logo",
-              "player features",
-            ],
+            ["add plugin", "integrations", "player features"],
           ),
         },
         children: [
           { index: true, element: <PluginsPage /> },
+          // Dependency Graph is a system tool, not a plugin. The old address
+          // keeps working for bookmarks for at least one release.
           {
             path: "dependency-graph",
-            element: <DependencyGraphPage />,
-            handle: {
-              breadcrumb: "Dependency Graph",
-              search: search(
-                "Dependency Graph",
-                "Trace content, presentations, schedules, groups, and screens",
-                "/plugins/dependency-graph",
-                ["content map", "used by", "relationships", "impact"],
-              ),
-            },
+            element: <Navigate to="/settings/dependency-graph" replace />,
           },
           {
             path: "countdown-bar",
-            element: <CountdownBarsPage />,
+            element: (
+              <PluginRouteGate pluginId="countdown_bar">
+                <CountdownBarsPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "Countdown Bar" },
           },
           {
             path: "countdown-bar/new",
-            element: <CountdownBarEditorPage />,
+            element: (
+              <PluginRouteGate pluginId="countdown_bar">
+                <CountdownBarEditorPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "New instance" },
           },
           {
             path: "countdown-bar/:id",
-            element: <CountdownBarEditorPage />,
+            element: (
+              <PluginRouteGate pluginId="countdown_bar">
+                <CountdownBarEditorPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "Countdown Bar instance" },
           },
           {
             path: "emergency-alerts",
-            element: <EmergencyAlertsPage />,
-            handle: {
-              breadcrumb: "Emergency Alerts",
-              // This used to live in Settings, so the words people already
-              // search for have to lead here rather than to a dead end.
-              search: search(
-                "Emergency Alerts",
-                "Automatic NWS weather alert monitoring and takeover rules",
-                "/plugins/emergency-alerts",
-                ["emergency", "weather", "nws", "alerts", "tornado", "warning"],
-              ),
-            },
+            element: (
+              <PluginRouteGate pluginId="emergency_alerts">
+                <EmergencyAlertsPage />
+              </PluginRouteGate>
+            ),
+            handle: { breadcrumb: "Emergency Alerts" },
           },
           {
             path: "forms",
-            element: <FormsPluginPage />,
-            handle: {
-              breadcrumb: "Forms",
-              search: search(
-                "Forms",
-                "Collect submissions and publish approved records to signage",
-                "/plugins/forms",
-                ["submissions", "workflow", "approvals"],
-              ),
-            },
+            element: (
+              <PluginRouteGate pluginId="forms">
+                <FormsPluginPage />
+              </PluginRouteGate>
+            ),
+            handle: { breadcrumb: "Forms" },
           },
           {
             path: "forms/new",
-            element: <CreateFormDataSourcePage />,
+            element: (
+              <PluginRouteGate pluginId="forms">
+                <CreateFormDataSourcePage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "Create form" },
           },
           {
             path: "forms/:id",
-            element: <FormDataSourcePage />,
+            element: (
+              <PluginRouteGate pluginId="forms">
+                <FormDataSourcePage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "Form", resource: "form" },
           },
           {
             path: "brand-bug",
-            element: <BrandBugsPage />,
+            element: (
+              <PluginRouteGate pluginId="brand_bug">
+                <BrandBugsPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "Brand Bug / Watermark" },
           },
           {
             path: "brand-bug/new",
-            element: <BrandBugEditorPage />,
+            element: (
+              <PluginRouteGate pluginId="brand_bug">
+                <BrandBugEditorPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "New instance" },
           },
           {
             path: "brand-bug/:id",
-            element: <BrandBugEditorPage />,
+            element: (
+              <PluginRouteGate pluginId="brand_bug">
+                <BrandBugEditorPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "Brand Bug instance" },
           },
           {
             path: "noise-meter",
-            element: <NoiseMetersPage />,
+            element: (
+              <PluginRouteGate pluginId="noise_meter">
+                <NoiseMetersPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "Noise Meter" },
           },
           {
             path: "noise-meter/new",
-            element: <NoiseMeterEditorPage />,
+            element: (
+              <PluginRouteGate pluginId="noise_meter">
+                <NoiseMeterEditorPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "New instance" },
           },
           {
             path: "noise-meter/:id",
-            element: <NoiseMeterEditorPage />,
+            element: (
+              <PluginRouteGate pluginId="noise_meter">
+                <NoiseMeterEditorPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "Noise Meter instance" },
           },
           {
             path: "noise-meter/:id/history",
-            element: <NoiseMeterHistoryPage />,
+            element: (
+              <PluginRouteGate pluginId="noise_meter">
+                <NoiseMeterHistoryPage />
+              </PluginRouteGate>
+            ),
             handle: { breadcrumb: "History" },
           },
         ],
@@ -541,9 +580,10 @@ export const studioRoutes: RouteObject[] = [
               breadcrumb: item.label,
               search: search(
                 item.label,
-                `${item.label} settings`,
+                settingsSearch[item.id]?.description ??
+                  `${item.label} settings`,
                 `/settings/${item.path}`,
-                ["settings"],
+                ["settings", ...(settingsSearch[item.id]?.keywords ?? [])],
               ),
             },
           })),

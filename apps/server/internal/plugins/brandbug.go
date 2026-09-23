@@ -154,6 +154,9 @@ func (s *Service) writeBrandBug(ctx context.Context, id, organizationID, userID 
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	if err = LockInstallation(ctx, tx, BrandBugID); err != nil {
+		return err
+	}
 	if err = validateTargets(ctx, tx, input.TargetScope, input.TargetIDs); err != nil {
 		return err
 	}

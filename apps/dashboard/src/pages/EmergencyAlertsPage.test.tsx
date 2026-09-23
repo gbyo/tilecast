@@ -168,8 +168,10 @@ describe("Emergency Alerts plugin", () => {
     );
 
     expect(
-      await screen.findByLabelText("Automated NWS monitoring"),
-    ).toHaveProperty("disabled", true);
+      (
+        await screen.findByRole("switch", { name: "Automated NWS monitoring" })
+      ).getAttribute("aria-disabled"),
+    ).toBe("true");
     expect(screen.getByLabelText("State or territory")).toHaveProperty(
       "disabled",
       true,
@@ -370,7 +372,7 @@ describe("Emergency Alerts plugin", () => {
     const eventNames = screen.getByLabelText("NWS event names");
     await user.clear(eventNames);
     await user.type(eventNames, "Tornado Warning, Flash Flood Warning");
-    await user.click(await screen.findByLabelText("Lobby"));
+    await user.click(await screen.findByRole("checkbox", { name: "Lobby" }));
     await user.click(screen.getByRole("button", { name: "Add rule" }));
 
     expect(create).toHaveBeenCalledWith(
@@ -387,7 +389,7 @@ describe("Emergency Alerts plugin", () => {
     // mode rather than as a third kind of presentation. A saved rule empties the
     // editor, so the second rule is entered from scratch.
     await user.type(screen.getByLabelText("Rule name"), "Ticker warnings");
-    await user.click(await screen.findByLabelText("Lobby"));
+    await user.click(await screen.findByRole("checkbox", { name: "Lobby" }));
     await user.selectOptions(
       screen.getByLabelText(/Emergency display/),
       "ticker",

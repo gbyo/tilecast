@@ -154,6 +154,8 @@ func (s *server) routes() http.Handler {
 			dashboard.Get("/locations", s.listLocations)
 			dashboard.Get("/plugins", s.listPlugins)
 			dashboard.Get("/plugins/dependency-graph", s.dependencyGraph)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF).Post("/plugins/{pluginId}/install", s.installPlugin)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF).Delete("/plugins/{pluginId}/installation", s.removePlugin)
 			dashboard.Get("/plugins/countdown-bar/instances", s.listCountdownBars)
 			dashboard.Get("/plugins/countdown-bar/instances/{id}", s.getCountdownBar)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF).Post("/plugins/countdown-bar/instances", s.createCountdownBar)

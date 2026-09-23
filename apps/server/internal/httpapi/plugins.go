@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
@@ -16,6 +17,35 @@ func (s *server) listPlugins(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": catalog})
+}
+
+// installPlugin records a release-owned plugin as installed. The first
+// installation answers 201; repeating it answers 200 with the same current
+// representation.
+func (s *server) installPlugin(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	item, created, err := s.plugins.Install(r.Context(), chi.URLParam(r, "pluginId"), user.ID)
+	if err != nil {
+		s.writePluginError(w, r, err)
+		return
+	}
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	writeJSON(w, status, map[string]any{"data": item})
+}
+
+// removePlugin deletes an installation record. It never deletes plugin data:
+// while the plugin still owns resources the answer is 409 plugin_in_use with
+// what remains.
+func (s *server) removePlugin(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	if err := s.plugins.Remove(r.Context(), chi.URLParam(r, "pluginId"), user.ID); err != nil {
+		s.writePluginError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *server) dependencyGraph(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +275,20 @@ func (s *server) deleteNoiseMeter(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) writePluginError(w http.ResponseWriter, r *http.Request, err error) {
+	var inUse *plugins.InUseError
 	switch {
+	case errors.As(err, &inUse):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]any{
+			"code":    "plugin_in_use",
+			"message": inUse.Error(),
+			"details": map[string]any{"pluginId": inUse.PluginID, "resources": inUse.Resources},
+		}})
+	case errors.Is(err, plugins.ErrPluginNotFound):
+		writeError(w, http.StatusNotFound, "plugin_not_found", "The plugin was not found.")
+	case errors.Is(err, plugins.ErrPluginNotInstallable):
+		writeError(w, http.StatusConflict, "plugin_not_installable", "This plugin cannot be installed.")
+	case errors.Is(err, plugins.ErrPluginNotInstalled):
+		writeError(w, http.StatusConflict, "plugin_not_installed", "Install this plugin before configuring it.")
 	case errors.Is(err, plugins.ErrNotFound):
 		writeError(w, http.StatusNotFound, "plugin_instance_not_found", "The plugin instance was not found.")
 	case errors.Is(err, plugins.ErrInvalid):

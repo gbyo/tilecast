@@ -5,7 +5,18 @@ import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { canManageContent } from "./ContentPage";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
 import { buttonVariants } from "../components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import { Skeleton } from "../components/ui/skeleton";
+import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
 import {
   Empty,
   EmptyContent,
@@ -40,14 +51,17 @@ export function FormsPluginPage() {
             to signage.
           </p>
         </div>
-        {canCreate && (
-          <Link
-            className={buttonVariants({ variant: "default" })}
-            to="/plugins/forms/new"
-          >
-            <Plus size={16} aria-hidden="true" /> Create form
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canCreate && (
+            <Link
+              className={buttonVariants({ variant: "default" })}
+              to="/plugins/forms/new"
+            >
+              <Plus data-icon="inline-start" aria-hidden="true" /> Create form
+            </Link>
+          )}
+          <PluginActionsMenu pluginId="forms" />
+        </div>
       </header>
       {forms.isError && (
         <Alert variant="destructive">
@@ -60,7 +74,11 @@ export function FormsPluginPage() {
         </Alert>
       )}
       {forms.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading forms…</p>
+        <ItemGroup className="gap-2" aria-busy="true">
+          {[0, 1].map((key) => (
+            <Skeleton key={key} className="h-20 rounded-2xl" />
+          ))}
+        </ItemGroup>
       ) : forms.data?.length === 0 ? (
         <Empty>
           <EmptyHeader>
@@ -86,32 +104,33 @@ export function FormsPluginPage() {
           )}
         </Empty>
       ) : (
-        <div className="grid gap-2">
+        <ItemGroup className="gap-2">
           {forms.data?.map((form) => (
-            <article
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
-              key={form.id}
-            >
-              <div className="grid min-w-0 gap-0.5">
-                <h2 className="truncate text-sm font-semibold">{form.name}</h2>
-                <p className="text-sm text-muted-foreground">
+            <Item variant="outline" key={form.id}>
+              <ItemContent>
+                <ItemTitle>
+                  <h2 className="truncate text-sm font-medium">{form.name}</h2>
+                  <Badge variant="secondary">
+                    {form.publishedRevisionNumber
+                      ? `Published revision ${form.publishedRevisionNumber}`
+                      : "Draft"}
+                  </Badge>
+                </ItemTitle>
+                <ItemDescription>
                   {form.description || "No description"}
-                </p>
-                <span className="text-xs text-muted-foreground">
-                  {form.publishedRevisionNumber
-                    ? `Published revision ${form.publishedRevisionNumber}`
-                    : "Draft"}
-                </span>
-              </div>
-              <Link
-                className={buttonVariants({ variant: "secondary" })}
-                to={`/plugins/forms/${form.id}`}
-              >
-                Manage form
-              </Link>
-            </article>
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Link
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                  to={`/plugins/forms/${form.id}`}
+                >
+                  Manage form
+                </Link>
+              </ItemActions>
+            </Item>
           ))}
-        </div>
+        </ItemGroup>
       )}
     </main>
   );

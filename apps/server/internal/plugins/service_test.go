@@ -1,11 +1,13 @@
 package plugins
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func intPointer(value int) *int {
@@ -117,5 +119,17 @@ func TestValidateCountdownBarRejectsInvalidScheduleAndTargets(t *testing.T) {
 	input.Timezone = "not/a-zone"
 	if err := validateCountdownBar(input); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("expected invalid timezone to be rejected, got %v", err)
+	}
+}
+
+// installPluginsForTest records plugins as installed for the singleton
+// organization, as an administrator's Install action would.
+func installPluginsForTest(t *testing.T, pool *pgxpool.Pool, ids ...string) {
+	t.Helper()
+	for _, id := range ids {
+		if _, err := pool.Exec(context.Background(), `INSERT INTO plugin_installations(organization_id,plugin_id)
+			SELECT id,$1 FROM organization_settings WHERE singleton ON CONFLICT DO NOTHING`, id); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
