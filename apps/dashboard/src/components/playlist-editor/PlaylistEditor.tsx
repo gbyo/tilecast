@@ -484,7 +484,7 @@ export function PlaylistEditorPage() {
         }}
       />
 
-      <div className="playlist-editor-v2__secondary">
+      <div className="grid min-w-0 gap-4">
         <UsedByPanel
           compact
           emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."

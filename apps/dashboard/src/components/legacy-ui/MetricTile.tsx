@@ -39,25 +39,23 @@ export function MetricTile({
 }) {
   const body = (
     <>
-      {Icon && (
-        <span className="metric-tile__icon">
-          <Icon size={18} aria-hidden={true} />
-        </span>
-      )}
-      <strong className="metric-tile__value">{value}</strong>
-      <span className="metric-tile__label">{label}</span>
-      {hint && <small className="metric-tile__hint">{hint}</small>}
+      <span className="flex items-center gap-2">
+        {Icon && (
+          <span className="shrink-0 text-muted-foreground">
+            <Icon size={18} aria-hidden={true} />
+          </span>
+        )}
+        <strong className="text-2xl font-semibold tracking-tight tabular-nums">
+          {value}
+        </strong>
+      </span>
+      <span className="text-sm font-medium">{label}</span>
+      {hint && <small className="text-xs text-muted-foreground">{hint}</small>}
       {delta && <MetricDeltaLabel delta={delta} />}
     </>
   );
-  const classes = [
-    "metric-tile",
-    to ? "metric-tile--link" : "",
-    Icon ? "metric-tile--with-icon" : "",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const classes =
+    `grid gap-1 rounded-xl border border-border p-4 ${to ? "hover:bg-muted" : ""} ${className}`.trim();
   return to ? (
     <Link className={classes} to={to}>
       {body}
@@ -72,7 +70,10 @@ function MetricDeltaLabel({ delta }: { delta: MetricDelta }) {
   const format = delta.format ?? ((input: number) => String(Math.abs(input)));
   if (change === 0) {
     return (
-      <span className="metric-tile__delta metric-tile__delta--flat">
+      <span
+        data-tone="flat"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+      >
         <Minus size={14} aria-hidden={true} />
         Unchanged from {comparisonLabel}
       </span>
@@ -89,7 +90,16 @@ function MetricDeltaLabel({ delta }: { delta: MetricDelta }) {
         ? "good"
         : "bad";
   return (
-    <span className={`metric-tile__delta metric-tile__delta--${tone}`}>
+    <span
+      data-tone={tone}
+      className={`inline-flex items-center gap-1 text-xs ${
+        tone === "good"
+          ? "text-emerald-600 dark:text-emerald-400"
+          : tone === "bad"
+            ? "text-destructive"
+            : "text-muted-foreground"
+      }`}
+    >
       <Icon size={14} aria-hidden={true} />
       {rising ? "Up" : "Down"} {format(change)} from {comparisonLabel}
     </span>

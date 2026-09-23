@@ -25,15 +25,31 @@ import type {
   DisplayControlAction,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import {
-  Button,
-  Field,
-  Notice,
-  PageHeader,
-  Popover,
-  Switch,
-} from "../components/legacy-ui";
 import { PlaylistPicker } from "../components/content-picker";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Popover as RheaPopover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
+import { Switch as RheaSwitch } from "../components/ui/switch";
+import { Textarea } from "../components/ui/textarea";
 import {
   conflictWinnerReason,
   countTargetScreens,
@@ -226,14 +242,22 @@ export function ScheduleEditorPage() {
   });
 
   if (id && existing.isLoading)
-    return <div className="table-loading">Loading schedule…</div>;
+    return (
+      <div className="grid gap-2" aria-label="Loading schedule">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   return (
     <section className="schedule-builder-page">
-      <PageHeader
-        className="schedule-builder-heading"
-        title={id ? "Edit schedule" : "Create schedule"}
-        description="Build the playback rule, then review its effect before saving."
-      />
+      <header className="schedule-builder-heading">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {id ? "Edit schedule" : "Create schedule"}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Build the playback rule, then review its effect before saving.
+        </p>
+      </header>
       <form
         className="schedule-builder"
         onSubmit={(event) => {
@@ -248,17 +272,21 @@ export function ScheduleEditorPage() {
             title="Content"
             description="Name this schedule and choose what it should play."
           >
-            <Field
-              label="Schedule name"
-              required
-              error={attempted ? errors.name : undefined}
-            >
-              <input
+            <Field>
+              <FieldLabel htmlFor="schedule-name">
+                Schedule name <span aria-hidden="true">*</span>
+              </FieldLabel>
+              <Input
+                id="schedule-name"
                 value={input.name}
                 maxLength={180}
                 onChange={(event) => set("name", event.target.value)}
                 placeholder="Morning announcements"
+                aria-invalid={attempted && errors.name ? true : undefined}
               />
+              {attempted && errors.name && (
+                <FieldError>{errors.name}</FieldError>
+              )}
             </Field>
             <div
               className="schedule-segmented"
@@ -396,27 +424,39 @@ export function ScheduleEditorPage() {
             description="Control availability, precedence, and administrator notes."
             compact
           >
-            <Switch
-              label="Enabled"
-              description="Disabled schedules remain saved but do not affect playback."
-              checked={input.enabled}
-              onChange={(event) => set("enabled", event.target.checked)}
-            />
+            {/* The wrapping label names the switch; no extra aria-label. */}
+            <label className="flex items-start gap-2 text-sm">
+              <RheaSwitch
+                checked={input.enabled}
+                onCheckedChange={(checked) => set("enabled", checked === true)}
+                className="mt-0.5"
+              />
+              <span className="grid gap-0.5">
+                <strong className="font-medium">Enabled</strong>
+                <small className="text-xs text-muted-foreground">
+                  Disabled schedules remain saved but do not affect playback.
+                </small>
+              </span>
+            </label>
             <PriorityControl
               value={input.priority}
               onChange={(value) => set("priority", value)}
               error={attempted ? errors.priority : undefined}
             />
-            <Field
-              label="Description"
-              description="Optional internal note shown in Studio."
-            >
-              <textarea
+            <Field>
+              <FieldLabel htmlFor="schedule-description">
+                Description
+              </FieldLabel>
+              <Textarea
+                id="schedule-description"
                 value={input.description}
                 maxLength={2000}
                 rows={3}
                 onChange={(event) => set("description", event.target.value)}
               />
+              <FieldDescription>
+                Optional internal note shown in Studio.
+              </FieldDescription>
             </Field>
           </BuilderSection>
         </main>
@@ -438,37 +478,35 @@ export function ScheduleEditorPage() {
                 : "Complete the required fields"}
           </span>
           {id && (
-            <Button
+            <RheaButton
               type="button"
-              variant="danger"
+              variant="destructive"
               disabled={remove.isPending}
               onClick={() =>
                 confirm(`Delete ${input.name}?`) && remove.mutate()
               }
             >
               Delete
-            </Button>
+            </RheaButton>
           )}
-          <Button
+          <RheaButton
             type="button"
-            variant="quiet"
+            variant="ghost"
             onClick={() => {
               if (!dirty || confirm("Discard unsaved schedule changes?"))
                 void navigate("/schedules");
             }}
           >
             Cancel
-          </Button>
-          <Button
+          </RheaButton>
+          <RheaButton
             type="submit"
-            variant="primary"
-            loading={save.isPending}
-            disabled={!valid || !dirty}
+            disabled={!valid || !dirty || save.isPending}
           >
-            Save schedule
-          </Button>
+            {save.isPending ? "Saving…" : "Save schedule"}
+          </RheaButton>
           {save.error && (
-            <span className="field__error" role="alert">
+            <span className="text-sm text-destructive" role="alert">
               {save.error.message}
             </span>
           )}
@@ -543,7 +581,7 @@ function PlaylistSelection({
   const thumbnail = playlist?.items?.[0]?.thumbnailUrl;
   return (
     <div className="schedule-playlist-field">
-      <span className="field__label">
+      <span className="text-sm font-medium">
         Presentation <span aria-hidden="true">*</span>
       </span>
       {playlist || layout ? (
@@ -563,16 +601,25 @@ function PlaylistSelection({
                 : `${playlist!.itemCount} item${playlist!.itemCount === 1 ? "" : "s"} · ${duration}`}
             </span>
           </div>
-          <Button type="button" variant="quiet" compact onClick={onChoose}>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onChoose}
+          >
             Change
-          </Button>
+          </RheaButton>
         </div>
       ) : (
-        <Button type="button" variant="secondary" onClick={onChoose}>
+        <RheaButton type="button" variant="secondary" onClick={onChoose}>
           Choose presentation
-        </Button>
+        </RheaButton>
       )}
-      {error && <span className="field__error">{error}</span>}
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -591,48 +638,56 @@ function DisplayControlSelection({
   };
   return (
     <div className="schedule-playlist-field">
-      <span className="field__label">
+      <span className="text-sm font-medium">
         Display action <span aria-hidden="true">*</span>
       </span>
       <div className="schedule-control-action">
-        <Field label="Action">
-          <select
+        <Field>
+          <FieldLabel htmlFor="schedule-display-action">Action</FieldLabel>
+          <RheaSelect
             value={action.type}
-            onChange={(event) =>
-              setType(event.target.value as DisplayControlAction["type"])
-            }
+            onValueChange={(next) => {
+              if (next) setType(next);
+            }}
           >
-            <option value="display_power_on">Power on</option>
-            <option value="display_power_off">Power off</option>
-            <option value="display_set_input">Set input</option>
-            <option value="display_set_volume">Set volume</option>
-            <option value="display_mute">Mute</option>
-            <option value="display_unmute">Unmute</option>
-            <option value="display_set_brightness">Set brightness</option>
-          </select>
+            <SelectTrigger id="schedule-display-action" aria-label="Action">
+              <SelectValue>{displayActionOptionLabel(action.type)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {displayActionOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </RheaSelect>
         </Field>
         {action.type === "display_set_input" && (
-          <Field
-            label="Input identifier"
-            description="For HDMI-CEC, use a physical address such as 1.0.0.0."
-          >
-            <input
+          <Field>
+            <FieldLabel htmlFor="schedule-display-input">
+              Input identifier
+            </FieldLabel>
+            <Input
+              id="schedule-display-input"
               value={action.input ?? ""}
               maxLength={32}
               onChange={(event) =>
                 onChange({ ...action, input: event.target.value })
               }
             />
+            <FieldDescription>
+              For HDMI-CEC, use a physical address such as 1.0.0.0.
+            </FieldDescription>
           </Field>
         )}
         {(action.type === "display_set_volume" ||
           action.type === "display_set_brightness") && (
-          <Field
-            label={
-              action.type === "display_set_volume" ? "Volume" : "Brightness"
-            }
-          >
-            <input
+          <Field>
+            <FieldLabel htmlFor="schedule-display-level">
+              {action.type === "display_set_volume" ? "Volume" : "Brightness"}
+            </FieldLabel>
+            <Input
+              id="schedule-display-level"
               type="number"
               min={0}
               max={100}
@@ -656,11 +711,18 @@ function DisplayControlSelection({
           </Field>
         )}
       </div>
-      <Notice variant="info">
-        The action uses the same schedule timing, priority, and targets as
-        content schedules. Players report whether the panel state is confirmed.
-      </Notice>
-      {error && <span className="field__error">{error}</span>}
+      <Alert>
+        <AlertDescription>
+          The action uses the same schedule timing, priority, and targets as
+          content schedules. Players report whether the panel state is
+          confirmed.
+        </AlertDescription>
+      </Alert>
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -701,50 +763,62 @@ function WeeklyTiming({
         ))}
       </div>
       {errors.daysOfWeek && (
-        <span className="field__error">{errors.daysOfWeek}</span>
+        <span className="text-sm text-destructive" role="alert">
+          {errors.daysOfWeek}
+        </span>
       )}
       <div className="schedule-time-pair">
-        <Field label="Starts">
-          <input
+        <Field>
+          <FieldLabel htmlFor="schedule-daily-start">Starts</FieldLabel>
+          <Input
+            id="schedule-daily-start"
             type="time"
             value={input.dailyStart ?? ""}
             onChange={(event) => set("dailyStart", event.target.value)}
           />
         </Field>
-        <Field label="Ends">
-          <input
+        <Field>
+          <FieldLabel htmlFor="schedule-daily-end">Ends</FieldLabel>
+          <Input
+            id="schedule-daily-end"
             type="time"
             value={input.dailyEnd ?? ""}
             onChange={(event) => set("dailyEnd", event.target.value)}
           />
         </Field>
       </div>
-      {errors.time && <span className="field__error">{errors.time}</span>}
+      {errors.time && (
+        <span className="text-sm text-destructive" role="alert">
+          {errors.time}
+        </span>
+      )}
       {overnight && (
-        <Notice
-          variant="info"
-          title={
-            input.dailyEnd === input.dailyStart
+        <Alert>
+          <AlertTitle>
+            {input.dailyEnd === input.dailyStart
               ? "24-hour window"
-              : "Overnight schedule"
-          }
-        >
-          Playback ends the following day.
-        </Notice>
+              : "Overnight schedule"}
+          </AlertTitle>
+          <AlertDescription>Playback ends the following day.</AlertDescription>
+        </Alert>
       )}
       {!showDateRange ? (
-        <Button
+        <RheaButton
           type="button"
-          variant="quiet"
-          compact
+          variant="ghost"
+          size="sm"
           onClick={() => setShowDateRange(true)}
         >
           Add date range
-        </Button>
+        </RheaButton>
       ) : (
         <div className="schedule-date-range">
-          <Field label="First active date">
-            <input
+          <Field>
+            <FieldLabel htmlFor="schedule-start-date">
+              First active date
+            </FieldLabel>
+            <Input
+              id="schedule-start-date"
               type="date"
               value={input.startDate ?? ""}
               onChange={(event) =>
@@ -752,8 +826,12 @@ function WeeklyTiming({
               }
             />
           </Field>
-          <Field label="Last active date">
-            <input
+          <Field>
+            <FieldLabel htmlFor="schedule-end-date">
+              Last active date
+            </FieldLabel>
+            <Input
+              id="schedule-end-date"
               type="date"
               value={input.endDate ?? ""}
               onChange={(event) =>
@@ -761,10 +839,10 @@ function WeeklyTiming({
               }
             />
           </Field>
-          <Button
+          <RheaButton
             type="button"
-            variant="quiet"
-            compact
+            variant="ghost"
+            size="sm"
             onClick={() => {
               set("startDate", undefined);
               set("endDate", undefined);
@@ -772,9 +850,11 @@ function WeeklyTiming({
             }}
           >
             Remove date range
-          </Button>
+          </RheaButton>
           {errors.dateRange && (
-            <span className="field__error">{errors.dateRange}</span>
+            <span className="text-sm text-destructive" role="alert">
+              {errors.dateRange}
+            </span>
           )}
         </div>
       )}
@@ -794,8 +874,10 @@ function OneTimeTiming({
   return (
     <div className="schedule-timing-fields">
       <div className="schedule-datetime-pair">
-        <Field label="Starts">
-          <input
+        <Field>
+          <FieldLabel htmlFor="schedule-onetime-start">Starts</FieldLabel>
+          <Input
+            id="schedule-onetime-start"
             type="datetime-local"
             value={localDateTime(input.oneTimeStart)}
             onChange={(event) =>
@@ -803,8 +885,10 @@ function OneTimeTiming({
             }
           />
         </Field>
-        <Field label="Ends">
-          <input
+        <Field>
+          <FieldLabel htmlFor="schedule-onetime-end">Ends</FieldLabel>
+          <Input
+            id="schedule-onetime-end"
             type="datetime-local"
             value={localDateTime(input.oneTimeEnd)}
             onChange={(event) =>
@@ -814,10 +898,14 @@ function OneTimeTiming({
         </Field>
       </div>
       <div className="schedule-duration">
-        <Clock3 size={17} />
+        <Clock3 size={17} aria-hidden="true" />
         <span>{oneTimeDuration(input)}</span>
       </div>
-      {error && <span className="field__error">{error}</span>}
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -838,62 +926,74 @@ function TimezonePicker({
       timezoneLabel(zone).toLowerCase().includes(search.toLowerCase()),
     )
     .slice(0, 80);
+  const [open, setOpen] = useState(false);
   return (
     <div className="schedule-timezone">
-      <span className="field__label" id="schedule-timezone-label">
+      <span className="text-sm font-medium" id="schedule-timezone-label">
         Timezone <span aria-hidden="true">*</span>
       </span>
-      <Popover
-        label="Timezone"
-        panelClassName="schedule-timezone__menu"
-        matchTriggerWidth
-        onOpenChange={(open) => {
-          if (!open) setSearch("");
+      <RheaPopover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setSearch("");
         }}
-        trigger={(props) => (
-          <button
-            type="button"
-            className="schedule-timezone__trigger"
-            aria-labelledby="schedule-timezone-label"
-            {...props}
-          >
-            <span>{timezoneLabel(value)}</span>
-            <ChevronDown size={17} aria-hidden="true" />
-          </button>
-        )}
       >
-        {(close) => (
-          <>
-            <label>
-              <Search size={16} aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search city or region"
-                aria-label="Search timezones"
-              />
-            </label>
-            <div>
-              {filtered.map((zone) => (
-                <button
-                  type="button"
-                  key={zone}
-                  className={zone === value ? "selected" : ""}
-                  onClick={() => {
-                    onChange(zone);
-                    close();
-                  }}
-                >
-                  {timezoneLabel(zone)}
-                  {zone === value && <Check size={16} aria-hidden="true" />}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </Popover>
-      {error && <span className="field__error">{error}</span>}
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              className="schedule-timezone__trigger"
+              aria-labelledby="schedule-timezone-label"
+            />
+          }
+        >
+          <span>{timezoneLabel(value)}</span>
+          <ChevronDown size={17} aria-hidden="true" />
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="schedule-timezone__menu grid max-h-80 gap-2 overflow-auto p-2"
+          aria-label="Timezone"
+        >
+          <label className="flex items-center gap-2 rounded-xl border border-border px-2">
+            <Search
+              size={16}
+              aria-hidden="true"
+              className="shrink-0 text-muted-foreground"
+            />
+            <Input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search city or region"
+              aria-label="Search timezones"
+              className="border-0 shadow-none focus-visible:ring-0"
+            />
+          </label>
+          <div className="grid gap-0.5">
+            {filtered.map((zone) => (
+              <button
+                type="button"
+                key={zone}
+                className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted ${zone === value ? "bg-muted font-medium" : ""}`}
+                onClick={() => {
+                  onChange(zone);
+                  setOpen(false);
+                }}
+              >
+                {timezoneLabel(zone)}
+                {zone === value && <Check size={16} aria-hidden="true" />}
+              </button>
+            ))}
+          </div>
+        </PopoverContent>
+      </RheaPopover>
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -1001,12 +1101,15 @@ function TargetPicker({
         </button>
       </div>
       <label className="schedule-picker-search">
-        <Search size={17} />
-        <input
+        <Search size={17} aria-hidden="true" />
+        <Input
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder={
+            tab === "groups" ? "Search Display Groups" : "Search screens"
+          }
+          aria-label={
             tab === "groups" ? "Search Display Groups" : "Search screens"
           }
         />
@@ -1033,9 +1136,17 @@ function TargetPicker({
             </button>
           );
         })}
-        {!results.length && <p>No {tab} match this search.</p>}
+        {!results.length && (
+          <p className="text-sm text-muted-foreground">
+            No {tab} match this search.
+          </p>
+        )}
       </div>
-      {error && <span className="field__error">{error}</span>}
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -1058,8 +1169,8 @@ function PriorityControl({
   };
   return (
     <div className="schedule-priority">
-      <span className="field__label">Priority</span>
-      <span className="field__hint">
+      <span className="text-sm font-medium">Priority</span>
+      <span className="text-sm text-muted-foreground">
         Higher-priority schedules win when times and targets overlap.
       </span>
       <div role="radiogroup" aria-label="Schedule priority">
@@ -1080,8 +1191,12 @@ function PriorityControl({
         )}
       </div>
       {preset === "custom" && (
-        <Field label="Custom priority">
-          <input
+        <Field>
+          <FieldLabel htmlFor="schedule-custom-priority">
+            Custom priority
+          </FieldLabel>
+          <Input
+            id="schedule-custom-priority"
             type="number"
             min="-999"
             max="999"
@@ -1090,7 +1205,11 @@ function PriorityControl({
           />
         </Field>
       )}
-      {error && <span className="field__error">{error}</span>}
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -1152,29 +1271,37 @@ function ScheduleSummary({
         <h4>Conflict preview</h4>
         {!input.targets.length ||
         (!input.playlistId && !input.layoutId && !input.displayAction) ? (
-          <Notice variant="neutral">
-            Choose content and targets to check conflicts.
-          </Notice>
+          <Alert>
+            <AlertDescription>
+              Choose content and targets to check conflicts.
+            </AlertDescription>
+          </Alert>
         ) : preview.isLoading ? (
-          <Notice variant="info">Checking applicable schedules…</Notice>
+          <Alert>
+            <AlertDescription>Checking applicable schedules…</AlertDescription>
+          </Alert>
         ) : preview.isError ? (
-          <Notice variant="danger" title="Conflict check unavailable">
-            {preview.error.message}
-          </Notice>
+          <Alert variant="destructive">
+            <AlertTitle>Conflict check unavailable</AlertTitle>
+            <AlertDescription>{preview.error.message}</AlertDescription>
+          </Alert>
         ) : conflicts.length === 0 && applicable.length <= 1 ? (
-          <Notice variant="success" title="No conflicts">
-            No other schedule overlaps this preview time.
-          </Notice>
+          <Alert>
+            <AlertTitle>No conflicts</AlertTitle>
+            <AlertDescription>
+              No other schedule overlaps this preview time.
+            </AlertDescription>
+          </Alert>
         ) : (
           <>
-            <Notice
-              variant="warning"
-              title={`${Math.max(conflicts.length, applicable.length - 1)} overlapping schedule${Math.max(conflicts.length, applicable.length - 1) === 1 ? "" : "s"}`}
-            >
-              {winner
-                ? `${winner.name} wins because ${conflictWinnerReason(winner, input.priority)}.`
-                : "Direct fallback content plays when no schedule is active."}
-            </Notice>
+            <Alert>
+              <AlertTitle>{`${Math.max(conflicts.length, applicable.length - 1)} overlapping schedule${Math.max(conflicts.length, applicable.length - 1) === 1 ? "" : "s"}`}</AlertTitle>
+              <AlertDescription>
+                {winner
+                  ? `${winner.name} wins because ${conflictWinnerReason(winner, input.priority)}.`
+                  : "Direct fallback content plays when no schedule is active."}
+              </AlertDescription>
+            </Alert>
             <ul>
               {applicable.map((schedule) => (
                 <li key={schedule.id}>
@@ -1199,6 +1326,26 @@ function ScheduleSummary({
         active.
       </p>
     </aside>
+  );
+}
+
+const displayActionOptions: {
+  value: DisplayControlAction["type"];
+  label: string;
+}[] = [
+  { value: "display_power_on", label: "Power on" },
+  { value: "display_power_off", label: "Power off" },
+  { value: "display_set_input", label: "Set input" },
+  { value: "display_set_volume", label: "Set volume" },
+  { value: "display_mute", label: "Mute" },
+  { value: "display_unmute", label: "Unmute" },
+  { value: "display_set_brightness", label: "Set brightness" },
+];
+
+function displayActionOptionLabel(value: DisplayControlAction["type"]) {
+  return (
+    displayActionOptions.find((option) => option.value === value)?.label ??
+    value
   );
 }
 

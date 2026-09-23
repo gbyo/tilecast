@@ -1,9 +1,18 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { ScreenGroup, SpanPanel, SpanStatus } from "../api/types";
-import { Button, Field, Panel, SectionHeader } from "./legacy-ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import "./SpanWallEditor.css";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Button as RheaButton } from "./ui/button";
+import { Field, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 type Props = {
   group: ScreenGroup;
@@ -41,6 +50,17 @@ function preset(
       bezelBottom: 0,
     };
   });
+}
+
+const rotationOptions = [0, 90, 180, 270].map((value) => ({
+  value: String(value),
+  label: `${value}°`,
+}));
+
+function rotationLabel(value: string) {
+  return (
+    rotationOptions.find((option) => option.value === value)?.label ?? value
+  );
 }
 
 export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
@@ -97,42 +117,52 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
 
   if (group.displayMode !== "span") {
     return (
-      <Panel className="sync-group-panel span-wall-panel">
-        <SectionHeader
-          title="Wall mode"
-          description="Mirror keeps the existing synchronized group behavior. Switch to Span when the screens form one logical canvas."
-        />
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Wall mode</h3>
+          <p className="text-sm text-muted-foreground">
+            Mirror keeps the existing synchronized group behavior. Switch to
+            Span when the screens form one logical canvas.
+          </p>
+        </header>
         {manageable && (
-          <Button
-            variant="secondary"
-            loading={update.isPending}
-            disabled={group.screens.length === 0}
-            onClick={() => {
-              setCanvas({ width: 3840, height: 1080 });
-              setPanels(preset(group.screens, 3840, 1080, 2));
-              update.mutate({
-                displayMode: "span",
-                canvas: { width: 3840, height: 1080 },
-                panels: preset(group.screens, 3840, 1080, 2),
-              });
-            }}
-          >
-            Switch to Span
-          </Button>
+          <div>
+            <RheaButton
+              type="button"
+              variant="secondary"
+              disabled={group.screens.length === 0 || update.isPending}
+              onClick={() => {
+                setCanvas({ width: 3840, height: 1080 });
+                setPanels(preset(group.screens, 3840, 1080, 2));
+                update.mutate({
+                  displayMode: "span",
+                  canvas: { width: 3840, height: 1080 },
+                  panels: preset(group.screens, 3840, 1080, 2),
+                });
+              }}
+            >
+              {update.isPending ? "Switching…" : "Switch to Span"}
+            </RheaButton>
+          </div>
         )}
-      </Panel>
+      </section>
     );
   }
 
   return (
-    <Panel className="sync-group-panel span-wall-panel">
-      <SectionHeader
-        title="Span wall editor"
-        description="Arrange each panel on one logical canvas. Video is prepared into normal-resolution H.264 panel files on the server before playback."
-      />
-      <div className="span-wall-toolbar">
-        <Field label="Canvas width">
-          <input
+    <section className="grid gap-4 rounded-xl border border-border p-4">
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">Span wall editor</h3>
+        <p className="text-sm text-muted-foreground">
+          Arrange each panel on one logical canvas. Video is prepared into
+          normal-resolution H.264 panel files on the server before playback.
+        </p>
+      </header>
+      <div className="flex flex-wrap items-end gap-3">
+        <Field className="min-w-32">
+          <FieldLabel htmlFor="span-canvas-width">Canvas width</FieldLabel>
+          <Input
+            id="span-canvas-width"
             type="number"
             min={320}
             max={16384}
@@ -143,8 +173,10 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
             }}
           />
         </Field>
-        <Field label="Canvas height">
-          <input
+        <Field className="min-w-32">
+          <FieldLabel htmlFor="span-canvas-height">Canvas height</FieldLabel>
+          <Input
+            id="span-canvas-height"
             type="number"
             min={320}
             max={16384}
@@ -155,17 +187,20 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
             }}
           />
         </Field>
-        <div className="span-wall-presets" aria-label="Wall presets">
-          <span>Presets</span>
+        <div className="flex items-center gap-2" aria-label="Wall presets">
+          <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Presets
+          </span>
           {[
             { label: "2 × 1", columns: 2 },
             { label: "1 × 2", columns: 1 },
             { label: "2 × 2", columns: 2 },
           ].map((item, index) => (
-            <Button
+            <RheaButton
               key={item.label}
-              variant="quiet"
-              compact
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 const nextCanvas =
                   index === 1
@@ -186,40 +221,42 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
               }}
             >
               {item.label}
-            </Button>
+            </RheaButton>
           ))}
         </div>
         {manageable && (
-          <div className="span-wall-actions">
-            <Button
-              variant="primary"
-              loading={update.isPending}
-              disabled={!dirty}
+          <div className="flex items-center gap-2">
+            <RheaButton
+              type="button"
+              disabled={!dirty || update.isPending}
               onClick={() =>
                 update.mutate({ displayMode: "span", canvas, panels })
               }
             >
-              Save wall
-            </Button>
-            <Button
-              variant="quiet"
+              {update.isPending ? "Saving…" : "Save wall"}
+            </RheaButton>
+            <RheaButton
+              type="button"
+              variant="ghost"
               disabled={update.isPending}
               onClick={() => update.mutate({ displayMode: "mirror" })}
             >
               Return to Mirror
-            </Button>
+            </RheaButton>
           </div>
         )}
       </div>
       {update.isError && (
-        <div className="notice notice--error">
-          The wall geometry could not be saved. Check that panels do not overlap
-          and fit inside the canvas.
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            The wall geometry could not be saved. Check that panels do not
+            overlap and fit inside the canvas.
+          </AlertDescription>
+        </Alert>
       )}
-      <div className="span-wall-layout">
+      <div className="grid gap-4 lg:grid-cols-2">
         <div
-          className="span-wall-preview"
+          className="relative min-h-48 overflow-hidden rounded-xl border border-border bg-black"
           style={{
             aspectRatio: `${Math.max(canvas.width, 1)} / ${Math.max(canvas.height, 1)}`,
           }}
@@ -227,7 +264,7 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
         >
           {panels.map((panel) => (
             <div
-              className="span-wall-preview__panel"
+              className="absolute flex flex-col items-center justify-center gap-1 overflow-hidden border border-sky-300 bg-sky-900 text-slate-50"
               key={panel.screenId}
               style={{
                 left: `${(panel.x / canvas.width) * 100}%`,
@@ -237,23 +274,32 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
                 transform: `rotate(${panel.rotation}deg)`,
               }}
             >
-              <strong>{screenNames.get(panel.screenId) ?? "Screen"}</strong>
-              <small>
+              <strong className="text-sm">
+                {screenNames.get(panel.screenId) ?? "Screen"}
+              </strong>
+              <small className="text-xs text-sky-200">
                 {panel.width} × {panel.height}
               </small>
             </div>
           ))}
         </div>
-        <div className="span-wall-panels">
+        <div className="grid max-h-[30rem] gap-3 overflow-auto">
           {panels.map((panel) => (
-            <fieldset key={panel.screenId} className="span-wall-panel-fields">
-              <legend>
+            <fieldset
+              key={panel.screenId}
+              className="grid gap-2 rounded-xl border border-border p-3"
+            >
+              <legend className="px-1 text-sm font-semibold">
                 {screenNames.get(panel.screenId) ?? panel.screenId}
               </legend>
-              <div className="span-wall-panel-fields__grid">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                 {(["x", "y", "width", "height"] as const).map((key) => (
-                  <Field key={key} label={key.toUpperCase()}>
-                    <input
+                  <Field key={key}>
+                    <FieldLabel htmlFor={`span-${panel.screenId}-${key}`}>
+                      {key.toUpperCase()}
+                    </FieldLabel>
+                    <Input
+                      id={`span-${panel.screenId}-${key}`}
                       type="number"
                       min={0}
                       value={panel[key]}
@@ -268,24 +314,37 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
                     />
                   </Field>
                 ))}
-                <Field label="Rotation">
-                  <select
-                    value={panel.rotation}
+                <Field>
+                  <FieldLabel htmlFor={`span-${panel.screenId}-rotation`}>
+                    Rotation
+                  </FieldLabel>
+                  <RheaSelect
+                    value={String(panel.rotation)}
                     disabled={!manageable}
-                    onChange={(event) =>
+                    onValueChange={(next) =>
                       setPanel(
                         panel.screenId,
                         "rotation",
-                        Number(event.target.value),
+                        Number(next ?? panel.rotation),
                       )
                     }
                   >
-                    {[0, 90, 180, 270].map((value) => (
-                      <option key={value} value={value}>
-                        {value}°
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      id={`span-${panel.screenId}-rotation`}
+                      aria-label="Rotation"
+                    >
+                      <SelectValue>
+                        {rotationLabel(String(panel.rotation))}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rotationOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </RheaSelect>
                 </Field>
               </div>
             </fieldset>
@@ -293,13 +352,18 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
         </div>
       </div>
       {status.isError && (
-        <div className="notice notice--error">
-          Span preparation status is unavailable.
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            Span preparation status is unavailable.
+          </AlertDescription>
+        </Alert>
       )}
       {panels.length > 0 && (
-        <div className="span-wall-preparations" aria-live="polite">
-          <strong>Panel preparation</strong>
+        <div
+          className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3 text-sm"
+          aria-live="polite"
+        >
+          <strong className="basis-full">Panel preparation</strong>
           {panels.map((panel) => {
             const item = preparationByScreen.get(panel.screenId);
             const label = item?.status ?? "idle";
@@ -315,6 +379,6 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
           })}
         </div>
       )}
-    </Panel>
+    </section>
   );
 }

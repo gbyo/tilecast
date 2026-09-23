@@ -4,6 +4,8 @@ import { Link } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import { formatWhen, humanize, ResultBadge } from "./ActivityShared";
 import { screenActivityLink } from "./activityLinks";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
 
 export type IncidentStatus =
   "open" | "acknowledged" | "recovered" | "resolved" | "ignored";
@@ -147,13 +149,13 @@ export function useCanActOnIncidents(): boolean {
 }
 
 export function IncidentStatusBadge({ incident }: { incident: Incident }) {
-  return (
-    <span
-      className={`activity-incident__status activity-incident__status--${incident.status}`}
-    >
-      {humanize(incident.status)}
-    </span>
-  );
+  const variant =
+    incident.status === "open"
+      ? "destructive"
+      : incident.status === "acknowledged"
+        ? "default"
+        : "secondary";
+  return <Badge variant={variant}>{humanize(incident.status)}</Badge>;
 }
 
 /**
@@ -178,13 +180,17 @@ export function IncidentRow({
   const recovered = incident.recoveredAt;
 
   return (
-    <li className="activity-incident-row">
-      <div className="activity-incident">
-        <ResultBadge value={incident.severity} />
-        <div className="activity-incident__body">
-          <strong>{incident.title}</strong>
-          <small>{incident.description}</small>
-          <div className="activity-incident__meta">
+    <li className="grid gap-2 rounded-xl border border-border p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid min-w-0 flex-1 gap-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <ResultBadge value={incident.severity} />
+            <strong className="text-sm">{incident.title}</strong>
+          </span>
+          <small className="text-xs text-muted-foreground">
+            {incident.description}
+          </small>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <IncidentStatusBadge incident={incident} />
             <IncidentScope incident={incident} />
             {incident.locationName && <span>{incident.locationName}</span>}
@@ -197,7 +203,7 @@ export function IncidentRow({
             </span>
             <span>Last seen {formatWhen(incident.lastSeenAt)}</span>
             {recovered && (
-              <span className="activity-incident__recovered">
+              <span>
                 Recovered {formatWhen(recovered)}
                 {incident.recoveryMode === "automatic" ? " on its own" : ""}
               </span>
@@ -210,13 +216,17 @@ export function IncidentRow({
             )}
           </div>
         </div>
-        <div className="activity-incident__side">
-          <time dateTime={incident.openedAt}>
+        <div className="grid shrink-0 justify-items-end gap-1">
+          <time
+            dateTime={incident.openedAt}
+            className="text-xs text-muted-foreground tabular-nums"
+          >
             {formatWhen(incident.openedAt)}
           </time>
-          <button
+          <RheaButton
             type="button"
-            className="button button--quiet button--compact"
+            variant="ghost"
+            size="sm"
             aria-expanded={onOpenDetail ? undefined : expanded}
             onClick={() =>
               onOpenDetail
@@ -225,15 +235,13 @@ export function IncidentRow({
             }
           >
             Details
-          </button>
+          </RheaButton>
         </div>
       </div>
       {!onOpenDetail && expanded && (
-        <div className="activity-incident__detail">
+        <div className="grid gap-2 border-t border-border pt-2">
           {detail ?? <IncidentFacts incident={incident} />}
-          {actions && (
-            <div className="activity-incident__actions">{actions}</div>
-          )}
+          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </div>
       )}
     </li>
@@ -243,7 +251,7 @@ export function IncidentRow({
 /** The established facts about an incident, and only the established ones. */
 export function IncidentFacts({ incident }: { incident: Incident }) {
   return (
-    <dl>
+    <dl className="grid gap-1.5 text-sm sm:grid-cols-2 [&_div]:flex [&_div]:flex-wrap [&_div]:gap-x-2 [&_dt]:shrink-0 [&_dt]:text-muted-foreground">
       <div>
         <dt>Probable cause</dt>
         {/* Never invent one. An empty cause says so plainly rather than
@@ -327,15 +335,16 @@ export function IncidentActionButtons({
   return (
     <>
       {actionsFor(incident.status).map((item) => (
-        <button
+        <RheaButton
           key={item.action}
           type="button"
-          className="button button--secondary button--compact"
+          variant="secondary"
+          size="sm"
           disabled={pending}
           onClick={() => onAct(item.action)}
         >
           {item.label}
-        </button>
+        </RheaButton>
       ))}
     </>
   );

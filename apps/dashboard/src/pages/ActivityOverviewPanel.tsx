@@ -14,6 +14,7 @@ import {
   type MetricDirection,
   type ResolvedTimeRange,
 } from "../components/legacy-ui";
+import { Badge } from "../components/ui/badge";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
 import {
   activityParams,
@@ -242,26 +243,23 @@ export function OverviewTab({
   const fleet = data.fleet;
 
   return (
-    <div className="activity-overview">
+    <div className="grid gap-4">
       {fleet && (
         <section
-          className="activity-panel activity-health"
+          className="grid gap-3 rounded-xl border border-border p-4"
           aria-label="Fleet health"
         >
-          <header>
-            <div>
-              <h3>Fleet health</h3>
-              <p>
-                Current status for {fleet.measured} enabled, paired screens.
-                Healthy screens are reporting and playing assigned content.
-              </p>
-            </div>
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">Fleet health</h3>
+            <p className="text-sm text-muted-foreground">
+              Current status for {fleet.measured} enabled, paired screens.
+              Healthy screens are reporting and playing assigned content.
+            </p>
           </header>
-          <div className="activity-health__states">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             {fleetStates.map((state) => (
               <MetricTile
                 key={state.key}
-                className={`activity-health__state activity-health__state--${state.key}`}
                 icon={state.icon}
                 label={state.label}
                 value={fleet[state.key]}
@@ -284,11 +282,11 @@ export function OverviewTab({
 
       <FleetUptimePanel description="Player connection and playback time over a fixed window." />
 
-      <section className="activity-metrics" aria-label="Activity totals">
-        <div className="activity-metrics__primary">
+      <section className="grid gap-2" aria-label="Activity totals">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {primaryMetrics.map(tile)}
         </div>
-        <div className="activity-metrics__secondary">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {secondaryMetrics.map(tile)}
         </div>
       </section>
@@ -328,11 +326,11 @@ function ImportantTimeline({ items }: { items: Overview["timeline"] }) {
   }, [visible]);
 
   return (
-    <section className="activity-panel">
-      <header>
-        <div>
-          <h3>Important timeline</h3>
-          <p>
+    <section className="grid gap-3 rounded-xl border border-border p-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <h3 className="text-base font-semibold">Important timeline</h3>
+          <p className="text-sm text-muted-foreground">
             High-value playback, recovery, takeover, and administrative events.
           </p>
         </div>
@@ -354,20 +352,23 @@ function ImportantTimeline({ items }: { items: Overview["timeline"] }) {
       {visible.length === 0 ? (
         <EmptyState message="No high-value events occurred in this range." />
       ) : (
-        <div className="activity-timeline-days">
+        <div className="grid gap-4">
           {days.map((entries) => (
-            <section key={entries[0]!.id}>
-              <h4>{formatDay(entries[0]!.timestamp)}</h4>
-              <ol className="activity-timeline">
+            <section key={entries[0]!.id} className="grid gap-2">
+              <h4 className="text-sm font-semibold">
+                {formatDay(entries[0]!.timestamp)}
+              </h4>
+              <ol className="grid gap-2">
                 {entries.map((item) => (
-                  <li key={`${item.domain}-${item.id}`}>
-                    <time>{formatWhen(item.timestamp)}</time>
-                    <span
-                      className={`activity-domain activity-domain--${item.domain}`}
-                    >
-                      {item.domain}
-                    </span>
-                    <p>{item.description}</p>
+                  <li
+                    key={`${item.domain}-${item.id}`}
+                    className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-xl border border-border p-3 text-sm"
+                  >
+                    <time className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {formatWhen(item.timestamp)}
+                    </time>
+                    <Badge variant="secondary">{item.domain}</Badge>
+                    <p className="min-w-0 flex-1">{item.description}</p>
                   </li>
                 ))}
               </ol>

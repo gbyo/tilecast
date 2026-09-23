@@ -21,6 +21,7 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes,
 } from "react";
+import { Button as RheaButton } from "../ui/button";
 
 type ButtonVariant = "primary" | "secondary" | "quiet" | "danger";
 
@@ -265,7 +266,10 @@ export function ViewTabs<Value extends string>({
   }
 
   return (
-    <nav className={`view-tabs ${className}`.trim()} aria-label={label}>
+    <nav
+      className={`flex flex-wrap gap-1 border-b border-border ${className}`.trim()}
+      aria-label={label}
+    >
       {items.map((item) => (
         <button
           key={item.value}
@@ -273,6 +277,11 @@ export function ViewTabs<Value extends string>({
           aria-current={value === item.value ? "page" : undefined}
           disabled={item.disabled}
           onClick={() => onValueChange(item.value)}
+          className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            value === item.value
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          } disabled:pointer-events-none disabled:opacity-50`}
           onKeyDown={(event) => {
             if (event.key === "ArrowLeft") moveFocus(event, -1);
             if (event.key === "ArrowRight") moveFocus(event, 1);
@@ -313,18 +322,31 @@ export function Pagination({
   className?: string;
 }) {
   return (
-    <nav className={`pagination ${className}`.trim()} aria-label={label}>
-      <Button
+    <nav
+      className={`flex flex-wrap items-center gap-2 ${className}`.trim()}
+      aria-label={label}
+    >
+      <RheaButton
+        type="button"
         variant="secondary"
+        size="sm"
         disabled={previousDisabled}
         onClick={previous}
       >
         Previous
-      </Button>
-      {status && <span className="pagination__status">{status}</span>}
-      <Button variant="secondary" disabled={nextDisabled} onClick={next}>
+      </RheaButton>
+      {status && (
+        <span className="text-sm text-muted-foreground">{status}</span>
+      )}
+      <RheaButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={nextDisabled}
+        onClick={next}
+      >
         Next
-      </Button>
+      </RheaButton>
     </nav>
   );
 }
@@ -375,7 +397,7 @@ export function ToggleGroup<Value extends string>({
 }) {
   return (
     <div
-      className={`toggle-group ${className}`.trim()}
+      className={`inline-flex flex-wrap items-center gap-0.5 rounded-2xl border border-border bg-muted p-0.5 ${className}`.trim()}
       role="group"
       aria-label={label}
     >
@@ -386,6 +408,11 @@ export function ToggleGroup<Value extends string>({
           aria-pressed={value === item.value}
           disabled={item.disabled}
           onClick={() => onValueChange(item.value)}
+          className={`rounded-xl px-3 py-1.5 text-sm font-medium transition-colors ${
+            value === item.value
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          } disabled:pointer-events-none disabled:opacity-50`}
         >
           {item.label}
         </button>

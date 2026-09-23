@@ -2,6 +2,16 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { CheckCircle2 } from "lucide-react";
 import { Pagination } from "../components/legacy-ui";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Skeleton } from "../components/ui/skeleton";
 
 export type ActivityResult =
   | "playing"
@@ -254,13 +264,17 @@ export function TechnicalDetails({
   );
   if (!entries.length) return <span>—</span>;
   return (
-    <details className="activity-details">
-      <summary>View</summary>
-      <dl>
+    <details className="grid gap-1 text-xs">
+      <summary className="cursor-pointer font-medium text-primary hover:underline">
+        View
+      </summary>
+      <dl className="grid gap-1 rounded-lg border border-border bg-muted/50 p-2">
         {entries.map(([key, item]) => (
-          <div key={key}>
-            <dt>{humanize(key)}</dt>
-            <dd>{formatTechnicalValue(item)}</dd>
+          <div key={key} className="flex flex-wrap gap-x-2">
+            <dt className="shrink-0 text-muted-foreground">{humanize(key)}</dt>
+            <dd className="min-w-0 flex-1 break-words">
+              {formatTechnicalValue(item)}
+            </dd>
           </div>
         ))}
       </dl>
@@ -282,27 +296,45 @@ function formatTechnicalValue(value: unknown): string {
 }
 
 export function ResultBadge({ value }: { value: string }) {
-  return (
-    <span
-      className={`activity-badge activity-badge--${value.replaceAll("_", "-")}`}
-    >
-      {humanize(value)}
-    </span>
-  );
+  const variant =
+    value === "failed" || value === "critical" || value === "error"
+      ? "destructive"
+      : value === "completed" ||
+          value === "playing" ||
+          value === "success" ||
+          value === "recovered"
+        ? "default"
+        : "secondary";
+  return <Badge variant={variant}>{humanize(value)}</Badge>;
 }
 
 export function Loading() {
-  return <div className="table-loading">Loading Activity…</div>;
+  return (
+    <div className="grid gap-2" aria-label="Loading Activity">
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-12 w-full" />
+    </div>
+  );
 }
 export function ErrorNotice({ error }: { error: Error }) {
-  return <div className="notice notice--error">{error.message}</div>;
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>{error.message}</AlertDescription>
+    </Alert>
+  );
 }
 export function EmptyState({ message }: { message: string }) {
   return (
-    <div className="activity-empty">
-      <CheckCircle2 size={22} />
-      <p>{message}</p>
-    </div>
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <CheckCircle2 size={22} aria-hidden="true" />
+        </EmptyMedia>
+        <EmptyTitle>No results</EmptyTitle>
+        <EmptyDescription>{message}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }
 

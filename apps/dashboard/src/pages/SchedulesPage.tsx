@@ -1,19 +1,30 @@
 import {
-  Button,
-  EmptyState,
-  Field,
-  PageHeader,
-  Panel,
-  SectionHeader,
-  Select,
-  StatusBadge,
-} from "../components/legacy-ui";
-import {
   useMutation,
   useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { LayoutGrid } from "lucide-react";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
@@ -83,77 +94,102 @@ export function GroupsPage() {
   };
 
   return (
-    <section className="sync-groups-page">
-      <PageHeader
-        title="Display Groups"
-        description="Keep a set of screens on the same content, schedule, and playback position. Mirror groups preserve synchronized playback."
-        actions={
-          manageable ? (
-            <Button variant="primary" onClick={createGroup}>
-              Create Display Group
-            </Button>
-          ) : undefined
-        }
-      />
-      <ScreenManagementTabs className="sync-groups-tabs" />
-      {q.isError && (
-        <div className="notice notice--error" role="alert">
-          Display Groups could not be loaded. Try refreshing the page.
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Display Groups
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Keep a set of screens on the same content, schedule, and playback
+            position. Mirror groups preserve synchronized playback.
+          </p>
         </div>
+        {manageable && (
+          <div className="flex flex-wrap items-center gap-2">
+            <RheaButton type="button" onClick={createGroup}>
+              Create Display Group
+            </RheaButton>
+          </div>
+        )}
+      </header>
+      <ScreenManagementTabs />
+      {q.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            Display Groups could not be loaded. Try refreshing the page.
+          </AlertDescription>
+        </Alert>
       )}
       {q.isLoading && (
-        <div className="table-loading">Loading Display Groups…</div>
+        <div className="grid gap-2" aria-label="Loading Display Groups">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
       )}
-      <div className="sync-group-grid">
+      <div className="grid gap-3 sm:grid-cols-2">
         {q.data?.items?.map((group) => (
           <Link
-            className="sync-group-card"
+            className="grid gap-3 rounded-xl border border-border p-4 hover:bg-muted"
             to={`/groups/${group.id}`}
             key={group.id}
           >
-            <header className="sync-group-card__header">
-              <span className="sync-group-card__title">
-                <strong>{group.name}</strong>
-                <small>{group.description || "No description"}</small>
+            <span className="flex items-start justify-between gap-2">
+              <span className="grid min-w-0 gap-0.5">
+                <strong className="truncate text-sm">{group.name}</strong>
+                <small className="truncate text-xs text-muted-foreground">
+                  {group.description || "No description"}
+                </small>
               </span>
-              <StatusBadge
-                label={`${group.membershipCount} screen${group.membershipCount === 1 ? "" : "s"}`}
-                tone={group.membershipCount > 0 ? "info" : "neutral"}
-              />
-            </header>
-            <dl className="sync-group-card__details">
-              <div>
-                <dt>Fallback</dt>
-                <dd>
+              <Badge
+                variant={group.membershipCount > 0 ? "default" : "secondary"}
+              >
+                {group.membershipCount} screen
+                {group.membershipCount === 1 ? "" : "s"}
+              </Badge>
+            </span>
+            <dl className="grid gap-2 text-sm">
+              <div className="flex flex-wrap gap-x-2">
+                <dt className="text-muted-foreground">Fallback</dt>
+                <dd className="flex flex-wrap gap-x-2">
                   <span>{groupFallbackType(group)}</span>
                   <strong>{groupFallbackName(group)}</strong>
                 </dd>
               </div>
-              <div>
-                <dt>Updated</dt>
+              <div className="flex flex-wrap gap-x-2">
+                <dt className="text-muted-foreground">Updated</dt>
                 <dd>{formatGroupDate(group.updatedAt)}</dd>
               </div>
             </dl>
-            <p className="sync-group-card__members">
+            <span className="text-sm text-muted-foreground">
               {groupMemberSummary(group)}
-            </p>
-            <span className="sync-group-card__open">View group</span>
+            </span>
+            <span className="text-sm font-medium">View group</span>
           </Link>
         ))}
       </div>
       {q.data?.items?.length === 0 && (
-        <EmptyState
-          className="sync-groups-empty"
-          title="No Display Groups yet"
-          message="Create a Display Group for screens that should always share content, schedules, and playback position."
-          action={
-            manageable ? (
-              <Button variant="primary" onClick={createGroup}>
-                Create Display Group
-              </Button>
-            ) : undefined
-          }
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <LayoutGrid size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No Display Groups yet</EmptyTitle>
+            <EmptyDescription>
+              Create a Display Group for screens that should always share
+              content, schedules, and playback position.
+              {manageable && (
+                <RheaButton
+                  type="button"
+                  onClick={createGroup}
+                  className="mt-3"
+                >
+                  Create Display Group
+                </RheaButton>
+              )}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
     </section>
   );
@@ -247,8 +283,26 @@ export function GroupDetailPage() {
           : "",
     );
   }, [group.data?.layoutId, group.data?.playlistId]);
-  if (!group.data) return <div className="table-loading">Loading group…</div>;
+  if (!group.data)
+    return (
+      <div className="grid gap-2" aria-label="Loading group">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
   const groupData = group.data;
+  const fallbackOptionLabel = (value: string) => {
+    const [type, id] = value.split(":");
+    if (type === "playlist") {
+      const found = playlists.data?.items?.find((item) => item.id === id);
+      return found ? `Playlist · ${found.name}` : value;
+    }
+    if (type === "layout") {
+      const found = layouts.data?.items?.find((item) => item.id === id);
+      return found ? `Layout · ${found.name}` : value;
+    }
+    return value;
+  };
   const assignedElsewhere = new Set(
     (groups.data?.items ?? [])
       .filter((candidate) => candidate.id !== id)
@@ -275,57 +329,62 @@ export function GroupDetailPage() {
       : "";
 
   return (
-    <section className="sync-group-detail">
-      <PageHeader
-        title={groupData.name}
-        description={
-          groupData.description ||
-          "Screens in this group share fallback content, schedules, and playback position."
-        }
-        actions={
-          manageable ? (
-            <>
-              <Button
-                variant="quiet"
-                onClick={() => {
-                  const name = prompt("Group name", groupData.name);
-                  if (name)
-                    update.mutate({
-                      name,
-                      description:
-                        prompt("Description", groupData.description) ??
-                        groupData.description,
-                    });
-                }}
-              >
-                Edit Display Group
-              </Button>
-              <Button variant="primary" onClick={() => setAirplayOpen(true)}>
-                Present · AirPlay
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setQuickPresentOpen(true)}
-              >
-                Show now
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => {
-                  if (
-                    confirm(
-                      `Delete ${groupData.name}? Screens will not be deleted.`,
-                    )
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {groupData.name}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {groupData.description ||
+              "Screens in this group share fallback content, schedules, and playback position."}
+          </p>
+        </div>
+        {manageable && (
+          <div className="flex flex-wrap items-center gap-2">
+            <RheaButton
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                const name = prompt("Group name", groupData.name);
+                if (name)
+                  update.mutate({
+                    name,
+                    description:
+                      prompt("Description", groupData.description) ??
+                      groupData.description,
+                  });
+              }}
+            >
+              Edit Display Group
+            </RheaButton>
+            <RheaButton type="button" onClick={() => setAirplayOpen(true)}>
+              Present · AirPlay
+            </RheaButton>
+            <RheaButton
+              type="button"
+              variant="secondary"
+              onClick={() => setQuickPresentOpen(true)}
+            >
+              Show now
+            </RheaButton>
+            <RheaButton
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (
+                  confirm(
+                    `Delete ${groupData.name}? Screens will not be deleted.`,
                   )
-                    deleteGroup.mutate();
-                }}
-              >
-                Delete Display Group
-              </Button>
-            </>
-          ) : undefined
-        }
-      />
+                )
+                  deleteGroup.mutate();
+              }}
+            >
+              Delete Display Group
+            </RheaButton>
+          </div>
+        )}
+      </header>
       <AirPlayPresentDialog
         open={airplayOpen}
         targetType="group"
@@ -353,31 +412,31 @@ export function GroupDetailPage() {
         csrfToken={csrf}
         onClose={() => setQuickPresentOpen(false)}
       />
-      <ScreenManagementTabs className="sync-groups-tabs" />
+      <ScreenManagementTabs />
 
-      <Panel className="sync-group-overview">
-        <dl>
-          <div>
-            <dt>Screens</dt>
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">Screens</dt>
             <dd>{groupData.membershipCount}</dd>
           </div>
-          <div>
-            <dt>Mode</dt>
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">Mode</dt>
             <dd>{groupData.displayMode === "span" ? "Span" : "Mirror"}</dd>
           </div>
-          <div>
-            <dt>Fallback content</dt>
-            <dd>
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">Fallback content</dt>
+            <dd className="flex flex-wrap gap-x-2">
               <span>{groupFallbackType(groupData)}</span>
               <strong>{groupFallbackName(groupData)}</strong>
             </dd>
           </div>
-          <div>
-            <dt>Last updated</dt>
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">Last updated</dt>
             <dd>{formatGroupDate(groupData.updatedAt)}</dd>
           </div>
         </dl>
-      </Panel>
+      </section>
 
       <SpanWallEditor
         group={groupData}
@@ -393,16 +452,23 @@ export function GroupDetailPage() {
       />
 
       {manageable && groupData.screens.length > 0 && (
-        <Panel className="sync-group-panel">
-          <SectionHeader
-            title="AirPlay gateway"
-            description="The preferred gateway is stable across sessions. Automatic selection uses online Linux capability, hardware decode, wired link, then screen name."
-          />
-          <Field label="Preferred presentation gateway">
-            <Select
-              value={groupData.presentationGatewayScreenId ?? ""}
-              onChange={(event) => {
-                if (!event.target.value) {
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">AirPlay gateway</h3>
+            <p className="text-sm text-muted-foreground">
+              The preferred gateway is stable across sessions. Automatic
+              selection uses online Linux capability, hardware decode, wired
+              link, then screen name.
+            </p>
+          </header>
+          <Field>
+            <FieldLabel htmlFor="group-gateway">
+              Preferred presentation gateway
+            </FieldLabel>
+            <RheaSelect
+              value={groupData.presentationGatewayScreenId || "automatic"}
+              onValueChange={(next) => {
+                if (!next || next === "automatic") {
                   update.mutate({
                     name: groupData.name,
                     description: groupData.description,
@@ -413,139 +479,199 @@ export function GroupDetailPage() {
                 update.mutate({
                   name: groupData.name,
                   description: groupData.description,
-                  presentationGatewayScreenId: event.target.value,
+                  presentationGatewayScreenId: next,
                 });
               }}
               disabled={update.isPending}
             >
-              <option value="">Automatic</option>
-              {groupData.screens.map((screen) => (
-                <option key={screen.id} value={screen.id}>
-                  {screen.name}
-                </option>
-              ))}
-            </Select>
+              <SelectTrigger
+                id="group-gateway"
+                aria-label="Preferred presentation gateway"
+              >
+                <SelectValue>
+                  {groupData.presentationGatewayScreenId
+                    ? (groupData.screens.find(
+                        (screen) =>
+                          screen.id === groupData.presentationGatewayScreenId,
+                      )?.name ?? groupData.presentationGatewayScreenId)
+                    : "Automatic"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="automatic">Automatic</SelectItem>
+                {groupData.screens.map((screen) => (
+                  <SelectItem key={screen.id} value={screen.id}>
+                    {screen.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </RheaSelect>
           </Field>
-        </Panel>
+        </section>
       )}
 
-      <Panel className="sync-group-panel">
-        <SectionHeader
-          title="Synchronized content"
-          description="Every screen in this group uses this fallback content whenever no higher-priority schedule or takeover is active."
-        />
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Synchronized content</h3>
+          <p className="text-sm text-muted-foreground">
+            Every screen in this group uses this fallback content whenever no
+            higher-priority schedule or takeover is active.
+          </p>
+        </header>
         {manageable ? (
-          <div className="sync-group-content-controls">
-            <Select
-              aria-label="Display Group fallback content"
-              value={selectedPresentation}
-              onChange={(event) => setSelectedPresentation(event.target.value)}
-            >
-              <option value="">No fallback presentation</option>
-              <optgroup label="Playlists">
-                {playlists.data?.items?.map((playlist) => (
-                  <option key={playlist.id} value={`playlist:${playlist.id}`}>
-                    {playlist.name}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Published layouts">
-                {layouts.data?.items
-                  .filter((layout) => layout.publishedRevision)
-                  .map((layout) => (
-                    <option key={layout.id} value={`layout:${layout.id}`}>
-                      {layout.name}
-                    </option>
+          <div className="flex flex-wrap items-end gap-2">
+            <Field className="min-w-52 flex-1">
+              <FieldLabel htmlFor="group-fallback">
+                Display Group fallback content
+              </FieldLabel>
+              <RheaSelect
+                value={selectedPresentation || "none"}
+                onValueChange={(next) =>
+                  setSelectedPresentation(!next || next === "none" ? "" : next)
+                }
+              >
+                <SelectTrigger
+                  id="group-fallback"
+                  aria-label="Display Group fallback content"
+                >
+                  <SelectValue>
+                    {selectedPresentation
+                      ? fallbackOptionLabel(selectedPresentation)
+                      : "No fallback presentation"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No fallback presentation</SelectItem>
+                  {playlists.data?.items?.map((playlist) => (
+                    <SelectItem
+                      key={playlist.id}
+                      value={`playlist:${playlist.id}`}
+                    >
+                      Playlist · {playlist.name}
+                    </SelectItem>
                   ))}
-              </optgroup>
-            </Select>
-            <Button
-              variant="primary"
-              loading={assignContent.isPending}
-              disabled={selectedPresentation === savedPresentation}
+                  {layouts.data?.items
+                    .filter((layout) => layout.publishedRevision)
+                    .map((layout) => (
+                      <SelectItem key={layout.id} value={`layout:${layout.id}`}>
+                        Layout · {layout.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </RheaSelect>
+            </Field>
+            <RheaButton
+              type="button"
+              disabled={
+                assignContent.isPending ||
+                selectedPresentation === savedPresentation
+              }
               onClick={() => assignContent.mutate(selectedPresentation)}
             >
-              Apply to Display Group
-            </Button>
+              {assignContent.isPending ? "Applying…" : "Apply to Display Group"}
+            </RheaButton>
           </div>
         ) : (
-          <div className="sync-group-current-content">
-            <span>{groupFallbackType(groupData)}</span>
+          <p className="flex flex-wrap gap-x-2 text-sm">
+            <span className="text-muted-foreground">
+              {groupFallbackType(groupData)}
+            </span>
             <strong>{groupFallbackName(groupData)}</strong>
-          </div>
+          </p>
         )}
-      </Panel>
+      </section>
 
-      <Panel className="sync-group-panel sync-group-screens-panel">
-        <SectionHeader
-          title="Screens"
-          description={`${groupData.membershipCount} screen${groupData.membershipCount === 1 ? "" : "s"} currently share this group's playback state.`}
-        />
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">Screens</h3>
+          <p className="text-sm text-muted-foreground">
+            {groupData.membershipCount} screen
+            {groupData.membershipCount === 1 ? "" : "s"} currently share this
+            group&apos;s playback state.
+          </p>
+        </header>
         {manageable && (
-          <div className="sync-group-add-controls">
-            <Field
-              label="Search available screens"
-              description="Screens already assigned to another Display Group are excluded."
-            >
-              <input
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="group-screen-search">
+                Search available screens
+              </FieldLabel>
+              <Input
+                id="group-screen-search"
                 type="search"
                 placeholder="Name or location"
                 value={screenSearch}
                 onChange={(event) => setScreenSearch(event.target.value)}
               />
+              <FieldDescription>
+                Screens already assigned to another Display Group are excluded.
+              </FieldDescription>
             </Field>
-            <Field label="Add screen">
-              <Select
+            <Field>
+              <FieldLabel htmlFor="group-add-screen">Add screen</FieldLabel>
+              <RheaSelect
                 value=""
                 disabled={available.length === 0 || add.isPending}
-                onChange={(event) => {
-                  if (event.target.value) add.mutate(event.target.value);
+                onValueChange={(next) => {
+                  if (next) add.mutate(next);
                 }}
               >
-                <option value="">
-                  {available.length
-                    ? "Choose a screen…"
-                    : "No matching screens"}
-                </option>
-                {available.map((screen) => (
-                  <option value={screen.id} key={screen.id}>
-                    {screen.name}
-                    {screen.location ? ` — ${screen.location}` : ""}
-                  </option>
-                ))}
-              </Select>
+                <SelectTrigger id="group-add-screen" aria-label="Add screen">
+                  <SelectValue>
+                    {available.length
+                      ? "Choose a screen…"
+                      : "No matching screens"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {available.map((screen) => (
+                    <SelectItem value={screen.id} key={screen.id}>
+                      {screen.name}
+                      {screen.location ? ` — ${screen.location}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </RheaSelect>
             </Field>
           </div>
         )}
-        <div className="sync-group-members">
+        <div className="grid gap-2">
           {(groupData.screens ?? []).map((screen) => (
-            <div className="sync-group-member" key={screen.id}>
-              <span>
-                <strong>{screen.name}</strong>
-                <small>{screen.location || "No location assigned"}</small>
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3"
+              key={screen.id}
+            >
+              <span className="grid min-w-0 gap-0.5">
+                <strong className="truncate text-sm">{screen.name}</strong>
+                <small className="truncate text-xs text-muted-foreground">
+                  {screen.location || "No location assigned"}
+                </small>
               </span>
               {manageable && (
-                <Button
-                  variant="quiet"
-                  compact
+                <RheaButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   disabled={remove.isPending}
                   onClick={() => remove.mutate(screen.id)}
                 >
                   Remove
-                </Button>
+                </RheaButton>
               )}
             </div>
           ))}
           {groupData.screens.length === 0 && (
-            <div className="sync-group-members__empty">
-              <strong>No screens in this group</strong>
-              <span>
-                Add an available screen above to begin synchronized playback.
-              </span>
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No screens in this group</EmptyTitle>
+                <EmptyDescription>
+                  Add an available screen above to begin synchronized playback.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
         </div>
-      </Panel>
+      </section>
 
       <PlayerPolicyEditor target="group" id={id} />
     </section>
@@ -559,57 +685,83 @@ export function SchedulesPage() {
     queryFn: () => api.schedules(),
   });
   return (
-    <section>
-      <PageHeader
-        title="Schedules"
-        description="Higher priority wins. Screens in a Display Group always share the same schedule and fallback content."
-        actions={
-          canManage(auth.status?.user?.role) ? (
-            <Link className="button button--primary" to="/schedules/new">
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Schedules</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Higher priority wins. Screens in a Display Group always share the
+            same schedule and fallback content.
+          </p>
+        </div>
+        {canManage(auth.status?.user?.role) && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/schedules/new"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
               Create schedule
             </Link>
-          ) : undefined
-        }
-      />
-      <div className="schedule-today">
-        <h3>Schedule timeline</h3>
-        <p>
+          </div>
+        )}
+      </header>
+      <ScreenManagementTabs />
+      <section className="grid gap-1 rounded-xl border border-border p-4">
+        <h2 className="text-base font-semibold">Schedule timeline</h2>
+        <p className="text-sm text-muted-foreground">
           {(q.data?.items ?? []).filter((schedule) => schedule.enabled).length}{" "}
           enabled · times evaluate in each schedule’s IANA timezone · overnight
           windows continue into the next day
         </p>
-      </div>
-      <div className="schedule-list">
+      </section>
+      {q.isLoading && (
+        <div className="grid gap-2" aria-label="Loading schedules">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      )}
+      {q.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            Schedules could not be loaded. Try refreshing the page.
+          </AlertDescription>
+        </Alert>
+      )}
+      <div className="grid gap-2">
         {q.data?.items?.map((schedule) => (
           <Link
-            className={`schedule-card ${schedule.enabled ? "" : "schedule-card--disabled"}`}
+            className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted ${schedule.enabled ? "" : "opacity-60"}`}
             to={`/schedules/${schedule.id}`}
             key={schedule.id}
           >
-            <span>
-              <strong>{schedule.name}</strong>
-              <small>{schedule.enabled ? "Enabled" : "Disabled"}</small>
+            <span className="grid min-w-0 gap-0.5">
+              <strong className="truncate text-sm">{schedule.name}</strong>
+              <small className="truncate text-xs text-muted-foreground">
+                {schedule.enabled ? "Enabled" : "Disabled"}
+              </small>
             </span>
-            <span>{schedule.playlistName}</span>
-            <span>
+            <span className="text-sm">{schedule.playlistName}</span>
+            <span className="text-sm text-muted-foreground">
               {schedule.targets.map((target) => target.name).join(", ")}
             </span>
-            <span>
+            <span className="text-sm text-muted-foreground">
               {schedule.type === "weekly"
                 ? `${schedule.dailyStart}–${schedule.dailyEnd} · ${schedule.timezone}`
                 : `${new Date(schedule.oneTimeStart!).toLocaleString()}–${new Date(schedule.oneTimeEnd!).toLocaleString()}`}
             </span>
-            <b>Priority {schedule.priority}</b>
+            <Badge variant="secondary">Priority {schedule.priority}</Badge>
           </Link>
         ))}
         {q.data?.items?.length === 0 && (
-          <div className="screen-empty">
-            <h3>No schedules yet</h3>
-            <p>
-              Direct screen assignments will continue to play until a schedule
-              is created.
-            </p>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No schedules yet</EmptyTitle>
+              <EmptyDescription>
+                Direct screen assignments will continue to play until a schedule
+                is created.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
       </div>
     </section>

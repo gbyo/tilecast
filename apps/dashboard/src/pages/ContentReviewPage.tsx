@@ -1,11 +1,21 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { Check, Undo2 } from "lucide-react";
+import { Check, Inbox, Undo2 } from "lucide-react";
 import { api } from "../api/client";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { PageHeader } from "../components/legacy-ui";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Input } from "../components/ui/input";
+import { Skeleton } from "../components/ui/skeleton";
 
 const stateLabels: Record<ContentReviewState, string> = {
   pending: "Waiting for review",
@@ -52,32 +62,58 @@ export function ContentReviewPage() {
   const items = queue.data?.items ?? [];
 
   return (
-    <section>
-      <PageHeader
-        title="Content review"
-        description="A playlist or Layout must be approved at its current revision before it can go on a screen. Editing approved content sends it back here."
-        actions={
-          <Link className="button" to="/content-review/submissions">
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Content review
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A playlist or Layout must be approved at its current revision before
+            it can go on a screen. Editing approved content sends it back here.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
+            to="/content-review/submissions"
+          >
             Open submission inbox
           </Link>
-        }
-      />
+        </div>
+      </header>
 
       {queue.data && !queue.data.required && (
-        <div className="notice">
-          Approval is not required on this installation, so nothing here blocks
-          assignment. An Owner or Administrator can turn it on under{" "}
-          <Link to="/settings/content-review">Settings, Content review</Link>.
-        </div>
+        <Alert>
+          <AlertDescription>
+            Approval is not required on this installation, so nothing here
+            blocks assignment. An Owner or Administrator can turn it on under{" "}
+            <Link
+              to="/settings/content-review"
+              className="font-medium text-primary hover:underline"
+            >
+              Settings, Content review
+            </Link>
+            .
+          </AlertDescription>
+        </Alert>
       )}
 
-      <nav className="view-tabs" aria-label="Review state">
+      <nav
+        className="flex flex-wrap gap-1 border-b border-border"
+        aria-label="Review state"
+      >
         {(["pending", "approved", "rejected", ""] as const).map((value) => (
           <button
             key={value || "all"}
-            className="button button--quiet"
+            type="button"
             aria-current={filter === value ? "page" : undefined}
             onClick={() => setFilter(value)}
+            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+              filter === value
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
           >
             {value === "" ? "All" : stateLabels[value]}
           </button>
@@ -85,66 +121,75 @@ export function ContentReviewPage() {
       </nav>
 
       {queue.isLoading ? (
-        <div className="table-loading">Loading the review queue…</div>
+        <div className="grid gap-2" aria-label="Loading the review queue">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
       ) : queue.error ? (
-        <div className="notice notice--error" role="alert">
-          {queue.error.message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{queue.error.message}</AlertDescription>
+        </Alert>
       ) : !items.length ? (
-        <div className="empty-card">
-          {filter === "pending"
-            ? "Nothing is waiting for review."
-            : "Nothing to show."}
-        </div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Inbox size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>
+              {filter === "pending"
+                ? "Nothing is waiting for review"
+                : "Nothing to show"}
+            </EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="backup-list">
+        <div className="grid gap-2">
           {items.map((item) => (
-            <article className="backup-row" key={key(item)}>
-              <div className="backup-row__details">
-                <strong>
+            <article
+              className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
+              key={key(item)}
+            >
+              <div className="grid min-w-0 flex-1 gap-1">
+                <strong className="text-sm">
                   <Link
                     to={
                       item.contentType === "playlist"
                         ? `/playlists/${item.contentId}`
                         : `/layouts/${item.contentId}`
                     }
+                    className="font-medium text-primary hover:underline"
                   >
                     {item.name}
                   </Link>
                 </strong>
-                <span>
+                <span className="text-xs text-muted-foreground">
                   {item.contentType === "playlist" ? "Playlist" : "Layout"} ·
                   revision {item.revision}
                   {item.authorName ? ` · ${item.authorName}` : ""} · updated{" "}
                   {new Date(item.updatedAt).toLocaleString()}
                 </span>
-                <span>
-                  <span
-                    className={`status-badge status-badge--${badge(item.state)}`}
-                  >
+                <span className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge variant={badgeVariant(item.state)}>
                     {stateLabels[item.state]}
-                  </span>
+                  </Badge>
                   {item.assignedScreens > 0 && (
-                    <>
-                      {" · "}
-                      <strong>
-                        Already on {item.assignedScreens} screen
-                        {item.assignedScreens === 1 ? "" : "s"}
-                      </strong>
-                    </>
+                    <strong>
+                      Already on {item.assignedScreens} screen
+                      {item.assignedScreens === 1 ? "" : "s"}
+                    </strong>
                   )}
                 </span>
                 {item.lastNote && (
-                  <span className="setting-dependency">
+                  <span className="text-xs text-muted-foreground">
                     Last note: {item.lastNote}
                   </span>
                 )}
               </div>
               {canDecide && (
-                <div className="backup-row__actions review-actions">
-                  <label className="review-note">
-                    <span className="field__label">Note</span>
-                    <input
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="grid gap-1 text-xs font-medium">
+                    <span>Note</span>
+                    <Input
                       value={notes[key(item)] ?? ""}
                       placeholder="Required when sending back"
                       onChange={(event) =>
@@ -153,22 +198,24 @@ export function ContentReviewPage() {
                           [key(item)]: event.target.value,
                         })
                       }
+                      className="w-52"
                     />
                   </label>
-                  <button
-                    className="button button--primary"
+                  <RheaButton
+                    type="button"
                     disabled={decide.isPending || item.state === "approved"}
                     onClick={() => decide.mutate({ item, approve: true })}
                   >
-                    <Check size={15} /> Approve
-                  </button>
-                  <button
-                    className="button"
+                    <Check size={15} aria-hidden="true" /> Approve
+                  </RheaButton>
+                  <RheaButton
+                    type="button"
+                    variant="secondary"
                     disabled={decide.isPending}
                     onClick={() => decide.mutate({ item, approve: false })}
                   >
-                    <Undo2 size={15} /> Send back
-                  </button>
+                    <Undo2 size={15} aria-hidden="true" /> Send back
+                  </RheaButton>
                 </div>
               )}
             </article>
@@ -177,9 +224,9 @@ export function ContentReviewPage() {
       )}
 
       {decide.error && (
-        <div className="notice notice--error" role="alert">
-          {decide.error.message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{decide.error.message}</AlertDescription>
+        </Alert>
       )}
     </section>
   );
@@ -189,8 +236,8 @@ function key(item: ContentReviewItem) {
   return `${item.contentType}:${item.contentId}`;
 }
 
-function badge(state: ContentReviewState) {
-  if (state === "approved") return "online";
-  if (state === "rejected") return "offline";
-  return "recent";
+function badgeVariant(state: ContentReviewState) {
+  if (state === "approved") return "default";
+  if (state === "rejected") return "destructive";
+  return "secondary";
 }

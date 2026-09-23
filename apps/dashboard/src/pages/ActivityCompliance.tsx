@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { MetricTile, type ResolvedTimeRange } from "../components/legacy-ui";
 import {
-  MetricTile,
-  Select,
-  type ResolvedTimeRange,
-} from "../components/legacy-ui";
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import {
   activityParams,
   activityRequest,
@@ -116,36 +119,51 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
   };
   const breakdown = data.breakdown;
 
+  const dimensionLabel =
+    dimensions.find((item) => item.value === dimension)?.label ?? dimension;
   return (
     <section
-      className="activity-panel activity-compliance"
+      className="grid gap-3 rounded-xl border border-border p-4"
       aria-label="Playback compliance"
     >
-      <header>
-        <div>
-          <h3>Expected versus actual playback</h3>
-          <p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid min-w-0 flex-1 gap-1">
+          <h3 className="text-base font-semibold">
+            Expected versus actual playback
+          </h3>
+          <p className="text-sm text-muted-foreground">
             Measured over {range.label} against what was expected at the time,
             not against the current configuration. Takeover and intentionally
             stopped time is excluded from the percentage and shown separately.
           </p>
         </div>
-        <label className="activity-group-by">
+        <label className="grid gap-1 text-xs font-medium">
           <span>Break down by</span>
-          <Select
+          <RheaSelect
             value={dimension}
-            onChange={(event) => setDimension(event.target.value)}
+            onValueChange={(next) => {
+              if (next) setDimension(next);
+            }}
           >
-            {dimensions.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </Select>
+            <SelectTrigger
+              size="sm"
+              className="w-40"
+              aria-label="Break down by"
+            >
+              <SelectValue>{dimensionLabel}</SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end" alignItemWithTrigger={false}>
+              {dimensions.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </RheaSelect>
         </label>
       </header>
 
-      <div className="activity-compliance__tiles">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <MetricTile
           label="Playback compliance"
           value={formatPercent(data.compliancePercent)}
@@ -178,20 +196,26 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
         />
       </div>
 
-      <div className="activity-compliance__excluded">
-        <h4>Excluded from the percentage</h4>
-        <ul>
-          <li>
+      <div className="grid gap-1.5">
+        <h4 className="text-sm font-semibold">Excluded from the percentage</h4>
+        <ul className="grid gap-1 text-sm">
+          <li className="flex items-center justify-between gap-2">
             <span>Takeover overrode normal playback</span>
-            <span>{formatMinutes(data.takeoverOverriddenMs)}</span>
+            <span className="tabular-nums">
+              {formatMinutes(data.takeoverOverriddenMs)}
+            </span>
           </li>
-          <li>
+          <li className="flex items-center justify-between gap-2">
             <span>Playback intentionally stopped</span>
-            <span>{formatMinutes(data.cancelledMs)}</span>
+            <span className="tabular-nums">
+              {formatMinutes(data.cancelledMs)}
+            </span>
           </li>
-          <li>
+          <li className="flex items-center justify-between gap-2">
             <span>Too short to measure</span>
-            <span>{formatMinutes(data.notMeasurableMs)}</span>
+            <span className="tabular-nums">
+              {formatMinutes(data.notMeasurableMs)}
+            </span>
           </li>
         </ul>
       </div>
@@ -199,35 +223,53 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
       {breakdown.length === 0 ? (
         <EmptyState message="No expected playback was recorded in this range." />
       ) : (
-        <div className="activity-compliance__table">
-          <div className="activity-compliance__row activity-compliance__row--head">
-            <span>{humanize(data.dimension)}</span>
-            <span>Compliance</span>
-            <span>Expected</span>
-            <span>Confirmed</span>
-            <span>Missed</span>
-            <span>Main reason</span>
-          </div>
-          {breakdown.map((item) => (
-            <div
-              key={item.key || item.label}
-              className="activity-compliance__row"
-            >
-              {/* Labels come from the server already readable — a screen or
-                  location name must not be re-cased into "Lobby North". */}
-              <span>{item.label}</span>
-              <span>{formatPercent(item.compliancePercent)}</span>
-              <span>{formatDuration(item.measurableExpectedMs)}</span>
-              <span>{formatDuration(item.confirmedMs)}</span>
-              <span>{formatDuration(item.missedMs)}</span>
-              <span>
-                {/* Named only when time actually went missing. */}
-                {item.missedMs > 0 && item.topFailureReason
-                  ? humanize(item.topFailureReason)
-                  : "—"}
-              </span>
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[42rem] text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th className="px-3 py-2 font-medium">
+                  {humanize(data.dimension)}
+                </th>
+                <th className="px-3 py-2 text-right font-medium">Compliance</th>
+                <th className="px-3 py-2 text-right font-medium">Expected</th>
+                <th className="px-3 py-2 text-right font-medium">Confirmed</th>
+                <th className="px-3 py-2 text-right font-medium">Missed</th>
+                <th className="px-3 py-2 text-right font-medium">
+                  Main reason
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {breakdown.map((item) => (
+                <tr
+                  key={item.key || item.label}
+                  className="border-b border-border last:border-0"
+                >
+                  {/* Labels come from the server already readable — a screen or
+                      location name must not be re-cased into "Lobby North". */}
+                  <td className="px-3 py-2">{item.label}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatPercent(item.compliancePercent)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatDuration(item.measurableExpectedMs)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatDuration(item.confirmedMs)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatDuration(item.missedMs)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {/* Named only when time actually went missing. */}
+                    {item.missedMs > 0 && item.topFailureReason
+                      ? humanize(item.topFailureReason)
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

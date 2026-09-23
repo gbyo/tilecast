@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { DisplayControlGroupPreview } from "../api/types";
-import { Button, Panel, SectionHeader } from "./legacy-ui";
-import "./DisplayControlGroupActions.css";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Button as RheaButton } from "./ui/button";
 
 type GroupDisplayCommand = DisplayControlGroupPreview["commandType"];
 
@@ -65,90 +65,102 @@ export function DisplayControlGroupActions({
   const data = preview.data;
   const capability = actionCapability(commandType);
   return (
-    <Panel className="display-control-group-actions">
-      <SectionHeader
-        title="Display Control"
-        description="Preview capability coverage before sending a bounded action to every supported display in this group. Player connectivity remains separate from display power state."
-      />
+    <section className="grid gap-3 rounded-xl border border-border p-4">
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">Display Control</h3>
+        <p className="text-sm text-muted-foreground">
+          Preview capability coverage before sending a bounded action to every
+          supported display in this group. Player connectivity remains separate
+          from display power state.
+        </p>
+      </header>
       <div
-        className="display-control-group-actions__buttons"
+        className="flex flex-wrap gap-2"
         role="group"
         aria-label="Display Group actions"
       >
         {actions.map((action) => (
-          <Button
+          <RheaButton
             key={action.commandType}
+            type="button"
             variant={
-              commandType === action.commandType ? "primary" : "secondary"
+              commandType === action.commandType ? "default" : "secondary"
             }
-            compact
+            size="sm"
             onClick={() => {
               setCommandType(action.commandType);
               setLastResult(null);
             }}
           >
             {action.label}
-          </Button>
+          </RheaButton>
         ))}
       </div>
       {memberCount === 0 ? (
-        <p className="field__hint">
+        <p className="text-sm text-muted-foreground">
           Add screens before using group Display Control.
         </p>
       ) : preview.isLoading ? (
-        <p className="field__hint">Checking reported capabilities…</p>
+        <p className="text-sm text-muted-foreground">
+          Checking reported capabilities…
+        </p>
       ) : preview.error ? (
-        <div className="notice notice--error" role="alert">
-          {preview.error.message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{preview.error.message}</AlertDescription>
+        </Alert>
       ) : data ? (
         <>
-          <p className="display-control-group-actions__summary">
+          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
             <strong>{data.selectedCount} displays selected</strong>
-            <span>
+            <span className="text-muted-foreground">
               {data.supportedCount} support {capability} control
             </span>
             {data.unsupportedCount > 0 && (
-              <span>{data.unsupportedCount} unsupported</span>
+              <span className="text-muted-foreground">
+                {data.unsupportedCount} unsupported
+              </span>
             )}
           </p>
           {data.screens.some((screen) => screen.reason) && (
-            <ul className="display-control-group-actions__details">
+            <ul className="grid gap-1 text-sm">
               {data.screens
                 .filter((screen) => screen.reason)
                 .map((screen) => (
-                  <li key={screen.screenId}>
+                  <li key={screen.screenId} className="flex flex-wrap gap-x-2">
                     <strong>{screen.name}</strong>
-                    <span>{screen.reason}</span>
+                    <span className="text-muted-foreground">
+                      {screen.reason}
+                    </span>
                   </li>
                 ))}
             </ul>
           )}
-          <div className="display-control-group-actions__footer">
-            <span className="field__hint">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm text-muted-foreground">
               {data.eligibleCount} eligible command
               {data.eligibleCount === 1 ? "" : "s"} · capability snapshot
               refreshes automatically
             </span>
-            <Button
-              variant="primary"
-              loading={apply.isPending}
+            <RheaButton
+              type="button"
               disabled={apply.isPending || data.eligibleCount === 0}
               onClick={() => apply.mutate()}
             >
               {apply.isPending ? "Sending…" : "Send to supported displays"}
-            </Button>
+            </RheaButton>
           </div>
           {lastResult && (
-            <div className="notice notice--success">{lastResult}</div>
+            <Alert>
+              <AlertDescription>{lastResult}</AlertDescription>
+            </Alert>
           )}
           {apply.error && (
-            <div className="notice notice--error" role="alert">
-              {apply.error.message}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>{apply.error.message}</AlertDescription>
+            </Alert>
           )}
         </>
       ) : null}
-    </Panel>
+    </section>
   );
 }
