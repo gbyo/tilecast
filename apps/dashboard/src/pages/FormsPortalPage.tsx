@@ -11,19 +11,132 @@ import { ArrowLeft, ClipboardList, LogOut } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { Brand } from "../components/Brand";
 import { api } from "../api/client";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
-  Button,
-  EmptyState,
-  Notice,
-  PageHeader,
-  Pagination,
-  Spinner,
-  StatusBadge,
-} from "../components/legacy-ui";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Spinner } from "../components/ui/spinner";
 import { SubmissionEditor } from "../forms/SubmissionEditor";
 import { canSubmitToForm } from "../forms/capabilities";
 import { stateLabel, stateTone } from "../forms/formStatus";
 import type { FormRecord } from "../api/types";
+import type { ReactNode } from "react";
+
+function PortalHeader({
+  eyebrow,
+  title,
+  description,
+  actions,
+}: {
+  eyebrow: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div className="grid gap-1">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          {eyebrow}
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        {description ? (
+          <p className="text-sm text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      {actions ? (
+        <div className="flex items-center gap-2">{actions}</div>
+      ) : null}
+    </header>
+  );
+}
+
+function PortalNotice({
+  variant,
+  title,
+  children,
+}: {
+  variant: "danger" | "success" | "info";
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <Alert
+      variant={variant === "danger" ? "destructive" : undefined}
+      role={variant === "danger" ? "alert" : "status"}
+    >
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
+  );
+}
+
+function PortalLoading({ label }: { label: string }) {
+  return (
+    <p className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Spinner aria-label="Loading" />
+      {label}
+    </p>
+  );
+}
+
+function ToneBadge({ label, tone }: { label: string; tone: string }) {
+  const variant =
+    tone === "danger"
+      ? "destructive"
+      : tone === "success"
+        ? "default"
+        : tone === "warning"
+          ? "outline"
+          : "secondary";
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+function PortalPagination({
+  label,
+  status,
+  previous,
+  next,
+  previousDisabled,
+  nextDisabled,
+}: {
+  label: string;
+  status: string;
+  previous: () => void;
+  next: () => void;
+  previousDisabled?: boolean;
+  nextDisabled?: boolean;
+}) {
+  return (
+    <nav className="flex flex-wrap items-center gap-2" aria-label={label}>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={previousDisabled}
+        onClick={previous}
+      >
+        Previous
+      </Button>
+      <span className="text-sm text-muted-foreground">{status}</span>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={nextDisabled}
+        onClick={next}
+      >
+        Next
+      </Button>
+    </nav>
+  );
+}
 
 // FormsPortalShell is the lightweight authenticated wrapper for the Forms portal — deliberately
 // outside the full operator sidebar. It reuses the same auth gate as the operator shell but shows a
@@ -44,27 +157,35 @@ export function FormsPortalShell() {
   }, [auth.isLoading, auth.status, navigate, location.pathname]);
   if (auth.isLoading || !auth.status?.authenticated) return null;
   return (
-    <div className="forms-portal">
-      <header className="forms-portal__topbar">
-        <Link to="/forms" className="forms-portal__brand" aria-label="My Forms">
+    <div className="flex min-h-svh flex-col bg-background">
+      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-3">
+        <Link
+          to="/forms"
+          className="flex items-center gap-3 text-inherit no-underline"
+          aria-label="My Forms"
+        >
           <Brand compact />
-          <span className="forms-portal__brand-label">Forms</span>
+          <span className="font-semibold">Forms</span>
         </Link>
-        <div className="forms-portal__topbar-actions">
-          <Link to="/" className="text-link">
+        <div className="flex items-center gap-5">
+          <Link
+            to="/"
+            className="text-link inline-flex items-center gap-1 no-underline"
+          >
             <ArrowLeft size={16} aria-hidden="true" /> Back to Studio
           </Link>
-          <button
+          <Button
             type="button"
-            className="text-link"
+            variant="link"
             onClick={() => void auth.logout()}
             disabled={auth.isSubmitting}
+            className="gap-1 px-0"
           >
             <LogOut size={16} aria-hidden="true" /> Sign out
-          </button>
+          </Button>
         </div>
       </header>
-      <main className="forms-portal__content">
+      <main className="mx-auto w-full max-w-5xl px-6 pt-8 pb-12 max-[700px]:px-4">
         <Outlet />
       </main>
     </div>
@@ -75,54 +196,80 @@ export function FormsPortalShell() {
 export function FormsListPage() {
   const forms = useQuery({ queryKey: ["forms"], queryFn: api.listForms });
 
-  if (forms.isLoading) return <Spinner label="Loading your forms…" />;
+  if (forms.isLoading) return <PortalLoading label="Loading your forms…" />;
   if (forms.isError) {
     return (
-      <Notice variant="danger" title="Could not load forms">
+      <PortalNotice variant="danger" title="Could not load forms">
         {forms.error instanceof Error
           ? forms.error.message
           : "Please try again."}
-      </Notice>
+      </PortalNotice>
     );
   }
   const items = forms.data ?? [];
   return (
-    <div className="forms-portal__list">
-      <PageHeader
+    <div className="flex flex-col gap-6">
+      <PortalHeader
         eyebrow="Forms"
         title="My Forms"
         description="Forms you can submit to or help review."
       />
       {items.length === 0 ? (
-        <EmptyState
-          icon={<ClipboardList size={28} aria-hidden="true" />}
-          title="No forms yet"
-          message="You do not have access to any forms. Ask an administrator to grant you access."
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ClipboardList aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No forms yet</EmptyTitle>
+            <EmptyDescription>
+              You do not have access to any forms. Ask an administrator to grant
+              you access.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <ul className="forms-portal__cards">
+        <ul className="m-0 grid list-none gap-4 p-0 grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]">
           {items.map((form) => (
             <li key={form.id}>
-              <Link to={`/forms/${form.id}`} className="forms-portal__card">
-                <div className="forms-portal__card-head">
-                  <h2>{form.name}</h2>
+              <Link
+                to={`/forms/${form.id}`}
+                className="flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-5 text-inherit no-underline transition hover:-translate-y-px hover:border-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="m-0 text-base font-semibold">{form.name}</h2>
                   {form.publishedRevisionNumber === undefined && (
-                    <StatusBadge label="Draft only" tone="neutral" />
+                    <ToneBadge label="Draft only" tone="neutral" />
                   )}
                 </div>
-                {form.description && <p>{form.description}</p>}
-                <dl className="forms-portal__counts">
-                  <div>
-                    <dt>Drafts</dt>
-                    <dd>{form.submissionCounts.draft}</dd>
+                {form.description && (
+                  <p className="m-0 text-[0.85rem] text-muted-foreground">
+                    {form.description}
+                  </p>
+                )}
+                <dl className="mt-auto grid grid-flow-col justify-start gap-3 border-t border-border pt-3">
+                  <div className="flex flex-col justify-between">
+                    <dt className="text-[0.7rem] tracking-[0.04em] text-muted-foreground uppercase">
+                      Drafts
+                    </dt>
+                    <dd className="m-0 mt-0.5 text-[1.1rem] tabular-nums">
+                      {form.submissionCounts.draft}
+                    </dd>
                   </div>
-                  <div>
-                    <dt>Submitted</dt>
-                    <dd>{form.submissionCounts.submitted}</dd>
+                  <div className="flex flex-col justify-between">
+                    <dt className="text-[0.7rem] tracking-[0.04em] text-muted-foreground uppercase">
+                      Submitted
+                    </dt>
+                    <dd className="m-0 mt-0.5 text-[1.1rem] tabular-nums">
+                      {form.submissionCounts.submitted}
+                    </dd>
                   </div>
-                  <div>
-                    <dt>Changes requested</dt>
-                    <dd>{form.submissionCounts.changesRequested}</dd>
+                  <div className="flex flex-col justify-between">
+                    <dt className="text-[0.7rem] tracking-[0.04em] text-muted-foreground uppercase">
+                      Changes requested
+                    </dt>
+                    <dd className="m-0 mt-0.5 text-[1.1rem] tabular-nums">
+                      {form.submissionCounts.changesRequested}
+                    </dd>
                   </div>
                 </dl>
               </Link>
@@ -174,15 +321,15 @@ export function FormPortalDetailPage() {
     enabled: Boolean(id),
   });
 
-  if (form.isLoading) return <Spinner label="Loading form…" />;
+  if (form.isLoading) return <PortalLoading label="Loading form…" />;
   if (form.isError || !form.data) {
     return (
-      <Notice variant="danger" title="Form unavailable">
+      <PortalNotice variant="danger" title="Form unavailable">
         You may not have access to this form, or it no longer exists.{" "}
         <Link to="/forms" className="text-link">
           Back to My Forms
         </Link>
-      </Notice>
+      </PortalNotice>
     );
   }
   const detail = form.data;
@@ -193,57 +340,59 @@ export function FormPortalDetailPage() {
   const totalPages = Math.max(1, Math.ceil(total / MINE_PAGE_SIZE));
 
   return (
-    <div className="forms-portal__detail">
-      <PageHeader
+    <div className="flex flex-col gap-6">
+      <PortalHeader
         eyebrow="Form"
         title={published?.title || detail.name}
         description={published?.description || detail.description}
         actions={
           canSubmit && published ? (
-            <Link to={`/forms/${detail.id}/new`}>
-              <Button variant="primary">Start submission</Button>
+            <Link
+              to={`/forms/${detail.id}/new`}
+              className={buttonVariants({ variant: "default" })}
+            >
+              Start submission
             </Link>
           ) : undefined
         }
       />
 
       {justSubmitted && (
-        <Notice variant="success" title="Submission sent">
+        <PortalNotice variant="success" title="Submission sent">
           Your submission is now with the reviewers. You can follow its status
           below.
-        </Notice>
+        </PortalNotice>
       )}
 
       {!published && (
-        <Notice variant="info" title="Not open for submissions yet">
+        <PortalNotice variant="info" title="Not open for submissions yet">
           This form has not published a version you can submit to.
-        </Notice>
+        </PortalNotice>
       )}
       {published && !canSubmit && (
-        <Notice variant="info" title="View only">
+        <PortalNotice variant="info" title="View only">
           You can review submissions to this form but cannot create your own.
-        </Notice>
+        </PortalNotice>
       )}
 
-      <section
-        aria-label="Your submissions"
-        className="forms-portal__submissions"
-      >
-        <h2>Your submissions</h2>
+      <section aria-label="Your submissions" className="flex flex-col gap-3">
+        <h2 className="m-0 text-base font-semibold">Your submissions</h2>
         {records.isLoading ? (
-          <Spinner label="Loading submissions…" />
+          <PortalLoading label="Loading submissions…" />
         ) : mine.length === 0 ? (
-          <EmptyState
-            title="No submissions yet"
-            message={
-              canSubmit && published
-                ? "Start a submission to see it here."
-                : "You have not submitted to this form."
-            }
-          />
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No submissions yet</EmptyTitle>
+              <EmptyDescription>
+                {canSubmit && published
+                  ? "Start a submission to see it here."
+                  : "You have not submitted to this form."}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <>
-            <ul className="forms-portal__submission-list">
+            <ul className="m-0 flex list-none flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-card p-0">
               {mine.map((record) => (
                 <SubmissionRow
                   key={record.id}
@@ -254,7 +403,7 @@ export function FormPortalDetailPage() {
               ))}
             </ul>
             {totalPages > 1 && (
-              <Pagination
+              <PortalPagination
                 label="Your submissions pages"
                 status={`Page ${page} of ${totalPages} · ${total} total`}
                 previous={() => setPage((current) => Math.max(1, current - 1))}
@@ -285,16 +434,16 @@ function SubmissionRow({
     <li>
       <Link
         to={`/forms/${formId}/submissions/${record.id}`}
-        className="forms-portal__submission"
+        className="grid min-h-[52px] grid-cols-[1fr_auto_auto] items-center gap-x-4 gap-y-1 px-4 py-3 text-inherit no-underline hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-[700px]:grid-cols-[1fr_auto]"
       >
-        <span className="forms-portal__submission-title">
+        <span className="font-semibold">
           {record.displayTitle || "Untitled submission"}
         </span>
-        <StatusBadge
+        <ToneBadge
           label={stateLabel(workflow, record.state)}
           tone={stateTone(workflow, record.state)}
         />
-        <span className="forms-portal__submission-time">
+        <span className="text-[0.8rem] text-muted-foreground tabular-nums max-[700px]:col-span-full">
           Updated {new Date(record.updatedAt).toLocaleString()}
         </span>
       </Link>
@@ -320,38 +469,39 @@ export function FormPortalSubmissionPage() {
   });
 
   if (form.isLoading || (recordId && record.isLoading)) {
-    return <Spinner label="Loading…" />;
+    return <PortalLoading label="Loading…" />;
   }
   if (form.isError || !form.data) {
     return (
-      <Notice variant="danger" title="Form unavailable">
+      <PortalNotice variant="danger" title="Form unavailable">
         <Link to="/forms" className="text-link">
           Back to My Forms
         </Link>
-      </Notice>
+      </PortalNotice>
     );
   }
   if (recordId && (record.isError || !record.data)) {
     return (
-      <Notice variant="danger" title="Submission unavailable">
+      <PortalNotice variant="danger" title="Submission unavailable">
         You may not have access to this submission.{" "}
         <Link to={`/forms/${id}`} className="text-link">
           Back to the form
         </Link>
-      </Notice>
+      </PortalNotice>
     );
   }
 
   return (
-    <div className="forms-portal__editor">
-      <PageHeader
+    <div className="flex flex-col gap-6">
+      <PortalHeader
         eyebrow={form.data.publishedRevision?.title || form.data.name}
         title={recordId ? "Edit submission" : "New submission"}
         actions={
-          <Link to={`/forms/${id}`}>
-            <Button variant="quiet">
-              <ArrowLeft size={16} aria-hidden="true" /> Back
-            </Button>
+          <Link
+            to={`/forms/${id}`}
+            className={buttonVariants({ variant: "ghost" })}
+          >
+            <ArrowLeft size={16} aria-hidden="true" /> Back
           </Link>
         }
       />

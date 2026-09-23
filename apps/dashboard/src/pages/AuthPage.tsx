@@ -14,7 +14,9 @@ import {
 import { passkeysSupported } from "../auth/webauthn";
 import { Brand } from "../components/Brand";
 import { FormField } from "../components/FormField";
-import "./AuthPage.css";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { Spinner } from "../components/ui/spinner";
 
 export function AuthPage({ mode }: { mode: "setup" | "login" }) {
   const auth = useAuth();
@@ -35,9 +37,15 @@ export function AuthPage({ mode }: { mode: "setup" | "login" }) {
 
   if (auth.isLoading) return <LoadingScreen />;
   return (
-    <main className="auth-page">
-      <section className="auth-panel">
-        <div className="auth-panel__logo">
+    <main className="fixed inset-0 z-0 flex w-screen min-h-svh items-center justify-center overflow-hidden bg-[#1b2430] bg-[url('/api/v1/auth/background')] bg-cover bg-center p-[clamp(1rem,4vw,3rem)] max-[620px]:bg-[position:58%_center] max-[620px]:p-[0.85rem]">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[rgb(7_12_18/42%)]"
+        aria-hidden="true"
+      />
+      <section
+        className={`relative z-[1] w-full flex-none rounded-[var(--tc-radius-overlay)] border border-[#d0d7de] bg-white px-[2.35rem] py-9 shadow-[0_20px_48px_rgb(0_0_0/28%)] max-[620px]:max-h-[calc(100svh-1.7rem)] max-[620px]:overflow-y-auto max-[620px]:px-[1.35rem] max-[620px]:py-7 ${mode === "setup" ? "max-w-[38rem]" : "max-w-[27rem]"} max-[620px]:max-w-full`}
+      >
+        <div className="mb-8 flex justify-center max-[620px]:mb-[1.45rem] [&_.brand__studio-logo]:h-auto [&_.brand__studio-logo]:w-[min(11.75rem,72%)] [&_.brand__studio-logo]:brightness-0">
           <Brand compact />
         </div>
         {mode === "setup" ? (
@@ -49,6 +57,47 @@ export function AuthPage({ mode }: { mode: "setup" | "login" }) {
         )}
       </section>
     </main>
+  );
+}
+
+function AuthHeader({
+  id,
+  title,
+  body,
+}: {
+  id: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <header className="mb-[1.6rem] text-center">
+      <h1
+        id={id}
+        className="m-0 text-[1.7rem] leading-[1.18] font-[680] tracking-normal text-[#101316]"
+      >
+        {title}
+      </h1>
+      <p className="mt-2 text-[0.92rem] text-[#687078]">{body}</p>
+    </header>
+  );
+}
+
+function AuthError({ message }: { message: string }) {
+  return (
+    <Alert
+      variant="destructive"
+      className="mb-[1.15rem] border-[#e8c4c4] bg-[#fdf0f0] text-[#8f1d1d]"
+    >
+      <AlertDescription className="text-[#8f1d1d]">{message}</AlertDescription>
+    </Alert>
+  );
+}
+
+function AuthDivider({ children }: { children: string }) {
+  return (
+    <p className="my-[1.05rem] flex items-center gap-[0.7rem] text-[0.74rem] tracking-[0.06em] text-[#91979d] uppercase before:h-px before:flex-1 before:bg-[#e2e5e8] before:content-[''] after:h-px after:flex-1 after:bg-[#e2e5e8] after:content-['']">
+      {children}
+    </p>
   );
 }
 
@@ -73,17 +122,18 @@ function SetupFormView() {
     });
   });
   return (
-    <div className="auth-form auth-form--setup" aria-labelledby="setup-title">
-      <header>
-        <h1 id="setup-title">Set up Tilecast</h1>
-        <p>Create the first owner account for this installation.</p>
-      </header>
-      {error && (
-        <div className="notice notice--error" role="alert">
-          {error.message}
-        </div>
-      )}
-      <form onSubmit={(event) => void submit(event)} noValidate>
+    <div aria-labelledby="setup-title">
+      <AuthHeader
+        id="setup-title"
+        title="Set up Tilecast"
+        body="Create the first owner account for this installation."
+      />
+      {error && <AuthError message={error.message} />}
+      <form
+        onSubmit={(event) => void submit(event)}
+        noValidate
+        className="grid gap-[1.05rem]"
+      >
         <FormField
           id="organizationName"
           label="Organization name"
@@ -105,7 +155,7 @@ function SetupFormView() {
           error={form.formState.errors.username?.message}
           {...form.register("username")}
         />
-        <div className="auth-form__passwords">
+        <div className="grid grid-cols-2 gap-[0.9rem] max-[620px]:grid-cols-1">
           <FormField
             id="password"
             label="Password"
@@ -124,13 +174,13 @@ function SetupFormView() {
             {...form.register("confirmPassword")}
           />
         </div>
-        <button
-          className="button button--primary auth-form__submit"
+        <Button
           type="submit"
           disabled={isSubmitting}
+          className="mt-[0.35rem] min-h-[2.75rem] w-full"
         >
           {isSubmitting ? "Creating installation…" : "Create installation"}
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -169,17 +219,18 @@ function LoginFormView() {
   // always fails would be worse than not offering one.
   const passkeys = Boolean(status?.passkeysAvailable) && passkeysSupported();
   return (
-    <div className="auth-form" aria-labelledby="login-title">
-      <header>
-        <h1 id="login-title">Sign in</h1>
-        <p>Manage your Tilecast displays.</p>
-      </header>
-      {error && (
-        <div className="notice notice--error" role="alert">
-          {error.message}
-        </div>
-      )}
-      <form onSubmit={(event) => void submit(event)} noValidate>
+    <div aria-labelledby="login-title">
+      <AuthHeader
+        id="login-title"
+        title="Sign in"
+        body="Manage your Tilecast displays."
+      />
+      {error && <AuthError message={error.message} />}
+      <form
+        onSubmit={(event) => void submit(event)}
+        noValidate
+        className="grid gap-[1.05rem]"
+      >
         <FormField
           id="username"
           label="Email or username"
@@ -196,25 +247,26 @@ function LoginFormView() {
           error={form.formState.errors.password?.message}
           {...form.register("password")}
         />
-        <button
-          className="button button--primary auth-form__submit"
+        <Button
           type="submit"
           disabled={isSubmitting}
+          className="mt-[0.35rem] min-h-[2.75rem] w-full"
         >
           {isSubmitting ? "Signing in…" : "Sign in"}
-        </button>
+        </Button>
       </form>
       {passkeys && (
         <>
-          <p className="auth-form__divider">or</p>
-          <button
-            className="button auth-form__submit"
+          <AuthDivider>or</AuthDivider>
+          <Button
+            variant="outline"
             type="button"
             disabled={isSubmitting}
             onClick={() => void loginWithPasskey()}
+            className="min-h-[2.75rem] w-full"
           >
             Sign in with a passkey
-          </button>
+          </Button>
         </>
       )}
     </div>
@@ -248,22 +300,23 @@ function ChallengeFormView() {
     challenge?.methods.includes("recovery_code"),
   );
   return (
-    <div className="auth-form" aria-labelledby="mfa-title">
-      <header>
-        <h1 id="mfa-title">Two-step verification</h1>
-        <p>
-          {canUseCode
+    <div aria-labelledby="mfa-title">
+      <AuthHeader
+        id="mfa-title"
+        title="Two-step verification"
+        body={
+          canUseCode
             ? "Enter the six-digit code from your authenticator app, or one of your recovery codes."
-            : "Confirm your passkey to finish signing in."}
-        </p>
-      </header>
-      {error && (
-        <div className="notice notice--error" role="alert">
-          {error.message}
-        </div>
-      )}
+            : "Confirm your passkey to finish signing in."
+        }
+      />
+      {error && <AuthError message={error.message} />}
       {canUseCode && (
-        <form onSubmit={(event) => void submit(event)} noValidate>
+        <form
+          onSubmit={(event) => void submit(event)}
+          noValidate
+          className="grid gap-[1.05rem]"
+        >
           <FormField
             id="code"
             label="Verification code"
@@ -273,46 +326,46 @@ function ChallengeFormView() {
             error={form.formState.errors.code?.message}
             {...form.register("code")}
           />
-          <button
-            className="button button--primary auth-form__submit"
+          <Button
             type="submit"
             disabled={isSubmitting}
+            className="mt-[0.35rem] min-h-[2.75rem] w-full"
           >
             {isSubmitting ? "Verifying…" : "Verify"}
-          </button>
+          </Button>
         </form>
       )}
       {canUsePasskey && (
         <>
-          {canUseCode && <p className="auth-form__divider">or</p>}
-          <button
-            className="button auth-form__submit"
+          {canUseCode && <AuthDivider>or</AuthDivider>}
+          <Button
+            variant="outline"
             type="button"
             disabled={isSubmitting}
             onClick={() => void verifyMfaPasskey()}
+            className="min-h-[2.75rem] w-full"
           >
             Use a passkey
-          </button>
+          </Button>
         </>
       )}
-      <button
-        className="button button--quiet auth-form__cancel"
+      <Button
+        variant="ghost"
         type="button"
         onClick={cancelChallenge}
+        className="mt-3 min-h-[2.4rem] w-full"
       >
         Back to sign in
-      </button>
+      </Button>
     </div>
   );
 }
 
 function LoadingScreen() {
   return (
-    <div className="loading-screen auth-loading">
-      <div className="auth-panel__logo">
-        <Brand compact />
-      </div>
-      <span className="spinner" aria-label="Loading" />
+    <div className="flex min-h-svh items-center justify-center gap-3 bg-[#f3f4f5]">
+      <Brand compact />
+      <Spinner aria-label="Loading" />
     </div>
   );
 }
