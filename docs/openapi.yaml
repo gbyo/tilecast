@@ -649,12 +649,62 @@ paths:
   /api/v1/plugins:
     get:
       operationId: listPlugins
+      description: Every plugin the running release offers, joined with this installation's state. Readable by any signed-in account.
       responses:
-        "200": { description: Closed catalog of built-in Tilecast plugins }
+        "200":
+          description: Plugin catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginCatalog" }
+  /api/v1/plugins/{pluginId}/install:
+    post:
+      operationId: installPlugin
+      description: Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "201":
+          description: Plugin installed by this request
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/CatalogPlugin" }
+        "200":
+          { description: Plugin was already installed; same representation }
+        "403": { description: Owner or Administrator and CSRF token required }
+        "404":
+          {
+            description: plugin_not_found — the release does not define this plugin,
+          }
+        "409": { description: plugin_not_installable }
+  /api/v1/plugins/{pluginId}/installation:
+    delete:
+      operationId: removePlugin
+      description: Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "204": { description: Plugin removed, or was not installed }
+        "403": { description: Owner or Administrator and CSRF token required }
+        "404": { description: plugin_not_found }
+        "409":
+          description: plugin_in_use — remaining resources are listed in error.details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PluginInUseError" }
   /api/v1/plugins/dependency-graph:
     get:
       operationId: getDependencyGraph
-      description: Returns the current content and delivery topology. Directed edges run from a dependency to the record that consumes it.
+      description: Returns the current content and delivery topology. Directed edges run from a dependency to the record that consumes it. Dependency Graph is a Studio system tool, not an installable plugin.
       responses:
         "200":
           description: Typed dependency nodes and directed consumer edges
@@ -3267,6 +3317,12 @@ paths:
         }
 components:
   parameters:
+    PluginID:
+      in: path
+      name: pluginId
+      required: true
+      schema: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
+      description: Registry identifier such as noise_meter.
     NoiseHistoryRange:
       in: query
       name: range
@@ -3299,6 +3355,136 @@ components:
       scheme: bearer
       bearerFormat: Tilecast device credential
   schemas:
+    PluginRequirement:
+      type: object
+      required: [kind, label]
+      properties:
+        kind:
+          {
+            type: string,
+            enum: [platform, hardware, region, network, provider, player],
+          }
+        label: { type: string }
+        description: { type: string }
+    PluginAttention:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          {
+            type: string,
+            examples:
+              [
+                no_compatible_player,
+                no_alert_rules,
+                poll_failing,
+                data_without_installation,
+              ],
+          }
+        message: { type: string }
+    CatalogPlugin:
+      type: object
+      required:
+        [
+          id,
+          version,
+          name,
+          description,
+          category,
+          icon,
+          managementPath,
+          instanceNounSingular,
+          instanceNounPlural,
+          requirements,
+          capabilities,
+          installed,
+          installable,
+          configured,
+          active,
+          instanceCount,
+          attention,
+        ]
+      properties:
+        id: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
+        version:
+          {
+            type: integer,
+            minimum: 1,
+            description: Definition contract version compiled into this release,
+          }
+        name: { type: string }
+        description: { type: string }
+        category:
+          { type: string, enum: [Display, Automation, Workflow, Hardware] }
+        icon:
+          {
+            type: string,
+            description: Bounded icon identifier; unknown values render a generic icon,
+          }
+        managementPath:
+          {
+            type: string,
+            description: Studio route; a navigation hint,
+            not an authorization boundary,
+          }
+        instanceNounSingular: { type: string }
+        instanceNounPlural: { type: string }
+        requirements:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/PluginRequirement" },
+          }
+        capabilities: { type: array, items: { type: string } }
+        documentation: { type: string }
+        installed: { type: boolean }
+        installable: { type: boolean }
+        configured: { type: boolean }
+        active: { type: boolean }
+        instanceCount: { type: integer, minimum: 0 }
+        attention:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/PluginAttention" },
+          }
+    PluginCatalog:
+      type: object
+      required: [items, unsupportedInstallations]
+      properties:
+        items:
+          { type: array, items: { $ref: "#/components/schemas/CatalogPlugin" } }
+        unsupportedInstallations:
+          type: array
+          description: Installation rows naming plugins this release does not know. Preserved and inert.
+          items:
+            type: object
+            required: [pluginId, installedAt]
+            properties:
+              pluginId: { type: string }
+              installedAt: { type: string, format: date-time }
+    PluginInUseError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code: { type: string, const: plugin_in_use }
+            message: { type: string }
+            details:
+              type: object
+              required: [pluginId, resources]
+              properties:
+                pluginId: { type: string }
+                resources:
+                  type: array
+                  items:
+                    type: object
+                    required: [kind, count, label]
+                    properties:
+                      kind: { type: string }
+                      count: { type: integer, minimum: 1 }
+                      label: { type: string }
     PresentationNetworkSecurity:
       type: string
       enum: [wpa_psk, wpa_eap_peap_mschapv2]

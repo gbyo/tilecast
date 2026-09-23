@@ -72,6 +72,7 @@ func TestNoiseMeterLifecycleAndManifestTargeting(t *testing.T) {
 	}
 
 	service := NewService(pool, nil)
+	installPluginsForTest(t, pool, NoiseMeterID)
 
 	invalid := validNoiseMeter()
 	invalid.LoudLevel = invalid.WarningLevel
@@ -171,7 +172,7 @@ func TestNoiseMeterLifecycleAndManifestTargeting(t *testing.T) {
 			entry = item
 		}
 	}
-	if entry.Name == "" || entry.InstanceCount != 2 || !entry.Enabled {
+	if entry.Name == "" || entry.InstanceCount != 2 || !entry.Active || !entry.Configured || !entry.Installed {
 		t.Fatalf("noise meter catalog entry: %#v of %#v", entry, catalog.Items)
 	}
 

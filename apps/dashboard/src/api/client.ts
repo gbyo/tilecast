@@ -143,6 +143,7 @@ import type {
   BackupList,
   BackupJob,
   BackupRestorePlan,
+  PluginCatalog,
   PluginSummary,
   BrandBug,
   BrandBugInput,
@@ -159,13 +160,20 @@ import type {
 } from "./types";
 
 type DataResponse<T> = { data: T };
-type ErrorResponse = { error?: { code?: string; message?: string } };
+type ErrorResponse = {
+  error?: {
+    code?: string;
+    message?: string;
+    details?: Record<string, unknown>;
+  };
+};
 
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
     readonly code: string,
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -183,6 +191,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       body.error?.message ?? "Tilecast could not complete the request.",
       response.status,
       body.error?.code ?? "unknown_error",
+      body.error?.details,
     );
   }
   if (response.status === 204) return undefined as T;
@@ -1267,7 +1276,17 @@ export const api = {
         body: JSON.stringify({ screenId }),
       },
     ),
-  plugins: () => request<{ items: PluginSummary[] }>("/plugins"),
+  plugins: () => request<PluginCatalog>("/plugins"),
+  installPlugin: (id: string, csrfToken: string) =>
+    request<PluginSummary>(`/plugins/${encodeURIComponent(id)}/install`, {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+    }),
+  removePlugin: (id: string, csrfToken: string) =>
+    request<void>(`/plugins/${encodeURIComponent(id)}/installation`, {
+      method: "DELETE",
+      headers: { "X-CSRF-Token": csrfToken },
+    }),
   dependencyGraph: () => request<DependencyGraph>("/plugins/dependency-graph"),
   countdownBars: () =>
     request<{ items: CountdownBar[]; total: number }>(

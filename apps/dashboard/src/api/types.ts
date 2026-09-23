@@ -1113,12 +1113,57 @@ export type ScreenGroupList = {
   pageSize: number;
 };
 
+export type PluginRequirement = {
+  kind: string;
+  label: string;
+  description?: string;
+};
+
+export type PluginAttention = {
+  code: string;
+  message: string;
+};
+
+/**
+ * One release-owned plugin joined with this installation's state. Installed,
+ * configured, and active are separate questions; a plugin is never "enabled"
+ * merely by being installed.
+ */
 export type PluginSummary = {
   id: string;
+  version: number;
   name: string;
   description: string;
-  enabled: boolean;
+  category: string;
+  icon: string;
+  managementPath: string;
+  instanceNounSingular: string;
+  instanceNounPlural: string;
+  requirements: PluginRequirement[];
+  capabilities: string[];
+  documentation?: string;
+  installed: boolean;
+  installable: boolean;
+  configured: boolean;
+  active: boolean;
   instanceCount: number;
+  attention: PluginAttention[];
+};
+
+export type UnsupportedPluginInstallation = {
+  pluginId: string;
+  installedAt: string;
+};
+
+export type PluginCatalog = {
+  items: PluginSummary[];
+  unsupportedInstallations: UnsupportedPluginInstallation[];
+};
+
+export type PluginInUseResource = {
+  kind: string;
+  count: number;
+  label: string;
 };
 
 export type DependencyNodeType =

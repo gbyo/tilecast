@@ -11,11 +11,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/forms"
+	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
 // writeFormError maps a forms domain error to the appropriate HTTP status.
 func (s *server) writeFormError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, plugins.ErrPluginNotInstalled):
+		s.writePluginError(w, r, err)
 	case errors.Is(err, forms.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "The requested form resource was not found.")
 	case errors.Is(err, forms.ErrForbidden):

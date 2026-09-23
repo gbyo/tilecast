@@ -75,6 +75,7 @@ func setupNoiseHistory(t *testing.T) (context.Context, noiseHistoryEnvironment) 
 		}
 	}
 	environment.service = NewService(pool, nil)
+	installPluginsForTest(t, pool, NoiseMeterID)
 	meter, err := environment.service.CreateNoiseMeter(ctx, environment.userID, validNoiseMeter())
 	if err != nil {
 		t.Fatal(err)

@@ -25,6 +25,7 @@ import {
   SystemPanel,
 } from "../settings/SettingsOperations";
 import { UsersPage } from "./UsersPage";
+import { DependencyGraphPage } from "./DependencyGraphPage";
 import { BackupPanel } from "../settings/BackupPanel";
 import { NotificationsPanel } from "../settings/NotificationsPanel";
 import { IntegrationTokensPanel } from "../settings/IntegrationTokensPanel";
@@ -203,6 +204,7 @@ function Destination({
   onRetentionDirtyChange: (dirty: boolean) => void;
 }) {
   if (active === "users") return <UsersPage />;
+  if (active === "dependency-graph") return <DependencyGraphPage />;
   if (active === "locations") return <LocationsPanel canManage={manageable} />;
   if (active === "system") return <SystemPanel canManage={manageable} />;
   if (active === "backups")

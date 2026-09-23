@@ -8,6 +8,7 @@ import {
   ListVideo,
   Monitor,
   MonitorCheck,
+  Puzzle,
   Settings,
   Upload,
   UserRound,
@@ -20,7 +21,8 @@ import {
   type RouteObject,
 } from "react-router";
 import { api } from "../api/client";
-import type { Screen, ScreenStatus, User } from "../api/types";
+import type { PluginSummary, Screen, ScreenStatus, User } from "../api/types";
+import { hasStudioRoute, pluginsQueryKey } from "../plugins/pluginCatalog";
 import { useNotifications } from "../notifications/useNotifications";
 import {
   studioRouteHandle,
@@ -243,15 +245,39 @@ function collectActionResults(permissions: CommandPermissions) {
   return results;
 }
 
+/**
+ * Plugins come from the server catalog rather than static routes. An installed
+ * plugin is an ordinary destination; an uninstalled one is offered as a
+ * discovery result that opens Add plugin on it, never as its management page.
+ */
+function collectPluginResults(plugins: PluginSummary[]) {
+  return plugins.map((plugin) => ({
+    id: `plugin:${plugin.id}`,
+    label: plugin.name,
+    description: plugin.installed ? "Plugin" : "Plugin · Not installed",
+    to:
+      plugin.installed && hasStudioRoute(plugin.managementPath)
+        ? plugin.managementPath
+        : plugin.installed
+          ? "/plugins"
+          : `/plugins?add=${encodeURIComponent(plugin.id)}`,
+    category: "Navigation" as const,
+    Icon: Puzzle,
+    keywords: [plugin.category, plugin.description, ...plugin.capabilities],
+  }));
+}
+
 export function buildCommandResults(
   routes: readonly RouteObject[],
   screens: Screen[],
   query: string,
   permissions: CommandPermissions = { canCreate: true, canPair: true },
+  plugins: PluginSummary[] = [],
 ) {
   const providers: CommandProvider[] = [
     { id: "actions", results: () => collectActionResults(permissions) },
     { id: "routes", results: () => collectRouteResults(routes) },
+    { id: "plugins", results: () => collectPluginResults(plugins) },
     {
       id: "screens",
       results: () =>
@@ -420,10 +446,19 @@ function CommandPalette({
 }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const results = buildCommandResults(routes, screens, query, {
-    canCreate,
-    canPair,
+  // Read only while searching; the catalog is shared with the Plugins page.
+  const plugins = useQuery({
+    queryKey: pluginsQueryKey,
+    queryFn: api.plugins,
+    enabled: open,
   });
+  const results = buildCommandResults(
+    routes,
+    screens,
+    query,
+    { canCreate, canPair },
+    plugins.data?.items ?? [],
+  );
   const groups = groupCommandResults(results);
 
   useEffect(() => {

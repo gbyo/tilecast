@@ -1,20 +1,85 @@
-# Built-in plugins
+# Installable built-in plugins
 
-Plugins are typed, built-in Tilecast features that add bounded workflows or affect Player behavior outside normal playlist items and Layout zones. They are compiled into Tilecast and configured in Studio. Player-facing plugins are projected into each targeted screen's authenticated manifest; workflow plugins need not add manifest entries of their own. Tilecast does not load third-party code, download plugins, or accept arbitrary plugin manifests.
+Tilecast plugins are release-owned optional capabilities. A Tilecast release defines which plugins are available; an organization explicitly installs the ones it uses. Installing does not download executable code.
+
+Plugins add bounded workflows or affect Player behavior outside normal playlist items and Layout zones. Their implementation is compiled into the server and Players. Player-facing plugins are projected into each targeted screen's authenticated manifest; workflow plugins need not add manifest entries of their own. Tilecast does not load third-party code, download plugins, accept arbitrary plugin manifests, or update a plugin separately from Tilecast itself: updating Tilecast updates its plugins.
+
+## Catalog, installation, and removal
+
+The plugin registry (`apps/server/internal/plugins/registry.go`) is compiled Go data. Each definition carries a stable identifier, a definition version, name, description, category (Display, Automation, Workflow, or Hardware), a bounded icon identifier, the Studio route that manages it, instance nouns, and declarative requirements and capabilities. Requirements are advice shown before installation; they are never evaluated, and a plugin may be installed before any compatible Player is paired.
+
+Installation state is one row per plugin in `plugin_installations`. The row records only that the organization installed the plugin, who installed it, and when. Each plugin keeps its real configuration in its own tables — Countdown Bar in `countdown_bar_instances`, Emergency Alerts in `alert_monitor` and `alert_rules`, and so on. There is deliberately no generic configuration column and no separate enabled flag: installed is the lifecycle, and enabling or disabling individual instances stays inside each plugin.
+
+The catalog reports three separate questions for every plugin:
+
+| Plugin                | Configured                         | Active                        | Instances   |
+| --------------------- | ---------------------------------- | ----------------------------- | ----------- |
+| Countdown Bar         | at least one instance              | at least one enabled instance | instances   |
+| Brand Bug / Watermark | at least one mark                  | at least one enabled mark     | marks       |
+| Noise Meter           | at least one meter                 | at least one enabled meter    | meters      |
+| Forms                 | at least one form                  | at least one form             | forms       |
+| Emergency Alerts      | areas or zones chosen, or any rule | monitoring switched on        | alert rules |
+
+An installed Emergency Alerts plugin with monitoring off is a valid state. `attention` carries bounded advisory notes, such as a Noise Meter installed before any Linux Player is paired, monitoring switched on with no alert rule, or a failing NWS poll. Feature data that exists without an installation — after a restore or a manual database edit — is reported as `data_without_installation` and has no runtime effect.
+
+**Install** (`POST /api/v1/plugins/{pluginId}/install`) requires Owner or Administrator and the session CSRF token. It answers `201 Created` the first time and `200 OK` with the same representation when repeated, records a `plugin.installed` audit event with the definition version, and revises every screen manifest for a Player-facing plugin. An identifier the release does not know answers `404 plugin_not_found`.
+
+**Remove** (`DELETE /api/v1/plugins/{pluginId}/installation`) has the same authorization and is idempotent. It never deletes plugin data. While plugin-owned resources remain it answers `409 plugin_in_use` with the resources in `error.details`:
+
+| Plugin                | Removal is blocked while                                                        |
+| --------------------- | ------------------------------------------------------------------------------- |
+| Countdown Bar         | any instance exists                                                             |
+| Brand Bug / Watermark | any mark exists                                                                 |
+| Noise Meter           | any meter exists (history belongs to its meters and does not block on its own)  |
+| Forms                 | any form that has not been deleted exists                                       |
+| Emergency Alerts      | monitoring is on, any alert rule exists, or an alert activation has not cleared |
+
+To remove Emergency Alerts, switch monitoring off and delete the rules through its page; deleting a rule already clears its live activations. A successful removal records `plugin.removed` and revises every screen manifest for a Player-facing plugin.
+
+Configuration routes refuse a plugin that is not installed with `409 plugin_not_installed` rather than installing it implicitly. That covers creating or updating Countdown Bar, Brand Bug, and Noise Meter instances, creating a form, changing the NWS monitor, saving an alert rule, and polling NWS by hand. Deleting leftover instances stays possible so inconsistent data can be cleaned up.
+
+### Runtime gating
+
+Installation is the top-level runtime gate: a plugin must be known to the running release **and** installed.
+
+- **Manifests.** An uninstalled plugin contributes no manifest entries, whatever its own tables contain. Install and remove use the existing manifest revision and Player notification path; no parallel revision system exists.
+- **Emergency Alerts.** The NWS poller makes no upstream request while the plugin is uninstalled, even if the monitor row says monitoring is on.
+- **Noise Meter.** Heartbeat noise history for an uninstalled Noise Meter is consumed and dropped, not rejected, so a Player never retries the same batch forever.
+- **Forms.** The time-window worker skips forms while Forms is uninstalled. Normal operation cannot reach that state because removal is refused while forms exist; the check protects restored or edited databases.
+
+A Player or Tilecast Edge node that already holds a valid cached manifest keeps honoring it offline under the ordinary manifest rules, exactly as for any other server configuration change. Players and Edge nodes never install plugins, never receive plugin code, and never decide whether a plugin exists; the Edge daemon-to-renderer `plugin.state` message is runtime state, not installation state.
+
+### Existing installations and fresh installs
+
+Migration `00102_plugin_installations.sql` installs a plugin on an existing installation only when its data shows the plugin in use: any Countdown Bar, Brand Bug, or Noise Meter instance (enabled or not), any form that has not been deleted, or Emergency Alerts monitoring switched on or any alert rule. The disabled NWS monitor row the earlier migration seeds is not evidence of use. A fresh installation starts with no plugins installed.
+
+### Unknown installations and downgrades
+
+A database restored from a newer release may name a plugin this release does not know. Startup succeeds, the row is kept, nothing runs or is projected for it, and the catalog lists it under `unsupportedInstallations`. An administrator may remove such a row explicitly through the same Remove endpoint; that deletes the installation row only and never touches tables this release cannot reason about.
+
+### Backups
+
+`plugin_installations` is an ordinary table, and full backups dump every table in the public schema, so installation state is backed up and restored with everything else. There is no plugin-specific archive component.
+
+### Studio
+
+**Plugins** lists installed plugins only, each with its instance count and one status — Needs setup, Configured, Active, or Attention. **Add plugin** opens a searchable catalog filtered by category; installed plugins are left out of the default list and reappear, marked, when a search matches them. Choosing a plugin shows its requirements and what it uses before **Install**, and a successful install opens the plugin's page. Remove plugin sits in the overflow menu on each plugin's page and explains what still uses the plugin when removal is blocked.
+
+Plugin routes stay statically registered. Opening an uninstalled plugin's page shows how to install it — with an Install button for Owners and Administrators — and never installs it by opening the link. Global search offers installed plugins as ordinary destinations and uninstalled ones as "Not installed", opening Add plugin on that plugin. Studio renders a registry entry it does not recognize with a generic icon rather than dropping it.
 
 ## Forms
 
-Forms collects submissions, applies review and approval workflows, and exposes approved records to Widgets and Layout bindings. Operators create and manage forms at **Plugins → Forms**. Submitters continue to use **My Forms**, and reviewers may use the central Approvals inbox.
+Forms collects submissions, applies review and approval workflows, and exposes approved records to Widgets and Layout bindings. Once Forms is installed, operators create and manage forms at **Plugins → Forms**. Submitters continue to use **My Forms**, and reviewers may use the central Approvals inbox.
 
 Forms remains a typed Data Source provider in the internal content contract because its approved records are reusable signage data. That implementation detail does not make a form an external data connection: Studio omits Forms from the Data Sources library and creation gallery, and legacy `/data-sources/...` form links redirect to the canonical `/plugins/forms/...` routes.
 
 Forms does not add a Player plugin manifest entry. Its published views flow through the ordinary authenticated Data Source projection used by Widgets and Layout bindings.
 
-## Dependency Graph
+## Dependency Graph is a system tool
 
-Dependency Graph is a read-only Studio tool at **Plugins → Dependency Graph**. It maps Data Sources, media, Widgets, Layouts, playlists, Campaigns, schedules, sync groups, and screens without adding anything to a Player manifest.
+Dependency Graph is not a plugin: it has no installation and no instances, and projects nothing to Players. It lives at **Settings → System tools → Dependency Graph** (`/settings/dependency-graph`); the old `/plugins/dependency-graph` address redirects there. Its API remains at `GET /api/v1/plugins/dependency-graph` for now.
 
-Edges point from a dependency to its consumer. Following them forward answers where a change can appear; following them backward answers what feeds a presentation or screen. The explorer reports direct relationships separately from the complete upstream and downstream counts, and every node links to its canonical Studio surface.
+It maps Data Sources, media, Widgets, Layouts, playlists, Campaigns, schedules, sync groups, and screens. Edges point from a dependency to its consumer. Following them forward answers where a change can appear; following them backward answers what feeds a presentation or screen. The explorer reports direct relationships separately from the complete upstream and downstream counts, and every node links to its canonical Studio surface.
 
 The graph uses the same stored dependency records and assignment tables as playback and the existing “Used by” panels. Deleted content, deleted groups and schedules, and archived screens are excluded. A screen-scoped account sees only the screen nodes and screen-targeting edges allowed by the same scope used for the Screens list; the shared content library remains organization-wide.
 
@@ -53,7 +118,7 @@ Changing an instance increments the manifest revision for every screen. The next
 
 Emergency Alerts watches official National Weather Service alerts and takes matching screens over automatically while one is active. It is a plugin rather than an organization default: an installation opts into monitoring, and the alert rules are its instances. Settings keeps only the defaults for a Takeover a person starts by hand and for player commands.
 
-The catalog reports the plugin as enabled when monitoring is on — a monitor switched on with no rule yet is a half-finished setup, not a disabled plugin — and its instance count is the number of alert rules.
+The catalog reports the plugin as active when monitoring is on — a monitor switched on with no rule yet is a half-finished setup, and the catalog flags it — and its instance count is the number of alert rules.
 
 ### Response mode
 
@@ -193,10 +258,12 @@ The Player estimates server clock offset when a manifest is received. The cached
 
 ## API
 
-Dashboard reads require a valid Tilecast session. Mutations additionally require Owner or Administrator, the session CSRF token, strict JSON, and normal request-size limits.
+Dashboard reads require a valid Tilecast session. Mutations additionally require Owner or Administrator, the session CSRF token, strict JSON, and normal request-size limits. Instance mutations answer `409 plugin_not_installed` while their plugin is not installed.
 
-- `GET /api/v1/plugins` — the catalog, one entry per built-in plugin
-- `GET /api/v1/plugins/dependency-graph` — typed nodes and directed dependency-to-consumer edges
+- `GET /api/v1/plugins` — the catalog: every plugin this release offers with installation and status, plus `unsupportedInstallations`
+- `POST /api/v1/plugins/{pluginId}/install` — install; `201` first time, `200` when already installed
+- `DELETE /api/v1/plugins/{pluginId}/installation` — remove; `204`, or `409 plugin_in_use` with blocking resources
+- `GET /api/v1/plugins/dependency-graph` — typed nodes and directed dependency-to-consumer edges (a system tool, not a plugin)
 - `GET /api/v1/plugins/countdown-bar/instances`
 - `GET /api/v1/plugins/countdown-bar/instances/{id}`
 - `POST /api/v1/plugins/countdown-bar/instances`

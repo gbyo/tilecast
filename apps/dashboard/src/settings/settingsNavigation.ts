@@ -13,6 +13,7 @@ import {
   Globe,
   Image,
   KeyRound,
+  Network,
   LifeBuoy,
   MapPin,
   Palette,
@@ -49,7 +50,8 @@ export type SettingsSectionId =
   | "system"
   | "import-export"
   | "security"
-  | "preferences";
+  | "preferences"
+  | "dependency-graph";
 export type SettingsNavigationItem = {
   id: SettingsSectionId;
   label: string;
@@ -144,6 +146,16 @@ export const settingsNavigation: SettingsNavigationGroup[] = [
         id: "import-export",
         label: "Import and export",
         path: "import-export",
+      },
+    ],
+  },
+  {
+    label: "System tools",
+    items: [
+      {
+        id: "dependency-graph",
+        label: "Dependency Graph",
+        path: "dependency-graph",
       },
     ],
   },
@@ -286,6 +298,12 @@ export const sectionDetails: Record<
     icon: ArrowLeftRight,
     title: "Import and export",
     description: "Portable, non-secret Tilecast configuration.",
+  },
+  "dependency-graph": {
+    icon: Network,
+    title: "Dependency Graph",
+    description:
+      "Follow content and data through presentations, schedules, groups, and screens.",
   },
   preferences: {
     icon: SlidersHorizontal,

@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
+	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
 const (
@@ -264,7 +265,13 @@ func (s *Service) Start(parent context.Context) {
 				return
 			case <-timer.C:
 				monitor, err := s.Monitor(ctx)
-				if err == nil && monitor.Enabled && (s.gate == nil || s.gate()) {
+				// Installation is the top-level gate: monitor settings left behind
+				// for an uninstalled plugin never cause an upstream request.
+				installed := false
+				if err == nil && monitor.Enabled {
+					installed, err = plugins.Installed(ctx, s.db, plugins.EmergencyAlertsID)
+				}
+				if err == nil && monitor.Enabled && installed && (s.gate == nil || s.gate()) {
 					if err = s.Poll(ctx); err != nil && s.logger != nil {
 						s.logger.Warn("NWS alert poll failed", "error", err)
 					}
@@ -314,8 +321,19 @@ func (s *Service) UpdateMonitor(ctx context.Context, enabled bool, areas, zones 
 	if enabled && len(areas)+len(zones) == 0 {
 		return Monitor{}, validationError("select at least one state, territory, county, or forecast zone")
 	}
-	_, err = s.db.Exec(ctx, `UPDATE alert_monitor SET enabled=$1,areas=$2,zones=$3,poll_interval_seconds=$4,updated_by=$5,updated_at=now() WHERE singleton`, enabled, areas, zones, interval, userID)
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
+		return Monitor{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if err = plugins.LockInstallation(ctx, tx, plugins.EmergencyAlertsID); err != nil {
+		return Monitor{}, err
+	}
+	_, err = tx.Exec(ctx, `UPDATE alert_monitor SET enabled=$1,areas=$2,zones=$3,poll_interval_seconds=$4,updated_by=$5,updated_at=now() WHERE singleton`, enabled, areas, zones, interval, userID)
+	if err != nil {
+		return Monitor{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
 		return Monitor{}, err
 	}
 	_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'nws_monitor.updated','nws_alert_monitor','singleton',jsonb_build_object('enabled',$3,'areas',$4,'zones',$5))`, uuid.New(), userID, enabled, areas, zones)
@@ -368,6 +386,13 @@ func (s *Service) Rules(ctx context.Context) ([]Rule, error) {
 }
 
 func (s *Service) SaveRule(ctx context.Context, id uuid.UUID, input RuleInput, userID uuid.UUID) (Rule, error) {
+	// Checked before any managed presentation is provisioned, then again under
+	// lock in the transaction that writes the rule.
+	if installed, err := plugins.Installed(ctx, s.db, plugins.EmergencyAlertsID); err != nil {
+		return Rule{}, err
+	} else if !installed {
+		return Rule{}, plugins.ErrPluginNotInstalled
+	}
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" || len(input.Name) > 180 {
 		return Rule{}, validationError("rule name is required and must be at most 180 characters")
@@ -516,6 +541,9 @@ func (s *Service) SaveRule(ctx context.Context, id uuid.UUID, input RuleInput, u
 		return Rule{}, err
 	}
 	defer tx.Rollback(ctx)
+	if err = plugins.LockInstallation(ctx, tx, plugins.EmergencyAlertsID); err != nil {
+		return Rule{}, err
+	}
 	var tag pgconn.CommandTag
 	if creating {
 		tag, err = tx.Exec(ctx, `INSERT INTO alert_rules(id,organization_id,name,enabled,event_names,minimum_severity,minimum_urgency,response_mode,presentation_mode,playlist_id,ticker_display_mode,ticker_height_px,ticker_speed,maximum_duration_minutes,created_by,managed_data_source_id,managed_widget_id,managed_playlist_id)
@@ -713,6 +741,11 @@ type nwsProperties struct {
 func (s *Service) Poll(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if installed, err := plugins.Installed(ctx, s.db, plugins.EmergencyAlertsID); err != nil {
+		return err
+	} else if !installed {
+		return plugins.ErrPluginNotInstalled
+	}
 	monitor, err := s.Monitor(ctx)
 	if err != nil {
 		return err

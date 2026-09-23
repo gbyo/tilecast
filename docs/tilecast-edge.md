@@ -631,6 +631,8 @@ renderer.command.skip_item
 preview.request
 ```
 
+`plugin.state` is runtime state: the typed configuration of plugins the Server has already decided apply to this screen, taken from the manifest. It is not installation state. Plugin installation is Server-owned administration (`plugin_installations`); Edge nodes and Players never install plugins, receive plugin code, or decide whether a plugin exists, and there is no `plugin.install` or `plugin.uninstall` command. Installing or removing a plugin reaches Edge only as an ordinary manifest revision.
+
 The renderer sends:
 
 ```text

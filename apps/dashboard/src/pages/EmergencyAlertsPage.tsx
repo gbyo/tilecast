@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  CloudSun,
+  Plus,
+  Siren,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router";
 import { z } from "zod";
@@ -10,7 +17,52 @@ import type { NWSAlertRule, NWSAlertRuleInput, Playlist } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "../components/ui/native-select";
+import { Spinner } from "../components/ui/spinner";
+import { Switch } from "../components/ui/switch";
+import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
 
 const emptyRule: NWSAlertRuleInput = {
   name: "",
@@ -238,20 +290,23 @@ export function EmergencyAlertsPage() {
     <>
       {confirmDialog}
       <main className="grid gap-4">
-        <header className="grid min-w-0 gap-1">
-          <Link
-            className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-            to="/plugins"
-          >
-            <ArrowLeft size={15} aria-hidden="true" /> Plugins
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Emergency Alerts
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Watch official NWS weather alerts and take matching screens over
-            automatically, then restore normal playback when the alert clears.
-          </p>
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid min-w-0 gap-1">
+            <Link
+              className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+              to="/plugins"
+            >
+              <ArrowLeft size={15} aria-hidden="true" /> Plugins
+            </Link>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Emergency Alerts
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Watch official NWS weather alerts and take matching screens over
+              automatically, then restore normal playback when the alert clears.
+            </p>
+          </div>
+          <PluginActionsMenu pluginId="emergency_alerts" />
         </header>
         {!editable && (
           <Alert>
@@ -260,51 +315,56 @@ export function EmergencyAlertsPage() {
             </AlertDescription>
           </Alert>
         )}
-        <div className="settings-sections takeover-settings">
-          <section className="settings-subsection">
-            <header>
-              <h3>Prepare automatic emergency content</h3>
-              <p>
-                Tilecast can generate a fullscreen alert directly from live NWS
-                data. A custom playlist remains optional for organizations with
-                their own response content. This plugin configures automatic
-                responses; a manual Takeover is the separate “show this now”
-                action on Screens, and its defaults live in Settings.
-              </p>
-            </header>
-            <div className="takeover-settings__actions">
-              <Link
-                className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                to="/playlists"
-              >
-                Optional: manage custom playlists
-              </Link>
-              <Link
-                className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                to="/screens"
-              >
-                Start a Takeover now
-              </Link>
-              <Link
-                className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                to="/settings/operations/takeover"
-              >
-                Takeover and command defaults
-              </Link>
-            </div>
-          </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Prepare automatic emergency content</h2>
+            </CardTitle>
+            <CardDescription>
+              Tilecast can generate a fullscreen alert directly from live NWS
+              data. A custom playlist remains optional for organizations with
+              their own response content. This plugin configures automatic
+              responses; a manual Takeover is the separate “show this now”
+              action on Screens, and its defaults live in Settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Link
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              to="/playlists"
+            >
+              Optional: manage custom playlists
+            </Link>
+            <Link
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              to="/screens"
+            >
+              Start a Takeover now
+            </Link>
+            <Link
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              to="/settings/operations/takeover"
+            >
+              Takeover and command defaults
+            </Link>
+          </CardContent>
+        </Card>
 
-          <section className="settings-subsection">
-            <header>
-              <h3>Automated weather alerts</h3>
-              <p>
-                Monitor official active alerts for US states, territories,
-                counties, and forecast zones. Matching rules display live alert
-                details or an optional custom playlist, then restore normal
-                playback when the alert clears.
-              </p>
-            </header>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Automated weather alerts</h2>
+            </CardTitle>
+            <CardDescription>
+              Monitor official active alerts for US states, territories,
+              counties, and forecast zones. Matching rules display live alert
+              details or an optional custom playlist, then restore normal
+              playback when the alert clears.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-5">
             <Alert>
+              <TriangleAlert aria-hidden="true" />
               <AlertTitle>
                 Alert delivery is best-effort, not a life-safety system.
               </AlertTitle>
@@ -314,161 +374,172 @@ export function EmergencyAlertsPage() {
                 are visible.
               </AlertDescription>
             </Alert>
-            <div className="setting-row">
-              <div className="setting-copy">
-                <label htmlFor="nws-enabled">Automated NWS monitoring</label>
-                <p>
-                  Disabled by default. A configured rule is required to act.
-                </p>
-              </div>
-              <div className="setting-control">
-                <input
+            <FieldGroup>
+              <Field orientation="horizontal">
+                <Switch
                   id="nws-enabled"
-                  type="checkbox"
                   checked={enabled}
                   disabled={!editable}
-                  onChange={(event) => setEnabled(event.target.checked)}
+                  onCheckedChange={(next) => setEnabled(next)}
                 />
-              </div>
-            </div>
-            <div className="setting-row setting-row--location-picker">
-              <div className="setting-copy">
-                <label htmlFor="nws-state">Alert coverage</label>
-                <p>
+                <FieldContent>
+                  <FieldLabel htmlFor="nws-enabled">
+                    Automated NWS monitoring
+                  </FieldLabel>
+                  <FieldDescription>
+                    Disabled by default. A configured rule is required to act.
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+              <FieldSeparator />
+              <FieldSet>
+                <FieldLegend>Alert coverage</FieldLegend>
+                <FieldDescription>
                   Choose a state or territory by name, then monitor the whole
                   state or add specific counties and NWS forecast zones.
-                </p>
-              </div>
-              <div className="setting-control nws-location-picker">
-                <label>
-                  State or territory
-                  <select
-                    id="nws-state"
-                    value={selectedArea}
-                    disabled={!editable}
-                    onChange={(event) => {
-                      setSelectedArea(event.target.value);
-                      setSelectedZone("");
-                    }}
-                  >
-                    <option value="">Select a state</option>
-                    {nwsAreas.map(([code, name]) => (
-                      <option key={code} value={code}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <RheaButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={
-                    !editable || !selectedArea || areas.includes(selectedArea)
-                  }
-                  onClick={() => setAreas(addUnique(areas, selectedArea))}
-                >
-                  Monitor entire state
-                </RheaButton>
-                <label>
-                  County or forecast zone
-                  <select
-                    value={selectedZone}
-                    disabled={
-                      !editable || !selectedArea || zoneOptions.isLoading
-                    }
-                    onChange={(event) => setSelectedZone(event.target.value)}
-                  >
-                    <option value="">
-                      {zoneOptions.isLoading
-                        ? "Loading locations…"
-                        : "Select a location"}
-                    </option>
-                    {zoneOptions.data?.items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} (
-                        {item.type === "county" ? "County" : "Forecast zone"})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <RheaButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={
-                    !editable || !selectedZone || zones.includes(selectedZone)
-                  }
-                  onClick={() => {
-                    setZones(addUnique(zones, selectedZone));
-                    setSelectedZone("");
-                  }}
-                >
-                  Add location
-                </RheaButton>
-                {zoneOptions.isError && (
-                  <small className="text-sm text-destructive" role="alert">
-                    Counties and forecast zones could not be loaded from NWS.
-                  </small>
-                )}
-                <div className="nws-location-picker__selected">
-                  {areas.map((area) => (
-                    <span
-                      key={area}
-                      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs"
+                </FieldDescription>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="nws-state">
+                      State or territory
+                    </FieldLabel>
+                    <NativeSelect
+                      id="nws-state"
+                      className="w-full"
+                      value={selectedArea}
+                      disabled={!editable}
+                      onChange={(event) => {
+                        setSelectedArea(event.target.value);
+                        setSelectedZone("");
+                      }}
                     >
+                      <NativeSelectOption value="">
+                        Select a state
+                      </NativeSelectOption>
+                      {nwsAreas.map(([code, name]) => (
+                        <NativeSelectOption key={code} value={code}>
+                          {name}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                    <RheaButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      disabled={
+                        !editable ||
+                        !selectedArea ||
+                        areas.includes(selectedArea)
+                      }
+                      onClick={() => setAreas(addUnique(areas, selectedArea))}
+                    >
+                      <Plus data-icon="inline-start" aria-hidden="true" />
+                      Monitor entire state
+                    </RheaButton>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="nws-zone">
+                      County or forecast zone
+                    </FieldLabel>
+                    <NativeSelect
+                      id="nws-zone"
+                      className="w-full"
+                      value={selectedZone}
+                      disabled={
+                        !editable || !selectedArea || zoneOptions.isLoading
+                      }
+                      onChange={(event) => setSelectedZone(event.target.value)}
+                    >
+                      <NativeSelectOption value="">
+                        {zoneOptions.isLoading
+                          ? "Loading locations…"
+                          : "Select a location"}
+                      </NativeSelectOption>
+                      {zoneOptions.data?.items.map((item) => (
+                        <NativeSelectOption key={item.id} value={item.id}>
+                          {item.name} (
+                          {item.type === "county" ? "County" : "Forecast zone"})
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                    <RheaButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      disabled={
+                        !editable ||
+                        !selectedZone ||
+                        zones.includes(selectedZone)
+                      }
+                      onClick={() => {
+                        setZones(addUnique(zones, selectedZone));
+                        setSelectedZone("");
+                      }}
+                    >
+                      <Plus data-icon="inline-start" aria-hidden="true" />
+                      Add location
+                    </RheaButton>
+                    {zoneOptions.isError && (
+                      <FieldError>
+                        Counties and forecast zones could not be loaded from
+                        NWS.
+                      </FieldError>
+                    )}
+                  </Field>
+                </div>
+                <div
+                  className="flex flex-wrap items-center gap-1.5"
+                  aria-label="Monitored locations"
+                >
+                  {areas.map((area) => (
+                    <Badge key={area} variant="secondary" className="pr-0.5">
                       Entire {areaName(area)}
                       <RheaButton
                         type="button"
                         variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 rounded-full p-0"
+                        size="icon-xs"
+                        className="size-4 rounded-full"
                         aria-label={`Remove entire ${areaName(area)}`}
                         disabled={!editable}
                         onClick={() =>
                           setAreas(areas.filter((item) => item !== area))
                         }
                       >
-                        ×
+                        <X aria-hidden="true" />
                       </RheaButton>
-                    </span>
+                    </Badge>
                   ))}
                   {zones.map((zone) => (
-                    <span
-                      key={zone}
-                      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs"
-                    >
+                    <Badge key={zone} variant="secondary" className="pr-0.5">
                       {zoneLabel(zone, zoneOptions.data?.items ?? [])}
                       <RheaButton
                         type="button"
                         variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 rounded-full p-0"
+                        size="icon-xs"
+                        className="size-4 rounded-full"
                         aria-label={`Remove ${zone}`}
                         disabled={!editable}
                         onClick={() =>
                           setZones(zones.filter((item) => item !== zone))
                         }
                       >
-                        ×
+                        <X aria-hidden="true" />
                       </RheaButton>
-                    </span>
+                    </Badge>
                   ))}
                   {areas.length + zones.length === 0 && (
-                    <small>No locations selected.</small>
+                    <span className="text-sm text-muted-foreground">
+                      No locations selected.
+                    </span>
                   )}
                 </div>
-              </div>
-            </div>
-            <div className="setting-row">
-              <div className="setting-copy">
-                <label htmlFor="nws-interval">Poll interval</label>
-                <p>
-                  A one- to two-minute interval is recommended for most sites.
-                </p>
-              </div>
-              <div className="setting-control">
-                <select
+              </FieldSet>
+              <FieldSeparator />
+              <Field>
+                <FieldLabel htmlFor="nws-interval">Poll interval</FieldLabel>
+                <NativeSelect
                   id="nws-interval"
                   value={pollInterval}
                   disabled={!editable}
@@ -476,86 +547,98 @@ export function EmergencyAlertsPage() {
                     setPollInterval(Number(event.target.value))
                   }
                 >
-                  <option value={60}>1 minute</option>
-                  <option value={120}>2 minutes</option>
-                  <option value={300}>5 minutes</option>
-                  <option value={900}>15 minutes</option>
-                </select>
-              </div>
-            </div>
-            <div className="takeover-settings__actions">
-              <RheaButton
-                type="button"
-                disabled={!editable || saveMonitor.isPending}
-                onClick={() => saveMonitor.mutate()}
-              >
-                {saveMonitor.isPending ? "Saving…" : "Save NWS monitor"}
-              </RheaButton>
-              <RheaButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!editable || poll.isPending}
-                onClick={() => poll.mutate()}
-              >
-                {poll.isPending ? "Checking…" : "Check now"}
-              </RheaButton>
-            </div>
+                  <NativeSelectOption value={60}>1 minute</NativeSelectOption>
+                  <NativeSelectOption value={120}>2 minutes</NativeSelectOption>
+                  <NativeSelectOption value={300}>5 minutes</NativeSelectOption>
+                  <NativeSelectOption value={900}>
+                    15 minutes
+                  </NativeSelectOption>
+                </NativeSelect>
+                <FieldDescription>
+                  A one- to two-minute interval is recommended for most sites.
+                </FieldDescription>
+              </Field>
+            </FieldGroup>
             {errorText(saveMonitor.error ?? poll.error) && (
-              <p className="text-sm text-destructive" role="alert">
-                {errorText(saveMonitor.error ?? poll.error)}
-              </p>
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {errorText(saveMonitor.error ?? poll.error)}
+                </AlertDescription>
+              </Alert>
             )}
             {monitor && (
-              <dl className="takeover-settings__health">
-                <div>
-                  <dt>Last success</dt>
-                  <dd>{dateText(monitor.lastSuccessAt)}</dd>
-                </div>
-                <div>
-                  <dt>Last attempt</dt>
-                  <dd>{dateText(monitor.lastPolledAt)}</dd>
-                </div>
-                <div>
-                  <dt>Matched rules</dt>
-                  <dd>{monitor.lastMatchedCount}</dd>
-                </div>
-                <div>
-                  <dt>Health</dt>
-                  <dd>{monitor.lastErrorCode || "Healthy"}</dd>
-                </div>
+              <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-muted/50 p-4 text-sm sm:grid-cols-4">
+                {[
+                  ["Last success", dateText(monitor.lastSuccessAt)],
+                  ["Last attempt", dateText(monitor.lastPolledAt)],
+                  ["Matched rules", String(monitor.lastMatchedCount)],
+                  ["Health", monitor.lastErrorCode || "Healthy"],
+                ].map(([term, value]) => (
+                  <div key={term} className="grid gap-0.5">
+                    <dt className="text-xs text-muted-foreground">{term}</dt>
+                    <dd className="font-medium">{value}</dd>
+                  </div>
+                ))}
               </dl>
             )}
-          </section>
+          </CardContent>
+          <CardFooter className="flex-wrap gap-2">
+            <RheaButton
+              type="button"
+              disabled={!editable || saveMonitor.isPending}
+              onClick={() => saveMonitor.mutate()}
+            >
+              {saveMonitor.isPending && (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              )}
+              Save NWS monitor
+            </RheaButton>
+            <RheaButton
+              type="button"
+              variant="outline"
+              disabled={!editable || poll.isPending}
+              onClick={() => poll.mutate()}
+            >
+              {poll.isPending ? "Checking…" : "Check now"}
+            </RheaButton>
+          </CardFooter>
+        </Card>
 
-          <section className="settings-subsection">
-            <header>
-              <h3>Weather event rules</h3>
-              <p>
-                Event names match NWS wording exactly. Leave the field empty to
-                match every event at or above the selected severity and urgency.
-                Tilecast's live fullscreen alert is the default; a ticker bar is
-                the alternative for alerts that should inform without
-                interrupting what is playing.
-              </p>
-            </header>
-            <div className="takeover-rule-list">
-              {(settings.data?.rules ?? []).map((item) => (
-                <article key={item.id}>
-                  <div>
-                    <strong>{item.name}</strong>
-                    <p>
-                      {item.eventNames.join(", ") || "All event types"} ·{" "}
-                      {item.minimumSeverity}+ · {emergencyDisplayLabel(item)}
-                    </p>
-                  </div>
-                  <div>
-                    <span>{item.enabled ? "Enabled" : "Disabled"}</span>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Weather event rules</h2>
+            </CardTitle>
+            <CardDescription>
+              Event names match NWS wording exactly. Leave the field empty to
+              match every event at or above the selected severity and urgency.
+              Tilecast&apos;s live fullscreen alert is the default; a ticker bar
+              is the alternative for alerts that should inform without
+              interrupting what is playing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-5">
+            {(settings.data?.rules.length ?? 0) > 0 && (
+              <ItemGroup className="gap-2">
+                {(settings.data?.rules ?? []).map((item) => (
+                  <Item key={item.id} variant="outline" size="sm">
+                    <ItemContent>
+                      <ItemTitle>
+                        {item.name}
+                        <Badge variant={item.enabled ? "default" : "secondary"}>
+                          {item.enabled ? "Enabled" : "Disabled"}
+                        </Badge>
+                      </ItemTitle>
+                      <ItemDescription>
+                        {item.eventNames.join(", ") || "All event types"} ·{" "}
+                        {item.minimumSeverity}+ · {emergencyDisplayLabel(item)}
+                      </ItemDescription>
+                    </ItemContent>
                     {editable && (
-                      <>
+                      <ItemActions>
                         <RheaButton
                           type="button"
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => {
                             setEditing(item.id);
@@ -568,7 +651,7 @@ export function EmergencyAlertsPage() {
                         </RheaButton>
                         <RheaButton
                           type="button"
-                          variant="ghost"
+                          variant="destructive"
                           size="sm"
                           onClick={() => {
                             void confirm({
@@ -582,59 +665,89 @@ export function EmergencyAlertsPage() {
                         >
                           Delete
                         </RheaButton>
-                      </>
+                      </ItemActions>
                     )}
-                  </div>
-                </article>
-              ))}
-            </div>
+                  </Item>
+                ))}
+              </ItemGroup>
+            )}
             {editable && (
               <form
-                className="takeover-rule-editor"
+                className="grid gap-5 rounded-2xl border border-border p-4"
                 onSubmit={(event) => void submitRule(event)}
               >
-                <h4>{editing ? "Edit rule" : "Add rule"}</h4>
-                <label>
-                  Rule name
-                  <input maxLength={180} {...register("name")} />
-                </label>
-                {ruleErrors.name && (
-                  <p className="text-sm text-destructive" role="alert">
-                    {ruleErrors.name.message}
-                  </p>
-                )}
-                <label>
-                  NWS event names
-                  <input
-                    value={eventNamesText}
-                    placeholder="Tornado Warning, Flash Flood Warning"
-                    onChange={(event) => setEventNamesText(event.target.value)}
-                  />
-                </label>
-                <div className="takeover-rule-editor__columns">
-                  <label>
-                    Minimum severity
-                    <select {...register("minimumSeverity")}>
-                      {["Minor", "Moderate", "Severe", "Extreme"].map(
-                        (value) => (
-                          <option key={value}>{value}</option>
-                        ),
-                      )}
-                    </select>
-                  </label>
-                  <label>
-                    Minimum urgency
-                    <select {...register("minimumUrgency")}>
-                      {["Unknown", "Future", "Expected", "Immediate"].map(
-                        (value) => (
-                          <option key={value}>{value}</option>
-                        ),
-                      )}
-                    </select>
-                  </label>
-                  <label>
-                    Emergency display
-                    <select
+                <h3 className="text-base font-medium">
+                  {editing ? "Edit rule" : "Add rule"}
+                </h3>
+                <FieldGroup>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field data-invalid={Boolean(ruleErrors.name)}>
+                      <FieldLabel htmlFor="nws-rule-name">Rule name</FieldLabel>
+                      <Input
+                        id="nws-rule-name"
+                        maxLength={180}
+                        aria-invalid={Boolean(ruleErrors.name)}
+                        {...register("name")}
+                      />
+                      <FieldError errors={[ruleErrors.name]} />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="nws-rule-events">
+                        NWS event names
+                      </FieldLabel>
+                      <Input
+                        id="nws-rule-events"
+                        value={eventNamesText}
+                        placeholder="Tornado Warning, Flash Flood Warning"
+                        onChange={(event) =>
+                          setEventNamesText(event.target.value)
+                        }
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="nws-rule-severity">
+                        Minimum severity
+                      </FieldLabel>
+                      <NativeSelect
+                        id="nws-rule-severity"
+                        className="w-full"
+                        {...register("minimumSeverity")}
+                      >
+                        {["Minor", "Moderate", "Severe", "Extreme"].map(
+                          (value) => (
+                            <NativeSelectOption key={value}>
+                              {value}
+                            </NativeSelectOption>
+                          ),
+                        )}
+                      </NativeSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="nws-rule-urgency">
+                        Minimum urgency
+                      </FieldLabel>
+                      <NativeSelect
+                        id="nws-rule-urgency"
+                        className="w-full"
+                        {...register("minimumUrgency")}
+                      >
+                        {["Unknown", "Future", "Expected", "Immediate"].map(
+                          (value) => (
+                            <NativeSelectOption key={value}>
+                              {value}
+                            </NativeSelectOption>
+                          ),
+                        )}
+                      </NativeSelect>
+                    </Field>
+                  </div>
+                  <Field>
+                    <FieldLabel htmlFor="nws-rule-display">
+                      Emergency display
+                    </FieldLabel>
+                    <NativeSelect
+                      id="nws-rule-display"
+                      className="w-full"
                       value={displayChoice(rule)}
                       onChange={(event) => {
                         const choice = event.target.value;
@@ -655,170 +768,199 @@ export function EmergencyAlertsPage() {
                         setValue("playlistId", undefined, update);
                       }}
                     >
-                      <option value="builtin">
+                      <NativeSelectOption value="builtin">
                         Tilecast live NWS alert — fullscreen
-                      </option>
-                      <option value="ticker">
+                      </NativeSelectOption>
+                      <NativeSelectOption value="ticker">
                         Tilecast live NWS alert — ticker bar
-                      </option>
-                      <option value="playlist">
+                      </NativeSelectOption>
+                      <NativeSelectOption value="playlist">
                         Use a custom playlist — fullscreen
-                      </option>
-                    </select>
-                    <small>
+                      </NativeSelectOption>
+                    </NativeSelect>
+                    <FieldDescription>
                       The built-in display automatically shows the exact NWS
                       event, headline, severity, affected area, instructions,
                       sender, and expiration. A ticker bar shows the same alert
                       text along the bottom and leaves whatever is playing on
                       screen.
-                    </small>
-                  </label>
+                    </FieldDescription>
+                  </Field>
                   {rule.responseMode === "ticker" && (
-                    <>
-                      <label>
-                        Ticker placement
-                        <select {...register("tickerDisplayMode")}>
-                          <option value="push">
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <Field>
+                        <FieldLabel htmlFor="nws-ticker-placement">
+                          Ticker placement
+                        </FieldLabel>
+                        <NativeSelect
+                          id="nws-ticker-placement"
+                          className="w-full"
+                          {...register("tickerDisplayMode")}
+                        >
+                          <NativeSelectOption value="push">
                             Push content up — nothing is covered
-                          </option>
-                          <option value="overlay">
+                          </NativeSelectOption>
+                          <NativeSelectOption value="overlay">
                             Overlay — the bar covers the bottom edge
-                          </option>
-                        </select>
-                      </label>
-                      <label>
-                        Ticker height
-                        <select
+                          </NativeSelectOption>
+                        </NativeSelect>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="nws-ticker-height">
+                          Ticker height
+                        </FieldLabel>
+                        <NativeSelect
+                          id="nws-ticker-height"
+                          className="w-full"
                           {...register("tickerHeightPx", {
                             valueAsNumber: true,
                           })}
                         >
-                          <option value={64}>Compact — 64px</option>
-                          <option value={96}>Standard — 96px</option>
-                          <option value={140}>Large — 140px</option>
-                          <option value={200}>Extra large — 200px</option>
-                        </select>
-                      </label>
-                      <label>
-                        Ticker speed
-                        <select {...register("tickerSpeed")}>
-                          <option value="slow">Slow</option>
-                          <option value="medium">Medium</option>
-                          <option value="fast">Fast</option>
-                        </select>
-                      </label>
-                    </>
+                          <NativeSelectOption value={64}>
+                            Compact — 64px
+                          </NativeSelectOption>
+                          <NativeSelectOption value={96}>
+                            Standard — 96px
+                          </NativeSelectOption>
+                          <NativeSelectOption value={140}>
+                            Large — 140px
+                          </NativeSelectOption>
+                          <NativeSelectOption value={200}>
+                            Extra large — 200px
+                          </NativeSelectOption>
+                        </NativeSelect>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="nws-ticker-speed">
+                          Ticker speed
+                        </FieldLabel>
+                        <NativeSelect
+                          id="nws-ticker-speed"
+                          className="w-full"
+                          {...register("tickerSpeed")}
+                        >
+                          <NativeSelectOption value="slow">
+                            Slow
+                          </NativeSelectOption>
+                          <NativeSelectOption value="medium">
+                            Medium
+                          </NativeSelectOption>
+                          <NativeSelectOption value="fast">
+                            Fast
+                          </NativeSelectOption>
+                        </NativeSelect>
+                      </Field>
+                    </div>
                   )}
                   {rule.presentationMode === "playlist" && (
-                    <label>
-                      Custom emergency playlist
-                      <select {...register("playlistId")}>
-                        <option value="">Select a playlist</option>
+                    <Field data-invalid={Boolean(ruleErrors.playlistId)}>
+                      <FieldLabel htmlFor="nws-rule-playlist">
+                        Custom emergency playlist
+                      </FieldLabel>
+                      <NativeSelect
+                        id="nws-rule-playlist"
+                        className="w-full"
+                        aria-invalid={Boolean(ruleErrors.playlistId)}
+                        {...register("playlistId")}
+                      >
+                        <NativeSelectOption value="">
+                          Select a playlist
+                        </NativeSelectOption>
                         {playlists.data?.items.map((item) => (
-                          <option
+                          <NativeSelectOption
                             key={item.id}
                             value={item.id}
                             disabled={item.itemCount === 0}
                           >
                             {emergencyPlaylistLabel(item)}
-                          </option>
+                          </NativeSelectOption>
                         ))}
-                      </select>
-                      <small>
+                      </NativeSelect>
+                      <FieldDescription>
                         Only non-empty playlists can be activated.{" "}
                         <Link to="/playlists">Create or edit playlists</Link>
-                      </small>
-                      {ruleErrors.playlistId && (
-                        <span className="text-sm text-destructive" role="alert">
-                          {ruleErrors.playlistId.message}
-                        </span>
-                      )}
-                    </label>
+                      </FieldDescription>
+                      <FieldError errors={[ruleErrors.playlistId]} />
+                    </Field>
                   )}
-                  <label>
-                    Maximum duration
-                    <select
+                  <Field>
+                    <FieldLabel htmlFor="nws-rule-duration">
+                      Maximum duration
+                    </FieldLabel>
+                    <NativeSelect
+                      id="nws-rule-duration"
                       {...register("maximumDurationMinutes", {
                         valueAsNumber: true,
                       })}
                     >
-                      <option value={60}>1 hour</option>
-                      <option value={360}>6 hours</option>
-                      <option value={720}>12 hours</option>
-                      <option value={1440}>24 hours</option>
-                    </select>
-                  </label>
-                </div>
-                <fieldset>
-                  <legend>Target screens</legend>
-                  <div className="takeover-rule-editor__targets">
-                    {screens.data?.items.map((item) => (
-                      <label key={item.id}>
-                        <input
-                          type="checkbox"
-                          checked={rule.screenIds.includes(item.id)}
-                          onChange={() =>
-                            setValue(
-                              "screenIds",
-                              toggle(rule.screenIds, item.id),
-                              {
-                                shouldDirty: true,
-                                shouldValidate: true,
-                              },
-                            )
-                          }
-                        />
-                        {item.name}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-                {ruleErrors.screenIds && (
-                  <p className="text-sm text-destructive" role="alert">
-                    {ruleErrors.screenIds.message}
-                  </p>
+                      <NativeSelectOption value={60}>1 hour</NativeSelectOption>
+                      <NativeSelectOption value={360}>
+                        6 hours
+                      </NativeSelectOption>
+                      <NativeSelectOption value={720}>
+                        12 hours
+                      </NativeSelectOption>
+                      <NativeSelectOption value={1440}>
+                        24 hours
+                      </NativeSelectOption>
+                    </NativeSelect>
+                  </Field>
+                  <FieldSeparator />
+                  <TargetChecklist
+                    legend="Target screens"
+                    items={screens.data?.items ?? []}
+                    selected={rule.screenIds}
+                    onToggle={(id) =>
+                      setValue("screenIds", toggle(rule.screenIds, id), {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                    error={ruleErrors.screenIds?.message}
+                  />
+                  <TargetChecklist
+                    legend="Target groups"
+                    items={groups.data?.items ?? []}
+                    selected={rule.groupIds}
+                    onToggle={(id) =>
+                      setValue("groupIds", toggle(rule.groupIds, id), {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  />
+                  <FieldSeparator />
+                  <Field orientation="horizontal">
+                    <Switch
+                      id="nws-rule-enabled"
+                      checked={rule.enabled}
+                      onCheckedChange={(next) =>
+                        setValue("enabled", next, { shouldDirty: true })
+                      }
+                    />
+                    <FieldLabel htmlFor="nws-rule-enabled">
+                      Enable this rule
+                    </FieldLabel>
+                  </Field>
+                </FieldGroup>
+                {errorText(saveRule.error) && (
+                  <Alert variant="destructive">
+                    <AlertDescription>
+                      {errorText(saveRule.error)}
+                    </AlertDescription>
+                  </Alert>
                 )}
-                <fieldset>
-                  <legend>Target groups</legend>
-                  <div className="takeover-rule-editor__targets">
-                    {groups.data?.items.map((item) => (
-                      <label key={item.id}>
-                        <input
-                          type="checkbox"
-                          checked={rule.groupIds.includes(item.id)}
-                          onChange={() =>
-                            setValue(
-                              "groupIds",
-                              toggle(rule.groupIds, item.id),
-                              {
-                                shouldDirty: true,
-                                shouldValidate: true,
-                              },
-                            )
-                          }
-                        />
-                        {item.name}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-                <label className="checkbox-control">
-                  <input type="checkbox" {...register("enabled")} />
-                  Enable this rule
-                </label>
-                <div className="takeover-settings__actions">
+                <div className="flex flex-wrap gap-2">
                   <RheaButton type="submit" disabled={saveRule.isPending}>
-                    {saveRule.isPending
-                      ? "Saving…"
-                      : editing
-                        ? "Save rule"
-                        : "Add rule"}
+                    {saveRule.isPending && (
+                      <Spinner data-icon="inline-start" aria-hidden="true" />
+                    )}
+                    {editing ? "Save rule" : "Add rule"}
                   </RheaButton>
                   {editing && (
                     <RheaButton
                       type="button"
-                      variant="ghost"
-                      size="sm"
+                      variant="outline"
                       onClick={() => {
                         setEditing(undefined);
                         reset(emptyRule);
@@ -829,41 +971,104 @@ export function EmergencyAlertsPage() {
                     </RheaButton>
                   )}
                 </div>
-                {errorText(saveRule.error) && (
-                  <p className="text-sm text-destructive" role="alert">
-                    {errorText(saveRule.error)}
-                  </p>
-                )}
               </form>
             )}
-          </section>
+          </CardContent>
+        </Card>
 
-          <section className="settings-subsection">
-            <header>
-              <h3>Active weather emergencies</h3>
-              <p>Alerts currently matched to a rule and displaying content.</p>
-            </header>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Active weather emergencies</h2>
+            </CardTitle>
+            <CardDescription>
+              Alerts currently matched to a rule and displaying content.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             {(settings.data?.activeAlerts.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No NWS alerts are currently active.
-              </p>
+              <Empty className="py-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <CloudSun aria-hidden="true" />
+                  </EmptyMedia>
+                  <EmptyTitle>No active alerts</EmptyTitle>
+                  <EmptyDescription>
+                    No NWS alerts are currently active.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
-              <div className="takeover-rule-list">
+              <ItemGroup className="gap-2">
                 {settings.data?.activeAlerts.map((item) => (
-                  <article key={`${item.alertId}:${item.ruleId}`}>
-                    <div>
-                      <strong>{item.event}</strong>
-                      <p>{item.headline || item.areaDescription}</p>
-                    </div>
-                    <span>{item.severity}</span>
-                  </article>
+                  <Item
+                    key={`${item.alertId}:${item.ruleId}`}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ItemMedia variant="icon">
+                      <Siren aria-hidden="true" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{item.event}</ItemTitle>
+                      <ItemDescription>
+                        {item.headline || item.areaDescription}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Badge variant="destructive">{item.severity}</Badge>
+                    </ItemActions>
+                  </Item>
                 ))}
-              </div>
+              </ItemGroup>
             )}
-          </section>
-        </div>
+          </CardContent>
+        </Card>
       </main>
     </>
+  );
+}
+
+/** A labelled checkbox list for one kind of alert target. */
+function TargetChecklist({
+  legend,
+  items,
+  selected,
+  onToggle,
+  error,
+}: {
+  legend: string;
+  items: Array<{ id: string; name: string }>;
+  selected: string[];
+  onToggle: (id: string) => void;
+  error?: string;
+}) {
+  return (
+    <FieldSet data-invalid={Boolean(error)}>
+      <FieldLegend variant="label">{legend}</FieldLegend>
+      {items.length === 0 ? (
+        <FieldDescription>None available.</FieldDescription>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => (
+            <Field key={item.id} orientation="horizontal">
+              <Checkbox
+                id={`nws-target-${item.id}`}
+                checked={selected.includes(item.id)}
+                onCheckedChange={() => onToggle(item.id)}
+              />
+              <FieldLabel
+                htmlFor={`nws-target-${item.id}`}
+                className="font-normal"
+              >
+                {item.name}
+              </FieldLabel>
+            </Field>
+          ))}
+        </div>
+      )}
+      {error && <FieldError>{error}</FieldError>}
+    </FieldSet>
   );
 }
 

@@ -13,13 +13,24 @@ import { FormField } from "../components/FormField";
 import { scheduleWeekdays } from "../schedules/scheduleBuilderModel";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  EmptyContent,
 } from "../components/ui/empty";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import {
@@ -263,16 +274,18 @@ export function NoiseMetersPage() {
               hides itself when it settles.
             </p>
           </div>
-          {manageable && (
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {manageable && (
               <Link
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                className={buttonVariants({ size: "lg" })}
                 to="/plugins/noise-meter/new"
               >
-                <Plus size={16} aria-hidden="true" /> New instance
+                <Plus data-icon="inline-start" aria-hidden="true" /> New
+                instance
               </Link>
-            </div>
-          )}
+            )}
+            <PluginActionsMenu pluginId="noise_meter" />
+          </div>
         </header>
         <NoiseMeterPlatformNotice />
         {!manageable && (
@@ -307,41 +320,46 @@ export function NoiseMetersPage() {
               </EmptyDescription>
             </EmptyHeader>
             {manageable && (
-              <Link
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                to="/plugins/noise-meter/new"
-              >
-                Create instance
-              </Link>
+              <EmptyContent>
+                <Link
+                  className={buttonVariants()}
+                  to="/plugins/noise-meter/new"
+                >
+                  Create instance
+                </Link>
+              </EmptyContent>
             )}
           </Empty>
         ) : (
-          <div className="grid gap-2">
+          <ItemGroup className="gap-2">
             {(instances.data?.items ?? []).map((instance) => (
-              <article
-                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
-                key={instance.id}
-              >
-                <div className="grid min-w-0 flex-1 gap-1">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold">{instance.name}</h2>
+              <Item variant="outline" key={instance.id}>
+                <ItemContent>
+                  <ItemTitle>
+                    <h2 className="text-sm font-medium">{instance.name}</h2>
                     <Badge variant={instance.enabled ? "default" : "secondary"}>
                       {instance.enabled ? "Enabled" : "Disabled"}
                     </Badge>
-                  </span>
-                  <p className="text-sm text-muted-foreground">
+                  </ItemTitle>
+                  <ItemDescription>
                     {noiseMeterSummary(instance)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions className="flex-wrap">
                   <Link
-                    className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                    })}
                     to={`/plugins/noise-meter/${instance.id}/history`}
                   >
                     History
                   </Link>
                   <Link
-                    className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                    })}
                     to={`/plugins/noise-meter/${instance.id}`}
                   >
                     Manage
@@ -366,10 +384,10 @@ export function NoiseMetersPage() {
                       <Trash2 size={16} aria-hidden="true" />
                     </RheaButton>
                   )}
-                </div>
-              </article>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         )}
       </main>
     </>
@@ -702,27 +720,33 @@ export function NoiseMeterEditorPage() {
                 >
                   Days of the week
                 </span>
-                <div
-                  className="flex flex-wrap gap-1"
-                  role="group"
+                <ToggleGroup
+                  multiple
+                  variant="outline"
+                  size="sm"
+                  spacing={1}
+                  className="flex-wrap"
                   aria-labelledby="noise-meter-days-label"
+                  value={windowDays.map(String)}
+                  onValueChange={(values) => {
+                    const next = values.map(Number);
+                    const changed = [
+                      ...next.filter((day) => !windowDays.includes(day)),
+                      ...windowDays.filter((day) => !next.includes(day)),
+                    ];
+                    changed.forEach(toggleWindowDay);
+                  }}
                 >
                   {scheduleWeekdays.map((day) => (
-                    <button
-                      type="button"
+                    <ToggleGroupItem
                       key={day.value}
-                      aria-pressed={windowDays.includes(day.value)}
-                      onClick={() => toggleWindowDay(day.value)}
-                      className={`h-8 min-w-10 rounded-xl border px-2 text-sm font-medium transition-colors ${
-                        windowDays.includes(day.value)
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-background hover:bg-muted"
-                      }`}
+                      value={String(day.value)}
+                      className="min-w-10 aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                     >
                       {day.short}
-                    </button>
+                    </ToggleGroupItem>
                   ))}
-                </div>
+                </ToggleGroup>
                 {errors.scheduleDaysOfWeek && (
                   <span className="text-sm text-destructive" role="alert">
                     {errors.scheduleDaysOfWeek.message}
@@ -820,7 +844,7 @@ export function NoiseMeterEditorPage() {
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Link
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
+            className={buttonVariants({ variant: "outline", size: "lg" })}
             to="/plugins/noise-meter"
           >
             Cancel

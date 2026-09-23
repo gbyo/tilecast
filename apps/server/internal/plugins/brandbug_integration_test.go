@@ -84,6 +84,7 @@ func TestBrandBugLifecycleAndManifestTargeting(t *testing.T) {
 	}
 
 	service := NewService(pool, nil)
+	installPluginsForTest(t, pool, BrandBugID)
 
 	// A logo that is not a ready image must be refused at save time rather than
 	// becoming a manifest the Player cannot satisfy.
