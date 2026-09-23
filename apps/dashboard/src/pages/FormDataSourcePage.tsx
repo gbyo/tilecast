@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import type {
   DataSourceDetail,
   FormDataSource,
@@ -238,6 +238,7 @@ function ResponsesTab({
   const [sort, setSort] =
     useState<NonNullable<FormRecordListParams["sort"]>>("updated");
   const [page, setPage] = useState(1);
+  const [searchParams] = useSearchParams();
 
   // States that carry an outstanding review/approve decision, derived from the workflow.
   const needsReviewStates = useMemo(
@@ -278,6 +279,15 @@ function ResponsesTab({
   const total = records.data?.total ?? 0;
   const items = records.data?.items ?? [];
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Record rows are real links to the same responses URL the row click used,
+  // so a submission can be opened in a new tab like any other destination.
+  const recordHref = (recordId: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", "responses");
+    next.set("record", recordId);
+    return `?${next.toString()}`;
+  };
 
   const stateOptions = [
     { value: "needs_review", label: "Needs review" },
@@ -392,26 +402,21 @@ function ResponsesTab({
                   <TableHead scope="col">Priority</TableHead>
                   <TableHead scope="col">Updated</TableHead>
                   <TableHead scope="col">Display window</TableHead>
+                  <TableHead scope="col">
+                    <span className="sr-only">Review</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((record) => (
-                  <TableRow
-                    key={record.id}
-                    className="cursor-pointer hover:bg-muted"
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Review ${record.displayTitle || "untitled submission"}`}
-                    onClick={() => onSelectRecord(record.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onSelectRecord(record.id);
-                      }
-                    }}
-                  >
+                  <TableRow key={record.id} className="hover:bg-muted">
                     <TableCell>
-                      {record.displayTitle || "Untitled submission"}
+                      <Link
+                        to={recordHref(record.id)}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {record.displayTitle || "Untitled submission"}
+                      </Link>
                     </TableCell>
                     <TableCell>{record.submitterName || "Unknown"}</TableCell>
                     <TableCell>
@@ -429,6 +434,15 @@ function ResponsesTab({
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {displayWindow(record.displayAt, record.expiresAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        to={recordHref(record.id)}
+                        aria-label={`Review ${record.displayTitle || "untitled submission"}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        Review
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}

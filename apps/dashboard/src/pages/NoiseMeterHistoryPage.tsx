@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Download } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { api } from "../api/client";
 import type {
   NoiseHistoryDay,
@@ -9,9 +9,9 @@ import type {
   NoiseHistoryRange,
   NoiseHistorySummary,
 } from "../api/types";
-import { ViewTabs } from "../components/ViewTabs";
+import { ResourceTabs } from "../components/ResourceTabs";
 import { MetricTile } from "../components/MetricTile";
-import { ToggleGroup } from "../components/ToggleGroup";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { buttonVariants } from "../components/ui/button";
 import {
@@ -108,18 +108,13 @@ export function splitSeries(
 }
 
 function NoiseHistoryTabs({ id }: { id: string }) {
-  const navigate = useNavigate();
   return (
-    <ViewTabs
+    <ResourceTabs
       label="Noise Meter"
-      value="history"
-      items={[
-        { value: "settings", label: "Settings" },
-        { value: "history", label: "History" },
+      tabs={[
+        { label: "Settings", to: `/plugins/noise-meter/${id}` },
+        { label: "History", to: `/plugins/noise-meter/${id}/history` },
       ]}
-      onValueChange={(value) => {
-        if (value === "settings") void navigate(`/plugins/noise-meter/${id}`);
-      }}
     />
   );
 }
@@ -476,11 +471,20 @@ export function NoiseMeterHistoryPage() {
 
       <div className="flex flex-wrap items-end gap-4">
         <ToggleGroup
-          label="Date range"
-          value={range}
-          items={ranges}
-          onValueChange={setRange}
-        />
+          aria-label="Date range"
+          multiple={false}
+          value={[range]}
+          onValueChange={(next) => {
+            const first = next[0] as NoiseHistoryRange | undefined;
+            if (first !== undefined) setRange(first);
+          }}
+        >
+          {ranges.map((item) => (
+            <ToggleGroupItem key={item.value} value={item.value}>
+              {item.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
         {multipleScreens && (
           <Field>
             <FieldLabel htmlFor="noise-history-screen">Screen</FieldLabel>
@@ -608,11 +612,20 @@ export function NoiseMeterHistoryPage() {
                   </p>
                 </div>
                 <ToggleGroup
-                  label="Daily measure"
-                  value={measure}
-                  items={dailyMeasures}
-                  onValueChange={setMeasure}
-                />
+                  aria-label="Daily measure"
+                  multiple={false}
+                  value={[measure]}
+                  onValueChange={(next) => {
+                    const first = next[0] as DailyMeasure | undefined;
+                    if (first !== undefined) setMeasure(first);
+                  }}
+                >
+                  {dailyMeasures.map((item) => (
+                    <ToggleGroupItem key={item.value} value={item.value}>
+                      {item.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               </header>
               {(daily.data?.days.length ?? 0) > 0 ? (
                 <DailyComparison days={daily.data!.days} measure={measure} />

@@ -159,10 +159,22 @@ describe("Form Data Source Studio", () => {
     const user = userEvent.setup();
     renderAt("/plugins/forms/new");
 
+    // Guided creation: purpose first, then display, then review and create.
     await user.type(
       await screen.findByLabelText(/Form name/),
       "Staff Announcements",
     );
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      await screen.findByText("What do submitters see first?"),
+    ).toBeInTheDocument();
+    // Optional questions are skipped; skipping the last one submits.
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    expect(
+      await screen.findByRole("heading", { name: "Review and create" }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create form" }));
 
     await waitFor(() => expect(createForm).toHaveBeenCalled());
@@ -173,6 +185,24 @@ describe("Form Data Source Studio", () => {
       control: "short_text",
       required: true,
     });
+  });
+
+  it("blocks guided creation until the form has a name", async () => {
+    mockAuth("owner");
+    const createForm = vi
+      .spyOn(api, "createForm")
+      .mockResolvedValue(formDetail(["manage"]));
+    const user = userEvent.setup();
+    renderAt("/plugins/forms/new");
+
+    await screen.findByLabelText(/Form name/);
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    // The required purpose question blocks progress until it is answered.
+    expect(await screen.findByText("Question 1 of 4")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Review and create" }),
+    ).not.toBeInTheDocument();
+    expect(createForm).not.toHaveBeenCalled();
   });
 
   it("lets a global Viewer with a manage grant edit the form", async () => {

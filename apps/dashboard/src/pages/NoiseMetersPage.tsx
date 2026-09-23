@@ -40,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { ViewTabs } from "../components/ViewTabs";
+import { ResourceTabs } from "../components/ResourceTabs";
 import {
   RegisterCheckbox,
   TargetFields,
@@ -520,17 +520,12 @@ export function NoiseMeterEditorPage() {
         </p>
       </header>
       {editing && (
-        <ViewTabs
+        <ResourceTabs
           label="Noise Meter"
-          value="settings"
-          items={[
-            { value: "settings", label: "Settings" },
-            { value: "history", label: "History" },
+          tabs={[
+            { label: "Settings", to: `/plugins/noise-meter/${id}` },
+            { label: "History", to: `/plugins/noise-meter/${id}/history` },
           ]}
-          onValueChange={(value) => {
-            if (value === "history")
-              void navigate(`/plugins/noise-meter/${id}/history`);
-          }}
         />
       )}
       <NoiseMeterPlatformNotice />

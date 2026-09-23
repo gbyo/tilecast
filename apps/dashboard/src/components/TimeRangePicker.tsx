@@ -1,4 +1,4 @@
-import { Input } from "./ui/input";
+import { DateTimeInput } from "./date-picker";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -142,22 +142,20 @@ export function TimeRangePicker({
         <>
           <label className="grid gap-1 text-xs font-medium">
             <span>From</span>
-            <Input
-              type="datetime-local"
+            <DateTimeInput
+              id="time-range-from"
               value={customFrom}
               max={customTo || undefined}
-              onChange={(event) => onCustomFromChange(event.target.value)}
-              className="h-8"
+              onChange={onCustomFromChange}
             />
           </label>
           <label className="grid gap-1 text-xs font-medium">
             <span>To</span>
-            <Input
-              type="datetime-local"
+            <DateTimeInput
+              id="time-range-to"
               value={customTo}
               min={customFrom || undefined}
-              onChange={(event) => onCustomToChange(event.target.value)}
-              className="h-8"
+              onChange={onCustomToChange}
             />
           </label>
         </>
