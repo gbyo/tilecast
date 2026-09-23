@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DataSource, DataSourceDefinition } from "../api/types";
@@ -30,7 +36,7 @@ vi.mock("../api/client", async (importOriginal) => {
   };
 });
 
-vi.mock("./DataSourceEditors", () => ({
+vi.mock("./data-sources/dispatcher", () => ({
   DataSourceEditor: ({
     provider,
     onSaved,
@@ -120,9 +126,8 @@ describe("DataSourcePicker", () => {
       screen.getByRole("button", { name: /Connect new data/ }),
     );
     // The in-editor path runs the same gallery the Data Sources page runs.
-    expect(
-      screen.getByRole("dialog", { name: "Create Data Source" }),
-    ).toHaveClass("source-gallery");
+    const gallery = screen.getByRole("dialog", { name: "Create Data Source" });
+    expect(within(gallery).getByRole("button", { name: /CSV/ })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /CSV/ }));
     // The chosen provider opens with the same setup guidance the page shows, not a bare
     // editor.

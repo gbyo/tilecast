@@ -245,7 +245,7 @@ function statusDotClass(status: unknown) {
   return "bg-muted-foreground";
 }
 
-function SourceStatus({ status }: { status: unknown }) {
+export function SourceStatus({ status }: { status: unknown }) {
   return (
     <Badge variant="outline">
       <span

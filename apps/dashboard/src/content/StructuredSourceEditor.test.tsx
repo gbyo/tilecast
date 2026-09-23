@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { StructuredInspection } from "../api/types";
-import { StructuredDataSourceEditor } from "./DataSourceEditors";
+import { StructuredDataSourceEditor } from "./data-sources/structured";
 
 afterEach(() => {
   cleanup();
@@ -140,7 +140,11 @@ describe("StructuredDataSourceEditor", () => {
     await screen.findByText(/2 items read from this feed/, undefined, {
       timeout: 3000,
     });
-    expect(screen.getByRole("checkbox", { name: "Title" })).toBeTruthy();
+    // The notice renders from the inspection response; the field checkboxes arrive
+    // one effect tick later when the editor applies the detected availability.
+    expect(
+      await screen.findByRole("checkbox", { name: "Title" }, { timeout: 3000 }),
+    ).toBeTruthy();
     // Author and description are on by default for a feed, but this feed carries neither,
     // so they are dropped rather than offered as dead controls.
     expect(screen.queryByRole("checkbox", { name: "Author" })).toBeNull();
