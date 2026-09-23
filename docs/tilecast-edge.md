@@ -4075,83 +4075,143 @@ Only `public_signage` and explicitly approved `operational` values may be projec
 
 ## 41. Migration strategy: one-time Electron → Edge/WPE cutover
 
-The fleet does not require a flag-day server upgrade, but each Linux host performs one explicit runtime cutover. There is no long-lived shadow daemon and no Electron renderer mode inside Edge.
+The fleet does not require a flag-day server upgrade, but each Linux host performs one explicit runtime cutover. There is no long-lived Electron renderer inside Edge.
 
-### 41.1 Host migration phases
+Stopping/disabling the legacy service is necessary but **not sufficient**: the preserved legacy state still contains a valid server bearer credential. Migration therefore has a bounded server-side migration fence and two-phase credential replacement.
+
+### 41.1 Preflight before authority transfer
+
+Before changing credentials:
+
+1. install the candidate Edge/WPE release set without enabling it as the production owner;
+2. run local WPE hardware/backend/media/browser self-tests;
+3. inspect the legacy cached active manifest offline where possible;
+4. stop the legacy Electron service before the candidate sends authenticated player traffic;
+5. import the legacy state read-only;
+6. verify the configured server installation identity before sending the imported bearer;
+7. fetch a bounded server migration-preflight contract containing the current, prepared/pending, takeover, and configured near-horizon presentation requirements for this screen;
+8. compare every required presentation against the exact installed WPE profile + host probes.
+
+The near-horizon is bounded by the same scheduling/prefetch policy used for content preparation, with an explicit upper duration/entry count.
+
+If any required presentation is incompatible, abort before credential replacement and restart the unchanged legacy service.
+
+This catches real websites/layouts/plugins/codecs assigned to the screen. A generic WPE smoke fixture alone is not a migration gate.
+
+### 41.2 Migration session and credential fence
+
+After compatibility preflight passes, the server creates a short-lived migration session:
 
 ```text
-legacy Electron player running
-        │
-        ▼
-installer preflight + legacy state snapshot
-        │
-        ▼
-stop/disable legacy player service
-        │
-        ▼
-install tilecastd + WPE renderer/runtime
-        │
-        ▼
-tilecastd imports legacy state read-only
-        │
-        ▼
-verify server installation identity
-        │
-        ▼
-enroll Edge node identity + reconcile state
-        │
-        ▼
-start WPE and run real playback health check
-        │
-        ├─ healthy ─► migration confirmed
-        │
-        └─ failed  ─► explicit package rollback window
+migrationId
+screenId
+legacyCredentialId
+candidateCredentialId
+state = staged | confirmed | aborted | expired
+expiresAt
+legacyVersion
+candidateReleaseSetId
 ```
 
-Fresh Linux installs skip legacy import and pair directly through `tilecastd`.
+The candidate credential is newly generated and returned once. The client fsyncs it into Edge protected identity storage before continuing.
 
-### 41.2 Legacy state importer
+While the migration session is `staged`:
 
-The importer is versioned, bounded, idempotent and crash-safe. It may import the stable player installation ID, normalized server URL, pinned installation ID, screen metadata, device bearer credential, useful manifest/config/checkpoint/idempotency state and verified cached media.
+- owner-sensitive player commands/update execution/status mutation are accepted only from the candidate credential;
+- the legacy credential remains valid only for the bounded rollback/abort and minimum recovery/read paths defined by the migration protocol;
+- normal legacy owner-sensitive work is fenced server-side;
+- the old Electron process remains stopped locally.
 
-It never mutates/deletes the legacy directory during import. It verifies the configured server identity before sending the imported bearer credential, quarantines malformed/unknown state rather than guessing, copies secrets with fsync/atomic semantics, hash-verifies media before CAS promotion and keeps originals until the Edge post-install checkpoint is confirmed.
+This is a migration-specific fence, not a permanent dual-runtime owner-generation protocol.
 
-### 41.3 Edge enrollment after import
+If the candidate disappears and the migration expires before confirmation, the server revokes the candidate credential, removes the migration fence, and restores the legacy credential's normal authority so the installer/operator can restart the legacy player.
 
-`tilecastd` generates the Edge private key locally, persists it safely, creates the CSR and calls the player-authenticated Edge enrollment endpoint itself.
+### 41.3 Actual WPE health before confirmation
 
-Electron is not involved in certificate enrollment and the Edge private key never passes through the legacy runtime.
+With the candidate credential staged:
 
-### 41.4 Service mutual exclusion
+1. start `tilecastd` + WPE;
+2. reconcile the current screen state from the server;
+3. prepare and render the actual current presentation;
+4. require meaningful playback/progress evidence, not only `renderer.ready`;
+5. verify command/status/server reconnect behavior required for the migration gate;
+6. keep the test running for a bounded settlement window.
 
-The installer makes dual ownership structurally difficult:
+Edge node mTLS enrollment may be deferred until migration confirmation so an aborted candidate does not create a long-lived mesh identity. If early enrollment is required for a test, its certificate is migration-scoped and revoked automatically on abort/expiry.
 
-- legacy player service is stopped and disabled before `tilecastd` starts authenticated owner-sensitive work;
-- Edge refuses migration completion while the legacy service/process is active;
-- legacy rollback stops/disables Edge first;
-- install/systemd tests prove the two production stacks are not intentionally active together.
+### 41.4 Confirmation is credential revocation
 
-This replaces the previous owner-generation/shadow-handoff design.
+Migration confirmation is one atomic server transaction:
 
-### 41.5 Cache migration
+1. verify the migration session is still staged/unexpired;
+2. verify the candidate credential authenticated the confirmation;
+3. promote the candidate credential to the normal device credential;
+4. revoke the legacy credential and every other superseded legacy credential for that screen;
+5. mark the migration confirmed;
+6. record the bounded migration audit marker.
 
-Do not redownload current media unnecessarily. Import only recognized cache entries correlated with trusted manifest metadata, verify size + SHA-256, promote verified files into CAS and leave the legacy cache untouched until the Edge checkpoint is confirmed.
+A lost confirmation response is safe: the candidate already stores the new credential and can retry/authenticate with it; the old legacy copy is revoked.
 
-### 41.6 Commands, updates and restore safety
+After confirmation, manually starting the preserved Electron AppImage cannot authenticate with its old bearer.
 
-Removing dual runtime ownership does not weaken restore/replay safety.
+Only after confirmation does `tilecastd` perform normal Edge node certificate enrollment and mesh participation.
 
-Disruptive server work remains bound to the state incarnation/authorization in which it was created. After rollback-style server recovery creates a new state incarnation, restored old commands/update targets do not auto-execute until explicitly reconciled/reauthorized.
+### 41.5 Abort and rollback window
+
+Before confirmation:
+
+- stop Edge/WPE;
+- call the migration abort path when server reachable;
+- revoke the candidate credential/unfence the legacy credential;
+- restart the unchanged legacy service/state;
+- retain Edge diagnostics for investigation.
+
+After confirmation, the ordinary legacy directory is stale and its bearer is revoked. Do **not** call this an offline Electron rollback path.
+
+Post-confirmation recovery uses:
+
+- Edge release-set rollback within the Edge architecture; or
+- an explicit server-assisted legacy re-pair/recovery procedure that issues a new credential and re-synchronizes state before an intentionally supported emergency legacy package is started.
+
+The supported automatic/installer migration rollback window therefore ends at credential confirmation.
+
+### 41.6 Cache migration
+
+Do not redownload current media unnecessarily.
+
+During preflight/import:
+
+- correlate recognized legacy entries with trusted manifest metadata;
+- verify size + SHA-256;
+- copy/promote verified files into CAS;
+- do not modify/delete the legacy cache before confirmation.
+
+After confirmation, legacy cache cleanup is a later maintenance step.
+
+### 41.7 Commands, updates and restore safety
+
+Removing long-lived dual runtime ownership does not weaken restore/replay safety.
+
+Disruptive server work remains bound to the state-incarnation/authorization in which it was created. After rollback-style server recovery creates a new incarnation, restored old commands/update targets do not auto-execute until explicitly reconciled/reauthorized.
+
+Migration sessions are also incarnation-bound. A server restore invalidates any staged migration unless the current security/recovery state explicitly reconstructs it.
 
 Local command-idempotency records remain at least as long as the server may redeliver the command.
 
-### 41.7 Rollback window
+### 41.8 Installer/service mutual exclusion
 
-Rollback during initial deployment is a **package/service rollback**, not a renderer fallback.
+The installer still makes accidental local dual execution difficult:
 
-A rollback procedure may restore the last Electron AppImage/service only while that legacy upgrade path is explicitly supported. It stops Edge/WPE first, restores any required compositor/session, preserves screen identity and Edge diagnostics, and requires a later explicit retry of Edge migration.
+- legacy service stops before authenticated candidate work;
+- Edge and legacy units use explicit `Conflicts=`/equivalent package policy where practical;
+- installer uses a root-owned migration lock so two cutover attempts cannot run concurrently;
+- Edge refuses migration confirmation while the legacy service/process is active;
+- legacy restart before confirmation requires explicit abort/expiry;
+- install/systemd tests cover crashes at each transition.
 
-New Edge releases never contain or launch Electron.
+These controls supplement the server credential fence; they are not a substitute for it.
+
+## 42. Implementation roadmap
 
 ## 42. Implementation roadmap
 
@@ -4234,7 +4294,7 @@ State-machine fixtures cover:
 - new state-incarnation prepare/activate crash points;
 - security lineage rollback refusal;
 - destructive local DB/checkpoint recovery;
-- legacy/Edge service mutual exclusion and importer crash-point recovery;
+- legacy/Edge service mutual exclusion, migration-session fencing, two-phase credential replacement and importer crash-point recovery;
 - old pending command/update non-replay after restore;
 - update release-set/schema rollback.
 
@@ -4355,39 +4415,60 @@ Prove mixed cached image/H.264/widget/layout playback and video progress/transit
 
 ---
 
-### E3 — Edge identity, central server client and legacy importer
+### E3 — Edge identity, central server client and fenced legacy cutover
 
-**Goal:** make `tilecastd` the complete Linux player owner with a one-time migration from the existing Electron state format.
+**Goal:** make `tilecastd` the complete Linux owner only after the exact host/content set proves WPE-ready and the legacy bearer is revoked safely.
 
 ### E3.1 Port server client logic
 
-Port installation identity verification, URL policy, pairing, REST, WebSocket, liveness/backoff and current server protocol semantics. Authenticated handles become available only after server identity matches the pinned installation.
+Port installation identity verification, URL policy, pairing, REST, WebSocket, liveness/backoff and current server protocol semantics.
 
-### E3.2 Legacy state migration
+### E3.2 Preflight/import
 
-Implement the §41 importer. The legacy service is stopped/disabled first; import state read-only, preserve originals and verify server identity before using the bearer credential.
+Implement §41 local WPE qualification, bounded current/prepared/takeover/near-horizon compatibility check, and read-only importer.
 
-### E3.3 Edge node enrollment
+No credential rotation occurs if required content is incompatible.
 
-Generate the node key/CSR in `tilecastd`, enroll directly using the verified device credential, validate the response and persist it atomically.
+### E3.3 Migration session + credential replacement
 
-### E3.4 Durable commands
+Implement the staged candidate credential and server-side migration fence.
+
+Crash tests cover:
+
+- candidate credential returned before local fsync;
+- local fsync before server confirmation;
+- candidate crash/expiry;
+- abort response loss;
+- confirmation commit before response loss;
+- manually started stale Electron during staged migration;
+- manually started Electron after confirmation.
+
+### E3.4 Actual current-presentation gate
+
+Before confirmation, WPE renders the actual current presentation and reports meaningful progress for the settlement window.
+
+### E3.5 Edge node enrollment
+
+After credential confirmation, generate the node key/CSR and enroll the Edge identity using the new normal device credential.
+
+### E3.6 Durable commands
 
 Every command has an explicit execution class. Retention is tied to server redelivery/state-incarnation semantics.
 
-### E3.5 Manifest/config state
-
-Port active/pending semantics and preserve current per-screen manifest/config revision contracts.
-
 ### E3 exit criteria
 
-- fresh Edge installs pair without Electron;
-- legacy installs migrate without running two authoritative player stacks;
-- a wrong installation ID never receives the imported credential;
-- crash at each importer/enrollment point is recoverable/idempotent;
+- incompatible active/pending/near-horizon content leaves Electron untouched;
+- there is never an unbounded period with two fully authoritative credentials;
+- staged migration fences legacy owner-sensitive actions;
+- candidate disappearance expires safely back to legacy authority;
+- confirmation revokes the preserved legacy bearer;
+- stale Electron cannot authenticate after confirmation;
+- confirmation-response loss is recoverable;
 - disruptive commands do not double-initiate;
-- offline cached startup remains functional through WPE;
-- explicit package rollback remains documented during the migration window.
+- offline cached startup works in WPE;
+- post-confirmation recovery uses Edge rollback or explicit server-assisted legacy recovery, not stale local Electron state.
+
+### E4 — CAS migration and origin downloader
 
 ### E4 — CAS migration and origin downloader
 
@@ -5610,7 +5691,7 @@ During the explicitly supported migration window, a failed Edge installation may
 14. Hash identity is not authorization; target-granted bytes require signed grant.
 15. CAS pins have independent owners.
 16. Commands use explicit execution semantics, not generic exactly-once claims.
-17. Owner fencing uses incarnation + generation.
+17. Legacy cutover uses a bounded server migration fence and confirmation-time credential revocation; local service state alone is not authentication fencing.
 18. Restore cannot auto-execute old-incarnation disruptive work.
 19. Updates activate/rollback complete release sets.
 20. Automatic rollback requires actual previous-reader schema compatibility.
@@ -5646,7 +5727,7 @@ During the explicitly supported migration window, a failed Edge installation may
 | Stream integrity | sequence + previous/stream digest + domain-separated signature | Circular/self-hashed envelope |
 | Resource freshness | revision + state digest inside one incarnation | Compare revisions across incarnations |
 | Snapshots | materialized Edge projection at exact stream watermark | Snapshot arbitrary DB while async compilation pending |
-| Host runtime ownership | systemd-enforced legacy/Edge mutual exclusion + idempotent importer | concurrent Electron and Edge owners |
+| Host runtime ownership | WPE preflight + migration session/fence + two-phase credential replacement + local mutual exclusion | Trust stop/disable alone or preserve a still-valid Electron bearer |
 | Commands/updates | authorization bound to incarnation | Re-execute restored pending disruptive work |
 | CAS auth | blob identity + reference sharing class/object grant | Hash means every node may read |
 | Mesh security | trust-realm mTLS, CA-only outbound trust, no v1 resumption/0-RTT | LAN/public-WebPKI trust |
