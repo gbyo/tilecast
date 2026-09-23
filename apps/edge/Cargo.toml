@@ -7,6 +7,8 @@ members = [
     "crates/edge-platform",
     "crates/edge-cas",
     "crates/edge-server",
+    "tilecastd",
+    "tilecastctl",
 ]
 
 [workspace.package]
