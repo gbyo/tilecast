@@ -7,8 +7,10 @@ import {
 } from "@tanstack/react-query";
 import { CalendarDays, Clock3, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type {
   Playlist,
   LayoutSummary,
@@ -63,9 +65,11 @@ import {
   priorityPreset,
   scheduleIsDirty,
   schedulePreviewTimestamp,
+  scheduleWeekdayLabels,
   scheduleWeekdays,
   validateScheduleInput,
   type PriorityPreset,
+  type SchedulesT,
 } from "./scheduleBuilderModel";
 
 const initialSchedule = (): ScheduleInput => ({
@@ -113,6 +117,8 @@ export function ScheduleEditorPage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const client = useQueryClient();
+  const { t } = useTranslation(["schedules", "common"]);
+  const formatLocale = useFormatLocale();
   const csrf = auth.status?.csrfToken ?? "";
   const { confirm, dialog: confirmDialog } = useConfirm();
   const existing = useQuery({
@@ -165,7 +171,7 @@ export function ScheduleEditorPage() {
   }, [baseline, defaultTimezoneApplied, defaults.data?.defaultTimezone, id]);
 
   const dirty = scheduleIsDirty(input, baseline);
-  const errors = useMemo(() => validateScheduleInput(input), [input]);
+  const errors = useMemo(() => validateScheduleInput(input, t), [input, t]);
   const valid = Object.keys(errors).length === 0;
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -247,7 +253,7 @@ export function ScheduleEditorPage() {
 
   if (id && existing.isLoading)
     return (
-      <div className="grid gap-2" aria-label="Loading schedule">
+      <div className="grid gap-2" aria-label={t("editor.loading")}>
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -258,10 +264,10 @@ export function ScheduleEditorPage() {
       <section className="schedule-builder-page">
         <header className="schedule-builder-heading">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {id ? "Edit schedule" : "Create schedule"}
+            {id ? t("editor.editTitle") : t("editor.createTitle")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Build the playback rule, then review its effect before saving.
+            {t("editor.subtitle")}
           </p>
         </header>
         <form
@@ -275,19 +281,19 @@ export function ScheduleEditorPage() {
           <main className="schedule-builder__main">
             <BuilderSection
               number="1"
-              title="Content"
-              description="Name this schedule and choose what it should play."
+              title={t("editor.content")}
+              description={t("editor.sections.content.description")}
             >
               <Field>
                 <FieldLabel htmlFor="schedule-name">
-                  Schedule name <span aria-hidden="true">*</span>
+                  {t("editor.nameLabel")} <span aria-hidden="true">*</span>
                 </FieldLabel>
                 <Input
                   id="schedule-name"
                   value={input.name}
                   maxLength={180}
                   onChange={(event) => set("name", event.target.value)}
-                  placeholder="Morning announcements"
+                  placeholder={t("editor.namePlaceholder")}
                   aria-invalid={attempted && errors.name ? true : undefined}
                 />
                 {attempted && errors.name && (
@@ -298,7 +304,7 @@ export function ScheduleEditorPage() {
                 variant="outline"
                 spacing={0}
                 className="max-sm:w-full max-sm:*:flex-1"
-                aria-label="Schedule content type"
+                aria-label={t("editor.contentTypeLabel")}
                 multiple={false}
                 value={[input.displayAction ? "display" : "content"]}
                 onValueChange={(next) => {
@@ -313,9 +319,11 @@ export function ScheduleEditorPage() {
                   }
                 }}
               >
-                <ToggleGroupItem value="content">Content</ToggleGroupItem>
+                <ToggleGroupItem value="content">
+                  {t("editor.content")}
+                </ToggleGroupItem>
                 <ToggleGroupItem value="display">
-                  Display Control
+                  {t("editor.displayControl")}
                 </ToggleGroupItem>
               </ToggleGroup>
               {input.displayAction ? (
@@ -338,14 +346,14 @@ export function ScheduleEditorPage() {
 
             <BuilderSection
               number="2"
-              title="Timing"
-              description="Choose when this content takes precedence."
+              title={t("editor.sections.timing.title")}
+              description={t("editor.sections.timing.description")}
             >
               <ToggleGroup
                 variant="outline"
                 spacing={0}
                 className="max-sm:w-full max-sm:*:flex-1"
-                aria-label="Schedule type"
+                aria-label={t("editor.scheduleTypeLabel")}
                 multiple={false}
                 value={[input.type]}
                 onValueChange={(next) => {
@@ -370,10 +378,10 @@ export function ScheduleEditorPage() {
                 }}
               >
                 <ToggleGroupItem value="weekly">
-                  Weekly recurring
+                  {t("editor.typeWeekly")}
                 </ToggleGroupItem>
                 <ToggleGroupItem value="one_time">
-                  One-time event
+                  {t("editor.typeOneTime")}
                 </ToggleGroupItem>
               </ToggleGroup>
               {input.type === "weekly" ? (
@@ -398,14 +406,14 @@ export function ScheduleEditorPage() {
               />
               <div className="schedule-human-summary">
                 <CalendarDays size={18} />
-                <span>{describeScheduleTiming(input)}</span>
+                <span>{describeScheduleTiming(input, t, formatLocale)}</span>
               </div>
             </BuilderSection>
 
             <BuilderSection
               number="3"
-              title="Targets"
-              description="Select independent screens or synchronized groups. Grouped screens are scheduled together."
+              title={t("editor.sections.targets.title")}
+              description={t("editor.sections.targets.description")}
             >
               <TargetPicker
                 targets={input.targets}
@@ -422,8 +430,8 @@ export function ScheduleEditorPage() {
 
             <BuilderSection
               number="4"
-              title="Advanced options"
-              description="Control availability, precedence, and administrator notes."
+              title={t("editor.sections.advanced.title")}
+              description={t("editor.sections.advanced.description")}
               compact
             >
               {/* The wrapping label names the switch; no extra aria-label. */}
@@ -436,9 +444,11 @@ export function ScheduleEditorPage() {
                   className="mt-0.5"
                 />
                 <span className="grid gap-0.5">
-                  <strong className="font-medium">Enabled</strong>
+                  <strong className="font-medium">
+                    {t("editor.enabledLabel")}
+                  </strong>
                   <small className="text-xs text-muted-foreground">
-                    Disabled schedules remain saved but do not affect playback.
+                    {t("editor.enabledHint")}
                   </small>
                 </span>
               </label>
@@ -449,7 +459,7 @@ export function ScheduleEditorPage() {
               />
               <Field>
                 <FieldLabel htmlFor="schedule-description">
-                  Description
+                  {t("editor.descriptionLabel")}
                 </FieldLabel>
                 <Textarea
                   id="schedule-description"
@@ -459,7 +469,7 @@ export function ScheduleEditorPage() {
                   onChange={(event) => set("description", event.target.value)}
                 />
                 <FieldDescription>
-                  Optional internal note shown in Studio.
+                  {t("editor.descriptionHint")}
                 </FieldDescription>
               </Field>
             </BuilderSection>
@@ -476,10 +486,10 @@ export function ScheduleEditorPage() {
           <footer className="schedule-builder__actions">
             <span>
               {dirty
-                ? "Unsaved changes"
+                ? t("editor.status.unsaved")
                 : id
-                  ? "All changes saved"
-                  : "Complete the required fields"}
+                  ? t("editor.status.saved")
+                  : t("editor.status.incomplete")}
             </span>
             {id && (
               <Button
@@ -488,15 +498,15 @@ export function ScheduleEditorPage() {
                 disabled={remove.isPending}
                 onClick={() =>
                   void confirm({
-                    title: `Delete ${input.name}?`,
-                    action: "Delete",
+                    title: t("editor.deleteTitle", { name: input.name }),
+                    action: t("common:actions.delete"),
                     destructive: true,
                   }).then((ok) => {
                     if (ok) remove.mutate();
                   })
                 }
               >
-                Delete
+                {t("common:actions.delete")}
               </Button>
             )}
             <Button
@@ -508,22 +518,22 @@ export function ScheduleEditorPage() {
                   return;
                 }
                 void confirm({
-                  title: "Discard unsaved schedule changes?",
-                  action: "Discard",
+                  title: t("editor.discardTitle"),
+                  action: t("editor.discardAction"),
                   destructive: true,
                 }).then((ok) => {
                   if (ok) void navigate("/schedules");
                 });
               }}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button type="submit" disabled={!valid || !dirty || save.isPending}>
-              {save.isPending ? "Saving…" : "Save schedule"}
+              {save.isPending ? t("common:actions.saving") : t("editor.save")}
             </Button>
             {save.error && (
               <span className="text-sm text-destructive" role="alert">
-                {save.error.message}
+                {apiErrorMessage(save.error)}
               </span>
             )}
           </footer>
@@ -532,7 +542,7 @@ export function ScheduleEditorPage() {
           <PlaylistPicker
             open
             includeLayouts
-            confirmLabel="Use this presentation"
+            confirmLabel={t("editor.useSelected")}
             selectedId={input.layoutId ?? input.playlistId ?? ""}
             onClose={() => setPlaylistOpen(false)}
             onConfirm={(choice) => {
@@ -594,12 +604,13 @@ function PlaylistSelection({
   onChoose: () => void;
   error?: string;
 }) {
-  const duration = playlist ? playlistDuration(playlist) : "";
+  const { t } = useTranslation("schedules");
+  const duration = playlist ? playlistDuration(playlist, t) : "";
   const thumbnail = playlist?.items?.[0]?.thumbnailUrl;
   return (
     <div className="schedule-playlist-field">
       <span className="text-sm font-medium">
-        Presentation <span aria-hidden="true">*</span>
+        {t("editor.presentationLabel")} <span aria-hidden="true">*</span>
       </span>
       {playlist || layout ? (
         <div className="schedule-playlist-card">
@@ -607,24 +618,35 @@ function PlaylistSelection({
             {thumbnail ? (
               <img src={thumbnail} alt="" />
             ) : (
-              <span>{layout ? "Layout" : "Playlist"}</span>
+              <span>
+                {layout
+                  ? t("editor.presentationLayoutFallback")
+                  : t("editor.presentationPlaylistFallback")}
+              </span>
             )}
           </div>
           <div>
             <strong>{layout?.name ?? playlist?.name}</strong>
             <span>
               {layout
-                ? `${layout.canvasWidth} × ${layout.canvasHeight} · revision ${layout.publishedRevision}`
-                : `${playlist!.itemCount} item${playlist!.itemCount === 1 ? "" : "s"} · ${duration}`}
+                ? t("editor.presentationLayoutMeta", {
+                    width: layout.canvasWidth,
+                    height: layout.canvasHeight,
+                    revision: layout.publishedRevision,
+                  })
+                : t("editor.presentationPlaylistMeta", {
+                    count: playlist!.itemCount,
+                    duration,
+                  })}
             </span>
           </div>
           <Button type="button" variant="ghost" size="sm" onClick={onChoose}>
-            Change
+            {t("editor.change")}
           </Button>
         </div>
       ) : (
         <Button type="button" variant="secondary" onClick={onChoose}>
-          Choose presentation
+          {t("editor.choosePresentation")}
         </Button>
       )}
       {error && (
@@ -645,30 +667,38 @@ function DisplayControlSelection({
   onChange: (action: DisplayControlAction) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   const setType = (type: DisplayControlAction["type"]) => {
     onChange({ type });
   };
   return (
     <div className="schedule-playlist-field">
       <span className="text-sm font-medium">
-        Display action <span aria-hidden="true">*</span>
+        {t("displayAction.label")} <span aria-hidden="true">*</span>
       </span>
       <div className="schedule-control-action">
         <Field>
-          <FieldLabel htmlFor="schedule-display-action">Action</FieldLabel>
+          <FieldLabel htmlFor="schedule-display-action">
+            {t("displayAction.actionLabel")}
+          </FieldLabel>
           <Select
             value={action.type}
             onValueChange={(next) => {
               if (next) setType(next);
             }}
           >
-            <SelectTrigger id="schedule-display-action" aria-label="Action">
-              <SelectValue>{displayActionOptionLabel(action.type)}</SelectValue>
+            <SelectTrigger
+              id="schedule-display-action"
+              aria-label={t("displayAction.actionLabel")}
+            >
+              <SelectValue>
+                {displayActionOptionLabel(action.type, t)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {displayActionOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -677,7 +707,7 @@ function DisplayControlSelection({
         {action.type === "display_set_input" && (
           <Field>
             <FieldLabel htmlFor="schedule-display-input">
-              Input identifier
+              {t("displayAction.inputLabel")}
             </FieldLabel>
             <Input
               id="schedule-display-input"
@@ -687,16 +717,16 @@ function DisplayControlSelection({
                 onChange({ ...action, input: event.target.value })
               }
             />
-            <FieldDescription>
-              For HDMI-CEC, use a physical address such as 1.0.0.0.
-            </FieldDescription>
+            <FieldDescription>{t("displayAction.inputHint")}</FieldDescription>
           </Field>
         )}
         {(action.type === "display_set_volume" ||
           action.type === "display_set_brightness") && (
           <Field>
             <FieldLabel htmlFor="schedule-display-level">
-              {action.type === "display_set_volume" ? "Volume" : "Brightness"}
+              {action.type === "display_set_volume"
+                ? t("displayAction.volumeLabel")
+                : t("displayAction.brightnessLabel")}
             </FieldLabel>
             <Input
               id="schedule-display-level"
@@ -724,11 +754,7 @@ function DisplayControlSelection({
         )}
       </div>
       <Alert>
-        <AlertDescription>
-          The action uses the same schedule timing, priority, and targets as
-          content schedules. Players report whether the panel state is
-          confirmed.
-        </AlertDescription>
+        <AlertDescription>{t("displayAction.note")}</AlertDescription>
       </Alert>
       {error && (
         <span className="text-sm text-destructive" role="alert">
@@ -752,13 +778,14 @@ function WeeklyTiming({
   setShowDateRange: (value: boolean) => void;
   errors: Record<string, string>;
 }) {
+  const { t } = useTranslation("schedules");
   const overnight = (input.dailyEnd ?? "") <= (input.dailyStart ?? "");
   return (
     <div className="schedule-timing-fields">
       <ToggleGroup
         className="grid w-full grid-cols-7 gap-2 max-sm:grid-cols-4"
         variant="outline"
-        aria-label="Active weekdays"
+        aria-label={t("timing.weekdaysLabel")}
         multiple
         value={input.daysOfWeek.map(String)}
         onValueChange={(next) => {
@@ -766,16 +793,19 @@ function WeeklyTiming({
           if (days.length > 0) set("daysOfWeek", days);
         }}
       >
-        {scheduleWeekdays.map((day) => (
-          <ToggleGroupItem
-            key={day.value}
-            value={String(day.value)}
-            aria-label={day.long}
-            className="h-11 w-full"
-          >
-            {day.short}
-          </ToggleGroupItem>
-        ))}
+        {scheduleWeekdays.map((day) => {
+          const labels = scheduleWeekdayLabels(day.value, t);
+          return (
+            <ToggleGroupItem
+              key={day.value}
+              value={String(day.value)}
+              aria-label={labels.long}
+              className="h-11 w-full"
+            >
+              {labels.short}
+            </ToggleGroupItem>
+          );
+        })}
       </ToggleGroup>
       {errors.daysOfWeek && (
         <span className="text-sm text-destructive" role="alert">
@@ -784,7 +814,9 @@ function WeeklyTiming({
       )}
       <div className="schedule-time-pair">
         <Field>
-          <FieldLabel htmlFor="schedule-daily-start">Starts</FieldLabel>
+          <FieldLabel htmlFor="schedule-daily-start">
+            {t("timing.starts")}
+          </FieldLabel>
           <Input
             id="schedule-daily-start"
             type="time"
@@ -793,7 +825,9 @@ function WeeklyTiming({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="schedule-daily-end">Ends</FieldLabel>
+          <FieldLabel htmlFor="schedule-daily-end">
+            {t("timing.ends")}
+          </FieldLabel>
           <Input
             id="schedule-daily-end"
             type="time"
@@ -811,10 +845,10 @@ function WeeklyTiming({
         <Alert>
           <AlertTitle>
             {input.dailyEnd === input.dailyStart
-              ? "24-hour window"
-              : "Overnight schedule"}
+              ? t("timing.overnight24h")
+              : t("timing.overnightTitle")}
           </AlertTitle>
-          <AlertDescription>Playback ends the following day.</AlertDescription>
+          <AlertDescription>{t("timing.overnightHint")}</AlertDescription>
         </Alert>
       )}
       {!showDateRange ? (
@@ -824,13 +858,13 @@ function WeeklyTiming({
           size="sm"
           onClick={() => setShowDateRange(true)}
         >
-          Add date range
+          {t("timing.addDateRange")}
         </Button>
       ) : (
         <div className="schedule-date-range">
           <Field>
             <FieldLabel htmlFor="schedule-start-date">
-              First active date
+              {t("timing.firstDate")}
             </FieldLabel>
             <DateInput
               id="schedule-start-date"
@@ -841,7 +875,7 @@ function WeeklyTiming({
           </Field>
           <Field>
             <FieldLabel htmlFor="schedule-end-date">
-              Last active date
+              {t("timing.lastDate")}
             </FieldLabel>
             <DateInput
               id="schedule-end-date"
@@ -860,7 +894,7 @@ function WeeklyTiming({
               setShowDateRange(false);
             }}
           >
-            Remove date range
+            {t("timing.removeDateRange")}
           </Button>
           {errors.dateRange && (
             <span className="text-sm text-destructive" role="alert">
@@ -882,11 +916,14 @@ function OneTimeTiming({
   set: <K extends keyof ScheduleInput>(key: K, value: ScheduleInput[K]) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   return (
     <div className="schedule-timing-fields">
       <div className="schedule-datetime-pair">
         <Field>
-          <FieldLabel htmlFor="schedule-onetime-start-date">Starts</FieldLabel>
+          <FieldLabel htmlFor="schedule-onetime-start-date">
+            {t("timing.starts")}
+          </FieldLabel>
           <DateTimeInput
             id="schedule-onetime-start"
             value={localDateTime(input.oneTimeStart)}
@@ -894,7 +931,9 @@ function OneTimeTiming({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="schedule-onetime-end-date">Ends</FieldLabel>
+          <FieldLabel htmlFor="schedule-onetime-end-date">
+            {t("timing.ends")}
+          </FieldLabel>
           <DateTimeInput
             id="schedule-onetime-end"
             value={localDateTime(input.oneTimeEnd)}
@@ -905,7 +944,7 @@ function OneTimeTiming({
       </div>
       <div className="schedule-duration">
         <Clock3 size={17} aria-hidden="true" />
-        <span>{oneTimeDuration(input)}</span>
+        <span>{oneTimeDuration(input, t)}</span>
       </div>
       {error && (
         <span className="text-sm text-destructive" role="alert">
@@ -925,6 +964,7 @@ function TimezonePicker({
   onChange: (value: string) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   const [search, setSearch] = useState("");
   const zones = useMemo(timezones, []);
   const filtered = zones
@@ -936,7 +976,7 @@ function TimezonePicker({
     <div className="schedule-timezone">
       <Field>
         <FieldLabel htmlFor="schedule-timezone">
-          Timezone <span aria-hidden="true">*</span>
+          {t("timing.timezoneLabel")} <span aria-hidden="true">*</span>
         </FieldLabel>
         <Combobox
           items={zones}
@@ -950,10 +990,10 @@ function TimezonePicker({
         >
           <ComboboxInput
             id="schedule-timezone"
-            placeholder="Search city or region"
+            placeholder={t("timing.timezoneSearch")}
           />
           <ComboboxContent>
-            <ComboboxEmpty>No timezones match this search.</ComboboxEmpty>
+            <ComboboxEmpty>{t("timing.timezoneEmpty")}</ComboboxEmpty>
             <ComboboxList>
               {(zone: string) => (
                 <ComboboxItem key={zone} value={zone}>
@@ -994,6 +1034,7 @@ function TargetPicker({
   onChange: (targets: ScheduleTarget[]) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   const screenGroups = new Map(
     groups.flatMap((group) =>
       group.screens.map((screen) => [screen.id, group] as const),
@@ -1013,14 +1054,14 @@ function TargetPicker({
             type: "group",
             id: group.id,
             name: group.name,
-            detail: `Display Group: ${group.name}`,
+            detail: t("targets.groupDetail", { name: group.name }),
           }
         : {
             key: `screen:${screen.id}`,
             type: "screen",
             id: screen.id,
             name: screen.name,
-            detail: screen.location || "No location",
+            detail: screen.location || t("targets.noLocation"),
           };
       if (!seen.has(option.key)) {
         seen.add(option.key);
@@ -1028,14 +1069,15 @@ function TargetPicker({
       }
     }
     return options;
+    // screenGroups derives from screens and groups, so it stays out of deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screens, groups]);
+  }, [screens, groups, t]);
   const groupOptions: TargetOption[] = groups.map((group) => ({
     key: `group:${group.id}`,
     type: "group",
     id: group.id,
     name: group.name,
-    detail: `${group.membershipCount} screen${group.membershipCount === 1 ? "" : "s"}`,
+    detail: t("targets.groupCount", { count: group.membershipCount }),
   }));
   const known = useMemo(
     () =>
@@ -1075,27 +1117,31 @@ function TargetPicker({
         key: `${target.type}:${target.id}`,
         type: target.type,
         id: target.id,
-        name: target.name ?? "Selected target",
+        name: target.name ?? t("targets.unknownTarget"),
         detail: "",
       },
   );
   const searchLabel =
-    tab === "groups" ? "Search Display Groups" : "Search screens";
+    tab === "groups" ? t("targets.searchGroups") : t("targets.searchScreens");
   return (
     <div className="schedule-target-picker">
       <ToggleGroup
         variant="outline"
         spacing={0}
         className="max-sm:w-full max-sm:*:flex-1"
-        aria-label="Target type"
+        aria-label={t("targets.tabLabel")}
         multiple={false}
         value={[tab]}
         onValueChange={(next) => {
           if (next[0] === "screens" || next[0] === "groups") setTab(next[0]);
         }}
       >
-        <ToggleGroupItem value="screens">Screens</ToggleGroupItem>
-        <ToggleGroupItem value="groups">Display Groups</ToggleGroupItem>
+        <ToggleGroupItem value="screens">
+          {t("targets.screensTab")}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="groups">
+          {t("targets.groupsTab")}
+        </ToggleGroupItem>
       </ToggleGroup>
       <div ref={anchor}>
         <Combobox
@@ -1117,7 +1163,7 @@ function TargetPicker({
         >
           <ComboboxValue>
             {(value: TargetOption[]) => (
-              <ComboboxChips aria-label="Selected targets">
+              <ComboboxChips aria-label={t("targets.selectedLabel")}>
                 {value.map((option) => (
                   <ComboboxChip
                     key={option.key}
@@ -1130,7 +1176,9 @@ function TargetPicker({
                       variant="ghost"
                       size="icon-xs"
                       className="-ml-0.5 size-4.5 opacity-50 hover:opacity-100"
-                      aria-label={`Remove ${option.name}`}
+                      aria-label={t("targets.removeOption", {
+                        name: option.name,
+                      })}
                       onClick={() =>
                         onChange(
                           targets.filter(
@@ -1152,7 +1200,11 @@ function TargetPicker({
             )}
           </ComboboxValue>
           <ComboboxContent anchor={anchor}>
-            <ComboboxEmpty>No {tab} match this search.</ComboboxEmpty>
+            <ComboboxEmpty>
+              {tab === "groups"
+                ? t("targets.emptyGroups")
+                : t("targets.emptyScreens")}
+            </ComboboxEmpty>
             <ComboboxList>
               {(option: TargetOption) => (
                 <ComboboxItem
@@ -1169,7 +1221,9 @@ function TargetPicker({
                     </small>
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {selectedKeys.has(option.key) ? "Selected" : "Add"}
+                    {selectedKeys.has(option.key)
+                      ? t("targets.selectedMark")
+                      : t("targets.addMark")}
                   </span>
                 </ComboboxItem>
               )}
@@ -1203,6 +1257,7 @@ function PriorityControl({
   onChange: (value: number) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   const preset = priorityPreset(value);
   const choose = (next: PriorityPreset) => {
     if (next === "normal") onChange(0);
@@ -1210,17 +1265,23 @@ function PriorityControl({
     else if (next === "special") onChange(500);
     else if (preset !== "custom") onChange(1);
   };
+  const presetLabels: Record<PriorityPreset, string> = {
+    normal: t("priority.presets.normal"),
+    important: t("priority.presets.important"),
+    special: t("priority.presets.special"),
+    custom: t("priority.presets.custom"),
+  };
   return (
     <div className="schedule-priority">
-      <span className="text-sm font-medium">Priority</span>
+      <span className="text-sm font-medium">{t("priority.label")}</span>
       <span className="text-sm text-muted-foreground">
-        Higher-priority schedules win when times and targets overlap.
+        {t("priority.hint")}
       </span>
       <ToggleGroup
         variant="outline"
         spacing={0}
         className="max-sm:w-full max-sm:*:flex-1"
-        aria-label="Schedule priority"
+        aria-label={t("priority.controlLabel")}
         multiple={false}
         value={[preset]}
         onValueChange={(next) => {
@@ -1231,9 +1292,7 @@ function PriorityControl({
         {(["normal", "important", "special", "custom"] as PriorityPreset[]).map(
           (option) => (
             <ToggleGroupItem key={option} value={option}>
-              {option === "special"
-                ? "Special event"
-                : option.charAt(0).toUpperCase() + option.slice(1)}
+              {presetLabels[option]}
             </ToggleGroupItem>
           ),
         )}
@@ -1241,7 +1300,7 @@ function PriorityControl({
       {preset === "custom" && (
         <Field>
           <FieldLabel htmlFor="schedule-custom-priority">
-            Custom priority
+            {t("priority.customLabel")}
           </FieldLabel>
           <Input
             id="schedule-custom-priority"
@@ -1275,79 +1334,81 @@ function ScheduleSummary({
   targetCount: number;
   preview: UseQueryResult<SchedulePreview, Error>;
 }) {
+  const { t } = useTranslation("schedules");
+  const formatLocale = useFormatLocale();
   const conflicts = preview.data?.conflicts ?? [];
   const applicable = preview.data?.applicableSchedules ?? [];
   const winner = preview.data?.winningSchedule;
+  const overlapCount = Math.max(conflicts.length, applicable.length - 1);
   return (
-    <aside className="schedule-builder-summary" aria-label="Schedule summary">
-      <h3>Schedule summary</h3>
+    <aside className="schedule-builder-summary" aria-label={t("summary.title")}>
+      <h3>{t("summary.title")}</h3>
       <dl>
         <div>
-          <dt>When</dt>
-          <dd>
-            {input.type === "weekly"
-              ? `${describeScheduleTiming(input)}`
-              : describeScheduleTiming(input)}
-          </dd>
+          <dt>{t("summary.when")}</dt>
+          <dd>{describeScheduleTiming(input, t, formatLocale)}</dd>
         </div>
         <div>
-          <dt>Content</dt>
+          <dt>{t("editor.content")}</dt>
           <dd>
             {input.displayAction
-              ? displayActionLabel(input.displayAction)
+              ? displayActionLabel(input.displayAction, t)
               : layout
-                ? `Shows Layout ${layout.name}`
+                ? t("summary.showsLayout", { name: layout.name })
                 : playlist
-                  ? `Plays ${playlist.name}`
-                  : "No presentation selected"}
+                  ? t("summary.playsPlaylist", { name: playlist.name })
+                  : t("editor.noSelection")}
           </dd>
         </div>
         <div>
-          <dt>Targets</dt>
+          <dt>{t("editor.sections.targets.title")}</dt>
           <dd>
             {targetCount
-              ? `On ${targetCount} screen${targetCount === 1 ? "" : "s"}`
-              : "No targets selected"}
+              ? t("summary.targetCount", { count: targetCount })
+              : t("summary.noTargets")}
           </dd>
         </div>
         <div>
-          <dt>Priority</dt>
-          <dd>{priorityLabel(input.priority)}</dd>
+          <dt>{t("priority.label")}</dt>
+          <dd>{priorityLabel(input.priority, t)}</dd>
         </div>
       </dl>
       <div className="schedule-conflicts">
-        <h4>Conflict preview</h4>
+        <h4>{t("summary.conflictTitle")}</h4>
         {!input.targets.length ||
         (!input.playlistId && !input.layoutId && !input.displayAction) ? (
           <Alert>
-            <AlertDescription>
-              Choose content and targets to check conflicts.
-            </AlertDescription>
+            <AlertDescription>{t("summary.conflictHint")}</AlertDescription>
           </Alert>
         ) : preview.isLoading ? (
           <Alert>
-            <AlertDescription>Checking applicable schedules…</AlertDescription>
+            <AlertDescription>{t("summary.checking")}</AlertDescription>
           </Alert>
         ) : preview.isError ? (
           <Alert variant="destructive">
-            <AlertTitle>Conflict check unavailable</AlertTitle>
-            <AlertDescription>{preview.error.message}</AlertDescription>
+            <AlertTitle>{t("summary.unavailable")}</AlertTitle>
+            <AlertDescription>
+              {apiErrorMessage(preview.error)}
+            </AlertDescription>
           </Alert>
         ) : conflicts.length === 0 && applicable.length <= 1 ? (
           <Alert>
-            <AlertTitle>No conflicts</AlertTitle>
-            <AlertDescription>
-              No other schedule overlaps this preview time.
-            </AlertDescription>
+            <AlertTitle>{t("summary.noConflicts")}</AlertTitle>
+            <AlertDescription>{t("summary.noOverlap")}</AlertDescription>
           </Alert>
         ) : (
           <>
             <Alert>
-              <AlertTitle>{`${Math.max(conflicts.length, applicable.length - 1)} overlapping schedule${Math.max(conflicts.length, applicable.length - 1) === 1 ? "" : "s"}`}</AlertTitle>
+              <AlertTitle>
+                {t("summary.overlapCount", { count: overlapCount })}
+              </AlertTitle>
               <AlertDescription>
                 {winner
-                  ? `${winner.name} wins because ${conflictWinnerReason(winner, input.priority)}.`
-                  : "Direct fallback content plays when no schedule is active."}
+                  ? t("summary.winner", {
+                      name: winner.name,
+                      reason: conflictWinnerReason(winner, input.priority, t),
+                    })
+                  : t("summary.fallbackNote")}
               </AlertDescription>
             </Alert>
             <ul>
@@ -1355,10 +1416,10 @@ function ScheduleSummary({
                 <li key={schedule.id}>
                   <strong>{schedule.name}</strong>
                   <span>
-                    {priorityLabel(schedule.priority)} ·{" "}
+                    {priorityLabel(schedule.priority, t)} ·{" "}
                     {schedule.specificity > 0
-                      ? "Direct screen target"
-                      : "Group target"}
+                      ? t("summary.directTarget")
+                      : t("summary.groupTarget")}
                   </span>
                 </li>
               ))}
@@ -1369,50 +1430,75 @@ function ScheduleSummary({
           </>
         )}
       </div>
-      <p className="schedule-summary-note">
-        Direct screen assignments remain fallback content when no schedule is
-        active.
-      </p>
+      <p className="schedule-summary-note">{t("summary.note")}</p>
     </aside>
   );
 }
 
 const displayActionOptions: {
   value: DisplayControlAction["type"];
-  label: string;
+  labelKey:
+    | "displayAction.options.powerOn"
+    | "displayAction.options.powerOff"
+    | "displayAction.options.setInput"
+    | "displayAction.options.setVolume"
+    | "displayAction.options.mute"
+    | "displayAction.options.unmute"
+    | "displayAction.options.setBrightness";
 }[] = [
-  { value: "display_power_on", label: "Power on" },
-  { value: "display_power_off", label: "Power off" },
-  { value: "display_set_input", label: "Set input" },
-  { value: "display_set_volume", label: "Set volume" },
-  { value: "display_mute", label: "Mute" },
-  { value: "display_unmute", label: "Unmute" },
-  { value: "display_set_brightness", label: "Set brightness" },
+  { value: "display_power_on", labelKey: "displayAction.options.powerOn" },
+  { value: "display_power_off", labelKey: "displayAction.options.powerOff" },
+  { value: "display_set_input", labelKey: "displayAction.options.setInput" },
+  { value: "display_set_volume", labelKey: "displayAction.options.setVolume" },
+  { value: "display_mute", labelKey: "displayAction.options.mute" },
+  { value: "display_unmute", labelKey: "displayAction.options.unmute" },
+  {
+    value: "display_set_brightness",
+    labelKey: "displayAction.options.setBrightness",
+  },
 ];
 
-function displayActionOptionLabel(value: DisplayControlAction["type"]) {
-  return (
-    displayActionOptions.find((option) => option.value === value)?.label ??
-    value
+function displayActionOptionLabel(
+  value: DisplayControlAction["type"],
+  t: SchedulesT,
+) {
+  const option = displayActionOptions.find(
+    (candidate) => candidate.value === value,
   );
+  return option ? t(option.labelKey) : value;
 }
 
-function displayActionLabel(action: DisplayControlAction) {
-  const labels: Record<DisplayControlAction["type"], string> = {
-    display_power_on: "Power on display",
-    display_power_off: "Power off display",
-    display_set_input: `Set display input to ${action.input ?? "not set"}`,
-    display_set_volume: `Set display volume to ${action.volume ?? "not set"}`,
-    display_mute: "Mute display",
-    display_unmute: "Unmute display",
-    display_set_brightness: `Set display brightness to ${action.brightness ?? "not set"}`,
-  };
-  return labels[action.type];
+function displayActionLabel(action: DisplayControlAction, t: SchedulesT) {
+  const unset = t("displayAction.notSet");
+  switch (action.type) {
+    case "display_power_on":
+      return t("displayAction.summary.powerOn");
+    case "display_power_off":
+      return t("displayAction.summary.powerOff");
+    case "display_set_input":
+      return t("displayAction.summary.setInput", {
+        value: action.input ?? unset,
+      });
+    case "display_set_volume":
+      return t("displayAction.summary.setVolume", {
+        value: action.volume ?? unset,
+      });
+    case "display_mute":
+      return t("displayAction.summary.mute");
+    case "display_unmute":
+      return t("displayAction.summary.unmute");
+    case "display_set_brightness":
+      return t("displayAction.summary.setBrightness", {
+        value: action.brightness ?? unset,
+      });
+  }
 }
 
-function playlistDuration(playlist: Playlist) {
+function playlistDuration(playlist: Playlist, t: SchedulesT) {
   if (!playlist.items?.length)
-    return playlist.itemCount ? "Duration varies" : "Empty playlist";
+    return playlist.itemCount
+      ? t("editor.durationVaries")
+      : t("editor.emptyPlaylist");
   const seconds = playlist.items.reduce(
     (total, item) =>
       total +
@@ -1421,12 +1507,12 @@ function playlistDuration(playlist: Playlist) {
         : (item.assetDurationSeconds ?? 0)),
     0,
   );
-  if (!seconds) return "Duration varies";
+  if (!seconds) return t("editor.durationVaries");
   const minutes = Math.floor(seconds / 60);
   const remainder = Math.round(seconds % 60);
   return minutes
-    ? `${minutes} min${remainder ? ` ${remainder} sec` : ""}`
-    : `${remainder} sec`;
+    ? `${t("duration.minutes", { count: minutes })}${remainder ? ` ${t("duration.seconds", { count: remainder })}` : ""}`
+    : t("duration.seconds", { count: remainder });
 }
 
 function localDateTime(value?: string) {
