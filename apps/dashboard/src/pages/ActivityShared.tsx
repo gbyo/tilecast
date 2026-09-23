@@ -5,6 +5,11 @@ import { Pagination } from "../components/Pagination";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -264,21 +269,25 @@ export function TechnicalDetails({
   );
   if (!entries.length) return <span>—</span>;
   return (
-    <details className="grid gap-1 text-xs">
-      <summary className="cursor-pointer font-medium text-primary hover:underline">
+    <Collapsible className="grid gap-1 text-xs">
+      <CollapsibleTrigger className="w-fit cursor-pointer text-left font-medium text-primary hover:underline">
         View
-      </summary>
-      <dl className="grid gap-1 rounded-lg border border-border bg-muted/50 p-2">
-        {entries.map(([key, item]) => (
-          <div key={key} className="flex flex-wrap gap-x-2">
-            <dt className="shrink-0 text-muted-foreground">{humanize(key)}</dt>
-            <dd className="min-w-0 flex-1 break-words">
-              {formatTechnicalValue(item)}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </details>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <dl className="grid gap-1 rounded-lg border border-border bg-muted/50 p-2">
+          {entries.map(([key, item]) => (
+            <div key={key} className="flex flex-wrap gap-x-2">
+              <dt className="shrink-0 text-muted-foreground">
+                {humanize(key)}
+              </dt>
+              <dd className="min-w-0 flex-1 break-words">
+                {formatTechnicalValue(item)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

@@ -678,11 +678,6 @@
     justify-content: center;
   }
 
-  .filter-bar__controls > .signal-select,
-  .activity-more-filters {
-    flex: 1 1 140px;
-  }
-
   .activity-more-filters .signal-popover__filter-trigger {
     justify-content: center;
     width: 100%;

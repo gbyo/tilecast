@@ -2,6 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { api } from "../api/client";
 import type { ContentHealthReport } from "../api/types";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
 
 // Content health answers a question the rest of Activity cannot: why does that
 // screen look wrong when nothing is reported as broken? A board showing last
@@ -17,9 +25,11 @@ export function ContentHealthTab() {
     return <div className="table-loading">Checking content health…</div>;
   if (report.error)
     return (
-      <div className="notice notice--error" role="alert">
-        Content health could not be loaded. {report.error.message}
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>
+          Content health could not be loaded. {report.error.message}
+        </AlertDescription>
+      </Alert>
     );
 
   const data = report.data as ContentHealthReport;
@@ -31,15 +41,17 @@ export function ContentHealthTab() {
 
   if (healthy)
     return (
-      <div className="empty-card">
-        <strong>Nothing needs attention.</strong>
-        <p>
-          Every Data Source has refreshed within the last{" "}
-          {data.thresholds.staleSourceHours} hours, every assigned playlist has
-          content available, and no media expires in the next{" "}
-          {data.thresholds.expiringMediaDays} days.
-        </p>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>Nothing needs attention.</EmptyTitle>
+          <EmptyDescription>
+            Every Data Source has refreshed within the last{" "}
+            {data.thresholds.staleSourceHours} hours, every assigned playlist
+            has content available, and no media expires in the next{" "}
+            {data.thresholds.expiringMediaDays} days.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
 
   return (
@@ -69,9 +81,7 @@ export function ContentHealthTab() {
                   </small>
                 </span>
                 <span className="backup-job-status">
-                  <span className="status-badge status-badge--offline">
-                    Nothing available
-                  </span>
+                  <Badge variant="destructive">Nothing available</Badge>
                 </span>
               </div>
             ))}

@@ -12,6 +12,12 @@ import {
   ContextMenuTrigger,
 } from "../components/ui/context-menu";
 import { ButtonGroup, ButtonGroupText } from "../components/ui/button-group";
+import {
+  Empty,
+  EmptyContent,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
 import { Input } from "../components/ui/input";
 import { Kbd } from "../components/ui/kbd";
 import {
@@ -1835,15 +1841,19 @@ export function LayoutEditorPage() {
   ]);
   if (layoutQuery.isError)
     return (
-      <div className="empty-state">
-        <h2>Layout unavailable</h2>
-        <RheaButton
-          variant="secondary"
-          onClick={() => void navigate("/layouts")}
-        >
-          Back to Layouts
-        </RheaButton>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>Layout unavailable</EmptyTitle>
+        </EmptyHeader>
+        <EmptyContent>
+          <RheaButton
+            variant="secondary"
+            onClick={() => void navigate("/layouts")}
+          >
+            Back to Layouts
+          </RheaButton>
+        </EmptyContent>
+      </Empty>
     );
   if (layoutQuery.isLoading || !document)
     return <p className="status-copy">Loading Layout editor…</p>;

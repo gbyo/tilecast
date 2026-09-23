@@ -386,7 +386,7 @@ export function ContentSubmissionInboxPage() {
               <summary className="cursor-pointer text-sm font-medium">
                 View exact submitted snapshot
               </summary>
-              <pre className="submission-snapshot mt-2">
+              <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
                 {JSON.stringify(selected.snapshot, null, 2)}
               </pre>
             </details>

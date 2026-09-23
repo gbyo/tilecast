@@ -7,10 +7,9 @@
    namespace, and every length, colour, radius, and font comes from
    packages/design-tokens rather than a literal.
 
-   Anything the system already ships is reused rather than restated: the tab strip
-   is .view-tabs, the header is .page-header, buttons are .button, alerts are
-   .notice, pills are .status-chip tones, and the picker rows keep
-   .checkbox-control for their hit target. */
+   Anything the system already ships is reused rather than restated: actions use
+   the shared Button, alerts use the shared Alert, and status pills use the
+   shared Badge. */
 
 .bulk-page {
   display: grid;
@@ -111,10 +110,6 @@
   align-items: center;
   gap: var(--tc-space-2);
   margin-left: auto;
-}
-
-.bulk-panel .notice {
-  margin: 0 var(--tc-space-4) var(--tc-space-4);
 }
 
 /* The preview is the decision point on this page, so it is the one panel that

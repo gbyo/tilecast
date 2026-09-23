@@ -20,14 +20,6 @@
   margin-left: auto;
 }
 
-/* The workflow and views notices list their validation messages as a <ul>, which would otherwise
-   inherit the browser's default indent inside the notice. */
-.form-workflow .notice ul,
-.form-view-form .notice ul {
-  margin: 0;
-  padding-left: var(--tc-space-4);
-}
-
 /* Renderer */
 .form-renderer {
   display: flex;

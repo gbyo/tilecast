@@ -100,6 +100,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
+import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import {
@@ -490,7 +491,9 @@ export function ScreensPage() {
       <ScreenManagementTabs />
       <ActiveTakeoverBanners canManage={manageable} />
       {screens.isError && (
-        <div className="notice notice--error">{screens.error.message}</div>
+        <Alert variant="destructive">
+          <AlertDescription>{screens.error.message}</AlertDescription>
+        </Alert>
       )}
       <PendingPairings
         requests={pending.data?.items ?? []}
@@ -2383,17 +2386,25 @@ export function PairScreenPage() {
   }, [requestId, pending.data]);
   if (!canManageScreens(auth.status?.user))
     return (
-      <section className="empty-state">
-        <span className="empty-state__index">Restricted</span>
-        <h2>Screen approval requires administrator access.</h2>
-        <p>
-          Editors and Viewers can monitor screens but cannot approve or reject
-          pairing requests.
-        </p>
-        <Link className="text-link" to="/screens">
-          Return to screens
-        </Link>
-      </section>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>
+            Screen approval requires administrator access.
+          </EmptyTitle>
+          <EmptyDescription>
+            Editors and Viewers can monitor screens but cannot approve or reject
+            pairing requests.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Link
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            to="/screens"
+          >
+            Return to screens
+          </Link>
+        </EmptyContent>
+      </Empty>
     );
   if (request)
     return (
@@ -2416,9 +2427,9 @@ export function PairScreenPage() {
         </div>
       </header>
       {error && (
-        <div className="notice notice--error" role="alert">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       <form onSubmit={(event) => void form.handleSubmit(lookup)(event)}>
         <FormField
@@ -2697,21 +2708,23 @@ function ApprovalPanel({
         )}
       </fieldset>
       {request.previouslyPaired && (
-        <div className="notice notice--warning" role="status">
-          <strong>
+        <Alert role="status">
+          <AlertTitle>
             This device was previously paired as “{request.existingScreenName}.”
-          </strong>
-          <p>
+          </AlertTitle>
+          <AlertDescription>
             {destination === "replace_hardware"
               ? "Choose the logical screen above; its identity and configuration are preserved."
               : "Repairing the pairing will preserve this screen and its content assignments. The previous device credential will be revoked only after this player completes enrollment."}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
       {(approvalError || approve.error || reject.error) && (
-        <div className="notice notice--error">
-          {approvalError || (approve.error ?? reject.error)?.message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {approvalError || (approve.error ?? reject.error)?.message}
+          </AlertDescription>
+        </Alert>
       )}
       <form
         onSubmit={(event) => void form.handleSubmit(requestApproval)(event)}
@@ -2743,14 +2756,13 @@ function ApprovalPanel({
             {...form.register("roomNumber")}
           />
         </div>
-        <label
-          className="grid gap-1.5 text-sm font-medium"
-          htmlFor="screenDescription"
-        >
-          <span>Description (optional)</span>
-          <textarea id="screenDescription" {...form.register("description")} />
-        </label>
-        <div className="form-actions">
+        <Field>
+          <FieldLabel htmlFor="screenDescription">
+            Description (optional)
+          </FieldLabel>
+          <Textarea id="screenDescription" {...form.register("description")} />
+        </Field>
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
           <RheaButton
             type="button"
             variant="ghost"

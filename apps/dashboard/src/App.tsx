@@ -1,6 +1,5 @@
 import { Navigate, useRoutes, type RouteObject } from "react-router";
 import { Toaster } from "./components/ui/sonner";
-import { AssetFilterPortal } from "./components/AssetFilterPortal";
 import { GitHubOAuthSetupPortal } from "./components/GitHubOAuthSetupPortal";
 import { StudioRoutesProvider } from "./navigation/studioRoutes";
 import { settingsItems } from "./settings/settingsNavigation";
@@ -625,7 +624,6 @@ function RoutedApp() {
 export function App() {
   return (
     <>
-      <AssetFilterPortal />
       <GitHubOAuthSetupPortal />
       <StudioRoutesProvider routes={studioRoutes}>
         <RoutedApp />

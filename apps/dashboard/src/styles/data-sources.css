@@ -14,37 +14,6 @@
   border-radius: var(--tc-radius-control);
 }
 
-.csv-source-input__modes .button {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  justify-content: center;
-  gap: var(--tc-space-1);
-  padding: var(--tc-space-1) var(--tc-space-3);
-  color: var(--tc-text-secondary);
-  background: transparent;
-  border: 0;
-  border-radius: calc(var(--tc-radius-control) - 2px);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.csv-source-input__modes .button > span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--tc-space-1);
-}
-
-.csv-source-input__modes .button:hover:not(:disabled) {
-  color: var(--tc-text-primary);
-}
-
-.csv-source-input__modes .button.is-selected {
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-surface);
-  font-weight: 650;
-}
-
 .csv-dropzone {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) auto;
@@ -71,7 +40,7 @@
   color: var(--tc-action-primary);
 }
 
-.csv-dropzone > span:not(.button) {
+.csv-dropzone > span {
   display: grid;
   min-width: 0;
   gap: 3px;
@@ -81,10 +50,6 @@
   color: var(--tc-text-secondary);
   font-size: 12px;
   line-height: 1.45;
-}
-
-.csv-dropzone .button {
-  margin: 0;
 }
 
 .csv-file-summary__detail {
@@ -104,18 +69,24 @@
     width: 100%;
   }
 
-  .csv-source-input__modes .button {
-    padding-inline: var(--tc-space-2);
-  }
-
   .csv-dropzone {
     grid-template-columns: 28px minmax(0, 1fr);
   }
+}
 
-  .csv-dropzone .button {
-    grid-column: 1 / -1;
-    width: 100%;
-  }
+/* Editor surfaces theme through Signal tokens (relocated from the retired
+   issue-fixes sheet). */
+.asset-details {
+  color: var(--tc-text-primary);
+  background: var(--tc-bg-surface);
+  border-color: var(--tc-border-default);
+}
+
+.source-editor textarea,
+.asset-details textarea {
+  color: var(--tc-input-text);
+  background: var(--tc-input-bg);
+  border-color: var(--tc-input-border);
 }
 
 /* Widget authoring keeps the configuration grouped and the live result in view. */
