@@ -26,6 +26,16 @@ import { NavMain } from "./NavMain";
 import { NavSecondary } from "./NavSecondary";
 import { NavUser } from "./NavUser";
 
+/**
+ * Monitor and Manage live at the bottom of the scrollable sidebar content,
+ * pushed there with `mt-auto` so they sit near the footer without being in
+ * it. The footer holds only the user menu: Settings is a workspace
+ * destination, not an account action, and mixing it into the account
+ * dropdown's neighborhood made it read as one. This deviates from plan
+ * section 8.1 (Settings + user menu in SidebarFooter); the divider rationale
+ * is that the footer border should separate the account menu from workspace
+ * navigation, not split two workspace groups apart.
+ */
 export function AppSidebar({
   user,
   onSignOut,
@@ -65,18 +75,33 @@ export function AppSidebar({
               url: "/screens",
               icon: <Monitor />,
               match: ["/groups"],
+              children: [
+                { title: "Fleet", url: "/screens" },
+                { title: "Display Groups", url: "/groups" },
+                { title: "Archive", url: "/screens/archive" },
+              ],
             },
             {
               title: "Content",
               url: "/assets",
               icon: <Library />,
               match: ["/widgets", "/data-sources"],
+              children: [
+                { title: "Media", url: "/assets" },
+                { title: "Widgets", url: "/widgets" },
+                { title: "Data Sources", url: "/data-sources" },
+              ],
             },
             {
               title: "Presentations",
               url: "/playlists",
               icon: <Layers3 />,
               match: ["/layouts", "/campaigns"],
+              children: [
+                { title: "Playlists", url: "/playlists" },
+                { title: "Layouts", url: "/layouts" },
+                { title: "Campaigns", url: "/campaigns" },
+              ],
             },
             {
               title: "Schedules",
@@ -88,6 +113,7 @@ export function AppSidebar({
         />
         <NavSecondary
           label="Monitor"
+          className="mt-auto"
           items={[
             { title: "Activity", url: "/activity", icon: <Activity /> },
             ...(canReview
@@ -101,12 +127,12 @@ export function AppSidebar({
               : []),
           ]}
         />
-      </SidebarContent>
-      <SidebarFooter className="gap-1 border-t border-sidebar-border p-2">
         <NavSecondary
           label="Manage"
           items={[{ title: "Settings", url: "/settings", icon: <Settings /> }]}
         />
+      </SidebarContent>
+      <SidebarFooter className="gap-1 border-t border-sidebar-border p-2">
         <NavUser user={user} onSignOut={onSignOut} disabled={signOutDisabled} />
       </SidebarFooter>
       <SidebarRail />

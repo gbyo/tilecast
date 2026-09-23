@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Laptop, Moon, Sun } from "lucide-react";
 import { api, ApiError } from "../api/client";
+import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { SettingsSection } from "../settings/SettingsSection";
 import { SettingsActionBar } from "../settings/SettingsActionBar";
 import { useNavigationWarning } from "../settings/useNavigationWarning";
+
+const APPEARANCE_KEY = "preference.appearance";
 
 export function PreferencesPage() {
   const auth = useAuth();
@@ -58,18 +63,36 @@ export function PreferencesPage() {
   };
   if (preferences.isLoading)
     return <div className="table-loading">Loading preferences…</div>;
+  const appearance = definitions.find(
+    (definition) => definition.key === APPEARANCE_KEY,
+  );
+  const rest = definitions.filter(
+    (definition) => definition.key !== APPEARANCE_KEY,
+  );
+  const change = (key: string, value: unknown) => {
+    setSaved(undefined);
+    setDraft({ ...draft, [key]: value });
+  };
+  const appearanceRaw =
+    draft[APPEARANCE_KEY] ?? appearance?.default ?? "system";
+  const appearanceValue =
+    typeof appearanceRaw === "string" ? appearanceRaw : "system";
   return (
     <>
       {navigationWarning}
+      {appearance && (
+        <AppearanceControl
+          definition={appearance}
+          value={appearanceValue}
+          onChange={(value) => change(APPEARANCE_KEY, value)}
+        />
+      )}
       <SettingsSection
         section="preferences"
-        definitions={definitions}
+        definitions={rest}
         values={draft}
         editable
-        onChange={(key, value) => {
-          setSaved(undefined);
-          setDraft({ ...draft, [key]: value });
-        }}
+        onChange={change}
       />
       <SettingsActionBar
         dirty={dirty}
@@ -87,6 +110,72 @@ export function PreferencesPage() {
         onReload={isConflict(save.error) ? reload : undefined}
       />
     </>
+  );
+}
+
+/**
+ * Appearance is a persistent either/or choice, so it gets a single-select
+ * Toggle Group rather than the generic registry enum control. It writes
+ * through the same draft/save path as every other preference.
+ */
+function AppearanceControl({
+  definition,
+  value,
+  onChange,
+}: {
+  definition: SettingDefinition;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const options =
+    Array.isArray(definition.allowed) && definition.allowed.length > 0
+      ? definition.allowed
+      : ["system", "light", "dark"];
+  const icons: Record<string, typeof Sun> = {
+    system: Laptop,
+    light: Sun,
+    dark: Moon,
+  };
+  const labels: Record<string, string> = {
+    system: "System",
+    light: "Light",
+    dark: "Dark",
+  };
+  return (
+    <section
+      className="grid gap-3 rounded-xl border border-border p-4"
+      aria-labelledby="appearance-control-title"
+    >
+      <div className="grid gap-1">
+        <h3 id="appearance-control-title" className="text-base font-semibold">
+          {definition.title || "Appearance"}
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Follow this browser, or force Studio light or dark.
+        </p>
+      </div>
+      <ToggleGroup
+        aria-label="Appearance"
+        value={options.includes(value) ? [value] : []}
+        onValueChange={(next) => {
+          if (next[0]) onChange(next[0]);
+        }}
+      >
+        {options.map((option) => {
+          const Icon = icons[option] ?? Laptop;
+          return (
+            <ToggleGroupItem
+              key={option}
+              value={option}
+              aria-label={labels[option] ?? option}
+            >
+              <Icon aria-hidden="true" />
+              {labels[option] ?? option}
+            </ToggleGroupItem>
+          );
+        })}
+      </ToggleGroup>
+    </section>
   );
 }
 
