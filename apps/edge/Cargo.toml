@@ -63,6 +63,7 @@ time = { version = "0.3", features = ["formatting", "parsing", "macros", "serde"
 tokio = { version = "1.47", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync", "signal", "fs"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "logging", "tls12"] }
 tokio-util = { version = "0.7", features = ["rt", "io"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
 toml = "0.9"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter", "fmt"] }

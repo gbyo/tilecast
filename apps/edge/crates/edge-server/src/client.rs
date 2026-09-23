@@ -18,8 +18,13 @@ use std::time::Duration;
 
 use edge_protocol::InstallationId;
 use edge_protocol::signed::SignedDocument;
+use futures_util::{SinkExt as _, StreamExt as _};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use tokio::net::TcpStream;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
+use tokio_tungstenite::tungstenite::protocol::{Message, WebSocketConfig};
+use tokio_tungstenite::{Connector, MaybeTlsStream, WebSocketStream, connect_async_tls_with_config};
 
 use crate::credential::DeviceCredential;
 use crate::url_policy::normalize_server_url;
@@ -118,6 +123,7 @@ fn tls_config(
 pub struct ServerClient {
     base_url: String,
     http: reqwest::Client,
+    tls_roots: Vec<rustls::pki_types::CertificateDer<'static>>,
 }
 
 impl ServerClient {
@@ -143,7 +149,7 @@ impl ServerClient {
             .user_agent(concat!("tilecastd/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|_| ServerError::Network)?;
-        Ok(Self { base_url, http })
+        Ok(Self { base_url, http, tls_roots: additional_roots.to_vec() })
     }
 
     pub fn base_url(&self) -> &str {
@@ -251,6 +257,77 @@ pub struct ChangePage {
     pub oldest_sequence: u64,
 }
 
+/// Events from the existing Tilecast Player socket protocol.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlayerSocketEvent {
+    Hello,
+    Ping(String),
+    ManifestChanged,
+    ConfigChanged,
+    CommandsAvailable,
+    Closed,
+    Other,
+}
+
+/// A live socket obtained only from an identity-verified server.
+pub struct PlayerSocket {
+    stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
+}
+
+impl std::fmt::Debug for PlayerSocket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlayerSocket").finish_non_exhaustive()
+    }
+}
+
+impl PlayerSocket {
+    pub async fn next_event(&mut self) -> Result<PlayerSocketEvent, ServerError> {
+        let Some(message) = self.stream.next().await else { return Ok(PlayerSocketEvent::Closed) };
+        match message.map_err(|_| ServerError::Network)? {
+            Message::Text(text) => {
+                if text.len() > 64 * 1024 {
+                    return Err(ServerError::Decode);
+                }
+                let value: serde_json::Value = serde_json::from_str(&text).map_err(|_| ServerError::Decode)?;
+                Ok(match value.get("type").and_then(serde_json::Value::as_str) {
+                    Some("server.hello") => PlayerSocketEvent::Hello,
+                    Some("server.ping") => PlayerSocketEvent::Ping(
+                        value
+                            .get("timestamp")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("")
+                            .chars()
+                            .take(40)
+                            .collect(),
+                    ),
+                    Some("manifest.changed") => PlayerSocketEvent::ManifestChanged,
+                    Some("config.changed") => PlayerSocketEvent::ConfigChanged,
+                    Some("commands.available") => PlayerSocketEvent::CommandsAvailable,
+                    _ => PlayerSocketEvent::Other,
+                })
+            }
+            Message::Close(_) => Ok(PlayerSocketEvent::Closed),
+            _ => Ok(PlayerSocketEvent::Other),
+        }
+    }
+
+    pub async fn send_pong(&mut self, timestamp: &str) -> Result<(), ServerError> {
+        let value = serde_json::json!({"type": "player.pong", "timestamp": timestamp});
+        self.send_json(value).await
+    }
+
+    pub async fn send_status(&mut self, heartbeat: &serde_json::Value, version: &str) -> Result<(), ServerError> {
+        self.send_json(serde_json::json!({
+            "type": "player.status", "protocolVersion": 1, "playerVersion": version, "payload": heartbeat,
+        }))
+        .await
+    }
+
+    async fn send_json(&mut self, value: serde_json::Value) -> Result<(), ServerError> {
+        self.stream.send(Message::Text(value.to_string().into())).await.map_err(|_| ServerError::Network)
+    }
+}
+
 impl AuthenticatedServer {
     pub fn installation_id(&self) -> InstallationId {
         self.installation_id
@@ -266,6 +343,31 @@ impl AuthenticatedServer {
 
     pub fn has_secure_edge_bootstrap(&self) -> bool {
         self.client.base_url.starts_with("https://")
+    }
+
+    pub async fn player_socket(&self, version: &str) -> Result<PlayerSocket, ServerError> {
+        let (scheme, origin) = self.client.base_url.split_once("://").ok_or(ServerError::Decode)?;
+        let ws_scheme = if scheme == "https" { "wss" } else { "ws" };
+        let address = format!("{ws_scheme}://{origin}/api/v1/player/socket");
+        let mut request =
+            address.into_client_request().map_err(|_| ServerError::Url("invalid socket address".to_owned()))?;
+        request
+            .headers_mut()
+            .insert("authorization", self.credential.authorization_header().parse().map_err(|_| ServerError::Decode)?);
+        let tls = Connector::Rustls(Arc::new(tls_config(&self.client.tls_roots)?));
+        let config = WebSocketConfig::default().max_message_size(Some(64 * 1024)).max_frame_size(Some(64 * 1024));
+        let (stream, _) = tokio::time::timeout(
+            Duration::from_secs(15),
+            connect_async_tls_with_config(request, Some(config), false, Some(tls)),
+        )
+        .await
+        .map_err(|_| ServerError::Network)?
+        .map_err(|_| ServerError::Network)?;
+        let mut socket = PlayerSocket { stream };
+        socket
+            .send_json(serde_json::json!({"type": "player.hello", "protocolVersion": 1, "playerVersion": version}))
+            .await?;
+        Ok(socket)
     }
 
     fn raw_request(&self, method: reqwest::Method, path: &str) -> reqwest::RequestBuilder {

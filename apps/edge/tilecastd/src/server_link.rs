@@ -9,27 +9,30 @@
 //!    installation ID before the credential is sent (the identity gate is a
 //!    type in `edge_server::client`). A mismatch stops the link until an
 //!    explicit reset; the credential is never sent to the other server.
-//! 3. Enrolls, or renews when fewer than 30 days remain, with a key this
+//! 3. Opens the ordinary player WebSocket, sends status, and falls back to
+//!    HTTP heartbeat if the socket is unavailable. A server ping samples the
+//!    clock and receives a pong; unknown push types are ignored.
+//! 4. Enrolls, or renews when fewer than 30 days remain, with a key this
 //!    daemon generates. The Edge private key never leaves this process.
-//! 4. Reconciles the signed change feed.
-//! 5. Posts the bounded Edge status on a low cadence.
+//! 5. Reconciles the signed change feed.
+//! 6. Posts the bounded Edge status on a low cadence.
 //!
 //! The credential is deleted only when the server says it is invalid or
 //! revoked (the legacy player's rule); network errors, 5xx and disabled
 //! screens retry with backoff. Playback never waits for this task.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use edge_identity::renewal::{self, RenewalDecision};
 use edge_protocol::Timestamp;
 use edge_protocol::signed::change::AuthorityTrust;
-use edge_server::client::{ServerClient, ServerError};
+use edge_server::client::{PlayerSocket, PlayerSocketEvent, ServerClient, ServerError};
 use edge_server::enrollment::{EnrollError, enroll};
 use edge_server::feed::{FeedApplier, FeedError, Wake};
 use edge_server::{AuthenticatedServer, DeviceCredential};
 use edge_state::repo::binding::{self, CredentialState};
-use edge_state::repo::{capabilities, identity};
+use edge_state::repo::{capabilities, identity, playback};
 
 use crate::daemon::{DaemonContext, VERSION};
 
@@ -37,6 +40,7 @@ use crate::daemon::{DaemonContext, VERSION};
 pub const RECONCILE_INTERVAL: Duration = Duration::from_secs(60);
 pub const STATUS_INTERVAL: Duration = Duration::from_secs(300);
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60);
+pub const SOCKET_LIVENESS_TIMEOUT: Duration = Duration::from_secs(95);
 /// Re-check cadence while there is nothing to do (unbound, rejected).
 pub const IDLE_INTERVAL: Duration = Duration::from_secs(300);
 
@@ -71,13 +75,25 @@ struct Link {
     next_status_ms: i64,
     next_heartbeat_ms: i64,
     failures: u32,
+    socket: Option<PlayerSocket>,
+    socket_failures: u32,
+    next_socket_attempt: Option<Instant>,
+}
+
+impl Link {
+    fn socket_lost(&mut self) {
+        self.socket = None;
+        let exponent = self.socket_failures.min(5);
+        self.socket_failures = self.socket_failures.saturating_add(1);
+        self.next_socket_attempt = Some(Instant::now() + Duration::from_secs((5_u64 << exponent).min(60)));
+    }
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
     let mut link = Link::default();
     loop {
         let state = pass(&context, &mut link).await;
-        let delay = match &state {
+        let mut delay = match &state {
             LinkState::Connected | LinkState::ConnectedWithoutEdgeTrust => {
                 link.failures = 0;
                 RECONCILE_INTERVAL
@@ -91,13 +107,71 @@ pub async fn run(context: Arc<DaemonContext>) {
             }
             _ => IDLE_INTERVAL,
         };
+        if matches!(state, LinkState::Connected | LinkState::ConnectedWithoutEdgeTrust)
+            && link.socket.is_none()
+            && let Some(next) = link.next_socket_attempt
+        {
+            delay = delay.min(next.saturating_duration_since(Instant::now()));
+        }
         *context.link_state.lock().unwrap_or_else(|e| e.into_inner()) = state;
-        tokio::select! {
-            () = context.shutdown.cancelled() => return,
-            () = tokio::time::sleep(delay) => {}
-            () = context.server_wake.notified() => {}
+        let deadline = tokio::time::sleep(delay);
+        tokio::pin!(deadline);
+        loop {
+            if let Some(socket) = link.socket.as_mut() {
+                tokio::select! {
+                    () = context.shutdown.cancelled() => return,
+                    () = &mut deadline => break,
+                    () = context.server_wake.notified() => break,
+                    received = tokio::time::timeout(SOCKET_LIVENESS_TIMEOUT, socket.next_event()) => {
+                        match received {
+                            Ok(Ok(PlayerSocketEvent::Ping(timestamp))) => {
+                                sample_server_clock(&context, &timestamp).await;
+                                if socket.send_pong(&context.now().to_string()).await.is_err() {
+                                    link.socket_lost();
+                                    break;
+                                }
+                            }
+                            Ok(Ok(PlayerSocketEvent::ManifestChanged | PlayerSocketEvent::ConfigChanged |
+                                PlayerSocketEvent::CommandsAvailable)) => break,
+                            Ok(Ok(PlayerSocketEvent::Hello | PlayerSocketEvent::Other)) => {}
+                            Ok(Ok(PlayerSocketEvent::Closed)) | Ok(Err(_)) | Err(_) => {
+                                link.socket_lost();
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                tokio::select! {
+                    () = context.shutdown.cancelled() => return,
+                    () = &mut deadline => break,
+                    () = context.server_wake.notified() => break,
+                }
+            }
         }
     }
+}
+
+async fn sample_server_clock(context: &DaemonContext, timestamp: &str) {
+    let Ok(server_time) = Timestamp::parse(timestamp) else { return };
+    let Some(db) = context.db() else { return };
+    let received_at = context.now();
+    let offset = server_time.unix_millis().saturating_sub(received_at.unix_millis());
+    let _ = db
+        .run(move |c| {
+            let mut state = playback::get(c)?;
+            let old = state.server_clock_offset_ms.unwrap_or_default();
+            let stale = state
+                .server_clock_synchronized_at
+                .is_none_or(|at| received_at.unix_millis() - at.unix_millis() > 300_000);
+            if state.server_clock_offset_ms.is_none() || old.abs_diff(offset) >= 250 || stale {
+                state.server_clock_offset_ms = Some(offset);
+                state.server_clock_synchronized_at = Some(received_at);
+                playback::put(c, &state, received_at)?;
+            }
+            Ok(())
+        })
+        .await;
 }
 
 fn server_retry(error: &ServerError) -> LinkState {
@@ -150,8 +224,31 @@ async fn pass(context: &DaemonContext, link: &mut Link) -> LinkState {
     let now = context.now();
     let _ = db.run(move |c| binding::mark_identity_verified(c, now)).await;
 
+    if link.socket.is_none() && link.next_socket_attempt.is_none_or(|next| Instant::now() >= next) {
+        match server.player_socket(VERSION).await {
+            Ok(socket) => {
+                link.socket = Some(socket);
+                link.socket_failures = 0;
+                link.next_socket_attempt = None;
+            }
+            Err(error) => {
+                tracing::warn!(component = "server", event = "player_socket_failed", reason = error.reason_code());
+                link.socket_lost();
+            }
+        }
+    }
     if now.unix_millis() >= link.next_heartbeat_ms {
-        match report_heartbeat(context, &server).await {
+        let heartbeat = build_heartbeat(context).await;
+        let socket_sent = if let Some(socket) = link.socket.as_mut() {
+            socket.send_status(&heartbeat, VERSION).await.is_ok()
+        } else {
+            false
+        };
+        if !socket_sent && link.socket.is_some() {
+            link.socket_lost();
+        }
+        let sent = if socket_sent { Ok(()) } else { server.player_heartbeat(&heartbeat).await };
+        match sent {
             Ok(()) => link.next_heartbeat_ms = now.unix_millis() + HEARTBEAT_INTERVAL.as_millis() as i64,
             Err(ServerError::CredentialRejected) => {
                 reject_credential(context).await;
@@ -184,7 +281,7 @@ async fn pass(context: &DaemonContext, link: &mut Link) -> LinkState {
 }
 
 /// Normal player presence is reported independently of Edge operational status.
-async fn report_heartbeat(context: &DaemonContext, server: &AuthenticatedServer) -> Result<(), ServerError> {
+async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
     let (renderer, current) = {
         let presentation = context.presentation.lock().await;
         (presentation.status(), presentation.current().cloned())
@@ -213,7 +310,15 @@ async fn report_heartbeat(context: &DaemonContext, server: &AuthenticatedServer)
         heartbeat["cacheUsedBytes"] = serde_json::json!(usage.used_bytes);
         heartbeat["cacheLimitBytes"] = serde_json::json!(cas.policy().limit_bytes);
     }
-    server.player_heartbeat(&heartbeat).await
+    if let Some(db) = context.db()
+        && let Ok(state) = db.run(|c| playback::get(c)).await
+    {
+        heartbeat["playbackDisabled"] = serde_json::json!(state.playback_disabled);
+        if let Some(offset) = state.server_clock_offset_ms {
+            heartbeat["deviceClockOffsetSeconds"] = serde_json::json!(offset / 1000);
+        }
+    }
+    heartbeat
 }
 
 async fn ensure_certificate(

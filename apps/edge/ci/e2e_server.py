@@ -25,6 +25,7 @@ import shutil
 import signal
 import socket
 import socketserver
+import sqlite3
 import ssl
 import subprocess
 import sys
@@ -75,10 +76,16 @@ class TlsForwarderHandler(socketserver.BaseRequestHandler):
                 if not readable:
                     continue
                 for source in readable:
-                    data = source.recv(65536)
+                    try:
+                        data = source.recv(65536)
+                    except OSError:
+                        return
                     if not data:
                         return
-                    (upstream if source is self.request else self.request).sendall(data)
+                    try:
+                        (upstream if source is self.request else self.request).sendall(data)
+                    except OSError:
+                        return
 
 
 def run(*args, **kwargs):
@@ -185,7 +192,8 @@ def main():
             TILECAST_FFMPEG_PATH=tools["ffmpeg"],
             TILECAST_FFPROBE_PATH=tools["ffprobe"],
         )
-        processes.append(subprocess.Popen([server_bin], env=env, stdout=server_log, stderr=subprocess.STDOUT))
+        server_process = subprocess.Popen([server_bin], env=env, stdout=server_log, stderr=subprocess.STDOUT)
+        processes.append(server_process)
         client = Client(cert)
         wait_for(lambda: client.call("GET", "/readyz")[0] == 200, "server readiness")
 
@@ -261,27 +269,41 @@ def main():
         print("dashboard sees node:", node["nodeId"], node["rendererState"], node["meshState"], node["certificateExpiresAt"])
         def player_contact():
             code, screen = client.call("GET", f"/api/v1/screens/{screen_id}")
-            return code == 200 and screen["data"]["status"] == "recent"
-        wait_for(player_contact, "normal player heartbeat contact")
+            return code == 200 and screen["data"]["status"] == "online"
+        wait_for(player_contact, "normal player WebSocket presence")
+        def clock_sampled():
+            with sqlite3.connect(os.path.join(state, "state.db")) as db:
+                row = db.execute("SELECT server_clock_synchronized_at_ms FROM playback_state WHERE id=1").fetchone()
+                return row is not None and row[0] is not None
+        wait_for(clock_sampled, "server clock sample from socket ping", timeout=50)
+        credential_path = os.path.join(state, "identity", "device-credential")
+        assert os.path.exists(credential_path)
+
+        server_process.terminate()
+        assert server_process.wait(timeout=20) == 0, "server did not stop cleanly"
+        processes.remove(server_process)
+        time.sleep(2)
+        assert os.path.exists(credential_path), "temporary server outage erased the credential"
+        server_process = subprocess.Popen([server_bin], env=env, stdout=server_log, stderr=subprocess.STDOUT)
+        processes.append(server_process)
+        wait_for(lambda: client.call("GET", "/readyz")[0] == 200, "server restart readiness")
+        wait_for(player_contact, "player WebSocket reconnection after server restart", timeout=90)
+
+        client.call("POST", f"/api/v1/screens/{screen_id}/disable", {}, expect=204)
+        assert os.path.exists(credential_path), "screen disable erased the credential"
+        client.call("POST", f"/api/v1/screens/{screen_id}/enable", {}, expect=204)
+        wait_for(player_contact, "player WebSocket reconnection after screen enable", timeout=90)
         socket = os.path.join(runtime, "edge.sock")
         status = subprocess.run([tilecastctl, "--socket", socket, "--json", "status"], check=True,
                                 capture_output=True, text=True)
         identity_state = json.loads(status.stdout)["identity"]["state"]
         assert identity_state == "enrolled", status.stdout
 
-        daemon.send_signal(signal.SIGTERM)
-        assert daemon.wait(timeout=20) == 0, "tilecastd did not stop cleanly"
-        processes.remove(daemon)
-
-        # Revocation while the daemon is stopped: on restart the server
-        # rejects the credential and only then is it deleted.
+        # A live revocation must close the socket and invalidate the credential.
         client.call("POST", f"/api/v1/screens/{screen_id}/revoke", {}, expect=204)
-        daemon = subprocess.Popen([tilecastd, "--config", config, "run"], stdout=daemon_log, stderr=subprocess.STDOUT)
-        processes.append(daemon)
-        credential_path = os.path.join(state, "identity", "device-credential")
         wait_for(lambda: not os.path.exists(credential_path), "credential removal after revocation")
         assert tree(legacy) == before, "legacy state changed"
-        print("PASS: import, HTTPS Edge enrollment, player heartbeat, Edge status, revocation")
+        print("PASS: import, HTTPS Edge enrollment, player socket, server restart, disable/enable, live revocation")
         return 0
     except Exception:
         for name in ("server.log", "tilecastd.log"):

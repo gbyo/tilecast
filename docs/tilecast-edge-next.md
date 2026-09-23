@@ -51,18 +51,19 @@ A screen migrated with `tilecastd import-legacy`:
 - enrolls an Edge certificate, pins the Edge CA and authority, and reconciles
   the signed change feed;
 - posts Edge status, which `GET /api/v1/edge/nodes` shows;
+- holds normal player WebSocket presence with an HTTP heartbeat fallback;
 - runs the peer fabric when `mesh.enabled`;
 - shows the status surface in the WPE renderer.
 
 It does **not** yet:
 
-- hold the player WebSocket, so Studio shows only recent heartbeat contact;
 - fetch the manifest, so it plays no server content;
 - run commands;
 - report proof of play or telemetry;
 - pair on its own (a fresh installation without legacy state cannot bind).
 
-Do not migrate a production screen before work packages W1 to W4 are done.
+Do not migrate a production screen before W0 through W5 and the real playback
+acceptance path are done.
 
 ## 2. Invariants (do not change)
 
@@ -131,8 +132,10 @@ Until W0 lands, operators must copy `/data/edge` with every backup
 
 ### W1 (P0) Player presence: heartbeat and socket
 
-The normal HTTP heartbeat fallback is implemented. The authenticated
-WebSocket, live online presence, push wakeups and reconnect tests remain open.
+The normal HTTP heartbeat fallback and authenticated WebSocket are implemented.
+The real-server E2E covers online presence, server restart/reconnect,
+disable/enable without credential loss, clock sampling and live revocation.
+Playback identifiers will be populated when W2 activates server content.
 
 - **Use:** `tilecastd::server_link` (one task, one credential owner, backoff);
   `AuthenticatedServer` (add methods there); the reference
