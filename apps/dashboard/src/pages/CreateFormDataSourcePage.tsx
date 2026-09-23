@@ -4,14 +4,12 @@ import { useNavigate } from "react-router";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { canManageContent } from "./ContentPage";
-import {
-  Button,
-  Field,
-  Input,
-  Notice,
-  PageHeader,
-  Textarea,
-} from "../components/legacy-ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
+import { Textarea } from "../components/ui/textarea";
 
 // CreateFormDataSourcePage collects the form name/description and the initial form
 // title/description, then creates the Form (which the server publishes as its first revision) and
@@ -76,80 +74,106 @@ export function CreateFormDataSourcePage() {
 
   if (!canManageContent(auth.status?.user)) {
     return (
-      <section className="app-editor-route">
-        <Notice variant="warning" title="Insufficient access">
-          You do not have permission to create forms.
-        </Notice>
+      <section className="mx-auto grid w-full max-w-2xl gap-4 px-4 py-6 sm:px-6">
+        <Alert variant="destructive">
+          <AlertTitle>Insufficient access</AlertTitle>
+          <AlertDescription>
+            You do not have permission to create forms.
+          </AlertDescription>
+        </Alert>
       </section>
     );
   }
 
   return (
-    <section className="app-editor-route form-create">
-      <PageHeader
-        eyebrow="Forms plugin"
-        title="Create a Form"
-        description="Collect submissions, approve them, and publish records to Widgets."
-      />
-      <form className="form-create__form" onSubmit={submit}>
+    <section className="mx-auto grid w-full max-w-2xl gap-4 px-4 py-6 sm:px-6">
+      <header className="grid gap-1">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Forms plugin
+        </p>
+        <h1 className="text-xl font-semibold tracking-tight">Create a Form</h1>
+        <p className="text-sm text-muted-foreground">
+          Collect submissions, approve them, and publish records to Widgets.
+        </p>
+      </header>
+      <form
+        className="grid gap-4 rounded-xl border border-border bg-card p-4 sm:p-5"
+        onSubmit={submit}
+      >
         {error && (
-          <Notice variant="danger" title="Could not create form">
-            {error}
-          </Notice>
+          <Alert variant="destructive">
+            <AlertTitle>Could not create form</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
-        <Field
-          label="Form name"
-          description="Shown in the Forms plugin and when selecting form output in Widgets."
-          required
-        >
+        <Field>
+          <FieldLabel htmlFor="create-form-name">Form name</FieldLabel>
           <Input
+            id="create-form-name"
+            required
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Staff Announcements"
           />
+          <FieldDescription>
+            Shown in the Forms plugin and when selecting form output in Widgets.
+          </FieldDescription>
         </Field>
-        <Field label="Form description">
+        <Field>
+          <FieldLabel htmlFor="create-form-description">
+            Form description
+          </FieldLabel>
           <Textarea
+            id="create-form-description"
             rows={2}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
           />
         </Field>
-        <Field
-          label="Form title"
-          description="Shown above the form to submitters."
-        >
+        <Field>
+          <FieldLabel htmlFor="create-form-title">Form title</FieldLabel>
           <Input
+            id="create-form-title"
             value={formTitle}
             onChange={(event) => setFormTitle(event.target.value)}
           />
+          <FieldDescription>
+            Shown above the form to submitters.
+          </FieldDescription>
         </Field>
-        <Field label="Form description">
+        <Field>
+          <FieldLabel htmlFor="create-form-schema-description">
+            Form description
+          </FieldLabel>
           <Textarea
+            id="create-form-schema-description"
             rows={2}
             value={formDescription}
             onChange={(event) => setFormDescription(event.target.value)}
           />
         </Field>
-        <Notice variant="info" title="A starter field is included">
-          Your form starts with a required “Title” field and is published
-          immediately. You can add fields and publish new revisions from the
-          builder.
-        </Notice>
-        <div className="form-create__actions">
+        <Alert>
+          <AlertTitle>A starter field is included</AlertTitle>
+          <AlertDescription>
+            Your form starts with a required “Title” field and is published
+            immediately. You can add fields and publish new revisions from the
+            builder.
+          </AlertDescription>
+        </Alert>
+        <div className="flex justify-end gap-2">
           <Button
             type="button"
-            variant="quiet"
+            variant="ghost"
             onClick={() => void navigate("/plugins/forms")}
           >
             Back
           </Button>
           <Button
             type="submit"
-            variant="primary"
-            loading={create.isPending}
+            variant="default"
             disabled={name.trim() === "" || create.isPending}
           >
+            {create.isPending && <Spinner aria-hidden="true" />}
             Create form
           </Button>
         </div>

@@ -8,21 +8,28 @@ import type {
 } from "../api/types";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { Pagination, ViewTabs } from "../components/legacy-ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import {
-  Button,
-  EmptyState,
-  Field,
-  Input,
-  Notice,
-  PageHeader,
-  Pagination,
-  Select,
-  Spinner,
-  StatusBadge,
-  TableContainer,
-  Textarea,
-  ViewTabs,
-} from "../components/legacy-ui";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select as RheaSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Spinner } from "../components/ui/spinner";
+import { Textarea } from "../components/ui/textarea";
+import { formToneBadgeProps } from "../forms/formBadge";
 import { FormBuilder } from "../forms/FormBuilder";
 import { FormRenderer } from "../forms/FormRenderer";
 import { RecordReview } from "../forms/RecordReview";
@@ -114,13 +121,18 @@ export function FormDataSourcePage({
   ]);
 
   if (form.isLoading) {
-    return <div className="table-loading">Loading form…</div>;
+    return (
+      <p className="px-4 py-6 text-sm text-muted-foreground sm:px-6">
+        Loading form…
+      </p>
+    );
   }
   if (!detail || !id) {
     return (
-      <Notice variant="danger" title="Form unavailable">
-        This form could not be loaded.
-      </Notice>
+      <Alert variant="destructive" className="m-4 sm:m-6">
+        <AlertTitle>Form unavailable</AlertTitle>
+        <AlertDescription>This form could not be loaded.</AlertDescription>
+      </Alert>
     );
   }
 
@@ -135,12 +147,20 @@ export function FormDataSourcePage({
   };
 
   return (
-    <section className="app-editor-route form-page">
-      <PageHeader
-        eyebrow="Forms plugin"
-        title={dataSource?.name ?? detail.name}
-        description={dataSource?.description ?? detail.description}
-      />
+    <section className="mx-auto grid w-full max-w-6xl gap-4 px-4 py-6 sm:px-6">
+      <header className="grid gap-1">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Forms plugin
+        </p>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {dataSource?.name ?? detail.name}
+        </h1>
+        {(dataSource?.description ?? detail.description) && (
+          <p className="text-sm text-muted-foreground">
+            {dataSource?.description ?? detail.description}
+          </p>
+        )}
+      </header>
 
       <ViewTabs<TabValue>
         label="Form sections"
@@ -241,10 +261,16 @@ function ResponsesTab({
 
   if (selectedRecordId) {
     return (
-      <div className="responses-tab responses-tab--detail">
-        <Button variant="quiet" compact onClick={() => onSelectRecord(null)}>
-          ← Back to responses
-        </Button>
+      <div className="grid content-start gap-4">
+        <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSelectRecord(null)}
+          >
+            ← Back to responses
+          </Button>
+        </div>
         <RecordReview
           form={form}
           recordId={selectedRecordId}
@@ -259,28 +285,51 @@ function ResponsesTab({
   const items = records.data?.items ?? [];
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  const stateOptions = [
+    { value: "needs_review", label: "Needs review" },
+    { value: "all", label: "All states" },
+    ...form.workflow.states.map((state) => ({
+      value: state.key,
+      label: state.label,
+    })),
+  ];
+  const sortOptions = [
+    { value: "updated", label: "Recently updated" },
+    { value: "newest", label: "Newest" },
+    { value: "oldest", label: "Oldest" },
+    { value: "priority", label: "Priority" },
+  ];
+
   return (
-    <div className="responses-tab">
-      <div className="responses-tab__filters">
-        <Field label="State">
-          <Select
+    <div className="grid content-start gap-4">
+      <div className="flex flex-wrap items-end gap-4">
+        <Field className="min-w-44">
+          <FieldLabel htmlFor="responses-state">State</FieldLabel>
+          <RheaSelect
             value={stateFilter}
-            onChange={(event) => {
-              setStateFilter(event.target.value);
+            onValueChange={(value) => {
+              setStateFilter(value ?? "needs_review");
               setPage(1);
             }}
           >
-            <option value="needs_review">Needs review</option>
-            <option value="all">All states</option>
-            {form.workflow.states.map((state) => (
-              <option key={state.key} value={state.key}>
-                {state.label}
-              </option>
-            ))}
-          </Select>
+            <SelectTrigger id="responses-state">
+              <SelectValue>
+                {stateOptions.find((o) => o.value === stateFilter)?.label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {stateOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </RheaSelect>
         </Field>
-        <Field label="Search">
+        <Field className="min-w-44">
+          <FieldLabel htmlFor="responses-search">Search</FieldLabel>
           <Input
+            id="responses-search"
             value={search}
             placeholder="Title or submitter"
             onChange={(event) => {
@@ -289,59 +338,88 @@ function ResponsesTab({
             }}
           />
         </Field>
-        <Field label="Sort">
-          <Select
+        <Field className="min-w-44">
+          <FieldLabel htmlFor="responses-sort">Sort</FieldLabel>
+          <RheaSelect
             value={sort}
-            onChange={(event) => setSort(event.target.value as typeof sort)}
+            onValueChange={(value) => setSort(value ?? "updated")}
           >
-            <option value="updated">Recently updated</option>
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="priority">Priority</option>
-          </Select>
+            <SelectTrigger id="responses-sort">
+              <SelectValue>
+                {sortOptions.find((o) => o.value === sort)?.label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {sortOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </RheaSelect>
         </Field>
       </div>
 
       {records.isError && (
-        <Notice variant="danger" title="Could not load responses">
-          {records.error instanceof Error
-            ? records.error.message
-            : "Please try again."}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Could not load responses</AlertTitle>
+          <AlertDescription>
+            {records.error instanceof Error
+              ? records.error.message
+              : "Please try again."}
+          </AlertDescription>
+        </Alert>
       )}
 
       {records.isLoading ? (
-        <Spinner label="Loading responses…" />
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner aria-hidden="true" /> Loading responses…
+        </p>
       ) : items.length === 0 ? (
-        <EmptyState
-          title="No responses"
-          message={
-            stateFilter === "needs_review"
-              ? "Nothing is waiting for review right now."
-              : "No submissions match these filters yet."
-          }
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No responses</EmptyTitle>
+            <EmptyDescription>
+              {stateFilter === "needs_review"
+                ? "Nothing is waiting for review right now."
+                : "No submissions match these filters yet."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
-          <TableContainer>
-            <table className="data-table">
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[48rem] text-sm">
               <thead>
-                <tr>
-                  <th scope="col">Submission</th>
-                  <th scope="col">Submitter</th>
-                  <th scope="col">State</th>
-                  <th scope="col">Priority</th>
-                  <th scope="col">Updated</th>
-                  <th scope="col">Display window</th>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Submission
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Submitter
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    State
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Priority
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Updated
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Display window
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((record) => (
                   <tr
                     key={record.id}
-                    className="data-table__row--clickable"
+                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted"
                     tabIndex={0}
                     role="button"
+                    aria-label={`Review ${record.displayTitle || "untitled submission"}`}
                     onClick={() => onSelectRecord(record.id)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -350,22 +428,33 @@ function ResponsesTab({
                       }
                     }}
                   >
-                    <td>{record.displayTitle || "Untitled submission"}</td>
-                    <td>{record.submitterName || "Unknown"}</td>
-                    <td>
-                      <StatusBadge
-                        label={stateLabel(form.workflow, record.state)}
-                        tone={stateTone(form.workflow, record.state)}
-                      />
+                    <td className="px-3 py-2">
+                      {record.displayTitle || "Untitled submission"}
                     </td>
-                    <td>{record.priority}</td>
-                    <td>{new Date(record.updatedAt).toLocaleString()}</td>
-                    <td>{displayWindow(record.displayAt, record.expiresAt)}</td>
+                    <td className="px-3 py-2">
+                      {record.submitterName || "Unknown"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge
+                        {...formToneBadgeProps(
+                          stateTone(form.workflow, record.state),
+                        )}
+                      >
+                        {stateLabel(form.workflow, record.state)}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2">{record.priority}</td>
+                    <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                      {new Date(record.updatedAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {displayWindow(record.displayAt, record.expiresAt)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </TableContainer>
+          </div>
           <Pagination
             label="Responses pages"
             status={`Page ${page} of ${totalPages} · ${total} total`}
@@ -394,7 +483,7 @@ function displayWindow(
 
 function ManageView({ form, csrf }: { form: FormDataSource; csrf: string }) {
   return (
-    <div className="form-page__body">
+    <div className="grid content-start gap-4">
       <MetadataEditor form={form} csrf={csrf} />
       <FormBuilder form={form} csrf={csrf} />
     </div>
@@ -443,14 +532,14 @@ function MetadataEditor({
 
   if (!editing) {
     return (
-      <div className="form-page__details">
-        <div>
-          <h2 className="form-page__details-name">{form.name}</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-card p-4">
+        <div className="grid min-w-0 gap-0.5">
+          <h2 className="truncate text-sm font-semibold">{form.name}</h2>
           {form.description && (
-            <p className="form-page__details-description">{form.description}</p>
+            <p className="text-sm text-muted-foreground">{form.description}</p>
           )}
         </div>
-        <Button variant="secondary" compact onClick={() => setEditing(true)}>
+        <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
           Edit details
         </Button>
       </div>
@@ -458,25 +547,34 @@ function MetadataEditor({
   }
 
   return (
-    <div className="form-page__details form-page__details--editing">
+    <div className="grid gap-3 rounded-xl border border-border bg-card p-4">
       {error && (
-        <Notice variant="danger" title="Details not saved">
-          {error}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Details not saved</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
-      <Field label="Form name" required>
-        <Input value={name} onChange={(event) => setName(event.target.value)} />
+      <Field>
+        <FieldLabel htmlFor="form-metadata-name">Form name</FieldLabel>
+        <Input
+          id="form-metadata-name"
+          required
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
       </Field>
-      <Field label="Description">
+      <Field>
+        <FieldLabel htmlFor="form-metadata-description">Description</FieldLabel>
         <Textarea
+          id="form-metadata-description"
           rows={2}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
         />
       </Field>
-      <div className="form-page__details-actions">
+      <div className="flex justify-end gap-2">
         <Button
-          variant="quiet"
+          variant="ghost"
           onClick={() => {
             setName(form.name);
             setDescription(form.description);
@@ -486,8 +584,7 @@ function MetadataEditor({
           Cancel
         </Button>
         <Button
-          variant="primary"
-          loading={save.isPending}
+          variant="default"
           disabled={name.trim() === "" || save.isPending}
           onClick={() => {
             if (!save.isPending) {
@@ -495,6 +592,7 @@ function MetadataEditor({
             }
           }}
         >
+          {save.isPending && <Spinner aria-hidden="true" />}
           Save details
         </Button>
       </div>
@@ -505,12 +603,15 @@ function MetadataEditor({
 function ReadOnlyView({ form }: { form: FormDataSource }) {
   const revision = form.publishedRevision;
   return (
-    <div className="form-page__body form-page__body--readonly">
-      <Notice variant="neutral" title="Read-only">
-        You can view this form but do not have permission to edit it.
-      </Notice>
+    <div className="grid content-start gap-4">
+      <Alert>
+        <AlertTitle>Read-only</AlertTitle>
+        <AlertDescription>
+          You can view this form but do not have permission to edit it.
+        </AlertDescription>
+      </Alert>
       {revision && (
-        <p className="form-page__revision">
+        <p className="text-sm text-muted-foreground">
           Published revision {revision.revisionNumber} ·{" "}
           {new Date(revision.publishedAt).toLocaleString()}
         </p>

@@ -1,4 +1,6 @@
 import type { InputHTMLAttributes } from "react";
+import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
 
 type Props = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
@@ -9,19 +11,19 @@ type Props = InputHTMLAttributes<HTMLInputElement> & {
 export function FormField({ label, error, hint, id, ...input }: Props) {
   const messageId = `${id}-message`;
   return (
-    <label className="field" htmlFor={id}>
-      <span className="field__label">{label}</span>
-      <input
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Input
         id={id}
         aria-invalid={Boolean(error)}
         aria-describedby={error || hint ? messageId : undefined}
         {...input}
       />
-      {(error || hint) && (
-        <span id={messageId} className={error ? "field__error" : "field__hint"}>
-          {error ?? hint}
-        </span>
-      )}
-    </label>
+      {error ? (
+        <FieldError id={messageId}>{error}</FieldError>
+      ) : hint ? (
+        <FieldDescription id={messageId}>{hint}</FieldDescription>
+      ) : null}
+    </Field>
   );
 }

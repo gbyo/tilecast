@@ -1,14 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FormDataSource, FormOutputView } from "../api/types";
 import { api } from "../api/client";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button as RheaButton } from "../components/ui/button";
 import {
-  Button,
-  EmptyState,
-  Notice,
-  Spinner,
-  StatusBadge,
-  TableContainer,
-} from "../components/legacy-ui";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Spinner } from "../components/ui/spinner";
+import { formToneBadgeProps } from "./formBadge";
 
 // OutputsPanel shows the generated dataset for each saved view plus projection status, and lets a
 // manager manually rebuild. Preview records come from the cached projection, so only output-eligible
@@ -38,29 +41,33 @@ export function OutputsPanel({
     },
   });
 
-  if (outputs.isLoading) return <Spinner label="Loading outputs…" />;
+  if (outputs.isLoading) return <Spinner aria-label="Loading outputs…" />;
   if (outputs.isError || !outputs.data) {
     return (
-      <Notice variant="danger" title="Could not load outputs">
-        {outputs.error instanceof Error
-          ? outputs.error.message
-          : "Please try again."}
-      </Notice>
+      <Alert variant="destructive">
+        <AlertTitle>Could not load outputs</AlertTitle>
+        <AlertDescription>
+          {outputs.error instanceof Error
+            ? outputs.error.message
+            : "Please try again."}
+        </AlertDescription>
+      </Alert>
     );
   }
   const data = outputs.data;
 
   return (
-    <div className="form-outputs">
-      <div className="form-outputs__status">
-        <div className="form-outputs__status-meta">
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {data.stale ? (
-            <StatusBadge
-              label={data.errorCode ? "Projection error" : "Stale cache"}
-              tone="warning"
-            />
+            <Badge
+              {...formToneBadgeProps(data.errorCode ? "danger" : "warning")}
+            >
+              {data.errorCode ? "Projection error" : "Stale cache"}
+            </Badge>
           ) : (
-            <StatusBadge label="Up to date" tone="success" />
+            <Badge {...formToneBadgeProps("success")}>Up to date</Badge>
           )}
           <span>
             Last projection:{" "}
@@ -76,35 +83,46 @@ export function OutputsPanel({
           </span>
         </div>
         {canManage && (
-          <Button
+          <RheaButton
             variant="secondary"
-            loading={rebuild.isPending}
             disabled={rebuild.isPending}
+            aria-busy={rebuild.isPending || undefined}
             onClick={() => rebuild.mutate()}
           >
+            {rebuild.isPending && <Spinner aria-hidden="true" />}
             Rebuild outputs
-          </Button>
+          </RheaButton>
         )}
       </div>
 
       {rebuild.isError && (
-        <Notice variant="danger" title="Rebuild failed">
-          {rebuild.error instanceof Error
-            ? rebuild.error.message
-            : "Please try again."}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Rebuild failed</AlertTitle>
+          <AlertDescription>
+            {rebuild.error instanceof Error
+              ? rebuild.error.message
+              : "Please try again."}
+          </AlertDescription>
+        </Alert>
       )}
       {data.errorCode && (
-        <Notice variant="danger" title="Projection error">
-          The last projection reported: {data.errorCode}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Projection error</AlertTitle>
+          <AlertDescription>
+            The last projection reported: {data.errorCode}
+          </AlertDescription>
+        </Alert>
       )}
 
       {data.views.length === 0 ? (
-        <EmptyState
-          title="No saved views"
-          message="Create a view in the Views tab to generate an output dataset."
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No saved views</EmptyTitle>
+            <EmptyDescription>
+              Create a view in the Views tab to generate an output dataset.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         data.views.map((view) => <OutputViewCard key={view.key} view={view} />)
       )}
@@ -114,47 +132,63 @@ export function OutputsPanel({
 
 function OutputViewCard({ view }: { view: FormOutputView }) {
   return (
-    <section className="form-outputs__view" aria-label={`Output ${view.name}`}>
-      <header className="form-outputs__view-head">
-        <div>
-          <h3>{view.name}</h3>
-          <code className="form-outputs__dataset-key">{view.key}</code>
+    <section
+      className="grid gap-2 rounded-xl border border-border p-4"
+      aria-label={`Output ${view.name}`}
+    >
+      <header className="flex flex-wrap items-start justify-between gap-2">
+        <div className="grid gap-0.5">
+          <h3 className="text-base font-semibold">{view.name}</h3>
+          <code className="text-xs text-muted-foreground">{view.key}</code>
         </div>
-        <div className="form-outputs__view-meta">
-          <StatusBadge label={`${view.recordCount} records`} tone="neutral" />
+        <div className="flex flex-wrap gap-1">
+          <Badge {...formToneBadgeProps("neutral")}>
+            {`${view.recordCount} records`}
+          </Badge>
           {view.usage.widgets > 0 && (
-            <StatusBadge
-              label={`Used by ${view.usage.widgets} widget${view.usage.widgets === 1 ? "" : "s"}`}
-              tone="info"
-            />
+            <Badge {...formToneBadgeProps("info")}>
+              {`Used by ${view.usage.widgets} widget${view.usage.widgets === 1 ? "" : "s"}`}
+            </Badge>
           )}
         </div>
       </header>
 
-      <p className="form-outputs__fields">
+      <p className="flex flex-wrap gap-1 text-sm">
         {view.fields.map((field) => (
-          <span key={field.key} className="form-outputs__field">
+          <span
+            key={field.key}
+            className="rounded-lg bg-muted px-2 py-0.5 text-xs"
+          >
             {field.label || field.key}
-            <em> · {field.type}</em>
+            <em className="text-muted-foreground not-italic">
+              {" "}
+              · {field.type}
+            </em>
           </span>
         ))}
       </p>
 
       {view.usage.names.length > 0 && (
-        <p className="form-outputs__usage">
+        <p className="text-xs text-muted-foreground">
           Referenced by: {view.usage.names.join(", ")}
         </p>
       )}
 
       {view.previewRecords.length === 0 ? (
-        <p className="form-outputs__empty">No records match this view yet.</p>
+        <p className="text-sm text-muted-foreground">
+          No records match this view yet.
+        </p>
       ) : (
-        <TableContainer>
-          <table className="data-table">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
             <thead>
-              <tr>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
                 {view.fields.map((field) => (
-                  <th key={field.key} scope="col">
+                  <th
+                    key={field.key}
+                    scope="col"
+                    className="px-3 py-2 font-medium"
+                  >
                     {field.label || field.key}
                   </th>
                 ))}
@@ -162,15 +196,20 @@ function OutputViewCard({ view }: { view: FormOutputView }) {
             </thead>
             <tbody>
               {view.previewRecords.map((record) => (
-                <tr key={record.id}>
+                <tr
+                  key={record.id}
+                  className="border-b border-border last:border-0"
+                >
                   {view.fields.map((field) => (
-                    <td key={field.key}>{record.values[field.key] ?? ""}</td>
+                    <td key={field.key} className="px-3 py-2">
+                      {record.values[field.key] ?? ""}
+                    </td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </table>
-        </TableContainer>
+        </div>
       )}
     </section>
   );

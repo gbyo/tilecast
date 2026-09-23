@@ -8,7 +8,8 @@ import { z } from "zod";
 import { api, ApiError } from "../api/client";
 import type { NWSAlertRule, NWSAlertRuleInput, Playlist } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Notice, PageHeader } from "../components/legacy-ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button as RheaButton } from "../components/ui/button";
 
 const emptyRule: NWSAlertRuleInput = {
   name: "",
@@ -232,20 +233,28 @@ export function EmergencyAlertsPage() {
   });
   const monitor = settings.data?.monitor;
   return (
-    <main className="page plugins-page">
-      <PageHeader
-        eyebrow={
-          <Link className="back-link" to="/plugins">
-            <ArrowLeft size={15} /> Plugins
-          </Link>
-        }
-        title="Emergency Alerts"
-        description="Watch official NWS weather alerts and take matching screens over automatically, then restore normal playback when the alert clears."
-      />
+    <main className="grid gap-4">
+      <header className="grid min-w-0 gap-1">
+        <Link
+          className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+          to="/plugins"
+        >
+          <ArrowLeft size={15} aria-hidden="true" /> Plugins
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Emergency Alerts
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Watch official NWS weather alerts and take matching screens over
+          automatically, then restore normal playback when the alert clears.
+        </p>
+      </header>
       {!editable && (
-        <Notice>
-          Owner or Administrator access is required to make changes.
-        </Notice>
+        <Alert>
+          <AlertDescription>
+            Owner or Administrator access is required to make changes.
+          </AlertDescription>
+        </Alert>
       )}
       <div className="settings-sections takeover-settings">
         <section className="settings-subsection">
@@ -260,14 +269,20 @@ export function EmergencyAlertsPage() {
             </p>
           </header>
           <div className="takeover-settings__actions">
-            <Link className="button button--quiet" to="/playlists">
+            <Link
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              to="/playlists"
+            >
               Optional: manage custom playlists
             </Link>
-            <Link className="button button--quiet" to="/screens">
+            <Link
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              to="/screens"
+            >
               Start a Takeover now
             </Link>
             <Link
-              className="button button--quiet"
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
               to="/settings/operations/takeover"
             >
               Takeover and command defaults
@@ -285,16 +300,16 @@ export function EmergencyAlertsPage() {
               playback when the alert clears.
             </p>
           </header>
-          <div className="notice notice--info">
-            <strong>
+          <Alert>
+            <AlertTitle>
               Alert delivery is best-effort, not a life-safety system.
-            </strong>
-            <p>
+            </AlertTitle>
+            <AlertDescription>
               Keep local emergency procedures and Wireless Emergency Alerts in
               place. Studio shows poll health so upstream or network failures
               are visible.
-            </p>
-          </div>
+            </AlertDescription>
+          </Alert>
           <div className="setting-row">
             <div className="setting-copy">
               <label htmlFor="nws-enabled">Automated NWS monitoring</label>
@@ -338,16 +353,17 @@ export function EmergencyAlertsPage() {
                   ))}
                 </select>
               </label>
-              <button
+              <RheaButton
                 type="button"
-                className="button button--quiet"
+                variant="ghost"
+                size="sm"
                 disabled={
                   !editable || !selectedArea || areas.includes(selectedArea)
                 }
                 onClick={() => setAreas(addUnique(areas, selectedArea))}
               >
                 Monitor entire state
-              </button>
+              </RheaButton>
               <label>
                 County or forecast zone
                 <select
@@ -368,9 +384,10 @@ export function EmergencyAlertsPage() {
                   ))}
                 </select>
               </label>
-              <button
+              <RheaButton
                 type="button"
-                className="button button--quiet"
+                variant="ghost"
+                size="sm"
                 disabled={
                   !editable || !selectedZone || zones.includes(selectedZone)
                 }
@@ -380,18 +397,24 @@ export function EmergencyAlertsPage() {
                 }}
               >
                 Add location
-              </button>
+              </RheaButton>
               {zoneOptions.isError && (
-                <small className="form-error" role="alert">
+                <small className="text-sm text-destructive" role="alert">
                   Counties and forecast zones could not be loaded from NWS.
                 </small>
               )}
               <div className="nws-location-picker__selected">
                 {areas.map((area) => (
-                  <span key={area}>
+                  <span
+                    key={area}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs"
+                  >
                     Entire {areaName(area)}
-                    <button
+                    <RheaButton
                       type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 rounded-full p-0"
                       aria-label={`Remove entire ${areaName(area)}`}
                       disabled={!editable}
                       onClick={() =>
@@ -399,14 +422,20 @@ export function EmergencyAlertsPage() {
                       }
                     >
                       ×
-                    </button>
+                    </RheaButton>
                   </span>
                 ))}
                 {zones.map((zone) => (
-                  <span key={zone}>
+                  <span
+                    key={zone}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs"
+                  >
                     {zoneLabel(zone, zoneOptions.data?.items ?? [])}
-                    <button
+                    <RheaButton
                       type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 rounded-full p-0"
                       aria-label={`Remove ${zone}`}
                       disabled={!editable}
                       onClick={() =>
@@ -414,7 +443,7 @@ export function EmergencyAlertsPage() {
                       }
                     >
                       ×
-                    </button>
+                    </RheaButton>
                   </span>
                 ))}
                 {areas.length + zones.length === 0 && (
@@ -447,25 +476,25 @@ export function EmergencyAlertsPage() {
             </div>
           </div>
           <div className="takeover-settings__actions">
-            <button
+            <RheaButton
               type="button"
-              className="button button--primary"
               disabled={!editable || saveMonitor.isPending}
               onClick={() => saveMonitor.mutate()}
             >
               {saveMonitor.isPending ? "Saving…" : "Save NWS monitor"}
-            </button>
-            <button
+            </RheaButton>
+            <RheaButton
               type="button"
-              className="button button--quiet"
+              variant="ghost"
+              size="sm"
               disabled={!editable || poll.isPending}
               onClick={() => poll.mutate()}
             >
               {poll.isPending ? "Checking…" : "Check now"}
-            </button>
+            </RheaButton>
           </div>
           {errorText(saveMonitor.error ?? poll.error) && (
-            <p className="form-error" role="alert">
+            <p className="text-sm text-destructive" role="alert">
               {errorText(saveMonitor.error ?? poll.error)}
             </p>
           )}
@@ -516,9 +545,10 @@ export function EmergencyAlertsPage() {
                   <span>{item.enabled ? "Enabled" : "Disabled"}</span>
                   {editable && (
                     <>
-                      <button
-                        className="button button--quiet"
+                      <RheaButton
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setEditing(item.id);
                           const input = toInput(item);
@@ -527,17 +557,18 @@ export function EmergencyAlertsPage() {
                         }}
                       >
                         Edit
-                      </button>
-                      <button
-                        className="button button--quiet"
+                      </RheaButton>
+                      <RheaButton
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           if (confirm(`Delete “${item.name}”?`))
                             removeRule.mutate(item.id);
                         }}
                       >
                         Delete
-                      </button>
+                      </RheaButton>
                     </>
                   )}
                 </div>
@@ -555,7 +586,7 @@ export function EmergencyAlertsPage() {
                 <input maxLength={180} {...register("name")} />
               </label>
               {ruleErrors.name && (
-                <p className="form-error" role="alert">
+                <p className="text-sm text-destructive" role="alert">
                   {ruleErrors.name.message}
                 </p>
               )}
@@ -683,7 +714,7 @@ export function EmergencyAlertsPage() {
                       <Link to="/playlists">Create or edit playlists</Link>
                     </small>
                     {ruleErrors.playlistId && (
-                      <span className="form-error" role="alert">
+                      <span className="text-sm text-destructive" role="alert">
                         {ruleErrors.playlistId.message}
                       </span>
                     )}
@@ -728,7 +759,7 @@ export function EmergencyAlertsPage() {
                 </div>
               </fieldset>
               {ruleErrors.screenIds && (
-                <p className="form-error" role="alert">
+                <p className="text-sm text-destructive" role="alert">
                   {ruleErrors.screenIds.message}
                 </p>
               )}
@@ -757,21 +788,18 @@ export function EmergencyAlertsPage() {
                 Enable this rule
               </label>
               <div className="takeover-settings__actions">
-                <button
-                  className="button button--primary"
-                  type="submit"
-                  disabled={saveRule.isPending}
-                >
+                <RheaButton type="submit" disabled={saveRule.isPending}>
                   {saveRule.isPending
                     ? "Saving…"
                     : editing
                       ? "Save rule"
                       : "Add rule"}
-                </button>
+                </RheaButton>
                 {editing && (
-                  <button
-                    className="button button--quiet"
+                  <RheaButton
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setEditing(undefined);
                       reset(emptyRule);
@@ -779,11 +807,11 @@ export function EmergencyAlertsPage() {
                     }}
                   >
                     Cancel
-                  </button>
+                  </RheaButton>
                 )}
               </div>
               {errorText(saveRule.error) && (
-                <p className="form-error" role="alert">
+                <p className="text-sm text-destructive" role="alert">
                   {errorText(saveRule.error)}
                 </p>
               )}
@@ -797,7 +825,9 @@ export function EmergencyAlertsPage() {
             <p>Alerts currently matched to a rule and displaying content.</p>
           </header>
           {(settings.data?.activeAlerts.length ?? 0) === 0 ? (
-            <p className="empty-state">No NWS alerts are currently active.</p>
+            <p className="text-sm text-muted-foreground">
+              No NWS alerts are currently active.
+            </p>
           ) : (
             <div className="takeover-rule-list">
               {settings.data?.activeAlerts.map((item) => (

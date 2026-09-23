@@ -28,15 +28,13 @@ import { LayoutEditorPage } from "./pages/LayoutEditorPage";
 import { WidgetEditorPage, WidgetsPage } from "./pages/WidgetsPage";
 import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
+import { PluginsPage } from "./pages/PluginsPage";
 import {
-  BrandBugEditorPage,
-  BrandBugsPage,
-  NoiseMeterEditorPage,
-  NoiseMetersPage,
   CountdownBarEditorPage,
   CountdownBarsPage,
-  PluginsPage,
-} from "./pages/PluginsPage";
+} from "./pages/CountdownBarsPage";
+import { BrandBugEditorPage, BrandBugsPage } from "./pages/BrandBugsPage";
+import { NoiseMeterEditorPage, NoiseMetersPage } from "./pages/NoiseMetersPage";
 import { NoiseMeterHistoryPage } from "./pages/NoiseMeterHistoryPage";
 import { EmergencyAlertsPage } from "./pages/EmergencyAlertsPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";

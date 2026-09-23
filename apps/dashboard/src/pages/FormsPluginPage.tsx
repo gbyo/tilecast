@@ -3,9 +3,17 @@ import { ArrowLeft, ClipboardList, Plus } from "lucide-react";
 import { Link } from "react-router";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
-import { EmptyState, Notice, PageHeader } from "../components/legacy-ui";
 import { canManageContent } from "./ContentPage";
-import "./PluginsPage.css";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { buttonVariants } from "../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
 
 export function FormsPluginPage() {
   const auth = useAuth();
@@ -17,66 +25,86 @@ export function FormsPluginPage() {
   });
 
   return (
-    <main className="page plugins-page">
-      <PageHeader
-        eyebrow={
-          <Link className="back-link" to="/plugins">
-            <ArrowLeft size={15} /> Plugins
+    <main className="mx-auto grid w-full max-w-6xl gap-4 px-4 py-6 sm:px-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid gap-1">
+          <Link
+            to="/plugins"
+            className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft size={15} aria-hidden="true" /> Plugins
           </Link>
-        }
-        title="Forms"
-        description="Build forms, manage responses, and make approved records available to signage."
-        actions={
-          canCreate ? (
-            <Link className="button button--primary" to="/plugins/forms/new">
-              <Plus size={16} aria-hidden="true" /> Create form
-            </Link>
-          ) : undefined
-        }
-      />
+          <h1 className="text-xl font-semibold tracking-tight">Forms</h1>
+          <p className="text-sm text-muted-foreground">
+            Build forms, manage responses, and make approved records available
+            to signage.
+          </p>
+        </div>
+        {canCreate && (
+          <Link
+            className={buttonVariants({ variant: "default" })}
+            to="/plugins/forms/new"
+          >
+            <Plus size={16} aria-hidden="true" /> Create form
+          </Link>
+        )}
+      </header>
       {forms.isError && (
-        <Notice variant="danger" title="Could not load forms">
-          {forms.error instanceof ApiError
-            ? forms.error.message
-            : "Forms could not be loaded."}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>Could not load forms</AlertTitle>
+          <AlertDescription>
+            {forms.error instanceof ApiError
+              ? forms.error.message
+              : "Forms could not be loaded."}
+          </AlertDescription>
+        </Alert>
       )}
       {forms.isLoading ? (
-        <div className="table-loading">Loading forms…</div>
+        <p className="text-sm text-muted-foreground">Loading forms…</p>
       ) : forms.data?.length === 0 ? (
-        <EmptyState
-          icon={<ClipboardList size={24} aria-hidden="true" />}
-          title="No forms yet"
-          message={
-            canCreate
-              ? "Create a form to start collecting submissions."
-              : "You do not have access to any forms."
-          }
-          action={
-            canCreate ? (
-              <Link className="button button--primary" to="/plugins/forms/new">
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ClipboardList size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No forms yet</EmptyTitle>
+            <EmptyDescription>
+              {canCreate
+                ? "Create a form to start collecting submissions."
+                : "You do not have access to any forms."}
+            </EmptyDescription>
+          </EmptyHeader>
+          {canCreate && (
+            <EmptyContent>
+              <Link
+                className={buttonVariants({ variant: "default" })}
+                to="/plugins/forms/new"
+              >
                 Create form
               </Link>
-            ) : undefined
-          }
-        />
+            </EmptyContent>
+          )}
+        </Empty>
       ) : (
-        <div className="plugin-instance-list">
+        <div className="grid gap-2">
           {forms.data?.map((form) => (
-            <article className="plugin-instance" key={form.id}>
-              <div>
-                <div className="plugin-instance__heading">
-                  <h2>{form.name}</h2>
-                </div>
-                <p>{form.description || "No description"}</p>
-                <span className="plugin-card__instances">
+            <article
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
+              key={form.id}
+            >
+              <div className="grid min-w-0 gap-0.5">
+                <h2 className="truncate text-sm font-semibold">{form.name}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {form.description || "No description"}
+                </p>
+                <span className="text-xs text-muted-foreground">
                   {form.publishedRevisionNumber
                     ? `Published revision ${form.publishedRevisionNumber}`
                     : "Draft"}
                 </span>
               </div>
               <Link
-                className="button button--secondary"
+                className={buttonVariants({ variant: "secondary" })}
                 to={`/plugins/forms/${form.id}`}
               >
                 Manage form
