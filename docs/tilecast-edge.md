@@ -737,8 +737,6 @@ The saved device credential is never sent to a peer.
 
 ### 10.2 Edge peer ↔ Edge peer
 
-### 10.2 Edge peer ↔ Edge peer
-
 Peers authenticate with installation-scoped mTLS certificates.
 
 Being on the same LAN is not proof of membership.
@@ -1088,8 +1086,6 @@ Never combine restored installation B with installation A's Edge trust realm.
 A confirmed cross-installation restore must either import the matching ERB for B or quarantine old trust material and enter trust-reset/re-enrollment.
 
 Do not issue Edge certificates, security state, or ordinary signed state while database installation identity and recovered trust realm disagree.
-
-## 13. Zenoh fabric design
 
 ## 13. Zenoh fabric design
 
@@ -2206,8 +2202,6 @@ Server/player protocol capability negotiation prevents publishing required seman
 
 ### 15.13 Peer/server hints
 
-### 15.13 Peer/server hints
-
 WebSocket/Zenoh hints are bounded wakeups only.
 
 Examples:
@@ -3169,8 +3163,6 @@ Do not copy helper settings blindly when they would block qualified DRM/I²C/ude
 
 ### 27.2 Readiness
 
-### 27.2 Readiness
-
 `tilecastd` sends:
 
 ```text
@@ -3377,8 +3369,6 @@ If WebKit APIs cannot enforce egress consistently across all browser channels, r
 
 ### 28.7 Presentation compatibility
 
-### 28.7 Presentation compatibility
-
 Every prepared presentation carries the versioned requirement contract from §21.
 
 `tilecastd` compares it against the signed WPE renderer profile, pinned WPE runtime/ABI, current host/media probes and selected display backend.
@@ -3534,8 +3524,6 @@ Use expand/contract migrations:
 - remove/contract old schema only in a later release after that rollback dependency is gone.
 
 Do not perform an irreversible schema contraction and still promise automatic binary rollback.
-
-### 30.3 Peer prefetch
 
 ### 30.3 Peer prefetch
 
@@ -3853,8 +3841,6 @@ Keep current fleet state in projections. Store only meaningful incidents/transit
 
 ## 33. Server API
 
-## 33. Server API
-
 Preserve the existing separation between dashboard APIs and player-authenticated APIs.
 
 ### 33.1 Player/Edge endpoints
@@ -3890,8 +3876,6 @@ Migration-stage/confirm/abort follow §41's credential/fence state machine.
 The recovery re-anchor is available only in explicit recovery state over the secure bootstrap channel. It changes ordinary state incarnation but does not reset the security lineage.
 
 Peer relay never calls trust-reset/re-anchor/migration credential endpoints.
-
-### 33.2 Dashboard APIs
 
 ### 33.2 Dashboard APIs
 
@@ -4566,8 +4550,6 @@ These controls supplement the server credential fence; they are not a substitute
 
 ## 42. Implementation roadmap
 
-## 42. Implementation roadmap
-
 This roadmap is intentionally granular. Prefer a sequence of reviewable PRs over one enormous Edge branch.
 
 The milestone numbers below are Edge milestones and do not replace Tilecast's existing historical product milestone numbering.
@@ -4767,8 +4749,6 @@ Tests prove:
 
 ### E2 exit criteria
 
-### E2 exit criteria
-
 - WPE is the only Edge renderer in code/docs;
 - no Electron Edge IPC/client is created;
 - headless recovery/media scenarios pass;
@@ -4830,8 +4810,6 @@ Every command has an explicit execution class. Retention is tied to server redel
 - disruptive commands do not double-initiate;
 - offline cached startup works in WPE;
 - post-confirmation recovery uses Edge rollback or explicit server-assisted legacy recovery, not stale local Electron state.
-
-### E4 — CAS migration and origin downloader
 
 ### E4 — CAS migration and origin downloader
 
@@ -5834,8 +5812,6 @@ Required adversarial cases include:
 
 ### 44.8 Compatibility tests
 
-### 44.8 Compatibility tests
-
 Matrix:
 
 ```text
@@ -5908,8 +5884,6 @@ A server upgrade must not strand older players; when older Edge software cannot 
 | Privileged helper too old | Deployment incompatible; no activation. |
 | Restored old disruptive command/update pending | Do not execute until explicitly reauthorized in current ordinary incarnation. |
 | LAN partition | Continue trusted local state and reconcile after heal without peer authority. |
-
-## 46. Performance and resource targets
 
 ## 46. Performance and resource targets
 
@@ -5989,7 +5963,7 @@ Useful rollout flags:
 edge.enabled
 edge.mesh.enabled
 edge.peer_delivery.enabled
-edge.change_feed.enabled
+edge.streams.enabled
 edge.context.enabled
 ```
 
