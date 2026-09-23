@@ -1,0 +1,51 @@
+# Tilecast Edge: deferred work
+
+This document records work that is deliberately **not** part of Edge 1 ([`tilecast-edge.md`](tilecast-edge.md) §3). Nothing here is a requirement for Edge 1 code, and Edge 1 code must not carry runtime support for it. An item moves into a release plan only through a new design review with the evidence its entry condition names.
+
+## Where the earlier work is
+
+The first Tilecast Edge design treated Linux players as a cooperative local fabric. That design and its implementation are preserved outside `main`:
+
+| Location                                     | Contents                                                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Branch `fabric-dev`                          | The original Edge foundation with the fabric: `edge-identity` (node keys, CSR, peer verification, mTLS), `edge-mesh` (Zenoh peer mode, presence, signed node statements, change hints), `edge-cdn` (mTLS peer blob service, peer source, ranking), the server Edge authority and CA, node certificate issuance, the signed change feed and outbox, revocation snapshots, `/player/edge/*` and `/edge/nodes`. |
+| Branches `fabric-dev-w1`, `fabric-dev-w2`    | The same foundation with the first two Edge work packages on top.                                                                                                                                                                                                                                                                                                                                            |
+| `docs/tilecast-edge.md` at commit `15e112e4` | The full earlier RFC: trust realm and recovery bundle, Zenoh fabric, peer CDN, signed streams and projections, immutable Edge objects, coordinator roles, Context Engine and CEL, Clock Authority and PTP, and the 75-PR plan.                                                                                                                                                                               |
+
+These are reference material. Reuse from them needs the same review as new code; they are not a backlog.
+
+## Edge 1.5: optional peer content delivery
+
+**Idea.** A player may fetch a content object from another player on the same LAN instead of from the server origin.
+
+**Entry condition.** Measurements from production Edge 1 fleets show that origin bandwidth, WAN cost or time to prepared playback is a real problem that server-side changes (caching, a local reverse proxy, smaller variants) do not solve.
+
+**Constraints if it is built:**
+
+- It is only another `edge_cas::BlobSource`. The content store keeps verifying every byte; a peer never decides integrity.
+- The server stays the only authority. A peer serves bytes, never state.
+- Peer authorization must not need a second identity hierarchy unless the review proves the normal device credential and server-issued grants cannot do the job.
+- Multicast discovery is an optimization, never a dependency.
+- Playback and preparation must work unchanged when every peer is gone.
+
+## Edge 2: optional local coordinator
+
+**Idea.** An optional local coordinator or server-on-player mode for sites that need to keep publishing through long WAN outages, and selected fabric concepts (change hints, relayed state, shared clocks) where they demonstrably help.
+
+**Entry condition.** Customer deployments that cannot keep a reachable Tilecast Server, and a design that keeps a single authority per installation with explicit, auditable failover.
+
+**Constraints if it is built:**
+
+- No consensus protocol and no second authoritative copy of organization data without an explicit decision.
+- Anything relayed between players is verifiable against the server's authority, and a player still prefers the server when it can reach it.
+
+## Other deferred items
+
+| Item                                                   | Why deferred                                                                                   | Revisit when                                                                      |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Context Engine and CEL on the player                   | No Edge 1 presentation needs local rule evaluation.                                            | Server-side Context definitions ship and a presentation needs offline evaluation. |
+| PTP and a distributed clock                            | The server offset and host time synchronization cover Edge 1 scheduling.                       | Synchronized playback across screens needs tighter bounds than host NTP gives.    |
+| Server-side migration session and candidate credential | Edge 1 keeps one device credential and relies on local mutual exclusion and a rollback window. | Field evidence shows legacy players restarted beside Edge.                        |
+| Edge-specific Studio fleet surfaces                    | Edge 1 screens are ordinary screens in Studio.                                                 | Operators need Edge-only facts that the ordinary screen detail cannot show.       |
+| Edge-specific server status endpoint                   | Heartbeat and the ordinary player contract carry what Edge 1 reports.                          | A report is needed that does not belong in the ordinary player contract.          |
+| Tilecast appliance image                               | Edge 1 installs on existing Linux hosts.                                                       | Edge 1 is in production and hardware is standardized.                             |
