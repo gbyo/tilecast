@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { ScreenScope } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -19,6 +20,7 @@ export function ScreenScopeEditor({
   csrf: string;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation(["screens", "common"]);
   const scopes = useQuery({
     queryKey: ["screen-scopes", userId],
     queryFn: () => api.userScreenScopes(userId),
@@ -52,11 +54,7 @@ export function ScreenScopeEditor({
   });
 
   if (userRole === "owner")
-    return (
-      <p className="role-description">
-        Owner access applies to the entire fleet.
-      </p>
-    );
+    return <p className="role-description">{t("scope.ownerNote")}</p>;
 
   const toggle = (scope: ScreenScope, on: boolean) => {
     setSaved(false);
@@ -75,18 +73,22 @@ export function ScreenScopeEditor({
     <div className="screen-scope-editor">
       <p className="role-description">
         {selected.length === 0
-          ? "This account can operate every screen. Select buildings or Display Groups to narrow it."
-          : `This account can operate screens in ${selected.length} selected ${selected.length === 1 ? "place" : "places"} only. It still sees the whole content library.`}
+          ? t("scope.fullAccess")
+          : t("scope.limited", { count: selected.length })}
       </p>
 
       {scopes.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading scope…</p>
+        <p className="text-sm text-muted-foreground">{t("scope.loading")}</p>
       ) : (
         <>
           <fieldset className="setting-control--checks">
-            <legend className="text-xs font-medium">Locations</legend>
+            <legend className="text-xs font-medium">
+              {t("scope.locations")}
+            </legend>
             {!locations.data?.items?.length ? (
-              <span className="setting-dependency">No locations exist.</span>
+              <span className="setting-dependency">
+                {t("scope.noLocations")}
+              </span>
             ) : (
               locations.data.items.map((location) => (
                 <label className="check-option" key={location.id}>
@@ -108,11 +110,9 @@ export function ScreenScopeEditor({
           </fieldset>
 
           <fieldset className="setting-control--checks">
-            <legend className="text-xs font-medium">Display Groups</legend>
+            <legend className="text-xs font-medium">{t("scope.groups")}</legend>
             {!groups.data?.items?.length ? (
-              <span className="setting-dependency">
-                No Display Groups exist.
-              </span>
+              <span className="setting-dependency">{t("scope.noGroups")}</span>
             ) : (
               groups.data.items.map((group) => (
                 <label className="check-option" key={group.id}>
@@ -134,13 +134,15 @@ export function ScreenScopeEditor({
           </fieldset>
 
           <div className="settings-subsection__action">
-            <div>{saved && <span>Screen scope saved.</span>}</div>
+            <div>{saved && <span>{t("scope.saved")}</span>}</div>
             <Button
               type="button"
               disabled={disabled || save.isPending}
               onClick={() => save.mutate()}
             >
-              {save.isPending ? "Saving…" : "Save screen scope"}
+              {save.isPending
+                ? t("common:actions.saving")
+                : t("scope.saveAction")}
             </Button>
           </div>
           {save.error && (

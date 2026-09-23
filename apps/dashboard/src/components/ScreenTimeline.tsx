@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import {
@@ -58,29 +60,31 @@ type ScreenTimeline = {
  * plus the two derived sources — state intervals and incidents — that have no
  * event of their own but belong in the same history.
  */
+type ScreensT = TFunction<"screens", undefined>;
+
 const domains = [
-  { value: "", label: "All" },
-  { value: "playback", label: "Playback" },
-  { value: "connectivity", label: "Connectivity" },
-  { value: "reliability", label: "Reliability" },
-  { value: "scheduling", label: "Scheduling" },
-  { value: "manifest", label: "Manifest" },
-  { value: "commands", label: "Commands" },
-  { value: "updates", label: "Updates" },
-  { value: "takeovers", label: "Takeovers" },
-  { value: "state", label: "State" },
-  { value: "incidents", label: "Incidents" },
-  { value: "audit", label: "Administrative" },
-];
+  { value: "", labelKey: "timeline.domains.all" },
+  { value: "playback", labelKey: "timeline.domains.playback" },
+  { value: "connectivity", labelKey: "timeline.domains.connectivity" },
+  { value: "reliability", labelKey: "timeline.domains.reliability" },
+  { value: "scheduling", labelKey: "timeline.domains.scheduling" },
+  { value: "manifest", labelKey: "timeline.domains.manifest" },
+  { value: "commands", labelKey: "timeline.domains.commands" },
+  { value: "updates", labelKey: "timeline.domains.updates" },
+  { value: "takeovers", labelKey: "timeline.domains.takeovers" },
+  { value: "state", labelKey: "timeline.domains.state" },
+  { value: "incidents", labelKey: "timeline.domains.incidents" },
+  { value: "audit", labelKey: "timeline.domains.audit" },
+] as const;
 
 const ranges = [
-  { value: "24h", label: "24 hours" },
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-];
+  { value: "24h", labelKey: "timeline.ranges.day" },
+  { value: "7d", labelKey: "timeline.ranges.week" },
+  { value: "30d", labelKey: "timeline.ranges.month" },
+] as const;
 
-function formatOptional(value?: string) {
-  return value ? formatWhen(value) : "Not reported";
+function formatOptional(value: string | undefined, t: ScreensT) {
+  return value ? formatWhen(value) : t("shared.notReported");
 }
 
 /**
@@ -88,6 +92,7 @@ function formatOptional(value?: string) {
  * one order. The compact proof and event columns beside it remain a summary.
  */
 export function ScreenTimeline({ screenId }: { screenId: string }) {
+  const { t } = useTranslation("screens");
   const [domain, setDomain] = useState("");
   const [range, setRange] = useState("24h");
   const query = useQuery({
@@ -107,16 +112,14 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
       <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 id="screen-timeline-title" className="text-sm font-semibold">
-            Timeline
+            {t("timeline.title")}
           </h3>
           <p className="mt-1 max-w-[62ch] text-sm text-muted-foreground">
-            Everything recorded for this screen, in one order: state changes,
-            playback, failures, commands, updates, incidents, and administrative
-            changes.
+            {t("timeline.body")}
           </p>
         </div>
         <ToggleGroup
-          aria-label="Timeline range"
+          aria-label={t("timeline.rangeLabel")}
           value={[range]}
           onValueChange={(values) => values[0] && setRange(values[0])}
           multiple={false}
@@ -127,16 +130,16 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
         >
           {ranges.map((item) => (
             <ToggleGroupItem key={item.value} value={item.value}>
-              {item.label}
+              {t(item.labelKey)}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
       </header>
 
-      {query.data?.status && <CurrentStatus status={query.data.status} />}
+      {query.data?.status && <CurrentStatus status={query.data.status} t={t} />}
 
       <ToggleGroup
-        aria-label="Filter the timeline by domain"
+        aria-label={t("timeline.domainLabel")}
         value={[domain || "__all__"]}
         onValueChange={(values) => {
           if (values[0]) setDomain(values[0] === "__all__" ? "" : values[0]);
@@ -152,13 +155,13 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
             key={item.value || "__all__"}
             value={item.value || "__all__"}
           >
-            {item.label}
+            {t(item.labelKey)}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
 
       {query.isLoading && (
-        <div className="space-y-2" aria-label="Loading timeline">
+        <div className="space-y-2" aria-label={t("timeline.loading")}>
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-12 w-full" />
         </div>
@@ -166,7 +169,7 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
       {query.error && (
         <Alert variant="destructive">
           <AlertTriangle aria-hidden="true" />
-          <AlertTitle>Timeline could not be loaded</AlertTitle>
+          <AlertTitle>{t("timeline.loadError")}</AlertTitle>
           <AlertDescription>{query.error.message}</AlertDescription>
         </Alert>
       )}
@@ -180,13 +183,9 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
                 <Activity aria-hidden="true" />
               </EmptyMedia>
               <EmptyTitle role="heading" aria-level={4}>
-                {domain
-                  ? "Nothing in this domain during the selected period."
-                  : "Nothing has been recorded for this screen in this period."}
+                {domain ? t("timeline.emptyDomain") : t("timeline.emptyNone")}
               </EmptyTitle>
-              <EmptyDescription>
-                Choose another period or domain to review earlier activity.
-              </EmptyDescription>
+              <EmptyDescription>{t("timeline.emptyHint")}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -220,14 +219,16 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
                         different statement from one that ended. */}
                     {(entry.kind === "interval" || entry.kind === "session") &&
                       entry.endedAt === undefined &&
-                      entry.durationMs == null && <span>Still open</span>}
+                      entry.durationMs == null && (
+                        <span>{t("timeline.stillOpen")}</span>
+                      )}
                     {entry.result && <span>{humanize(entry.result)}</span>}
                     {entry.linkType === "incident" ? (
                       <Link
                         className="underline underline-offset-4"
                         to={buildActivityLink("incidents")}
                       >
-                        View incident
+                        {t("timeline.viewIncident")}
                       </Link>
                     ) : (
                       entry.linkId && (
@@ -247,11 +248,19 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
   );
 }
 
-function CurrentStatus({ status }: { status: ScreenTimeline["status"] }) {
+function CurrentStatus({
+  status,
+  t,
+}: {
+  status: ScreenTimeline["status"];
+  t: ScreensT;
+}) {
   return (
     <dl className="grid gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:grid-cols-2 xl:grid-cols-4">
       <div>
-        <dt className="text-xs text-muted-foreground">Health</dt>
+        <dt className="text-xs text-muted-foreground">
+          {t("timeline.factHealth")}
+        </dt>
         <dd className="mt-1 grid gap-1 text-sm">
           <Badge
             variant={
@@ -271,19 +280,25 @@ function CurrentStatus({ status }: { status: ScreenTimeline["status"] }) {
         </dd>
       </div>
       <div>
-        <dt className="text-xs text-muted-foreground">Current presentation</dt>
+        <dt className="text-xs text-muted-foreground">
+          {t("timeline.factPresentation")}
+        </dt>
         <dd className="mt-1 break-words text-sm">
-          {status.currentPresentation || "Not reported"}
+          {status.currentPresentation || t("shared.notReported")}
         </dd>
       </div>
       <div>
-        <dt className="text-xs text-muted-foreground">Current item</dt>
+        <dt className="text-xs text-muted-foreground">
+          {t("timeline.factItem")}
+        </dt>
         <dd className="mt-1 break-words text-sm">
-          {status.currentItem || "Not reported"}
+          {status.currentItem || t("shared.notReported")}
         </dd>
       </div>
       <div>
-        <dt className="text-xs text-muted-foreground">Current incident</dt>
+        <dt className="text-xs text-muted-foreground">
+          {t("timeline.factIncident")}
+        </dt>
         <dd className="mt-1 break-words text-sm">
           {status.currentIncident ? (
             <Link
@@ -293,34 +308,40 @@ function CurrentStatus({ status }: { status: ScreenTimeline["status"] }) {
               {status.currentIncident}
             </Link>
           ) : (
-            "None"
+            t("shared.none")
           )}
         </dd>
       </div>
       <div>
-        <dt className="text-xs text-muted-foreground">Last healthy playback</dt>
+        <dt className="text-xs text-muted-foreground">
+          {t("timeline.factLastHealthy")}
+        </dt>
         <dd className="mt-1 text-sm">
-          {formatOptional(status.lastHealthyPlayback)}
+          {formatOptional(status.lastHealthyPlayback, t)}
         </dd>
       </div>
       <div>
         <dt className="text-xs text-muted-foreground">
-          Last manifest activation
+          {t("timeline.factActivation")}
         </dt>
         <dd className="mt-1 text-sm">
-          {formatOptional(status.lastManifestActivation)}
+          {formatOptional(status.lastManifestActivation, t)}
         </dd>
       </div>
       <div>
-        <dt className="text-xs text-muted-foreground">Last heartbeat</dt>
+        <dt className="text-xs text-muted-foreground">
+          {t("timeline.factHeartbeat")}
+        </dt>
         <dd className="mt-1 text-sm">
-          {formatOptional(status.lastHeartbeatAt)}
+          {formatOptional(status.lastHeartbeatAt, t)}
         </dd>
       </div>
       <div>
-        <dt className="text-xs text-muted-foreground">Player version</dt>
+        <dt className="text-xs text-muted-foreground">
+          {t("timeline.factVersion")}
+        </dt>
         <dd className="mt-1 text-sm">
-          {status.playerVersion || "Not reported"}
+          {status.playerVersion || t("shared.notReported")}
         </dd>
       </div>
     </dl>
@@ -342,11 +363,12 @@ function TimelineResourceLink({ type, id }: { type?: string; id: string }) {
               : type === "user"
                 ? "/settings/users"
                 : undefined;
+  const { t } = useTranslation("screens");
   return path ? (
     <Link className="underline underline-offset-4" to={path}>
-      Open
+      {t("timeline.openResource")}
     </Link>
   ) : (
-    "Open"
+    t("timeline.openResource")
   );
 }
