@@ -5,11 +5,18 @@
 //! enter the CAS preparation and activation path.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
+use edge_cas::{BlobSource, CasError, FetchError, FetchRequest, Fetcher, IngestMeta};
 use edge_protocol::{ScreenId, Sha256Digest};
+use edge_server::AuthenticatedServer;
 use edge_server::origin::OriginBlobSource;
+use edge_state::repo::cas::{Domain, SourceKind};
 use serde::Deserialize;
 use serde_json::Value;
+
+use crate::daemon::DaemonContext;
+use crate::fabric;
 
 const SCHEMA_VERSION: u32 = 11;
 const MAX_ASSETS: usize = 1024;
@@ -256,6 +263,75 @@ impl Candidate {
             streaming_assets,
         })
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum PreparationError {
+    #[error("the content store is unavailable")]
+    StoreUnavailable,
+    #[error("the manifest requires verified streaming, which this renderer cannot provide")]
+    StreamingUnsupported,
+    #[error("a manifest download path is invalid")]
+    InvalidDownloadPath,
+    #[error("the content store failed: {0}")]
+    Store(#[from] CasError),
+    #[error("a required media variant could not be fetched: {0}")]
+    Fetch(#[from] FetchError),
+    #[error("a cached media variant has the wrong size")]
+    SizeMismatch,
+}
+
+/// Fetches the exact variants needed before activation. Peer claims choose
+/// only the source order; the CAS verifies every byte before returning it.
+/// The caller persists and pins a candidate only after this succeeds.
+pub async fn prepare(
+    context: &DaemonContext,
+    server: &AuthenticatedServer,
+    candidate: &Candidate,
+) -> Result<Vec<Sha256Digest>, PreparationError> {
+    if !candidate.streaming_assets.is_empty() {
+        return Err(PreparationError::StreamingUnsupported);
+    }
+    let store = context.cas.clone().ok_or(PreparationError::StoreUnavailable)?;
+    let fetcher = Fetcher::new(store.clone(), 2);
+    let mut digests = BTreeSet::new();
+    for asset in &candidate.required_downloads {
+        if let Some((_, record)) = store.open_verified(&asset.digest).await? {
+            if record.size_bytes != asset.size_bytes {
+                return Err(PreparationError::SizeMismatch);
+            }
+            digests.insert(asset.digest);
+            continue;
+        }
+        let request = FetchRequest {
+            digest: asset.digest,
+            size_bytes: asset.size_bytes,
+            meta: IngestMeta {
+                domain: Domain::Media,
+                content_type: Some(asset.mime_type.clone()),
+                // A signed delivery policy must authorize peer serving before
+                // this local reference can be advertised to other screens.
+                peerable: false,
+                source: SourceKind::Origin,
+            },
+        };
+        let mut sources = fabric::peer_sources(context, &asset.digest, asset.size_bytes).await;
+        let origin = OriginBlobSource::new(server.clone(), &asset.download_path)
+            .map_err(|_| PreparationError::InvalidDownloadPath)?;
+        sources.push(Arc::new(origin) as Arc<dyn BlobSource>);
+        let observer = fabric::peer_observer(context, asset.digest);
+        let record = fetcher.fetch(&request, &sources, Some(&observer)).await?;
+        if record.size_bytes != asset.size_bytes {
+            return Err(PreparationError::SizeMismatch);
+        }
+        digests.insert(asset.digest);
+    }
+    for digest in &digests {
+        if store.verified_path(digest).await?.is_none() {
+            return Err(PreparationError::SizeMismatch);
+        }
+    }
+    Ok(digests.into_iter().collect())
 }
 
 #[cfg(test)]

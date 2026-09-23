@@ -9,12 +9,15 @@ Electron player's on-disk format, then checks that tilecastd:
    untouched, and refuses a second import as already complete;
 2. verifies installation identity, enrolls an Edge certificate with its own
    key, reports normal player heartbeat contact and Edge status (`/edge/nodes`);
-3. deletes the credential only after the server says it was revoked.
+3. fetches the server-compiled manifest for an assigned image, downloads its
+   variant through the authenticated origin, verifies it in CAS and pins it;
+4. deletes the credential only after the server says it was revoked.
 
 Requirements: Go, cargo, a local PostgreSQL where the current user may
 create databases. Usage: apps/edge/ci/e2e_server.py (from the repository root).
 """
 
+import base64
 import hashlib
 import http.cookiejar
 import json
@@ -271,6 +274,71 @@ def main():
             code, screen = client.call("GET", f"/api/v1/screens/{screen_id}")
             return code == 200 and screen["data"]["status"] == "online"
         wait_for(player_contact, "normal player WebSocket presence")
+        def manifest_prepared():
+            with sqlite3.connect(os.path.join(state, "state.db")) as db:
+                row = db.execute("SELECT version, document FROM manifests WHERE stage='pending'").fetchone()
+                if row is None:
+                    return False
+                document = json.loads(row[1])
+                return row[0] == document["manifestVersion"] and document["screenId"] == screen_id
+        wait_for(manifest_prepared, "binding-scoped server manifest preparation")
+
+        # Install one deterministic image fixture in the real server's media
+        # storage and catalog. FFmpeg is not required for the P0 download path;
+        # the fixture starts as a ready, player-compatible variant.
+        asset_id, variant_id, playlist_id = (str(uuid.uuid4()) for _ in range(3))
+        image = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR1sAAAAASUVORK5CYII="
+        )
+        image_hash = hashlib.sha256(image).hexdigest()
+        media_key = f"originals/{asset_id}/original.png"
+        media_path = os.path.join(work, "server-media", media_key)
+        os.makedirs(os.path.dirname(media_path), exist_ok=True)
+        with open(media_path, "wb") as handle:
+            handle.write(image)
+        sql = f"""
+            INSERT INTO assets (id, organization_id, name, type, original_filename,
+                detected_mime_type, sha256, original_size, width, height, processing_status)
+            VALUES ('{asset_id}', (SELECT id FROM organization_settings LIMIT 1), 'Edge E2E image',
+                'image', 'e2e.png', 'image/png', decode('{image_hash}', 'hex'), {len(image)}, 1, 1, 'ready');
+            INSERT INTO asset_variants (id, asset_id, kind, storage_provider, storage_key,
+                mime_type, file_size, sha256, width, height, player_compatible)
+            VALUES ('{variant_id}', '{asset_id}', 'original', 'local', '{media_key}',
+                'image/png', {len(image)}, decode('{image_hash}', 'hex'), 1, 1, true);
+            INSERT INTO playlists (id, organization_id, name)
+            VALUES ('{playlist_id}', (SELECT id FROM organization_settings LIMIT 1), 'Edge E2E playlist');
+            INSERT INTO playlist_items (id, playlist_id, asset_id, position, duration_ms)
+            VALUES ('{uuid.uuid4()}', '{playlist_id}', '{asset_id}', 0, 10000);
+            INSERT INTO screen_playlist_assignments (id, screen_id, playlist_id)
+            VALUES ('{uuid.uuid4()}', '{screen_id}', '{playlist_id}');
+            UPDATE screen_manifest_state SET manifest_version = manifest_version + 1,
+                changed_at = now(), change_reason = 'edge e2e assignment' WHERE screen_id = '{screen_id}';
+        """
+        run("psql", "-v", "ON_ERROR_STOP=1", "-d", DATABASE, "-c", sql, stdout=subprocess.DEVNULL)
+
+        daemon.terminate()
+        assert daemon.wait(timeout=20) == 0, "daemon did not stop cleanly"
+        processes.remove(daemon)
+        daemon = subprocess.Popen([tilecastd, "--config", config, "run"], stdout=daemon_log, stderr=subprocess.STDOUT)
+        processes.append(daemon)
+
+        def assigned_manifest_prepared():
+            with sqlite3.connect(os.path.join(state, "state.db")) as db:
+                row = db.execute("SELECT document FROM manifests WHERE stage='pending'").fetchone()
+                if row is None:
+                    return False
+                document = json.loads(row[0])
+                fallback = document.get("directFallbackPlaylist") or {}
+                if fallback.get("id") != playlist_id:
+                    return False
+                pin = db.execute("SELECT 1 FROM cas_pins WHERE sha256=? AND reason='pending_presentation'",
+                                 (image_hash,)).fetchone()
+                return pin is not None
+        wait_for(assigned_manifest_prepared, "real assigned manifest and pending CAS pin")
+        cas_path = os.path.join(state, "cas", "sha256", image_hash[:2], image_hash)
+        with open(cas_path, "rb") as handle:
+            assert hashlib.sha256(handle.read()).hexdigest() == image_hash, "CAS media digest mismatch"
+
         def clock_sampled():
             with sqlite3.connect(os.path.join(state, "state.db")) as db:
                 row = db.execute("SELECT server_clock_synchronized_at_ms FROM playback_state WHERE id=1").fetchone()
@@ -303,7 +371,7 @@ def main():
         client.call("POST", f"/api/v1/screens/{screen_id}/revoke", {}, expect=204)
         wait_for(lambda: not os.path.exists(credential_path), "credential removal after revocation")
         assert tree(legacy) == before, "legacy state changed"
-        print("PASS: import, HTTPS Edge enrollment, player socket, server restart, disable/enable, live revocation")
+        print("PASS: import, HTTPS Edge enrollment, player socket, assigned manifest and CAS download, server restart, disable/enable, live revocation")
         return 0
     except Exception:
         for name in ("server.log", "tilecastd.log"):

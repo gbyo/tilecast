@@ -85,8 +85,9 @@ End-to-end checks:
 - `ci/e2e_server.py` runs a real Tilecast Server against PostgreSQL, pairs a
   screen through a locally trusted HTTPS endpoint, then runs `tilecastd
   import-legacy`, Edge enrollment, authenticated player WebSocket presence,
+  server manifest fetch, assigned-image origin download and CAS verification,
   server restart/reconnect, clock sampling, disable/enable and live revocation
-  with the real binaries.
+  with the real binaries. It does not yet prove WPE activation.
   Run it from the repository root: `apps/edge/ci/e2e_server.py`.
 
 The repository `Makefile` has `edge-check`, `edge-test`, `edge-linux` and

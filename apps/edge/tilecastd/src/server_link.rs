@@ -27,19 +27,25 @@ use std::time::{Duration, Instant};
 use edge_identity::renewal::{self, RenewalDecision};
 use edge_protocol::Timestamp;
 use edge_protocol::signed::change::AuthorityTrust;
-use edge_server::client::{PLAYER_SOCKET_ACTIVITY_TIMEOUT, PlayerSocket, PlayerSocketEvent, ServerClient, ServerError};
+use edge_server::client::{
+    ManifestFetch, PLAYER_SOCKET_ACTIVITY_TIMEOUT, PlayerSocket, PlayerSocketEvent, ServerClient, ServerError,
+};
 use edge_server::enrollment::{EnrollError, enroll};
 use edge_server::feed::{FeedApplier, FeedError, Wake};
 use edge_server::{AuthenticatedServer, DeviceCredential};
 use edge_state::repo::binding::{self, CredentialState};
+use edge_state::repo::cas::PinReason;
+use edge_state::repo::manifests::{self, Binding as ManifestBinding, Stage, StoredManifest};
 use edge_state::repo::{capabilities, identity, playback};
 
 use crate::daemon::{DaemonContext, VERSION};
+use crate::manifest::{self, Candidate};
 
 /// Feed reconciliation cadence without a mesh wake-up (RFC §12.3).
 pub const RECONCILE_INTERVAL: Duration = Duration::from_secs(60);
 pub const STATUS_INTERVAL: Duration = Duration::from_secs(300);
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60);
+pub const MANIFEST_INTERVAL: Duration = Duration::from_secs(300);
 pub const SOCKET_LIVENESS_TIMEOUT: Duration = PLAYER_SOCKET_ACTIVITY_TIMEOUT;
 /// Re-check cadence while there is nothing to do (unbound, rejected).
 pub const IDLE_INTERVAL: Duration = Duration::from_secs(300);
@@ -79,6 +85,9 @@ struct Link {
     socket_failures: u32,
     next_socket_attempt: Option<Instant>,
     last_socket_activity: Option<Instant>,
+    next_manifest_attempt: Option<Instant>,
+    manifest_dirty: bool,
+    manifest_task: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl Link {
@@ -103,7 +112,22 @@ impl Link {
 pub async fn run(context: Arc<DaemonContext>) {
     let mut link = Link::default();
     loop {
+        if link.manifest_task.as_ref().is_some_and(tokio::task::JoinHandle::is_finished)
+            && let Some(task) = link.manifest_task.take()
+        {
+            let _ = task.await;
+        }
         let state = pass(&context, &mut link).await;
+        if matches!(
+            state,
+            LinkState::Unbound
+                | LinkState::CredentialMissing
+                | LinkState::CredentialRejected
+                | LinkState::IdentityMismatch
+        ) && let Some(task) = link.manifest_task.take()
+        {
+            task.abort();
+        }
         let mut delay = match &state {
             LinkState::Connected | LinkState::ConnectedWithoutEdgeTrust => {
                 link.failures = 0;
@@ -150,8 +174,11 @@ pub async fn run(context: Arc<DaemonContext>) {
                                             break;
                                         }
                                     }
-                                    PlayerSocketEvent::ManifestChanged | PlayerSocketEvent::ConfigChanged |
-                                        PlayerSocketEvent::CommandsAvailable => break,
+                                    PlayerSocketEvent::ManifestChanged => {
+                                        link.manifest_dirty = true;
+                                        break;
+                                    }
+                                    PlayerSocketEvent::ConfigChanged | PlayerSocketEvent::CommandsAvailable => break,
                                     PlayerSocketEvent::Hello | PlayerSocketEvent::Other => {}
                                     PlayerSocketEvent::Closed => unreachable!("closed events are handled above"),
                                 }
@@ -209,7 +236,94 @@ async fn reject_credential(context: &DaemonContext) {
     let _ = DeviceCredential::remove(&context.paths.identity_dir());
 }
 
-async fn pass(context: &DaemonContext, link: &mut Link) -> LinkState {
+/// Manifest work runs off the server-link socket loop so a large download
+/// cannot delay ping/pong, contact, or revocation handling.
+async fn sync_manifest(context: &DaemonContext, server: &AuthenticatedServer, binding: ManifestBinding) {
+    let (Some(db), Some(cas)) = (context.db(), context.cas.as_ref()) else { return };
+    let pending_binding = binding.clone();
+    let pending = db.run(move |c| manifests::get_for(c, Stage::Pending, &pending_binding)).await;
+    let active_binding = binding.clone();
+    let active = db.run(move |c| manifests::get_for(c, Stage::Active, &active_binding)).await;
+    let (Ok(pending), Ok(active)) = (pending, active) else {
+        tracing::warn!(component = "manifest", event = "cached_state_unavailable");
+        return;
+    };
+    let mut etag = active.as_ref().map(|stored| stored.etag.as_str());
+    if let Some(stored) = &pending {
+        match Candidate::parse(stored.document.clone(), binding.screen_id) {
+            Ok(candidate) => match manifest::prepare(context, server, &candidate).await {
+                Ok(digests) => {
+                    if cas.replace_pins(PinReason::PendingPresentation, "server-manifest", digests).await.is_ok() {
+                        etag = Some(&stored.etag);
+                    }
+                }
+                Err(error) => {
+                    tracing::warn!(component = "manifest", event = "pending_repair_failed", error = %error);
+                }
+            },
+            Err(error) => tracing::warn!(component = "manifest", event = "pending_invalid", error = %error),
+        }
+    }
+    let fetched = match server.player_manifest(etag).await {
+        Ok(result) => result,
+        Err(ServerError::CredentialRejected) => {
+            reject_credential(context).await;
+            return;
+        }
+        Err(error) => {
+            tracing::warn!(component = "manifest", event = "fetch_failed", reason = error.reason_code());
+            return;
+        }
+    };
+    let ManifestFetch::Modified { document, etag } = fetched else { return };
+    let candidate = match Candidate::parse(document, binding.screen_id) {
+        Ok(candidate) => candidate,
+        Err(error) => {
+            tracing::warn!(component = "manifest", event = "candidate_invalid", error = %error);
+            return;
+        }
+    };
+    let digests = match manifest::prepare(context, server, &candidate).await {
+        Ok(digests) => digests,
+        Err(error) => {
+            tracing::warn!(component = "manifest", event = "preparation_failed", error = %error);
+            return;
+        }
+    };
+    let stored = StoredManifest {
+        binding,
+        version: candidate.version,
+        etag,
+        document: candidate.document,
+        stored_at: context.now(),
+    };
+    let expected_binding = stored.binding.clone();
+    let still_bound = db
+        .run(move |c| {
+            Ok(binding::get(c)?.is_some_and(|current| {
+                current.credential_state == CredentialState::Stored
+                    && current.installation_id == expected_binding.installation_id
+                    && current.screen_id == Some(expected_binding.screen_id)
+                    && current.server_url == expected_binding.server_url
+            }))
+        })
+        .await
+        .unwrap_or(false);
+    if !still_bound {
+        return;
+    }
+    if let Err(error) = db.run(move |c| manifests::put_pending(c, &stored)).await {
+        tracing::warn!(component = "manifest", event = "pending_persist_failed", reason = error.reason_code());
+        return;
+    }
+    if let Err(error) = cas.replace_pins(PinReason::PendingPresentation, "server-manifest", digests).await {
+        tracing::warn!(component = "manifest", event = "pending_pin_failed", error = %error);
+        return;
+    }
+    tracing::info!(component = "manifest", event = "prepared", version = candidate.version);
+}
+
+async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
     let (Some(db), Some(node_id)) = (context.db(), context.node_id) else {
         return LinkState::Unbound;
     };
@@ -280,9 +394,27 @@ async fn pass(context: &DaemonContext, link: &mut Link) -> LinkState {
         if let Err(state) = ensure_certificate(context, &server, node_id).await {
             return state;
         }
-        if let Err(state) = reconcile(context, &server).await {
-            return state;
+        match reconcile(context, &server).await {
+            Ok(changed) => link.manifest_dirty |= changed,
+            Err(state) => return state,
         }
+    }
+    if let Some(screen_id) = bound.screen_id
+        && link.manifest_task.is_none()
+        && (link.manifest_dirty || link.next_manifest_attempt.is_none_or(|next| Instant::now() >= next))
+    {
+        link.manifest_dirty = false;
+        link.next_manifest_attempt = Some(Instant::now() + MANIFEST_INTERVAL);
+        let binding =
+            ManifestBinding { installation_id: bound.installation_id, screen_id, server_url: bound.server_url };
+        let worker_context = Arc::clone(context);
+        let worker_server = server.clone();
+        link.manifest_task = Some(tokio::spawn(async move {
+            tokio::select! {
+                () = worker_context.shutdown.cancelled() => {},
+                () = sync_manifest(&worker_context, &worker_server, binding) => {},
+            }
+        }));
     }
     if now.unix_millis() >= link.next_status_ms {
         match report_status(context, &server).await {
@@ -381,7 +513,7 @@ async fn ensure_certificate(
     }
 }
 
-async fn reconcile(context: &DaemonContext, server: &AuthenticatedServer) -> Result<(), LinkState> {
+async fn reconcile(context: &DaemonContext, server: &AuthenticatedServer) -> Result<bool, LinkState> {
     let db = context.db().ok_or(LinkState::Unbound)?;
     let mut feed = context.feed.lock().await;
     if feed.is_none() {
@@ -390,7 +522,7 @@ async fn reconcile(context: &DaemonContext, server: &AuthenticatedServer) -> Res
         let authority = AuthorityTrust { installation_id: trust.installation_id, keys: trust.authority_keys };
         *feed = Some(FeedApplier::new(db.clone(), authority, context.revocations.clone()));
     }
-    let Some(applier) = feed.as_mut() else { return Ok(()) };
+    let Some(applier) = feed.as_mut() else { return Ok(false) };
     match applier.reconcile(server, context.now()).await {
         Ok(report) => {
             if report.applied > 0 || !report.wakes.is_empty() {
@@ -402,9 +534,12 @@ async fn reconcile(context: &DaemonContext, server: &AuthenticatedServer) -> Res
                     resynced = report.wakes.contains(&Wake::Resynced)
                 );
             }
-            // Subsystems that own the hinted state (manifest, commands,
-            // configuration) subscribe here as they move into tilecastd.
-            Ok(())
+            Ok(report.wakes.iter().any(|wake| {
+                matches!(
+                    wake,
+                    Wake::Resynced | Wake::Change(edge_protocol::signed::change::ChangeType::ScreenPresentationChanged)
+                )
+            }))
         }
         Err(FeedError::Server(ServerError::CredentialRejected)) => {
             reject_credential(context).await;

@@ -158,12 +158,14 @@ boundary for the server-compiled manifest's target screen, asset identities,
 hash/size claims and origin paths. It also derives the exact required-download
 variants from playlists, branding, website fallbacks, layouts and Brand Bug,
 and records variants requiring streaming separately. It is not yet connected
-to preparation.
-SQLite now has binding-scoped pending, active and previous manifest records,
-with atomic promotion after a future preparation step. Preparation,
-scheduling, renderer media capabilities and activation remain open. The final
-RFC requires replacing the foundation's raw digest media URI/CAS-root access
-before real server content is activated.
+to activation. The server link now fetches and reconciles manifests in a
+separate worker, uses peer-first/origin-second CAS preparation for the required
+download variants, and stores a prepared candidate as pending. Streaming
+variants currently fail preparation explicitly. SQLite has binding-scoped
+pending, active and previous records with atomic promotion; promotion is not
+yet called. Scheduling, renderer media capabilities and activation remain
+open. The final RFC requires replacing the foundation's raw digest media
+URI/CAS-root access before real server content is activated.
 
 - **Use:**
   - `edge_cas::Fetcher` with sources in this order:
