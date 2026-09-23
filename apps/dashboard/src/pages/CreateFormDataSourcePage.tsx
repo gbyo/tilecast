@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
@@ -23,50 +24,49 @@ import {
 } from "../components/ui/questionnaire";
 import { Spinner } from "../components/ui/spinner";
 
+type CreateQuestionName =
+  "name" | "description" | "formTitle" | "formDescription";
+
 type CreateQuestion = {
-  name: "name" | "description" | "formTitle" | "formDescription";
-  phase: "Purpose" | "Display";
-  title: string;
-  description: string;
-  label: string;
+  name: CreateQuestionName;
+  phaseKey: "create.phasePurpose" | "create.phaseDisplay";
+  titleKey: `create.questions.${CreateQuestionName}.title`;
+  descriptionKey: `create.questions.${CreateQuestionName}.description`;
+  labelKey: `create.questions.${CreateQuestionName}.label`;
   autoComplete: string;
 };
 
 const QUESTIONS: CreateQuestion[] = [
   {
     name: "name",
-    phase: "Purpose",
-    title: "What is this form for?",
-    description:
-      "The name shown in the Forms plugin and when selecting form output in Widgets.",
-    label: "Form name",
+    phaseKey: "create.phasePurpose",
+    titleKey: "create.questions.name.title",
+    descriptionKey: "create.questions.name.description",
+    labelKey: "create.questions.name.label",
     autoComplete: "off",
   },
   {
     name: "description",
-    phase: "Purpose",
-    title: "Describe the purpose",
-    description:
-      "Optional. A short note for other Studio authors about what this form collects.",
-    label: "Form description",
+    phaseKey: "create.phasePurpose",
+    titleKey: "create.questions.description.title",
+    descriptionKey: "create.questions.description.description",
+    labelKey: "create.questions.description.label",
     autoComplete: "off",
   },
   {
     name: "formTitle",
-    phase: "Display",
-    title: "What do submitters see first?",
-    description:
-      "Optional. The title shown above the form to the person filling it in.",
-    label: "Submitter-facing title",
+    phaseKey: "create.phaseDisplay",
+    titleKey: "create.questions.formTitle.title",
+    descriptionKey: "create.questions.formTitle.description",
+    labelKey: "create.questions.formTitle.label",
     autoComplete: "off",
   },
   {
     name: "formDescription",
-    phase: "Display",
-    title: "Add guidance for submitters",
-    description:
-      "Optional. Short instructions shown under the title on the form itself.",
-    label: "Submitter-facing description",
+    phaseKey: "create.phaseDisplay",
+    titleKey: "create.questions.formDescription.title",
+    descriptionKey: "create.questions.formDescription.description",
+    labelKey: "create.questions.formDescription.label",
     autoComplete: "off",
   },
 ];
@@ -80,6 +80,7 @@ const EMPTY = { name: "", description: "", formTitle: "", formDescription: "" };
 // the review rules are configured in the builder's Access and Workflow tabs
 // after creation, so the guided flow never collects answers it cannot send.
 export function CreateFormDataSourcePage() {
+  const { t } = useTranslation(["forms", "common"]);
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const navigate = useNavigate();
@@ -109,7 +110,7 @@ export function CreateFormDataSourcePage() {
             fields: [
               {
                 key: "title",
-                label: "Title",
+                label: t("create.starterFieldLabel"),
                 control: "short_text",
                 required: true,
               },
@@ -126,9 +127,7 @@ export function CreateFormDataSourcePage() {
       void navigate(`/plugins/forms/${form.id}?tab=form`);
     },
     onError: (err) =>
-      setError(
-        err instanceof Error ? err.message : "Could not create the form.",
-      ),
+      setError(err instanceof Error ? err.message : t("create.createFallback")),
   });
 
   const changeItem = (next: string) => {
@@ -139,7 +138,7 @@ export function CreateFormDataSourcePage() {
       if ((answers.name ?? "").trim() === "") {
         setErrors((previous) => ({
           ...previous,
-          name: "A name is required.",
+          name: t("create.nameRequired"),
         }));
         return;
       }
@@ -152,7 +151,10 @@ export function CreateFormDataSourcePage() {
     event.preventDefault();
     const values: typeof EMPTY = { ...EMPTY, ...answers };
     if (values.name.trim() === "") {
-      setErrors((previous) => ({ ...previous, name: "A name is required." }));
+      setErrors((previous) => ({
+        ...previous,
+        name: t("create.nameRequired"),
+      }));
       setItem("name");
       return;
     }
@@ -163,10 +165,8 @@ export function CreateFormDataSourcePage() {
     return (
       <section className="mx-auto grid w-full max-w-2xl gap-4 px-4 py-6 sm:px-6">
         <Alert variant="destructive">
-          <AlertTitle>Insufficient access</AlertTitle>
-          <AlertDescription>
-            You do not have permission to create forms.
-          </AlertDescription>
+          <AlertTitle>{t("create.deniedTitle")}</AlertTitle>
+          <AlertDescription>{t("create.deniedBody")}</AlertDescription>
         </Alert>
       </section>
     );
@@ -180,55 +180,60 @@ export function CreateFormDataSourcePage() {
       >
         <header className="grid gap-1">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Forms plugin · Step 3 of 3 · Review
+            {t("create.reviewEyebrow")}
           </p>
           <h1
             id="create-form-review-title"
             className="text-xl font-semibold tracking-tight"
           >
-            Review and create
+            {t("create.reviewTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Check the details before creating this form.
+            {t("create.reviewBody")}
           </p>
         </header>
         {error && (
           <Alert variant="destructive">
-            <AlertTitle>Could not create form</AlertTitle>
+            <AlertTitle>{t("create.createErrorTitle")}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
         <dl className="grid gap-3 rounded-xl border border-border bg-card p-4 text-sm sm:p-5">
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-muted-foreground">Form name</dt>
+            <dt className="text-muted-foreground">{t("create.summaryName")}</dt>
             <dd className="font-medium">{review.name}</dd>
           </div>
           {review.description && (
             <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-muted-foreground">Purpose</dt>
+              <dt className="text-muted-foreground">
+                {t("create.summaryPurpose")}
+              </dt>
               <dd className="font-medium">{review.description}</dd>
             </div>
           )}
           {review.formTitle && (
             <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-muted-foreground">Submitter title</dt>
+              <dt className="text-muted-foreground">
+                {t("create.summarySubmitterTitle")}
+              </dt>
               <dd className="font-medium">{review.formTitle}</dd>
             </div>
           )}
           {review.formDescription && (
             <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-muted-foreground">Submitter guidance</dt>
+              <dt className="text-muted-foreground">
+                {t("create.summaryGuidance")}
+              </dt>
               <dd className="font-medium">{review.formDescription}</dd>
             </div>
           )}
         </dl>
         <Alert>
-          <AlertTitle>A starter field is included</AlertTitle>
+          <AlertTitle>{t("create.starterTitle")}</AlertTitle>
           <AlertDescription>
-            Your form starts with a required “Title” field and is published
-            immediately. You can add fields and publish new revisions from the
-            builder. Who may submit and the review rules are configured in the
-            builder’s Access and Workflow tabs after creation.
+            {t("create.starterBody", {
+              starterLabel: t("create.starterFieldLabel"),
+            })}
           </AlertDescription>
         </Alert>
         <FieldGroup>
@@ -239,7 +244,7 @@ export function CreateFormDataSourcePage() {
               onClick={() => create.mutate(review)}
             >
               {create.isPending && <Spinner aria-hidden="true" />}
-              Create form
+              {t("create.createButton")}
             </Button>
           </Field>
           <Field>
@@ -249,10 +254,10 @@ export function CreateFormDataSourcePage() {
               disabled={create.isPending}
               onClick={() => setReview(null)}
             >
-              Back to questions
+              {t("create.backToQuestions")}
             </Button>
             <FieldDescription className="text-center">
-              Returns to guided creation without losing your answers.
+              {t("create.backHint")}
             </FieldDescription>
           </Field>
         </FieldGroup>
@@ -264,11 +269,16 @@ export function CreateFormDataSourcePage() {
     <section className="mx-auto grid w-full max-w-2xl gap-4 px-4 py-6 sm:px-6">
       <header className="grid gap-1">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Forms plugin · Step {index < 2 ? 1 : 2} of 3 · {current.phase}
+          {t("create.stepHeader", {
+            step: index < 2 ? 1 : 2,
+            phase: t(current.phaseKey),
+          })}
         </p>
-        <h1 className="text-xl font-semibold tracking-tight">Create a Form</h1>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {t("create.createTitle")}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Collect submissions, approve them, and publish records to Widgets.
+          {t("create.createSubtitle")}
         </p>
       </header>
       <div className="grid gap-4 rounded-xl border border-border bg-card p-4 sm:p-5">
@@ -283,7 +293,10 @@ export function CreateFormDataSourcePage() {
           noValidate
         >
           <QuestionnaireProgress>
-            Question {index + 1} of {QUESTIONS.length}
+            {t("create.progress", {
+              index: index + 1,
+              total: QUESTIONS.length,
+            })}
           </QuestionnaireProgress>
           {QUESTIONS.map((question) => (
             <QuestionnaireItem
@@ -292,12 +305,12 @@ export function CreateFormDataSourcePage() {
               required={question.name === "name"}
               invalid={Boolean(errors[question.name])}
             >
-              <QuestionnaireTitle>{question.title}</QuestionnaireTitle>
+              <QuestionnaireTitle>{t(question.titleKey)}</QuestionnaireTitle>
               <QuestionnaireDescription>
-                {question.description}
+                {t(question.descriptionKey)}
               </QuestionnaireDescription>
               <QuestionnaireInput
-                aria-label={question.label}
+                aria-label={t(question.labelKey)}
                 autoComplete={question.autoComplete}
                 value={answers[question.name] ?? ""}
                 onChange={(event) => {
@@ -316,12 +329,14 @@ export function CreateFormDataSourcePage() {
             </QuestionnaireItem>
           ))}
           <QuestionnaireActions>
-            <QuestionnairePrevious>Previous</QuestionnairePrevious>
+            <QuestionnairePrevious>
+              {t("create.navPrevious")}
+            </QuestionnairePrevious>
             {current.name !== "name" && (
-              <QuestionnaireSkip>Skip</QuestionnaireSkip>
+              <QuestionnaireSkip>{t("create.navSkip")}</QuestionnaireSkip>
             )}
-            <QuestionnaireNext>Next</QuestionnaireNext>
-            <QuestionnaireSubmit>Review</QuestionnaireSubmit>
+            <QuestionnaireNext>{t("create.navNext")}</QuestionnaireNext>
+            <QuestionnaireSubmit>{t("create.navReview")}</QuestionnaireSubmit>
           </QuestionnaireActions>
         </Questionnaire>
         <div className="flex justify-start">
@@ -330,7 +345,7 @@ export function CreateFormDataSourcePage() {
             variant="ghost"
             onClick={() => void navigate("/plugins/forms")}
           >
-            Back
+            {t("common:actions.back")}
           </Button>
         </div>
       </div>

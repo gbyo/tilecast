@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   Link,
   Outlet,
@@ -25,6 +26,7 @@ import { Spinner } from "../components/ui/spinner";
 import { SubmissionEditor } from "../forms/SubmissionEditor";
 import { canSubmitToForm } from "../forms/capabilities";
 import { stateLabel, stateTone } from "../forms/formStatus";
+import { useFormatLocale } from "../i18n";
 import type { FormRecord } from "../api/types";
 import type { ReactNode } from "react";
 
@@ -78,9 +80,10 @@ function PortalNotice({
 }
 
 function PortalLoading({ label }: { label: string }) {
+  const { t } = useTranslation("forms");
   return (
     <p className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Spinner aria-label="Loading" />
+      <Spinner aria-label={t("portal.loadingIcon")} />
       {label}
     </p>
   );
@@ -113,6 +116,7 @@ function PortalPagination({
   previousDisabled?: boolean;
   nextDisabled?: boolean;
 }) {
+  const { t } = useTranslation("forms");
   return (
     <nav className="flex flex-wrap items-center gap-2" aria-label={label}>
       <Button
@@ -122,7 +126,7 @@ function PortalPagination({
         disabled={previousDisabled}
         onClick={previous}
       >
-        Previous
+        {t("portal.previous")}
       </Button>
       <span className="text-sm text-muted-foreground">{status}</span>
       <Button
@@ -132,7 +136,7 @@ function PortalPagination({
         disabled={nextDisabled}
         onClick={next}
       >
-        Next
+        {t("portal.next")}
       </Button>
     </nav>
   );
@@ -142,6 +146,7 @@ function PortalPagination({
 // outside the full operator sidebar. It reuses the same auth gate as the operator shell but shows a
 // minimal chrome so submitters get a focused experience.
 export function FormsPortalShell() {
+  const { t } = useTranslation("forms");
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -162,17 +167,18 @@ export function FormsPortalShell() {
         <Link
           to="/forms"
           className="flex items-center gap-3 text-inherit no-underline"
-          aria-label="My Forms"
+          aria-label={t("portal.shell.homeLabel")}
         >
           <Brand compact />
-          <span className="font-semibold">Forms</span>
+          <span className="font-semibold">{t("portal.shell.formsLabel")}</span>
         </Link>
         <div className="flex items-center gap-5">
           <Link
             to="/"
             className="text-link inline-flex items-center gap-1 no-underline"
           >
-            <ArrowLeft size={16} aria-hidden="true" /> Back to Studio
+            <ArrowLeft size={16} aria-hidden="true" />{" "}
+            {t("portal.shell.studioLink")}
           </Link>
           <Button
             type="button"
@@ -181,7 +187,7 @@ export function FormsPortalShell() {
             disabled={auth.isSubmitting}
             className="gap-1 px-0"
           >
-            <LogOut size={16} aria-hidden="true" /> Sign out
+            <LogOut size={16} aria-hidden="true" /> {t("portal.shell.signOut")}
           </Button>
         </div>
       </header>
@@ -194,15 +200,17 @@ export function FormsPortalShell() {
 
 // FormsListPage lists every form the user can access with their capability and submission counts.
 export function FormsListPage() {
+  const { t } = useTranslation("forms");
   const forms = useQuery({ queryKey: ["forms"], queryFn: api.listForms });
 
-  if (forms.isLoading) return <PortalLoading label="Loading your forms…" />;
+  if (forms.isLoading)
+    return <PortalLoading label={t("portal.list.loading")} />;
   if (forms.isError) {
     return (
-      <PortalNotice variant="danger" title="Could not load forms">
+      <PortalNotice variant="danger" title={t("portal.list.error")}>
         {forms.error instanceof Error
           ? forms.error.message
-          : "Please try again."}
+          : t("portal.list.retry")}
       </PortalNotice>
     );
   }
@@ -210,9 +218,9 @@ export function FormsListPage() {
   return (
     <div className="flex flex-col gap-6">
       <PortalHeader
-        eyebrow="Forms"
-        title="My Forms"
-        description="Forms you can submit to or help review."
+        eyebrow={t("portal.list.eyebrow")}
+        title={t("portal.list.title")}
+        description={t("portal.list.description")}
       />
       {items.length === 0 ? (
         <Empty>
@@ -220,11 +228,8 @@ export function FormsListPage() {
             <EmptyMedia variant="icon">
               <ClipboardList aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No forms yet</EmptyTitle>
-            <EmptyDescription>
-              You do not have access to any forms. Ask an administrator to grant
-              you access.
-            </EmptyDescription>
+            <EmptyTitle>{t("portal.list.empty")}</EmptyTitle>
+            <EmptyDescription>{t("portal.list.emptyBody")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -238,7 +243,10 @@ export function FormsListPage() {
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="m-0 text-base font-semibold">{form.name}</h2>
                   {form.publishedRevisionNumber === undefined && (
-                    <ToneBadge label="Draft only" tone="neutral" />
+                    <ToneBadge
+                      label={t("portal.list.draftOnly")}
+                      tone="neutral"
+                    />
                   )}
                 </div>
                 {form.description && (
@@ -249,7 +257,7 @@ export function FormsListPage() {
                 <dl className="mt-auto grid grid-flow-col justify-start gap-3 border-t border-border pt-3">
                   <div className="flex flex-col justify-between">
                     <dt className="text-[0.7rem] tracking-[0.04em] text-muted-foreground uppercase">
-                      Drafts
+                      {t("portal.list.drafts")}
                     </dt>
                     <dd className="m-0 mt-0.5 text-[1.1rem] tabular-nums">
                       {form.submissionCounts.draft}
@@ -257,7 +265,7 @@ export function FormsListPage() {
                   </div>
                   <div className="flex flex-col justify-between">
                     <dt className="text-[0.7rem] tracking-[0.04em] text-muted-foreground uppercase">
-                      Submitted
+                      {t("portal.list.submitted")}
                     </dt>
                     <dd className="m-0 mt-0.5 text-[1.1rem] tabular-nums">
                       {form.submissionCounts.submitted}
@@ -265,7 +273,7 @@ export function FormsListPage() {
                   </div>
                   <div className="flex flex-col justify-between">
                     <dt className="text-[0.7rem] tracking-[0.04em] text-muted-foreground uppercase">
-                      Changes requested
+                      {t("portal.list.changesRequested")}
                     </dt>
                     <dd className="m-0 mt-0.5 text-[1.1rem] tabular-nums">
                       {form.submissionCounts.changesRequested}
@@ -286,6 +294,7 @@ export function FormsListPage() {
 const MINE_PAGE_SIZE = 20;
 
 export function FormPortalDetailPage() {
+  const { t } = useTranslation("forms");
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -321,13 +330,14 @@ export function FormPortalDetailPage() {
     enabled: Boolean(id),
   });
 
-  if (form.isLoading) return <PortalLoading label="Loading form…" />;
+  if (form.isLoading)
+    return <PortalLoading label={t("portal.detail.loading")} />;
   if (form.isError || !form.data) {
     return (
-      <PortalNotice variant="danger" title="Form unavailable">
-        You may not have access to this form, or it no longer exists.{" "}
+      <PortalNotice variant="danger" title={t("portal.detail.unavailable")}>
+        {t("portal.detail.unavailableBody")}{" "}
         <Link to="/forms" className="text-link">
-          Back to My Forms
+          {t("portal.detail.backToForms")}
         </Link>
       </PortalNotice>
     );
@@ -342,7 +352,7 @@ export function FormPortalDetailPage() {
   return (
     <div className="flex flex-col gap-6">
       <PortalHeader
-        eyebrow="Form"
+        eyebrow={t("portal.detail.eyebrow")}
         title={published?.title || detail.name}
         description={published?.description || detail.description}
         actions={
@@ -351,42 +361,46 @@ export function FormPortalDetailPage() {
               to={`/forms/${detail.id}/new`}
               className={buttonVariants({ variant: "default" })}
             >
-              Start submission
+              {t("portal.detail.start")}
             </Link>
           ) : undefined
         }
       />
 
       {justSubmitted && (
-        <PortalNotice variant="success" title="Submission sent">
-          Your submission is now with the reviewers. You can follow its status
-          below.
+        <PortalNotice variant="success" title={t("portal.detail.sentTitle")}>
+          {t("portal.detail.sentBody")}
         </PortalNotice>
       )}
 
       {!published && (
-        <PortalNotice variant="info" title="Not open for submissions yet">
-          This form has not published a version you can submit to.
+        <PortalNotice variant="info" title={t("portal.detail.notOpen")}>
+          {t("portal.detail.notOpenBody")}
         </PortalNotice>
       )}
       {published && !canSubmit && (
-        <PortalNotice variant="info" title="View only">
-          You can review submissions to this form but cannot create your own.
+        <PortalNotice variant="info" title={t("portal.detail.viewOnly")}>
+          {t("portal.detail.viewOnlyBody")}
         </PortalNotice>
       )}
 
-      <section aria-label="Your submissions" className="flex flex-col gap-3">
-        <h2 className="m-0 text-base font-semibold">Your submissions</h2>
+      <section
+        aria-label={t("portal.detail.submissionsLabel")}
+        className="flex flex-col gap-3"
+      >
+        <h2 className="m-0 text-base font-semibold">
+          {t("portal.detail.submissionsTitle")}
+        </h2>
         {records.isLoading ? (
-          <PortalLoading label="Loading submissions…" />
+          <PortalLoading label={t("portal.detail.submissionsLoading")} />
         ) : mine.length === 0 ? (
           <Empty>
             <EmptyHeader>
-              <EmptyTitle>No submissions yet</EmptyTitle>
+              <EmptyTitle>{t("portal.detail.submissionsEmpty")}</EmptyTitle>
               <EmptyDescription>
                 {canSubmit && published
-                  ? "Start a submission to see it here."
-                  : "You have not submitted to this form."}
+                  ? t("portal.detail.submissionsEmptySubmit")
+                  : t("portal.detail.submissionsEmptyNone")}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -404,8 +418,12 @@ export function FormPortalDetailPage() {
             </ul>
             {totalPages > 1 && (
               <PortalPagination
-                label="Your submissions pages"
-                status={`Page ${page} of ${totalPages} · ${total} total`}
+                label={t("portal.detail.submissionsPages")}
+                status={t("portal.detail.pagination", {
+                  page,
+                  totalPages,
+                  total,
+                })}
                 previous={() => setPage((current) => Math.max(1, current - 1))}
                 next={() =>
                   setPage((current) => Math.min(totalPages, current + 1))
@@ -430,6 +448,8 @@ function SubmissionRow({
   record: FormRecord;
   workflow: import("../api/types").FormWorkflow;
 }) {
+  const { t } = useTranslation("forms");
+  const locale = useFormatLocale();
   return (
     <li>
       <Link
@@ -437,14 +457,16 @@ function SubmissionRow({
         className="grid min-h-[52px] grid-cols-[1fr_auto_auto] items-center gap-x-4 gap-y-1 px-4 py-3 text-inherit no-underline hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-[700px]:grid-cols-[1fr_auto]"
       >
         <span className="font-semibold">
-          {record.displayTitle || "Untitled submission"}
+          {record.displayTitle || t("portal.detail.untitled")}
         </span>
         <ToneBadge
           label={stateLabel(workflow, record.state)}
           tone={stateTone(workflow, record.state)}
         />
         <span className="text-[0.8rem] text-muted-foreground tabular-nums max-[700px]:col-span-full">
-          Updated {new Date(record.updatedAt).toLocaleString()}
+          {t("portal.detail.updatedAt", {
+            date: new Date(record.updatedAt).toLocaleString(locale),
+          })}
         </span>
       </Link>
     </li>
@@ -453,6 +475,7 @@ function SubmissionRow({
 
 // FormPortalSubmissionPage hosts the submission editor for a new or existing submission.
 export function FormPortalSubmissionPage() {
+  const { t } = useTranslation(["forms", "common"]);
   const { id, recordId } = useParams();
   const auth = useAuth();
   const navigate = useNavigate();
@@ -469,23 +492,26 @@ export function FormPortalSubmissionPage() {
   });
 
   if (form.isLoading || (recordId && record.isLoading)) {
-    return <PortalLoading label="Loading…" />;
+    return <PortalLoading label={t("portal.submission.loading")} />;
   }
   if (form.isError || !form.data) {
     return (
-      <PortalNotice variant="danger" title="Form unavailable">
+      <PortalNotice variant="danger" title={t("portal.submission.unavailable")}>
         <Link to="/forms" className="text-link">
-          Back to My Forms
+          {t("portal.submission.backToForms")}
         </Link>
       </PortalNotice>
     );
   }
   if (recordId && (record.isError || !record.data)) {
     return (
-      <PortalNotice variant="danger" title="Submission unavailable">
-        You may not have access to this submission.{" "}
+      <PortalNotice
+        variant="danger"
+        title={t("portal.submission.recordUnavailable")}
+      >
+        {t("portal.submission.recordDenied")}{" "}
         <Link to={`/forms/${id}`} className="text-link">
-          Back to the form
+          {t("portal.submission.backToForm")}
         </Link>
       </PortalNotice>
     );
@@ -495,13 +521,18 @@ export function FormPortalSubmissionPage() {
     <div className="flex flex-col gap-6">
       <PortalHeader
         eyebrow={form.data.publishedRevision?.title || form.data.name}
-        title={recordId ? "Edit submission" : "New submission"}
+        title={
+          recordId
+            ? t("portal.submission.editTitle")
+            : t("portal.submission.newTitle")
+        }
         actions={
           <Link
             to={`/forms/${id}`}
             className={buttonVariants({ variant: "ghost" })}
           >
-            <ArrowLeft size={16} aria-hidden="true" /> Back
+            <ArrowLeft size={16} aria-hidden="true" />{" "}
+            {t("common:actions.back")}
           </Link>
         }
       />

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import type { FormDataSource, FormOutputView } from "../api/types";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton } from "../components/ui/button";
@@ -25,6 +27,8 @@ export function OutputsPanel({
   csrf: string;
   canManage: boolean;
 }) {
+  const { t } = useTranslation("forms");
+  const locale = useFormatLocale();
   const queryClient = useQueryClient();
   const outputs = useQuery({
     queryKey: ["form-outputs", form.id],
@@ -41,15 +45,15 @@ export function OutputsPanel({
     },
   });
 
-  if (outputs.isLoading) return <Spinner aria-label="Loading outputs…" />;
+  if (outputs.isLoading) return <Spinner aria-label={t("outputs.loading")} />;
   if (outputs.isError || !outputs.data) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Could not load outputs</AlertTitle>
+        <AlertTitle>{t("outputs.loadError")}</AlertTitle>
         <AlertDescription>
           {outputs.error instanceof Error
             ? outputs.error.message
-            : "Please try again."}
+            : t("outputs.retry")}
         </AlertDescription>
       </Alert>
     );
@@ -64,22 +68,28 @@ export function OutputsPanel({
             <Badge
               {...formToneBadgeProps(data.errorCode ? "danger" : "warning")}
             >
-              {data.errorCode ? "Projection error" : "Stale cache"}
+              {data.errorCode
+                ? t("outputs.projectionError")
+                : t("outputs.staleCache")}
             </Badge>
           ) : (
-            <Badge {...formToneBadgeProps("success")}>Up to date</Badge>
+            <Badge {...formToneBadgeProps("success")}>
+              {t("outputs.upToDate")}
+            </Badge>
           )}
           <span>
-            Last projection:{" "}
-            {data.lastSuccessAt
-              ? new Date(data.lastSuccessAt).toLocaleString()
-              : "never"}
+            {t("outputs.lastProjection", {
+              value: data.lastSuccessAt
+                ? new Date(data.lastSuccessAt).toLocaleString(locale)
+                : t("outputs.never"),
+            })}
           </span>
           <span>
-            Next refresh:{" "}
-            {data.nextRefreshAt
-              ? new Date(data.nextRefreshAt).toLocaleString()
-              : "on change"}
+            {t("outputs.nextRefresh", {
+              value: data.nextRefreshAt
+                ? new Date(data.nextRefreshAt).toLocaleString(locale)
+                : t("outputs.onChange"),
+            })}
           </span>
         </div>
         {canManage && (
@@ -90,26 +100,26 @@ export function OutputsPanel({
             onClick={() => rebuild.mutate()}
           >
             {rebuild.isPending && <Spinner aria-hidden="true" />}
-            Rebuild outputs
+            {t("outputs.rebuild")}
           </RheaButton>
         )}
       </div>
 
       {rebuild.isError && (
         <Alert variant="destructive">
-          <AlertTitle>Rebuild failed</AlertTitle>
+          <AlertTitle>{t("outputs.rebuildError")}</AlertTitle>
           <AlertDescription>
             {rebuild.error instanceof Error
               ? rebuild.error.message
-              : "Please try again."}
+              : t("outputs.retry")}
           </AlertDescription>
         </Alert>
       )}
       {data.errorCode && (
         <Alert variant="destructive">
-          <AlertTitle>Projection error</AlertTitle>
+          <AlertTitle>{t("outputs.projectionError")}</AlertTitle>
           <AlertDescription>
-            The last projection reported: {data.errorCode}
+            {t("outputs.lastReport", { code: data.errorCode })}
           </AlertDescription>
         </Alert>
       )}
@@ -117,10 +127,8 @@ export function OutputsPanel({
       {data.views.length === 0 ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>No saved views</EmptyTitle>
-            <EmptyDescription>
-              Create a view in the Views tab to generate an output dataset.
-            </EmptyDescription>
+            <EmptyTitle>{t("outputs.noViews")}</EmptyTitle>
+            <EmptyDescription>{t("outputs.noViewsHint")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -131,10 +139,11 @@ export function OutputsPanel({
 }
 
 function OutputViewCard({ view }: { view: FormOutputView }) {
+  const { t } = useTranslation("forms");
   return (
     <section
       className="grid gap-2 rounded-xl border border-border p-4"
-      aria-label={`Output ${view.name}`}
+      aria-label={t("outputs.viewLabel", { name: view.name })}
     >
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div className="grid gap-0.5">
@@ -143,11 +152,11 @@ function OutputViewCard({ view }: { view: FormOutputView }) {
         </div>
         <div className="flex flex-wrap gap-1">
           <Badge {...formToneBadgeProps("neutral")}>
-            {`${view.recordCount} records`}
+            {t("outputs.recordCount", { count: view.recordCount })}
           </Badge>
           {view.usage.widgets > 0 && (
             <Badge {...formToneBadgeProps("info")}>
-              {`Used by ${view.usage.widgets} widget${view.usage.widgets === 1 ? "" : "s"}`}
+              {t("outputs.usedByWidgets", { count: view.usage.widgets })}
             </Badge>
           )}
         </div>
@@ -170,13 +179,13 @@ function OutputViewCard({ view }: { view: FormOutputView }) {
 
       {view.usage.names.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Referenced by: {view.usage.names.join(", ")}
+          {t("outputs.referencedBy", { names: view.usage.names.join(", ") })}
         </p>
       )}
 
       {view.previewRecords.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No records match this view yet.
+          {t("outputs.noRecords")}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
