@@ -61,8 +61,6 @@ p {
   width: 171px;
   max-width: 100%;
   height: 22px;
-  object-fit: contain;
-  object-position: left center;
 }
 
 @keyframes tc-route-enter {

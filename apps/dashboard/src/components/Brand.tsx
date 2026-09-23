@@ -1,13 +1,10 @@
 import { TilecastLogo } from "./TilecastLogo";
+import { TilecastStudioLogo } from "./TilecastStudioLogo";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   if (compact)
     return (
-      <img
-        className="brand__studio-logo"
-        src="/tilecast-studio-logo.svg"
-        alt="Tilecast Studio"
-      />
+      <TilecastStudioLogo className="brand__studio-logo text-foreground" />
     );
   return (
     <div className="brand">
