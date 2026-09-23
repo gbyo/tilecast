@@ -460,6 +460,8 @@ async fn insecure_lan_binding_keeps_player_contact_but_cannot_bootstrap_edge_tru
         .await
         .unwrap();
     assert!(!server.has_secure_edge_bootstrap());
+    assert_eq!(server.player_socket("0.1.0").await.unwrap_err(), ServerError::InsecureEdgeBootstrap);
+    assert!(fake.authenticated_paths().is_empty());
     assert_eq!(server.edge_enroll("not-a-csr").await.unwrap_err(), ServerError::InsecureEdgeBootstrap);
     assert!(fake.authenticated_paths().is_empty());
     server.player_heartbeat(&json!({"screenWidth": 0, "screenHeight": 0, "playerVersion": "0.1.0"})).await.unwrap();

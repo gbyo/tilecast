@@ -14,7 +14,7 @@
 //! network errors, 5xx or `screen_disabled`, matching the Linux player.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use edge_protocol::InstallationId;
 use edge_protocol::signed::SignedDocument;
@@ -30,6 +30,7 @@ use crate::credential::DeviceCredential;
 use crate::url_policy::normalize_server_url;
 
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+pub const PLAYER_SOCKET_ACTIVITY_TIMEOUT: Duration = Duration::from_secs(95);
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ServerError {
@@ -272,6 +273,7 @@ pub enum PlayerSocketEvent {
 /// A live socket obtained only from an identity-verified server.
 pub struct PlayerSocket {
     stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    last_activity: Instant,
 }
 
 impl std::fmt::Debug for PlayerSocket {
@@ -283,7 +285,7 @@ impl std::fmt::Debug for PlayerSocket {
 impl PlayerSocket {
     pub async fn next_event(&mut self) -> Result<PlayerSocketEvent, ServerError> {
         let Some(message) = self.stream.next().await else { return Ok(PlayerSocketEvent::Closed) };
-        match message.map_err(|_| ServerError::Network)? {
+        let event = match message.map_err(|_| ServerError::Network)? {
             Message::Text(text) => {
                 if text.len() > 64 * 1024 {
                     return Err(ServerError::Decode);
@@ -308,7 +310,11 @@ impl PlayerSocket {
             }
             Message::Close(_) => Ok(PlayerSocketEvent::Closed),
             _ => Ok(PlayerSocketEvent::Other),
+        }?;
+        if event != PlayerSocketEvent::Closed {
+            self.last_activity = Instant::now();
         }
+        Ok(event)
     }
 
     pub async fn send_pong(&mut self, timestamp: &str) -> Result<(), ServerError> {
@@ -324,7 +330,11 @@ impl PlayerSocket {
     }
 
     async fn send_json(&mut self, value: serde_json::Value) -> Result<(), ServerError> {
-        self.stream.send(Message::Text(value.to_string().into())).await.map_err(|_| ServerError::Network)
+        let remaining = PLAYER_SOCKET_ACTIVITY_TIMEOUT.saturating_sub(self.last_activity.elapsed());
+        tokio::time::timeout(remaining, self.stream.send(Message::Text(value.to_string().into())))
+            .await
+            .map_err(|_| ServerError::Network)?
+            .map_err(|_| ServerError::Network)
     }
 }
 
@@ -346,6 +356,9 @@ impl AuthenticatedServer {
     }
 
     pub async fn player_socket(&self, version: &str) -> Result<PlayerSocket, ServerError> {
+        if !self.has_secure_edge_bootstrap() {
+            return Err(ServerError::InsecureEdgeBootstrap);
+        }
         let (scheme, origin) = self.client.base_url.split_once("://").ok_or(ServerError::Decode)?;
         let ws_scheme = if scheme == "https" { "wss" } else { "ws" };
         let address = format!("{ws_scheme}://{origin}/api/v1/player/socket");
@@ -363,7 +376,7 @@ impl AuthenticatedServer {
         .await
         .map_err(|_| ServerError::Network)?
         .map_err(|_| ServerError::Network)?;
-        let mut socket = PlayerSocket { stream };
+        let mut socket = PlayerSocket { stream, last_activity: Instant::now() };
         socket
             .send_json(serde_json::json!({"type": "player.hello", "protocolVersion": 1, "playerVersion": version}))
             .await?;

@@ -27,7 +27,7 @@ use std::time::{Duration, Instant};
 use edge_identity::renewal::{self, RenewalDecision};
 use edge_protocol::Timestamp;
 use edge_protocol::signed::change::AuthorityTrust;
-use edge_server::client::{PlayerSocket, PlayerSocketEvent, ServerClient, ServerError};
+use edge_server::client::{PLAYER_SOCKET_ACTIVITY_TIMEOUT, PlayerSocket, PlayerSocketEvent, ServerClient, ServerError};
 use edge_server::enrollment::{EnrollError, enroll};
 use edge_server::feed::{FeedApplier, FeedError, Wake};
 use edge_server::{AuthenticatedServer, DeviceCredential};
@@ -40,7 +40,7 @@ use crate::daemon::{DaemonContext, VERSION};
 pub const RECONCILE_INTERVAL: Duration = Duration::from_secs(60);
 pub const STATUS_INTERVAL: Duration = Duration::from_secs(300);
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60);
-pub const SOCKET_LIVENESS_TIMEOUT: Duration = Duration::from_secs(95);
+pub const SOCKET_LIVENESS_TIMEOUT: Duration = PLAYER_SOCKET_ACTIVITY_TIMEOUT;
 /// Re-check cadence while there is nothing to do (unbound, rejected).
 pub const IDLE_INTERVAL: Duration = Duration::from_secs(300);
 
@@ -78,11 +78,22 @@ struct Link {
     socket: Option<PlayerSocket>,
     socket_failures: u32,
     next_socket_attempt: Option<Instant>,
+    last_socket_activity: Option<Instant>,
 }
 
 impl Link {
+    fn socket_activity(&mut self) {
+        self.last_socket_activity = Some(Instant::now());
+    }
+
+    fn socket_liveness_remaining(&self) -> Duration {
+        self.last_socket_activity
+            .map_or(SOCKET_LIVENESS_TIMEOUT, |last| SOCKET_LIVENESS_TIMEOUT.saturating_sub(last.elapsed()))
+    }
+
     fn socket_lost(&mut self) {
         self.socket = None;
+        self.last_socket_activity = None;
         let exponent = self.socket_failures.min(5);
         self.socket_failures = self.socket_failures.saturating_add(1);
         self.next_socket_attempt = Some(Instant::now() + Duration::from_secs((5_u64 << exponent).min(60)));
@@ -117,26 +128,33 @@ pub async fn run(context: Arc<DaemonContext>) {
         let deadline = tokio::time::sleep(delay);
         tokio::pin!(deadline);
         loop {
+            let remaining = link.socket_liveness_remaining();
             if let Some(socket) = link.socket.as_mut() {
                 tokio::select! {
                     () = context.shutdown.cancelled() => return,
                     () = &mut deadline => break,
                     () = context.server_wake.notified() => break,
-                    received = tokio::time::timeout(SOCKET_LIVENESS_TIMEOUT, socket.next_event()) => {
+                    received = tokio::time::timeout(remaining, socket.next_event()) => {
                         match received {
-                            Ok(Ok(PlayerSocketEvent::Ping(timestamp))) => {
-                                sample_server_clock(&context, &timestamp).await;
-                                if socket.send_pong(&context.now().to_string()).await.is_err() {
-                                    link.socket_lost();
-                                    break;
-                                }
-                            }
-                            Ok(Ok(PlayerSocketEvent::ManifestChanged | PlayerSocketEvent::ConfigChanged |
-                                PlayerSocketEvent::CommandsAvailable)) => break,
-                            Ok(Ok(PlayerSocketEvent::Hello | PlayerSocketEvent::Other)) => {}
                             Ok(Ok(PlayerSocketEvent::Closed)) | Ok(Err(_)) | Err(_) => {
                                 link.socket_lost();
                                 break;
+                            }
+                            Ok(Ok(event)) => {
+                                link.last_socket_activity = Some(Instant::now());
+                                match event {
+                                    PlayerSocketEvent::Ping(timestamp) => {
+                                        sample_server_clock(&context, &timestamp).await;
+                                        if socket.send_pong(&context.now().to_string()).await.is_err() {
+                                            link.socket_lost();
+                                            break;
+                                        }
+                                    }
+                                    PlayerSocketEvent::ManifestChanged | PlayerSocketEvent::ConfigChanged |
+                                        PlayerSocketEvent::CommandsAvailable => break,
+                                    PlayerSocketEvent::Hello | PlayerSocketEvent::Other => {}
+                                    PlayerSocketEvent::Closed => unreachable!("closed events are handled above"),
+                                }
                             }
                         }
                     }
@@ -228,6 +246,7 @@ async fn pass(context: &DaemonContext, link: &mut Link) -> LinkState {
         match server.player_socket(VERSION).await {
             Ok(socket) => {
                 link.socket = Some(socket);
+                link.socket_activity();
                 link.socket_failures = 0;
                 link.next_socket_attempt = None;
             }
@@ -455,4 +474,24 @@ pub fn load_revocations(db: &edge_state::StateDb, now: Timestamp) -> edge_identi
         }
     }
     set
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn socket_liveness_deadline_tracks_inbound_activity_and_clears_on_loss() {
+        let mut link = Link::default();
+        assert_eq!(link.socket_liveness_remaining(), SOCKET_LIVENESS_TIMEOUT);
+
+        link.last_socket_activity = Some(Instant::now() - Duration::from_secs(30));
+        let remaining = link.socket_liveness_remaining();
+        assert!(remaining <= Duration::from_secs(65));
+        assert!(remaining > Duration::from_secs(64));
+
+        link.socket_lost();
+        assert_eq!(link.last_socket_activity, None);
+        assert_eq!(link.socket_liveness_remaining(), SOCKET_LIVENESS_TIMEOUT);
+    }
 }
