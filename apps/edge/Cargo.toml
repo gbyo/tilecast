@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/edge-protocol",
     "crates/edge-state",
+    "crates/edge-ipc",
 ]
 
 [workspace.package]
@@ -18,6 +19,7 @@ rust-version = "1.98"
 # a lower crate never depends on a higher one.
 edge-protocol = { path = "crates/edge-protocol" }
 edge-state = { path = "crates/edge-state" }
+edge-ipc = { path = "crates/edge-ipc" }
 
 anyhow = "1"
 async-trait = "0.1"
