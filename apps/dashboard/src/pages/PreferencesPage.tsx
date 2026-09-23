@@ -21,6 +21,8 @@ import {
   applyLanguagePreference,
   detectBrowserLanguage,
   isLanguagePreference,
+  previewLanguagePreference,
+  setLanguagePreviewDirty,
   type LanguagePreference,
 } from "../i18n";
 import { SettingsSection } from "../settings/SettingsSection";
@@ -58,12 +60,21 @@ export function PreferencesPage() {
   }, [baseline]);
   useEffect(
     () => () => {
+      setLanguagePreviewDirty(false);
       if (isLanguagePreference(savedLanguage.current)) {
-        applyLanguagePreference(savedLanguage.current);
+        previewLanguagePreference(savedLanguage.current);
       }
     },
     [],
   );
+  const languageDirty =
+    Boolean(baseline) &&
+    isLanguagePreference(baseline?.[LANGUAGE_PREFERENCE_KEY]) &&
+    isLanguagePreference(draft[LANGUAGE_PREFERENCE_KEY]) &&
+    baseline?.[LANGUAGE_PREFERENCE_KEY] !== draft[LANGUAGE_PREFERENCE_KEY];
+  useEffect(() => {
+    setLanguagePreviewDirty(languageDirty);
+  }, [languageDirty]);
   const definitions = preferences.data?.definitions ?? [];
   const dirty =
     Boolean(baseline) &&
@@ -83,6 +94,11 @@ export function PreferencesPage() {
     mutationFn: (values: Record<string, unknown>) =>
       api.updatePreferences(revision, values, auth.status?.csrfToken ?? ""),
     onSuccess: (data) => {
+      setLanguagePreviewDirty(false);
+      const savedLanguage = data.values[LANGUAGE_PREFERENCE_KEY];
+      if (isLanguagePreference(savedLanguage)) {
+        applyLanguagePreference(savedLanguage);
+      }
       setBaseline(data.values);
       setDraft(data.values);
       setRevision(data.revision);
@@ -91,6 +107,7 @@ export function PreferencesPage() {
     },
   });
   const reload = () => {
+    setLanguagePreviewDirty(false);
     setBaseline(undefined);
     setSaved(undefined);
     void preferences.refetch();
@@ -154,6 +171,7 @@ export function PreferencesPage() {
         }
         onCancel={() => {
           setSaved(undefined);
+          setLanguagePreviewDirty(false);
           if (baseline) setDraft(baseline);
         }}
         onSave={() => {
@@ -322,5 +340,5 @@ function applyPreferences(values: Record<string, unknown>) {
   // Absent until preferences load; applying the "system" default then would
   // briefly switch away from the cached language.
   const language = values[LANGUAGE_PREFERENCE_KEY];
-  if (isLanguagePreference(language)) applyLanguagePreference(language);
+  if (isLanguagePreference(language)) previewLanguagePreference(language);
 }
