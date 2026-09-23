@@ -741,6 +741,16 @@ func normalizeItemDefaultsWithOrganization(ctx context.Context, q interface {
 		audio := value == "true"
 		input.AudioEnabled = &audio
 	}
+	// An omitted image duration resolves to the organization default instead
+	// of failing validation. Explicit non-positive durations still fail below,
+	// and callers that opt into Player defaults keep a nil duration.
+	if assetType == "image" && input.DurationMS == nil && !input.UsePlayerDefaults {
+		var defaultMS int64
+		if err := q.QueryRow(ctx, `SELECT COALESCE((SELECT round((settings->>'player.playback.default_image_duration_seconds')::numeric*1000)::bigint FROM organization_runtime_settings LIMIT 1),10000)`).Scan(&defaultMS); err != nil {
+			return input, err
+		}
+		input.DurationMS = &defaultMS
+	}
 	return input, nil
 }
 
