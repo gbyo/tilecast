@@ -113,7 +113,7 @@ describe("settings presentation", () => {
         definition={definition({
           key: "player.cache.max_bytes",
           type: "int64",
-          title: "Maximum cache size",
+          title: "Maximum cache bytes",
           min: 1024 ** 2,
           max: 1024 ** 4,
         })}
@@ -122,10 +122,10 @@ describe("settings presentation", () => {
       />,
     );
     expect(
-      screen.getByRole("spinbutton", { name: "Maximum cache size" }),
+      screen.getByRole("spinbutton", { name: "Maximum cache bytes" }),
     ).toHaveValue(8);
     fireEvent.change(
-      screen.getByRole("spinbutton", { name: "Maximum cache size" }),
+      screen.getByRole("spinbutton", { name: "Maximum cache bytes" }),
       { target: { value: "12" } },
     );
     expect(change).toHaveBeenCalledWith(12 * 1024 ** 3);
@@ -255,10 +255,10 @@ describe("settings presentation", () => {
       definition({
         key: "player.cache.max_bytes",
         type: "int64",
-        title: "Maximum cache size",
+        title: "Maximum cache bytes",
       }),
     ]);
-    expect(groups.at(0)?.title).toBe("Storage and delivery");
+    expect(groups.at(0)?.titleKey).toBe("groups.playback.storage.title");
 
     const reliabilityGroups = groupsFor("reliability", [
       definition({
@@ -276,9 +276,9 @@ describe("settings presentation", () => {
         scope: "policy",
       }),
     ]);
-    expect(reliabilityGroups.map((group) => group.title)).toEqual([
-      "Android Managed Kiosk",
-      "Linux kiosk",
+    expect(reliabilityGroups.map((group) => group.titleKey)).toEqual([
+      "groups.reliability.androidKiosk.title",
+      "groups.reliability.linuxKiosk.title",
     ]);
   });
 });

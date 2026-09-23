@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router";
+import { Trans, useTranslation } from "react-i18next";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Spinner } from "../components/ui/spinner";
 import { api, ApiError } from "../api/client";
@@ -40,6 +41,7 @@ export {
 } from "../settings/SettingsOperations";
 
 export function SettingsPage() {
+  const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const location = useLocation();
   const active = sectionFromPath(location.pathname);
@@ -83,7 +85,7 @@ export function SettingsPage() {
   const navigationWarning = useNavigationWarning(
     dirty.size > 0,
     "/settings",
-    "Leave Settings with unsaved changes?",
+    t("page.leaveWarning"),
   );
   const navigate = useNavigate();
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -117,7 +119,7 @@ export function SettingsPage() {
         setBaseline(data.values);
         setDraft(next);
         setRevision(data.revision);
-        setSaved("Settings saved.");
+        setSaved(t("page.saved"));
       },
     });
   };
@@ -134,7 +136,7 @@ export function SettingsPage() {
   if (settings.isLoading)
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Spinner aria-hidden="true" /> Loading settings…
+        <Spinner aria-hidden="true" /> {t("page.loading")}
       </p>
     );
   return (
@@ -151,9 +153,8 @@ export function SettingsPage() {
             .flatMap((group) => group.items)
             .find((item) => item.id === next)?.path;
           void confirm({
-            title:
-              "This section has unsaved changes. Keep them and open another Settings section?",
-            action: "Discard changes",
+            title: t("page.leaveSectionTitle"),
+            action: t("page.leaveSectionAction"),
           }).then((ok) => {
             if (ok && path) void navigate(`/settings/${path}`);
           });
@@ -176,7 +177,7 @@ export function SettingsPage() {
           dirty={organizationDirtyHere}
           saving={saveOrganization.isPending}
           success={saved}
-          error={errorMessage(saveOrganization.error)}
+          error={errorMessage(saveOrganization.error, t)}
           onCancel={cancel}
           onSave={save}
           onReload={isConflict(saveOrganization.error) ? reload : undefined}
@@ -203,6 +204,7 @@ function Destination({
   onChange: (key: string, value: unknown) => void;
   onRetentionDirtyChange: (dirty: boolean) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   if (active === "users") return <UsersPage />;
   if (active === "dependency-graph") return <DependencyGraphPage />;
   if (active === "locations") return <LocationsPanel canManage={manageable} />;
@@ -262,10 +264,11 @@ function Destination({
         <div className="grid">
           <section className="border-b border-border py-6 pr-0 pb-2 pl-0 last:border-b-0">
             <header className="mb-2">
-              <h3 className="text-sm font-semibold">The review queue</h3>
+              <h3 className="text-sm font-semibold">
+                {t("page.reviewQueue.title")}
+              </h3>
               <p className="mt-1.5 max-w-[760px] text-sm text-muted-foreground">
-                Content waiting for review is listed under Content review in the
-                main navigation.
+                {t("page.reviewQueue.description")}
               </p>
             </header>
           </section>
@@ -285,12 +288,15 @@ function Destination({
   if (active === "takeover")
     before = (
       <Alert>
-        <AlertTitle>Automatic weather alerts moved to Plugins.</AlertTitle>
+        <AlertTitle>{t("page.takeoverAlert.title")}</AlertTitle>
         <AlertDescription>
-          NWS monitoring, alert rules, and active emergencies are configured in
-          the <Link to="/plugins/emergency-alerts">Emergency Alerts</Link>{" "}
-          plugin. The defaults below apply to a Takeover started by hand and to
-          player commands.
+          <Trans
+            i18nKey="page.takeoverAlert.description"
+            ns="settings"
+            components={{
+              alertsLink: <Link to="/plugins/emergency-alerts" />,
+            }}
+          />
         </AlertDescription>
       </Alert>
     );
@@ -308,11 +314,9 @@ function Destination({
   if (active === "accessibility")
     before = (
       <Alert>
-        <AlertTitle>Local setup is required on every player.</AlertTitle>
+        <AlertTitle>{t("page.accessibilityAlert.title")}</AlertTitle>
         <AlertDescription>
-          Accessibility Control Assist must be enabled manually in Android
-          Accessibility Settings. Enabling policy here does not grant Android
-          permission.
+          {t("page.accessibilityAlert.description")}
         </AlertDescription>
       </Alert>
     );
@@ -325,8 +329,7 @@ function Destination({
     before = (
       <Alert>
         <AlertDescription role="alert">
-          Start and end times are identical. Choose a distinct range; an earlier
-          end time is treated as overnight.
+          {t("page.powerAlert.description")}
         </AlertDescription>
       </Alert>
     );
@@ -360,6 +363,7 @@ function Destination({
  * discovered afterwards.
  */
 function MFAPolicyNotice({ values }: { values: Record<string, unknown> }) {
+  const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const value = values["security.mfa_required_scope"];
   const scope = typeof value === "string" ? value : "none";
@@ -369,26 +373,19 @@ function MFAPolicyNotice({ values }: { values: Record<string, unknown> }) {
         <Alert>
           <AlertTitle>
             {scope === "all"
-              ? "Every account must enroll a second factor."
-              : "Owners and Administrators must enroll a second factor."}
+              ? t("page.mfa.allRequired")
+              : t("page.mfa.adminsRequired")}
           </AlertTitle>
-          <AlertDescription>
-            Nobody is signed out. An account in scope that has not enrolled is
-            asked to set up an authenticator app or a passkey at its next
-            sign-in, and cannot use the rest of Studio until it does. An Owner
-            or Administrator can clear a locked-out account’s factors from
-            Settings → Users.
-          </AlertDescription>
+          <AlertDescription>{t("page.mfa.consequence")}</AlertDescription>
         </Alert>
       )}
       {auth.status?.passkeysAvailable === false && (
         <Alert>
-          <AlertTitle>
-            Passkeys are unavailable on this installation.
-          </AlertTitle>
+          <AlertTitle>{t("page.mfa.passkeysUnavailable")}</AlertTitle>
           <AlertDescription>
-            {auth.status.passkeysUnavailableReason} Authenticator apps and
-            recovery codes work regardless.
+            {t("page.mfa.passkeysFallback", {
+              reason: auth.status.passkeysUnavailableReason,
+            })}
           </AlertDescription>
         </Alert>
       )}
@@ -397,10 +394,13 @@ function MFAPolicyNotice({ values }: { values: Record<string, unknown> }) {
 }
 
 function BrandingPreview({ values }: { values: Record<string, unknown> }) {
+  const { t } = useTranslation(["settings", "common"]);
   return (
     <div className="grid grid-cols-[minmax(280px,1fr)_minmax(200px,0.6fr)] items-end gap-6 px-0 pt-6 pb-1 max-[850px]:grid-cols-1">
       <div>
-        <h3 className="m-0 mb-2 text-sm font-semibold">Player preview</h3>
+        <h3 className="m-0 mb-2 text-sm font-semibold">
+          {t("page.preview.title")}
+        </h3>
         <div
           className="m-0 grid min-h-[170px] place-content-center gap-2 border border-border p-6 text-center"
           style={{
@@ -409,20 +409,22 @@ function BrandingPreview({ values }: { values: Record<string, unknown> }) {
           }}
         >
           <strong>
-            {text(values["branding.no_content_title"], "No content assigned")}
+            {text(
+              values["branding.no_content_title"],
+              t("page.preview.noContentTitle"),
+            )}
           </strong>
           <span>
             {text(
               values["branding.no_content_message"],
-              "This screen is ready for content.",
+              t("page.preview.noContentMessage"),
             )}
           </span>
           <small>{text(values["branding.footer_text"], "Tilecast")}</small>
         </div>
       </div>
       <p className="m-0 text-[13px] text-muted-foreground">
-        Takeover keeps Tilecast’s fixed high-contrast treatment regardless of
-        custom branding.
+        {t("page.preview.takeoverNote")}
       </p>
     </div>
   );
@@ -501,9 +503,10 @@ function isConflict(error: Error | null | undefined) {
     error instanceof ApiError && error.code === "settings_revision_conflict"
   );
 }
-function errorMessage(error: Error | null | undefined) {
+function errorMessage(
+  error: Error | null | undefined,
+  t: (key: "page.conflict") => string,
+) {
   if (!error) return undefined;
-  return isConflict(error)
-    ? "These settings changed elsewhere. Reload the latest settings before saving."
-    : error.message;
+  return isConflict(error) ? t("page.conflict") : error.message;
 }

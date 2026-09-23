@@ -1,7 +1,8 @@
 import { useId, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { signalColors } from "@tilecast/design-tokens/values";
 import type { SettingDefinition } from "../api/types";
-import { enumLabel } from "./settingDisplay";
+import { enumLabel, titleFor } from "./settingDisplay";
 import {
   normalizeLocalTime,
   normalizeTimezone,
@@ -22,13 +23,13 @@ import { Switch } from "../components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 const weekdays = [
-  [1, "Mon"],
-  [2, "Tue"],
-  [3, "Wed"],
-  [4, "Thu"],
-  [5, "Fri"],
-  [6, "Sat"],
-  [7, "Sun"],
+  [1, "monday"],
+  [2, "tuesday"],
+  [3, "wednesday"],
+  [4, "thursday"],
+  [5, "friday"],
+  [6, "saturday"],
+  [7, "sunday"],
 ] as const;
 const packagePattern = /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/;
 const byteUnits = { MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 } as const;
@@ -44,20 +45,22 @@ export function SettingControl({
   disabled?: boolean;
   onChange: (value: unknown) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const id = useId();
+  const title = titleFor(definition);
   if (definition.type === "bool") {
     const checked = Boolean(value);
     return (
       <span className="inline-flex items-center gap-2">
         <Switch
           id={id}
-          aria-label={definition.title}
+          aria-label={title}
           checked={checked}
           disabled={disabled}
           onCheckedChange={(next) => onChange(next)}
         />
         <span aria-hidden="true" className="text-sm text-muted-foreground">
-          {checked ? "On" : "Off"}
+          {checked ? t("controls.bool.on") : t("controls.bool.off")}
         </span>
       </span>
     );
@@ -66,7 +69,7 @@ export function SettingControl({
     const timezone = normalizeTimezone(value);
     return (
       <SettingSelect
-        label={definition.title}
+        label={title}
         value={timezone}
         disabled={disabled}
         onChange={(next) => onChange(next)}
@@ -80,7 +83,7 @@ export function SettingControl({
   if (definition.type === "enum")
     return (
       <SettingSelect
-        label={definition.title}
+        label={title}
         value={String(value)}
         disabled={disabled}
         onChange={(next) => onChange(next)}
@@ -142,7 +145,7 @@ export function SettingControl({
       <UnitInput
         definition={definition}
         value={Number(value)}
-        unit={duration.label}
+        unit={t(duration.labelKey)}
         multiplier={duration.multiplier}
         disabled={disabled}
         onChange={onChange}
@@ -152,7 +155,7 @@ export function SettingControl({
     return (
       <Input
         id={id}
-        aria-label={definition.title}
+        aria-label={title}
         type="time"
         value={normalizeLocalTime(value)}
         step={60}
@@ -164,7 +167,7 @@ export function SettingControl({
   return (
     <Input
       id={id}
-      aria-label={definition.title}
+      aria-label={title}
       type={
         numeric
           ? "number"
@@ -235,11 +238,12 @@ function WeekdayPicker({
   disabled?: boolean;
   onChange: (value: unknown) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const selected = Array.isArray(value) ? value.map((day) => String(day)) : [];
   return (
     <ToggleGroup
       multiple
-      aria-label="Active days"
+      aria-label={t("controls.weekdays.label")}
       value={selected}
       disabled={disabled}
       onValueChange={(next) => {
@@ -247,9 +251,13 @@ function WeekdayPicker({
         if (days.length > 0) onChange(days);
       }}
     >
-      {weekdays.map(([day, label]) => (
-        <ToggleGroupItem key={day} value={String(day)} aria-label={label}>
-          {label}
+      {weekdays.map(([day, dayKey]) => (
+        <ToggleGroupItem
+          key={day}
+          value={String(day)}
+          aria-label={t(`controls.weekdays.${dayKey}`)}
+        >
+          {t(`controls.weekdays.${dayKey}`)}
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
@@ -264,6 +272,7 @@ function PackageList({
   disabled?: boolean;
   onChange: (value: unknown) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const values = Array.isArray(value) ? value.map(String) : [];
   const [entry, setEntry] = useState("");
   const invalid = entry.length > 0 && !packagePattern.test(entry.trim());
@@ -271,9 +280,10 @@ function PackageList({
     <div className="grid gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <Input
-          aria-label="Android package name"
+          aria-label={t("controls.packageList.label")}
           value={entry}
           disabled={disabled}
+          // i18n-ignore: example package name, not language text
           placeholder="com.android.settings"
           onChange={(event) => setEntry(event.target.value)}
         />
@@ -292,14 +302,10 @@ function PackageList({
             setEntry("");
           }}
         >
-          Add
+          {t("controls.packageList.add")}
         </Button>
       </div>
-      {invalid && (
-        <FieldError>
-          Enter an Android package name such as com.android.settings.
-        </FieldError>
-      )}
+      {invalid && <FieldError>{t("controls.packageList.invalid")}</FieldError>}
       <ul className="grid gap-1">
         {values.map((item) => (
           <li key={item} className="flex flex-wrap items-center gap-2 text-sm">
@@ -310,11 +316,11 @@ function PackageList({
               type="button"
               variant="ghost"
               size="sm"
-              aria-label={`Remove ${item}`}
+              aria-label={t("controls.packageList.removeItem", { item })}
               disabled={disabled}
               onClick={() => onChange(values.filter((value) => value !== item))}
             >
-              Remove
+              {t("controls.packageList.remove")}
             </Button>
           </li>
         ))}
@@ -333,6 +339,8 @@ function ByteInput({
   disabled?: boolean;
   onChange: (value: unknown) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const title = titleFor(definition);
   const initial = useMemo(
     () => (value >= byteUnits.TB ? "TB" : value >= byteUnits.GB ? "GB" : "MB"),
     [value],
@@ -341,7 +349,7 @@ function ByteInput({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Input
-        aria-label={definition.title}
+        aria-label={title}
         type="number"
         min={definition.min ? definition.min / byteUnits[unit] : undefined}
         max={definition.max ? definition.max / byteUnits[unit] : undefined}
@@ -353,7 +361,7 @@ function ByteInput({
         }
       />
       <SettingSelect
-        label={`${definition.title} unit`}
+        label={t("controls.unitLabel", { title })}
         value={unit}
         disabled={disabled}
         onChange={(next) => setUnit(next as keyof typeof byteUnits)}
@@ -380,10 +388,11 @@ function UnitInput({
   disabled?: boolean;
   onChange: (value: unknown) => void;
 }) {
+  const title = titleFor(definition);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Input
-        aria-label={definition.title}
+        aria-label={title}
         type="number"
         min={definition.min ? definition.min / multiplier : undefined}
         max={definition.max ? definition.max / multiplier : undefined}
@@ -408,6 +417,8 @@ function DurationInput({
   disabled?: boolean;
   onChange: (value: unknown) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const title = titleFor(definition);
   const units = { seconds: 1, minutes: 60, hours: 3600 } as const;
   const initial =
     value >= 3600 && value % 3600 === 0
@@ -420,7 +431,7 @@ function DurationInput({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Input
-        aria-label={definition.title}
+        aria-label={title}
         type="number"
         min={definition.min != null ? definition.min / multiplier : undefined}
         max={definition.max != null ? definition.max / multiplier : undefined}
@@ -432,14 +443,16 @@ function DurationInput({
         }
       />
       <SettingSelect
-        label={`${definition.title} unit`}
+        label={t("controls.unitLabel", { title })}
         value={unit}
         disabled={disabled}
         onChange={(next) => setUnit(next as keyof typeof units)}
-        options={Object.keys(units).map((option) => ({
-          value: option,
-          label: option,
-        }))}
+        options={(Object.keys(units) as (keyof typeof units)[]).map(
+          (option) => ({
+            value: option,
+            label: t(`controls.durationUnits.${option}`),
+          }),
+        )}
       />
     </div>
   );
@@ -455,11 +468,12 @@ function ColorInput({
   disabled?: boolean;
   onChange: (value: unknown) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const valid = /^#[0-9A-Fa-f]{6}$/.test(value);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input
-        aria-label="Color picker"
+        aria-label={t("controls.color.picker")}
         type="color"
         className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         value={valid ? value : signalColors.colorInputFallback}
@@ -468,21 +482,28 @@ function ColorInput({
       />
       <Input
         id={id}
-        aria-label="Hex color"
+        aria-label={t("controls.color.hex")}
         value={value}
         disabled={disabled}
         aria-invalid={!valid}
         onChange={(event) => onChange(event.target.value.toUpperCase())}
       />
-      {!valid && <FieldError>Use a six-digit hex color.</FieldError>}
+      {!valid && <FieldError>{t("controls.color.hint")}</FieldError>}
     </div>
   );
 }
-function unitFor(definition: SettingDefinition) {
+function unitFor(definition: SettingDefinition): {
+  labelKey:
+    | "controls.timeUnits.minutes"
+    | "controls.timeUnits.hours"
+    | "controls.timeUnits.days";
+  multiplier: number;
+} | null {
   if (definition.key.endsWith("_minutes"))
-    return { label: "minutes", multiplier: 1 };
+    return { labelKey: "controls.timeUnits.minutes", multiplier: 1 };
   if (definition.key.endsWith("_hours"))
-    return { label: "hours", multiplier: 1 };
-  if (definition.key.endsWith("_days")) return { label: "days", multiplier: 1 };
-  return undefined;
+    return { labelKey: "controls.timeUnits.hours", multiplier: 1 };
+  if (definition.key.endsWith("_days"))
+    return { labelKey: "controls.timeUnits.days", multiplier: 1 };
+  return null;
 }
