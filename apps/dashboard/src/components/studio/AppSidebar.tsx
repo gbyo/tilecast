@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import type { User } from "@/api/types";
 import { Brand } from "@/components/Brand";
@@ -34,39 +35,49 @@ import { NavMain } from "./NavMain";
 import { NavSecondary } from "./NavSecondary";
 import { NavUser } from "./NavUser";
 
+// Navigation structures hold translation keys, never rendered text. Labels
+// are resolved with t() at render so the sidebar follows language changes.
 const navigationGroups = [
   {
-    label: "Screens",
+    labelKey: "groups.screens",
     items: [
-      { title: "Fleet", url: "/screens", icon: <Monitor /> },
-      { title: "Display Groups", url: "/groups", icon: <Users /> },
-      { title: "Archive", url: "/screens/archive", icon: <Archive /> },
+      { titleKey: "items.fleet", url: "/screens", icon: <Monitor /> },
+      { titleKey: "items.displayGroups", url: "/groups", icon: <Users /> },
+      { titleKey: "items.archive", url: "/screens/archive", icon: <Archive /> },
     ],
   },
   {
-    label: "Content",
+    labelKey: "groups.content",
     items: [
-      { title: "Media", url: "/assets", icon: <Image /> },
-      { title: "Widgets", url: "/widgets", icon: <Blocks /> },
-      { title: "Data Sources", url: "/data-sources", icon: <Database /> },
+      { titleKey: "items.media", url: "/assets", icon: <Image /> },
+      { titleKey: "items.widgets", url: "/widgets", icon: <Blocks /> },
+      {
+        titleKey: "items.dataSources",
+        url: "/data-sources",
+        icon: <Database />,
+      },
     ],
   },
   {
-    label: "Presentations",
+    labelKey: "groups.presentations",
     items: [
-      { title: "Playlists", url: "/playlists", icon: <ListVideo /> },
-      { title: "Layouts", url: "/layouts", icon: <PanelsTopLeft /> },
-      { title: "Campaigns", url: "/campaigns", icon: <Megaphone /> },
+      { titleKey: "items.playlists", url: "/playlists", icon: <ListVideo /> },
+      { titleKey: "items.layouts", url: "/layouts", icon: <PanelsTopLeft /> },
+      { titleKey: "items.campaigns", url: "/campaigns", icon: <Megaphone /> },
     ],
   },
   {
-    label: "Operations",
+    labelKey: "groups.operations",
     items: [
-      { title: "Schedules", url: "/schedules", icon: <CalendarClock /> },
-      { title: "Plugins", url: "/plugins", icon: <Puzzle /> },
+      {
+        titleKey: "items.schedules",
+        url: "/schedules",
+        icon: <CalendarClock />,
+      },
+      { titleKey: "items.plugins", url: "/plugins", icon: <Puzzle /> },
     ],
   },
-];
+] as const;
 
 export function AppSidebar({
   user,
@@ -77,6 +88,7 @@ export function AppSidebar({
   onSignOut: () => void;
   signOutDisabled?: boolean;
 }) {
+  const { t } = useTranslation(["navigation", "common"]);
   const forms = useQuery({
     queryKey: ["forms"],
     queryFn: api.listForms,
@@ -87,17 +99,17 @@ export function AppSidebar({
   );
 
   const secondaryItems = [
-    { title: "Activity", url: "/activity", icon: <Activity /> },
+    { title: t("items.activity"), url: "/activity", icon: <Activity /> },
     ...(canReview
       ? [
           {
-            title: "Approvals",
+            title: t("items.approvals"),
             url: "/approvals",
             icon: <ClipboardCheck />,
           },
         ]
       : []),
-    { title: "Settings", url: "/settings", icon: <Settings /> },
+    { title: t("items.settings"), url: "/settings", icon: <Settings /> },
   ];
 
   return (
@@ -108,7 +120,7 @@ export function AppSidebar({
             <SidebarMenuButton
               size="lg"
               className="px-2"
-              render={<Link to="/" aria-label="Tilecast Overview" />}
+              render={<Link to="/" aria-label={t("brand.home")} />}
             >
               <Brand />
             </SidebarMenuButton>
@@ -118,12 +130,19 @@ export function AppSidebar({
       <SidebarContent className="gap-0 py-2">
         <NavMain
           overview={{
-            title: "Overview",
+            title: t("overview"),
             url: "/",
             icon: <Home />,
             end: true,
           }}
-          groups={navigationGroups}
+          groups={navigationGroups.map((group) => ({
+            label: t(group.labelKey),
+            items: group.items.map((item) => ({
+              title: t(item.titleKey),
+              url: item.url,
+              icon: item.icon,
+            })),
+          }))}
         />
         <NavSecondary className="mt-auto" items={secondaryItems} />
       </SidebarContent>

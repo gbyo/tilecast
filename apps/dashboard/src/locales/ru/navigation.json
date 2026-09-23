@@ -1,1 +1,108 @@
-{}
+{
+  "brand": {
+    "home": "Обзор Tilecast"
+  },
+  "groups": {
+    "screens": "Экраны",
+    "content": "Контент",
+    "presentations": "Презентации",
+    "operations": "Операции"
+  },
+  "overview": "Обзор",
+  "userMenu": {
+    "openLabel": "Открыть меню учётной записи {{name}}",
+    "myForms": "Мои формы",
+    "myAccount": "Моя учётная запись",
+    "signOut": "Выйти"
+  },
+  "items": {
+    "fleet": "Парк",
+    "displayGroups": "Группы экранов",
+    "archive": "Архив",
+    "media": "Медиа",
+    "widgets": "Виджеты",
+    "dataSources": "Источники данных",
+    "playlists": "Плейлисты",
+    "layouts": "Макеты",
+    "campaigns": "Кампании",
+    "schedules": "Расписания",
+    "plugins": "Плагины",
+    "activity": "Активность",
+    "approvals": "Согласования",
+    "settings": "Настройки"
+  },
+  "header": {
+    "toggleNavigation": "Переключить навигацию",
+    "search": "Поиск по Tilecast",
+    "notifications": "Уведомления",
+    "notificationsWithCount": "Уведомления, активных: {{count}}",
+    "activeCount": "Активных: {{count}}",
+    "noneActive": "Нет активных",
+    "caughtUp": "Всё просмотрено.",
+    "groups": {
+      "critical": "Критические",
+      "warning": "Требуют внимания",
+      "info": "Информационные"
+    }
+  },
+  "palette": {
+    "title": "Поиск по Tilecast",
+    "description": "Найдите рабочую область, экран или быстрое действие.",
+    "label": "Поиск по Tilecast",
+    "placeholder": "Поиск экранов, медиа, плейлистов…",
+    "resultsLabel": "Результаты поиска",
+    "noResults": "Ничего не найдено по запросу «{{query}}».",
+    "noDestinations": "Нет доступных разделов.",
+    "groups": {
+      "quickActions": "Быстрые действия",
+      "screens": "Экраны",
+      "content": "Контент",
+      "presentations": "Презентации",
+      "scheduling": "Планирование",
+      "administration": "Администрирование",
+      "navigation": "Навигация"
+    },
+    "actions": {
+      "pairScreen": {
+        "label": "Подключить экран",
+        "description": "Подключите новый проигрыватель"
+      },
+      "uploadMedia": {
+        "label": "Загрузить медиа",
+        "description": "Добавьте изображения, видео или документы"
+      },
+      "createPlaylist": {
+        "label": "Создать плейлист",
+        "description": "Создайте новую полноэкранную презентацию"
+      },
+      "createLayout": {
+        "label": "Создать макет",
+        "description": "Разместите контент на холсте презентации"
+      },
+      "createSchedule": {
+        "label": "Создать расписание",
+        "description": "Запланируйте, где и когда воспроизводится контент"
+      }
+    },
+    "plugin": "Плагин",
+    "pluginNotInstalled": "Плагин · Не установлен",
+    "hints": {
+      "move": "переместить",
+      "open": "открыть",
+      "close": "закрыть"
+    },
+    "screenStatus": {
+      "online": "В сети",
+      "recent": "Недавно в сети",
+      "stale": "Давно не на связи",
+      "offline": "Не в сети",
+      "disabled": "Отключён",
+      "revoked": "Привязка отозвана"
+    }
+  },
+  "error": {
+    "title": "Не удалось отобразить эту страницу.",
+    "fallback": "При отображении страницы произошла непредвиденная ошибка.",
+    "retry": "Попробовать снова"
+  }
+}
