@@ -6,11 +6,11 @@ The Tilecast Linux display engine: a small C11/GLib embedder of WPE WebKit 2.54+
 
 ## Platforms
 
-| `--platform` | Use |
-| --- | --- |
+| `--platform`    | Use                                                             |
+| --------------- | --------------------------------------------------------------- |
 | `drm` (default) | Dedicated signage, no compositor (`tilecast-renderer.service`). |
-| `wayland` | Development machines and existing kiosk compositors. |
-| `headless` | CI and integration tests. |
+| `wayland`       | Development machines and existing kiosk compositors.            |
+| `headless`      | CI and integration tests.                                       |
 
 ## What it serves
 

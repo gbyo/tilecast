@@ -74,12 +74,15 @@
     post(message);
   };
 
-  const afterPaint = (callback) => requestAnimationFrame(() => requestAnimationFrame(callback));
+  const afterPaint = (callback) =>
+    requestAnimationFrame(() => requestAnimationFrame(callback));
 
   const applyActivation = (data) => {
     const presentation = data.presentation;
     const sameActivation =
-      current && current.activationId === data.activationId && current.generation === data.generation;
+      current &&
+      current.activationId === data.activationId &&
+      current.generation === data.generation;
     current = { activationId: data.activationId, generation: data.generation };
     if (!sameActivation) {
       lastPresentation = presentation;
@@ -110,14 +113,20 @@
           } catch (error) {
             post({
               type: "presentation.rejected",
-              activation: { activationId: data.activationId, generation: data.generation },
+              activation: {
+                activationId: data.activationId,
+                generation: data.generation,
+              },
               code: "runtime_error",
               message: text(error && error.message, 240),
             });
           }
           return true;
         case "plugin.state":
-          lastPlugins = { plugins: data.plugins, clockOffsetMs: data.clockOffsetMs };
+          lastPlugins = {
+            plugins: data.plugins,
+            clockOffsetMs: data.clockOffsetMs,
+          };
           emit(listeners.plugins, lastPlugins);
           return true;
         case "presentation.clear":
@@ -126,7 +135,10 @@
           emit(listeners.present, lastPresentation);
           return true;
         case "presentation.identify":
-          emit(listeners.identify, { name: data.name, durationSeconds: data.durationSeconds });
+          emit(listeners.identify, {
+            name: data.name,
+            durationSeconds: data.durationSeconds,
+          });
           return true;
         case "renderer.command":
           if (data.command === "retry_item") emit(listeners.retry, undefined);
@@ -146,7 +158,10 @@
       }
     },
   };
-  Object.defineProperty(globalThis, "__tilecastHost", { value: Object.freeze(host), configurable: false });
+  Object.defineProperty(globalThis, "__tilecastHost", {
+    value: Object.freeze(host),
+    configurable: false,
+  });
 
   const bridge = {
     onPresent(callback) {
@@ -197,7 +212,10 @@
       return handlers.tilecastRequest
         .postMessage({ type: "setup.submit_server_url", url: text(url, 512) })
         .then(
-          (result) => ({ ok: Boolean(result && result.ok), error: result && result.error }),
+          (result) => ({
+            ok: Boolean(result && result.ok),
+            error: result && result.error,
+          }),
           () => ({ ok: false, error: "tilecastd is not reachable." }),
         );
     },
@@ -207,7 +225,10 @@
       return Promise.resolve([]);
     },
   };
-  Object.defineProperty(globalThis, "tilecast", { value: Object.freeze(bridge), configurable: false });
+  Object.defineProperty(globalThis, "tilecast", {
+    value: Object.freeze(bridge),
+    configurable: false,
+  });
 
   addEventListener("DOMContentLoaded", () => {
     afterPaint(() => post({ type: "runtime.ready" }));
