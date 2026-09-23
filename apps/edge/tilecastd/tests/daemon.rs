@@ -22,6 +22,7 @@ use tilecastd::daemon::Daemon;
 struct Running {
     dir: tempfile::TempDir,
     socket: std::path::PathBuf,
+    admin: std::path::PathBuf,
     notify: UnixDatagram,
     shutdown: tokio_util::sync::CancellationToken,
     task: tokio::task::JoinHandle<anyhow::Result<()>>,
@@ -42,9 +43,10 @@ async fn start_in(dir: tempfile::TempDir) -> Running {
     let notifier = Notifier::with_socket(notify_path, Some(Duration::from_millis(400)));
     let daemon = Daemon::start(config(dir.path()), notifier).await.unwrap();
     let socket = daemon.socket_path();
+    let admin = daemon.socket_path();
     let shutdown = daemon.context().shutdown.clone();
     let task = tokio::spawn(daemon.run());
-    Running { dir, socket, notify, shutdown, task }
+    Running { dir, socket, admin, notify, shutdown, task }
 }
 
 fn next_notify(running: &Running) -> String {
@@ -66,10 +68,15 @@ fn ready_event(features: &[&str]) -> Event {
     })
 }
 
+/// The next event other than `plugin.state`, which accompanies every
+/// activation (empty unless a server presentation carries plugins).
 async fn expect_event(client: &IpcClient) -> Event {
-    match client.next_incoming(Duration::from_secs(5)).await.unwrap() {
-        Incoming::Event(_, event) => event,
-        Incoming::Goodbye(reason) => panic!("unexpected goodbye {reason}"),
+    loop {
+        match client.next_incoming(Duration::from_secs(5)).await.unwrap() {
+            Incoming::Event(_, Event::PluginState(state)) => assert!(state.plugins.is_empty()),
+            Incoming::Event(_, event) => return event,
+            Incoming::Goodbye(reason) => panic!("unexpected goodbye {reason}"),
+        }
     }
 }
 
@@ -93,7 +100,8 @@ async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
     // Renderer lifecycle: configure → ready → activate → accepted → progress.
     let client = renderer(&running.socket).await;
     let Event::RendererConfigure(configure) = expect_event(&client).await else { panic!("configure first") };
-    assert!(configure.content_store.root.as_str().ends_with("/state/cas"));
+    assert_eq!(configure.media_channel.protocol.as_str(), "daemon-cap-v1");
+    assert!(configure.media_channel.socket.as_str().ends_with("/run/media.sock"));
     client.send_event(ready_event(&["status-surfaces-v1"])).await.unwrap();
     let Event::PresentationActivate(activation) = expect_event(&client).await else { panic!("activation") };
     assert_eq!(activation.presentation, PresentationDocument::Setup {}, "unbound node shows setup");
@@ -109,7 +117,7 @@ async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
         .await
         .unwrap();
 
-    let admin = ctl(&running.socket).await;
+    let admin = ctl(&running.admin).await;
     let mut observed = status(&admin).await;
     for _ in 0..50 {
         if observed.renderer.state.as_str() == "healthy" {
@@ -150,10 +158,13 @@ async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
 
     // Clean shutdown: goodbye to sessions, STOPPING=1, clean marker.
     running.shutdown.cancel();
-    assert_eq!(
-        client.next_incoming(Duration::from_secs(5)).await.unwrap(),
-        Incoming::Goodbye("daemon_shutdown".into())
-    );
+    let goodbye = loop {
+        match client.next_incoming(Duration::from_secs(5)).await.unwrap() {
+            Incoming::Event(_, Event::PluginState(_)) => continue,
+            other => break other,
+        }
+    };
+    assert_eq!(goodbye, Incoming::Goodbye("daemon_shutdown".into()));
     running.task.await.unwrap().unwrap();
     let mut saw_stopping = false;
     while let Ok(n) = running.notify.recv(&mut [0u8; 512]) {
@@ -178,7 +189,7 @@ async fn incompatible_renderer_gets_explicit_unavailable_surface() {
     client.send_event(ready_event(&["image"])).await.unwrap();
     let Event::PresentationActivate(activation) = expect_event(&client).await else { panic!("activation") };
     assert!(matches!(activation.presentation, PresentationDocument::Unavailable(_)));
-    let admin = ctl(&running.socket).await;
+    let admin = ctl(&running.admin).await;
     let observed = status(&admin).await;
     assert_eq!(observed.renderer.state.as_str(), "incompatible");
     assert!(observed.renderer.incompatible_reason.unwrap().as_str().contains("status-surfaces-v1"));
@@ -193,7 +204,7 @@ async fn corrupt_state_enters_recovery_mode_without_recreating_it() {
     std::fs::write(dir.path().join("state/state.db"), vec![0x42u8; 4096]).unwrap();
     let running = start_in(dir).await;
     assert!(next_notify(&running).contains("Recovery mode"), "READY is still sent in recovery");
-    let admin = ctl(&running.socket).await;
+    let admin = ctl(&running.admin).await;
     let observed = status(&admin).await;
     assert_eq!(observed.mode, DaemonMode::Recovery);
     assert_eq!(observed.recovery_reason.unwrap().as_str(), "state_db_open_failed");

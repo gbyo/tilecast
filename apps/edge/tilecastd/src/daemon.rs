@@ -49,6 +49,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::config::EdgeConfig;
 use crate::ipc_handler::DaemonIpc;
+use crate::media::MediaRegistry;
+use crate::media_channel::{self, MediaChannel, ProcLineage};
 use crate::presentation::{ActivationSource, PresentationEngine};
 use crate::server_link::{self, LinkState};
 use crate::supervisor::SupervisorConfig;
@@ -81,8 +83,15 @@ pub struct DaemonContext {
     pub player_id: Option<PlayerId>,
     /// The content store; `None` in recovery mode.
     pub cas: Option<ContentStore>,
+    /// Renderer media capabilities (docs/tilecast-edge.md §10.3).
+    pub media_registry: Arc<std::sync::Mutex<MediaRegistry>>,
     /// Wakes the server link early (server push, IPC requests).
     pub server_wake: tokio::sync::Notify,
+    /// Wakes activation when a manifest is prepared or an item boundary passes.
+    pub manifest_wake: tokio::sync::Notify,
+    pub manifest_item_boundary: std::sync::atomic::AtomicBool,
+    /// What manifest preparation is doing, for status and heartbeat.
+    pub preparation: crate::manifest_sync::SharedPreparationStatus,
     pub link_state: std::sync::Mutex<LinkState>,
     /// Last successful authenticated contact with the server.
     pub last_server_contact: std::sync::Mutex<Option<Timestamp>>,
@@ -131,6 +140,12 @@ fn recovery(error: &StateError) -> StateMode {
     StateMode::Recovery { reason: error.reason_code() }
 }
 
+/// The surface to show while a bound screen waits for its first committed
+/// presentation.
+pub fn status_surface_for(context: &DaemonContext, bound: bool) -> PresentationDocument {
+    status_surface(context, bound)
+}
+
 /// The surface to show when nothing better is available.
 pub fn status_surface(context: &DaemonContext, bound: bool) -> PresentationDocument {
     let surface = |title: &str, message: &str, status: Option<&str>| StatusSurface {
@@ -156,6 +171,7 @@ pub fn status_surface(context: &DaemonContext, bound: bool) -> PresentationDocum
 pub struct Daemon {
     context: Arc<DaemonContext>,
     ipc: IpcServer,
+    media: Option<MediaChannel>,
 }
 
 impl std::fmt::Debug for Daemon {
@@ -178,7 +194,14 @@ impl Daemon {
             stall_threshold_ms: config.renderer.stall_threshold_seconds as i64 * 1_000,
             ..SupervisorConfig::default()
         };
-        let presentation = PresentationEngine::new(&paths.cas_root(), kiosk, supervisor, now.unix_millis());
+        let media_registry = Arc::new(std::sync::Mutex::new(MediaRegistry::new()));
+        let presentation = PresentationEngine::new(
+            &media_channel::socket_path(&paths.runtime_dir),
+            media_registry.clone(),
+            kiosk,
+            supervisor,
+            now.unix_millis(),
+        );
 
         let mut registry = CapabilityRegistry::new();
         registry.register(Arc::new(SystemdProvider {
@@ -237,7 +260,11 @@ impl Daemon {
             capability_revision: std::sync::atomic::AtomicU64::new(0),
             player_id,
             cas,
+            media_registry,
             server_wake: tokio::sync::Notify::new(),
+            manifest_wake: tokio::sync::Notify::new(),
+            manifest_item_boundary: std::sync::atomic::AtomicBool::new(false),
+            preparation: Default::default(),
             link_state: std::sync::Mutex::new(LinkState::Unbound),
             last_server_contact: std::sync::Mutex::new(None),
             shutdown: CancellationToken::new(),
@@ -260,7 +287,22 @@ impl Daemon {
         let ipc = IpcServer::bind(&socket, policy, handler, VERSION)
             .await
             .with_context(|| format!("binding {}", socket.display()))?;
-        Ok(Self { context, ipc })
+        let media = context
+            .cas
+            .clone()
+            .map(|cas| {
+                let path = media_channel::socket_path(&context.paths.runtime_dir);
+                MediaChannel::bind(
+                    &path,
+                    context.media_registry.clone(),
+                    cas,
+                    context.clock.clone(),
+                    Arc::new(ProcLineage),
+                )
+                .with_context(|| format!("binding {}", path.display()))
+            })
+            .transpose()?;
+        Ok(Self { context, ipc, media })
     }
 
     pub fn context(&self) -> &Arc<DaemonContext> {
@@ -278,10 +320,20 @@ impl Daemon {
         let shutdown = context.shutdown.clone();
         let mut tasks = tokio::task::JoinSet::new();
         tasks.spawn(self.ipc.run(shutdown.clone()));
+        if let Some(media) = self.media {
+            let media_shutdown = shutdown.clone();
+            tasks.spawn(async move {
+                if let Err(error) = media.run(media_shutdown.clone()).await {
+                    tracing::error!(component = "media", event = "channel_failed", error = %error);
+                    media_shutdown.cancel();
+                }
+            });
+        }
         tasks.spawn(watchdog_loop(Arc::clone(&context)));
         tasks.spawn(supervision_loop(Arc::clone(&context)));
         tasks.spawn(capability_loop(Arc::clone(&context)));
         tasks.spawn(crate::fixture::run(Arc::clone(&context)));
+        tasks.spawn(crate::activation::run(Arc::clone(&context)));
         tasks.spawn(cas_maintenance_loop(Arc::clone(&context)));
         tasks.spawn(server_link::run(Arc::clone(&context)));
 
@@ -389,6 +441,9 @@ async fn cas_maintenance_loop(context: Arc<DaemonContext>) {
         if let Some(db) = context.db() {
             let now = context.now();
             let _ = db.run(move |c| cas::expire_pins(c, now)).await;
+        }
+        if let Ok(mut registry) = context.media_registry.lock() {
+            registry.expire(context.now().unix_millis());
         }
     }
 }
