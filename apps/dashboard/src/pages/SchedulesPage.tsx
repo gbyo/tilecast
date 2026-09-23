@@ -7,7 +7,7 @@ import {
 import { LayoutGrid } from "lucide-react";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -17,7 +17,7 @@ import {
 } from "../components/ui/empty";
 import { useConfirm } from "../components/ConfirmDialog";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -26,7 +26,7 @@ import {
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -111,9 +111,9 @@ export function GroupsPage() {
         </div>
         {manageable && (
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton type="button" onClick={() => setCreateOpen(true)}>
+            <Button type="button" onClick={() => setCreateOpen(true)}>
               Create Display Group
-            </RheaButton>
+            </Button>
           </div>
         )}
       </header>
@@ -182,13 +182,13 @@ export function GroupsPage() {
               Create a Display Group for screens that should always share
               content, schedules, and playback position.
               {manageable && (
-                <RheaButton
+                <Button
                   type="button"
                   onClick={() => setCreateOpen(true)}
                   className="mt-3"
                 >
                   Create Display Group
-                </RheaButton>
+                </Button>
               )}
             </EmptyDescription>
           </EmptyHeader>
@@ -360,13 +360,13 @@ export function GroupDetailPage() {
         </div>
         {manageable && (
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton
+            <Button
               type="button"
               variant="ghost"
               onClick={() => setEditOpen(true)}
             >
               Edit Display Group
-            </RheaButton>
+            </Button>
             {editOpen && (
               <GroupDialog
                 title="Edit Display Group"
@@ -383,17 +383,17 @@ export function GroupDetailPage() {
                 }}
               />
             )}
-            <RheaButton type="button" onClick={() => setAirplayOpen(true)}>
+            <Button type="button" onClick={() => setAirplayOpen(true)}>
               Present · AirPlay
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               variant="secondary"
               onClick={() => setQuickPresentOpen(true)}
             >
               Show now
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               variant="destructive"
               onClick={() => {
@@ -408,7 +408,7 @@ export function GroupDetailPage() {
               }}
             >
               Delete Display Group
-            </RheaButton>
+            </Button>
             {confirmDialog}
           </div>
         )}
@@ -492,7 +492,7 @@ export function GroupDetailPage() {
             <FieldLabel htmlFor="group-gateway">
               Preferred presentation gateway
             </FieldLabel>
-            <RheaSelect
+            <Select
               value={groupData.presentationGatewayScreenId || "automatic"}
               onValueChange={(next) => {
                 if (!next || next === "automatic") {
@@ -532,7 +532,7 @@ export function GroupDetailPage() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
           </Field>
         </section>
       )}
@@ -551,7 +551,7 @@ export function GroupDetailPage() {
               <FieldLabel htmlFor="group-fallback">
                 Display Group fallback content
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={selectedPresentation || "none"}
                 onValueChange={(next) =>
                   setSelectedPresentation(!next || next === "none" ? "" : next)
@@ -585,9 +585,9 @@ export function GroupDetailPage() {
                       </SelectItem>
                     ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
-            <RheaButton
+            <Button
               type="button"
               disabled={
                 assignContent.isPending ||
@@ -596,7 +596,7 @@ export function GroupDetailPage() {
               onClick={() => assignContent.mutate(selectedPresentation)}
             >
               {assignContent.isPending ? "Applying…" : "Apply to Display Group"}
-            </RheaButton>
+            </Button>
           </div>
         ) : (
           <p className="flex flex-wrap gap-x-2 text-sm">
@@ -636,7 +636,7 @@ export function GroupDetailPage() {
             </Field>
             <Field>
               <FieldLabel htmlFor="group-add-screen">Add screen</FieldLabel>
-              <RheaSelect
+              <Select
                 value=""
                 disabled={available.length === 0 || add.isPending}
                 onValueChange={(next) => {
@@ -658,7 +658,7 @@ export function GroupDetailPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
           </div>
         )}
@@ -675,7 +675,7 @@ export function GroupDetailPage() {
                 </small>
               </span>
               {manageable && (
-                <RheaButton
+                <Button
                   type="button"
                   variant="ghost"
                   size="sm"
@@ -683,7 +683,7 @@ export function GroupDetailPage() {
                   onClick={() => remove.mutate(screen.id)}
                 >
                   Remove
-                </RheaButton>
+                </Button>
               )}
             </div>
           ))}
@@ -723,10 +723,7 @@ export function SchedulesPage() {
         </div>
         {canManage(auth.status?.user?.role) && (
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to="/schedules/new"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
+            <Link to="/schedules/new" className={buttonVariants()}>
               Create schedule
             </Link>
           </div>
@@ -814,7 +811,7 @@ function GroupDialog({
   const [name, setName] = useState(initial.name);
   const [description, setDescription] = useState(initial.description);
   return (
-    <RheaDialog
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -856,15 +853,15 @@ function GroupDialog({
             </Field>
           </div>
           <DialogFooter>
-            <RheaButton variant="outline" type="button" onClick={onClose}>
+            <Button variant="outline" type="button" onClick={onClose}>
               Cancel
-            </RheaButton>
-            <RheaButton type="submit" disabled={!name.trim() || pending}>
+            </Button>
+            <Button type="submit" disabled={!name.trim() || pending}>
               {pending ? "Saving…" : action}
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
-    </RheaDialog>
+    </Dialog>
   );
 }

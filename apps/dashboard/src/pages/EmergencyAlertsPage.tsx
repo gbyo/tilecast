@@ -567,7 +567,7 @@ export function EmergencyAlertsPage() {
               </Alert>
             )}
             {monitor && (
-              <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-muted/50 p-4 text-sm sm:grid-cols-4">
+              <dl className="grid grid-cols-2 gap-3 rounded-xl bg-muted/50 p-4 text-sm sm:grid-cols-4">
                 {[
                   ["Last success", dateText(monitor.lastSuccessAt)],
                   ["Last attempt", dateText(monitor.lastPolledAt)],
@@ -673,7 +673,7 @@ export function EmergencyAlertsPage() {
             )}
             {editable && (
               <form
-                className="grid gap-5 rounded-2xl border border-border p-4"
+                className="grid gap-5 rounded-xl border border-border p-4"
                 onSubmit={(event) => void submitRule(event)}
               >
                 <h3 className="text-base font-medium">

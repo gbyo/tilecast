@@ -76,7 +76,7 @@ export function FormsPluginPage() {
       {forms.isLoading ? (
         <ItemGroup className="gap-2" aria-busy="true">
           {[0, 1].map((key) => (
-            <Skeleton key={key} className="h-20 rounded-2xl" />
+            <Skeleton key={key} className="h-20 rounded-xl" />
           ))}
         </ItemGroup>
       ) : forms.data?.length === 0 ? (

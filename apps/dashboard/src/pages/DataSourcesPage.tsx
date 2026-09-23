@@ -284,7 +284,7 @@ export function DataSourcesPage() {
           )}
         </Empty>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-border">
+        <div className="overflow-x-auto rounded-xl border border-border">
           <Table>
             <TableHeader>
               <TableRow>

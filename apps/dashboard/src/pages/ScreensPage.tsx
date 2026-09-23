@@ -2129,7 +2129,7 @@ export function ScreenGridCard({
   return (
     <article
       ref={ref}
-      className={`group min-w-0 overflow-hidden rounded-2xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
+      className={`group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
     >
       <Link
         to={detailHref}

@@ -14,6 +14,11 @@ import {
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../components/ui/input-group";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -1198,20 +1203,17 @@ export function PlayerUpdatesPanel({
               <span className="text-sm font-medium">
                 Target screens and Display Groups
               </span>
-              <span className="flex items-center gap-2 rounded-2xl border border-transparent bg-input/50 px-3 py-2">
-                <Search
-                  size={16}
-                  aria-hidden="true"
-                  className="shrink-0 text-muted-foreground"
-                />
-                <Input
+              <InputGroup>
+                <InputGroupAddon>
+                  <Search aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
                   type="search"
                   value={targetSearch}
                   onChange={(event) => setTargetSearch(event.target.value)}
                   placeholder="Search by name"
-                  className="border-0 bg-transparent p-0"
                 />
-              </span>
+              </InputGroup>
             </label>
             <div
               className="grid gap-4 sm:grid-cols-2"

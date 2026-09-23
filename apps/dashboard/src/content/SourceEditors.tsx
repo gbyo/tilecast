@@ -150,7 +150,7 @@ export function WidgetProviderGallery({
           disabled ? `widget-availability-${definition.id}` : undefined
         }
         onClick={() => onChoose(definition.id)}
-        className="grid min-w-0 gap-2 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:border-foreground/20 disabled:opacity-60"
+        className="grid min-w-0 gap-2 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-foreground/20 disabled:opacity-60"
       >
         <span className="grid aspect-video w-full place-items-center overflow-hidden rounded-xl bg-muted">
           <WidgetThumbnail
@@ -196,7 +196,7 @@ export function WidgetProviderGallery({
         className={
           page
             ? "w-full min-w-0 space-y-5"
-            : "mx-auto w-full max-w-4xl space-y-5 rounded-2xl bg-background p-5"
+            : "mx-auto w-full max-w-4xl space-y-5 rounded-xl bg-background p-5"
         }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
@@ -729,7 +729,7 @@ export function NativeAppEditor({
         className={
           page
             ? "grid w-full min-w-0 gap-5"
-            : "mx-auto grid w-full max-w-5xl gap-5 rounded-2xl bg-background p-5"
+            : "mx-auto grid w-full max-w-5xl gap-5 rounded-xl bg-background p-5"
         }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
@@ -4257,7 +4257,7 @@ export function YouTubeSourceEditor({
         className={
           page
             ? "grid w-full min-w-0 gap-5"
-            : "mx-auto grid w-full max-w-3xl gap-5 rounded-2xl bg-background p-5"
+            : "mx-auto grid w-full max-w-3xl gap-5 rounded-xl bg-background p-5"
         }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}

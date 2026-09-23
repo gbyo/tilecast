@@ -505,7 +505,7 @@ function CommandPalette({
       className="w-[min(42rem,calc(100vw-2rem))]"
     >
       <Command
-        className="min-h-72 rounded-2xl p-1"
+        className="min-h-72 p-1"
         label="Search Tilecast"
         loop
         shouldFilter={false}
