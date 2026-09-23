@@ -1,1 +1,429 @@
-{}
+{
+  "list": {
+    "title": "Plugins",
+    "subtitle": "Add optional Tilecast features and integrations to this installation.",
+    "addAction": "Add plugin",
+    "browseAction": "Browse plugins",
+    "loadError": "Plugins could not be loaded.",
+    "unsupportedTitle": "Plugins from a newer Tilecast release",
+    "unsupportedBody_one": "{{ids}} is recorded as installed but not part of this release. It will not run, and its data is kept for when the newer release returns.",
+    "unsupportedBody_other": "{{ids}} are recorded as installed but not part of this release. They will not run, and their data is kept for when the newer release returns.",
+    "loading": "Loading plugins",
+    "installedLabel": "Installed plugins",
+    "emptyTitle": "No plugins installed",
+    "emptyDescription": "Add only the optional features this Tilecast installation needs.",
+    "openAction": "Open",
+    "openLabel": "Open {{name}}"
+  },
+  "status": {
+    "attention": "Attention",
+    "active": "Active",
+    "configured": "Configured",
+    "needsSetup": "Needs setup"
+  },
+  "catalog": {
+    "back": "All plugins",
+    "reviewDescription": "Review {{name}} before installing it.",
+    "installed": "Installed",
+    "install": "Install",
+    "installNote": "An Owner or Administrator can install plugins.",
+    "title": "Add a plugin",
+    "description": "Optional features built into this Tilecast release. Installing one never downloads code.",
+    "searchLabel": "Search plugins",
+    "searchPlaceholder": "Search plugins…",
+    "categoryLabel": "Plugin category",
+    "categories": {
+      "all": "All",
+      "display": "Display",
+      "automation": "Automation",
+      "workflow": "Workflow",
+      "hardware": "Hardware"
+    },
+    "emptySearchTitle": "No matching plugins",
+    "emptyInstalledTitle": "Every plugin is installed",
+    "emptySearchDescription": "Try another search or category.",
+    "emptyInstalledDescription": "This installation already uses every plugin this release offers.",
+    "requires": "Requires {{list}}"
+  },
+  "detail": {
+    "builtIn": "Built into Tilecast",
+    "requirements": "Requirements",
+    "noRequirements": "No Player or network requirements.",
+    "uses": "Uses"
+  },
+  "actionsMenu": {
+    "menuLabel": "{{name}} plugin actions",
+    "remove": "Remove plugin",
+    "blockedTitle": "{{name}} can't be removed",
+    "viewLabel": "View {{label}}",
+    "removeTitle": "Remove {{name}}?",
+    "removeDescription": "{{name}} leaves this installation's Plugins list and stops affecting screens. You can add it again at any time.",
+    "blockedEmpty": "This plugin is still in use.",
+    "blockedSentence_one": "{{list}} still uses this plugin.",
+    "blockedSentence_other": "{{list}} still use this plugin.",
+    "blockedWait": "Wait for active alerts to clear, then remove the plugin.",
+    "blockedMonitor": "Turn monitoring off on this page, then remove the plugin.",
+    "blockedDelete": "Delete the remaining {{labels}} on this page, then remove the plugin.",
+    "blockedMonitorDelete": "Turn monitoring off and delete the remaining {{labels}} on this page, then remove the plugin."
+  },
+  "gate": {
+    "notInstalled": "{{name}} isn't installed",
+    "installDescription": "Install {{name}} to start using it. {{description}}",
+    "lockedDescription": "{{description}} An Owner or Administrator can install it.",
+    "installAction": "Install {{name}}",
+    "backToPlugins": "Back to Plugins"
+  },
+  "shared": {
+    "scope": {
+      "all": "All screens",
+      "screens": "Individual screens",
+      "syncGroups": "Display Groups",
+      "locations": "Locations"
+    },
+    "targetType": "Target type",
+    "chooseTargets": "Choose targets",
+    "available": "Available {{noun}}",
+    "selectedCount": "{{chosen}} of {{total}} selected",
+    "nouns": {
+      "screens": "screens",
+      "syncGroups": "Display Groups",
+      "locations": "locations"
+    },
+    "empty": {
+      "screens": "No screens are enrolled yet.",
+      "syncGroups": "No Display Groups exist yet.",
+      "locations": "No locations exist yet."
+    },
+    "loadingNoun": "Loading {{noun}}…",
+    "loadErrorNoun": "The {{noun}} could not be loaded.",
+    "backToPlugins": "Plugins",
+    "manageNote": "Owner or Administrator access is required to make changes.",
+    "newInstance": "New instance",
+    "createInstance": "Create instance",
+    "manage": "Manage",
+    "deleteTitle": "Delete “{{name}}”?",
+    "deleteAction": "Delete {{name}}",
+    "nameLabel": "Name",
+    "priorityLabel": "Priority",
+    "enabledLabel": "Enabled",
+    "enabledBadge": "Enabled",
+    "disabledBadge": "Disabled",
+    "targetsSection": "Targets"
+  },
+  "weekdays": {
+    "sunday": {
+      "short": "Sun"
+    },
+    "monday": {
+      "short": "Mon"
+    },
+    "tuesday": {
+      "short": "Tue"
+    },
+    "wednesday": {
+      "short": "Wed"
+    },
+    "thursday": {
+      "short": "Thu"
+    },
+    "friday": {
+      "short": "Fri"
+    },
+    "saturday": {
+      "short": "Sat"
+    }
+  },
+  "brandBug": {
+    "title": "Brand Bug / Watermark",
+    "subtitle": "Corner marks stay on screen over playlists, Layouts, websites, and Widgets without changing what is playing.",
+    "loadError": "Brand bugs could not be loaded.",
+    "emptyTitle": "No brand bugs configured",
+    "emptyDescription": "Create an instance to hold a logo, notice, or badge in a corner of selected screens.",
+    "deleteBody": "The mark will be removed from targeted Players.",
+    "editor": {
+      "createTitle": "New brand bug",
+      "manageTitle": "Manage brand bug",
+      "subtitle": "One mark shows per corner. Priority decides which instance wins when two want the same corner.",
+      "sections": {
+        "mark": "Mark",
+        "placement": "Placement",
+        "appearance": "Appearance",
+        "window": "Optional window"
+      },
+      "logoLabel": "Logo image",
+      "noImage": "No image",
+      "logoHint": "Uploaded, processed images only.",
+      "textLabel": "Text",
+      "textPlaceholder": "Presented by Example",
+      "textHint": "Shown beneath the logo, or on its own for a notice or location label.",
+      "cornerLabel": "Corner",
+      "corners": {
+        "topLeft": "Top left",
+        "topRight": "Top right",
+        "bottomLeft": "Bottom left",
+        "bottomRight": "Bottom right"
+      },
+      "widthLabel": "Logo width (% of screen width)",
+      "marginLabel": "Margin (% of short edge)",
+      "textSizeLabel": "Text size (% of screen height)",
+      "colorLabel": "Text color",
+      "backingLabel": "Backing",
+      "backing": {
+        "scrim": "Shaded plate behind the mark",
+        "none": "Nothing behind the mark"
+      },
+      "opacityLabel": "Opacity (%)",
+      "windowFrom": "Show from",
+      "windowFromHint": "Leave blank to show as soon as it is enabled.",
+      "windowUntil": "Show until",
+      "windowUntilHint": "Leave blank to show indefinitely."
+    },
+    "validation": {
+      "textMax": "Text is limited to 180 characters.",
+      "widthRange": "Enter a width between 2 and 40 percent.",
+      "textSizeRange": "Enter a text size between 1 and 12 percent.",
+      "opacityRange": "Enter an opacity between 10 and 100 percent.",
+      "marginRange": "Enter a margin between 0 and 20 percent.",
+      "color": "Choose a color.",
+      "priorityRange": "Enter a priority between -1000 and 1000.",
+      "contentRequired": "Choose a logo image, enter text, or both.",
+      "windowOrder": "The end must be after the start.",
+      "targetRequired": "Choose at least one target."
+    },
+    "summary": {
+      "logo": "logo",
+      "quotedText": "“{{text}}”",
+      "opacity": "{{value}}% opacity",
+      "scheduledWindow": "scheduled window"
+    }
+  },
+  "countdown": {
+    "title": "Countdown Bar",
+    "subtitle": "Timed bars run independently of the playlist and keep evaluating from the Player's cached manifest.",
+    "loadError": "Countdown bars could not be loaded.",
+    "emptyTitle": "No countdown bars configured",
+    "emptyDescription": "Create an instance to show a locally-timed bar on selected screens.",
+    "itemDescription": "{{message}} · {{displayMode}} · {{height}}px · priority {{priority}}",
+    "deleteBody": "The bar will be removed from targeted Players.",
+    "editor": {
+      "createTitle": "New countdown bar",
+      "manageTitle": "Manage countdown bar",
+      "subtitle": "The Player evaluates this schedule locally. Priority decides which bar wins when instances overlap.",
+      "sections": {
+        "content": "Content",
+        "timing": "Timing",
+        "display": "Display",
+        "urgency": "Urgency stages"
+      },
+      "messageLabel": "Message",
+      "defaults": {
+        "message": "Lunch ends in"
+      },
+      "completionLabel": "Optional completion text",
+      "completionPlaceholder": "Lunch is over",
+      "completionHint": "Shown for one minute after the target; leave blank to hide at zero.",
+      "confettiLabel": "Show confetti when the countdown reaches zero",
+      "scheduleLabel": "Schedule",
+      "scheduleType": {
+        "weekly": "Days of the week",
+        "oneTime": "One-time date"
+      },
+      "targetTimeLabel": "Target time",
+      "daysLabel": "Days of the week",
+      "oneTimeLabel": "Target date and time",
+      "oneTimeHint": "Entered in this browser's local time; the Player counts down to the same instant.",
+      "timezoneLabel": "Timezone",
+      "leadLabel": "Appear this many minutes before",
+      "modeLabel": "Mode",
+      "displayMode": {
+        "overlay": "Overlay current content",
+        "push": "Push and shrink current content"
+      },
+      "progressLabel": "Background countdown",
+      "progressFill": {
+        "none": "Plain background",
+        "drain": "Drain right to left"
+      },
+      "progressHint": "Drain empties the bar from right to left as the target approaches.",
+      "heightLabel": "Bottom-bar height (px)",
+      "paddingLabel": "Horizontal padding (%)",
+      "paddingHint": "Lower padding gives the message and countdown more room.",
+      "textScaleLabel": "Text size (%)",
+      "textScaleHint": "Increase the type size without changing the bar height.",
+      "urgencyDescription": "Change the bar automatically as the target approaches. Untouched stage times follow the total lead time; custom values stay fixed. Completed messages return to the normal size.",
+      "urgencyEnabledLabel": "Enable countdown urgency stages",
+      "startingSoonLabel": "Starting soon (orange), minutes before",
+      "urgentLabel": "Urgent (red), seconds before",
+      "pulseLabel": "Pulse and enlarge, final seconds",
+      "pulseHint": "The bar and text grow by 25% during this final stage."
+    },
+    "validation": {
+      "timezone": "Enter an IANA timezone such as America/Chicago.",
+      "wholeMinutes": "Enter a whole number of minutes.",
+      "leadRange": "Lead time must be between 1 and 43200 minutes.",
+      "heightRange": "Enter a height between 40 and 320 pixels.",
+      "paddingRange": "Enter padding between 0 and 40 percent.",
+      "textScaleRange": "Enter a text size between 25 and 500 percent.",
+      "soonRange": "Starting soon must begin between 1 and 1440 minutes before zero.",
+      "wholeSeconds": "Enter a whole number of seconds.",
+      "urgentRange": "Urgent must begin between 2 and 3600 seconds before zero.",
+      "pulseRange": "Pulse must begin between 1 and 60 seconds before zero.",
+      "priorityRange": "Enter a priority between -1000 and 1000.",
+      "weeklyRequired": "Choose a target time and at least one day.",
+      "oneTimeRequired": "Choose the one-time target date and time.",
+      "targetRequired": "Choose at least one target.",
+      "stageOrder": "Stages must begin in order: starting soon, urgent, then pulse."
+    }
+  },
+  "noiseMeter": {
+    "title": "Noise Meter",
+    "subtitle": "A bottom bar that appears only while the room stays too loud, and hides itself when it settles.",
+    "platformNotice": "Noise Meter runs on Linux Player only, using that player's default microphone. Audio is measured on the device and never sent to Tilecast, and nothing is recorded. Android Players ignore it.",
+    "loadError": "Noise meters could not be loaded.",
+    "emptyTitle": "No noise meters configured",
+    "emptyDescription": "Create an instance to watch room noise on selected Linux players.",
+    "deleteBody": "Targeted players will stop measuring room noise.",
+    "tabs": {
+      "label": "Noise Meter",
+      "settings": "Settings",
+      "history": "History"
+    },
+    "list": {
+      "history": "History"
+    },
+    "editor": {
+      "createTitle": "New noise meter",
+      "manageTitle": "Manage noise meter",
+      "subtitle": "The bar appears only after the room stays loud, and an emergency alert always replaces it.",
+      "scaleHint": "Noise levels are relative to this player's microphone and are not calibrated decibel measurements.",
+      "sections": {
+        "meter": "Meter",
+        "levels": "Levels",
+        "timing": "Timing",
+        "appearance": "Appearance",
+        "window": "When the bar can show",
+        "history": "History"
+      },
+      "messageLabel": "Message",
+      "messagePlaceholder": "Please lower the volume",
+      "messageHint": "Shown on the right of the bar. Leave blank to show “Too loud”.",
+      "warningLabel": "Warning level",
+      "warningHint": "Where the yellow zone begins. The bar also hides below this level.",
+      "loudLabel": "Too loud level",
+      "loudHint": "Where the red zone begins and the bar can appear.",
+      "sensitivityLabel": "Sensitivity (%)",
+      "sensitivityHint": "Raise it for a quiet microphone, lower it for a hot one.",
+      "timingDescription": "Separate delays keep a single shout from raising the bar and a brief pause from dropping it.",
+      "showAfterLabel": "Show after (seconds)",
+      "showAfterHint": "How long the room must stay too loud before the bar appears.",
+      "hideAfterLabel": "Hide after normal for (seconds)",
+      "hideAfterHint": "How long the room must stay below the warning level before the bar hides.",
+      "displayLabel": "Display mode",
+      "displayMode": {
+        "overlay": "Overlay the content",
+        "push": "Push the content up"
+      },
+      "heightLabel": "Bar height (px)",
+      "windowDescription": "The room is measured either way. This decides only when a too-loud room may put the bar on screen.",
+      "windowEnabledLabel": "Only show during a set time window",
+      "fromLabel": "From",
+      "untilLabel": "Until",
+      "untilHint": "An end before the start runs the window overnight.",
+      "timezoneLabel": "Timezone",
+      "daysLabel": "Days of the week",
+      "windowNote": "Outside the window the player keeps measuring and the bar stays down. An emergency alert is never affected by this window.",
+      "historyDescription": "Saves only relative noise-level measurements. Microphone audio is never recorded or uploaded.",
+      "historyEnabledLabel": "Save noise history",
+      "retentionLabel": "Retention",
+      "retention_one": "{{count}} day",
+      "retention_other": "{{count}} days",
+      "retentionHint": "How long measurements are kept before they are removed automatically.",
+      "activeHoursLabel": "Collect only during active hours",
+      "activeHoursNote": "Outside active hours the player stops listening entirely rather than measuring and discarding: the microphone is released until the next active window."
+    },
+    "validation": {
+      "messageMax": "Message is limited to 120 characters.",
+      "warningRange": "Enter a level between 1 and 99.",
+      "loudRange": "Enter a level between 2 and 100.",
+      "sensitivityRange": "Enter a sensitivity between 25 and 300 percent.",
+      "showRange": "Enter between 0.1 and 10 seconds.",
+      "hideRange": "Enter between 0.5 and 30 seconds.",
+      "heightRange": "Enter a height between 40 and 320 pixels.",
+      "retentionOptions": "Choose 1, 3, 7, 14, or 30 days.",
+      "timezone": "Enter an IANA timezone such as America/Chicago.",
+      "windowStart": "Choose a start time.",
+      "windowEnd": "Choose an end time.",
+      "windowDifferent": "The window must start and end at different times.",
+      "daysRequired": "Choose at least one day.",
+      "levelOrder": "The warning level must be below the too loud level.",
+      "targetRequired": "Choose at least one target."
+    },
+    "summary": {
+      "showsAbove": "Shows above {{level}}",
+      "hidesBelow": "hides below {{level}}",
+      "afterSeconds": "after {{seconds}}s",
+      "window": "{{start}}–{{end}}"
+    }
+  },
+  "history": {
+    "backLink": "Noise Meter",
+    "titleFallback": "Noise Meter",
+    "subtitle": "Measurements the player recorded locally and delivered on its ordinary heartbeat.",
+    "privacyNotice": "Noise history stores relative noise-level measurements for graphs and reports. Tilecast never records or stores microphone audio. Levels are relative to each player's own microphone and are not calibrated decibel measurements.",
+    "rangeLabel": "Date range",
+    "ranges": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "sevenDays": "7 days",
+      "thirtyDays": "30 days"
+    },
+    "screenLabel": "Screen",
+    "allScreens": "All screens (combined)",
+    "screenHint": "Levels are relative to each player's own microphone, so screens are compared with care.",
+    "exportLabel": "Export",
+    "granularity": {
+      "raw": "10-second records",
+      "minute": "1-minute summaries",
+      "daily": "Daily summaries"
+    },
+    "exportTitle": "Export the selected range and screen",
+    "exportAction": "Export CSV",
+    "loadError": "History could not be loaded.",
+    "showingSingle": "Showing <strong>{{name}}</strong>.",
+    "combining": "Combining {{count}} screens. Each player's levels come from its own microphone, so a combined view describes the group rather than comparing rooms.",
+    "emptyTitle": "No measurements in this range",
+    "emptyDescription": "History appears once a targeted Linux player has been measuring and has delivered a heartbeat.",
+    "chartTitle": "Noise level over time",
+    "chartDescription": "Average and peak, against this meter's own thresholds. Periods with no monitoring are left blank.",
+    "chartEmpty": "No measurements to draw yet.",
+    "chart": {
+      "aria": "Noise Level over time. Warning level {{warning}}, too loud level {{loud}}.",
+      "average": "Average",
+      "peak": "Peak",
+      "warning": "Warning {{level}}",
+      "tooLoud": "Too loud {{level}}"
+    },
+    "dailyTitle": "Daily comparison",
+    "dailyDescription": "Days without monitoring are omitted rather than shown as silent.",
+    "dailyMeasureLabel": "Daily measure",
+    "measures": {
+      "average": "Average level",
+      "loud": "Time too loud",
+      "events": "Warning events"
+    },
+    "dailyEmpty": "No days with measurements yet.",
+    "summary": {
+      "averageLabel": "Average noise level",
+      "averageHint": "Relative, not decibels",
+      "peakLabel": "Peak noise level",
+      "loudLabel": "Time too loud",
+      "eventsLabel": "Warning events",
+      "eventsHint": "Times the bar appeared",
+      "normalLabel": "Time in normal range",
+      "warningLabel": "Time in warning range",
+      "longestLabel": "Longest continuous too loud",
+      "loudestLabel": "Loudest 15 minutes",
+      "monitoredLabel": "Monitored time"
+    }
+  }
+}
