@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Search, XCircle } from "lucide-react";
 import { StatusDot } from "../components/StatusDot";
@@ -20,8 +19,9 @@ import {
 import { Spinner } from "../components/ui/spinner";
 import { api } from "../api/client";
 import type { Screen, UpdateDeploymentScreen } from "../api/types";
-import { apiErrorMessage } from "../i18n";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
+import type { TFunction } from "i18next";
 import {
   bucketCounts,
   deploymentPollInterval,
@@ -47,12 +47,13 @@ export function UpdateDeploymentDrawer({
   manageable: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const [filter, setFilter] = useState<ScreenFilter>("all");
   const [search, setSearch] = useState("");
   const [actionError, setActionError] = useState("");
-  const { t } = useTranslation("errors");
   const detail = useQuery({
     queryKey: ["update-deployment", deploymentId],
     queryFn: () => api.updateDeployment(deploymentId),
@@ -78,14 +79,20 @@ export function UpdateDeploymentDrawer({
       ),
     onMutate: () => setActionError(""),
     onSuccess: invalidate,
-    onError: (error: unknown) => setActionError(errorMessage(error, t)),
+    onError: (error: unknown) =>
+      setActionError(
+        error instanceof Error ? error.message : t("updates.requestFailed"),
+      ),
   });
   const cancel = useMutation({
     mutationFn: () =>
       api.cancelUpdateDeployment(deploymentId, auth.status?.csrfToken ?? ""),
     onMutate: () => setActionError(""),
     onSuccess: invalidate,
-    onError: (error: unknown) => setActionError(errorMessage(error, t)),
+    onError: (error: unknown) =>
+      setActionError(
+        error instanceof Error ? error.message : t("updates.requestFailed"),
+      ),
   });
 
   const deployment = detail.data;
@@ -110,23 +117,28 @@ export function UpdateDeploymentDrawer({
         <SheetHeader>
           <SheetDescription>
             {deployment
-              ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
-              : "Player deployment"}
+              ? // i18n-ignore: Linux/Android are platform names, not language text
+                `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
+              : t("updates.deploymentFallback")}
           </SheetDescription>
-          <SheetTitle>{deployment?.name ?? "Deployment"}</SheetTitle>
+          <SheetTitle>
+            {deployment?.name ?? t("updates.deploymentTitle")}
+          </SheetTitle>
         </SheetHeader>
         <div className="grid gap-4 px-6 pb-6">
           {detail.isLoading && (
             <span className="flex items-center gap-2 text-sm text-muted-foreground">
               <Spinner />
-              Loading screen statuses
+              {t("updates.loading")}
             </span>
           )}
           {detail.error && (
             <Alert variant="destructive">
-              <AlertTitle>Screen statuses could not be loaded.</AlertTitle>
+              <AlertTitle>{t("updates.statusesLoadError")}</AlertTitle>
               <AlertDescription>
-                {errorMessage(detail.error, t)}
+                {detail.error instanceof Error
+                  ? detail.error.message
+                  : t("updates.requestFailed")}
               </AlertDescription>
             </Alert>
           )}
@@ -139,7 +151,9 @@ export function UpdateDeploymentDrawer({
             <>
               <dl className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
                 <div className="grid gap-0.5">
-                  <dt className="text-xs text-muted-foreground">Status</dt>
+                  <dt className="text-xs text-muted-foreground">
+                    {t("updates.detail.status")}
+                  </dt>
                   <dd>
                     <StatusDot
                       tone={
@@ -156,57 +170,80 @@ export function UpdateDeploymentDrawer({
                   </dd>
                 </div>
                 <div className="grid gap-0.5">
-                  <dt className="text-xs text-muted-foreground">Mode</dt>
+                  <dt className="text-xs text-muted-foreground">
+                    {t("updates.detail.mode")}
+                  </dt>
                   <dd className="text-sm font-medium">
                     {humanize(deployment.mode)}
                   </dd>
                 </div>
                 <div className="grid gap-0.5">
-                  <dt className="text-xs text-muted-foreground">Rollout</dt>
+                  <dt className="text-xs text-muted-foreground">
+                    {t("updates.detail.rollout")}
+                  </dt>
                   <dd className="text-sm font-medium">
                     {deployment.rolloutMode === "canary"
-                      ? `${deployment.canarySize} canary first · ${humanize(deployment.rolloutPhase)}`
-                      : "All screens at once"}
+                      ? t("updates.rolloutCanary", {
+                          size: deployment.canarySize,
+                          phase: humanize(deployment.rolloutPhase),
+                        })
+                      : t("updates.rolloutAll")}
                   </dd>
                 </div>
                 <div className="grid gap-0.5">
-                  <dt className="text-xs text-muted-foreground">Started</dt>
+                  <dt className="text-xs text-muted-foreground">
+                    {t("updates.detail.started")}
+                  </dt>
                   <dd className="text-sm font-medium">
-                    {new Date(deployment.createdAt).toLocaleString()}
+                    {new Date(deployment.createdAt).toLocaleString(locale)}
                   </dd>
                 </div>
               </dl>
               {deployment.pauseReason && (
                 <Alert role="status">
-                  <AlertTitle>Rollout paused</AlertTitle>
+                  <AlertTitle>{t("updates.pausedTitle")}</AlertTitle>
                   <AlertDescription>
-                    {deployment.pauseReason} Remaining screens stay on their
-                    current version until the deployment is cancelled and
-                    re-created.
+                    {t("updates.pausedDetail", {
+                      reason: deployment.pauseReason,
+                    })}
                   </AlertDescription>
                 </Alert>
               )}
               <DeploymentMeter {...screenStateCounts(allScreens)} />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <ViewTabs
-                  label="Screen status filter"
+                  label={t("updates.filterLabel")}
                   value={filter}
                   items={[
-                    { value: "all", label: `All ${allScreens.length}` },
+                    {
+                      value: "all",
+                      label: t("updates.filter.all", {
+                        count: allScreens.length,
+                      }),
+                    },
                     {
                       value: "attention",
-                      label: `Needs attention ${counts.attention}`,
+                      label: t("updates.filter.attention", {
+                        count: counts.attention,
+                      }),
                     },
                     {
                       value: "progress",
-                      label: `In progress ${counts.progress}`,
+                      label: t("updates.filter.progress", {
+                        count: counts.progress,
+                      }),
                     },
-                    { value: "done", label: `Finished ${counts.done}` },
+                    {
+                      value: "done",
+                      label: t("updates.filter.done", {
+                        count: counts.done,
+                      }),
+                    },
                   ]}
                   onValueChange={(value) => setFilter(value)}
                 />
                 <label className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2">
-                  <span className="sr-only">Search screens</span>
+                  <span className="sr-only">{t("updates.searchScreens")}</span>
                   <Search
                     size={16}
                     aria-hidden="true"
@@ -215,7 +252,7 @@ export function UpdateDeploymentDrawer({
                   <Input
                     type="search"
                     value={search}
-                    placeholder="Search screens"
+                    placeholder={t("updates.searchScreens")}
                     onChange={(event) => setSearch(event.target.value)}
                     className="w-40 border-0 bg-transparent px-0 py-[5px]"
                   />
@@ -239,8 +276,8 @@ export function UpdateDeploymentDrawer({
               {!visible.length && (
                 <p className="rounded-xl border border-border bg-muted p-5 text-center text-sm text-muted-foreground">
                   {allScreens.length
-                    ? "No screen matches this filter."
-                    : "This deployment reaches no screens you can see."}
+                    ? t("updates.emptyFilter")
+                    : t("updates.emptyNone")}
                 </p>
               )}
             </>
@@ -250,8 +287,7 @@ export function UpdateDeploymentDrawer({
           <SheetFooter className="border-t border-border">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="flex-1 basis-60 text-sm text-muted-foreground">
-                Cancelling stops every screen that has not finished. Screens
-                already updated stay on the new release.
+                {t("updates.cancelHint")}
               </span>
               <RheaButton
                 variant="destructive"
@@ -262,8 +298,8 @@ export function UpdateDeploymentDrawer({
                   <Spinner />
                 ) : (
                   <XCircle size={16} aria-hidden="true" />
-                )}
-                Cancel deployment
+                )}{" "}
+                {t("updates.cancel")}
               </RheaButton>
             </div>
           </SheetFooter>
@@ -288,6 +324,8 @@ function DeploymentScreenRow({
   retrying: boolean;
   onRetry: () => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
   const meaning = screenUpdateMeaning(screen.state);
   const detail = screenUpdateDetail(screen);
   const percent = screenDownloadPercent(screen, artifactSizeBytes);
@@ -300,13 +338,17 @@ function DeploymentScreenRow({
         <small className="text-xs text-muted-foreground">
           {screen.previousVersionCode
             ? `${screen.previousVersionCode} → ${screen.expectedVersionCode}`
-            : `First install · ${screen.expectedVersionCode}`}
+            : t("updates.firstInstall", {
+                version: screen.expectedVersionCode,
+              })}
           {reachability && ` · ${humanize(reachability)}`}
         </small>
       </div>
       <div className="deployment-screen__status grid justify-items-start gap-1">
         <StatusDot tone={meaning.tone} label={meaning.label} />
-        {screen.isCanary && <Badge variant="secondary">Canary</Badge>}
+        {screen.isCanary && (
+          <Badge variant="secondary">{t("updates.canary")}</Badge>
+        )}
         {detail && (
           <small className="text-xs text-muted-foreground">{detail}</small>
         )}
@@ -314,7 +356,10 @@ function DeploymentScreenRow({
           <span className="grid w-full gap-0.5">
             <progress value={percent} max={100} className="w-full" />
             <small className="text-xs text-muted-foreground">
-              {percent}% of {formatBytes(artifactSizeBytes)}
+              {t("updates.downloadProgress", {
+                percent,
+                size: formatBytes(artifactSizeBytes),
+              })}
             </small>
           </span>
         )}
@@ -327,10 +372,10 @@ function DeploymentScreenRow({
       <div className="flex flex-col items-end gap-1.5 max-sm:flex-row max-sm:items-center max-sm:justify-between">
         <time
           dateTime={screen.updatedAt}
-          title={new Date(screen.updatedAt).toLocaleString()}
+          title={new Date(screen.updatedAt).toLocaleString(locale)}
           className="text-xs text-muted-foreground"
         >
-          {formatRelative(screen.updatedAt)}
+          {formatRelative(screen.updatedAt, t)}
         </time>
         {manageable && screen.state === "failed" && (
           <RheaButton
@@ -343,8 +388,8 @@ function DeploymentScreenRow({
               <Spinner />
             ) : (
               <RefreshCw size={14} aria-hidden="true" />
-            )}
-            Retry
+            )}{" "}
+            {t("common:actions.retry")}
           </RheaButton>
         )}
       </div>
@@ -355,11 +400,12 @@ function DeploymentScreenRow({
 // The trail names the step rather than drawing a bar, because only the download
 // step knows a real percentage.
 function StageTrail({ stage }: { stage: number }) {
+  const { t } = useTranslation(["settings", "common"]);
   return (
-    <ol className="flex flex-wrap gap-2" aria-label="Update progress">
-      {screenUpdateStages.map((label, index) => (
+    <ol className="flex flex-wrap gap-2" aria-label={t("updates.stageTrail")}>
+      {screenUpdateStages.map((stageKey, index) => (
         <li
-          key={label}
+          key={stageKey}
           className={
             index < stage
               ? "is-complete text-xs font-medium"
@@ -370,7 +416,7 @@ function StageTrail({ stage }: { stage: number }) {
           aria-current={index === stage ? "step" : undefined}
         >
           <span aria-hidden="true" />
-          {label}
+          {t(stageKey)}
         </li>
       ))}
     </ol>
@@ -390,6 +436,7 @@ export function DeploymentMeter({
   waitingForUserCount: number;
   compact?: boolean;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const segments = deploymentSegments({
     targetCount,
     succeededCount,
@@ -411,7 +458,7 @@ export function DeploymentMeter({
             ? segments
                 .map((segment) => `${segment.count} ${segment.label}`)
                 .join(", ")
-            : "No screens"
+            : t("updates.noScreens")
         }
       >
         {segments.map((segment) => (
@@ -452,12 +499,6 @@ function segmentFillClass(tone: string) {
   }
 }
 
-function errorMessage(error: unknown, t: TFunction<"errors">): string {
-  return error instanceof Error
-    ? apiErrorMessage(error)
-    : t("fallback.requestFailed");
-}
-
 function humanize(value: string) {
   return value
     .replaceAll("_", " ")
@@ -470,15 +511,15 @@ function formatBytes(value: number) {
     : `${(value / 1024 ** 2).toFixed(1)} MB`;
 }
 
-function formatRelative(value: string) {
+function formatRelative(value: string, t: TFunction<["settings", "common"]>) {
   const seconds = Math.max(
     0,
     Math.round((Date.now() - new Date(value).getTime()) / 1000),
   );
-  if (seconds < 60) return "Just now";
+  if (seconds < 60) return t("updates.relativeNow");
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t("updates.relativeMinutes", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
+  if (hours < 24) return t("updates.relativeHours", { count: hours });
+  return t("updates.relativeDays", { count: Math.round(hours / 24) });
 }

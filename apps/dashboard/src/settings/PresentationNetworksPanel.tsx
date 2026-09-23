@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { LockKeyhole, Pencil, Plus, Trash2, Wifi } from "lucide-react";
 import { api } from "../api/client";
 import type {
@@ -78,6 +79,7 @@ export function PresentationNetworksPanel({
 }: {
   canManage: boolean;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -157,7 +159,7 @@ export function PresentationNetworksPanel({
     onSuccess: async () => {
       setEditing(undefined);
       setSecret("");
-      setNotice("Presentation Network saved.");
+      setNotice(t("networks.saved"));
       await client.invalidateQueries({ queryKey: ["presentation-networks"] });
       await client.invalidateQueries({ queryKey: ["presentation-network"] });
       await client.invalidateQueries({ queryKey: ["screens"] });
@@ -168,7 +170,7 @@ export function PresentationNetworksPanel({
     mutationFn: (network: PresentationNetwork) =>
       api.deletePresentationNetwork(network.id, csrf),
     onSuccess: async () => {
-      setNotice("Presentation Network deleted.");
+      setNotice(t("networks.deleted"));
       await client.invalidateQueries({ queryKey: ["presentation-networks"] });
       await client.invalidateQueries({ queryKey: ["screens"] });
     },
@@ -190,17 +192,13 @@ export function PresentationNetworksPanel({
   const [saveError, setSaveError] = useState<string>();
   useEffect(() => {
     if (save.error)
-      setSaveError(
-        safeError(save.error, "The Presentation Network could not be saved."),
-      );
-  }, [save.error]);
+      setSaveError(safeError(save.error, t("networks.saveError")));
+  }, [save.error, t]);
 
   if (!canManage)
     return (
       <Alert role="status">
-        <AlertDescription>
-          Only Owners and Administrators may manage Presentation Networks.
-        </AlertDescription>
+        <AlertDescription>{t("networks.manageOnly")}</AlertDescription>
       </Alert>
     );
 
@@ -212,22 +210,18 @@ export function PresentationNetworksPanel({
       <section className="grid gap-4">
         <div className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">
-              Temporary Wi-Fi for local presentation
-            </h3>
+            <h3 className="text-base font-semibold">{t("networks.title")}</h3>
             <p className="text-sm text-muted-foreground">
-              Presentation Networks let supported Linux players join Wi-Fi only
-              while an AirPlay session needs it. Ethernet remains the normal
-              path for Tilecast traffic, downloads, and group video fan-out.
+              {t("networks.description")}
             </p>
           </header>
           {unavailable && (
             <Alert role="status">
               <AlertDescription className="grid gap-1">
-                <strong>Credentials are unavailable on this server.</strong>
+                <strong>{t("networks.credentialsUnavailable")}</strong>
                 <p>
                   {networks.data?.credentialsUnavailableReason ??
-                    "Configure the Presentation Network encryption key before saving a network."}
+                    t("networks.credentialsHint")}
                 </p>
               </AlertDescription>
             </Alert>
@@ -235,7 +229,7 @@ export function PresentationNetworksPanel({
           {networks.error && (
             <Alert variant="destructive">
               <AlertDescription>
-                Could not load Presentation Networks. {networks.error.message}
+                {t("networks.loadError")} {networks.error.message}
               </AlertDescription>
             </Alert>
           )}
@@ -243,10 +237,11 @@ export function PresentationNetworksPanel({
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="grid gap-1">
-            <h3 className="text-base font-semibold">Presentation Networks</h3>
+            <h3 className="text-base font-semibold">
+              {t("networks.listTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Credentials are write-only. Editing a network without entering a
-              new credential keeps the saved one.
+              {t("networks.listHint")}
             </p>
           </div>
           <RheaButton
@@ -254,7 +249,7 @@ export function PresentationNetworksPanel({
             onClick={() => open("new")}
             disabled={unavailable}
           >
-            <Plus size={16} aria-hidden="true" /> Add network
+            <Plus size={16} aria-hidden="true" /> {t("networks.add")}
           </RheaButton>
         </div>
 
@@ -266,7 +261,7 @@ export function PresentationNetworksPanel({
         {networks.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner aria-hidden="true" />
-            Loading Presentation Networks…
+            {t("networks.loading")}
           </p>
         ) : !networks.data?.items.length ? (
           <Empty>
@@ -274,18 +269,15 @@ export function PresentationNetworksPanel({
               <EmptyMedia variant="icon">
                 <Wifi size={25} aria-hidden="true" />
               </EmptyMedia>
-              <EmptyTitle>No Presentation Networks yet</EmptyTitle>
-              <EmptyDescription>
-                Add a staff, guest, or event Wi-Fi network when AirPlay senders
-                cannot reach a player over Ethernet alone.
-              </EmptyDescription>
+              <EmptyTitle>{t("networks.empty")}</EmptyTitle>
+              <EmptyDescription>{t("networks.emptyHint")}</EmptyDescription>
             </EmptyHeader>
             <RheaButton
               variant="secondary"
               onClick={() => open("new")}
               disabled={unavailable}
             >
-              Add the first network
+              {t("networks.addFirst")}
             </RheaButton>
           </Empty>
         ) : (
@@ -310,11 +302,16 @@ export function PresentationNetworksPanel({
                   </span>
                   <small className="text-xs text-muted-foreground">
                     {network.credentialSet
-                      ? "Credential saved"
-                      : "Credential missing"}{" "}
-                    · {network.assignedScreens} screen
-                    {network.assignedScreens === 1 ? "" : "s"} · revision{" "}
-                    {network.configRevision}
+                      ? t("networks.credentialSaved")
+                      : t("networks.credentialMissing")}{" "}
+                    ·{" "}
+                    {t("networks.screens", {
+                      count: network.assignedScreens,
+                    })}{" "}
+                    ·{" "}
+                    {t("networks.revision", {
+                      revision: network.configRevision,
+                    })}
                   </small>
                 </span>
                 <span className="flex flex-wrap items-center gap-2">
@@ -323,7 +320,7 @@ export function PresentationNetworksPanel({
                     size="sm"
                     onClick={() => open(network)}
                   >
-                    <Pencil size={14} aria-hidden="true" /> Edit
+                    <Pencil size={14} aria-hidden="true" /> {t("networks.edit")}
                   </RheaButton>
                   <RheaButton
                     variant="destructive"
@@ -331,18 +328,22 @@ export function PresentationNetworksPanel({
                     disabled={remove.isPending}
                     onClick={() => {
                       const warning = network.assignedScreens
-                        ? `${network.name} is assigned to ${network.assignedScreens} screen${network.assignedScreens === 1 ? "" : "s"}. Delete it and remove those assignments?`
-                        : `Delete ${network.name}?`;
+                        ? t("networks.deleteAssigned", {
+                            name: network.name,
+                            count: network.assignedScreens,
+                          })
+                        : t("networks.deleteTitle", { name: network.name });
                       void confirm({
                         title: warning,
-                        action: "Delete",
+                        action: t("common:actions.delete"),
                         destructive: true,
                       }).then((ok) => {
                         if (ok) remove.mutate(network);
                       });
                     }}
                   >
-                    <Trash2 size={14} aria-hidden="true" /> Delete
+                    <Trash2 size={14} aria-hidden="true" />{" "}
+                    {t("common:actions.delete")}
                   </RheaButton>
                 </span>
               </article>
@@ -353,10 +354,7 @@ export function PresentationNetworksPanel({
         {remove.error && (
           <Alert variant="destructive">
             <AlertDescription>
-              {safeError(
-                remove.error,
-                "The Presentation Network could not be deleted.",
-              )}
+              {safeError(remove.error, t("networks.deleteError"))}
             </AlertDescription>
           </Alert>
         )}
@@ -371,14 +369,14 @@ export function PresentationNetworksPanel({
             <DialogHeader>
               <DialogTitle>
                 {editing === "new"
-                  ? "Add Presentation Network"
-                  : "Edit Presentation Network"}
+                  ? t("networks.addTitle")
+                  : t("networks.editTitle")}
               </DialogTitle>
             </DialogHeader>
             {editing && editing !== "new" && detail.isLoading ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Spinner aria-hidden="true" />
-                Loading network details…
+                {t("networks.loadingDetail")}
               </p>
             ) : (
               <form
@@ -392,7 +390,7 @@ export function PresentationNetworksPanel({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="presentation-network-name">
-                      Display name
+                      {t("networks.fields.name")}
                     </FieldLabel>
                     <Input
                       id="presentation-network-name"
@@ -405,12 +403,12 @@ export function PresentationNetworksPanel({
                       }
                     />
                     <FieldDescription>
-                      A name operators will recognize in Studio.
+                      {t("networks.fields.nameHint")}
                     </FieldDescription>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="presentation-network-ssid">
-                      SSID
+                      {t("networks.fields.ssid")}
                     </FieldLabel>
                     <Input
                       id="presentation-network-ssid"
@@ -422,14 +420,14 @@ export function PresentationNetworksPanel({
                       }
                     />
                     <FieldDescription>
-                      The Wi-Fi name, not the Studio display name.
+                      {t("networks.fields.ssidHint")}
                     </FieldDescription>
                   </Field>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="presentation-network-security">
-                      Authentication
+                      {t("networks.fields.security")}
                     </FieldLabel>
                     <RheaSelect
                       name="security"
@@ -444,7 +442,7 @@ export function PresentationNetworksPanel({
                     >
                       <SelectTrigger
                         id="presentation-network-security"
-                        aria-label="Authentication"
+                        aria-label={t("networks.fields.security")}
                       >
                         <SelectValue>
                           {securityLabel(
@@ -473,7 +471,7 @@ export function PresentationNetworksPanel({
                           setDraft({ ...draft, hidden: checked === true })
                         }
                       />
-                      <span>Hidden SSID</span>
+                      <span>{t("networks.fields.hidden")}</span>
                     </label>
                   </div>
                 </div>
@@ -481,8 +479,8 @@ export function PresentationNetworksPanel({
                 <Field>
                   <FieldLabel htmlFor="presentation-network-secret">
                     {draft.security === "wpa_psk"
-                      ? "Wi-Fi password / PSK"
-                      : "Enterprise password"}
+                      ? t("networks.fields.secretPsk")
+                      : t("networks.fields.secretEnterprise")}
                   </FieldLabel>
                   <Input
                     id="presentation-network-secret"
@@ -494,10 +492,10 @@ export function PresentationNetworksPanel({
                   />
                   <FieldDescription>
                     {editing === "new"
-                      ? "Write-only. It is encrypted before it is stored."
+                      ? t("networks.fields.secretHintNew")
                       : detail.data?.network.credentialSet
-                        ? "A credential is saved. Leave this blank to keep it, or enter a new one to rotate it."
-                        : "No credential is saved yet; enter one to enable provisioning."}
+                        ? t("networks.fields.secretHintSaved")
+                        : t("networks.fields.secretHintNone")}
                   </FieldDescription>
                 </Field>
 
@@ -506,7 +504,7 @@ export function PresentationNetworksPanel({
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
                         <FieldLabel htmlFor="presentation-network-identity">
-                          Enterprise identity
+                          {t("networks.fields.identity")}
                         </FieldLabel>
                         <Input
                           id="presentation-network-identity"
@@ -520,7 +518,7 @@ export function PresentationNetworksPanel({
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="presentation-network-anonymous">
-                          Anonymous identity
+                          {t("networks.fields.anonymousIdentity")}
                         </FieldLabel>
                         <Input
                           id="presentation-network-anonymous"
@@ -534,13 +532,13 @@ export function PresentationNetworksPanel({
                           }
                         />
                         <FieldDescription>
-                          Optional outer identity for the RADIUS server.
+                          {t("networks.fields.anonymousIdentityHint")}
                         </FieldDescription>
                       </Field>
                     </div>
                     <Field>
                       <FieldLabel htmlFor="presentation-network-ca">
-                        CA certificate
+                        {t("networks.fields.ca")}
                       </FieldLabel>
                       <Textarea
                         id="presentation-network-ca"
@@ -555,13 +553,12 @@ export function PresentationNetworksPanel({
                         }
                       />
                       <FieldDescription>
-                        Optional public CA certificate in PEM form. It is used
-                        to validate the RADIUS server.
+                        {t("networks.fields.caHint")}
                       </FieldDescription>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="presentation-network-domain">
-                        Expected server domain
+                        {t("networks.fields.domain")}
                       </FieldLabel>
                       <Input
                         id="presentation-network-domain"
@@ -575,7 +572,7 @@ export function PresentationNetworksPanel({
                         }
                       />
                       <FieldDescription>
-                        Requires a CA certificate when set.
+                        {t("networks.fields.domainHint")}
                       </FieldDescription>
                     </Field>
                   </>
@@ -583,15 +580,14 @@ export function PresentationNetworksPanel({
 
                 <fieldset className="grid gap-2 rounded-xl border border-border p-4">
                   <legend className="px-1 text-sm font-medium">
-                    Assigned Linux players
+                    {t("networks.assignedTitle")}
                   </legend>
                   <p className="text-sm text-muted-foreground">
-                    Only the selected gateway joins this network during a group
-                    AirPlay session. Followers stay on Ethernet.
+                    {t("networks.assignedHint")}
                   </p>
                   {screens.isLoading ? (
                     <span className="text-sm text-muted-foreground">
-                      Loading Linux players…
+                      {t("networks.loadingPlayers")}
                     </span>
                   ) : linuxScreens.length ? (
                     <div className="grid gap-2">
@@ -611,14 +607,15 @@ export function PresentationNetworksPanel({
                             }
                           />
                           <span>
-                            {screen.name} · {screen.location || "No location"}
+                            {screen.name} ·{" "}
+                            {screen.location || t("networks.noLocation")}
                           </span>
                         </label>
                       ))}
                     </div>
                   ) : (
                     <span className="text-sm text-muted-foreground">
-                      No Linux players are available for assignment.
+                      {t("networks.noPlayers")}
                     </span>
                   )}
                 </fieldset>
@@ -626,8 +623,8 @@ export function PresentationNetworksPanel({
                 {detail.error && (
                   <Alert variant="destructive">
                     <AlertDescription>
-                      Could not load this network.{" "}
-                      {safeError(detail.error, "Try again.")}
+                      {t("networks.detailError")}{" "}
+                      {safeError(detail.error, t("networks.retry"))}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -643,7 +640,7 @@ export function PresentationNetworksPanel({
                     onClick={() => setEditing(undefined)}
                     disabled={save.isPending}
                   >
-                    Cancel
+                    {t("common:actions.cancel")}
                   </RheaButton>
                   <RheaButton
                     variant="default"
@@ -658,8 +655,7 @@ export function PresentationNetworksPanel({
                       Boolean(unavailable && editing === "new")
                     }
                   >
-                    {save.isPending && <Spinner />}
-                    Save network
+                    {save.isPending && <Spinner />} {t("networks.save")}
                   </RheaButton>
                 </DialogFooter>
               </form>

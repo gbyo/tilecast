@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button as RheaButton } from "../components/ui/button";
@@ -23,6 +24,7 @@ export function BrandingAssets({
   editable: boolean;
   onChange: (key: string, value: unknown) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const queryClient = useQueryClient();
   const background = useQuery({
@@ -46,32 +48,31 @@ export function BrandingAssets({
   return (
     <section className="grid gap-4 rounded-xl border border-border p-4">
       <header className="grid gap-1">
-        <h3 className="text-base font-semibold">Organization images</h3>
+        <h3 className="text-base font-semibold">{t("branding.title")}</h3>
         <p className="text-sm text-muted-foreground">
-          Upload images from this device. Tilecast stores the selected asset
-          internally.
+          {t("branding.description")}
         </p>
       </header>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <BrandingAssetUpload
-          title="Logo"
-          description="A wide organization logo for Tilecast Studio and supported player screens."
+          titleKey="branding.logo.title"
+          descriptionKey="branding.logo.description"
           value={stringValue(values["branding.logo_asset_id"])}
           editable={editable}
           onSelect={(assetId) => onChange("branding.logo_asset_id", assetId)}
           onRemove={() => onChange("branding.logo_asset_id", "")}
         />
         <BrandingAssetUpload
-          title="Square icon"
-          description="A square mark for compact branding and icon-sized placements."
+          titleKey="branding.icon.title"
+          descriptionKey="branding.icon.description"
           value={stringValue(values["branding.icon_asset_id"])}
           editable={editable}
           onSelect={(assetId) => onChange("branding.icon_asset_id", assetId)}
           onRemove={() => onChange("branding.icon_asset_id", "")}
         />
         <BrandingAssetUpload
-          title="Login background"
-          description="The full-screen image behind the Tilecast Studio sign-in panel."
+          titleKey="branding.loginBackground.title"
+          descriptionKey="branding.loginBackground.description"
           value={background.data?.assetId ?? ""}
           editable={editable && !background.isLoading}
           fallbackImageUrl={
@@ -94,9 +95,18 @@ export function BrandingAssets({
   );
 }
 
+type BrandingAssetTitleKey =
+  | "branding.logo.title"
+  | "branding.icon.title"
+  | "branding.loginBackground.title";
+type BrandingAssetDescriptionKey =
+  | "branding.logo.description"
+  | "branding.icon.description"
+  | "branding.loginBackground.description";
+
 function BrandingAssetUpload({
-  title,
-  description,
+  titleKey,
+  descriptionKey,
   value,
   editable,
   fallbackImageUrl,
@@ -106,8 +116,8 @@ function BrandingAssetUpload({
   onSelect,
   onRemove,
 }: {
-  title: string;
-  description: string;
+  titleKey: BrandingAssetTitleKey;
+  descriptionKey: BrandingAssetDescriptionKey;
   value: string;
   editable: boolean;
   fallbackImageUrl?: string;
@@ -117,6 +127,8 @@ function BrandingAssetUpload({
   onSelect: (assetId: string) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const title = t(titleKey);
   const auth = useAuth();
   const input = useRef<HTMLInputElement>(null);
   const [uploadedAsset, setUploadedAsset] = useState<Asset>();
@@ -142,7 +154,7 @@ function BrandingAssetUpload({
   const upload = async (file: File) => {
     setError(undefined);
     if (!file.type.startsWith("image/")) {
-      setError("Choose a PNG, JPEG, WebP, or SVG image.");
+      setError(t("branding.invalidType"));
       return;
     }
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -184,7 +196,9 @@ function BrandingAssetUpload({
           .cancelUpload(sessionId, auth.status?.csrfToken ?? "")
           .catch(() => {});
       setError(
-        uploadError instanceof Error ? uploadError.message : "Upload failed.",
+        uploadError instanceof Error
+          ? uploadError.message
+          : t("branding.uploadFailed"),
       );
     } finally {
       setUploading(false);
@@ -201,7 +215,7 @@ function BrandingAssetUpload({
         {imageUrl ? (
           <img
             src={imageUrl}
-            alt={`${title} preview`}
+            alt={t("branding.previewAlt", { title })}
             className={
               previewMode === "cover"
                 ? "h-full w-full object-cover"
@@ -217,7 +231,7 @@ function BrandingAssetUpload({
       <div className="grid min-w-0 content-between gap-3">
         <div className="grid gap-1">
           <strong className="text-sm font-semibold">{title}</strong>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="text-sm text-muted-foreground">{t(descriptionKey)}</p>
           {asset && (
             <small className="text-xs text-muted-foreground">
               {asset.name || asset.originalFilename}
@@ -225,7 +239,7 @@ function BrandingAssetUpload({
           )}
           {value && !asset && !existing.isLoading && (
             <small className="text-sm text-destructive">
-              The selected image is unavailable. Upload a replacement.
+              {t("branding.unavailable")}
             </small>
           )}
         </div>
@@ -249,10 +263,10 @@ function BrandingAssetUpload({
             onClick={() => input.current?.click()}
           >
             {uploading
-              ? `Uploading ${progress}%`
+              ? t("branding.uploading", { progress })
               : value
-                ? "Replace image"
-                : "Upload image"}
+                ? t("branding.replace")
+                : t("branding.upload")}
           </RheaButton>
           {value && (
             <RheaButton
@@ -269,7 +283,7 @@ function BrandingAssetUpload({
                   .catch(() => {});
               }}
             >
-              Remove
+              {t("branding.remove")}
             </RheaButton>
           )}
         </div>

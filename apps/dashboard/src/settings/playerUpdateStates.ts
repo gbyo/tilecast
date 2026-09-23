@@ -3,6 +3,9 @@ import type {
   UpdateDeploymentScreen,
   UpdateDeploymentScreenState,
 } from "../api/types";
+import { i18n, translateKnown } from "../i18n";
+import { DEFAULT_LANGUAGE } from "../i18n/languages";
+import enSettings from "../locales/en/settings.json";
 
 export type ScreenUpdateTone =
   "success" | "info" | "warning" | "danger" | "neutral";
@@ -14,12 +17,12 @@ export type ScreenUpdateBucket = "attention" | "progress" | "done";
 
 // The four visible stages of one screen's update. A screen that failed or was
 // cancelled has no stage: it stopped somewhere, and saying which step it stopped
-// on would read as progress it is not making.
+// on would read as progress it is not making. Keys resolve at render.
 export const screenUpdateStages = [
-  "Queued",
-  "Downloading",
-  "Installing",
-  "Updated",
+  "updates.stages.queued",
+  "updates.stages.downloading",
+  "updates.stages.installing",
+  "updates.stages.updated",
 ] as const;
 
 export type ScreenUpdateMeaning = {
@@ -36,132 +39,82 @@ export type ScreenUpdateMeaning = {
   actionable: boolean;
 };
 
-const meanings: Record<UpdateDeploymentScreenState, ScreenUpdateMeaning> = {
-  held: {
-    label: "Held for canary",
-    detail: "Starts once every canary screen reports a successful update.",
-    tone: "neutral",
-    bucket: "progress",
-    stage: 0,
-    actionable: false,
-  },
-  pending: {
-    label: "Queued",
-    detail: "The player has been told to fetch this release.",
-    tone: "info",
-    bucket: "progress",
-    stage: 0,
-    actionable: false,
-  },
-  offline: {
-    label: "Waiting to reconnect",
-    detail: "The screen is unreachable and will start after it comes back.",
-    tone: "warning",
-    bucket: "progress",
-    stage: 0,
-    actionable: false,
-  },
+// English label/detail text lives in en/settings.json next to its translations
+// (imported above as the translateKnown fallback). This map only pairs each
+// server state with its non-text presentation: tone, bucket, stage, and
+// whether the deployment is waiting on a person.
+type MeaningConfig = Pick<
+  ScreenUpdateMeaning,
+  "tone" | "bucket" | "stage" | "actionable"
+>;
+
+const meaningConfigs: Record<UpdateDeploymentScreenState, MeaningConfig> = {
+  held: { tone: "neutral", bucket: "progress", stage: 0, actionable: false },
+  pending: { tone: "info", bucket: "progress", stage: 0, actionable: false },
+  offline: { tone: "warning", bucket: "progress", stage: 0, actionable: false },
   downloading: {
-    label: "Downloading",
-    detail: "",
     tone: "info",
     bucket: "progress",
     stage: 1,
     actionable: false,
   },
   downloaded: {
-    label: "Downloaded",
-    detail: "Waiting to verify the downloaded file.",
     tone: "info",
     bucket: "progress",
     stage: 1,
     actionable: false,
   },
   verifying: {
-    label: "Verifying",
-    detail: "Checking the downloaded file against its expected hash.",
     tone: "info",
     bucket: "progress",
     stage: 1,
     actionable: false,
   },
-  ready: {
-    label: "Ready to install",
-    detail: "Installation begins at the next moment this mode allows.",
-    tone: "info",
-    bucket: "progress",
-    stage: 2,
-    actionable: false,
-  },
+  ready: { tone: "info", bucket: "progress", stage: 2, actionable: false },
   waiting_for_permission: {
-    label: "Needs install permission",
-    detail:
-      "Allow this installation source on the TV so the player may install updates.",
     tone: "warning",
     bucket: "attention",
     stage: 2,
     actionable: true,
   },
   waiting_for_user: {
-    label: "Needs approval on the TV",
-    detail:
-      "Someone has to approve the installer on the TV itself. This is not a failure.",
     tone: "warning",
     bucket: "attention",
     stage: 2,
     actionable: true,
   },
   installing: {
-    label: "Installing",
-    detail: "The player is installing the release now.",
     tone: "info",
     bucket: "progress",
     stage: 2,
     actionable: false,
   },
   reconnecting: {
-    label: "Restarting",
-    detail: "The player restarted into the new version and is reconnecting.",
     tone: "info",
     bucket: "progress",
     stage: 2,
     actionable: false,
   },
   succeeded: {
-    label: "Updated",
-    detail: "",
     tone: "success",
     bucket: "done",
     stage: 3,
     actionable: false,
   },
   already_current: {
-    label: "Already current",
-    detail: "This screen was on the deployed version before the rollout began.",
     tone: "success",
     bucket: "done",
     stage: 3,
     actionable: false,
   },
-  failed: {
-    label: "Failed",
-    detail: "The update stopped. Retry once the screen is reachable.",
-    tone: "danger",
-    bucket: "attention",
-    stage: -1,
-    actionable: true,
-  },
+  failed: { tone: "danger", bucket: "attention", stage: -1, actionable: true },
   cancelled: {
-    label: "Cancelled",
-    detail: "Stopped before it finished.",
     tone: "neutral",
     bucket: "done",
     stage: -1,
     actionable: false,
   },
   incompatible: {
-    label: "Incompatible",
-    detail: "This release cannot run on this screen's Android version.",
     tone: "danger",
     bucket: "attention",
     stage: -1,
@@ -169,17 +122,36 @@ const meanings: Record<UpdateDeploymentScreenState, ScreenUpdateMeaning> = {
   },
 };
 
-const unknownState: ScreenUpdateMeaning = {
-  label: "Unknown",
-  detail: "This player reported a state Studio does not recognize.",
+const unknownConfig: MeaningConfig = {
   tone: "neutral",
   bucket: "progress",
   stage: 0,
   actionable: false,
 };
 
+type StateText = { label: string; detail?: string };
+
+const stateTexts = enSettings.updates.states as Record<string, StateText>;
+
+function stateText(key: string): StateText {
+  return stateTexts[key] ?? { label: key };
+}
+
 export function screenUpdateMeaning(state: string): ScreenUpdateMeaning {
-  return meanings[state as UpdateDeploymentScreenState] ?? unknownState;
+  const known = state in meaningConfigs;
+  const key = known ? state : "unknown";
+  const text = stateText(key);
+  const config = known
+    ? meaningConfigs[state as UpdateDeploymentScreenState]
+    : unknownConfig;
+  return {
+    label: translateKnown(`settings:updates.states.${key}.label`, text.label),
+    detail:
+      text.detail != null
+        ? translateKnown(`settings:updates.states.${key}.detail`, text.detail)
+        : "",
+    ...config,
+  };
 }
 
 // The server's own error text wins over the generic sentence: it is the only
@@ -239,18 +211,44 @@ export function deploymentSegments(
     0,
     item.targetCount - succeeded - failed - waiting,
   );
+  const segmentText: Record<
+    "succeeded" | "attention" | "failed" | "remaining",
+    string
+  > = enSettings.updates.segments;
   return [
-    { key: "succeeded", label: "Updated", count: succeeded, tone: "success" },
+    {
+      key: "succeeded",
+      label: translateKnown(
+        "settings:updates.segments.succeeded",
+        segmentText.succeeded,
+      ),
+      count: succeeded,
+      tone: "success",
+    },
     {
       key: "attention",
-      label: "Waiting on someone",
+      label: translateKnown(
+        "settings:updates.segments.attention",
+        segmentText.attention,
+      ),
       count: waiting,
       tone: "warning",
     },
-    { key: "failed", label: "Failed", count: failed, tone: "danger" },
+    {
+      key: "failed",
+      label: translateKnown(
+        "settings:updates.segments.failed",
+        segmentText.failed,
+      ),
+      count: failed,
+      tone: "danger",
+    },
     {
       key: "remaining",
-      label: "In progress",
+      label: translateKnown(
+        "settings:updates.segments.remaining",
+        segmentText.remaining,
+      ),
       count: remaining,
       tone: "neutral",
     },
@@ -324,15 +322,47 @@ export function filterDeploymentScreens(
 
 // A single sentence for the whole deployment, so the history row says what to do
 // rather than leaving four counts to be compared.
+/**
+ * `translateKnown` checks the exact key, so a plural base key would always
+ * miss and return the fallback. The count branch resolves its own suffix with
+ * the platform plural rules, then looks up that exact key.
+ */
+function pluralHeadline(base: "retry" | "waiting", count: number): string {
+  const suffix = new Intl.PluralRules(
+    i18n.resolvedLanguage ?? DEFAULT_LANGUAGE,
+  ).select(count);
+  const key = `settings:updates.headline.${base}_${suffix}`;
+  const fallback =
+    (enSettings.updates.headline as Record<string, string | undefined>)[
+      `${base}_${suffix}`
+    ] ?? "";
+  return translateKnown(key, fallback, { count });
+}
+
 export function deploymentHeadline(item: UpdateDeployment) {
-  if (item.status === "cancelled") return "Cancelled.";
-  if (item.failedCount)
-    return `${item.failedCount} ${item.failedCount === 1 ? "screen needs" : "screens need"} a retry.`;
+  if (item.status === "cancelled")
+    return translateKnown(
+      "settings:updates.headline.cancelled",
+      enSettings.updates.headline.cancelled,
+    );
+  if (item.failedCount) return pluralHeadline("retry", item.failedCount);
   if (item.waitingForUserCount)
-    return `${item.waitingForUserCount} ${item.waitingForUserCount === 1 ? "screen is" : "screens are"} waiting on someone at the TV.`;
+    return pluralHeadline("waiting", item.waitingForUserCount);
   if (item.status === "paused")
-    return item.pauseReason ?? "Paused after a canary failure.";
+    return (
+      item.pauseReason ??
+      translateKnown(
+        "settings:updates.headline.pausedFallback",
+        enSettings.updates.headline.pausedFallback,
+      )
+    );
   if (item.succeededCount >= item.targetCount && item.targetCount > 0)
-    return "Every screen is on this release.";
-  return "Rolling out. Nothing needs attention.";
+    return translateKnown(
+      "settings:updates.headline.complete",
+      enSettings.updates.headline.complete,
+    );
+  return translateKnown(
+    "settings:updates.headline.rolling",
+    enSettings.updates.headline.rolling,
+  );
 }
