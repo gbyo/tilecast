@@ -56,8 +56,7 @@ A screen migrated with `tilecastd import-legacy`:
 
 It does **not** yet:
 
-- send the player heartbeat or hold the player WebSocket, so Studio shows the
-  screen as offline;
+- hold the player WebSocket, so Studio shows only recent heartbeat contact;
 - fetch the manifest, so it plays no server content;
 - run commands;
 - report proof of play or telemetry;
@@ -131,6 +130,9 @@ Until W0 lands, operators must copy `/data/edge` with every backup
 ([`deployment.md`](deployment.md)).
 
 ### W1 (P0) Player presence: heartbeat and socket
+
+The normal HTTP heartbeat fallback is implemented. The authenticated
+WebSocket, live online presence, push wakeups and reconnect tests remain open.
 
 - **Use:** `tilecastd::server_link` (one task, one credential owner, backoff);
   `AuthenticatedServer` (add methods there); the reference

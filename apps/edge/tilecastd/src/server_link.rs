@@ -36,6 +36,7 @@ use crate::daemon::{DaemonContext, VERSION};
 /// Feed reconciliation cadence without a mesh wake-up (RFC §12.3).
 pub const RECONCILE_INTERVAL: Duration = Duration::from_secs(60);
 pub const STATUS_INTERVAL: Duration = Duration::from_secs(300);
+pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60);
 /// Re-check cadence while there is nothing to do (unbound, rejected).
 pub const IDLE_INTERVAL: Duration = Duration::from_secs(300);
 
@@ -47,6 +48,7 @@ pub enum LinkState {
     CredentialRejected,
     IdentityMismatch,
     Connected,
+    ConnectedWithoutEdgeTrust,
     Retrying(&'static str),
 }
 
@@ -58,6 +60,7 @@ impl LinkState {
             Self::CredentialRejected => Some("device_credential_rejected"),
             Self::IdentityMismatch => Some("installation_identity_mismatch"),
             Self::Connected => None,
+            Self::ConnectedWithoutEdgeTrust => Some("edge_secure_bootstrap_required"),
             Self::Retrying(code) => Some(code),
         }
     }
@@ -66,6 +69,7 @@ impl LinkState {
 #[derive(Debug, Default)]
 struct Link {
     next_status_ms: i64,
+    next_heartbeat_ms: i64,
     failures: u32,
 }
 
@@ -74,7 +78,7 @@ pub async fn run(context: Arc<DaemonContext>) {
     loop {
         let state = pass(&context, &mut link).await;
         let delay = match &state {
-            LinkState::Connected => {
+            LinkState::Connected | LinkState::ConnectedWithoutEdgeTrust => {
                 link.failures = 0;
                 RECONCILE_INTERVAL
             }
@@ -146,11 +150,23 @@ async fn pass(context: &DaemonContext, link: &mut Link) -> LinkState {
     let now = context.now();
     let _ = db.run(move |c| binding::mark_identity_verified(c, now)).await;
 
-    if let Err(state) = ensure_certificate(context, &server, node_id).await {
-        return state;
+    if now.unix_millis() >= link.next_heartbeat_ms {
+        match report_heartbeat(context, &server).await {
+            Ok(()) => link.next_heartbeat_ms = now.unix_millis() + HEARTBEAT_INTERVAL.as_millis() as i64,
+            Err(ServerError::CredentialRejected) => {
+                reject_credential(context).await;
+                return LinkState::CredentialRejected;
+            }
+            Err(error) => return server_retry(&error),
+        }
     }
-    if let Err(state) = reconcile(context, &server).await {
-        return state;
+    if server.has_secure_edge_bootstrap() {
+        if let Err(state) = ensure_certificate(context, &server, node_id).await {
+            return state;
+        }
+        if let Err(state) = reconcile(context, &server).await {
+            return state;
+        }
     }
     if now.unix_millis() >= link.next_status_ms {
         match report_status(context, &server).await {
@@ -164,7 +180,40 @@ async fn pass(context: &DaemonContext, link: &mut Link) -> LinkState {
             }
         }
     }
-    LinkState::Connected
+    if server.has_secure_edge_bootstrap() { LinkState::Connected } else { LinkState::ConnectedWithoutEdgeTrust }
+}
+
+/// Normal player presence is reported independently of Edge operational status.
+async fn report_heartbeat(context: &DaemonContext, server: &AuthenticatedServer) -> Result<(), ServerError> {
+    let (renderer, current) = {
+        let presentation = context.presentation.lock().await;
+        (presentation.status(), presentation.current().cloned())
+    };
+    let healthy = renderer.state.as_str() == "healthy"
+        && current.as_ref().is_some_and(|active| active.source != crate::presentation::ActivationSource::StatusSurface);
+    let uptime = ((context.now().unix_millis() - context.started_at.unix_millis()).max(0) / 1000) as u64;
+    let mut heartbeat = serde_json::json!({
+        "screenWidth": 0,
+        "screenHeight": 0,
+        "playerVersion": VERSION,
+        "uptimeSeconds": uptime,
+        "playbackState": if healthy { "playing" } else { "idle" },
+        "safeMode": renderer.state.as_str() == "safe_mode",
+        "presentationSchemaVersions": [1],
+    });
+    if healthy && let Some(progress_at) = renderer.last_progress_at {
+        heartbeat["lastHealthyPlaybackAt"] = serde_json::Value::String(progress_at.to_string());
+    }
+    if let Ok(available) = edge_platform::disk::available_bytes(&context.paths.state_dir) {
+        heartbeat["availableStorageBytes"] = serde_json::json!(available);
+    }
+    if let Some(cas) = &context.cas
+        && let Ok(usage) = cas.usage().await
+    {
+        heartbeat["cacheUsedBytes"] = serde_json::json!(usage.used_bytes);
+        heartbeat["cacheLimitBytes"] = serde_json::json!(cas.policy().limit_bytes);
+    }
+    server.player_heartbeat(&heartbeat).await
 }
 
 async fn ensure_certificate(

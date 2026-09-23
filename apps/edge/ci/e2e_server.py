@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Cross-language end-to-end test: a real Tilecast Server and a real tilecastd.
 
-Drives the production pairing flow over HTTP (setup, pairing session,
+Drives the production pairing flow through a locally trusted HTTPS endpoint (setup, pairing session,
 dashboard approval, enrollment), writes the resulting state in the legacy
 Electron player's on-disk format, then checks that tilecastd:
 
 1. imports it once (`tilecastd import-legacy`), leaving the legacy files
    untouched, and refuses a second import as already complete;
 2. verifies installation identity, enrolls an Edge certificate with its own
-   key, and reports Edge status the dashboard can see (`/edge/nodes`);
+   key, reports normal player heartbeat contact and Edge status (`/edge/nodes`);
 3. deletes the credential only after the server says it was revoked.
 
 Requirements: Go, cargo, a local PostgreSQL where the current user may
@@ -20,11 +20,16 @@ import http.cookiejar
 import json
 import os
 import re
+import select
 import shutil
 import signal
+import socket
+import socketserver
+import ssl
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -35,7 +40,45 @@ EDGE = os.path.join(ROOT, "apps", "edge")
 SERVER = os.path.join(ROOT, "apps", "server")
 DATABASE = "tilecast_edge_e2e"
 PORT = 18080
-BASE = f"http://127.0.0.1:{PORT}"
+TLS_PORT = 18081
+BASE = f"https://localhost:{TLS_PORT}"
+
+
+class TlsForwarder(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+    def __init__(self, cert, key):
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(cert, key)
+        self.tls_context = context
+        super().__init__(("127.0.0.1", TLS_PORT), TlsForwarderHandler)
+
+    def get_request(self):
+        connection, address = super().get_request()
+        return self.tls_context.wrap_socket(connection, server_side=True), address
+
+
+class TlsForwarderHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        try:
+            upstream = socket.create_connection(("127.0.0.1", PORT), timeout=10)
+        except OSError:
+            return
+        with upstream:
+            self.request.settimeout(None)
+            upstream.settimeout(None)
+            sockets = (self.request, upstream)
+            while True:
+                readable, _, _ = select.select(sockets, [], [], 30)
+                if not readable:
+                    continue
+                for source in readable:
+                    data = source.recv(65536)
+                    if not data:
+                        return
+                    (upstream if source is self.request else self.request).sendall(data)
 
 
 def run(*args, **kwargs):
@@ -43,9 +86,12 @@ def run(*args, **kwargs):
 
 
 class Client:
-    def __init__(self):
+    def __init__(self, ca_file):
         self.jar = http.cookiejar.CookieJar()
-        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
+        self.opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(self.jar),
+            urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=ca_file)),
+        )
         self.csrf = None
 
     def call(self, method, path, body=None, headers=None, expect=None):
@@ -61,7 +107,7 @@ class Client:
                 status, payload = response.status, response.read()
         except urllib.error.HTTPError as error:
             status, payload = error.code, error.read()
-        except urllib.error.URLError:
+        except (urllib.error.URLError, OSError):
             status, payload = 0, b""
         if expect is not None and status != expect:
             # Never echo a credential or token, even from a throwaway server.
@@ -93,7 +139,16 @@ def tree(root):
 def main():
     work = tempfile.mkdtemp(prefix="tilecast-edge-e2e-")
     processes = []
+    proxy = None
     try:
+        cert, key = os.path.join(work, "test-ca.pem"), os.path.join(work, "test-key.pem")
+        run("openssl", "req", "-x509", "-newkey", "rsa:2048", "-noenc", "-days", "1",
+            "-keyout", key, "-out", cert, "-subj", "/CN=localhost",
+            "-addext", "subjectAltName=DNS:localhost", "-addext", "basicConstraints=critical,CA:FALSE",
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        os.environ["SSL_CERT_FILE"] = cert
+        proxy = TlsForwarder(cert, key)
+        threading.Thread(target=proxy.serve_forever, daemon=True).start()
         run("dropdb", "--if-exists", DATABASE)
         run("createdb", DATABASE)
         server_bin = os.path.join(work, "tilecast")
@@ -131,7 +186,7 @@ def main():
             TILECAST_FFPROBE_PATH=tools["ffprobe"],
         )
         processes.append(subprocess.Popen([server_bin], env=env, stdout=server_log, stderr=subprocess.STDOUT))
-        client = Client()
+        client = Client(cert)
         wait_for(lambda: client.call("GET", "/readyz")[0] == 200, "server readiness")
 
         _, setup = client.call(
@@ -146,7 +201,7 @@ def main():
         installation_id = identity["data"]["installationId"]
 
         # The legacy player's pairing flow.
-        player = Client()
+        player = Client(cert)
         node_id = str(uuid.uuid4())
         metadata = {"playerInstallationId": node_id, "platform": "linux", "manufacturer": "e2e", "model": "Linux x64",
                     "androidVersion": "6.8.0-e2e", "playerVersion": "0.1.0", "screenWidth": 1920, "screenHeight": 1080,
@@ -204,6 +259,10 @@ def main():
 
         node = wait_for(node_listed, "Edge enrollment and status report")
         print("dashboard sees node:", node["nodeId"], node["rendererState"], node["meshState"], node["certificateExpiresAt"])
+        def player_contact():
+            code, screen = client.call("GET", f"/api/v1/screens/{screen_id}")
+            return code == 200 and screen["data"]["status"] == "recent"
+        wait_for(player_contact, "normal player heartbeat contact")
         socket = os.path.join(runtime, "edge.sock")
         status = subprocess.run([tilecastctl, "--socket", socket, "--json", "status"], check=True,
                                 capture_output=True, text=True)
@@ -222,7 +281,7 @@ def main():
         credential_path = os.path.join(state, "identity", "device-credential")
         wait_for(lambda: not os.path.exists(credential_path), "credential removal after revocation")
         assert tree(legacy) == before, "legacy state changed"
-        print("PASS: import, identity gate, Edge enrollment, status, revocation")
+        print("PASS: import, HTTPS Edge enrollment, player heartbeat, Edge status, revocation")
         return 0
     except Exception:
         for name in ("server.log", "tilecastd.log"):
@@ -233,6 +292,9 @@ def main():
                     print(handle.read()[-6000:], file=sys.stderr)
         raise
     finally:
+        if proxy is not None:
+            proxy.shutdown()
+            proxy.server_close()
         for process in processes:
             process.terminate()
             try:

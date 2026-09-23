@@ -40,6 +40,8 @@ pub enum ServerError {
     CredentialRejected,
     #[error("the server response could not be read")]
     Decode,
+    #[error("Edge trust bootstrap requires HTTPS")]
+    InsecureEdgeBootstrap,
 }
 
 impl ServerError {
@@ -51,6 +53,7 @@ impl ServerError {
             Self::IdentityMismatch { .. } => "installation_identity_mismatch",
             Self::CredentialRejected => "device_credential_rejected",
             Self::Decode => "server_response_invalid",
+            Self::InsecureEdgeBootstrap => "edge_secure_bootstrap_required",
         }
     }
 
@@ -92,11 +95,16 @@ struct ErrorBody {
     message: String,
 }
 
-fn tls_config() -> Result<rustls::ClientConfig, ServerError> {
+fn tls_config(
+    additional_roots: &[rustls::pki_types::CertificateDer<'static>],
+) -> Result<rustls::ClientConfig, ServerError> {
     let mut roots = rustls::RootCertStore::empty();
     let loaded = rustls_native_certs::load_native_certs();
     for certificate in loaded.certs {
         let _ = roots.add(certificate);
+    }
+    for certificate in additional_roots {
+        roots.add(certificate.clone()).map_err(|_| ServerError::Url("invalid trusted CA certificate".to_owned()))?;
     }
     let config = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
         .with_safe_default_protocol_versions()
@@ -115,9 +123,17 @@ pub struct ServerClient {
 impl ServerClient {
     /// Builds a client for a normalized server origin.
     pub fn new(server_url: &str) -> Result<Self, ServerError> {
+        Self::with_trust_roots(server_url, &[])
+    }
+
+    /// Adds operator-provided CA certificates while retaining normal hostname validation.
+    pub fn with_trust_roots(
+        server_url: &str,
+        additional_roots: &[rustls::pki_types::CertificateDer<'static>],
+    ) -> Result<Self, ServerError> {
         let base_url = normalize_server_url(server_url).map_err(|e| ServerError::Url(e.to_string()))?;
         let http = reqwest::Client::builder()
-            .use_preconfigured_tls(tls_config()?)
+            .use_preconfigured_tls(tls_config(additional_roots)?)
             // An idle bound for every request (large downloads included);
             // JSON calls add a total timeout on top.
             .read_timeout(REQUEST_TIMEOUT)
@@ -139,13 +155,13 @@ impl ServerClient {
     }
 
     pub async fn identity(&self) -> Result<ServerIdentity, ServerError> {
-        let response = self
-            .http
-            .get(self.url("/api/v1/system/identity"))
-            .timeout(REQUEST_TIMEOUT)
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+        let response =
+            self.http.get(self.url("/api/v1/system/identity")).timeout(REQUEST_TIMEOUT).send().await.map_err(
+                |error| {
+                    tracing::warn!(component = "server", event = "identity_request_failed", error = ?error);
+                    ServerError::Network
+                },
+            )?;
         decode(response).await
     }
 
@@ -248,6 +264,10 @@ impl AuthenticatedServer {
         self.client.base_url()
     }
 
+    pub fn has_secure_edge_bootstrap(&self) -> bool {
+        self.client.base_url.starts_with("https://")
+    }
+
     fn raw_request(&self, method: reqwest::Method, path: &str) -> reqwest::RequestBuilder {
         self.client
             .http
@@ -261,6 +281,9 @@ impl AuthenticatedServer {
     }
 
     pub async fn edge_enroll(&self, csr_pem: &str) -> Result<EnrollResponse, ServerError> {
+        if !self.has_secure_edge_bootstrap() {
+            return Err(ServerError::InsecureEdgeBootstrap);
+        }
         let body = serde_json::json!({"csrPem": csr_pem, "meshProtocolVersion": edge_protocol::MESH_PROTOCOL_VERSION});
         let response = self
             .request(reqwest::Method::POST, "/api/v1/player/edge/enroll")
@@ -290,6 +313,18 @@ impl AuthenticatedServer {
         let response = self
             .request(reqwest::Method::POST, "/api/v1/player/edge/status")
             .json(status)
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let _: serde_json::Value = decode(response).await?;
+        Ok(())
+    }
+
+    /// The normal player contact path. Edge status remains a separate, slower report.
+    pub async fn player_heartbeat(&self, heartbeat: &serde_json::Value) -> Result<(), ServerError> {
+        let response = self
+            .request(reqwest::Method::POST, "/api/v1/player/heartbeat")
+            .json(heartbeat)
             .send()
             .await
             .map_err(|_| ServerError::Network)?;

@@ -749,6 +749,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "rcgen",
  "reqwest",
  "rustls",
  "rustls-native-certs",
@@ -757,6 +758,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tokio-rustls",
  "tracing",
  "x509-parser",
 ]

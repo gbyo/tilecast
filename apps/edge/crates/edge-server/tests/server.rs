@@ -142,6 +142,7 @@ async fn handle(fake: Arc<Fake>, request: Request<Incoming>) -> Result<Response<
     let range = request.headers().get("range").and_then(|v| v.to_str().ok()).map(str::to_owned);
     let if_range = request.headers().get("if-range").and_then(|v| v.to_str().ok()).map(str::to_owned);
     match path.as_str() {
+        "/api/v1/player/heartbeat" => Ok(data(json!({"accepted": true}))),
         "/api/v1/player/edge/enroll" => {
             let body = request.into_body().collect().await.unwrap().to_bytes();
             let body: Value = serde_json::from_slice(&body).unwrap();
@@ -241,6 +242,37 @@ async fn serve(fake: Arc<Fake>) -> String {
         }
     });
     format!("http://127.0.0.1:{}", address.port())
+}
+
+/// Uses a locally trusted CA certificate with ordinary hostname validation.
+async fn serve_tls(fake: Arc<Fake>) -> (String, rustls::pki_types::CertificateDer<'static>) {
+    let certified = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
+    let root = certified.cert.der().clone();
+    let key = rustls::pki_types::PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der());
+    let tls = rustls::ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_no_client_auth()
+        .with_single_cert(vec![root.clone()], key.into())
+        .unwrap();
+    let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(tls));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        loop {
+            let Ok((stream, _)) = listener.accept().await else { return };
+            let fake = Arc::clone(&fake);
+            let acceptor = acceptor.clone();
+            tokio::spawn(async move {
+                let Ok(stream) = acceptor.accept(stream).await else { return };
+                let service = hyper::service::service_fn(move |request| handle(Arc::clone(&fake), request));
+                let _ = hyper::server::conn::http1::Builder::new()
+                    .serve_connection(hyper_util::rt::TokioIo::new(stream), service)
+                    .await;
+            });
+        }
+    });
+    (format!("https://localhost:{}", address.port()), root)
 }
 
 struct Env {
@@ -375,8 +407,12 @@ async fn legacy_import_then_enrollment() {
 
     // Enrollment with the imported credential.
     let credential = DeviceCredential::load(&env.identity()).unwrap().unwrap();
-    let server =
-        ServerClient::new(&bound.server_url).unwrap().verify_installation(installation, credential).await.unwrap();
+    let (tls_url, tls_root) = serve_tls(Arc::clone(&fake)).await;
+    let server = ServerClient::with_trust_roots(&tls_url, &[tls_root])
+        .unwrap()
+        .verify_installation(installation, credential)
+        .await
+        .unwrap();
     let revocations = RevocationSet::new();
     let enrolled = enroll(&server, &env.db, &env.identity(), node, &revocations, now()).await.unwrap();
     assert_eq!(enrolled.certificate.node_id, node);
@@ -414,6 +450,23 @@ async fn legacy_import_then_enrollment() {
 }
 
 #[tokio::test]
+async fn insecure_lan_binding_keeps_player_contact_but_cannot_bootstrap_edge_trust() {
+    let installation = InstallationId::new_random();
+    let fake = Fake::new(installation);
+    let url = serve(Arc::clone(&fake)).await;
+    let server = ServerClient::new(&url)
+        .unwrap()
+        .verify_installation(installation, DeviceCredential::parse(CREDENTIAL).unwrap())
+        .await
+        .unwrap();
+    assert!(!server.has_secure_edge_bootstrap());
+    assert_eq!(server.edge_enroll("not-a-csr").await.unwrap_err(), ServerError::InsecureEdgeBootstrap);
+    assert!(fake.authenticated_paths().is_empty());
+    server.player_heartbeat(&json!({"screenWidth": 0, "screenHeight": 0, "playerVersion": "0.1.0"})).await.unwrap();
+    assert_eq!(fake.authenticated_paths(), vec!["/api/v1/player/heartbeat"]);
+}
+
+#[tokio::test]
 async fn import_refuses_a_different_installation_without_sending_the_credential() {
     let installation = InstallationId::new_random();
     let mut fake = Fake::new(installation);
@@ -446,18 +499,25 @@ async fn enrollment_refuses_a_changed_edge_ca() {
     let installation = InstallationId::new_random();
     let node = NodeId::new_random();
     let first = Fake::new(installation);
-    let first_url = serve(Arc::clone(&first)).await;
+    let (first_url, first_root) = serve_tls(Arc::clone(&first)).await;
     let env = Env::new().await;
     let credential = DeviceCredential::parse(CREDENTIAL).unwrap();
-    let server =
-        ServerClient::new(&first_url).unwrap().verify_installation(installation, credential.clone()).await.unwrap();
+    let server = ServerClient::with_trust_roots(&first_url, &[first_root])
+        .unwrap()
+        .verify_installation(installation, credential.clone())
+        .await
+        .unwrap();
     let revocations = RevocationSet::new();
     let enrolled = enroll(&server, &env.db, &env.identity(), node, &revocations, now()).await.unwrap();
 
     // Same installation, different CA: the pinned trust wins.
     let impostor = Fake::new(installation);
-    let impostor_url = serve(impostor).await;
-    let server = ServerClient::new(&impostor_url).unwrap().verify_installation(installation, credential).await.unwrap();
+    let (impostor_url, impostor_root) = serve_tls(impostor).await;
+    let server = ServerClient::with_trust_roots(&impostor_url, &[impostor_root])
+        .unwrap()
+        .verify_installation(installation, credential)
+        .await
+        .unwrap();
     let error = enroll(&server, &env.db, &env.identity(), node, &revocations, now()).await.unwrap_err();
     assert!(matches!(error, EnrollError::TrustChanged), "{error:?}");
     let active = env.db.run(|c| identity::active_certificate(c)).await.unwrap().unwrap();
@@ -465,10 +525,14 @@ async fn enrollment_refuses_a_changed_edge_ca() {
 }
 
 async fn enrolled(fake: &Arc<Fake>) -> (Env, edge_server::AuthenticatedServer, RevocationSet, AuthorityTrust) {
-    let url = serve(Arc::clone(fake)).await;
+    let (url, root) = serve_tls(Arc::clone(fake)).await;
     let env = Env::new().await;
     let credential = DeviceCredential::parse(CREDENTIAL).unwrap();
-    let server = ServerClient::new(&url).unwrap().verify_installation(fake.installation, credential).await.unwrap();
+    let server = ServerClient::with_trust_roots(&url, &[root])
+        .unwrap()
+        .verify_installation(fake.installation, credential)
+        .await
+        .unwrap();
     let revocations = RevocationSet::new();
     enroll(&server, &env.db, &env.identity(), NodeId::new_random(), &revocations, now()).await.unwrap();
     let trust = AuthorityTrust {

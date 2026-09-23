@@ -34,6 +34,8 @@ hyper-util.workspace = true
 http-body-util.workspace = true
 bytes.workspace = true
 tempfile.workspace = true
+rcgen.workspace = true
+tokio-rustls.workspace = true
 
 [lints]
 workspace = true

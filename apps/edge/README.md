@@ -83,8 +83,9 @@ End-to-end checks:
   the headless scenarios (status surface, daemon restart, renderer crash,
   image, H.264 video, transitions, render-tree widget, layout).
 - `ci/e2e_server.py` runs a real Tilecast Server against PostgreSQL, pairs a
-  screen through the HTTP API, then runs `tilecastd import-legacy`, Edge
-  enrollment, status reporting and revocation with the real binaries.
+  screen through a locally trusted HTTPS endpoint, then runs `tilecastd
+  import-legacy`, Edge enrollment, ordinary player heartbeat, Edge status
+  reporting and revocation with the real binaries.
   Run it from the repository root: `apps/edge/ci/e2e_server.py`.
 
 The repository `Makefile` has `edge-check`, `edge-test`, `edge-linux` and
