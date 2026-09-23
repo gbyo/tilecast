@@ -24,22 +24,25 @@
 //! `player.ts#buildPresentation`) calls [`PresentationEngine::activate`] the
 //! same way, after its content is verified and pinned in the CAS.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use edge_ipc::SessionHandle;
 use edge_protocol::Timestamp;
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ids::{ActivationId, SessionId};
 use edge_protocol::ipc::event::{
-    ActivationRef, ContentStoreDescriptor, Event, KioskPolicy, PresentationActivate, PresentationClear,
-    RendererCommand, RendererCommandKind, RendererConfigure, RendererProgress, RendererReady, RendererShutdown,
-    SyncTiming,
+    ActivationRef, Event, KioskPolicy, MediaChannelDescriptor, PresentationActivate, PresentationClear,
+    RendererCommand, RendererCommandKind, RendererConfigure, RendererMediaRef, RendererProgress, RendererReady,
+    RendererShutdown, SyncTiming,
 };
 use edge_protocol::ipc::presentation::{
     ContentRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
 };
 use edge_protocol::ipc::status::RendererStatus;
 
+use crate::media::{MediaCapability, MediaRegistry};
 use crate::supervisor::{Expectation, HealAction, SupervisorConfig, SupervisorState, is_meaningful};
 
 /// Where an activation came from, for status and logs.
@@ -65,12 +68,12 @@ impl Activation {
         ActivationRef { activation_id: self.id, generation: self.generation }
     }
 
-    fn event(&self) -> Event {
+    fn event(&self, document: PresentationDocument, content: Vec<RendererMediaRef>) -> Event {
         Event::PresentationActivate(Box::new(PresentationActivate {
             activation_id: self.id,
             generation: self.generation,
-            presentation: self.document.clone(),
-            content: self.content.clone(),
+            presentation: document,
+            content,
             timing: self.timing.clone(),
         }))
     }
@@ -85,6 +88,47 @@ impl Activation {
     }
 }
 
+fn rewrite_media_value(
+    value: &mut serde_json::Value,
+    capabilities: &HashMap<edge_protocol::Sha256Digest, MediaCapability>,
+) -> bool {
+    match value {
+        serde_json::Value::String(text) if text.to_ascii_lowercase().starts_with("tcmedia:") => {
+            let Some(digest) = edge_protocol::ipc::presentation::parse_content_uri(text) else { return false };
+            let Some(capability) = capabilities.get(&digest) else { return false };
+            *text = capability.uri();
+            true
+        }
+        serde_json::Value::Array(items) => items.iter_mut().all(|item| rewrite_media_value(item, capabilities)),
+        serde_json::Value::Object(members) => members.values_mut().all(|item| rewrite_media_value(item, capabilities)),
+        _ => true,
+    }
+}
+
+fn renderer_payload(
+    activation: &Activation,
+    capabilities: &HashMap<edge_protocol::Sha256Digest, MediaCapability>,
+) -> Option<(PresentationDocument, Vec<RendererMediaRef>)> {
+    let mut document = serde_json::to_value(&activation.document).ok()?;
+    if !rewrite_media_value(&mut document, capabilities) {
+        return None;
+    }
+    let document = serde_json::from_value(document).ok()?;
+    let content = activation
+        .content
+        .iter()
+        .map(|reference| {
+            let capability = capabilities.get(&reference.sha256)?;
+            Some(RendererMediaRef {
+                uri: SafeText::lossy(&capability.uri()),
+                size_bytes: reference.size_bytes,
+                mime_type: reference.mime_type.clone(),
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some((document, content))
+}
+
 #[derive(Debug)]
 struct RendererLink {
     session: SessionHandle,
@@ -92,11 +136,13 @@ struct RendererLink {
     accepted: Option<ActivationRef>,
     last_progress_at: Option<Timestamp>,
     last_error_code: Option<String>,
+    media: Option<(ActivationRef, HashMap<edge_protocol::Sha256Digest, MediaCapability>)>,
 }
 
 #[derive(Debug)]
 pub struct PresentationEngine {
     configure: RendererConfigure,
+    media_registry: Arc<Mutex<MediaRegistry>>,
     next_generation: u64,
     current: Option<Activation>,
     renderer: Option<RendererLink>,
@@ -109,20 +155,22 @@ pub struct PresentationEngine {
 
 impl PresentationEngine {
     pub fn new(
-        cas_root: &std::path::Path,
+        media_socket: &Path,
+        media_registry: Arc<Mutex<MediaRegistry>>,
         kiosk: KioskPolicy,
         supervisor_config: SupervisorConfig,
         now_ms: i64,
     ) -> Self {
         let configure = RendererConfigure {
-            content_store: ContentStoreDescriptor {
-                layout: ShortToken::new("cas-sha256-v1").expect("literal token"),
-                root: SafeText::lossy(&cas_root.to_string_lossy()),
+            media_channel: MediaChannelDescriptor {
+                protocol: ShortToken::new("daemon-cap-v1").expect("literal token"),
+                socket: SafeText::lossy(&media_socket.to_string_lossy()),
             },
             kiosk,
         };
         Self {
             configure,
+            media_registry,
             next_generation: 1,
             current: None,
             renderer: None,
@@ -164,7 +212,7 @@ impl PresentationEngine {
         );
         self.current = Some(activation);
         self.supervisor.reset_clock(now_ms);
-        self.push_current();
+        self.push_current(now_ms);
         Ok(reference)
     }
 
@@ -179,8 +227,14 @@ impl PresentationEngine {
 
     pub fn renderer_connected(&mut self, session: SessionHandle, now_ms: i64) {
         let _ = session.send_event(Event::RendererConfigure(self.configure.clone()));
-        self.renderer =
-            Some(RendererLink { session, ready: None, accepted: None, last_progress_at: None, last_error_code: None });
+        self.renderer = Some(RendererLink {
+            session,
+            ready: None,
+            accepted: None,
+            last_progress_at: None,
+            last_error_code: None,
+            media: None,
+        });
         self.supervisor.reset_clock(now_ms);
     }
 
@@ -194,7 +248,7 @@ impl PresentationEngine {
         self.renderer.as_mut().filter(|link| link.session.id() == session.id())
     }
 
-    pub fn renderer_ready(&mut self, session: &SessionHandle, ready: RendererReady) {
+    pub fn renderer_ready(&mut self, session: &SessionHandle, ready: RendererReady, now_ms: i64) {
         let Some(link) = self.link_for(session) else {
             return;
         };
@@ -205,7 +259,7 @@ impl PresentationEngine {
             features = ready.features.len()
         );
         link.ready = Some(ready);
-        self.push_current();
+        self.push_current(now_ms);
     }
 
     pub fn accepted(&mut self, session: &SessionHandle, activation: ActivationRef) {
@@ -325,32 +379,21 @@ impl PresentationEngine {
         }
     }
 
-    fn push_current(&mut self) {
-        let Some(link) = &self.renderer else {
+    fn push_current(&mut self, now_ms: i64) {
+        let Some((session, ready, cached_media)) = self.renderer.as_ref().and_then(|link| {
+            link.ready.as_ref().map(|ready| (link.session.clone(), ready.clone(), link.media.clone()))
+        }) else {
             return;
         };
-        let Some(ready) = &link.ready else {
-            return;
-        };
-        let Some(current) = &self.current else {
-            return;
-        };
+        let Some(current) = self.current.clone() else { return };
         let offered: BTreeSet<&str> = ready.features.iter().map(ShortToken::as_str).collect();
         let missing: Vec<&str> =
             current.document.required_features().into_iter().filter(|f| !offered.contains(f)).collect();
-        if missing.is_empty() {
-            self.incompatible_reason = None;
-            let _ = link.session.send_event(current.event());
-            return;
-        }
-        let reason = format!("This display engine does not support: {}.", missing.join(", "));
-        tracing::warn!(component = "presentation", event = "presentation_incompatible", missing = %missing.join(","));
-        self.incompatible_reason = Some(reason);
-        // Show an explicit surface instead of dropping part of the content.
-        let fallback = Activation {
-            id: ActivationId::new_random(),
-            generation: current.generation,
-            document: PresentationDocument::Unavailable(StatusSurface {
+        if !missing.is_empty() {
+            let reason = format!("This display engine does not support: {}.", missing.join(", "));
+            tracing::warn!(component = "presentation", event = "presentation_incompatible", missing = %missing.join(","));
+            self.incompatible_reason = Some(reason);
+            let fallback = PresentationDocument::Unavailable(StatusSurface {
                 title: SafeText::lossy("Presentation unavailable"),
                 message: SafeText::lossy("This screen's display engine cannot show the assigned presentation yet."),
                 background_color: None,
@@ -358,12 +401,43 @@ impl PresentationEngine {
                 logo_src: None,
                 footer_text: None,
                 status: None,
-            }),
-            content: Vec::new(),
-            timing: None,
-            source: current.source,
+            });
+            let event = current.event(fallback, Vec::new());
+            let _ = session.send_event(event);
+            return;
+        }
+        self.incompatible_reason = None;
+
+        let reference = current.reference();
+        let capabilities = if let Some((_, capabilities)) = cached_media.filter(|(cached, _)| *cached == reference) {
+            capabilities
+        } else {
+            let Ok(mut registry) = self.media_registry.lock() else {
+                tracing::error!(component = "media", event = "registry_poisoned");
+                return;
+            };
+            let prepared = match registry.prepare(session.id(), current.generation, now_ms, &current.content) {
+                Ok(prepared) => prepared,
+                Err(error) => {
+                    tracing::error!(component = "media", event = "capability_prepare_failed", error = %error);
+                    return;
+                }
+            };
+            if let Err(error) = registry.activate(session.id(), current.generation, now_ms) {
+                registry.retire(current.generation);
+                tracing::error!(component = "media", event = "capability_activate_failed", error = %error);
+                return;
+            }
+            prepared
         };
-        let _ = link.session.send_event(fallback.event());
+        let Some((document, content)) = renderer_payload(&current, &capabilities) else {
+            tracing::error!(component = "media", event = "capability_reference_missing");
+            return;
+        };
+        if let Some(link) = self.renderer.as_mut().filter(|link| link.session.id() == session.id()) {
+            link.media = Some((reference, capabilities));
+            let _ = link.session.send_event(current.event(document, content));
+        }
     }
 
     pub fn status(&self) -> RendererStatus {

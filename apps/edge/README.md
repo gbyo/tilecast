@@ -91,8 +91,9 @@ import-legacy`, Edge enrollment, authenticated player WebSocket presence,
   Run it from the repository root: `apps/edge/ci/e2e_server.py`.
 - `tilecastd/tests/media_channel.rs` runs on Linux with a real Unix socket and
   verified CAS object. It checks capability-scoped HEAD/range reads and rejects
-  raw digests, oversized ranges and retired renderer sessions. WPE does not
-  use this channel yet.
+  raw digests, oversized ranges and retired renderer sessions. The headless
+  WPE fixture scenario exercises image and H.264 media through that same
+  renderer-bound channel.
 
 The repository `Makefile` has `edge-check`, `edge-test`, `edge-linux` and
 `edge-e2e` targets.

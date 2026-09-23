@@ -305,7 +305,7 @@ impl ContentStore {
         let path = object_path(&self.inner.cas_dir, digest);
         match rustix::fs::open(
             &path,
-            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::NOFOLLOW,
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::CLOEXEC,
             rustix::fs::Mode::empty(),
         ) {
             Ok(fd) => {

@@ -80,7 +80,7 @@ pub struct DaemonContext {
     pub started_at: Timestamp,
     pub notifier: Notifier,
     pub presentation: Mutex<PresentationEngine>,
-    pub media_registry: Arc<Mutex<MediaRegistry>>,
+    pub media_registry: Arc<std::sync::Mutex<MediaRegistry>>,
     pub capabilities: Mutex<CapabilityRegistry>,
     pub capability_revision: std::sync::atomic::AtomicU64,
     pub node_id: Option<NodeId>,
@@ -190,7 +190,14 @@ impl Daemon {
             stall_threshold_ms: config.renderer.stall_threshold_seconds as i64 * 1_000,
             ..SupervisorConfig::default()
         };
-        let presentation = PresentationEngine::new(&paths.cas_root(), kiosk, supervisor, now.unix_millis());
+        let media_registry = Arc::new(std::sync::Mutex::new(MediaRegistry::new()));
+        let presentation = PresentationEngine::new(
+            &media_channel::socket_path(&paths.runtime_dir),
+            media_registry.clone(),
+            kiosk,
+            supervisor,
+            now.unix_millis(),
+        );
 
         let mut registry = CapabilityRegistry::new();
         registry.register(Arc::new(SystemdProvider {
@@ -250,7 +257,7 @@ impl Daemon {
             started_at: now,
             notifier,
             presentation: Mutex::new(presentation),
-            media_registry: Arc::new(Mutex::new(MediaRegistry::new())),
+            media_registry,
             capabilities: Mutex::new(registry),
             capability_revision: std::sync::atomic::AtomicU64::new(0),
             node_id,
@@ -437,7 +444,9 @@ async fn cas_maintenance_loop(context: Arc<DaemonContext>) {
             let now = context.now();
             let _ = db.run(move |c| cas::expire_pins(c, now)).await;
         }
-        context.media_registry.lock().await.expire(context.now().unix_millis());
+        if let Ok(mut registry) = context.media_registry.lock() {
+            registry.expire(context.now().unix_millis());
+        }
     }
 }
 

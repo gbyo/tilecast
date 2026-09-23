@@ -15,7 +15,7 @@ Type=simple
 User=tilecast
 Group=tilecast
 SupplementaryGroups=video render input
-ExecStart=/opt/tilecast-edge/current/bin/tilecast-renderer-wpe --platform=drm --socket=/run/tilecast-edge/edge.sock --runtime-dir=/opt/tilecast-edge/current/share/tilecast/renderer-web
+ExecStart=/opt/tilecast-edge/current/bin/tilecast-renderer-wpe --platform=drm --socket=/run/tilecast-edge/edge.sock --media-socket=/run/tilecast-edge/media.sock --runtime-dir=/opt/tilecast-edge/current/share/tilecast/renderer-web
 Restart=always
 RestartSec=2
 TimeoutStopSec=10s
@@ -31,13 +31,11 @@ Environment=XDG_CACHE_HOME=/var/cache/tilecast-renderer
 Environment=XDG_DATA_HOME=/var/cache/tilecast-renderer/data
 UMask=0077
 
-# Filesystem isolation (RFC Amendment A1.4): the renderer reads only the CAS
-# and its own runtime assets. It cannot see the Edge identity directory, the
-# state database or any home directory.
+# Filesystem isolation (RFC §7.1): the renderer cannot see the CAS, Edge
+# identity, state database or any home directory. Media reads use capabilities.
 ProtectHome=yes
 ProtectSystem=strict
-ReadOnlyPaths=/var/lib/tilecast-edge/cas
-InaccessiblePaths=-/var/lib/tilecast-edge/identity -/var/lib/tilecast-edge/state.db -/var/lib/tilecast-edge/state.db-wal -/var/lib/tilecast-edge/state.db-shm -/var/lib/tilecast-edge/partial -/var/lib/tilecast-edge/updates
+InaccessiblePaths=-/var/lib/tilecast-edge/cas -/var/lib/tilecast-edge/identity -/var/lib/tilecast-edge/state.db -/var/lib/tilecast-edge/state.db-wal -/var/lib/tilecast-edge/state.db-shm -/var/lib/tilecast-edge/partial -/var/lib/tilecast-edge/updates
 PrivateTmp=yes
 NoNewPrivileges=yes
 CapabilityBoundingSet=

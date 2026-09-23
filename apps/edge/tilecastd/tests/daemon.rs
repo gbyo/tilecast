@@ -93,7 +93,8 @@ async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
     // Renderer lifecycle: configure → ready → activate → accepted → progress.
     let client = renderer(&running.socket).await;
     let Event::RendererConfigure(configure) = expect_event(&client).await else { panic!("configure first") };
-    assert!(configure.content_store.root.as_str().ends_with("/state/cas"));
+    assert_eq!(configure.media_channel.protocol.as_str(), "daemon-cap-v1");
+    assert!(configure.media_channel.socket.as_str().ends_with("/run/media.sock"));
     client.send_event(ready_event(&["status-surfaces-v1"])).await.unwrap();
     let Event::PresentationActivate(activation) = expect_event(&client).await else { panic!("activation") };
     assert_eq!(activation.presentation, PresentationDocument::Setup {}, "unbound node shows setup");

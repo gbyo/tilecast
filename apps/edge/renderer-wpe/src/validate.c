@@ -14,6 +14,13 @@ tc_is_sha256_hex (const char *value)
   return TRUE;
 }
 
+gboolean
+tc_is_media_capability_uri (const char *value)
+{
+  static const char prefix[] = "tcmedia://cap/";
+  return value != NULL && g_str_has_prefix (value, prefix) && tc_is_sha256_hex (value + sizeof prefix - 1);
+}
+
 static gboolean
 name_is_allowed (const char *name)
 {

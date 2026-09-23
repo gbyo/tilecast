@@ -19,7 +19,6 @@ use tilecastd::media::{MediaRegistry, RendererInstance};
 use tilecastd::media_channel::{MediaChannel, ProcLineage, ProcessLineage, process_start_ticks};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::UnixStream;
-use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 async fn ask(path: &std::path::Path, request: Value) -> (Value, Vec<u8>) {
@@ -88,7 +87,7 @@ async fn authorized_range_reads_and_denials_use_only_verified_cas() {
     let now = clock.now().unix_millis();
     let token = registry.prepare(session, 7, now, &[content]).unwrap().remove(&digest).unwrap();
     registry.activate(session, 7, now).unwrap();
-    let registry = Arc::new(Mutex::new(registry));
+    let registry = Arc::new(std::sync::Mutex::new(registry));
     let path = dir.path().join("media.sock");
     let channel = MediaChannel::bind(&path, registry.clone(), cas.clone(), clock, Arc::new(ProcLineage)).unwrap();
     assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
@@ -113,7 +112,7 @@ async fn authorized_range_reads_and_denials_use_only_verified_cas() {
         assert_eq!(response, json!({"status": "denied"}));
         assert!(payload.is_empty());
     }
-    registry.lock().await.unbind_renderer(session);
+    registry.lock().unwrap().unbind_renderer(session);
     let (response, _) = ask(&path, json!({"op": "head", "capability": token.as_str()})).await;
     assert_eq!(response, json!({"status": "denied"}));
     stop.cancel();

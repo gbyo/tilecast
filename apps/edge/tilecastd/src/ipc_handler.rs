@@ -65,12 +65,11 @@ impl IpcHandler for DaemonIpc {
             if let Some(pid) = peer.pid
                 && let Some(start_ticks) = process_start_ticks(pid)
             {
-                self.context.media_registry.lock().await.bind_renderer(RendererInstance {
-                    session: session.id(),
-                    uid: peer.uid,
-                    pid,
-                    start_ticks,
-                });
+                if let Ok(mut registry) = self.context.media_registry.lock() {
+                    registry.bind_renderer(RendererInstance { session: session.id(), uid: peer.uid, pid, start_ticks });
+                } else {
+                    tracing::error!(component = "media", event = "registry_poisoned");
+                }
             } else {
                 tracing::warn!(component = "media", event = "renderer_process_unavailable");
             }
@@ -83,7 +82,7 @@ impl IpcHandler for DaemonIpc {
         let now = self.context.now();
         let mut engine = self.context.presentation.lock().await;
         match event {
-            Event::RendererReady(ready) => engine.renderer_ready(session, ready),
+            Event::RendererReady(ready) => engine.renderer_ready(session, ready, now.unix_millis()),
             Event::PresentationAccepted(accepted) => engine.accepted(session, accepted.activation),
             Event::PresentationRejected(rejected) => {
                 engine.rejected(session, rejected.activation, rejected.code.as_str());
@@ -191,7 +190,9 @@ impl IpcHandler for DaemonIpc {
 
     async fn session_closed(&self, session: &SessionHandle, _reason: &str) {
         if session.role() == Role::Renderer {
-            self.context.media_registry.lock().await.unbind_renderer(session.id());
+            if let Ok(mut registry) = self.context.media_registry.lock() {
+                registry.unbind_renderer(session.id());
+            }
             self.context.presentation.lock().await.renderer_disconnected(session.id());
         }
     }

@@ -89,7 +89,7 @@ tc_protocol_send_health (TcHost *host, const char *state, const char *reason)
   tc_ipc_send_event (host, "renderer.health", json_builder_get_root (builder));
 }
 
-/* Parses a content list, rejecting any entry that is not a valid digest. */
+/* Parses a content list, rejecting any entry that is not a capability URI. */
 static GPtrArray *
 parse_content (JsonObject *data, const char *member, gboolean *ok)
 {
@@ -104,15 +104,15 @@ parse_content (JsonObject *data, const char *member, gboolean *ok)
   }
   for (guint i = 0; i < json_array_get_length (array); i++) {
     JsonObject *entry = json_array_get_object_element (array, i);
-    const char *sha = entry ? json_object_get_string_member_with_default (entry, "sha256", NULL) : NULL;
+    const char *uri = entry ? json_object_get_string_member_with_default (entry, "uri", NULL) : NULL;
     const char *mime = entry ? json_object_get_string_member_with_default (entry, "mimeType", NULL) : NULL;
     gint64 size = entry ? json_object_get_int_member_with_default (entry, "sizeBytes", -1) : -1;
-    if (!tc_is_sha256_hex (sha) || mime == NULL || size < 0) {
+    if (!tc_is_media_capability_uri (uri) || mime == NULL || size < 0) {
       *ok = FALSE;
       return refs;
     }
     TcContentRef *ref = g_new0 (TcContentRef, 1);
-    g_strlcpy (ref->sha256, sha, sizeof ref->sha256);
+    g_strlcpy (ref->uri, uri, sizeof ref->uri);
     ref->size_bytes = (guint64) size;
     ref->mime_type = g_strdup (mime);
     g_ptr_array_add (refs, ref);
@@ -149,21 +149,18 @@ node_to_json (JsonNode *node)
 static void
 handle_configure (TcHost *host, JsonObject *data)
 {
-  JsonObject *store = json_object_get_object_member (data, "contentStore");
-  const char *layout = store ? json_object_get_string_member_with_default (store, "layout", "") : "";
-  const char *root = store ? json_object_get_string_member_with_default (store, "root", NULL) : NULL;
-  if (g_strcmp0 (layout, "cas-sha256-v1") != 0 || !tc_is_clean_absolute_path (root)) {
-    g_warning ("protocol: ignoring renderer.configure with an unusable content store");
+  JsonObject *channel = json_object_get_object_member (data, "mediaChannel");
+  const char *protocol = channel ? json_object_get_string_member_with_default (channel, "protocol", "") : "";
+  const char *socket = channel ? json_object_get_string_member_with_default (channel, "socket", NULL) : NULL;
+  if (g_strcmp0 (protocol, "daemon-cap-v1") != 0 || !tc_is_clean_absolute_path (socket)) {
+    g_warning ("protocol: ignoring renderer.configure with an unusable media channel");
     return;
   }
-  if (g_strcmp0 (root, host->startup_cas_root) != 0) {
-    /* Video would read a different store than images; refuse to diverge. */
-    g_warning ("protocol: tilecastd's content store differs from --cas-root; media disabled");
-    tc_protocol_send_health (host, "degraded", "cas_root_mismatch");
+  if (g_strcmp0 (socket, host->media_socket) != 0) {
+    g_warning ("protocol: daemon media socket differs from --media-socket; media disabled");
+    tc_protocol_send_health (host, "degraded", "media_socket_mismatch");
     return;
   }
-  g_free (host->cas_root);
-  host->cas_root = g_strdup (root);
 }
 
 static void

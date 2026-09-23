@@ -7,7 +7,7 @@
 use std::os::unix::fs::{FileTypeExt as _, MetadataExt as _, PermissionsExt as _};
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use edge_cas::ContentStore;
@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::{Mutex, Semaphore};
+use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::media::{MediaRegistry, ReadMode, RendererInstance};
@@ -199,7 +199,7 @@ async fn serve(
         Err(_) => return deny(&mut stream).await,
     };
     let grant = {
-        let registry = registry.lock().await;
+        let Ok(registry) = registry.lock() else { return deny(&mut stream).await };
         registry.renderer().and_then(|renderer| {
             (renderer.uid == credentials.uid() && lineage.belongs_to(renderer, pid))
                 .then(|| registry.resolve(renderer.session, request.capability(), clock.now().unix_millis()).cloned())
@@ -215,6 +215,13 @@ async fn serve(
         _ => return deny(&mut stream).await,
     };
     if record.size_bytes != grant.size_bytes {
+        return deny(&mut stream).await;
+    }
+    let capability = request.capability().to_owned();
+    let still_valid = registry.lock().is_ok_and(|registry| {
+        registry.resolve(grant.renderer_session, &capability, clock.now().unix_millis()).is_some()
+    });
+    if !still_valid {
         return deny(&mut stream).await;
     }
     match request {
@@ -250,11 +257,9 @@ async fn serve(
             })
             .await;
             let Ok(Ok(bytes)) = bytes else { return deny(&mut stream).await };
-            let still_valid = registry
-                .lock()
-                .await
-                .resolve(grant.renderer_session, request.capability(), clock.now().unix_millis())
-                .is_some();
+            let still_valid = registry.lock().is_ok_and(|registry| {
+                registry.resolve(grant.renderer_session, &capability, clock.now().unix_millis()).is_some()
+            });
             if !still_valid {
                 return deny(&mut stream).await;
             }

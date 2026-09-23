@@ -15,7 +15,7 @@ The Tilecast Linux display engine: a small C11/GLib embedder of WPE WebKit 2.54+
 ## What it serves
 
 - `tilecast://runtime/static/<name>` and `tilecast://runtime/dist/renderer/<name>`: the trusted DOM runtime. The runtime is the reference Linux player's renderer, used unmodified, and `assemble-runtime.sh` copies it. Names are validated against a fixed grammar (`src/validate.c`).
-- `tcmedia://sha256/<hex>`: a CAS object. It is served only when the current activation or plugin state lists that digest, and only when the file size matches the declared size. The file is opened with `O_NOFOLLOW`. A single byte range is honored.
+- `tcmedia://cap/<opaque>`: a daemon-issued capability scoped to the current renderer and presentation generation. Reads use the bounded media socket; the renderer has no CAS path or direct CAS permission.
 
 ## Bridge
 
@@ -24,7 +24,7 @@ The Tilecast Linux display engine: a small C11/GLib embedder of WPE WebKit 2.54+
 - `tilecast` carries events: `runtime.ready`, `presentation.accepted`, `presentation.rejected`, `renderer.progress`, `renderer.item_error`.
 - `tilecastRequest` carries `setup.submit_server_url`.
 
-The host copies only known, bounded fields into IPC events. Host-to-page delivery calls one fixed function with GVariant arguments; no script source is concatenated.
+The host copies only known, bounded fields into IPC events. Host-to-page delivery calls one fixed function with GVariant arguments; no script source is concatenated. The daemon replaces internal hash URIs with opaque, renderer-generation capabilities before sending an activation.
 
 ## Build and test
 

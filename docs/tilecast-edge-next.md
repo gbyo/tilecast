@@ -169,10 +169,16 @@ Linux player's half-open and DST rules; it is not yet wired into activation.
 The daemon now has an opaque, random, renderer-session-bound media capability
 registry with prepared/active/draining lifetimes. It serves bounded verified
 CAS HEAD/range reads through a Unix media socket, admitting only the current
-renderer process and descendants. WPE still uses the foundation's raw digest
-URI/CAS-root path; switching its image and GStreamer consumers to the new
-channel, then activating real server content, remains open. The final RFC
-requires that switch before real server content is activated.
+renderer process and descendants. WPE image and GStreamer consumers now read
+through this channel; the daemon rewrites internal digest references into
+opaque renderer-generation capabilities and does not expose the CAS root.
+Rust/C fixtures and the headless WPE E2E prove image and H.264 range reads,
+renderer crash recovery and daemon restart recovery. The channel rechecks the
+grant after opening the CAS object and before returning bytes. Its reconnectable
+socket still needs systemd socket-unit ownership per RFC §9.1. Connecting
+prepared server candidates to the presentation engine, promoting only after a
+renderer transition, and retaining cached playback through server outages
+remain open.
 
 - **Use:**
   - `edge_cas::Fetcher` with sources in this order:

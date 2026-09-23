@@ -13,6 +13,9 @@ G_BEGIN_DECLS
 /* Exactly 64 lowercase hexadecimal characters. */
 gboolean tc_is_sha256_hex (const char *value);
 
+/* Exact opaque tcmedia URI form accepted from a daemon activation. */
+gboolean tc_is_media_capability_uri (const char *value);
+
 /*
  * A path under the trusted runtime directory, as requested through
  * tilecast://runtime/<path>. Accepts only "/static/<name>" and
