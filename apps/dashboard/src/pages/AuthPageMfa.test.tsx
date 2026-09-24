@@ -179,6 +179,64 @@ describe("sign-in with a second factor", () => {
     expect(screen.getByLabelText("Verification code")).toBeTruthy();
   });
 
+  it("cancels passkey autofill before explicit passkey sign-in", async () => {
+    let conditionalSignal: AbortSignal | undefined;
+    const getCredential = vi.fn(
+      (options: CredentialRequestOptions): Promise<Credential | null> => {
+        if (options.mediation === "conditional") {
+          conditionalSignal = options.signal ?? undefined;
+          return new Promise((_, reject) => {
+            options.signal?.addEventListener(
+              "abort",
+              () => reject(new DOMException("aborted", "AbortError")),
+              { once: true },
+            );
+          });
+        }
+        expect(conditionalSignal?.aborted).toBe(true);
+        return Promise.reject(new DOMException("cancelled", "NotAllowedError"));
+      },
+    );
+    vi.stubGlobal(
+      "PublicKeyCredential",
+      Object.assign(function () {} as unknown as typeof PublicKeyCredential, {
+        isConditionalMediationAvailable: () => Promise.resolve(true),
+      }),
+    );
+    vi.stubGlobal("navigator", { credentials: { get: getCredential } });
+
+    const fetchMock = vi.fn((input: string) => {
+      const url = input;
+      if (url.endsWith("/auth/status"))
+        return Promise.resolve(jsonResponse(status));
+      if (url.endsWith("/auth/passkey/login/options"))
+        return Promise.resolve(
+          jsonResponse({
+            challengeToken: "passkey-challenge",
+            options: {
+              challenge: "aGVsbG8",
+              rpId: "localhost",
+              userVerification: "required",
+            },
+          }),
+        );
+      throw new Error(`unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderLogin();
+    await screen.findByLabelText("Email or username");
+    await waitFor(() => expect(getCredential).toHaveBeenCalledTimes(1));
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Sign in with a passkey" }),
+    );
+
+    await waitFor(() => expect(getCredential).toHaveBeenCalledTimes(2));
+    expect(conditionalSignal?.aborted).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
   it("offers a passwordless passkey button only when the server supports it", async () => {
     const fetchMock = vi.fn((input: string) => {
       const url = input;

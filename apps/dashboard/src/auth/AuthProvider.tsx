@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   useContext,
+  useRef,
   useState,
   type PropsWithChildren,
 } from "react";
@@ -71,6 +72,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   // here; everything the server says is rendered by the pages untouched.
   const { t } = useTranslation(["auth"]);
   const [challenge, setChallenge] = useState<MFAChallenge | undefined>();
+  const passkeyAutofillController = useRef<AbortController | null>(null);
+  const cancelPasskeyAutofill = () => {
+    const controller = passkeyAutofillController.current;
+    if (!controller) return;
+    passkeyAutofillController.current = null;
+    controller.abort();
+  };
   const query = useQuery({
     queryKey: authKey,
     queryFn: api.authStatus,
@@ -113,6 +121,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   // between two requests, so it cannot be split across React state.
   const passkeyChallengeMutation = useMutation({
     mutationFn: async () => {
+      cancelPasskeyAutofill();
       if (!challenge) throw new Error(t("errors.challengeExpired"));
       const ceremony = await api.mfaPasskeyOptions(challenge.challengeToken);
       const credential = (await navigator.credentials.get({
@@ -156,12 +165,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
   };
 
   const passkeyLoginMutation = useMutation({
-    mutationFn: () => runPasskeyCeremony(),
+    mutationFn: () => {
+      cancelPasskeyAutofill();
+      return runPasskeyCeremony();
+    },
     onSuccess: setSession,
   });
 
   const watchForPasskeyAutofill = () => {
+    // Chromium allows only one WebAuthn ceremony at a time. Keep the pending
+    // conditional request owned here so an explicit passkey action can cancel
+    // it before opening its modal ceremony.
+    cancelPasskeyAutofill();
     const controller = new AbortController();
+    passkeyAutofillController.current = controller;
     void (async () => {
       if (!(await conditionalMediationAvailable())) return;
       if (controller.signal.aborted) return;
@@ -170,9 +187,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } catch {
         // Abandoning or dismissing an autofill request is the normal outcome
         // and must never surface as a sign-in error.
+      } finally {
+        if (passkeyAutofillController.current === controller)
+          passkeyAutofillController.current = null;
       }
     })();
-    return () => controller.abort();
+    return () => {
+      if (passkeyAutofillController.current === controller)
+        passkeyAutofillController.current = null;
+      controller.abort();
+    };
   };
   /**
    * Every error here is rendered from mutation state, which outlives the view
