@@ -6,16 +6,19 @@ import {
   apiErrorMessage,
   applyLanguagePreference,
   detectBrowserLanguage,
+  directionForLocale,
   formatLocale,
   i18n,
   readCachedLanguagePreference,
   resolveLanguage,
+  setDocumentLanguage,
   translateKnown,
 } from ".";
 
 afterEach(async () => {
   window.localStorage.clear();
   await i18n.changeLanguage("en");
+  setDocumentLanguage("en");
 });
 
 describe("language resolution", () => {
@@ -72,6 +75,17 @@ describe("i18n instance", () => {
     expect(translateKnown("errors:codes.not_a_code", "fallback")).toBe(
       "fallback",
     );
+  });
+});
+
+describe("interface text direction", () => {
+  it("sets the document direction for an RTL locale without a translation catalog", () => {
+    expect(directionForLocale("ar")).toBe("rtl");
+    expect(directionForLocale("ar-Latn")).toBe("ltr");
+
+    i18n.emit("languageChanged", "ar");
+    expect(document.documentElement.lang).toBe("ar");
+    expect(document.documentElement.dir).toBe("rtl");
   });
 });
 

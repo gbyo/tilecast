@@ -40,10 +40,68 @@ const lazyLocales: BackendModule = {
 
 export const i18n = i18next.createInstance();
 
-i18n.on("languageChanged", (language) => {
-  if (typeof document !== "undefined") {
-    document.documentElement.lang = language;
+const rightToLeftScripts = new Set([
+  "Adlm",
+  "Arab",
+  "Hebr",
+  "Nkoo",
+  "Rohg",
+  "Syrc",
+  "Thaa",
+]);
+const rightToLeftLanguages = new Set([
+  "ar",
+  "ckb",
+  "dv",
+  "fa",
+  "he",
+  "ks",
+  "ku",
+  "ps",
+  "sd",
+  "ug",
+  "ur",
+  "yi",
+]);
+
+/** Resolve text direction independently from whether Studio ships translations. */
+export function directionForLocale(localeTag: string): "ltr" | "rtl" {
+  const parts = localeTag.split("-");
+  const language = parts[0]?.toLowerCase() ?? "";
+  const explicitScript = parts.find((part) => /^[A-Za-z]{4}$/.test(part));
+  const canonicalScript = explicitScript
+    ? `${explicitScript.slice(0, 1).toUpperCase()}${explicitScript.slice(1).toLowerCase()}`
+    : undefined;
+  try {
+    const locale = new Intl.Locale(localeTag) as Intl.Locale & {
+      getTextInfo?: () => { direction?: string };
+    };
+    const direction = locale.getTextInfo?.().direction;
+    if (direction === "ltr" || direction === "rtl") return direction;
+    const script = canonicalScript ?? locale.maximize().script;
+    if (script) return rightToLeftScripts.has(script) ? "rtl" : "ltr";
+  } catch {
+    if (canonicalScript)
+      return rightToLeftScripts.has(canonicalScript) ? "rtl" : "ltr";
   }
+  return rightToLeftLanguages.has(language) ? "rtl" : "ltr";
+}
+
+/** Set root language metadata for assistive technology and direction-aware CSS. */
+export function setDocumentLanguage(
+  localeTag: string,
+  root?: Pick<HTMLElement, "lang" | "dir">,
+) {
+  const element =
+    root ??
+    (typeof document === "undefined" ? undefined : document.documentElement);
+  if (!element) return;
+  element.lang = localeTag;
+  element.dir = directionForLocale(localeTag);
+}
+
+i18n.on("languageChanged", (language) => {
+  setDocumentLanguage(language);
 });
 
 /**
