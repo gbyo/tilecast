@@ -139,6 +139,64 @@ func TestSelectStructuredRecordsDoesNotReusePastByDefault(t *testing.T) {
 	}
 }
 
+func TestStructuredDateParsingSupportsExplicitOrderAndSafeAutoDetection(t *testing.T) {
+	cases := []struct {
+		name, value, format, want string
+	}{
+		{name: "ISO date", value: "2026-04-03", format: "auto", want: "2026-04-03"},
+		{name: "RFC3339 datetime", value: "2026-04-03T12:30:00+02:00", format: "auto", want: "2026-04-03T10:30:00Z"},
+		{name: "named month", value: "Apr 3, 2026", format: "auto", want: "2026-04-03"},
+		{name: "unambiguous day first", value: "13/04/2026", format: "auto", want: "2026-04-13"},
+		{name: "unambiguous month first", value: "04/13/2026", format: "auto", want: "2026-04-13"},
+		{name: "legacy month first zero padded", value: "03/04/2026", format: "us_date", want: "2026-03-04"},
+		{name: "legacy month first short", value: "3/4/2026", format: "us_short", want: "2026-03-04"},
+		{name: "explicit day first zero padded", value: "03/04/2026", format: "day_first_date", want: "2026-04-03"},
+		{name: "explicit day first short", value: "3/4/2026", format: "day_first_short", want: "2026-04-03"},
+		{name: "existing named month id", value: "03-Apr-2026", format: "day_month_name", want: "2026-04-03"},
+		{name: "ambiguous auto remains text", value: "03/04/2026", format: "auto", want: "03/04/2026"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			got := normalizeStructuredDate(test.value, DateSelection{DateFormat: test.format})
+			if got != test.want {
+				t.Fatalf("normalizeStructuredDate(%q, %q) = %q, want %q", test.value, test.format, got, test.want)
+			}
+		})
+	}
+}
+
+func TestStructuredCurrentWeekUsesRegionalFirstDay(t *testing.T) {
+	records := []StructuredRecord{
+		{ID: "sunday", Date: "2026-07-12"},
+		{ID: "monday", Date: "2026-07-13"},
+		{ID: "friday", Date: "2026-07-17"},
+		{ID: "next-sunday", Date: "2026-07-19"},
+	}
+	selection := DateSelection{Enabled: true, Timezone: "UTC", Mode: "current_week"}
+	cases := []struct {
+		locale string
+		want   []string
+	}{
+		{locale: "en-US", want: []string{"sunday", "monday", "friday"}},
+		{locale: "en-GB", want: []string{"monday", "friday", "next-sunday"}},
+		{locale: "de-DE", want: []string{"monday", "friday", "next-sunday"}},
+		{locale: "dv-MV", want: []string{"sunday", "monday"}},
+	}
+	for _, test := range cases {
+		t.Run(test.locale, func(t *testing.T) {
+			firstDay := firstDayForRegionalSettings("locale", test.locale)
+			selected := selectStructuredRecords(records, selection, "2026-07-15", firstDay)
+			got := make([]string, 0, len(selected))
+			for _, record := range selected {
+				got = append(got, record.ID)
+			}
+			if strings.Join(got, ",") != strings.Join(test.want, ",") {
+				t.Fatalf("selected=%v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestStructuredSourceParsersAllowDataOnlyMappings(t *testing.T) {
 	mapping := StructuredMapping{Date: "date", ValueFields: map[string]string{"option_1": "option_1", "option_2": "option_2"}}
 	if err := validateStructuredMapping(mapping, "csv"); err != nil {

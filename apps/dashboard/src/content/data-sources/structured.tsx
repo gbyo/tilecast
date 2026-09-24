@@ -299,10 +299,15 @@ const delimiterOptions = [
 // Date format samples (YYYY-MM-DD, RFC 3339, …) are code, not prose: every
 // language repeats them verbatim under these keys.
 const dateFormatOptions = [
-  { value: "auto", labelKey: "dataSources.options.detect" },
+  { value: "auto", labelKey: "dataSources.options.dateAutoSafe" },
   { value: "iso_date", labelKey: "dataSources.options.dateIso" },
   { value: "us_date", labelKey: "dataSources.options.dateUs" },
   { value: "us_short", labelKey: "dataSources.options.dateUsShort" },
+  { value: "day_first_date", labelKey: "dataSources.options.dateDayFirst" },
+  {
+    value: "day_first_short",
+    labelKey: "dataSources.options.dateDayFirstShort",
+  },
   { value: "day_month_name", labelKey: "dataSources.options.dateDayMonth" },
   { value: "rfc3339", labelKey: "dataSources.options.dateRfc3339" },
 ] as const;
@@ -406,7 +411,7 @@ function MappingSelect({
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select
         items={[
-          { value: "", label: "Not used" },
+          { value: "", label: notUsed },
           ...fields.map((field) => ({
             value: field.key,
             label:
