@@ -73,7 +73,7 @@ var definitions = []Definition{
 	{Key: "organization.short_name", Category: "general", Type: "string", Default: "", Scope: ScopeOrganization, Title: "Short name", Description: "Compact organization name", Documentation: "docs/settings.md"},
 	{Key: "organization.timezone", Category: "general", Type: "timezone", Default: "UTC", Scope: ScopeOrganization, Title: "Default timezone"},
 	{Key: "organization.locale", Category: "general", Type: "locale", Default: "en-US", Scope: ScopeOrganization, Title: "Regional locale", Description: "BCP-47 language and region used to format organization signage and organization-level dates."},
-	{Key: "organization.first_day_of_week", Category: "general", Type: "enum", Default: "sunday", Allowed: []string{"locale", "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}, Scope: ScopeOrganization, Title: "First day of week"},
+	{Key: "organization.first_day_of_week", Category: "general", Type: "enum", Default: "locale", Allowed: []string{"locale", "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}, Scope: ScopeOrganization, Title: "First day of week"},
 	{Key: "organization.date_format", Category: "general", Type: "enum", Default: "locale", Allowed: []string{"locale", "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy"}, Scope: ScopeOrganization, Title: "Date format"},
 	{Key: "organization.time_format", Category: "general", Type: "enum", Default: "locale", Allowed: []string{"locale", "12-hour", "24-hour"}, Scope: ScopeOrganization, Title: "Time format"},
 	{Key: "organization.support_name", Category: "general", Type: "string", Default: "", Scope: ScopeOrganization, Title: "Support contact"},
