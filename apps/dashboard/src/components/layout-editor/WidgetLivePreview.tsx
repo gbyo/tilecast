@@ -8,7 +8,9 @@ import {
 import type { CSSProperties, ReactNode } from "react";
 import QRCode from "qrcode";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { useFormatLocale } from "../../i18n";
 import type {
   Asset,
   CalendarEvent,
@@ -112,6 +114,7 @@ export function PlaylistZonePreview({
   live: LivePreviewData;
   scale: number;
 }) {
+  const { t } = useTranslation("layouts");
   const items = playlist.items.filter((item) => item.assetStatus === "ready");
   const [index, setIndex] = useState(0);
   const current = items[index % Math.max(1, items.length)];
@@ -141,7 +144,7 @@ export function PlaylistZonePreview({
       <div className="layout-playlist-zone">
         <ListVideo size={22} />
         <strong>{playlist.name}</strong>
-        <span>No ready items</span>
+        <span>{t("preview.zoneEmpty")}</span>
       </div>
     );
   if (!asset)
@@ -215,6 +218,8 @@ export function AppPlacementPreview({
   asset?: Asset;
   item: LayoutPlacement;
 }) {
+  const { t } = useTranslation("layouts");
+  const formatLocale = useFormatLocale();
   if (asset?.thumbnailUrl)
     return (
       <img
@@ -244,14 +249,14 @@ export function AppPlacementPreview({
   if (provider === "clock") {
     const timezone =
       typeof config.timezone === "string" ? config.timezone : "UTC";
-    value = new Intl.DateTimeFormat(undefined, {
+    value = new Intl.DateTimeFormat(formatLocale, {
       timeStyle: config.showSeconds ? "medium" : "short",
       timeZone: timezone,
     }).format(new Date());
   } else if (provider === "date") {
     const timezone =
       typeof config.timezone === "string" ? config.timezone : "UTC";
-    value = new Intl.DateTimeFormat(undefined, {
+    value = new Intl.DateTimeFormat(formatLocale, {
       dateStyle:
         (config.format as "full" | "long" | "medium" | "short") ?? "full",
       timeZone: timezone,
@@ -278,7 +283,7 @@ export function AppPlacementPreview({
       }}
     >
       <span className="layout-app-placement__provider">
-        {provider ?? "Widget"}
+        {provider ?? t("preview.unknownProvider")}
       </span>
       <strong>{value}</strong>
     </div>
@@ -349,9 +354,9 @@ export function menuFieldLabel(field: string): string {
   return field.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function clockText(cfg: ClockWidgetConfig): string {
+export function clockText(cfg: ClockWidgetConfig, locale: string): string {
   const is24 = cfg.format === "24";
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     timeZone: cfg.timezone || "UTC",
     hour12: !is24,
     hour: is24 ? "2-digit" : "numeric",
@@ -360,8 +365,8 @@ export function clockText(cfg: ClockWidgetConfig): string {
   }).format(new Date());
 }
 
-export function dateText(cfg: DateWidgetConfig): string {
-  return new Intl.DateTimeFormat(undefined, {
+export function dateText(cfg: DateWidgetConfig, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: cfg.format || "full",
     timeZone: cfg.timezone || "UTC",
   }).format(new Date());
@@ -616,7 +621,8 @@ export function MenuWidget({
             }}
           >
             {index === 0
-              ? "TODAY'S LUNCH"
+              ? // i18n-ignore: sample menu content in the Studio preview mock, not UI
+                "TODAY'S LUNCH"
               : menuFieldLabel(entry.field).toUpperCase()}
           </div>
           <div
@@ -747,6 +753,7 @@ export function WidgetLivePreview({
   );
   const sourceId = cfg.dataSourceId as string | undefined;
   const source = sourceId ? live[sourceId] : undefined;
+  const formatLocale = useFormatLocale();
   switch (provider) {
     case "clock":
       return (
@@ -757,7 +764,7 @@ export function WidgetLivePreview({
           contentPadding={(cfg as unknown as ClockWidgetConfig).contentPadding}
         >
           <FittedText
-            text={clockText(cfg as unknown as ClockWidgetConfig)}
+            text={clockText(cfg as unknown as ClockWidgetConfig, formatLocale)}
             color={fg}
             fontPx={Math.max(item.width, item.height) * scale}
             weight={600}
@@ -774,7 +781,7 @@ export function WidgetLivePreview({
           contentPadding={(cfg as unknown as DateWidgetConfig).contentPadding}
         >
           <FittedText
-            text={dateText(cfg as unknown as DateWidgetConfig)}
+            text={dateText(cfg as unknown as DateWidgetConfig, formatLocale)}
             color={fg}
             fontPx={Math.max(item.width, item.height) * scale}
             weight={500}

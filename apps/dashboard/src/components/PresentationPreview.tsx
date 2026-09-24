@@ -7,6 +7,7 @@ import {
   Tags,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   LayoutSummary,
   Playlist,
@@ -19,6 +20,7 @@ export function PlaylistPreview({
 }: {
   playlist: Pick<Playlist, "itemCount" | "sourceType" | "previewItems">;
 }) {
+  const { t } = useTranslation("screens");
   const previewItems = (playlist.previewItems ?? []).slice(0, 4);
   if (previewItems.length === 0) {
     const Icon = playlist.sourceType === "tag" ? Tags : ListVideo;
@@ -26,7 +28,9 @@ export function PlaylistPreview({
       <span className="playlist-library-preview playlist-library-preview--empty">
         <Icon size={30} aria-hidden="true" />
         <span>
-          {playlist.itemCount === 0 ? "No content yet" : "Preview unavailable"}
+          {playlist.itemCount === 0
+            ? t("preview.noContent")
+            : t("preview.unavailable")}
         </span>
       </span>
     );
@@ -78,6 +82,7 @@ export function LayoutPreview({
 }: {
   layout: Pick<LayoutSummary, "previewImageUrl" | "orientation">;
 }) {
+  const { t } = useTranslation("screens");
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [layout.previewImageUrl]);
   return (
@@ -88,8 +93,8 @@ export function LayoutPreview({
       {!layout.previewImageUrl || failed ? (
         <span className="layout-library-preview-fallback" aria-hidden="true">
           <LayoutTemplate size={30} />
-          <strong>Preview unavailable</strong>
-          <small>Open the layout to continue editing.</small>
+          <strong>{t("preview.unavailable")}</strong>
+          <small>{t("preview.openLayoutHint")}</small>
         </span>
       ) : (
         <img

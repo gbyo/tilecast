@@ -62,10 +62,18 @@ const search = (
 ) => ({ label, description, to, keywords });
 
 const settingsSearch: Partial<
-  Record<string, { description: string; keywords: string[] }>
+  Record<
+    string,
+    {
+      descriptionKey: "palette.settingsSearch.dependencyGraph";
+      keywords: string[];
+    }
+  >
 > = {
   "dependency-graph": {
-    description: "Trace content, presentations, schedules, groups, and screens",
+    descriptionKey: "palette.settingsSearch.dependencyGraph",
+    // Search aliases stay in English in every language: they are matching
+    // tokens, not displayed text, and the locale files hold strings only.
     keywords: [
       "content map",
       "used by",
@@ -611,20 +619,25 @@ export const studioRoutes: RouteObject[] = [
             index: true,
             element: <Navigate to="/settings/general" replace />,
           },
-          ...settingsItems.map((item) => ({
-            path: item.path,
-            element: <SettingsPage />,
-            handle: {
-              breadcrumb: item.label,
-              search: search(
-                item.label,
-                settingsSearch[item.id]?.description ??
-                  `${item.label} settings`,
-                `/settings/${item.path}`,
-                ["settings", ...(settingsSearch[item.id]?.keywords ?? [])],
-              ),
-            },
-          })),
+          ...settingsItems.map((item) => {
+            const entry = settingsSearch[item.id];
+            return {
+              path: item.path,
+              element: <SettingsPage />,
+              handle: {
+                breadcrumb: item.label,
+                search: {
+                  ...search(
+                    item.label,
+                    `${item.label} settings`,
+                    `/settings/${item.path}`,
+                    ["settings", ...(entry?.keywords ?? [])],
+                  ),
+                  descriptionKey: entry?.descriptionKey,
+                },
+              },
+            };
+          }),
           {
             path: "preferences",
             element: <Navigate to="/account#preferences" replace />,

@@ -35,8 +35,14 @@
     "toggleNavigation": "Переключить навигацию",
     "search": "Поиск по Tilecast",
     "notifications": "Уведомления",
-    "notificationsWithCount": "Уведомления, активных: {{count}}",
-    "activeCount": "Активных: {{count}}",
+    "notificationsWithCount_one": "Уведомления, {{count}} активное",
+    "notificationsWithCount_few": "Уведомления, {{count}} активных",
+    "notificationsWithCount_many": "Уведомления, {{count}} активных",
+    "notificationsWithCount_other": "Уведомления, {{count}} активных",
+    "activeCount_one": "{{count}} активное",
+    "activeCount_few": "{{count}} активных",
+    "activeCount_many": "{{count}} активных",
+    "activeCount_other": "{{count}} активных",
     "noneActive": "Нет активных",
     "caughtUp": "Всё просмотрено.",
     "groups": {
@@ -98,6 +104,9 @@
       "offline": "Не в сети",
       "disabled": "Отключён",
       "revoked": "Привязка отозвана"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "Отслеживать контент, презентации, расписания, группы и экраны"
     }
   },
   "error": {
