@@ -351,6 +351,61 @@ shell. Keep controlled detail payloads mounted through the exit transition and
 clear them after `onOpenChangeComplete(false)`. Test nested menus and Selects in
 the browser when an overlay workflow changes.
 
+#### Authoring workspaces
+
+The Playlist Editor, Content Picker, media uploader, and Layout Editor are
+composed from the generated components by these rules:
+
+| Need                                        | Component                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| Ordered resource rows (timeline, list view) | `ItemGroup` and `Item`                                              |
+| Visual media in a picker grid               | `Card` with `AspectRatio` and one `Checkbox`                        |
+| Related actions (Add, Undo/Redo)            | `ButtonGroup`                                                       |
+| Related state (Grid/List)                   | `ToggleGroup`                                                       |
+| Panels of one resource shown one at a time  | `Tabs` (picker Library/Upload, playlist details, Layout library)    |
+| Row commands                                | A visible `DropdownMenu`, with `ContextMenu` as a supplement only   |
+| Persistent desktop editor commands          | `Menubar` in the Layout Editor. The Playlist Editor does not use it |
+| Files being uploaded                        | `Attachment` with `Progress`                                        |
+| Result of a completed action                | `Toast`. Persistent problems stay in an inline `Alert`              |
+
+- **Playlist Editor.** The header holds the name, one publication-state
+  badge (Published, Unpublished changes, or Draft), Preview, Publish, and a
+  More menu for details, history, duplicate, and delete. The Studio breadcrumb
+  is the only way back to the list. A compact authoring bar sits above the
+  timeline: Add content with Add Layout beside it, the playlist transition,
+  and the fixed image duration. Timeline rows show a drag handle, position,
+  media, name, one muted metadata line, the duration, and an overflow menu;
+  badges appear only for an override or unavailable media. The overflow menu
+  and the right-click menu render the same action list. On desktop the
+  timeline and the inspector scroll independently inside a viewport-height
+  region, and the inspector pane exists only while an item is selected.
+  Playlist details use General, Content source, and Usage tabs; History stays
+  a separate surface.
+- **Content Picker.** One `Dialog` holds Library and Upload tabs, so uploading
+  never opens a second dialog. Each grid card or list row is a single checkbox
+  whose label covers the entry, so clicking anywhere toggles it without
+  nesting controls. The footer always shows the selection and the confirm
+  action. Loading uses `Skeleton`, an empty result uses `Empty`, and a load
+  failure uses `Alert` with a retry.
+- **Uploads.** `MediaUploadPanel` is the one upload surface, hosted by the
+  picker's Upload tab and by the standalone Upload media dialog. Each row maps
+  Tilecast state onto `Attachment`: waiting to idle, transferring to
+  uploading, inspection or encoding to processing, failure to error, and ready
+  to done. A row stays processing until the server reports the asset ready or
+  failed. Closing while a file is still transferring asks first.
+- **Layout Editor.** The toolbar holds the Layout name, the `Menubar`, an
+  Undo/Redo `ButtonGroup`, a passive save status, Preview, and Publish. Rename
+  and History live in the File menu. Save state is status text, and only a
+  failed save offers Retry. A revision conflict shows a persistent `Alert`.
+  The desktop library, canvas, and inspector panes keep their sizes when the
+  selection changes: the inspector shows Layout settings when nothing is
+  selected.
+
+Page CSS in these workspaces is limited to what the components do not own:
+canvas geometry, guides, resize handles, placement outlines, and preview
+rendering. Toolbars, pane headings, tabs, lists, and empty states use the
+generated components and utility classes.
+
 `Carousel` has no current consumer: snapshot history is easier to scan as a
 grid. `Direction` remains uninstalled because Tilecast has no established RTL
 product requirement.
