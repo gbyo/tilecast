@@ -943,11 +943,11 @@ export function PlayerUpdatesPanel({
                                 <strong className="font-semibold">
                                   {release.versionName}
                                 </strong>
-                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                <Badge variant="secondary">
                                   {release.channel === "beta"
                                     ? "Beta"
                                     : "Stable"}
-                                </span>
+                                </Badge>
                               </span>
                               <small className="font-mono text-xs text-muted-foreground">
                                 Code {release.versionCode}

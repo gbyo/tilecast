@@ -3,13 +3,14 @@ import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type {
   ContentDefinitionCatalog,
@@ -18,6 +19,10 @@ import type {
   DataSourceDefinition,
   DataSourceDetail,
 } from "../api/types";
+import {
+  localDateTimeToRfc3339,
+  rfc3339ToLocalDateTime,
+} from "../lib/dateTime";
 import {
   DefinitionForm,
   dataFormatGuideFor,
@@ -116,6 +121,46 @@ function form(
   );
   return { ...result, onChange };
 }
+
+describe("DefinitionForm date controls", () => {
+  beforeEach(() => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog([]));
+  });
+
+  it("uses the calendar composition and preserves YYYY-MM-DD values", async () => {
+    const { onChange } = form(
+      [{ key: "publishDate", label: "Publish date", control: "date" }],
+      { publishDate: "2026-09-23" },
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Publish date" }));
+    await screen.findByRole("grid");
+    await userEvent.click(
+      await screen.findByRole("button", { name: /September 25/ }),
+    );
+
+    expect(onChange).toHaveBeenLastCalledWith({ publishDate: "2026-09-25" });
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+  });
+
+  it("shows stored instants in local time and saves datetime edits as RFC 3339", () => {
+    const stored = "2026-09-23T16:30:00.000Z";
+    const local = rfc3339ToLocalDateTime(stored);
+    const { onChange } = form(
+      [{ key: "startsAt", label: "Starts at", control: "datetime" }],
+      { startsAt: stored },
+    );
+    const time = screen.getByLabelText("Starts at time");
+
+    expect(time).toHaveValue(local.slice(11, 16));
+    fireEvent.change(time, { target: { value: "09:45" } });
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      startsAt: localDateTimeToRfc3339(`${local.slice(0, 11)}09:45`),
+    });
+    expect(document.querySelector('input[type="datetime-local"]')).toBeNull();
+  });
+});
 
 describe("dataSourceKeysIn", () => {
   it("collects every Data Source a configuration references", () => {

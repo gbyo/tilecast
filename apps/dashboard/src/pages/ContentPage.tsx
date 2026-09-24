@@ -31,6 +31,7 @@ import {
   type ReactNode,
 } from "react";
 import { api, ApiError } from "../api/client";
+import { rfc3339ToLocalDateTime as dateTimeLocalValue } from "../lib/dateTime";
 import {
   DashboardListToolbar,
   DashboardSearch,
@@ -2737,13 +2738,6 @@ function MediaAssetDetails({
       </DrawerContent>
     </Drawer>
   );
-}
-
-function dateTimeLocalValue(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
 }
 
 const defaultWebsite: WebsiteInput = {

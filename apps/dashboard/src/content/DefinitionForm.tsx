@@ -7,6 +7,7 @@ import type {
   DataSourceDefinition,
   DataSourceField,
 } from "../api/types";
+import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Button } from "../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
@@ -19,6 +20,10 @@ import {
 } from "../components/ui/select";
 import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
+import {
+  localDateTimeToRfc3339,
+  rfc3339ToLocalDateTime,
+} from "../lib/dateTime";
 import { DataSourcePicker, type DataFormatGuide } from "./DataSourcePicker";
 
 type Values = Record<string, unknown>;
@@ -490,18 +495,46 @@ function DefinitionControl({
       </fieldset>
     );
   }
+  if (field.control === "date")
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <DateInput
+          id={`definition-${field.key}`}
+          {...common}
+          aria-label={labelText}
+          value={fieldText(value)}
+          onChange={setValue}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
+    );
+  if (field.control === "datetime")
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <DateTimeInput
+          id={`definition-${field.key}`}
+          {...common}
+          aria-label={labelText}
+          value={rfc3339ToLocalDateTime(fieldText(value))}
+          onChange={(next) => setValue(localDateTimeToRfc3339(next))}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
+    );
   const inputType =
     field.control === "number" || field.control === "integer"
       ? "number"
-      : field.control === "datetime"
-        ? "datetime-local"
-        : field.control === "color"
-          ? "color"
-          : field.control === "date"
-            ? "date"
-            : field.control === "url"
-              ? "url"
-              : "text";
+      : field.control === "color"
+        ? "color"
+        : field.control === "url"
+          ? "url"
+          : "text";
   return (
     <Field>
       <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
@@ -520,9 +553,7 @@ function DefinitionControl({
               ? event.target.value === ""
                 ? undefined
                 : Number(event.target.value)
-              : field.control === "datetime" && event.target.value
-                ? new Date(event.target.value).toISOString()
-                : event.target.value,
+              : event.target.value,
           )
         }
       />

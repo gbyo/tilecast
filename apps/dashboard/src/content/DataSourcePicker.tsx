@@ -248,22 +248,8 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
   );
 }
 
-function statusDotClass(status: unknown) {
-  if (status === "ready") return "bg-emerald-500";
-  if (status === "error") return "bg-destructive";
-  return "bg-muted-foreground";
-}
-
 export function SourceStatus({ status }: { status: unknown }) {
-  return (
-    <Badge variant="outline">
-      <span
-        className={`size-1.5 rounded-full ${statusDotClass(status)}`}
-        aria-hidden="true"
-      />
-      {statusLabel(status)}
-    </Badge>
-  );
+  return <Badge variant="outline">{statusLabel(status)}</Badge>;
 }
 
 function statusLabel(status: unknown) {

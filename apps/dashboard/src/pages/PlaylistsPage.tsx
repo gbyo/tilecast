@@ -16,6 +16,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
 import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
 import { PlaylistEditorPage } from "../components/playlist-editor/PlaylistEditor";
 import {
@@ -106,26 +114,26 @@ export function PlaylistsPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="grid gap-2">
+        <ItemGroup className="gap-2">
           {query.data?.items?.map((playlist) => (
-            <Link
+            <Item
               key={playlist.id}
-              to={`/playlists/${playlist.id}`}
-              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted"
+              variant="outline"
+              render={<Link to={`/playlists/${playlist.id}`} />}
             >
-              <span className="grid min-w-0 gap-0.5">
-                <strong className="truncate text-sm">{playlist.name}</strong>
-                <small className="truncate text-xs text-muted-foreground">
+              <ItemContent className="min-w-0">
+                <ItemTitle>{playlist.name}</ItemTitle>
+                <ItemDescription className="truncate">
                   {playlist.description || "No description"}
-                </small>
-              </span>
-              <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions className="text-xs text-muted-foreground">
                 <span>Revision {playlist.revision}</span>
                 <span>{playlist.itemCount} items</span>
-              </span>
-            </Link>
+              </ItemActions>
+            </Item>
           ))}
-        </div>
+        </ItemGroup>
       )}
       <PlaylistCreateDialog
         open={creating}

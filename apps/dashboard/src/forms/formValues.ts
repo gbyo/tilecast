@@ -1,6 +1,15 @@
 import type { FormField, FormSchema } from "../api/types";
 import type { FormValues } from "./FormRenderer";
 import { isPresentationControl } from "./formSchema";
+import {
+  localDateTimeToRfc3339,
+  rfc3339ToLocalDateTime,
+} from "../lib/dateTime";
+
+export {
+  localDateTimeToRfc3339,
+  rfc3339ToLocalDateTime,
+} from "../lib/dateTime";
 
 // coerceScalar turns an unknown stored value into the string the renderer edits. Strings, numbers,
 // and booleans stringify directly; anything else (objects/arrays for a scalar field) becomes empty.
@@ -8,26 +17,6 @@ export function coerceScalar(raw: unknown): string {
   if (typeof raw === "string") return raw;
   if (typeof raw === "number" || typeof raw === "boolean") return String(raw);
   return "";
-}
-
-// rfc3339ToLocalDateTime converts a stored RFC 3339 timestamp into the value a native
-// datetime-local input expects (YYYY-MM-DDTHH:mm in the viewer's local time). Empty/invalid input
-// returns "".
-export function rfc3339ToLocalDateTime(value: string): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const offsetMs = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
-}
-
-// localDateTimeToRfc3339 converts a datetime-local input value (interpreted in the viewer's local
-// time) into the RFC 3339 timestamp the server requires. Empty/invalid input returns "".
-export function localDateTimeToRfc3339(value: string): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString();
 }
 
 // recordValuesToForm converts a stored record value map (unknown JSON values) into the typed
