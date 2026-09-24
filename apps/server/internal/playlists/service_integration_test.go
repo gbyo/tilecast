@@ -111,14 +111,20 @@ func TestPlaylistAssignmentManifestLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = service.AddItem(ctx, playlist.ID, owner.User.ID, ItemInput{AssetID: imageID}); err == nil {
-		t.Fatal("image without duration was accepted")
-	}
-	duration := int64(10_000)
-	playlist, err = service.AddItem(ctx, playlist.ID, owner.User.ID, ItemInput{AssetID: imageID, DurationMS: &duration})
+	// An omitted image duration resolves to the organization default
+	// (10 seconds when the setting is absent) instead of being rejected.
+	playlist, err = service.AddItem(ctx, playlist.ID, owner.User.ID, ItemInput{AssetID: imageID})
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(playlist.Items) != 1 || playlist.Items[0].DurationMS == nil || *playlist.Items[0].DurationMS != 10_000 {
+		t.Fatalf("omitted image duration did not fall back to the default: %#v", playlist)
+	}
+	zero := int64(0)
+	if _, err = service.AddItem(ctx, playlist.ID, owner.User.ID, ItemInput{AssetID: imageID, DurationMS: &zero}); err == nil {
+		t.Fatal("image with zero duration was accepted")
+	}
+	duration := int64(10_000)
 	playlist, err = service.AddItem(ctx, playlist.ID, owner.User.ID, ItemInput{AssetID: videoID})
 	if err != nil {
 		t.Fatal(err)
@@ -407,5 +413,83 @@ func TestPlaylistAssignmentManifestLifecycle(t *testing.T) {
 	delegatedManifest, _, err := service.BuildManifest(ctx, screenID)
 	if err != nil || delegatedManifest.DirectFallbackPlaylist == nil || !delegatedManifest.DirectFallbackPlaylist.Items[0].UsePlayerDefaults {
 		t.Fatalf("delegated defaults manifest=%#v err=%v", delegatedManifest, err)
+	}
+}
+
+func TestAddImageItemUsesConfiguredDefaultDuration(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	lockPool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lockPool.Close()
+	lock, err := lockPool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Release()
+	if _, err = lock.Exec(ctx, `SELECT pg_advisory_lock(7421999)`); err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Exec(ctx, `SELECT pg_advisory_unlock(7421999)`) //nolint:errcheck
+	if err = database.Migrate(ctx, databaseURL); err != nil {
+		t.Fatal(err)
+	}
+	pool, err := database.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err = pool.Exec(ctx, `TRUNCATE screen_player_status,screen_manifest_state,screen_playlist_assignments,playlist_items,playlists,media_jobs,upload_sessions,asset_variants,assets,device_pairing_sessions,device_credentials,screens,sessions,audit_logs,users,organization_settings CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := auth.NewService(pool, time.Hour).Setup(ctx, auth.SetupInput{OrganizationName: "Playlist Duration Test", OwnerName: "Owner", Username: "owner", Password: "correct horse battery staple"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var org uuid.UUID
+	if err = pool.QueryRow(ctx, `SELECT id FROM organization_settings`).Scan(&org); err != nil {
+		t.Fatal(err)
+	}
+	imageID := uuid.New()
+	if _, err = pool.Exec(ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,width,height,duration_seconds,processing_status,created_by)VALUES($1,$2,'Gallery','image','gallery.png','image/png',$3,100,1920,1080,NULL,'ready',$4)`, imageID, org, make([]byte, 32), owner.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO asset_variants(id,asset_id,kind,storage_provider,storage_key,mime_type,file_size,sha256,width,height,duration_seconds,player_compatible)VALUES($1,$2,'original','local','originals/image','image/png',100,$3,1920,1080,NULL,TRUE)`, uuid.New(), imageID, make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(pool, &testNotifier{})
+	playlist, err := service.Create(ctx, owner.User.ID, "Gallery rotation", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// An explicit duration is stored untouched.
+	explicit := int64(5_000)
+	playlist, err = service.AddItem(ctx, playlist.ID, owner.User.ID, ItemInput{AssetID: imageID, DurationMS: &explicit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(playlist.Items) != 1 || playlist.Items[0].DurationMS == nil || *playlist.Items[0].DurationMS != 5_000 {
+		t.Fatalf("explicit image duration was not stored: %#v", playlist)
+	}
+	// An explicit non-positive duration is still rejected.
+	negative := int64(-1_000)
+	if _, err = service.AddItem(ctx, playlist.ID, owner.User.ID, ItemInput{AssetID: imageID, DurationMS: &negative}); err == nil {
+		t.Fatal("image with negative duration was accepted")
+	}
+	// A configured organization default applies when the duration is omitted.
+	if _, err = pool.Exec(ctx, `INSERT INTO organization_runtime_settings(organization_id,settings) VALUES($1,$2::jsonb) ON CONFLICT(organization_id) DO UPDATE SET settings=organization_runtime_settings.settings||EXCLUDED.settings`, org, `{"player.playback.default_image_duration_seconds": 25}`); err != nil {
+		t.Fatal(err)
+	}
+	playlist, err = service.AddItem(ctx, playlist.ID, owner.User.ID, ItemInput{AssetID: imageID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(playlist.Items) != 2 || playlist.Items[1].DurationMS == nil || *playlist.Items[1].DurationMS != 25_000 {
+		t.Fatalf("configured image default was not applied: %#v", playlist)
 	}
 }
