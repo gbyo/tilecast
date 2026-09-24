@@ -636,7 +636,10 @@ export function CountdownBarEditorPage() {
               {t("countdown.editor.scheduleLabel")}
             </FieldLabel>
             <RheaSelect
-              items={scheduleTypeOptions}
+              items={scheduleTypeOptions.map((option) => ({
+                value: option.value,
+                label: t(option.labelKey),
+              }))}
               name="scheduleType"
               value={scheduleType}
               onValueChange={(next) => {
@@ -751,7 +754,10 @@ export function CountdownBarEditorPage() {
                 {t("countdown.editor.modeLabel")}
               </FieldLabel>
               <RheaSelect
-                items={displayModeOptions}
+                items={displayModeOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 name="displayMode"
                 value={displayMode}
                 onValueChange={(next) => {
@@ -784,7 +790,10 @@ export function CountdownBarEditorPage() {
                 {t("countdown.editor.progressLabel")}
               </FieldLabel>
               <RheaSelect
-                items={progressFillOptions}
+                items={progressFillOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 name="progressFill"
                 value={progressFill}
                 onValueChange={(next) => {

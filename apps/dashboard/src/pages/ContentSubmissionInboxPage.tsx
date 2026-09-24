@@ -119,7 +119,9 @@ export function ContentSubmissionInboxPage() {
     onError: (err) =>
       toast.add({
         title:
-          err instanceof Error ? err.message : t("submissions.toast.approveFailed"),
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.approveFailed"),
         type: "error",
       }),
   });

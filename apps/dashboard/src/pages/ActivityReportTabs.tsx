@@ -568,117 +568,115 @@ function ProofDetailsDrawer({
           : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
       }
     >
-          <p className="flex flex-wrap items-center gap-2 text-sm">
-            <ResultBadge value={record.result} />
-            <span>
-              {record.actualDurationMs == null
-                ? t("proof.drawer.inProgress")
-                : t("proof.drawer.confirmedDuration", {
-                    duration: formatDuration(record.actualDurationMs),
-                  })}
-            </span>
-          </p>
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <ResultBadge value={record.result} />
+        <span>
+          {record.actualDurationMs == null
+            ? t("proof.drawer.inProgress")
+            : t("proof.drawer.confirmedDuration", {
+                duration: formatDuration(record.actualDurationMs),
+              })}
+        </span>
+      </p>
 
-          <section className="grid gap-2">
-            <h3 className="text-sm font-semibold">
-              {t("proof.drawer.sections.playback")}
-            </h3>
-            <dl className="grid gap-1.5 text-sm">
-              <DetailRow
-                label={t("proof.drawer.rows.started")}
-                value={formatFullWhen(record.startedAt)}
+      <section className="grid gap-2">
+        <h3 className="text-sm font-semibold">
+          {t("proof.drawer.sections.playback")}
+        </h3>
+        <dl className="grid gap-1.5 text-sm">
+          <DetailRow
+            label={t("proof.drawer.rows.started")}
+            value={formatFullWhen(record.startedAt)}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.ended")}
+            value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.screen")}
+            value={
+              <Link
+                to={`/screens/${record.screenId}?tab=activity`}
+                className="font-medium text-primary hover:underline"
+              >
+                {record.screenName}
+              </Link>
+            }
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.group")}
+            value={record.groupName || "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.trigger")}
+            value={record.trigger || "—"}
+          />
+        </dl>
+      </section>
+
+      <section className="grid gap-2">
+        <h3 className="text-sm font-semibold">
+          {t("proof.drawer.sections.content")}
+        </h3>
+        <dl className="grid gap-1.5 text-sm">
+          <DetailRow
+            label={t("proof.drawer.rows.presentation")}
+            value={
+              <ResourceLink
+                type={record.presentationType}
+                id={record.presentationId}
+                label={record.presentationName || record.presentationId || "—"}
               />
-              <DetailRow
-                label={t("proof.drawer.rows.ended")}
-                value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.screen")}
-                value={
-                  <Link
-                    to={`/screens/${record.screenId}?tab=activity`}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    {record.screenName}
-                  </Link>
+            }
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.revision")}
+            value={record.presentationRevision || "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.content")}
+            value={
+              <ResourceLink
+                type={record.contentType}
+                id={record.contentId}
+                label={
+                  record.contentName ||
+                  record.contentId ||
+                  t("shared.rootPresentation")
                 }
               />
-              <DetailRow
-                label={t("proof.drawer.rows.group")}
-                value={record.groupName || "—"}
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.trigger")}
-                value={record.trigger || "—"}
-              />
-            </dl>
-          </section>
+            }
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.scheduleId")}
+            value={record.scheduleId || "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.takeoverId")}
+            value={record.takeoverId || "—"}
+          />
+        </dl>
+      </section>
 
-          <section className="grid gap-2">
-            <h3 className="text-sm font-semibold">
-              {t("proof.drawer.sections.content")}
-            </h3>
-            <dl className="grid gap-1.5 text-sm">
+      {entries.length > 0 && (
+        <section className="grid gap-2">
+          <h3 className="text-sm font-semibold">
+            {t("proof.drawer.sections.metadata")}
+          </h3>
+          <dl className="grid gap-1.5 text-sm">
+            {entries.map(([key, value]) => (
               <DetailRow
-                label={t("proof.drawer.rows.presentation")}
-                value={
-                  <ResourceLink
-                    type={record.presentationType}
-                    id={record.presentationId}
-                    label={
-                      record.presentationName || record.presentationId || "—"
-                    }
-                  />
-                }
+                key={key}
+                label={humanize(key)}
+                value={formatTechnicalValue(
+                  value,
+                  t("shared.detailsUnavailable"),
+                )}
               />
-              <DetailRow
-                label={t("proof.drawer.rows.revision")}
-                value={record.presentationRevision || "—"}
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.content")}
-                value={
-                  <ResourceLink
-                    type={record.contentType}
-                    id={record.contentId}
-                    label={
-                      record.contentName ||
-                      record.contentId ||
-                      t("shared.rootPresentation")
-                    }
-                  />
-                }
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.scheduleId")}
-                value={record.scheduleId || "—"}
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.takeoverId")}
-                value={record.takeoverId || "—"}
-              />
-            </dl>
-          </section>
-
-          {entries.length > 0 && (
-            <section className="grid gap-2">
-              <h3 className="text-sm font-semibold">
-                {t("proof.drawer.sections.metadata")}
-              </h3>
-              <dl className="grid gap-1.5 text-sm">
-                {entries.map(([key, value]) => (
-                  <DetailRow
-                    key={key}
-                    label={humanize(key)}
-                    value={formatTechnicalValue(
-                      value,
-                      t("shared.detailsUnavailable"),
-                    )}
-                  />
-                ))}
-              </dl>
-            </section>
-          )}
+            ))}
+          </dl>
+        </section>
+      )}
     </div>
   );
   const handleOpenChange = (nextOpen: boolean) => {
