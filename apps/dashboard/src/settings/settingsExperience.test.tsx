@@ -219,6 +219,11 @@ describe("settings presentation", () => {
     const user = userEvent.setup();
     await user.click(timezone);
     expect(await screen.findByRole("listbox")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("option", {
+        name: "Auckland (Pacific/Auckland)",
+      }),
+    ).toBeInTheDocument();
     await user.type(timezone, "Los Angeles");
     await user.click(
       await screen.findByRole("option", {
