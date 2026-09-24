@@ -19,7 +19,7 @@
 Tilecast Edge 1 is a reliable Linux signage player. It replaces the Electron Linux Player with two processes:
 
 - `tilecastd`, an unprivileged Rust daemon that owns everything except drawing pixels;
-- `tilecast-renderer-wpe`, a small C/GLib host for WPE WebKit that draws what `tilecastd` sends and reports what happened on screen.
+- `tilecast-renderer-wpe`, a small C/GLib host for WPE WebKit. It hosts the shared Tilecast Player Runtime, which draws what `tilecastd` sends and reports what happened on screen.
 
 ```text
 Tilecast Server
@@ -44,7 +44,7 @@ The core decisions are:
 2. **A player works alone during an outage.** When the server or WAN is unavailable, the player keeps playing already-reconciled local state from SQLite and verified content from the content-addressed store (CAS). It does not need another screen to receive or relay anything.
 3. **One identity model.** Edge uses the normal Tilecast device credential (`tc_device_<public-id>.<secret>`), the normal installation identity check, and the normal pairing flow. There is no second identity hierarchy, node certificate or Edge-specific signing authority.
 4. **WPE WebKit is the only Linux renderer.** The renderer uses WPE WebKit 2.54 or later through the WPEPlatform API. There is no Electron renderer, no Electron fallback and no dual runtime.
-5. **Electron is legacy only.** An existing Electron installation moves to Edge through a one-time, verified migration (§14). `apps/player-linux` stays in the repository as the behavioral reference and the legacy-state source until the migration period ends.
+5. **Electron is legacy only.** An existing Electron installation moves to Edge through a one-time, verified migration (§14). `apps/player-linux` stays in the repository as the legacy-state source and the rollback target until the migration period ends. It hosts the same shared Player Runtime as Edge, so a rollback shows the same presentation.
 6. **SQLite for metadata, files for bytes.** Durable metadata is in one SQLite database. Media and other immutable bytes are files in a SHA-256 content-addressed store.
 7. **Health comes from evidence.** The daemon judges renderer health from meaningful playback evidence, never from process or socket liveness.
 
@@ -251,7 +251,9 @@ Pins have a reason and a holder: the active and pending presentation, prefetch, 
 
 ### 10.2 Trusted runtime
 
-The renderer loads a trusted DOM runtime from `tilecast://runtime/…`. Electron and WPE host the same shared Tilecast Player Runtime (`@tilecast/player-runtime`), so presentation behavior stays identical during migration. The shared runtime is introduced by the Player Runtime layer immediately above this foundation; until that layer lands, the foundation assembles the Electron player's renderer, used without modification. Runtime file names are validated against a fixed grammar. Host-to-page delivery calls one fixed function with typed arguments; no script source is built from strings.
+Electron and WPE host the shared Tilecast Player Runtime (`@tilecast/player-runtime`, [`player-runtime.md`](player-runtime.md)). Both load the same built artifact from `tilecast://runtime/index.html`, so presentation behavior stays identical during migration. The runtime owns the display DOM, playback lifecycle, transitions and evidence. The WPE host owns only the WPEPlatform and web view lifecycle, the URI schemes, the script bridge and output integration, and it stays small: presentation policy never moves into C.
+
+The host adapter (`web/tilecast-bridge.js`) implements the runtime's versioned host contract, `TilecastRuntimeHostV1`, and exposes only its typed members. Behavior follows the capabilities the adapter advertises, never the host's name. Runtime file names are validated against a fixed grammar: top-level files and `fonts/<name>`. Host-to-page delivery calls one fixed function with typed arguments; no script source is built from strings. The runtime document's CSP is `script-src 'self'` and `style-src 'self'`, with no inline allowance.
 
 ### 10.3 Media access
 

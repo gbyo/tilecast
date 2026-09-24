@@ -62,6 +62,7 @@ apps/player-android/         native Android TV application
   app/src/main/              Compose UI and production player code
   app/src/test/              JVM unit tests
   app/src/androidTest/       emulator/device tests
+packages/player-runtime/      shared Player Runtime hosted by Electron and WPE
 packages/api-schema/         reserved shared API contract boundary
 packages/manifest-schema/    reserved for the later player manifest
 packages/layout-schema/      reserved for renderer-neutral layouts
