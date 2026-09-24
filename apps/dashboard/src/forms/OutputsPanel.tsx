@@ -12,6 +12,14 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 import { formToneBadgeProps } from "./formBadge";
@@ -186,40 +194,42 @@ function OutputViewCard({ view }: { view: FormOutputView }) {
       )}
 
       {view.previewRecords.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t("outputs.noRecords")}
-        </p>
+        <Empty className="border-0 py-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("outputs.noRecords")}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
                 {view.fields.map((field) => (
-                  <th
+                  <TableHead
                     key={field.key}
                     scope="col"
                     className="px-3 py-2 font-medium"
                   >
                     {field.label || field.key}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {view.previewRecords.map((record) => (
-                <tr
+                <TableRow
                   key={record.id}
                   className="border-b border-border last:border-0"
                 >
                   {view.fields.map((field) => (
-                    <td key={field.key} className="px-3 py-2">
+                    <TableCell key={field.key} className="px-3 py-2">
                       {record.values[field.key] ?? ""}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </section>

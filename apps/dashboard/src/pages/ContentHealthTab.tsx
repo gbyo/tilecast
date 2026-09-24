@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useFormatLocale } from "../i18n";
 import { api } from "../api/client";
 import type { ContentHealthReport } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -11,12 +12,21 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
 
 // Content health answers a question the rest of Activity cannot: why does that
 // screen look wrong when nothing is reported as broken? A board showing last
 // week's menu is online, playing, and compliant.
 export function ContentHealthTab() {
   const { t } = useTranslation("activity");
+  const formatLocale = useFormatLocale();
   const report = useQuery({
     queryKey: ["content-health"],
     queryFn: api.contentHealth,
@@ -70,29 +80,29 @@ export function ContentHealthTab() {
             <h3>{t("contentHealth.emptyPlaylistsTitle")}</h3>
             <p>{t("contentHealth.emptyPlaylistsHint")}</p>
           </header>
-          <div className="backup-job-list">
+          <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.emptyPlaylists.map((playlist) => (
-              <div key={playlist.id}>
-                <span>
-                  <strong>
+              <Item key={playlist.id} size="sm" className="rounded-none px-0">
+                <ItemContent>
+                  <ItemTitle>
                     <Link to={`/playlists/${playlist.id}`}>
                       {playlist.name}
                     </Link>
-                  </strong>
-                  <small>
+                  </ItemTitle>
+                  <ItemDescription>
                     {t("contentHealth.screens", {
                       count: playlist.screenCount,
                     })}
-                  </small>
-                </span>
-                <span className="backup-job-status">
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
                   <Badge variant="destructive">
                     {t("contentHealth.nothingAvailable")}
                   </Badge>
-                </span>
-              </div>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         </section>
       )}
 
@@ -108,34 +118,34 @@ export function ContentHealthTab() {
               })}
             </p>
           </header>
-          <div className="backup-job-list">
+          <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.staleSources.map((source) => (
-              <div key={source.id}>
-                <span>
-                  <strong>
+              <Item key={source.id} size="sm" className="rounded-none px-0">
+                <ItemContent>
+                  <ItemTitle>
                     <Link to={`/content/data-sources/${source.id}`}>
                       {source.name}
                     </Link>
-                  </strong>
-                  <small>
+                  </ItemTitle>
+                  <ItemDescription>
                     {t("contentHealth.sourceUpdated", {
                       provider: source.provider,
                       when: source.lastSuccessAt
-                        ? new Date(source.lastSuccessAt).toLocaleString()
+                        ? new Date(source.lastSuccessAt).toLocaleString(
+                            formatLocale,
+                          )
                         : t("contentHealth.never"),
                     })}
-                  </small>
-                </span>
-                <span className="backup-job-status">
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions className="text-sm text-muted-foreground">
                   {source.errorCode
-                    ? t("contentHealth.lastError", {
-                        code: source.errorCode,
-                      })
+                    ? t("contentHealth.lastError", { code: source.errorCode })
                     : t("contentHealth.noRefresh")}
-                </span>
-              </div>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         </section>
       )}
 
@@ -145,25 +155,29 @@ export function ContentHealthTab() {
             <h3>{t("contentHealth.expiringTitle")}</h3>
             <p>{t("contentHealth.expiringHint")}</p>
           </header>
-          <div className="backup-job-list">
+          <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.expiringAssets.map((asset) => (
-              <div key={asset.id}>
-                <span>
-                  <strong>{asset.name}</strong>
-                  <small>
+              <Item key={asset.id} size="sm" className="rounded-none px-0">
+                <ItemContent>
+                  <ItemTitle>{asset.name}</ItemTitle>
+                  <ItemDescription>
                     {t("contentHealth.expiresAt", {
-                      when: new Date(asset.expiresAt).toLocaleString(),
+                      when: new Date(asset.expiresAt).toLocaleString(
+                        formatLocale,
+                      ),
                     })}
-                  </small>
-                </span>
-                <span className="backup-job-status">
-                  {asset.inUse
-                    ? t("contentHealth.inPlaylist")
-                    : t("contentHealth.notInPlaylist")}
-                </span>
-              </div>
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Badge variant={asset.inUse ? "secondary" : "outline"}>
+                    {asset.inUse
+                      ? t("contentHealth.inPlaylist")
+                      : t("contentHealth.notInPlaylist")}
+                  </Badge>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         </section>
       )}
 
@@ -173,20 +187,23 @@ export function ContentHealthTab() {
             <h3>{t("contentHealth.unassignedTitle")}</h3>
             <p>{t("contentHealth.unassignedHint")}</p>
           </header>
-          <div className="backup-job-list">
+          <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.unassignedScreens.map((screen) => (
-              <div key={screen.id}>
-                <span>
-                  <strong>
+              <Item key={screen.id} size="sm" className="rounded-none px-0">
+                <ItemContent>
+                  <ItemTitle>
                     <Link to={`/screens/${screen.id}`}>{screen.name}</Link>
-                  </strong>
-                </span>
-                <span className="backup-job-status">
-                  {t("contentHealth.noPlaylist")}
-                </span>
-              </div>
+                  </ItemTitle>
+                  <ItemDescription>
+                    {t("contentHealth.noPlaylist")}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Badge variant="outline">{t("contentHealth.setup")}</Badge>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         </section>
       )}
     </div>

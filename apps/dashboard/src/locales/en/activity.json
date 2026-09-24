@@ -591,7 +591,8 @@
     "notInPlaylist": "Not in a playlist",
     "unassignedTitle": "Screens with nothing assigned",
     "unassignedHint": "These show the no-content message. That is a setup state, not a fault, so it does not raise an incident.",
-    "noPlaylist": "No playlist"
+    "noPlaylist": "No playlist",
+    "setup": "Setup"
   },
   "screenActivity": {
     "loadFailed": "Screen Activity could not be loaded.",

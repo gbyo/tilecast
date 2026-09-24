@@ -15,6 +15,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 
 export function ArchivedScreensPage() {
   const { t } = useTranslation("screens");
@@ -34,9 +42,8 @@ export function ArchivedScreensPage() {
       : t("shared.unknown");
 
   return (
-    <div className="screens-page">
+    <div className="screens-page w-full min-w-0 space-y-4">
       <PageHeader title={t("archive.title")} description={t("archive.body")} />
-
       {archived.isError && (
         <Alert variant="destructive">
           <AlertDescription>{archived.error.message}</AlertDescription>
@@ -61,46 +68,58 @@ export function ArchivedScreensPage() {
           </EmptyContent>
         </Empty>
       ) : (
-        <section className="detail-card" aria-label={t("archive.section")}>
-          <header>
+        <section
+          className="detail-card min-w-0"
+          aria-label={t("archive.section")}
+        >
+          <header className="mb-2 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3>{t("archive.revokedTitle")}</h3>
-              <p>{t("archive.revokedBody")}</p>
+              <h2 className="text-sm font-semibold">
+                {t("archive.revokedTitle")}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("archive.revokedBody")}
+              </p>
             </div>
-            <span>{t("archive.count", { count: screens.length })}</span>
+            <span className="text-sm text-muted-foreground">
+              {t("archive.count", { count: screens.length })}
+            </span>
           </header>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>{t("archive.colScreen")}</th>
-                  <th>{t("archive.colDevice")}</th>
-                  <th>{t("archive.colArchived")}</th>
-                  <th>{t("archive.colReason")}</th>
-                  <th>{t("archive.colLastContact")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {screens.map((screen) => (
-                  <tr key={screen.id}>
-                    <td>
-                      <span className="screen-name-cell">
-                        <MonitorOff size={17} aria-hidden="true" />
-                        <strong>{screen.name}</strong>
-                      </span>
-                    </td>
-                    <td>
-                      {screen.deviceManufacturer || screen.platform}{" "}
-                      {screen.deviceModel}
-                    </td>
-                    <td>{formatDate(screen.archivedAt)}</td>
-                    <td>{screen.archivedReason || t("status.revoked")}</td>
-                    <td>{formatDate(screen.lastContactAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("archive.colScreen")}</TableHead>
+                <TableHead>{t("archive.colDevice")}</TableHead>
+                <TableHead>{t("archive.colArchived")}</TableHead>
+                <TableHead>{t("archive.colReason")}</TableHead>
+                <TableHead>{t("archive.colLastContact")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {screens.map((screen) => (
+                <TableRow key={screen.id}>
+                  <TableCell className="font-medium">
+                    <span className="flex items-center gap-2">
+                      <MonitorOff
+                        className="size-4 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      {screen.name}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {screen.deviceManufacturer || screen.platform}{" "}
+                    {screen.deviceModel}
+                  </TableCell>
+                  <TableCell>{formatDate(screen.archivedAt)}</TableCell>
+                  <TableCell>
+                    {screen.archivedReason || t("status.revoked")}
+                  </TableCell>
+                  <TableCell>{formatDate(screen.lastContactAt)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </section>
       )}
     </div>

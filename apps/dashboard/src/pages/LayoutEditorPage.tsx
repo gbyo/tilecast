@@ -16,9 +16,18 @@ import { ButtonGroup, ButtonGroupText } from "../components/ui/button-group";
 import {
   Empty,
   EmptyContent,
+  EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
 import { Input } from "../components/ui/input";
 import { Kbd } from "../components/ui/kbd";
 import {
@@ -2934,31 +2943,44 @@ export function LayoutEditorPage() {
               {revisions.isLoading ? (
                 <p>{t("editor.historyLoading")}</p>
               ) : revisions.data?.items?.length ? (
-                revisions.data.items.map((revision) => (
-                  <div className="layout-history-row" key={revision.id}>
-                    <div>
-                      <strong>
-                        {t("editor.historyRevision", {
-                          revision: revision.revision,
-                        })}
-                      </strong>
-                      <span>
-                        {new Date(revision.publishedAt).toLocaleString(
-                          formatLocale,
-                        )}
-                      </span>
-                      <code>{revision.documentSha256.slice(0, 12)}</code>
-                    </div>
-                    <Button
-                      variant="secondary"
-                      onClick={() => restore.mutate(revision.id)}
+                <ItemGroup className="gap-0 divide-y divide-border">
+                  {revisions.data.items.map((revision) => (
+                    <Item
+                      key={revision.id}
+                      size="sm"
+                      className="rounded-none px-0"
                     >
-                      {t("editor.historyRestore")}
-                    </Button>
-                  </div>
-                ))
+                      <ItemContent>
+                        <ItemTitle>
+                          {t("editor.historyRevision", {
+                            revision: revision.revision,
+                          })}
+                        </ItemTitle>
+                        <ItemDescription>
+                          {new Date(revision.publishedAt).toLocaleString(
+                            formatLocale,
+                          )}
+                          {" · "}
+                          <code>{revision.documentSha256.slice(0, 12)}</code>
+                        </ItemDescription>
+                      </ItemContent>
+                      <ItemActions>
+                        <Button
+                          variant="secondary"
+                          onClick={() => restore.mutate(revision.id)}
+                        >
+                          {t("editor.historyRestore")}
+                        </Button>
+                      </ItemActions>
+                    </Item>
+                  ))}
+                </ItemGroup>
               ) : (
-                <p>{t("editor.historyEmpty")}</p>
+                <Empty className="border-0 py-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t("editor.historyEmpty")}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
               )}
             </div>
             <footer>

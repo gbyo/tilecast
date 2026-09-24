@@ -14,6 +14,7 @@ export type StudioNavItem = {
   url: string;
   icon: ReactNode;
   end?: boolean;
+  excludeActiveOn?: readonly string[];
 };
 
 export type StudioNavGroup = {
@@ -25,8 +26,11 @@ function activeUrl(pathname: string, items: StudioNavItem[]) {
   return items
     .filter(
       (item) =>
-        pathname === item.url ||
-        (!item.end && pathname.startsWith(`${item.url}/`)),
+        !item.excludeActiveOn?.some(
+          (path) => pathname === path || pathname.startsWith(`${path}/`),
+        ) &&
+        (pathname === item.url ||
+          (!item.end && pathname.startsWith(`${item.url}/`))),
     )
     .sort((left, right) => right.url.length - left.url.length)[0]?.url;
 }

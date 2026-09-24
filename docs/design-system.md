@@ -449,16 +449,19 @@ range missing a bound, where the length to step back by would be arbitrary.
 
 ### Primary navigation
 
-The inset Studio sidebar uses static groups: Screens (Fleet, Display Groups,
-Archive), Content (Media, Widgets, Data Sources), Presentations (Playlists,
+The inset Studio sidebar uses static groups: Screens (Fleet, Display Groups),
+Content (Media, Widgets, Data Sources), Presentations (Playlists,
 Layouts, Campaigns), and Operations (Schedules, Plugins). Group labels are not
 routes or controls. Every destination is a real link and remains visible while
 the sidebar is open. Overview stays above the groups; Activity, capability-
 gated Approvals, and Settings sit at the bottom of SidebarContent. NavUser
 alone occupies SidebarFooter. The desktop sidebar hides off-canvas and mobile
 uses the Sidebar Sheet behavior. Do not add category disclosure state or
-duplicate these route links with workspace bars on the same pages. Same-resource
-tabs, such as Screen detail views, remain distinct.
+duplicate these route links with workspace bars on the same pages. Fleet and
+Archive are the exception: Archive is a screen-inventory view at
+`/screens/archive`, reached through the route-aware Fleet/Archive Tabs within
+the shared Screens workspace. Same-resource tabs, such as Screen detail views,
+remain distinct.
 
 ### Persistent Studio header
 

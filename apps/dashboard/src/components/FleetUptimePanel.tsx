@@ -20,6 +20,7 @@ import type {
   UptimeWindow,
 } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import {
   ChartContainer,
   ChartLegend,
@@ -141,27 +142,31 @@ export function FleetUptimePanel({
           <AlertDescription>{t("shared.refreshHint")}</AlertDescription>
         </Alert>
       ) : !report || report.screensTracked === 0 ? (
-        <div className="py-5 text-sm text-muted-foreground">
-          <Trans
-            i18nKey="uptime.emptyState"
-            ns="activity"
-            components={{
-              pairLink: (
-                <Link
-                  className="underline underline-offset-4"
-                  to="/screens/pair"
-                />
-              ),
-            }}
-          />
-        </div>
+        <Empty className="border-0 py-5">
+          <EmptyHeader>
+            <EmptyDescription>
+              <Trans
+                i18nKey="uptime.emptyState"
+                ns="activity"
+                components={{
+                  pairLink: (
+                    <Link
+                      className="underline underline-offset-4"
+                      to="/screens/pair"
+                    />
+                  ),
+                }}
+              />
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : report.uptimePercent === null ? (
-        <div className="py-5">
-          <p className="font-medium">{t("uptime.noStateTitle")}</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("uptime.noStateHint")}
-          </p>
-        </div>
+        <Empty className="border-0 py-5">
+          <EmptyHeader>
+            <EmptyTitle>{t("uptime.noStateTitle")}</EmptyTitle>
+            <EmptyDescription>{t("uptime.noStateHint")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <UptimeBody report={report} />
       )}

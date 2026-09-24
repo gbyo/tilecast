@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
-  Archive,
   Blocks,
   CalendarClock,
   ClipboardCheck,
@@ -41,9 +40,13 @@ const navigationGroups = [
   {
     labelKey: "groups.screens",
     items: [
-      { titleKey: "items.fleet", url: "/screens", icon: <Monitor /> },
+      {
+        titleKey: "items.fleet",
+        url: "/screens",
+        icon: <Monitor />,
+        excludeActiveOn: ["/screens/archive"],
+      },
       { titleKey: "items.displayGroups", url: "/groups", icon: <Users /> },
-      { titleKey: "items.archive", url: "/screens/archive", icon: <Archive /> },
     ],
   },
   {
@@ -141,6 +144,9 @@ export function AppSidebar({
               title: t(item.titleKey),
               url: item.url,
               icon: item.icon,
+              ...("excludeActiveOn" in item
+                ? { excludeActiveOn: item.excludeActiveOn }
+                : {}),
             })),
           }))}
         />

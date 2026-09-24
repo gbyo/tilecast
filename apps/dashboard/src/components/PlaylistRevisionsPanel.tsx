@@ -7,6 +7,15 @@ import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "./ui/item";
 import { toast } from "./ui/toast";
 
 const initialRevisionCount = 5;
@@ -102,60 +111,67 @@ export function PlaylistRevisionsPanel({
         </Alert>
       )}
 
-      <div className="backup-job-list">
-        {visibleRevisions.map((revision) => (
-          <div key={revision.revision}>
-            <span>
-              <strong>
-                {revision.isCurrent
-                  ? t("history.revisionCurrent", {
-                      revision: revision.revision,
-                    })
-                  : t("history.revision", { revision: revision.revision })}
-              </strong>
-              <small>
-                {t("history.revisionMeta", {
-                  date: new Date(revision.createdAt).toLocaleString(
-                    formatLocale,
-                  ),
-                  items: t("count.items", { count: revision.itemCount }),
-                })}
-                {revision.authorName ? <> · {revision.authorName}</> : ""}
-                {revision.missingReferences > 0 ? (
-                  <>
-                    {" "}
-                    ·{" "}
-                    {t("history.deletedSince", {
-                      count: revision.missingReferences,
-                    })}
-                  </>
+      {revisionItems.length === 0 ? (
+        <Empty className="border-0 py-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("history.noRevisions")}</EmptyTitle>
+            <EmptyDescription>{t("history.noRevisionsHint")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
+          {visibleRevisions.map((revision) => (
+            <Item
+              key={revision.revision}
+              size="sm"
+              className="rounded-none px-0"
+            >
+              <ItemContent>
+                <ItemTitle>
+                  {revision.isCurrent
+                    ? t("history.revisionCurrent", {
+                        revision: revision.revision,
+                      })
+                    : t("history.revision", { revision: revision.revision })}
+                </ItemTitle>
+                <ItemDescription>
+                  {t("history.revisionMeta", {
+                    date: new Date(revision.createdAt).toLocaleString(
+                      formatLocale,
+                    ),
+                    items: t("count.items", { count: revision.itemCount }),
+                  })}
+                  {revision.authorName ? ` · ${revision.authorName}` : ""}
+                  {revision.missingReferences > 0
+                    ? ` · ${t("history.deletedSince", {
+                        count: revision.missingReferences,
+                      })}`
+                    : ""}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                {canRestore && revision.restorable ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={restore.isPending}
+                    onClick={() => {
+                      setResult(undefined);
+                      restore.mutate(revision.revision);
+                    }}
+                  >
+                    <History size={14} /> {t("history.restore")}
+                  </Button>
+                ) : revision.isCurrent ? (
+                  t("history.currentBadge")
                 ) : (
-                  ""
+                  t("history.nothingToRestore")
                 )}
-              </small>
-            </span>
-            <span className="backup-job-status">
-              {canRestore && revision.restorable ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={restore.isPending}
-                  onClick={() => {
-                    setResult(undefined);
-                    restore.mutate(revision.revision);
-                  }}
-                >
-                  <History size={14} /> {t("history.restore")}
-                </Button>
-              ) : revision.isCurrent ? (
-                t("history.currentBadge")
-              ) : (
-                t("history.nothingToRestore")
-              )}
-            </span>
-          </div>
-        ))}
-      </div>
+              </ItemActions>
+            </Item>
+          ))}
+        </ItemGroup>
+      )}
 
       {(hiddenRevisionCount > 0 ||
         visibleRevisionCount > initialRevisionCount) && (

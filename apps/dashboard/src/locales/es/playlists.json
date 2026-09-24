@@ -327,6 +327,8 @@
     "loading": "Cargando historial…",
     "intro": "Se conservan las últimas {{kept}} revisiones. Restaurar crea una revisión nueva, por lo que se puede deshacer de la misma manera.",
     "title": "Historial",
+    "noRevisions": "Aún no hay historial de listas de reproducción",
+    "noRevisionsHint": "Las revisiones aparecerán aquí después de guardar la lista de reproducción.",
     "panelLabel": "Historial de revisiones de la lista",
     "revision": "Revisión {{revision}}",
     "revisionCurrent": "Revisión {{revision}} (actual)",

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, History, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import { api } from "../api/client";
 import type {
   BulkAction,
@@ -14,7 +15,15 @@ import { PageHeader } from "../components/PageHeader";
 import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
 import { toast } from "../components/ui/toast";
 import { Checkbox } from "../components/ui/checkbox";
 import {
@@ -98,6 +107,9 @@ export function FleetBulkPage() {
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
+  const canManage = ["owner", "administrator"].includes(
+    auth.status?.user?.role ?? "",
+  );
 
   const screens = useQuery({ queryKey: ["screens"], queryFn: api.screens });
   const playlists = useQuery({
@@ -208,9 +220,31 @@ export function FleetBulkPage() {
           </header>
 
           {items.length === 0 ? (
-            <div className="bulk-empty">
-              {screens.isLoading ? t("bulk.loading") : t("bulk.empty")}
-            </div>
+            screens.isLoading ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground">
+                {t("bulk.loading")}
+              </p>
+            ) : (
+              <Empty className="border-0 py-6">
+                <EmptyHeader>
+                  <EmptyTitle>{t("bulk.noScreensTitle")}</EmptyTitle>
+                  <EmptyDescription>{t("bulk.noScreensHint")}</EmptyDescription>
+                </EmptyHeader>
+                {canManage && (
+                  <EmptyContent>
+                    <Link
+                      className={buttonVariants({
+                        variant: "secondary",
+                        size: "sm",
+                      })}
+                      to="/screens/pair"
+                    >
+                      {t("page.pairScreen")}
+                    </Link>
+                  </EmptyContent>
+                )}
+              </Empty>
+            )
           ) : (
             <div className="bulk-picker">
               {items.map((item) => {
@@ -438,10 +472,15 @@ export function FleetBulkPage() {
           </div>
         </header>
         {!operations.data?.length ? (
-          <div className="bulk-empty">
-            <History size={22} aria-hidden="true" />
-            <p>{t("bulk.recentEmpty")}</p>
-          </div>
+          <Empty className="border-0 py-6">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <History aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>{t("bulk.recentEmptyTitle")}</EmptyTitle>
+              <EmptyDescription>{t("bulk.recentEmptyHint")}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="bulk-history">
             {operations.data.map((operation) => (

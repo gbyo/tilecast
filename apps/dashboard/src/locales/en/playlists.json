@@ -323,6 +323,8 @@
     "loading": "Loading history…",
     "intro": "The last {{kept}} revisions are kept. Restoring makes a new revision, so it can be undone the same way.",
     "title": "History",
+    "noRevisions": "No playlist history yet",
+    "noRevisionsHint": "Revisions will appear here after the playlist is saved.",
     "panelLabel": "Playlist revision history",
     "revision": "Revision {{revision}}",
     "revisionCurrent": "Revision {{revision}} (current)",

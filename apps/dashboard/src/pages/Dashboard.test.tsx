@@ -49,7 +49,6 @@ describe("SidebarNavigation", () => {
       Overview: "/",
       Fleet: "/screens",
       "Display Groups": "/groups",
-      Archive: "/screens/archive",
       Media: "/assets",
       Widgets: "/widgets",
       "Data Sources": "/data-sources",
@@ -67,6 +66,7 @@ describe("SidebarNavigation", () => {
         route,
       );
     }
+    expect(screen.queryByRole("link", { name: "Archive" })).toBeNull();
     for (const group of ["Screens", "Content", "Presentations", "Operations"]) {
       expect(screen.getByText(group)).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: group })).toBeNull();

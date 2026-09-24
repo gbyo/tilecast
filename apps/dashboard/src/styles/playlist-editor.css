@@ -8,36 +8,3 @@
   color: var(--tc-text-secondary);
   font: var(--tc-text-supporting);
 }
-
-.playlist-history-panel .backup-job-list {
-  display: grid;
-  gap: var(--tc-space-2);
-}
-
-.playlist-history-panel .backup-job-list > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--tc-space-3);
-  padding: var(--tc-space-3);
-  background: var(--tc-editor-surface-muted);
-  border: 1px solid var(--tc-editor-divider);
-  border-radius: var(--tc-radius-control);
-}
-
-.playlist-history-panel .backup-job-list > div > span:first-child {
-  display: grid;
-  min-width: 0;
-  gap: var(--tc-space-1);
-}
-
-.playlist-history-panel .backup-job-list small {
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-supporting);
-}
-
-.playlist-history-panel .backup-job-status {
-  flex: 0 0 auto;
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-supporting);
-}

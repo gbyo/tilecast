@@ -615,7 +615,8 @@
     "notInPlaylist": "Sin lista",
     "unassignedTitle": "Pantallas sin asignación",
     "unassignedHint": "Muestran el mensaje de sin contenido. Es un estado de configuración, no una falla, así no genera un incidente.",
-    "noPlaylist": "Sin lista"
+    "noPlaylist": "Sin lista",
+    "setup": "Configuración"
   },
   "screenActivity": {
     "loadFailed": "No se pudo cargar la actividad de la pantalla.",

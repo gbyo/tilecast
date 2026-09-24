@@ -4,12 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import type { ReactNode } from "react";
 import { AlertTriangle, Database, Layers3, ListVideo } from "lucide-react";
 import { api } from "../api/client";
 import type { PlaylistAssignment } from "../api/types";
 import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
+import { AspectRatio } from "../components/ui/aspect-ratio";
 import {
   Item,
   ItemActions,
@@ -19,6 +21,11 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Skeleton } from "../components/ui/skeleton";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "../components/ui/hover-card";
 
 type WidgetsT = TFunction<["content", "common"], undefined>;
 
@@ -88,6 +95,10 @@ export function ScreenContentChain({
   const widgetItems = (playlist.data?.items ?? []).filter(
     (item) => item.assetType === "widget",
   );
+  const layoutDataSourceCount =
+    layout.data?.dependencies.filter(
+      (dependency) => dependency.type === "data_source",
+    ).length ?? 0;
 
   return (
     <section className="min-w-0 space-y-3" aria-labelledby="screen-chain-title">
@@ -102,18 +113,22 @@ export function ScreenContentChain({
 
       {layoutId && (
         <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
-          <Item
-            size="xs"
-            render={<Link to={`/layouts/${layoutId}`} />}
-            className="rounded-none px-0"
-          >
+          <Item size="xs" className="rounded-none px-0">
             <ItemContent>
               <ItemTitle>
-                <Layers3
-                  className="size-4 text-muted-foreground"
-                  aria-hidden="true"
+                <ResourcePreviewLink
+                  to={`/layouts/${layoutId}`}
+                  title={
+                    assignment?.layoutName ?? t("widgets.chain.assignedLayout")
+                  }
+                  metadata={
+                    layout.data
+                      ? `${layout.data.canvasWidth} × ${layout.data.canvasHeight} px · ${t("widgets.chain.layoutDataSources", { count: layoutDataSourceCount })}`
+                      : t("widgets.chain.layoutPreview")
+                  }
+                  imageUrl={layout.data?.previewImageUrl}
+                  fallback={<Layers3 aria-hidden="true" />}
                 />
-                {assignment?.layoutName ?? t("widgets.chain.assignedLayout")}
               </ItemTitle>
               <ItemDescription>
                 {t("widgets.chain.publishedLayout")}
@@ -141,19 +156,19 @@ export function ScreenContentChain({
 
       {playlistId && (
         <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
-          <Item
-            size="xs"
-            render={<Link to={`/playlists/${playlistId}`} />}
-            className="rounded-none px-0"
-          >
+          <Item size="xs" className="rounded-none px-0">
             <ItemContent>
               <ItemTitle>
-                <ListVideo
-                  className="size-4 text-muted-foreground"
-                  aria-hidden="true"
+                <ResourcePreviewLink
+                  to={`/playlists/${playlistId}`}
+                  title={
+                    assignment?.playlistName ??
+                    t("widgets.chain.assignedPlaylist")
+                  }
+                  metadata={`${t("widgets.chain.playlistItemCount", { count: playlist.data?.itemCount ?? 0 })}${playlist.data?.revision ? ` · ${t("widgets.chain.playlistRevision", { revision: playlist.data.revision })}` : ""}`}
+                  imageUrl={playlist.data?.items[0]?.thumbnailUrl}
+                  fallback={<ListVideo aria-hidden="true" />}
                 />
-                {assignment?.playlistName ??
-                  t("widgets.chain.assignedPlaylist")}
               </ItemTitle>
               <ItemDescription>
                 {t("widgets.chain.playlistItemCount", {
@@ -207,6 +222,54 @@ export function ScreenContentChain({
         </Alert>
       )}
     </section>
+  );
+}
+
+function ResourcePreviewLink({
+  to,
+  title,
+  metadata,
+  imageUrl,
+  fallback,
+}: {
+  to: string;
+  title: string;
+  metadata: string;
+  imageUrl?: string;
+  fallback: ReactNode;
+}) {
+  return (
+    <HoverCard>
+      <HoverCardTrigger
+        render={
+          <Link
+            className="inline-flex min-w-0 items-center gap-2 text-inherit hover:underline"
+            to={to}
+          />
+        }
+      >
+        {fallback}
+        {title}
+      </HoverCardTrigger>
+      <HoverCardContent side="right" align="start" className="grid w-72 gap-3">
+        {imageUrl ? (
+          <AspectRatio
+            ratio={16 / 9}
+            className="overflow-hidden rounded-md bg-muted"
+          >
+            <img className="size-full object-cover" src={imageUrl} alt="" />
+          </AspectRatio>
+        ) : (
+          <div className="grid aspect-video place-items-center rounded-md bg-muted text-muted-foreground">
+            {fallback}
+          </div>
+        )}
+        <div className="grid gap-1">
+          <p className="font-medium">{title}</p>
+          <p className="text-xs text-muted-foreground">{metadata}</p>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 

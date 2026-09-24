@@ -25,6 +25,15 @@ import {
 } from "../components/ui/empty";
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 
@@ -158,74 +167,74 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
             {t("locations.loading")}
           </p>
         ) : (
-          <div className="grid gap-2">
+          <ItemGroup className="gap-2">
             {matches.map((location) => (
-              <article
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"
-                key={location.id}
-              >
-                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
+              <Item key={location.id} variant="outline">
+                <ItemMedia
+                  variant="icon"
+                  className="size-8 rounded-lg bg-muted"
+                >
                   <MapPin size={17} aria-hidden="true" />
-                </span>
-                <span className="grid min-w-0 flex-1 gap-0.5">
-                  <strong className="text-sm font-semibold">
-                    {location.name}
-                  </strong>
-                  <small className="text-xs text-muted-foreground">
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>{location.name}</ItemTitle>
+                  <ItemDescription>
                     {formatLocationAddress(location) ||
                       t("locations.noAddress")}
-                  </small>
-                </span>
-                <span className="text-sm text-muted-foreground tabular-nums">
-                  {t("locations.screens", { count: location.screenCount })}
-                </span>
-                {canManage && (
-                  <span className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t("locations.editLocation", {
-                        name: location.name,
-                      })}
-                      onClick={() => open(location)}
-                    >
-                      <Pencil size={16} aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t("locations.deleteLocation", {
-                        name: location.name,
-                      })}
-                      disabled={remove.isPending}
-                      onClick={() => {
-                        if (location.screenCount > 0) {
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions className="flex-wrap">
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    {t("locations.screens", { count: location.screenCount })}
+                  </span>
+                  {canManage && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("locations.editLocation", {
+                          name: location.name,
+                        })}
+                        onClick={() => open(location)}
+                      >
+                        <Pencil size={16} aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("locations.deleteLocation", {
+                          name: location.name,
+                        })}
+                        disabled={remove.isPending}
+                        onClick={() => {
+                          if (location.screenCount > 0) {
+                            void confirm({
+                              title: t("locations.blockedTitle", {
+                                name: location.name,
+                              }),
+                              action: t("locations.confirmOk"),
+                            });
+                            return;
+                          }
                           void confirm({
-                            title: t("locations.blockedTitle", {
+                            title: t("locations.deleteTitle", {
                               name: location.name,
                             }),
-                            action: t("locations.confirmOk"),
+                            action: t("common:actions.delete"),
+                            destructive: true,
+                          }).then((ok) => {
+                            if (ok) remove.mutate(location);
                           });
-                          return;
-                        }
-                        void confirm({
-                          title: t("locations.deleteTitle", {
-                            name: location.name,
-                          }),
-                          action: t("common:actions.delete"),
-                          destructive: true,
-                        }).then((ok) => {
-                          if (ok) remove.mutate(location);
-                        });
-                      }}
-                    >
-                      <Trash2 size={16} aria-hidden="true" />
-                    </Button>
-                  </span>
-                )}
-              </article>
+                        }}
+                      >
+                        <Trash2 size={16} aria-hidden="true" />
+                      </Button>
+                    </>
+                  )}
+                </ItemActions>
+              </Item>
             ))}
             {!matches.length && (
               <Empty>
@@ -244,7 +253,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                 </EmptyHeader>
               </Empty>
             )}
-          </div>
+          </ItemGroup>
         )}
         <Dialog
           open={Boolean(editing)}

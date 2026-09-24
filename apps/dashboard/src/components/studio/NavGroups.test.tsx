@@ -36,7 +36,6 @@ describe("static sidebar groups", () => {
       "Overview",
       "Fleet",
       "Display Groups",
-      "Archive",
       "Media",
       "Widgets",
       "Data Sources",
@@ -61,14 +60,20 @@ describe("static sidebar groups", () => {
     expect(document.querySelector('[data-slot="sidebar-menu-sub"]')).toBeNull();
   });
 
-  it("marks the most specific destination active for deep links", () => {
-    renderNav("/screens/archive/player-1");
+  it("keeps Archive out of the sidebar and does not mark Fleet active there", () => {
+    renderNav("/screens/archive");
 
-    expect(screen.getByRole("link", { name: "Archive" })).toHaveAttribute(
+    expect(screen.queryByRole("link", { name: "Archive" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Fleet" })).not.toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("link", { name: "Fleet" })).not.toHaveAttribute(
+  });
+
+  it("keeps Fleet active for a screen detail deep link", () => {
+    renderNav("/screens/player-1");
+
+    expect(screen.getByRole("link", { name: "Fleet" })).toHaveAttribute(
       "aria-current",
       "page",
     );

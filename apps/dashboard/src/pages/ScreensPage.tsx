@@ -32,9 +32,16 @@ import {
   type ReactNode,
 } from "react";
 import { useForm } from "react-hook-form";
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import type { TFunction } from "i18next";
 import { Trans, useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { z } from "zod";
 import { api } from "../api/client";
 import { useFormatLocale } from "../i18n";
@@ -61,6 +68,7 @@ import { previewApi } from "../api/previews";
 import { previewAge } from "../components/livePreviewState";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
+import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
@@ -486,6 +494,70 @@ const statusContent: Record<
   disabled: { labelKey: "status.disabled", Icon: ShieldOff },
   revoked: { labelKey: "status.revoked", Icon: ShieldOff },
 };
+
+export function ScreensWorkspacePage() {
+  const { t } = useTranslation("screens");
+  const auth = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const manageable = canManageScreens(auth.status?.user);
+  const screens = useQuery({
+    queryKey: ["screens"],
+    queryFn: api.screens,
+    refetchInterval: 10_000,
+  });
+  const archive =
+    location.pathname === "/screens/archive" ||
+    location.pathname.startsWith("/screens/archive/");
+  const activeTab = archive ? "archive" : "fleet";
+
+  return (
+    <div className="w-full min-w-0 space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("page.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {archive
+              ? t("archive.body")
+              : screens.isLoading
+                ? t("page.loadingInventory")
+                : screenInventorySummary(screens.data?.items ?? [], t)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {manageable && (
+            <Link
+              className={buttonVariants({ variant: "default", size: "sm" })}
+              to="/screens/pair"
+            >
+              <Plus aria-hidden="true" /> {t("page.pairScreen")}
+            </Link>
+          )}
+          {manageable && !archive && (
+            <TakeoverAction screens={screens.data?.items ?? []} />
+          )}
+        </div>
+      </header>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) =>
+          void navigate(value === "archive" ? "/screens/archive" : "/screens")
+        }
+        className="min-w-0 gap-4"
+      >
+        <TabsList variant="line" aria-label="Screen views">
+          <TabsTrigger value="fleet">Fleet</TabsTrigger>
+          <TabsTrigger value="archive">Archive</TabsTrigger>
+        </TabsList>
+        <TabsContent value={activeTab} className="min-w-0 outline-none">
+          <Outlet />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
 
 export function ScreensPage() {
   const { t } = useTranslation(["screens", "common"]);
@@ -2312,11 +2384,9 @@ export function ScreenGridCard({
         aria-label={t("grid.openScreen", { name: screen.name })}
         className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
       >
-        <div
-          className={`relative grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
-          style={{
-            aspectRatio: `${screen.screenWidth || 16} / ${screen.screenHeight || 9}`,
-          }}
+        <AspectRatio
+          ratio={(screen.screenWidth || 16) / (screen.screenHeight || 9)}
+          className={`grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
         >
           {preview.isLoading && visible ? (
             <Skeleton
@@ -2353,7 +2423,7 @@ export function ScreenGridCard({
                 : t("grid.unavailable")}
             </span>
           )}
-        </div>
+        </AspectRatio>
       </Link>
       <div className="grid gap-3 p-3">
         <header className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">

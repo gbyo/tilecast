@@ -17,6 +17,15 @@ import {
 } from "../components/ui/empty";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
 
 export function BackupPanel({ owner }: { owner: boolean }) {
   const { t } = useTranslation(["settings", "common"]);
@@ -177,21 +186,21 @@ export function BackupPanel({ owner }: { owner: boolean }) {
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="grid gap-2">
+            <ItemGroup className="gap-2">
               {data.backups.map((archive) => (
-                <article
-                  className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border p-4"
-                  key={archive.id}
-                >
-                  <div className="grid min-w-0 flex-1 gap-1">
-                    <strong className="text-sm font-semibold break-all">
+                <Item key={archive.id} variant="outline">
+                  <ItemMedia variant="icon">
+                    <ShieldCheck aria-hidden="true" />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle className="break-all">
                       {archive.fileName}
-                    </strong>
-                    <span className="text-sm text-muted-foreground">
+                    </ItemTitle>
+                    <ItemDescription>
                       {formatDate(archive.createdAt, locale)} ·{" "}
                       {formatBytes(archive.sizeBytes)} · {archive.kind}
-                    </span>
-                    <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    </ItemDescription>
+                    <ItemDescription className="flex flex-wrap items-center gap-2">
                       <Badge
                         variant={
                           archive.verification === "verified"
@@ -207,9 +216,9 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                         tilecastVersion: archive.tilecastVersion,
                         schemaVersion: archive.schemaVersion,
                       })}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions className="flex-wrap">
                     <RheaButton
                       variant="ghost"
                       disabled={busy}
@@ -255,10 +264,10 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       <Trash2 size={15} aria-hidden="true" />{" "}
                       {t("common:actions.delete")}
                     </RheaButton>
-                  </div>
-                </article>
+                  </ItemActions>
+                </Item>
               ))}
-            </div>
+            </ItemGroup>
           )}
         </section>
         {!!data?.recentJobs.length && (

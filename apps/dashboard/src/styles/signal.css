@@ -61,17 +61,6 @@ p {
   gap: var(--tc-space-4);
 }
 
-.layout-history-row > div {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.layout-history-row span {
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-caption);
-}
-
 .layout-editor {
   display: grid;
   grid-template: 48px minmax(0, 1fr) / minmax(0, 1fr);
@@ -738,15 +727,6 @@ p {
 .layout-history {
   width: min(620px, calc(100vw - 32px));
 }
-.layout-history-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--tc-space-3);
-  padding: var(--tc-space-3) 0;
-  border-bottom: 1px solid var(--tc-border-default);
-}
-
 @media (max-width: 1050px) {
   .layout-editor-left {
     grid-template-columns: 82px minmax(0, 1fr);
@@ -792,53 +772,6 @@ p {
 
 .status-dot-label--danger {
   color: var(--tc-status-danger);
-}
-
-.table-wrap,
-.table-container {
-  overflow-x: auto;
-  background: var(--tc-bg-surface);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-panel);
-}
-
-/* Defaults for legacy tables that are not the shadcn Table. They live in the base layer so the
-   Tailwind utilities on a table's own cells always take precedence. */
-@layer base {
-  :where(table:not([data-slot="table"])) {
-    width: 100%;
-    border-collapse: collapse;
-    font-variant-numeric: tabular-nums;
-  }
-
-  :where(table:not([data-slot="table"])) th {
-    height: 40px;
-    padding: 8px 12px;
-    color: var(--tc-text-secondary);
-    background: var(--tc-table-header-bg);
-    border-bottom: 1px solid var(--tc-border-default);
-    font: var(--tc-text-label);
-    text-align: left;
-  }
-
-  :where(table:not([data-slot="table"])) td {
-    min-height: 48px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--tc-border-default);
-    vertical-align: middle;
-  }
-
-  :where(table:not([data-slot="table"])) tr:last-child td {
-    border-bottom: 0;
-  }
-
-  :where(table:not([data-slot="table"])) tbody tr:hover {
-    background: var(--tc-table-row-hover);
-  }
-
-  :where(table:not([data-slot="table"])) tbody tr {
-    transition: background var(--tc-motion-fast);
-  }
 }
 
 .dialog,
