@@ -109,17 +109,18 @@ export interface SelfUpdateDeps {
 export function parseVersionCode(version: string): number {
   const core = version.trim().split(/[-+]/, 1)[0] ?? "";
   const parts = core.split(".");
-  const major = Number.parseInt(parts[0] ?? "", 10);
-  const minor = Number.parseInt(parts[1] ?? "", 10);
-  const patch = Number.parseInt(parts[2] ?? "", 10);
-  if (!Number.isFinite(major)) {
+  if (parts.length !== 3 || parts.some((part) => !/^\d+$/.test(part))) {
     return 0;
   }
-  return (
-    major * 1_000_000 +
-    (Number.isFinite(minor) ? minor : 0) * 1_000 +
-    (Number.isFinite(patch) ? patch : 0)
-  );
+
+  const [major = Number.NaN, minor = Number.NaN, patch = Number.NaN] =
+    parts.map(Number);
+  if (![major, minor, patch].every(Number.isSafeInteger)) {
+    return 0;
+  }
+
+  const code = major * 1_000_000 + minor * 1_000 + patch;
+  return Number.isSafeInteger(code) ? code : 0;
 }
 
 interface UpdatePayload {
