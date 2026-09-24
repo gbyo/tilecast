@@ -148,6 +148,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test --workspace @tilecast/player-runtime
+      # The Linux Player imports the runtime's compiled Node entry points.
+      - run: npm run build:node --workspace @tilecast/player-runtime
       - run: npm run player:linux:test
       - run: npm run player:linux:build
       - name: Create test-only release signing keys

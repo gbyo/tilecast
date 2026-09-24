@@ -2,3 +2,5 @@
 .muse/worktrees/
 # Cargo build output of the Edge workspace.
 apps/edge/target/
+# Exact media-channel wire frames; the Rust and C contract tests compare bytes.
+packages/edge-protocol/fixtures/media/
