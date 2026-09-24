@@ -17,7 +17,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import { Item, ItemGroup } from "../components/ui/item";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
 import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
 import { PlaylistEditorPage } from "../components/playlist-editor/PlaylistEditor";
 import {
@@ -118,18 +125,18 @@ export function PlaylistsPage() {
               variant="outline"
               render={<Link to={`/playlists/${playlist.id}`} />}
             >
-              <span className="grid min-w-0 gap-0.5">
-                <strong className="truncate text-sm">{playlist.name}</strong>
-                <small className="truncate text-xs text-muted-foreground">
+              <ItemContent className="min-w-0">
+                <ItemTitle>{playlist.name}</ItemTitle>
+                <ItemDescription className="truncate">
                   {playlist.description || t("list.noDescription")}
-                </small>
-              </span>
-              <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions className="text-xs text-muted-foreground">
                 <span>
                   {t("list.revision", { revision: playlist.revision })}
                 </span>
                 <span>{t("count.items", { count: playlist.itemCount })}</span>
-              </span>
+              </ItemActions>
             </Item>
           ))}
         </ItemGroup>

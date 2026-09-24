@@ -355,7 +355,6 @@
     "upload": {
       "acceptedHint": "Imágenes y videos · se admiten varios archivos",
       "activeConfirm": "Todavía hay subidas activas. ¿Cerrar esta vista de subidas?",
-      "closeUploads": "Cerrar las subidas",
       "dropHint": "Suelta los archivos aquí o elige archivos",
       "returnToContent": "Volver al contenido",
       "subtitle": "Sube una o más imágenes o videos.",

@@ -397,58 +397,36 @@ function GenericEditorShell({
     </div>
   );
   return (
-    <div className="details-backdrop">
-      <section
-        className={`asset-details source-editor${preview ? " widget-editor" : ""}`}
-      >
-        <header>
-          <div>
-            <h2>{title}</h2>
-            <p>{description}</p>
-          </div>
-          <Button variant="ghost" onClick={onClose}>
-            {t("common:actions.close")}
-          </Button>
-        </header>
-        {preview ? (
-          <div className="widget-editor__layout">
-            <div className="widget-editor__form">
-              <EditorSection
-                title={t("widgets.editors.generic.detailsTitle")}
-                description={t("widgets.editors.generic.detailsHint")}
-              >
-                {details}
-              </EditorSection>
-              <EditorSection
-                title={t("widgets.editors.generic.contentTitle")}
-                description={t("widgets.editors.generic.contentHint")}
-              >
-                {children}
-              </EditorSection>
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>
-                    {widgetSaveErrorMessage(t, error)}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-            <aside
-              className="widget-editor__preview"
-              aria-label={t("widgets.editors.generic.previewLabel")}
+    <section
+      className={`source-editor grid gap-4${preview ? " widget-editor" : ""}`}
+      aria-labelledby="definition-editor-title"
+    >
+      <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
+        <div className="grid gap-1">
+          <h2 id="definition-editor-title" className="text-lg font-semibold">
+            {title}
+          </h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        <Button variant="outline" onClick={onClose}>
+          {t("common:actions.close")}
+        </Button>
+      </header>
+      {preview ? (
+        <div className="widget-editor__layout">
+          <div className="widget-editor__form">
+            <EditorSection
+              title={t("widgets.editors.generic.detailsTitle")}
+              description={t("widgets.editors.generic.detailsHint")}
             >
-              <header>
-                <strong>{t("widgets.editors.generic.previewLabel")}</strong>
-                <span>{t("widgets.editors.generic.previewHint")}</span>
-              </header>
-              {previewControl}
-              {preview}
-            </aside>
-          </div>
-        ) : (
-          <div className="source-editor__body">
-            {details}
-            {children}
+              {details}
+            </EditorSection>
+            <EditorSection
+              title={t("widgets.editors.generic.contentTitle")}
+              description={t("widgets.editors.generic.contentHint")}
+            >
+              {children}
+            </EditorSection>
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>
@@ -457,22 +435,45 @@ function GenericEditorShell({
               </Alert>
             )}
           </div>
-        )}
-        <footer className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-          <Button variant="ghost" onClick={onClose}>
-            {t("common:actions.cancel")}
-          </Button>
-          {!readOnly && (
-            <Button
-              disabled={pending || saveDisabled || !name.trim()}
-              onClick={onSave}
-            >
-              {pending ? t("common:actions.saving") : saveLabel}
-            </Button>
+          <aside
+            className="widget-editor__preview"
+            aria-label={t("widgets.editors.generic.previewLabel")}
+          >
+            <header>
+              <strong>{t("widgets.editors.generic.previewLabel")}</strong>
+              <span>{t("widgets.editors.generic.previewHint")}</span>
+            </header>
+            {previewControl}
+            {preview}
+          </aside>
+        </div>
+      ) : (
+        <div className="source-editor__body">
+          {details}
+          {children}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {widgetSaveErrorMessage(t, error)}
+              </AlertDescription>
+            </Alert>
           )}
-        </footer>
-      </section>
-    </div>
+        </div>
+      )}
+      <footer className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+        <Button variant="outline" onClick={onClose}>
+          {t("common:actions.cancel")}
+        </Button>
+        {!readOnly && (
+          <Button
+            disabled={pending || saveDisabled || !name.trim()}
+            onClick={onSave}
+          >
+            {pending ? t("common:actions.saving") : saveLabel}
+          </Button>
+        )}
+      </footer>
+    </section>
   );
 }
 

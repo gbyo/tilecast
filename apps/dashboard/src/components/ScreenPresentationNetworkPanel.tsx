@@ -8,6 +8,7 @@ import type { PresentationNetworkReadiness, Screen } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldLabel } from "./ui/field";
 import { Skeleton } from "./ui/skeleton";
 import { toast } from "./ui/toast";
 import {
@@ -225,11 +226,16 @@ export function ScreenPresentationNetworkPanel({
       )}
       {canManage && (
         <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-          <label className="grid min-w-0 gap-1.5 text-sm font-medium">
-            <span>{t("network.assignLabel")}</span>
-            <span className="text-xs font-normal text-muted-foreground">
+          <Field className="min-w-0 gap-1.5">
+            <FieldLabel
+              htmlFor="assigned-presentation-network"
+              className="text-sm font-medium"
+            >
+              {t("network.assignLabel")}
+            </FieldLabel>
+            <FieldDescription className="text-xs">
               {t("network.assignHint")}
-            </span>
+            </FieldDescription>
             <Select
               items={[
                 { value: "__unassigned__", label: t("network.noNetwork") },
@@ -246,7 +252,6 @@ export function ScreenPresentationNetworkPanel({
               <SelectTrigger
                 id="assigned-presentation-network"
                 className="w-full"
-                aria-label={t("network.assignLabel")}
                 disabled={networks.isLoading || assignment.isPending}
               >
                 <SelectValue placeholder={t("network.noNetwork")} />
@@ -262,7 +267,7 @@ export function ScreenPresentationNetworkPanel({
                 ))}
               </SelectContent>
             </Select>
-          </label>
+          </Field>
           <div className="flex flex-wrap gap-2 sm:justify-end">
             <Button
               variant="default"

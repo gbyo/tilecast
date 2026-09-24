@@ -522,4 +522,31 @@ describe("Layout editor layers and zoom controls", () => {
     expect(screen.queryByLabelText("Layer opacity")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Layer name")).toBeInTheDocument();
   });
+
+  it("switches library sections as tabs and keeps the picker until it closes", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+    const user = userEvent.setup();
+
+    const playlistsTab = screen.getByRole("tab", { name: "Playlists" });
+    await user.click(playlistsTab);
+    expect(playlistsTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Media" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+
+    const browse = screen.getByRole("button", { name: "Browse playlists" });
+    await user.click(browse);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    // A fresh open works after the previous picker finished closing.
+    await user.click(screen.getByRole("button", { name: "Browse playlists" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
 });

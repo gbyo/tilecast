@@ -29,9 +29,8 @@ import {
 } from "../components/ui/sheet";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
-import { StatusDot } from "../components/StatusDot";
-import { ViewTabs } from "../components/ViewTabs";
 import { api } from "../api/client";
 import type { Screen, UpdateDeploymentScreen } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -139,7 +138,8 @@ export function UpdateDeploymentDrawer({
     <SheetHeader>
       <SheetDescription>
         {deployment
-          ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
+          ? // i18n-ignore: Android and Linux are platform names, not language text
+            `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
           : t("updates.deploymentFallback")}
       </SheetDescription>
       <SheetTitle>
@@ -150,7 +150,8 @@ export function UpdateDeploymentDrawer({
     <DrawerHeader>
       <DrawerDescription>
         {deployment
-          ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
+          ? // i18n-ignore: Android and Linux are platform names, not language text
+            `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
           : t("updates.deploymentFallback")}
       </DrawerDescription>
       <DrawerTitle>
@@ -253,33 +254,29 @@ export function UpdateDeploymentDrawer({
           )}
           <DeploymentMeter {...screenStateCounts(allScreens)} />
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <ViewTabs
-              label={t("updates.filterLabel")}
-              value={filter}
-              items={[
-                {
-                  value: "all",
-                  label: t("updates.filter.all", { count: allScreens.length }),
-                },
-                {
-                  value: "attention",
-                  label: t("updates.filter.attention", {
-                    count: counts.attention,
-                  }),
-                },
-                {
-                  value: "progress",
-                  label: t("updates.filter.progress", {
-                    count: counts.progress,
-                  }),
-                },
-                {
-                  value: "done",
-                  label: t("updates.filter.done", { count: counts.done }),
-                },
-              ]}
-              onValueChange={(value) => setFilter(value)}
-            />
+            <ToggleGroup
+              value={[filter]}
+              onValueChange={(values) =>
+                setFilter((values[0] || "all") as ScreenFilter)
+              }
+              variant="outline"
+              size="sm"
+              spacing={1}
+              aria-label={t("updates.filterLabel")}
+            >
+              <ToggleGroupItem value="all">
+                {t("updates.filter.all", { count: allScreens.length })}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="attention">
+                {t("updates.filter.attention", { count: counts.attention })}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="progress">
+                {t("updates.filter.progress", { count: counts.progress })}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="done">
+                {t("updates.filter.done", { count: counts.done })}
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Field className="w-52 gap-1">
               <FieldLabel
                 htmlFor="deployment-screen-search"
@@ -420,7 +417,7 @@ function DeploymentScreenRow({
         </small>
       </div>
       <div className="deployment-screen__status grid justify-items-start gap-1">
-        <StatusDot tone={meaning.tone} label={meaning.label} />
+        <Badge {...statusBadgeAppearance(meaning.tone)}>{meaning.label}</Badge>
         {screen.isCanary && (
           <Badge variant="secondary">{t("updates.canary")}</Badge>
         )}

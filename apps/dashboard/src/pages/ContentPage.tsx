@@ -1605,7 +1605,7 @@ function MediaAssetListRow({
                 ? t("media.card.viewAsset", { name: asset.name })
                 : t("media.card.editAsset", { name: asset.name })
             }
-            className="truncate text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-auto min-w-0 max-w-full justify-start p-0 text-left font-medium whitespace-normal"
           >
             {asset.name}
           </Button>

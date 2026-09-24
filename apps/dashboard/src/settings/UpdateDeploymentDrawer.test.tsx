@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { UpdateDeploymentDrawer } from "./UpdateDeploymentDrawer";
@@ -124,6 +130,44 @@ describe("Update deployment drawer", () => {
         document.querySelectorAll(".deployment-screen__identity strong"),
       ).map((node) => node.textContent),
     ).toEqual(["Gym"]);
+  });
+
+  it("filters screens with the status toggle group", async () => {
+    renderDrawer();
+    await screen.findByText("Atrium");
+    const group = screen.getByRole("group", { name: "Screen status filter" });
+    const all = within(group).getByRole("button", { name: "All 3" });
+    expect(all.getAttribute("aria-pressed")).toBe("true");
+    const finished = within(group).getByRole("button", { name: "Finished 1" });
+    await userEvent.click(finished);
+    expect(finished.getAttribute("aria-pressed")).toBe("true");
+    expect(all.getAttribute("aria-pressed")).toBe("false");
+    expect(
+      Array.from(
+        document.querySelectorAll(".deployment-screen__identity strong"),
+      ).map((node) => node.textContent),
+    ).toEqual(["Atrium"]);
+    // Pressing the active filter again does not leave the list unfiltered-but-unselected.
+    await userEvent.click(finished);
+    expect(all.getAttribute("aria-pressed")).toBe("true");
+    expect(
+      document.querySelectorAll(".deployment-screen__identity strong"),
+    ).toHaveLength(3);
+  });
+
+  it("renders statuses as text badges", async () => {
+    renderDrawer();
+    await screen.findByText("Atrium");
+    const rowBadges = Array.from(
+      document.querySelectorAll(
+        '.deployment-screen__status [data-slot="badge"]',
+      ),
+    ).map((node) => node.textContent);
+    expect(rowBadges).toEqual(["Failed", "Downloading", "Updated", "Canary"]);
+    const deploymentStatus = screen.getByText("Status").nextElementSibling;
+    expect(
+      deploymentStatus?.querySelector('[data-slot="badge"]')?.textContent,
+    ).toBe("Active");
   });
 
   it("offers a retry only for the failed screen", async () => {

@@ -281,23 +281,9 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
   );
 }
 
-function statusDotClass(status: unknown) {
-  if (status === "ready") return "bg-emerald-500";
-  if (status === "error") return "bg-destructive";
-  return "bg-muted-foreground";
-}
-
 export function SourceStatus({ status }: { status: unknown }) {
   const { t } = useTranslation(["content", "common"]);
-  return (
-    <Badge variant="outline">
-      <span
-        className={`size-1.5 rounded-full ${statusDotClass(status)}`}
-        aria-hidden="true"
-      />
-      {statusLabel(status, t)}
-    </Badge>
-  );
+  return <Badge variant="outline">{statusLabel(status, t)}</Badge>;
 }
 
 function statusLabel(status: unknown, t: ContentT) {
@@ -483,7 +469,8 @@ export function DataSourcePicker({
             </span>
             <Button
               type="button"
-              className="flex w-full items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              variant="outline"
+              className="h-auto w-full justify-start gap-2 p-3 text-left whitespace-normal"
               aria-label={t("dataSources.picker.triggerLabel", {
                 label,
                 value:
@@ -639,32 +626,36 @@ function DataSourceSelectionDialog({
         )}
         <ItemGroup className="gap-1">
           {allowEmpty && (
-            <li>
-              <button
-                type="button"
-                onClick={() => onSelect("")}
-                className="flex w-full items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span aria-hidden="true">
-                  <X size={18} />
-                </span>
-                <span className="grid flex-1 gap-0.5">
-                  <strong className="text-sm font-medium">
-                    {t("dataSources.picker.noData")}
-                  </strong>
-                  <small className="text-xs text-muted-foreground">
-                    {t("dataSources.picker.noDataHint")}
-                  </small>
-                </span>
-                <span aria-hidden="true" />
-                {!value && (
+            <Item
+              variant={!value ? "muted" : "outline"}
+              size="sm"
+              render={
+                <button
+                  type="button"
+                  className="w-full text-left hover:bg-muted"
+                  aria-pressed={!value}
+                />
+              }
+              onClick={() => onSelect("")}
+            >
+              <ItemMedia variant="icon" aria-hidden="true">
+                <X size={18} />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle>{t("dataSources.picker.noData")}</ItemTitle>
+                <ItemDescription>
+                  {t("dataSources.picker.noDataHint")}
+                </ItemDescription>
+              </ItemContent>
+              {!value && (
+                <ItemActions>
                   <Check
                     size={18}
                     aria-label={t("dataSources.picker.selected")}
                   />
-                )}
-              </button>
-            </li>
+                </ItemActions>
+              )}
+            </Item>
           )}
           {visible.map((source) => (
             <Item
@@ -696,13 +687,15 @@ function DataSourceSelectionDialog({
                     {recordCountLabel(source.cachedRecordCount, t)}
                   </small>
                 )}
-                {value === source.id && (
+              </ItemActions>
+              {value === source.id && (
+                <ItemActions>
                   <Check
                     size={18}
                     aria-label={t("dataSources.picker.selected")}
                   />
-                )}
-              </ItemActions>
+                </ItemActions>
+              )}
             </Item>
           ))}
         </ItemGroup>

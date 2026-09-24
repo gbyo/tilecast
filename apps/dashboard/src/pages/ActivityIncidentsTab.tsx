@@ -7,6 +7,12 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -24,7 +30,6 @@ import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDuration,
   formatWhen,
@@ -120,13 +125,16 @@ export function IncidentsTab({
           </p>
         </header>
         {items.length === 0 ? (
-          <EmptyState
-            message={
-              hasActiveFilters
-                ? t("incidents.emptyFiltered")
-                : t("incidents.emptyNone")
-            }
-          />
+          <Empty className="min-h-40 p-6">
+            <EmptyHeader>
+              <EmptyTitle>{t("incidents.emptyTitle")}</EmptyTitle>
+              <EmptyDescription>
+                {hasActiveFilters
+                  ? t("incidents.emptyFiltered")
+                  : t("incidents.emptyNone")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ul className="grid list-none gap-2 p-0">
             {items.map((incident) => (

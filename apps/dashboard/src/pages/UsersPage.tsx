@@ -15,6 +15,7 @@ import type { User } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
+import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
@@ -26,7 +27,15 @@ import {
 } from "../components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
-import { ItemGroup } from "../components/ui/item";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
 import {
   Select,
   SelectContent,
@@ -288,24 +297,16 @@ export function UsersPage() {
               (currentUser?.role === "administrator" &&
                 ["editor", "contributor", "viewer"].includes(user.role));
             return (
-              <article
-                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
-                key={user.id}
-              >
-                <span
-                  className="grid size-9 flex-none place-items-center rounded-full bg-muted text-sm font-semibold"
-                  aria-hidden="true"
-                >
-                  {user.name.slice(0, 1).toUpperCase()}
-                </span>
-                <div className="grid min-w-0 flex-1 gap-px">
-                  <strong className="truncate text-sm font-semibold">
-                    {user.name}
-                  </strong>
-                  <span className="truncate text-sm text-muted-foreground">
-                    {user.username}
-                  </span>
-                  <small className="text-xs text-muted-foreground">
+              <Item key={user.id} variant="outline">
+                <ItemMedia variant="icon" className="size-9">
+                  <Avatar className="size-9" aria-hidden="true">
+                    <AvatarFallback>{nameInitials(user.name)}</AvatarFallback>
+                  </Avatar>
+                </ItemMedia>
+                <ItemContent className="min-w-0 gap-0.5">
+                  <ItemTitle className="truncate">{user.name}</ItemTitle>
+                  <ItemDescription>{user.username}</ItemDescription>
+                  <ItemDescription className="text-xs">
                     {t(roleKeys[user.role])} ·{" "}
                     {user.active
                       ? t("users.list.status.active")
@@ -325,8 +326,8 @@ export function UsersPage() {
                         {t("users.list.neverSignedIn")}
                       </>
                     )}
-                  </small>
-                  <small className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  </ItemDescription>
+                  <ItemDescription className="inline-flex items-center gap-1 text-xs">
                     {user.mfaEnrolled ? (
                       <>
                         <ShieldCheck size={13} aria-hidden="true" />{" "}
@@ -343,19 +344,21 @@ export function UsersPage() {
                         {t("users.list.mfa.off")}
                       </>
                     )}
-                  </small>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={!canEdit}
-                  onClick={() => setEditing(user)}
-                >
-                  <Pencil size={15} aria-hidden="true" />{" "}
-                  {t("common:actions.edit")}
-                </Button>
-              </article>
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!canEdit}
+                    onClick={() => setEditing(user)}
+                  >
+                    <Pencil size={15} aria-hidden="true" />{" "}
+                    {t("common:actions.edit")}
+                  </Button>
+                </ItemActions>
+              </Item>
             );
           })}
         </ItemGroup>
@@ -381,6 +384,17 @@ export function UsersPage() {
       )}
     </section>
   );
+}
+
+function nameInitials(name: string) {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => Array.from(part)[0]?.toLocaleUpperCase() ?? "")
+    .join("");
+  return initials || "?";
 }
 
 function UserEditorDialog({

@@ -6,6 +6,12 @@ import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Field, FieldLabel } from "../components/ui/field";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -23,7 +29,6 @@ import {
 import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDuration,
   humanize,
@@ -252,7 +257,12 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
       </div>
 
       {breakdown.length === 0 ? (
-        <EmptyState message={t("compliance.empty")} />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("compliance.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("compliance.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
           <Table className="w-full min-w-[42rem] text-sm">

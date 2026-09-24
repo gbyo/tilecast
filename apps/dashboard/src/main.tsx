@@ -14,6 +14,7 @@ import "./styles/screens.css";
 import "./styles/data-sources.css";
 import "./styles/forms.css";
 import "./styles/player-updates.css";
+import { TooltipProvider } from "./components/ui/tooltip";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },
@@ -29,7 +30,9 @@ function render() {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <RouterProvider router={router} />
+          <TooltipProvider>
+            <RouterProvider router={router} />
+          </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>
     </StrictMode>,

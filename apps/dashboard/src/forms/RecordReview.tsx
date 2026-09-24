@@ -12,7 +12,9 @@ import { api, ApiError } from "../api/client";
 import { apiErrorMessage } from "../i18n";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
+import { Bubble, BubbleContent } from "../components/ui/bubble";
 import { Button } from "../components/ui/button";
 import {
   Dialog,
@@ -580,15 +582,26 @@ function RecordReviewBody({
         ) : (
           <ul className="grid gap-3">
             {detail.comments.map((entry) => (
-              <li
-                key={entry.id}
-                className="grid gap-1 rounded-xl border border-border p-3 text-sm"
-              >
-                <strong>{entry.authorName}</strong>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(entry.createdAt).toLocaleString(locale)}
-                </span>
-                <p>{entry.body}</p>
+              <li key={entry.id} className="grid gap-2">
+                <div className="flex items-center gap-2">
+                  <Avatar size="sm" aria-hidden="true">
+                    <AvatarFallback>
+                      {nameInitials(entry.authorName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <strong className="text-sm">{entry.authorName}</strong>
+                  <time
+                    dateTime={entry.createdAt}
+                    className="text-xs text-muted-foreground"
+                  >
+                    {new Date(entry.createdAt).toLocaleString(locale)}
+                  </time>
+                </div>
+                <Bubble variant="secondary">
+                  <BubbleContent className="whitespace-pre-wrap">
+                    {entry.body}
+                  </BubbleContent>
+                </Bubble>
               </li>
             ))}
           </ul>
@@ -636,6 +649,17 @@ function RecordReviewBody({
       </section>
     </div>
   );
+}
+
+function nameInitials(name: string) {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => Array.from(part)[0]?.toLocaleUpperCase() ?? "")
+    .join("");
+  return initials || "?";
 }
 
 function describeEvent(

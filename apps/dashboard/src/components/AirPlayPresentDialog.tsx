@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { toast } from "./ui/toast";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldLabel } from "./ui/field";
 import {
   Dialog,
   DialogContent,
@@ -380,8 +381,13 @@ export function AirPlayPresentDialog({
                 </Alert>
               )}
             <div className="grid gap-4">
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>{t("airplay.durationLabel")}</span>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="airplay-duration"
+                  className="text-sm font-medium"
+                >
+                  {t("airplay.durationLabel")}
+                </FieldLabel>
                 <Select
                   items={durationOptions}
                   value={String(durationMinutes)}
@@ -391,10 +397,7 @@ export function AirPlayPresentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger
-                    className="w-full"
-                    aria-label={t("airplay.durationLabel")}
-                  >
+                  <SelectTrigger id="airplay-duration" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -405,12 +408,17 @@ export function AirPlayPresentDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>{t("airplay.transportLabel")}</span>
-                <span className="text-xs font-normal text-muted-foreground">
+              </Field>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="airplay-transport"
+                  className="text-sm font-medium"
+                >
+                  {t("airplay.transportLabel")}
+                </FieldLabel>
+                <FieldDescription className="text-xs">
                   {t("airplay.transportHint")}
-                </span>
+                </FieldDescription>
                 <Select
                   items={transportOptions}
                   value={transport}
@@ -424,10 +432,7 @@ export function AirPlayPresentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger
-                    className="w-full"
-                    aria-label={t("airplay.transportLabel")}
-                  >
+                  <SelectTrigger id="airplay-transport" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -438,16 +443,21 @@ export function AirPlayPresentDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>{t("airplay.audioLabel")}</span>
-                <span className="text-xs font-normal text-muted-foreground">
+              </Field>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="airplay-audio-display"
+                  className="text-sm font-medium"
+                >
+                  {t("airplay.audioLabel")}
+                </FieldLabel>
+                <FieldDescription className="text-xs">
                   {audioDisplayName
                     ? t("airplay.audioHintWithName", {
                         name: audioDisplayName,
                       })
                     : t("airplay.audioHintDefault")}
-                </span>
+                </FieldDescription>
                 <Select
                   items={audioOptions}
                   value={audioMode}
@@ -457,10 +467,7 @@ export function AirPlayPresentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger
-                    className="w-full"
-                    aria-label={t("airplay.audioLabel")}
-                  >
+                  <SelectTrigger id="airplay-audio-display" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -471,7 +478,7 @@ export function AirPlayPresentDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </label>
+              </Field>
             </div>
             {create.error && (
               <Alert variant="destructive">
