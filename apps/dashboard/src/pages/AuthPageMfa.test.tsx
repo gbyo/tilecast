@@ -181,17 +181,15 @@ describe("sign-in with a second factor", () => {
 
   it("waits for passkey autofill to settle before explicit passkey sign-in", async () => {
     let conditionalSignal: AbortSignal | undefined;
+    let releaseConditional: (() => void) | undefined;
     let conditionalSettled = false;
     const getCredential = vi.fn(
       (options: CredentialRequestOptions): Promise<Credential | null> => {
         if (options.mediation === "conditional") {
           conditionalSignal = options.signal ?? undefined;
           return new Promise<Credential | null>((_, reject) => {
-            options.signal?.addEventListener(
-              "abort",
-              () => reject(new DOMException("aborted", "AbortError")),
-              { once: true },
-            );
+            releaseConditional = () =>
+              reject(new DOMException("aborted", "AbortError"));
           }).finally(() => {
             conditionalSettled = true;
           });
@@ -236,8 +234,11 @@ describe("sign-in with a second factor", () => {
       screen.getByRole("button", { name: "Sign in with a passkey" }),
     );
 
+    await waitFor(() => expect(conditionalSignal?.aborted).toBe(true));
+    expect(getCredential).toHaveBeenCalledTimes(1);
+    releaseConditional?.();
     await waitFor(() => expect(getCredential).toHaveBeenCalledTimes(2));
-    expect(conditionalSignal?.aborted).toBe(true);
+    expect(conditionalSettled).toBe(true);
     vi.unstubAllGlobals();
   });
 
