@@ -225,7 +225,7 @@ export function ManualDataSourceEditor({
                       }),
                   })}
                 >
-                  <SelectValue>{column.type}</SelectValue>
+                  <SelectValue>{columnTypeLabels[column.type]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {manualColumnTypes.map((type) => (
