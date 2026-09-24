@@ -43,3 +43,8 @@ target_link_libraries(test-validate PRIVATE tilecast-validate)
 add_test(NAME validate COMMAND test-validate)
 
 install(TARGETS tilecast-renderer-wpe RUNTIME DESTINATION bin)
+
+# Player Runtime conformance runner (test-only, never installed): runs the
+# shared conformance fixtures under WPE WebKit headless.
+add_executable(tilecast-runtime-conformance tests/conformance.c)
+target_link_libraries(tilecast-runtime-conformance PRIVATE tilecast-validate PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO)
