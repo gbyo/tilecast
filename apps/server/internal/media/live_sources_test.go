@@ -91,6 +91,14 @@ func TestAirQualityHostedEndpointRequiresAcknowledgement(t *testing.T) {
 	}
 }
 
+func TestAirQualityRequiresAnExplicitIndexStandard(t *testing.T) {
+	service := &Service{}
+	raw := []byte(`{"locationLabel":"Library","latitude":40,"longitude":-75,"timezone":"UTC","pollutants":["pm2_5"],"forecastHours":24,"nonCommercialAccepted":true,"refreshIntervalSeconds":3600,"stalenessLimitHours":24}`)
+	if _, err := (airQualitySourceProvider{service}).Normalize(context.Background(), raw); err == nil {
+		t.Fatal("missing AQI standard was silently treated as a national default")
+	}
+}
+
 func TestValidatePresetCompatibility(t *testing.T) {
 	preset := "leaderboard"
 	if err := validatePreset("list", &preset); err != nil {
