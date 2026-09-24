@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 import { previewTimeInputValue, type PreviewTime } from "./previewTime";
 import { Button } from "../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
@@ -18,10 +19,15 @@ export function PreviewTimeControl({
 }) {
   const fixed = value.mode === "fixed";
   const inputId = useId();
+  const { t } = useTranslation("content");
   return (
-    <div className="grid gap-2" role="group" aria-label="Preview time">
+    <div
+      className="grid gap-2"
+      role="group"
+      aria-label={t("preview.time.groupLabel")}
+    >
       <ToggleGroup
-        aria-label="Preview time mode"
+        aria-label={t("preview.time.modeLabel")}
         variant="outline"
         size="sm"
         className="justify-self-start"
@@ -37,14 +43,16 @@ export function PreviewTimeControl({
             });
         }}
       >
-        <ToggleGroupItem value="live">Live</ToggleGroupItem>
-        <ToggleGroupItem value="fixed">At a time</ToggleGroupItem>
+        <ToggleGroupItem value="live">{t("preview.time.live")}</ToggleGroupItem>
+        <ToggleGroupItem value="fixed">
+          {t("preview.time.fixed")}
+        </ToggleGroupItem>
       </ToggleGroup>
       {fixed && (
         <div className="flex flex-wrap items-end gap-2">
           <Field className="min-w-0 flex-[1_1_12rem] gap-1">
             <FieldLabel htmlFor={inputId} className="text-xs">
-              Preview date and time
+              {t("preview.time.dateLabel")}
             </FieldLabel>
             <Input
               id={inputId}
@@ -65,14 +73,12 @@ export function PreviewTimeControl({
               })
             }
           >
-            Reset to now
+            {t("preview.time.reset")}
           </Button>
         </div>
       )}
       <FieldDescription className="text-xs">
-        {fixed
-          ? "Clocks, dates, countdowns, and schedule selections render at this time, read in your own time zone. A thumbnail saved now captures this preview."
-          : "The preview follows the current time."}
+        {fixed ? t("preview.time.fixedHint") : t("preview.time.liveHint")}
       </FieldDescription>
     </div>
   );

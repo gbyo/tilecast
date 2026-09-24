@@ -19,7 +19,9 @@ import {
 } from "../components/ui/select";
 import { Switch as RheaSwitch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
+import { useTranslation } from "react-i18next";
 import { DataSourcePicker, type DataFormatGuide } from "./DataSourcePicker";
+import type { ContentT } from "./dataSourceProviderMeta";
 import { optionLabel } from "./data-sources/shared";
 
 type Values = Record<string, unknown>;
@@ -182,7 +184,7 @@ function creatableProviders(
     .map((definition) => definition.id);
 }
 
-function exampleValue(key: string, type: string) {
+function exampleValue(key: string, type: string, t: ContentT) {
   const normalized = key.toLowerCase();
   if (type === "datetime")
     return normalized.includes("end")
@@ -194,10 +196,10 @@ function exampleValue(key: string, type: string) {
   if (type === "percent") return 85;
   if (type === "boolean") return true;
   if (normalized.includes("title") || normalized.includes("name"))
-    return "Period 2";
+    return t("definitions.form.exampleTitle");
   if (normalized.includes("detail") || normalized.includes("description"))
-    return "East wing";
-  return "Example text";
+    return t("definitions.form.exampleDetail");
+  return t("definitions.form.exampleText");
 }
 
 function preferredExampleType(key: string, types: string[]) {
@@ -216,6 +218,7 @@ function preferredExampleType(key: string, types: string[]) {
 export function dataFormatGuideFor(
   sourceField: ContentDefinitionField,
   fields: ContentDefinitionField[],
+  t: ContentT,
 ): DataFormatGuide {
   const sourceFields = fields.filter(
     (candidate) => candidate.control === "data_source",
@@ -270,27 +273,28 @@ export function dataFormatGuideFor(
   const shape = kinds
     .map((kind) =>
       kind === "records"
-        ? "record rows"
+        ? t("definitions.form.shapeRecords")
         : kind === "object"
-          ? "a single object"
+          ? t("definitions.form.shapeObject")
           : kind === "time_series"
-            ? "a time series"
+            ? t("definitions.form.shapeSeries")
             : kind.replaceAll("_", " "),
     )
-    .join(" or ");
+    .join(t("definitions.form.shapeJoiner"));
   const example = Object.fromEntries(
     deduplicated.map((field) => {
       const type = preferredExampleType(field.key, field.types);
-      return [field.key, exampleValue(field.key, type)];
+      return [field.key, exampleValue(field.key, type, t)];
     }),
   );
-  if (Object.keys(example).length === 0) example.title = "Example information";
+  if (Object.keys(example).length === 0)
+    example.title = t("definitions.form.exampleFallback");
   return {
     shape: shape[0]!.toUpperCase() + shape.slice(1),
     summary:
       deduplicated.length > 0
-        ? "Use these field roles and types. Field names can differ because you map them below."
-        : "Use one item per row; after connecting the source, choose which fields appear.",
+        ? t("definitions.form.guideSummaryFields")
+        : t("definitions.form.guideSummaryRows"),
     fields: deduplicated,
     example,
   };
@@ -335,6 +339,7 @@ function DefinitionControl({
     disabled: readOnly,
     required: field.required,
   };
+  const { t } = useTranslation("content");
   const requiredMark = field.required ? " *" : "";
   const labelText = `${field.label}${requiredMark}`;
   if (field.control === "data_source")
@@ -345,7 +350,7 @@ function DefinitionControl({
         value={fieldText(value)}
         sources={compatibleSources(field, dataSources, dataSourceDefinitions)}
         createProviders={creatableProviders(field, dataSourceDefinitions)}
-        formatGuide={dataFormatGuideFor(field, fields)}
+        formatGuide={dataFormatGuideFor(field, fields, t)}
         csrf={csrf}
         disabled={readOnly}
         required={field.required}
@@ -470,7 +475,10 @@ function DefinitionControl({
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label={`Remove ${field.label} item ${index + 1}`}
+                aria-label={t("definitions.form.removeItem", {
+                  label: field.label,
+                  index: index + 1,
+                })}
                 onClick={() =>
                   setValue(items.filter((_, current) => current !== index))
                 }
@@ -486,7 +494,8 @@ function DefinitionControl({
             variant="outline"
             onClick={() => setValue([...items, {}])}
           >
-            <Plus size={15} aria-hidden="true" /> Add item
+            <Plus size={15} aria-hidden="true" />{" "}
+            {t("definitions.form.addItem")}
           </RheaButton>
         )}
       </fieldset>

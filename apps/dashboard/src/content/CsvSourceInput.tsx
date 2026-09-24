@@ -1,5 +1,6 @@
 import { ClipboardPaste, Link, RotateCcw, UploadCloud } from "lucide-react";
 import { useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { StructuredSourceConfig } from "../api/types";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import {
@@ -100,6 +101,7 @@ export function CsvSourceInput({
   readOnly: boolean;
   onChange: (patch: Partial<StructuredSourceConfig>) => void;
 }) {
+  const { t } = useTranslation("content");
   const inputId = useId();
   const urlId = useId();
   const pasteId = useId();
@@ -121,11 +123,11 @@ export function CsvSourceInput({
     const inspection = inspectCsv(content);
     if (!content.trim()) {
       onChange({ url: "", uploadedContent: undefined, uploaded: false });
-      setError("Choose a CSV file that contains a header row.");
+      setError(t("sources.csv.emptyError"));
       return;
     }
     if (inspection.columns.length < 1) {
-      setError("Tilecast could not find any column names in the first row.");
+      setError(t("sources.csv.noColumnsError"));
       return;
     }
     setError("");
@@ -137,11 +139,11 @@ export function CsvSourceInput({
     if (!file) return;
     const extension = file.name.split(".").pop()?.toLowerCase();
     if (!extension || !["csv", "tsv", "txt"].includes(extension)) {
-      setError("Use a .csv, .tsv, or delimited .txt file.");
+      setError(t("sources.csv.extensionError"));
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setError("This file is larger than the 2 MB upload limit.");
+      setError(t("sources.csv.sizeError"));
       return;
     }
     try {
@@ -152,9 +154,7 @@ export function CsvSourceInput({
       setFileSize(file.size);
       applyContent(content);
     } catch {
-      setError(
-        "This file is not valid UTF-8. Export it as UTF-8 CSV and retry.",
-      );
+      setError(t("sources.csv.encodingError"));
     }
   };
 
@@ -174,10 +174,10 @@ export function CsvSourceInput({
 
   return (
     <fieldset className="csv-source-input">
-      <legend>CSV connection</legend>
+      <legend>{t("sources.csv.legend")}</legend>
       <ToggleGroup
         className="csv-source-input__modes"
-        aria-label="CSV connection type"
+        aria-label={t("sources.csv.modeLabel")}
         multiple={false}
         value={[mode]}
         onValueChange={(next) => {
@@ -186,13 +186,14 @@ export function CsvSourceInput({
         }}
       >
         <ToggleGroupItem value="upload" disabled={readOnly}>
-          <UploadCloud size={15} aria-hidden="true" /> Upload
+          <UploadCloud size={15} aria-hidden="true" /> {t("sources.csv.upload")}
         </ToggleGroupItem>
         <ToggleGroupItem value="url" disabled={readOnly}>
-          <Link size={15} aria-hidden="true" /> Hosted URL
+          <Link size={15} aria-hidden="true" /> {t("sources.csv.hostedUrl")}
         </ToggleGroupItem>
         <ToggleGroupItem value="paste" disabled={readOnly}>
-          <ClipboardPaste size={15} aria-hidden="true" /> Paste data
+          <ClipboardPaste size={15} aria-hidden="true" />{" "}
+          {t("sources.csv.paste")}
         </ToggleGroupItem>
       </ToggleGroup>
 
@@ -213,10 +214,8 @@ export function CsvSourceInput({
         >
           <UploadCloud size={24} />
           <span>
-            <strong>Drop a spreadsheet export here</strong>
-            <small>
-              or choose a CSV, TSV, or delimited text file up to 2 MB
-            </small>
+            <strong>{t("sources.csv.dropTitle")}</strong>
+            <small>{t("sources.csv.dropHint")}</small>
           </span>
           <Button
             type="button"
@@ -224,7 +223,7 @@ export function CsvSourceInput({
             size="sm"
             onClick={() => fileInput.current?.click()}
           >
-            Choose file
+            {t("sources.csv.chooseFile")}
           </Button>
           <Input
             ref={fileInput}
@@ -240,11 +239,22 @@ export function CsvSourceInput({
 
       {mode === "upload" && configuration.uploaded && (
         <Alert role="status">
-          <AlertTitle>{fileName || "CSV data ready"}</AlertTitle>
+          <AlertTitle>{fileName || t("sources.csv.readyFallback")}</AlertTitle>
           <AlertDescription>
-            {fileSize === undefined
-              ? "Stored CSV data will remain attached unless you replace it"
-              : `${formatBytes(fileSize)} · ${inspection?.rowCount ?? 0} data rows · ${inspection?.columns?.length ?? 0} columns`}
+            {fileSize === undefined ? (
+              t("sources.csv.storedHint")
+            ) : (
+              <>
+                {formatBytes(fileSize)} ·{" "}
+                {t("sources.csv.storedRows", {
+                  count: inspection?.rowCount ?? 0,
+                })}{" "}
+                ·{" "}
+                {t("sources.csv.storedColumns", {
+                  count: inspection?.columns?.length ?? 0,
+                })}
+              </>
+            )}
           </AlertDescription>
           {!readOnly && (
             <AlertAction>
@@ -252,8 +262,8 @@ export function CsvSourceInput({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                title="Choose a different CSV file"
-                aria-label="Choose a different CSV file"
+                title={t("sources.csv.replaceFile")}
+                aria-label={t("sources.csv.replaceFile")}
                 onClick={() => {
                   onChange({ uploadedContent: undefined, uploaded: false });
                   setFileName("");
@@ -271,7 +281,7 @@ export function CsvSourceInput({
 
       {mode === "url" && (
         <Field>
-          <FieldLabel htmlFor={urlId}>Direct CSV URL</FieldLabel>
+          <FieldLabel htmlFor={urlId}>{t("sources.csv.urlLabel")}</FieldLabel>
           <Input
             id={urlId}
             type="url"
@@ -286,40 +296,43 @@ export function CsvSourceInput({
               })
             }
           />
-          <FieldDescription>
-            Tilecast refreshes a public HTTPS URL automatically. Use a direct
-            CSV response, not a spreadsheet sharing page.
-          </FieldDescription>
+          <FieldDescription>{t("sources.csv.urlHint")}</FieldDescription>
         </Field>
       )}
 
       {mode === "paste" && (
         <Field>
-          <FieldLabel htmlFor={pasteId}>CSV data</FieldLabel>
+          <FieldLabel htmlFor={pasteId}>
+            {t("sources.csv.pasteLabel")}
+          </FieldLabel>
           <Textarea
             id={pasteId}
             rows={7}
             className="min-h-36 resize-y font-mono text-xs"
             value={configuration.uploadedContent ?? ""}
+            // i18n-ignore: CSV sample payload, not interface copy
             placeholder={
               "title,subtitle,date\nBoard meeting,Room 204,2026-08-12"
             }
             disabled={readOnly}
             onChange={(event) => applyContent(event.target.value)}
           />
-          <FieldDescription>
-            Include column names in the first row. Comma, semicolon, tab, and
-            pipe delimiters are supported.
-          </FieldDescription>
+          <FieldDescription>{t("sources.csv.pasteHint")}</FieldDescription>
         </Field>
       )}
 
       {mode === "paste" && inspection && configuration.uploaded && (
         <Alert role="status">
-          <AlertTitle>{inspection.columns.length} columns detected</AlertTitle>
+          <AlertTitle>
+            {t("sources.csv.columnsDetected", {
+              count: inspection.columns.length,
+            })}
+          </AlertTitle>
           <AlertDescription>
-            {inspection.rowCount} data rows. Available columns:{" "}
-            {inspection.columns.join(", ")}.
+            {t("sources.csv.pasteSummary", {
+              count: inspection.rowCount,
+              columns: inspection.columns.join(", "),
+            })}
           </AlertDescription>
         </Alert>
       )}

@@ -6,7 +6,10 @@ import {
 } from "@tanstack/react-query";
 import { Plus, Trash2, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { ParseKeys } from "i18next";
 import { api } from "../../api/client";
+import { apiErrorMessage, useFormatLocale } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
@@ -29,6 +32,7 @@ import type {
   StructuredSourceConfig,
 } from "../../api/types";
 import { CsvSourceInput } from "../CsvSourceInput";
+import type { ContentT } from "../dataSourceProviderMeta";
 import { optionLabel } from "./shared";
 
 export type StructuredProvider = "rss" | "atom" | "json" | "csv";
@@ -48,6 +52,7 @@ const emptyMapping = {
 
 const defaultStructured = (
   provider: StructuredProvider,
+  t: ContentT,
 ): StructuredSourceConfig => ({
   url: "https://",
   presentation: provider === "rss" || provider === "atom" ? "list" : "cards",
@@ -72,7 +77,7 @@ const defaultStructured = (
   filters: [],
   refreshIntervalSeconds: 900,
   stalenessLimitHours: 168,
-  emptyState: "No items available",
+  emptyState: t("sources.structured.defaultEmptyState"),
   dateSelection: {
     enabled: false,
     dateFormat: "auto",
@@ -83,23 +88,43 @@ const defaultStructured = (
   },
 });
 
-const structuredFieldLabels: Record<string, string> = {
-  title: "Title",
-  subtitle: "Subtitle",
-  date: "Date",
-  author: "Author",
-  description: "Description",
-  image: "Image",
-  link: "Link",
+type StructuredFieldLabelKey =
+  | "sources.structured.fieldTitle"
+  | "sources.structured.fieldSubtitle"
+  | "sources.structured.fieldDate"
+  | "sources.structured.fieldAuthor"
+  | "sources.structured.fieldDescription"
+  | "sources.structured.fieldImage"
+  | "sources.structured.fieldLink";
+
+const structuredFieldLabelKeys: Record<
+  keyof StructuredSourceConfig["fields"],
+  StructuredFieldLabelKey
+> = {
+  title: "sources.structured.fieldTitle",
+  subtitle: "sources.structured.fieldSubtitle",
+  date: "sources.structured.fieldDate",
+  author: "sources.structured.fieldAuthor",
+  description: "sources.structured.fieldDescription",
+  image: "sources.structured.fieldImage",
+  link: "sources.structured.fieldLink",
 };
 
-const mappingFieldLabels: Record<string, string> = {
-  rootList: "Root list path",
-  title: "Title",
-  subtitle: "Subtitle",
-  date: "Date",
-  imageUrl: "Image URL",
-  link: "Link",
+type MappingFieldLabelKey =
+  | "sources.structured.mappingRootList"
+  | StructuredFieldLabelKey
+  | "sources.structured.fieldImageUrl";
+
+const mappingFieldLabelKeys: Record<
+  "rootList" | "title" | "subtitle" | "date" | "imageUrl" | "link",
+  MappingFieldLabelKey
+> = {
+  rootList: "sources.structured.mappingRootList",
+  title: "sources.structured.fieldTitle",
+  subtitle: "sources.structured.fieldSubtitle",
+  date: "sources.structured.fieldDate",
+  imageUrl: "sources.structured.fieldImageUrl",
+  link: "sources.structured.fieldLink",
 };
 
 const mappingPlaceholders: Record<
@@ -197,19 +222,19 @@ function StructuredDetectionNotice({
   detectable: boolean;
   inspection: UseQueryResult<StructuredInspection>;
 }) {
-  const unit = provider === "csv" ? "column" : "field";
+  const { t } = useTranslation("content");
   if (!detectable)
     return (
       <p className="text-sm text-muted-foreground">
         {provider === "csv"
-          ? "Upload a CSV or enter a hosted CSV URL and Tilecast will read its columns."
-          : "Enter the endpoint URL and Tilecast will read the fields it returns."}
+          ? t("sources.structured.detectionCsvHint")
+          : t("sources.structured.detectionEndpointHint")}
       </p>
     );
   if (inspection.isPending)
     return (
       <p className="text-sm text-muted-foreground">
-        Reading the connected data…
+        {t("sources.structured.detectionPending")}
       </p>
     );
   if (inspection.isError)
@@ -217,23 +242,28 @@ function StructuredDetectionNotice({
       <Alert variant="destructive">
         <AlertDescription>
           {inspection.error instanceof Error
-            ? inspection.error.message
-            : "The connected data could not be read."}{" "}
-          Map the fields by name below, or fix the connection and try again.
+            ? apiErrorMessage(inspection.error)
+            : t("sources.structured.detectionFailed")}{" "}
+          {t("sources.structured.detectionFallback")}
         </AlertDescription>
       </Alert>
     );
   if (!inspection.data) return null;
   const detected = inspection.data;
+  const suffixKey = detected.delimiter
+    ? (delimiterSuffixKeys[detected.delimiter] ??
+      "sources.structured.delimiterSuffixUnknown")
+    : undefined;
   return (
     <p className="text-sm text-muted-foreground">
-      {detected.fields.length} {unit}
-      {detected.fields.length === 1 ? "" : "s"} detected in {detected.rowCount}{" "}
-      row{detected.rowCount === 1 ? "" : "s"}
-      {detected.delimiter
-        ? ` · ${delimiterLabels[detected.delimiter] ?? "detected"}-delimited`
-        : ""}
-      .
+      {t(
+        provider === "csv"
+          ? "sources.structured.detectedColumns"
+          : "sources.structured.detectedFields",
+        { count: detected.fields.length },
+      )}{" "}
+      {t("sources.structured.detectedRows", { count: detected.rowCount })}
+      {suffixKey ? t(suffixKey) : ""}.
     </p>
   );
 }
@@ -242,78 +272,88 @@ function StructuredDetectionNotice({
 // produces readable.
 const maximumValueFields = 12;
 
-const valueTypeOptions: { value: StructuredValueType; label: string }[] = [
-  { value: "text", label: "Text" },
-  { value: "number", label: "Number" },
-  { value: "date", label: "Date" },
-  { value: "datetime", label: "Date & time" },
-  { value: "url", label: "URL" },
-];
+const valueTypeOptions = [
+  { value: "text", labelKey: "sources.structured.valueText" },
+  { value: "number", labelKey: "sources.structured.valueNumber" },
+  { value: "date", labelKey: "sources.structured.valueDate" },
+  { value: "datetime", labelKey: "sources.structured.valueDatetime" },
+  { value: "url", labelKey: "sources.structured.valueUrl" },
+] as const;
 
 const presentationOptions = [
-  { value: "list", label: "List" },
-  { value: "agenda", label: "Agenda" },
-  { value: "cards", label: "Cards" },
-  { value: "ticker", label: "Ticker" },
-];
+  { value: "list", labelKey: "sources.structured.presentationList" },
+  { value: "agenda", labelKey: "sources.structured.presentationAgenda" },
+  { value: "cards", labelKey: "sources.structured.presentationCards" },
+  { value: "ticker", labelKey: "sources.structured.presentationTicker" },
+] as const;
 
 const sortOptions = [
-  { value: "newest", label: "Newest" },
-  { value: "oldest", label: "Oldest" },
-  { value: "title", label: "Title" },
-  { value: "source", label: "Original order" },
-];
+  { value: "newest", labelKey: "sources.structured.sortNewest" },
+  { value: "oldest", labelKey: "sources.structured.sortOldest" },
+  { value: "title", labelKey: "sources.structured.sortTitle" },
+  { value: "source", labelKey: "sources.structured.sortSource" },
+] as const;
 
 const delimiterOptions = [
-  { value: "", label: "Detect" },
-  { value: ",", label: "Comma" },
-  { value: ";", label: "Semicolon" },
-  { value: "\t", label: "Tab" },
-  { value: "|", label: "Pipe" },
-];
+  { value: "", labelKey: "sources.structured.delimiterDetect" },
+  { value: ",", labelKey: "sources.structured.delimiterComma" },
+  { value: ";", labelKey: "sources.structured.delimiterSemicolon" },
+  { value: "\t", labelKey: "sources.structured.delimiterTab" },
+  { value: "|", labelKey: "sources.structured.delimiterPipe" },
+] as const;
 
 const dateFormatOptions = [
-  { value: "auto", label: "Detect" },
-  { value: "iso_date", label: "YYYY-MM-DD" },
-  { value: "us_date", label: "MM/DD/YYYY" },
-  { value: "us_short", label: "M/D/YYYY" },
-  { value: "day_month_name", label: "DD-Mon-YYYY" },
-  { value: "rfc3339", label: "RFC 3339" },
-];
+  { value: "auto", labelKey: "sources.structured.dateFormatDetect" },
+  { value: "iso_date", labelKey: "sources.structured.dateFormatIso" },
+  { value: "us_date", labelKey: "sources.structured.dateFormatUs" },
+  { value: "us_short", labelKey: "sources.structured.dateFormatUsShort" },
+  { value: "day_month_name", labelKey: "sources.structured.dateFormatNamed" },
+  { value: "rfc3339", labelKey: "sources.structured.dateFormatRfc" },
+] as const;
 
 const dateModeOptions = [
-  { value: "today", label: "Today" },
-  { value: "tomorrow", label: "Tomorrow" },
-  { value: "next_available", label: "Next available date" },
-  { value: "current_week", label: "Current week" },
-  { value: "custom_range", label: "Custom date range" },
-];
+  { value: "today", labelKey: "sources.structured.modeToday" },
+  { value: "tomorrow", labelKey: "sources.structured.modeTomorrow" },
+  { value: "next_available", labelKey: "sources.structured.modeNextAvailable" },
+  { value: "current_week", labelKey: "sources.structured.modeCurrentWeek" },
+  { value: "custom_range", labelKey: "sources.structured.modeCustomRange" },
+] as const;
 
 const noMatchOptions = [
-  { value: "empty", label: "Display empty state" },
-  { value: "fallback_text", label: "Show fallback text" },
-  { value: "next_available", label: "Show next available" },
-  { value: "hide", label: "Hide Widget or binding" },
-  { value: "last_known_good", label: "Use last-known-good record" },
-];
+  { value: "empty", labelKey: "sources.structured.noMatchEmpty" },
+  { value: "fallback_text", labelKey: "sources.structured.noMatchFallback" },
+  { value: "next_available", labelKey: "sources.structured.noMatchNext" },
+  { value: "hide", labelKey: "sources.structured.noMatchHide" },
+  {
+    value: "last_known_good",
+    labelKey: "sources.structured.noMatchLastGood",
+  },
+] as const;
 
 const filterOperatorOptions = [
-  { value: "equals", label: "Equals" },
-  { value: "contains", label: "Contains" },
-];
+  { value: "equals", labelKey: "sources.structured.operatorEquals" },
+  { value: "contains", labelKey: "sources.structured.operatorContains" },
+] as const;
 
 const refreshOptions = [
-  { value: 300, label: "5 minutes" },
-  { value: 900, label: "15 minutes" },
-  { value: 3600, label: "Hourly" },
-  { value: 21600, label: "6 hours" },
-];
+  { value: 300, labelKey: "sources.structured.refresh5" },
+  { value: 900, labelKey: "sources.structured.refresh15" },
+  { value: 3600, labelKey: "sources.structured.refreshHour" },
+  { value: 21600, labelKey: "sources.structured.refresh6h" },
+] as const;
 
-const delimiterLabels: Record<string, string> = {
-  ",": "comma",
-  ";": "semicolon",
-  "\t": "tab",
-  "|": "pipe",
+type DelimiterSuffixKey =
+  | "sources.structured.delimiterSuffixComma"
+  | "sources.structured.delimiterSuffixSemicolon"
+  | "sources.structured.delimiterSuffixTab"
+  | "sources.structured.delimiterSuffixPipe"
+  | "sources.structured.delimiterSuffixUnknown";
+
+const delimiterSuffixKeys: Record<string, DelimiterSuffixKey> = {
+  ",": "sources.structured.delimiterSuffixComma",
+  ";": "sources.structured.delimiterSuffixSemicolon",
+  "\t": "sources.structured.delimiterSuffixTab",
+  "|": "sources.structured.delimiterSuffixPipe",
 };
 
 // MappingSelect offers the detected fields, keeps a value the data no longer contains
@@ -334,6 +374,7 @@ function MappingSelect({
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation("content");
   const id = useId();
   const known = fields.some((field) => field.key === value);
   const selected = fields.find((field) => field.key === value);
@@ -367,11 +408,16 @@ function MappingSelect({
       >
         <SelectTrigger id={id} aria-label={label}>
           <SelectValue>
-            {value ? (selectedText ?? `${value} (not found)`) : "Not used"}
+            {value
+              ? (selectedText ??
+                t("sources.structured.mappingNotFound", { value }))
+              : t("sources.structured.mappingNotUsed")}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">Not used</SelectItem>
+          <SelectItem value="">
+            {t("sources.structured.mappingNotUsed")}
+          </SelectItem>
           {fields.map((field) => (
             <SelectItem key={field.key} value={field.key}>
               {field.samples.length > 0
@@ -380,7 +426,9 @@ function MappingSelect({
             </SelectItem>
           ))}
           {value && !known && (
-            <SelectItem value={value}>{value} (not found)</SelectItem>
+            <SelectItem value={value}>
+              {t("sources.structured.mappingNotFound", { value })}
+            </SelectItem>
           )}
         </SelectContent>
       </RheaSelect>
@@ -406,11 +454,28 @@ export function StructuredDataSourceEditor({
   page?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
+  const localizeOptions = <V extends string | number>(
+    options: readonly { value: V; labelKey: ParseKeys<"content"> }[],
+  ) =>
+    options.map((option) => ({
+      value: option.value,
+      label: t(option.labelKey),
+    }));
+  const sortItems = localizeOptions(sortOptions);
+  const delimiterItems = localizeOptions(delimiterOptions);
+  const dateFormatItems = localizeOptions(dateFormatOptions);
+  const dateModeItems = localizeOptions(dateModeOptions);
+  const noMatchItems = localizeOptions(noMatchOptions);
+  const filterOperators = localizeOptions(filterOperatorOptions);
+  const refreshItems = localizeOptions(refreshOptions);
+  const valueTypes = localizeOptions(valueTypeOptions);
   const [name, setName] = useState(dataSource?.name ?? "");
   const [description, setDescription] = useState(dataSource?.description ?? "");
   const configured = dataSource?.configuration as
     StructuredSourceConfig | undefined;
-  const defaults = defaultStructured(provider);
+  const defaults = defaultStructured(provider, t);
   const [configuration, setConfiguration] = useState<StructuredSourceConfig>({
     ...defaults,
     ...configured,
@@ -649,18 +714,22 @@ export function StructuredDataSourceEditor({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <h2 id="structured-source-title" className="text-xl font-semibold">
-              {dataSource ? "Edit" : "Create"} {provider.toUpperCase()} Data
-              Source
+              {t(
+                dataSource
+                  ? "sources.structured.editTitle"
+                  : "sources.structured.createTitle",
+                { provider: provider.toUpperCase() },
+              )}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Fetched data is sanitized and cached for offline playback.
+              {t("sources.structured.frameDescription")}
             </p>
           </div>
           <RheaButton
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Close"
+            aria-label={t("common:actions.close")}
             onClick={onClose}
           >
             <X aria-hidden="true" />
@@ -668,7 +737,9 @@ export function StructuredDataSourceEditor({
         </div>
         <div className="grid min-w-0 gap-5">
           <Field>
-            <FieldLabel htmlFor="structured-name">Name</FieldLabel>
+            <FieldLabel htmlFor="structured-name">
+              {t("sources.shared.name")}
+            </FieldLabel>
             <Input
               id="structured-name"
               value={name}
@@ -678,7 +749,7 @@ export function StructuredDataSourceEditor({
           </Field>
           <Field>
             <FieldLabel htmlFor="structured-description">
-              Description
+              {t("sources.shared.description")}
             </FieldLabel>
             <Input
               id="structured-description"
@@ -697,7 +768,9 @@ export function StructuredDataSourceEditor({
           {provider !== "csv" && (
             <Field>
               <FieldLabel htmlFor="structured-url">
-                {provider === "json" ? "API endpoint URL" : "Feed URL"}
+                {provider === "json"
+                  ? t("sources.structured.apiUrl")
+                  : t("sources.structured.feedUrl")}
               </FieldLabel>
               <Input
                 id="structured-url"
@@ -723,7 +796,7 @@ export function StructuredDataSourceEditor({
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="structured-presentation">
-                Presentation
+                {t("sources.structured.presentation")}
               </FieldLabel>
               <RheaSelect
                 value={configuration.presentation}
@@ -738,26 +811,37 @@ export function StructuredDataSourceEditor({
               >
                 <SelectTrigger
                   id="structured-presentation"
-                  aria-label="Presentation"
+                  aria-label={t("sources.structured.presentation")}
                 >
                   <SelectValue>
                     {optionLabel(
-                      presentationOptions,
+                      presentationOptions.map((option) => ({
+                        value: option.value,
+                        label: t(option.labelKey),
+                      })),
                       configuration.presentation,
                     )}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="list">List</SelectItem>
-                  <SelectItem value="agenda">Agenda</SelectItem>
-                  <SelectItem value="cards">Cards</SelectItem>
-                  <SelectItem value="ticker">Ticker</SelectItem>
+                  <SelectItem value="list">
+                    {t("sources.structured.presentationList")}
+                  </SelectItem>
+                  <SelectItem value="agenda">
+                    {t("sources.structured.presentationAgenda")}
+                  </SelectItem>
+                  <SelectItem value="cards">
+                    {t("sources.structured.presentationCards")}
+                  </SelectItem>
+                  <SelectItem value="ticker">
+                    {t("sources.structured.presentationTicker")}
+                  </SelectItem>
                 </SelectContent>
               </RheaSelect>
             </Field>
             <Field>
               <FieldLabel htmlFor="structured-max-items">
-                Maximum items
+                {t("sources.structured.maxItems")}
               </FieldLabel>
               <Input
                 id="structured-max-items"
@@ -780,7 +864,9 @@ export function StructuredDataSourceEditor({
               have no such list: what they map is what they display. */}
           {!mapped && (
             <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium">Displayed fields</legend>
+              <legend className="text-sm font-medium">
+                {t("sources.structured.displayedFields")}
+              </legend>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {(
                   Object.keys(configuration.fields) as Array<
@@ -813,15 +899,15 @@ export function StructuredDataSourceEditor({
                           }))
                         }
                       />
-                      <span>{structuredFieldLabels[field] ?? field}</span>
+                      <span>{t(structuredFieldLabelKeys[field])}</span>
                     </label>
                   ))}
               </div>
               {inspection.data && (
                 <p className="text-sm text-muted-foreground">
-                  {inspection.data.rowCount} item
-                  {inspection.data.rowCount === 1 ? "" : "s"} read from this
-                  feed. Fields it does not publish are not listed.
+                  {t("sources.structured.feedRowCount", {
+                    count: inspection.data.rowCount,
+                  })}
                 </p>
               )}
             </fieldset>
@@ -829,7 +915,7 @@ export function StructuredDataSourceEditor({
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="structured-keyword">
-                Keyword filter
+                {t("sources.structured.keywordFilter")}
               </FieldLabel>
               <Input
                 id="structured-keyword"
@@ -844,7 +930,9 @@ export function StructuredDataSourceEditor({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="structured-sort">Sort</FieldLabel>
+              <FieldLabel htmlFor="structured-sort">
+                {t("sources.structured.sort")}
+              </FieldLabel>
               <RheaSelect
                 value={configuration.sort}
                 disabled={readOnly}
@@ -855,16 +943,20 @@ export function StructuredDataSourceEditor({
                   }))
                 }
               >
-                <SelectTrigger id="structured-sort" aria-label="Sort">
+                <SelectTrigger
+                  id="structured-sort"
+                  aria-label={t("sources.structured.sort")}
+                >
                   <SelectValue>
-                    {optionLabel(sortOptions, configuration.sort)}
+                    {optionLabel(sortItems, configuration.sort)}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="newest">Newest</SelectItem>
-                  <SelectItem value="oldest">Oldest</SelectItem>
-                  <SelectItem value="title">Title</SelectItem>
-                  <SelectItem value="source">Original order</SelectItem>
+                  {sortItems.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </RheaSelect>
             </Field>
@@ -872,7 +964,9 @@ export function StructuredDataSourceEditor({
           {(provider === "json" || provider === "csv") && mapping && (
             <>
               <fieldset className="grid gap-3">
-                <legend className="text-sm font-medium">Field mapping</legend>
+                <legend className="text-sm font-medium">
+                  {t("sources.structured.fieldMapping")}
+                </legend>
                 <StructuredDetectionNotice
                   provider={provider}
                   detectable={detectable}
@@ -881,7 +975,7 @@ export function StructuredDataSourceEditor({
                 {provider === "json" && (
                   <Field>
                     <FieldLabel htmlFor="mapping-root-list">
-                      Root list path
+                      {t("sources.structured.mappingRootList")}
                     </FieldLabel>
                     <Input
                       id="mapping-root-list"
@@ -900,7 +994,7 @@ export function StructuredDataSourceEditor({
                     return (
                       <MappingSelect
                         key={key}
-                        label={mappingFieldLabels[key] ?? key}
+                        label={t(mappingFieldLabelKeys[key])}
                         value={mapping[key]}
                         fields={detectedFields}
                         placeholder={mappingPlaceholders[provider][key]}
@@ -912,7 +1006,9 @@ export function StructuredDataSourceEditor({
                 </div>
                 {provider === "csv" && (
                   <Field>
-                    <FieldLabel htmlFor="csv-delimiter">Delimiter</FieldLabel>
+                    <FieldLabel htmlFor="csv-delimiter">
+                      {t("sources.structured.delimiter")}
+                    </FieldLabel>
                     <RheaSelect
                       value={configuration.delimiter ?? ""}
                       disabled={readOnly}
@@ -924,32 +1020,33 @@ export function StructuredDataSourceEditor({
                         }))
                       }
                     >
-                      <SelectTrigger id="csv-delimiter" aria-label="Delimiter">
+                      <SelectTrigger
+                        id="csv-delimiter"
+                        aria-label={t("sources.structured.delimiter")}
+                      >
                         <SelectValue>
                           {optionLabel(
-                            delimiterOptions,
+                            delimiterItems,
                             configuration.delimiter ?? "",
                           )}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Detect</SelectItem>
-                        <SelectItem value=",">Comma</SelectItem>
-                        <SelectItem value=";">Semicolon</SelectItem>
-                        <SelectItem value="&#9;">Tab</SelectItem>
-                        <SelectItem value="|">Pipe</SelectItem>
+                        {delimiterItems.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </RheaSelect>
                   </Field>
                 )}
                 <div className="grid gap-2">
                   <strong className="text-sm font-medium">
-                    Optional values
+                    {t("sources.structured.optionalValues")}
                   </strong>
                   <small className="text-xs text-muted-foreground">
-                    A Widget offers a value only where its type fits: a start
-                    and end time have to be typed Date &amp; time before a
-                    schedule Widget can select them.
+                    {t("sources.structured.optionalValuesHint")}
                   </small>
                   {Object.entries(mapping.valueFields ?? {}).map(
                     ([label, path]) => (
@@ -958,7 +1055,7 @@ export function StructuredDataSourceEditor({
                         key={label}
                       >
                         <Input
-                          aria-label="Value label"
+                          aria-label={t("sources.structured.valueLabel")}
                           value={label}
                           disabled={readOnly}
                           onChange={(event) =>
@@ -966,7 +1063,7 @@ export function StructuredDataSourceEditor({
                           }
                         />
                         <Input
-                          aria-label="Value path or column"
+                          aria-label={t("sources.structured.valuePath")}
                           value={path}
                           disabled={readOnly}
                           onChange={(event) =>
@@ -983,16 +1080,20 @@ export function StructuredDataSourceEditor({
                             )
                           }
                         >
-                          <SelectTrigger aria-label={`${label} type`}>
+                          <SelectTrigger
+                            aria-label={t("sources.structured.valueTypeFor", {
+                              label,
+                            })}
+                          >
                             <SelectValue>
                               {optionLabel(
-                                valueTypeOptions,
+                                valueTypes,
                                 mapping.valueFieldTypes?.[label] ?? "text",
                               )}
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            {valueTypeOptions.map((option) => (
+                            {valueTypes.map((option) => (
                               <SelectItem
                                 key={option.value}
                                 value={option.value}
@@ -1006,7 +1107,9 @@ export function StructuredDataSourceEditor({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          aria-label={`Remove ${label}`}
+                          aria-label={t("sources.structured.removeValue", {
+                            label,
+                          })}
                           disabled={readOnly}
                           onClick={() => removeValueField(label)}
                         >
@@ -1024,9 +1127,10 @@ export function StructuredDataSourceEditor({
                         variant="ghost"
                         onClick={addTimestampValues}
                       >
-                        <Plus size={15} aria-hidden="true" /> Add{" "}
-                        {unmappedTimestamps.length} detected time field
-                        {unmappedTimestamps.length === 1 ? "" : "s"}
+                        <Plus size={15} aria-hidden="true" />{" "}
+                        {t("sources.structured.addTimestamps", {
+                          count: unmappedTimestamps.length,
+                        })}
                       </RheaButton>
                     )}
                   {!readOnly &&
@@ -1037,19 +1141,24 @@ export function StructuredDataSourceEditor({
                         variant="ghost"
                         onClick={() =>
                           setValueField(
-                            `Value ${Object.keys(mapping.valueFields ?? {}).length + 1}`,
+                            t("sources.structured.newValueName", {
+                              index:
+                                Object.keys(mapping.valueFields ?? {}).length +
+                                1,
+                            }),
                             provider === "json" ? "/value" : "value",
                           )
                         }
                       >
-                        <Plus size={15} aria-hidden="true" /> Add value
+                        <Plus size={15} aria-hidden="true" />{" "}
+                        {t("sources.structured.addValue")}
                       </RheaButton>
                     )}
                 </div>
               </fieldset>
               <fieldset className="grid gap-3">
                 <legend className="text-sm font-medium">
-                  Date-aware selection
+                  {t("sources.structured.dateSelection")}
                 </legend>
                 <label className="flex items-start gap-2 text-sm">
                   <RheaSwitch
@@ -1064,16 +1173,15 @@ export function StructuredDataSourceEditor({
                         },
                       }))
                     }
-                    aria-label="Select records by local date"
+                    aria-label={t("sources.structured.selectByDate")}
                     className="mt-0.5"
                   />
                   <span className="grid gap-0.5">
                     <strong className="font-medium">
-                      Select records by local date
+                      {t("sources.structured.selectByDate")}
                     </strong>
                     <small className="text-xs text-muted-foreground">
-                      The Player reevaluates cached records at the configured
-                      local date transition.
+                      {t("sources.structured.selectByDateHint")}
                     </small>
                   </span>
                 </label>
@@ -1082,7 +1190,7 @@ export function StructuredDataSourceEditor({
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field>
                         <FieldLabel htmlFor="date-format">
-                          Date format
+                          {t("sources.structured.dateFormat")}
                         </FieldLabel>
                         <RheaSelect
                           value={configuration.dateSelection.dateFormat}
@@ -1100,30 +1208,30 @@ export function StructuredDataSourceEditor({
                         >
                           <SelectTrigger
                             id="date-format"
-                            aria-label="Date format"
+                            aria-label={t("sources.structured.dateFormat")}
                           >
                             <SelectValue>
                               {optionLabel(
-                                dateFormatOptions,
+                                dateFormatItems,
                                 configuration.dateSelection.dateFormat,
                               )}
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="auto">Detect</SelectItem>
-                            <SelectItem value="iso_date">YYYY-MM-DD</SelectItem>
-                            <SelectItem value="us_date">MM/DD/YYYY</SelectItem>
-                            <SelectItem value="us_short">M/D/YYYY</SelectItem>
-                            <SelectItem value="day_month_name">
-                              DD-Mon-YYYY
-                            </SelectItem>
-                            <SelectItem value="rfc3339">RFC 3339</SelectItem>
+                            {dateFormatItems.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </RheaSelect>
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="date-timezone">
-                          Timezone
+                          {t("sources.structured.timezone")}
                         </FieldLabel>
                         <Input
                           id="date-timezone"
@@ -1141,7 +1249,9 @@ export function StructuredDataSourceEditor({
                         />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="date-mode">Selection</FieldLabel>
+                        <FieldLabel htmlFor="date-mode">
+                          {t("sources.structured.selection")}
+                        </FieldLabel>
                         <RheaSelect
                           value={configuration.dateSelection.mode}
                           disabled={readOnly}
@@ -1155,32 +1265,32 @@ export function StructuredDataSourceEditor({
                             }))
                           }
                         >
-                          <SelectTrigger id="date-mode" aria-label="Selection">
+                          <SelectTrigger
+                            id="date-mode"
+                            aria-label={t("sources.structured.selection")}
+                          >
                             <SelectValue>
                               {optionLabel(
-                                dateModeOptions,
+                                dateModeItems,
                                 configuration.dateSelection.mode,
                               )}
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="today">Today</SelectItem>
-                            <SelectItem value="tomorrow">Tomorrow</SelectItem>
-                            <SelectItem value="next_available">
-                              Next available date
-                            </SelectItem>
-                            <SelectItem value="current_week">
-                              Current week
-                            </SelectItem>
-                            <SelectItem value="custom_range">
-                              Custom date range
-                            </SelectItem>
+                            {dateModeItems.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </RheaSelect>
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="date-no-match">
-                          No match
+                          {t("sources.structured.noMatch")}
                         </FieldLabel>
                         <RheaSelect
                           value={configuration.dateSelection.noMatchBehavior}
@@ -1198,31 +1308,24 @@ export function StructuredDataSourceEditor({
                         >
                           <SelectTrigger
                             id="date-no-match"
-                            aria-label="No match"
+                            aria-label={t("sources.structured.noMatch")}
                           >
                             <SelectValue>
                               {optionLabel(
-                                noMatchOptions,
+                                noMatchItems,
                                 configuration.dateSelection.noMatchBehavior,
                               )}
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="empty">
-                              Display empty state
-                            </SelectItem>
-                            <SelectItem value="fallback_text">
-                              Show fallback text
-                            </SelectItem>
-                            <SelectItem value="next_available">
-                              Show next available
-                            </SelectItem>
-                            <SelectItem value="hide">
-                              Hide Widget or binding
-                            </SelectItem>
-                            <SelectItem value="last_known_good">
-                              Use last-known-good record
-                            </SelectItem>
+                            {noMatchItems.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </RheaSelect>
                       </Field>
@@ -1231,7 +1334,7 @@ export function StructuredDataSourceEditor({
                       <div className="grid gap-3 sm:grid-cols-2">
                         <Field>
                           <FieldLabel htmlFor="date-start">
-                            Start date
+                            {t("sources.structured.startDate")}
                           </FieldLabel>
                           <Input
                             id="date-start"
@@ -1252,7 +1355,9 @@ export function StructuredDataSourceEditor({
                           />
                         </Field>
                         <Field>
-                          <FieldLabel htmlFor="date-end">End date</FieldLabel>
+                          <FieldLabel htmlFor="date-end">
+                            {t("sources.structured.endDate")}
+                          </FieldLabel>
                           <Input
                             id="date-end"
                             type="date"
@@ -1277,7 +1382,7 @@ export function StructuredDataSourceEditor({
                       "fallback_text" && (
                       <Field>
                         <FieldLabel htmlFor="date-fallback">
-                          Fallback text
+                          {t("sources.structured.fallbackText")}
                         </FieldLabel>
                         <Input
                           id="date-fallback"
@@ -1311,11 +1416,11 @@ export function StructuredDataSourceEditor({
                           }))
                         }
                       />
-                      <span>Exclude past records</span>
+                      <span>{t("sources.structured.excludePast")}</span>
                     </label>
                     <Field>
                       <FieldLabel htmlFor="preview-date">
-                        Preview date
+                        {t("sources.structured.previewDate")}
                       </FieldLabel>
                       <Input
                         id="preview-date"
@@ -1330,7 +1435,9 @@ export function StructuredDataSourceEditor({
             </>
           )}
           <fieldset className="grid gap-3">
-            <legend className="text-sm font-medium">Record filters</legend>
+            <legend className="text-sm font-medium">
+              {t("sources.structured.recordFilters")}
+            </legend>
             <div className="grid gap-2">
               {(configuration.filters ?? []).map((filter, index) => (
                 <div
@@ -1338,7 +1445,7 @@ export function StructuredDataSourceEditor({
                   key={index}
                 >
                   <Input
-                    aria-label="Filter field"
+                    aria-label={t("sources.structured.filterField")}
                     value={filter.field}
                     disabled={readOnly}
                     onChange={(event) =>
@@ -1371,18 +1478,23 @@ export function StructuredDataSourceEditor({
                       }))
                     }
                   >
-                    <SelectTrigger aria-label="Filter operator">
+                    <SelectTrigger
+                      aria-label={t("sources.structured.filterOperator")}
+                    >
                       <SelectValue>
-                        {optionLabel(filterOperatorOptions, filter.operator)}
+                        {optionLabel(filterOperators, filter.operator)}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="equals">Equals</SelectItem>
-                      <SelectItem value="contains">Contains</SelectItem>
+                      {filterOperators.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </RheaSelect>
                   <Input
-                    aria-label="Filter value"
+                    aria-label={t("sources.structured.filterValue")}
                     value={filter.value}
                     disabled={readOnly}
                     onChange={(event) =>
@@ -1401,7 +1513,7 @@ export function StructuredDataSourceEditor({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label="Remove filter"
+                    aria-label={t("sources.structured.removeFilter")}
                     disabled={readOnly}
                     onClick={() =>
                       setConfiguration((current) => ({
@@ -1430,7 +1542,8 @@ export function StructuredDataSourceEditor({
                     }))
                   }
                 >
-                  <Plus size={15} aria-hidden="true" /> Add filter
+                  <Plus size={15} aria-hidden="true" />{" "}
+                  {t("sources.structured.addFilter")}
                 </RheaButton>
               )}
             </div>
@@ -1438,7 +1551,7 @@ export function StructuredDataSourceEditor({
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="structured-refresh">
-                Refresh interval
+                {t("sources.structured.refreshInterval")}
               </FieldLabel>
               <RheaSelect
                 value={configuration.refreshIntervalSeconds}
@@ -1452,26 +1565,27 @@ export function StructuredDataSourceEditor({
               >
                 <SelectTrigger
                   id="structured-refresh"
-                  aria-label="Refresh interval"
+                  aria-label={t("sources.structured.refreshInterval")}
                 >
                   <SelectValue>
                     {optionLabel(
-                      refreshOptions,
+                      refreshItems,
                       configuration.refreshIntervalSeconds,
                     )}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={300}>5 minutes</SelectItem>
-                  <SelectItem value={900}>15 minutes</SelectItem>
-                  <SelectItem value={3600}>Hourly</SelectItem>
-                  <SelectItem value={21600}>6 hours</SelectItem>
+                  {refreshItems.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </RheaSelect>
             </Field>
             <Field>
               <FieldLabel htmlFor="structured-empty-state">
-                Empty state
+                {t("sources.structured.emptyStateLabel")}
               </FieldLabel>
               <Input
                 id="structured-empty-state"
@@ -1489,36 +1603,44 @@ export function StructuredDataSourceEditor({
           {diagnostics.data && (
             <div className="grid gap-1 rounded-xl border border-border bg-card p-3">
               <strong className="text-sm font-medium">
-                Refresh diagnostics
+                {t("sources.structured.diagnostics")}
               </strong>
               <span className="text-sm">
                 {diagnostics.data.parseStatus} ·{" "}
-                {diagnostics.data.httpResultCategory ?? "not attempted"} ·{" "}
-                {diagnostics.data.availableItemCount} items
-                {diagnostics.data.usingCachedData ? " · cached data" : ""}
+                {diagnostics.data.httpResultCategory ??
+                  t("sources.structured.diagUnknown")}{" "}
+                ·{" "}
+                {t("sources.structured.diagItems", {
+                  count: diagnostics.data.availableItemCount,
+                })}
+                {diagnostics.data.usingCachedData
+                  ? ` ${t("sources.structured.diagCached")}`
+                  : ""}
               </span>
               <small className="text-xs text-muted-foreground">
-                Last attempt:{" "}
+                {t("sources.structured.lastAttempt")}{" "}
                 {diagnostics.data.lastAttemptedRefresh
                   ? new Date(
                       diagnostics.data.lastAttemptedRefresh,
-                    ).toLocaleString()
-                  : "Not yet"}
+                    ).toLocaleString(locale)
+                  : t("sources.structured.notYet")}
               </small>
               <small className="text-xs text-muted-foreground">
-                Last success:{" "}
+                {t("sources.structured.lastSuccess")}{" "}
                 {diagnostics.data.lastSuccessfulRefresh
                   ? new Date(
                       diagnostics.data.lastSuccessfulRefresh,
-                    ).toLocaleString()
-                  : "Not yet"}
+                    ).toLocaleString(locale)
+                  : t("sources.structured.notYet")}
               </small>
             </div>
           )}
           {preview && (
             <div className="grid gap-2 rounded-xl border border-border bg-card p-3">
               <strong className="text-sm font-medium">
-                {preview.configuration.data.records.length} mapped items
+                {t("sources.structured.mappedItems", {
+                  count: preview.configuration.data.records.length,
+                })}
               </strong>
               {preview.configuration.data.records.slice(0, 8).map((record) => (
                 <article
@@ -1526,7 +1648,7 @@ export function StructuredDataSourceEditor({
                   className="grid gap-0.5 border-b border-border pb-2 last:border-0 last:pb-0"
                 >
                   <strong className="text-sm font-medium">
-                    {record.title || "Untitled item"}
+                    {record.title || t("sources.structured.untitledItem")}
                   </strong>
                   {record.subtitle && (
                     <span className="text-sm text-muted-foreground">
@@ -1545,7 +1667,7 @@ export function StructuredDataSourceEditor({
           {(previewMutation.error || save.error) && (
             <Alert variant="destructive">
               <AlertDescription>
-                {(previewMutation.error ?? save.error)?.message}
+                {apiErrorMessage(previewMutation.error ?? save.error)}
               </AlertDescription>
             </Alert>
           )}
@@ -1558,8 +1680,8 @@ export function StructuredDataSourceEditor({
             onClick={() => previewMutation.mutate()}
           >
             {previewMutation.isPending
-              ? "Loading preview…"
-              : "Preview mapped data"}
+              ? t("sources.shared.loadingPreview")
+              : t("sources.structured.previewButton")}
           </RheaButton>
           {!readOnly && (
             <RheaButton
@@ -1567,7 +1689,9 @@ export function StructuredDataSourceEditor({
               disabled={save.isPending || !name.trim()}
               onClick={() => save.mutate()}
             >
-              {save.isPending ? "Saving…" : "Save Data Source"}
+              {save.isPending
+                ? t("common:actions.saving")
+                : t("sources.shared.saveDataSource")}
             </RheaButton>
           )}
         </footer>

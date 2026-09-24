@@ -1,7 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { apiErrorMessage } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Field, FieldLabel } from "../../components/ui/field";
@@ -35,17 +37,17 @@ const manualColumnTypes = [
 ];
 
 const booleanCellOptions = [
-  { value: "", label: "Empty" },
-  { value: "true", label: "True" },
-  { value: "false", label: "False" },
-];
+  { value: "", labelKey: "sources.manual.booleanEmpty" },
+  { value: "true", labelKey: "sources.manual.booleanTrue" },
+  { value: "false", labelKey: "sources.manual.booleanFalse" },
+] as const;
 
 const manualDateModeOptions = [
-  { value: "today", label: "Today" },
-  { value: "tomorrow", label: "Tomorrow" },
-  { value: "next_available", label: "Next available date" },
-  { value: "current_week", label: "Current week" },
-];
+  { value: "today", labelKey: "sources.manual.modeToday" },
+  { value: "tomorrow", labelKey: "sources.manual.modeTomorrow" },
+  { value: "next_available", labelKey: "sources.manual.modeNextAvailable" },
+  { value: "current_week", labelKey: "sources.manual.modeCurrentWeek" },
+] as const;
 
 export function ManualDataSourceEditor({
   dataSource,
@@ -63,11 +65,26 @@ export function ManualDataSourceEditor({
   page?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(["content", "common"]);
   const [name, setName] = useState(dataSource?.name ?? "");
   const [description, setDescription] = useState(dataSource?.description ?? "");
+  const booleanOptions = booleanCellOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const dateModeOptions = manualDateModeOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
   const [configuration, setConfiguration] = useState<ManualSourceConfig>(
     (dataSource?.configuration as ManualSourceConfig | undefined) ?? {
-      columns: [{ key: "title", label: "Title", type: "text" }],
+      columns: [
+        {
+          key: "title",
+          label: t("sources.manual.defaultColumnLabel"),
+          type: "text",
+        },
+      ],
       rows: [{ id: crypto.randomUUID(), values: { title: "" } }],
       dateSelection: {
         enabled: false,
@@ -105,8 +122,10 @@ export function ManualDataSourceEditor({
     }));
   return (
     <EditorFrame
-      title={`${dataSource ? "Edit" : "Create"} Manual Table Data Source`}
-      description="Maintain a small typed dataset directly in Tilecast Studio."
+      title={t(
+        dataSource ? "sources.manual.editTitle" : "sources.manual.createTitle",
+      )}
+      description={t("sources.manual.frameDescription")}
       page={page}
       onClose={onClose}
       footer={
@@ -116,14 +135,18 @@ export function ManualDataSourceEditor({
             disabled={save.isPending || !name.trim()}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? "Saving…" : "Save Data Source"}
+            {save.isPending
+              ? t("common:actions.saving")
+              : t("sources.shared.saveDataSource")}
           </RheaButton>
         )
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="manual-name">Name</FieldLabel>
+          <FieldLabel htmlFor="manual-name">
+            {t("sources.shared.name")}
+          </FieldLabel>
           <Input
             id="manual-name"
             value={name}
@@ -132,7 +155,9 @@ export function ManualDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="manual-description">Description</FieldLabel>
+          <FieldLabel htmlFor="manual-description">
+            {t("sources.shared.description")}
+          </FieldLabel>
           <Input
             id="manual-description"
             value={description}
@@ -142,7 +167,9 @@ export function ManualDataSourceEditor({
         </Field>
       </div>
       <fieldset className="grid gap-3">
-        <legend className="text-sm font-medium">Columns</legend>
+        <legend className="text-sm font-medium">
+          {t("sources.manual.columnsLegend")}
+        </legend>
         {configuration.columns.map((column, index) => (
           <div
             className="grid gap-4 sm:grid-cols-3"
@@ -150,7 +177,7 @@ export function ManualDataSourceEditor({
           >
             <Field>
               <FieldLabel htmlFor={`manual-column-key-${index}`}>
-                Key
+                {t("sources.manual.keyLabel")}
               </FieldLabel>
               <Input
                 id={`manual-column-key-${index}`}
@@ -163,7 +190,7 @@ export function ManualDataSourceEditor({
             </Field>
             <Field>
               <FieldLabel htmlFor={`manual-column-label-${index}`}>
-                Label
+                {t("sources.manual.labelLabel")}
               </FieldLabel>
               <Input
                 id={`manual-column-label-${index}`}
@@ -176,7 +203,7 @@ export function ManualDataSourceEditor({
             </Field>
             <Field>
               <FieldLabel htmlFor={`manual-column-type-${index}`}>
-                Type
+                {t("sources.manual.typeLabel")}
               </FieldLabel>
               <RheaSelect
                 value={column.type}
@@ -189,7 +216,11 @@ export function ManualDataSourceEditor({
               >
                 <SelectTrigger
                   id={`manual-column-type-${index}`}
-                  aria-label={`Type for ${column.label || `column ${index + 1}`}`}
+                  aria-label={t("sources.manual.typeForColumn", {
+                    label:
+                      column.label ||
+                      t("sources.manual.columnNumber", { index: index + 1 }),
+                  })}
                 >
                   <SelectValue>{column.type}</SelectValue>
                 </SelectTrigger>
@@ -205,7 +236,7 @@ export function ManualDataSourceEditor({
             {column.type === "currency" && (
               <Field>
                 <FieldLabel htmlFor={`manual-column-currency-${index}`}>
-                  Currency
+                  {t("sources.manual.currencyLabel")}
                 </FieldLabel>
                 <Input
                   id={`manual-column-currency-${index}`}
@@ -236,7 +267,8 @@ export function ManualDataSourceEditor({
                   }))
                 }
               >
-                <Trash2 size={15} aria-hidden="true" /> Remove
+                <Trash2 size={15} aria-hidden="true" />{" "}
+                {t("common:actions.remove")}
               </RheaButton>
             )}
           </div>
@@ -252,20 +284,25 @@ export function ManualDataSourceEditor({
                   ...current.columns,
                   {
                     key: `field_${current.columns.length + 1}`,
-                    label: `Field ${current.columns.length + 1}`,
+                    label: t("sources.manual.newColumnLabel", {
+                      index: current.columns.length + 1,
+                    }),
                     type: "text",
                   },
                 ],
               }))
             }
           >
-            <Plus size={15} aria-hidden="true" /> Add column
+            <Plus size={15} aria-hidden="true" />{" "}
+            {t("sources.manual.addColumn")}
           </RheaButton>
         )}
       </fieldset>
       <fieldset className="grid gap-3">
         <legend className="text-sm font-medium">
-          Rows ({configuration.rows.length}/200)
+          {t("sources.manual.rowsLegend", {
+            count: configuration.rows.length,
+          })}
         </legend>
         <div className="grid gap-3">
           {configuration.rows.map((row, rowIndex) => (
@@ -301,17 +338,19 @@ export function ManualDataSourceEditor({
                     >
                       <SelectTrigger
                         id={`manual-cell-${rowIndex}-${column.key}`}
-                        aria-label={`${column.label} value`}
+                        aria-label={t("sources.manual.cellValue", {
+                          label: column.label,
+                        })}
                       >
                         <SelectValue>
                           {optionLabel(
-                            booleanCellOptions,
+                            booleanOptions,
                             row.values[column.key] ?? "",
                           )}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {booleanCellOptions.map((option) => (
+                        {booleanOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -362,7 +401,9 @@ export function ManualDataSourceEditor({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label={`Remove row ${rowIndex + 1}`}
+                  aria-label={t("sources.manual.removeRow", {
+                    index: rowIndex + 1,
+                  })}
                   onClick={() =>
                     setConfiguration((current) => ({
                       ...current,
@@ -392,12 +433,14 @@ export function ManualDataSourceEditor({
               }))
             }
           >
-            <Plus size={15} aria-hidden="true" /> Add row
+            <Plus size={15} aria-hidden="true" /> {t("sources.manual.addRow")}
           </RheaButton>
         )}
       </fieldset>
       <fieldset className="grid gap-3">
-        <legend className="text-sm font-medium">Date-aware selection</legend>
+        <legend className="text-sm font-medium">
+          {t("sources.manual.dateSelection")}
+        </legend>
         {/* The wrapping label names the switch; no extra aria-label. */}
         <label className="flex items-center gap-2 text-sm">
           <RheaSwitch
@@ -413,12 +456,14 @@ export function ManualDataSourceEditor({
               }))
             }
           />
-          <span>Select rows from the Player&apos;s local date</span>
+          <span>{t("sources.manual.selectByDate")}</span>
         </label>
         {configuration.dateSelection.enabled && (
           <div className="grid gap-4 sm:grid-cols-3">
             <Field>
-              <FieldLabel htmlFor="manual-date-field">Date field</FieldLabel>
+              <FieldLabel htmlFor="manual-date-field">
+                {t("sources.manual.dateField")}
+              </FieldLabel>
               <RheaSelect
                 value={configuration.dateField ?? ""}
                 disabled={readOnly}
@@ -429,11 +474,17 @@ export function ManualDataSourceEditor({
                   }))
                 }
               >
-                <SelectTrigger id="manual-date-field" aria-label="Date field">
+                <SelectTrigger
+                  id="manual-date-field"
+                  aria-label={t("sources.manual.dateField")}
+                >
                   <SelectValue>
                     {optionLabel(
                       [
-                        { value: "", label: "Select a date column" },
+                        {
+                          value: "",
+                          label: t("sources.manual.selectDateColumn"),
+                        },
                         ...configuration.columns
                           .filter((column) =>
                             ["date", "datetime"].includes(column.type),
@@ -448,7 +499,9 @@ export function ManualDataSourceEditor({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Select a date column</SelectItem>
+                  <SelectItem value="">
+                    {t("sources.manual.selectDateColumn")}
+                  </SelectItem>
                   {configuration.columns
                     .filter((column) =>
                       ["date", "datetime"].includes(column.type),
@@ -462,7 +515,9 @@ export function ManualDataSourceEditor({
               </RheaSelect>
             </Field>
             <Field>
-              <FieldLabel htmlFor="manual-timezone">Timezone</FieldLabel>
+              <FieldLabel htmlFor="manual-timezone">
+                {t("sources.manual.timezone")}
+              </FieldLabel>
               <Input
                 id="manual-timezone"
                 value={configuration.dateSelection.timezone}
@@ -479,7 +534,9 @@ export function ManualDataSourceEditor({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="manual-selection">Selection</FieldLabel>
+              <FieldLabel htmlFor="manual-selection">
+                {t("sources.manual.selection")}
+              </FieldLabel>
               <RheaSelect
                 value={configuration.dateSelection.mode}
                 disabled={readOnly}
@@ -493,16 +550,19 @@ export function ManualDataSourceEditor({
                   }))
                 }
               >
-                <SelectTrigger id="manual-selection" aria-label="Selection">
+                <SelectTrigger
+                  id="manual-selection"
+                  aria-label={t("sources.manual.selection")}
+                >
                   <SelectValue>
                     {optionLabel(
-                      manualDateModeOptions,
+                      dateModeOptions,
                       configuration.dateSelection.mode,
                     )}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {manualDateModeOptions.map((option) => (
+                  {dateModeOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -515,7 +575,7 @@ export function ManualDataSourceEditor({
       </fieldset>
       {save.error && (
         <Alert variant="destructive">
-          <AlertDescription>{save.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(save.error)}</AlertDescription>
         </Alert>
       )}
     </EditorFrame>

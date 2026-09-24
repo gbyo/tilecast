@@ -2,8 +2,11 @@
 // which assigned presentation, widgets, and data sources contribute to its current content.
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { AlertTriangle, Database, Layers3, ListVideo } from "lucide-react";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { PlaylistAssignment } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -17,15 +20,22 @@ import {
 } from "../components/ui/item";
 import { Skeleton } from "../components/ui/skeleton";
 
-function sourceStatus(status: string, recordCount: number) {
+function sourceStatus(
+  status: string,
+  recordCount: number,
+  t: TFunction<"content">,
+) {
   if (status === "error") {
-    return { label: "Last refresh failed", variant: "destructive" as const };
+    return {
+      label: t("preview.chain.statusError"),
+      variant: "destructive" as const,
+    };
   }
   if (status !== "ready") {
     return { label: status.replaceAll("_", " "), variant: "outline" as const };
   }
   return {
-    label: `${recordCount} record${recordCount === 1 ? "" : "s"}`,
+    label: t("preview.chain.statusRecords", { count: recordCount }),
     variant: "secondary" as const,
   };
 }
@@ -35,6 +45,7 @@ export function ScreenContentChain({
 }: {
   assignment?: PlaylistAssignment;
 }) {
+  const { t } = useTranslation("content");
   const layoutId = assignment?.layoutId;
   const playlistId = assignment?.playlistId;
   const layout = useQuery({
@@ -59,8 +70,7 @@ export function ScreenContentChain({
   if (!layoutId && !playlistId) {
     return (
       <p className="border-y border-border py-4 text-sm text-muted-foreground">
-        No content is assigned directly to this screen. Schedules and Display
-        Group assignments can still select content for playback.
+        {t("preview.chain.empty")}
       </p>
     );
   }
@@ -81,10 +91,10 @@ export function ScreenContentChain({
     <section className="min-w-0 space-y-3" aria-labelledby="screen-chain-title">
       <header>
         <h3 id="screen-chain-title" className="text-sm font-semibold">
-          Content and data on this screen
+          {t("preview.chain.title")}
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Follow the assigned presentation to its reusable content and data.
+          {t("preview.chain.subtitle")}
         </p>
       </header>
 
@@ -101,21 +111,23 @@ export function ScreenContentChain({
                   className="size-4 text-muted-foreground"
                   aria-hidden="true"
                 />
-                {assignment?.layoutName ?? "Assigned layout"}
+                {assignment?.layoutName ?? t("preview.chain.layoutFallback")}
               </ItemTitle>
-              <ItemDescription>Published layout</ItemDescription>
+              <ItemDescription>
+                {t("preview.chain.layoutDescription")}
+              </ItemDescription>
             </ItemContent>
           </Item>
           {layout.isLoading ? (
             <Skeleton className="my-2 h-10 w-full" />
           ) : layout.error ? (
             <DependencyError
-              label="Layout dependencies"
-              message={layout.error.message}
+              label={t("preview.chain.layoutDeps")}
+              message={apiErrorMessage(layout.error)}
             />
           ) : layoutSources.length === 0 ? (
             <p className="py-3 text-sm text-muted-foreground">
-              This layout reads no data sources.
+              {t("preview.chain.layoutEmpty")}
             </p>
           ) : (
             layoutSources.map((source) => (
@@ -138,11 +150,13 @@ export function ScreenContentChain({
                   className="size-4 text-muted-foreground"
                   aria-hidden="true"
                 />
-                {assignment?.playlistName ?? "Assigned playlist"}
+                {assignment?.playlistName ??
+                  t("preview.chain.playlistFallback")}
               </ItemTitle>
               <ItemDescription>
-                {playlist.data?.itemCount ?? 0} item
-                {playlist.data?.itemCount === 1 ? "" : "s"}
+                {t("preview.chain.playlistItems", {
+                  count: playlist.data?.itemCount ?? 0,
+                })}
               </ItemDescription>
             </ItemContent>
           </Item>
@@ -150,8 +164,8 @@ export function ScreenContentChain({
             <Skeleton className="my-2 h-10 w-full" />
           ) : playlist.error ? (
             <DependencyError
-              label="Playlist dependencies"
-              message={playlist.error.message}
+              label={t("preview.chain.playlistDeps")}
+              message={apiErrorMessage(playlist.error)}
             />
           ) : (
             <>
@@ -164,7 +178,9 @@ export function ScreenContentChain({
                 >
                   <ItemContent>
                     <ItemTitle>{item.assetName}</ItemTitle>
-                    <ItemDescription>Widget</ItemDescription>
+                    <ItemDescription>
+                      {t("preview.chain.widgetDescription")}
+                    </ItemDescription>
                   </ItemContent>
                 </Item>
               ))}
@@ -173,7 +189,7 @@ export function ScreenContentChain({
               ))}
               {!widgetItems.length && !playlistSources.length && (
                 <p className="py-3 text-sm text-muted-foreground">
-                  Nothing in this playlist reads a data source.
+                  {t("preview.chain.playlistEmpty")}
                 </p>
               )}
             </>
@@ -184,8 +200,8 @@ export function ScreenContentChain({
       {sources.error && (
         <Alert variant="destructive">
           <AlertTriangle aria-hidden="true" />
-          <AlertTitle>Data sources could not be resolved</AlertTitle>
-          <AlertDescription>{sources.error.message}</AlertDescription>
+          <AlertTitle>{t("preview.chain.resolveError")}</AlertTitle>
+          <AlertDescription>{apiErrorMessage(sources.error)}</AlertDescription>
         </Alert>
       )}
     </section>
@@ -202,7 +218,8 @@ function SourceItem({
     cachedRecordCount: number;
   };
 }) {
-  const status = sourceStatus(source.status, source.cachedRecordCount);
+  const { t } = useTranslation("content");
+  const status = sourceStatus(source.status, source.cachedRecordCount, t);
   return (
     <Item
       size="xs"
@@ -217,7 +234,9 @@ function SourceItem({
           />
           {source.name}
         </ItemTitle>
-        <ItemDescription>Data source</ItemDescription>
+        <ItemDescription>
+          {t("preview.chain.sourceDescription")}
+        </ItemDescription>
       </ItemContent>
       <ItemActions>
         <Badge variant={status.variant}>{status.label}</Badge>
@@ -233,10 +252,11 @@ function DependencyError({
   label: string;
   message: string;
 }) {
+  const { t } = useTranslation("content");
   return (
     <Alert variant="destructive" className="my-2">
       <AlertTriangle aria-hidden="true" />
-      <AlertTitle>{label} could not be loaded</AlertTitle>
+      <AlertTitle>{t("preview.chain.depsErrorTitle", { label })}</AlertTitle>
       <AlertDescription>{message}</AlertDescription>
     </Alert>
   );

@@ -16,19 +16,30 @@ import {
   TableProperties,
   type LucideIcon,
 } from "lucide-react";
+import type { TFunction } from "i18next";
 import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
+import enContent from "../locales/en/content.json";
 
-export function providerLabel(provider: DataSourceProvider | null | undefined) {
-  if (!provider) return "Data Source";
+export type ContentT = TFunction<"content", undefined>;
+
+export function providerLabel(
+  provider: DataSourceProvider | null | undefined,
+  t?: ContentT,
+) {
+  if (!provider)
+    return t?.("sources.providerLabels.dataSource") ?? "Data Source";
+  if (provider === "manual")
+    return t?.("sources.providerLabels.manualTable") ?? "Manual Table";
+  if (provider === "cap_alerts")
+    return t?.("sources.providerLabels.capAlerts") ?? "CAP Alerts";
+  if (provider === "air_quality")
+    return t?.("sources.providerLabels.airQuality") ?? "Air Quality";
   return (
     (
       {
         rss: "RSS",
         csv: "CSV",
         json: "JSON",
-        manual: "Manual Table",
-        cap_alerts: "CAP Alerts",
-        air_quality: "Air Quality",
       } as Record<string, string>
     )[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1)
   );
@@ -62,23 +73,61 @@ export function iconForIdentifier(icon: string | undefined, size = 28) {
 // Gallery copy for the providers that predate release-defined definitions. Their catalog
 // descriptions are written for the definition compiler ("Project a public RSS feed into
 // typed records"); these say the same thing to an author choosing what to connect.
-const galleryCopy: Record<string, string> = {
-  calendar: "Public Google, Microsoft, Apple, or other ICS calendars.",
-  rss: "News, announcements, blog posts, and published updates.",
-  atom: "Atom entries from publishing systems and update feeds.",
-  json: "Public API data mapped with simple JSON Pointer paths.",
-  csv: "Upload a spreadsheet export or connect a hosted CSV URL.",
-  manual: "Maintain a small typed dataset directly in Studio.",
-  weather: "Cached current conditions and daily forecasts.",
-  transit: "Public GTFS departures and service alerts.",
-  cap_alerts: "Active public emergency alerts and instructions.",
-  air_quality: "Current AQI, pollutants, pollen, and hourly forecasts.",
-  form: "Collect submissions, approve them, and publish records to Widgets.",
-};
+const galleryKeys = {
+  calendar: "sources.gallery.calendar",
+  rss: "sources.gallery.rss",
+  atom: "sources.gallery.atom",
+  json: "sources.gallery.json",
+  csv: "sources.gallery.csv",
+  manual: "sources.gallery.manual",
+  weather: "sources.gallery.weather",
+  transit: "sources.gallery.transit",
+  cap_alerts: "sources.gallery.capAlerts",
+  air_quality: "sources.gallery.airQuality",
+  form: "sources.gallery.form",
+} as const;
 
-export function providerGalleryDescription(definition: DataSourceDefinition) {
+function galleryKeyFor(id: string) {
+  switch (id) {
+    case "calendar":
+      return galleryKeys.calendar;
+    case "rss":
+      return galleryKeys.rss;
+    case "atom":
+      return galleryKeys.atom;
+    case "json":
+      return galleryKeys.json;
+    case "csv":
+      return galleryKeys.csv;
+    case "manual":
+      return galleryKeys.manual;
+    case "weather":
+      return galleryKeys.weather;
+    case "transit":
+      return galleryKeys.transit;
+    case "cap_alerts":
+      return galleryKeys.cap_alerts;
+    case "air_quality":
+      return galleryKeys.air_quality;
+    case "form":
+      return galleryKeys.form;
+    default:
+      return undefined;
+  }
+}
+
+export function providerGalleryDescription(
+  definition: DataSourceDefinition,
+  t?: ContentT,
+) {
   if (!definition.legacyEditor) return definition.description;
-  return galleryCopy[definition.id] ?? definition.description;
+  const key = galleryKeyFor(definition.id);
+  if (!key) return definition.description;
+  if (t) return t(key);
+  // English fallback for callers that have not been converted yet. Converted
+  // surfaces pass `t` and never read the bundled English copy.
+  const fallback = enContent.sources.gallery as Record<string, string>;
+  return fallback[sectionId(definition.id)] ?? definition.description;
 }
 
 export type SetupCopy = {
@@ -91,26 +140,68 @@ export type SetupCopy = {
 // resolveSetup returns the Studio setup copy for a Data Source. Release-defined sources use
 // their catalog metadata (description and optional setup guidance); legacy providers keep
 // their hardcoded editor copy.
+// Locale section names are camelCase while provider ids use snake_case.
+function sectionId(id: string): string {
+  if (id === "cap_alerts") return "capAlerts";
+  if (id === "air_quality") return "airQuality";
+  return id;
+}
+
 export function resolveSetup(
   provider: DataSourceProvider,
   definition: DataSourceDefinition | undefined,
+  t?: ContentT,
 ): SetupCopy {
   if (definition && !definition.legacyEditor) {
     return {
-      eyebrow: definition.setup?.eyebrow ?? "Release-defined information",
+      eyebrow:
+        definition.setup?.eyebrow ??
+        t?.("sources.createFlow.releaseInfo") ??
+        "Release-defined information",
       description: definition.description,
       tip: definition.setup?.tip ?? "",
       steps: definition.setup?.steps ?? [],
     };
   }
-  return (
-    createCopy[provider] ?? {
-      eyebrow: definition?.category ?? "Data Source",
-      description: definition?.description ?? "",
-      tip: "",
-      steps: [],
-    }
-  );
+  if (t) {
+    const keys = setupKeysFor(provider);
+    if (keys)
+      return {
+        eyebrow: t(keys.eyebrow),
+        description: t(keys.description),
+        tip: t(keys.tip),
+        steps: keys.steps.map((step) => t(step)),
+      };
+  } else {
+    // English fallback for callers that have not been converted yet. Converted
+    // surfaces pass `t` and never read the bundled English copy.
+    const sections = enContent.sources.setup as Record<
+      string,
+      | {
+          eyebrow: string;
+          description: string;
+          tip: string;
+          step1: string;
+          step2: string;
+          step3: string;
+        }
+      | undefined
+    >;
+    const section = sections[sectionId(provider)];
+    if (section)
+      return {
+        eyebrow: section.eyebrow,
+        description: section.description,
+        tip: section.tip,
+        steps: [section.step1, section.step2, section.step3],
+      };
+  }
+  return {
+    eyebrow: definition?.category ?? "Data Source",
+    description: definition?.description ?? "",
+    tip: "",
+    steps: [],
+  };
 }
 
 // sourceIcon prefers a release-defined definition's declared icon and falls back to the
@@ -126,118 +217,135 @@ export function sourceIcon(
   return providerIcon(provider, size);
 }
 
-const createCopy: Record<string, SetupCopy> = {
+const setupKeys = {
   calendar: {
-    eyebrow: "iCalendar feed",
-    description:
-      "Connect one or more public ICS calendars, choose which event details to expose, then preview real events before saving.",
-    tip: "Use the public or secret iCalendar subscription URL, not the normal calendar webpage.",
+    eyebrow: "sources.setup.calendar.eyebrow",
+    description: "sources.setup.calendar.description",
+    tip: "sources.setup.calendar.tip",
     steps: [
-      "Name the connection and paste the public ICS URL.",
-      "Choose the event window, fields, and timezone.",
-      "Preview real events, then save the Data Source.",
+      "sources.setup.calendar.step1",
+      "sources.setup.calendar.step2",
+      "sources.setup.calendar.step3",
     ],
   },
   rss: {
-    eyebrow: "News and updates",
-    description:
-      "Turn an RSS feed into clean, cached records for lists, tickers, tables, and layouts.",
-    tip: "Paste the direct feed URL. It often ends in /feed, .xml, or .rss.",
+    eyebrow: "sources.setup.rss.eyebrow",
+    description: "sources.setup.rss.description",
+    tip: "sources.setup.rss.tip",
     steps: [
-      "Name the connection and paste the RSS feed URL.",
-      "Choose the fields, item limit, and sort order.",
-      "Preview the mapped posts, then save.",
+      "sources.setup.rss.step1",
+      "sources.setup.rss.step2",
+      "sources.setup.rss.step3",
     ],
   },
   atom: {
-    eyebrow: "Published entries",
-    description:
-      "Turn an Atom feed into reusable records without making editors work through every technical option first.",
-    tip: "Use the direct Atom XML URL rather than the website homepage.",
+    eyebrow: "sources.setup.atom.eyebrow",
+    description: "sources.setup.atom.description",
+    tip: "sources.setup.atom.tip",
     steps: [
-      "Name the connection and paste the Atom feed URL.",
-      "Choose the fields, item limit, and sort order.",
-      "Preview the mapped entries, then save.",
+      "sources.setup.atom.step1",
+      "sources.setup.atom.step2",
+      "sources.setup.atom.step3",
     ],
   },
   json: {
-    eyebrow: "Structured API data",
-    description:
-      "Connect a public JSON endpoint, map its record paths, and verify the normalized result before saving.",
-    tip: 'JSON Pointer paths begin with a slash. Use / for a top-level array or /items for { "items": [...] }.',
+    eyebrow: "sources.setup.json.eyebrow",
+    description: "sources.setup.json.description",
+    tip: "sources.setup.json.tip",
     steps: [
-      "Paste the public JSON endpoint URL.",
-      "Map the list path and the fields your Widgets need.",
-      "Preview the mapped records, then save.",
+      "sources.setup.json.step1",
+      "sources.setup.json.step2",
+      "sources.setup.json.step3",
     ],
   },
   csv: {
-    eyebrow: "Spreadsheet data",
-    description:
-      "Upload a CSV or connect a hosted CSV, map its columns, and preview the rows Tilecast will cache.",
-    tip: "Column names must match the first row of the CSV. Start with the title column; the others are optional.",
+    eyebrow: "sources.setup.csv.eyebrow",
+    description: "sources.setup.csv.description",
+    tip: "sources.setup.csv.tip",
     steps: [
-      "Upload a CSV file or paste a direct CSV URL.",
-      "Map the column names and choose displayed fields.",
-      "Preview the mapped rows, then save.",
+      "sources.setup.csv.step1",
+      "sources.setup.csv.step2",
+      "sources.setup.csv.step3",
     ],
   },
   manual: {
-    eyebrow: "Editor-managed data",
-    description:
-      "Create a small typed table for announcements, prices, metrics, directories, and other reusable signage data.",
-    tip: "Choose stable field keys because Widgets refer to them when selecting content.",
+    eyebrow: "sources.setup.manual.eyebrow",
+    description: "sources.setup.manual.description",
+    tip: "sources.setup.manual.tip",
     steps: [
-      "Define the typed columns your Widgets need.",
-      "Enter up to 200 rows directly in Studio.",
-      "Save and reuse the table across multiple Widgets.",
+      "sources.setup.manual.step1",
+      "sources.setup.manual.step2",
+      "sources.setup.manual.step3",
     ],
   },
   weather: {
-    eyebrow: "Global forecast",
-    description:
-      "Cache current conditions and a seven-day forecast for one coordinate using MET Norway.",
-    tip: "Use coordinates rounded to four decimals and the IANA timezone for the location.",
+    eyebrow: "sources.setup.weather.eyebrow",
+    description: "sources.setup.weather.description",
+    tip: "sources.setup.weather.tip",
     steps: [
-      "Enter the location label, coordinates, and timezone.",
-      "Choose units and provide the required contact identity.",
-      "Preview the normalized forecast, then save.",
+      "sources.setup.weather.step1",
+      "sources.setup.weather.step2",
+      "sources.setup.weather.step3",
     ],
   },
   transit: {
-    eyebrow: "Public transport",
-    description:
-      "Join public GTFS schedules with realtime trip updates and optional service alerts.",
-    tip: "Use stable stop IDs from the agency’s GTFS Static feed.",
+    eyebrow: "sources.setup.transit.eyebrow",
+    description: "sources.setup.transit.description",
+    tip: "sources.setup.transit.tip",
     steps: [
-      "Enter the Static and Realtime feed URLs.",
-      "Choose stop IDs, route filters, and timezone.",
-      "Preview departures and alerts, then save.",
+      "sources.setup.transit.step1",
+      "sources.setup.transit.step2",
+      "sources.setup.transit.step3",
     ],
   },
-  cap_alerts: {
-    eyebrow: "Public warnings",
-    description:
-      "Normalize active public CAP 1.2 warnings from direct XML or a feed index.",
-    tip: "Area filters match the alert’s published area description.",
+  capAlerts: {
+    eyebrow: "sources.setup.capAlerts.eyebrow",
+    description: "sources.setup.capAlerts.description",
+    tip: "sources.setup.capAlerts.tip",
     steps: [
-      "Enter the CAP document or index URL.",
-      "Choose language, severity, and area filters.",
-      "Preview active alerts, then save.",
+      "sources.setup.capAlerts.step1",
+      "sources.setup.capAlerts.step2",
+      "sources.setup.capAlerts.step3",
     ],
   },
-  air_quality: {
-    eyebrow: "Environmental conditions",
-    description:
-      "Cache current AQI and hourly pollutant forecasts for one location.",
-    tip: "Hosted Open-Meteo access requires noncommercial acknowledgement; commercial deployments use a self-hosted endpoint.",
+  airQuality: {
+    eyebrow: "sources.setup.airQuality.eyebrow",
+    description: "sources.setup.airQuality.description",
+    tip: "sources.setup.airQuality.tip",
     steps: [
-      "Enter the location coordinates and timezone.",
-      "Choose AQI standard and measurements.",
-      "Confirm endpoint policy, preview, then save.",
+      "sources.setup.airQuality.step1",
+      "sources.setup.airQuality.step2",
+      "sources.setup.airQuality.step3",
     ],
   },
-};
+} as const;
+
+function setupKeysFor(provider: DataSourceProvider) {
+  switch (provider) {
+    case "calendar":
+      return setupKeys.calendar;
+    case "rss":
+      return setupKeys.rss;
+    case "atom":
+      return setupKeys.atom;
+    case "json":
+      return setupKeys.json;
+    case "csv":
+      return setupKeys.csv;
+    case "manual":
+      return setupKeys.manual;
+    case "weather":
+      return setupKeys.weather;
+    case "transit":
+      return setupKeys.transit;
+    case "cap_alerts":
+      return setupKeys.capAlerts;
+    case "air_quality":
+      return setupKeys.airQuality;
+    default:
+      return undefined;
+  }
+}
 
 export function providerIcon(provider: DataSourceProvider, size = 28) {
   if (provider === "calendar") return <CalendarDays size={size} />;

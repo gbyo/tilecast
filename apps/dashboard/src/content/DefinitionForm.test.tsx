@@ -24,6 +24,9 @@ import {
   dataSourceKeysIn,
   resolveDataSourceKey,
 } from "./DefinitionForm";
+import { i18n } from "../i18n";
+
+const t = i18n.getFixedT("en", "content");
 
 afterEach(() => {
   cleanup();
@@ -244,7 +247,7 @@ describe("dataFormatGuideFor", () => {
       },
     ];
 
-    expect(dataFormatGuideFor(fields[0]!, fields)).toEqual({
+    expect(dataFormatGuideFor(fields[0]!, fields, t)).toEqual({
       shape: "Record rows",
       summary:
         "Use these field roles and types. Field names can differ because you map them below.",
@@ -286,7 +289,7 @@ describe("dataFormatGuideFor", () => {
       },
     ];
 
-    const guide = dataFormatGuideFor(fields[0]!, fields);
+    const guide = dataFormatGuideFor(fields[0]!, fields, t);
 
     expect(guide.fields).toEqual([
       {

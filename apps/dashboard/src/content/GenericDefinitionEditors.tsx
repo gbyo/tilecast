@@ -5,7 +5,9 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useId, useRef, useState, type ReactNode } from "react";
-import { api, ApiError } from "../api/client";
+import { useTranslation } from "react-i18next";
+import { api } from "../api/client";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type {
   Asset,
   DataSourceDefinition,
@@ -48,6 +50,8 @@ export function GenericWidgetEditor({
   onSaved: (asset: Asset) => void;
 }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const previewRef = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(asset?.name ?? definition.name);
   const [description, setDescription] = useState(
@@ -127,8 +131,8 @@ export function GenericWidgetEditor({
       }
 
       if (!previewRef.current || !compiledPreview.data || sourcesLoading)
-        throw new Error("Wait for the Widget preview before saving.");
-      const previewImage = await captureWidgetPreview(previewRef.current);
+        throw new Error(t("definitions.generic.waitPreview"));
+      const previewImage = await captureWidgetPreview(previewRef.current, t);
       const saved = asset
         ? api.updateWidget(asset.id, input, csrf)
         : api.createWidget(input, csrf);
@@ -146,7 +150,12 @@ export function GenericWidgetEditor({
   });
   return (
     <GenericEditorShell
-      title={`${asset ? "Edit" : "Create"} ${definition.name}`}
+      title={t(
+        asset
+          ? "definitions.generic.editTitle"
+          : "definitions.generic.createTitle",
+        { name: definition.name },
+      )}
       description={definition.description}
       name={name}
       setName={setName}
@@ -158,7 +167,7 @@ export function GenericWidgetEditor({
       error={save.error}
       onClose={onClose}
       onSave={() => save.mutate()}
-      saveLabel="Save Widget"
+      saveLabel={t("definitions.generic.saveWidget")}
       previewControl={
         <PreviewTimeControl value={previewTime} onChange={setPreviewTime} />
       }
@@ -181,7 +190,7 @@ export function GenericWidgetEditor({
               }
             />
           ) : (
-            <span>Preparing preview…</span>
+            <span>{t("definitions.generic.preparing")}</span>
           )}
         </div>
       }
@@ -194,22 +203,29 @@ export function GenericWidgetEditor({
         csrf={csrf}
       />
       {managedSourceDiagnostics.data && (
-        <div className="source-diagnostics" aria-label="App source health">
-          <strong>App source</strong>
+        <div
+          className="source-diagnostics"
+          aria-label={t("definitions.generic.sourceHealth")}
+        >
+          <strong>{t("definitions.generic.appSource")}</strong>
           <p>
-            {managedSourceDiagnostics.data.parseStatus || "Pending"} ·{" "}
-            {managedSourceDiagnostics.data.availableItemCount} items
+            {t("definitions.generic.sourceSummary", {
+              status:
+                managedSourceDiagnostics.data.parseStatus ||
+                t("definitions.generic.pendingFallback"),
+              count: managedSourceDiagnostics.data.availableItemCount,
+            })}
             {managedSourceDiagnostics.data.usingCachedData
-              ? " · using cached data"
+              ? ` ${t("definitions.generic.usingCached")}`
               : ""}
           </p>
           <p>
-            Last successful update:{" "}
+            {t("definitions.generic.lastUpdate")}{" "}
             {managedSourceDiagnostics.data.lastSuccessfulRefresh
               ? new Date(
                   managedSourceDiagnostics.data.lastSuccessfulRefresh,
-                ).toLocaleString()
-              : "not yet"}
+                ).toLocaleString(locale)
+              : t("definitions.generic.notYet")}
           </p>
         </div>
       )}
@@ -233,6 +249,7 @@ export function GenericDataSourceEditor({
   onSaved: (source: DataSourceDetail) => void;
 }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(["content", "common"]);
   const [name, setName] = useState(dataSource?.name ?? definition.name);
   const [description, setDescription] = useState(
     dataSource?.description ?? definition.description,
@@ -259,7 +276,12 @@ export function GenericDataSourceEditor({
   });
   return (
     <GenericEditorShell
-      title={`${dataSource ? "Edit" : "Create"} ${definition.name}`}
+      title={t(
+        dataSource
+          ? "definitions.generic.editTitle"
+          : "definitions.generic.createTitle",
+        { name: definition.name },
+      )}
       description={definition.description}
       name={name}
       setName={setName}
@@ -271,7 +293,7 @@ export function GenericDataSourceEditor({
       error={save.error}
       onClose={onClose}
       onSave={() => save.mutate()}
-      saveLabel="Save Data Source"
+      saveLabel={t("definitions.generic.saveSource")}
     >
       <DefinitionForm
         fields={definition.configurationSchema.fields}
@@ -319,13 +341,20 @@ function GenericEditorShell({
   previewControl?: ReactNode;
   children: ReactNode;
 }) {
-  const subject = preview ? "Widget" : "Data Source";
+  const { t } = useTranslation(["content", "common"]);
+  const isWidget = Boolean(preview);
   const nameId = useId();
   const detailId = useId();
   const details = (
     <div className="form-grid">
       <Field>
-        <FieldLabel htmlFor={nameId}>{subject} name</FieldLabel>
+        <FieldLabel htmlFor={nameId}>
+          {t(
+            isWidget
+              ? "definitions.generic.widgetName"
+              : "definitions.generic.sourceName",
+          )}
+        </FieldLabel>
         <Input
           id={nameId}
           value={name}
@@ -333,10 +362,18 @@ function GenericEditorShell({
           maxLength={180}
           onChange={(event) => setName(event.target.value)}
         />
-        <FieldDescription>Used to find this {subject} later.</FieldDescription>
+        <FieldDescription>
+          {t(
+            isWidget
+              ? "definitions.generic.widgetHint"
+              : "definitions.generic.sourceHint",
+          )}
+        </FieldDescription>
       </Field>
       <Field>
-        <FieldLabel htmlFor={detailId}>Description</FieldLabel>
+        <FieldLabel htmlFor={detailId}>
+          {t("definitions.generic.descriptionLabel")}
+        </FieldLabel>
         <Textarea
           id={detailId}
           value={detail}
@@ -345,7 +382,7 @@ function GenericEditorShell({
           onChange={(event) => setDetail(event.target.value)}
         />
         <FieldDescription>
-          Optional notes for other people managing this installation.
+          {t("definitions.generic.descriptionHint")}
         </FieldDescription>
       </Field>
     </div>
@@ -361,36 +398,37 @@ function GenericEditorShell({
             <p>{description}</p>
           </div>
           <Button variant="ghost" onClick={onClose}>
-            Close
+            {t("common:actions.close")}
           </Button>
         </header>
         {preview ? (
           <div className="widget-editor__layout">
             <div className="widget-editor__form">
               <EditorSection
-                title="Widget details"
-                description="Name this Widget so it is easy to recognize later."
+                title={t("definitions.generic.detailsTitle")}
+                description={t("definitions.generic.detailsDescription")}
               >
                 {details}
               </EditorSection>
               <EditorSection
-                title="Content and appearance"
-                description="Choose what appears on screen and how it should be presented."
+                title={t("definitions.generic.contentTitle")}
+                description={t("definitions.generic.contentDescription")}
               >
                 {children}
               </EditorSection>
               {error && (
                 <Alert variant="destructive">
-                  <AlertDescription>
-                    {error instanceof ApiError ? error.message : error.message}
-                  </AlertDescription>
+                  <AlertDescription>{apiErrorMessage(error)}</AlertDescription>
                 </Alert>
               )}
             </div>
-            <aside className="widget-editor__preview" aria-label="Live preview">
+            <aside
+              className="widget-editor__preview"
+              aria-label={t("definitions.generic.livePreview")}
+            >
               <header>
-                <strong>Live preview</strong>
-                <span>Updates as you make changes.</span>
+                <strong>{t("definitions.generic.livePreview")}</strong>
+                <span>{t("definitions.generic.liveHint")}</span>
               </header>
               {previewControl}
               {preview}
@@ -402,23 +440,21 @@ function GenericEditorShell({
             {children}
             {error && (
               <Alert variant="destructive">
-                <AlertDescription>
-                  {error instanceof ApiError ? error.message : error.message}
-                </AlertDescription>
+                <AlertDescription>{apiErrorMessage(error)}</AlertDescription>
               </Alert>
             )}
           </div>
         )}
         <footer>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           {!readOnly && (
             <Button
               disabled={pending || saveDisabled || !name.trim()}
               onClick={onSave}
             >
-              {pending ? "Saving…" : saveLabel}
+              {pending ? t("common:actions.saving") : saveLabel}
             </Button>
           )}
         </footer>

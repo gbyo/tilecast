@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { apiErrorMessage } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
@@ -25,23 +27,23 @@ import type {
 import { EditorFrame, optionLabel } from "./shared";
 
 const feedModeOptions = [
-  { value: "auto", label: "Detect automatically" },
-  { value: "cap", label: "Direct CAP XML" },
-  { value: "index", label: "Atom/RSS index" },
-];
+  { value: "auto", labelKey: "sources.live.feedAuto" },
+  { value: "cap", labelKey: "sources.live.feedCap" },
+  { value: "index", labelKey: "sources.live.feedIndex" },
+] as const;
 
 const severityOptions = [
-  { value: "unknown", label: "Unknown" },
-  { value: "minor", label: "Minor" },
-  { value: "moderate", label: "Moderate" },
-  { value: "severe", label: "Severe" },
-  { value: "extreme", label: "Extreme" },
-];
+  { value: "unknown", labelKey: "sources.live.severityUnknown" },
+  { value: "minor", labelKey: "sources.live.severityMinor" },
+  { value: "moderate", labelKey: "sources.live.severityModerate" },
+  { value: "severe", labelKey: "sources.live.severitySevere" },
+  { value: "extreme", labelKey: "sources.live.severityExtreme" },
+] as const;
 
 const aqiStandardOptions = [
-  { value: "us", label: "US AQI" },
-  { value: "european", label: "European AQI" },
-];
+  { value: "us", labelKey: "sources.live.aqiUs" },
+  { value: "european", labelKey: "sources.live.aqiEuropean" },
+] as const;
 
 const pollutantOptions = [
   "pm2_5",
@@ -117,6 +119,7 @@ export function LiveDataSourceEditor({
   page?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(["content", "common"]);
   const [name, setName] = useState(dataSource?.name ?? "");
   const [description, setDescription] = useState(dataSource?.description ?? "");
   const [configuration, setConfiguration] = useState<LiveConfiguration>(
@@ -147,22 +150,39 @@ export function LiveDataSourceEditor({
   });
   const patch = (values: Partial<LiveConfiguration>) =>
     setConfiguration((current) => ({ ...current, ...values }));
+  const feedModes = feedModeOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const severities = severityOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const aqiStandards = aqiStandardOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const titleKey =
+    provider === "transit"
+      ? "sources.live.transitTitle"
+      : provider === "cap_alerts"
+        ? "sources.live.capTitle"
+        : "sources.live.airTitle";
+  const frameKey =
+    provider === "transit"
+      ? "sources.live.transitDescription"
+      : provider === "cap_alerts"
+        ? "sources.live.capDescription"
+        : "sources.live.airDescription";
   return (
     <EditorFrame
-      title={`${dataSource ? "Edit" : "Create"} ${
-        provider === "transit"
-          ? "Transit"
-          : provider === "cap_alerts"
-            ? "CAP Alerts"
-            : "Air Quality"
-      } Data Source`}
-      description={
-        provider === "transit"
-          ? "Join a public GTFS Static archive with GTFS Realtime departures and alerts."
-          : provider === "cap_alerts"
-            ? "Normalize active public CAP 1.2 alerts from XML or a bounded feed index."
-            : "Cache current and hourly air-quality values from the installation endpoint."
-      }
+      title={t(
+        dataSource ? "sources.live.editTitle" : "sources.live.createTitle",
+        {
+          provider: t(titleKey),
+        },
+      )}
+      description={t(frameKey)}
       page={page}
       onClose={onClose}
       footer={
@@ -172,14 +192,18 @@ export function LiveDataSourceEditor({
             disabled={save.isPending || !name.trim()}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? "Saving…" : "Save Data Source"}
+            {save.isPending
+              ? t("common:actions.saving")
+              : t("sources.shared.saveDataSource")}
           </RheaButton>
         )
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="live-name">Name</FieldLabel>
+          <FieldLabel htmlFor="live-name">
+            {t("sources.shared.name")}
+          </FieldLabel>
           <Input
             id="live-name"
             value={name}
@@ -188,7 +212,9 @@ export function LiveDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="live-description">Description</FieldLabel>
+          <FieldLabel htmlFor="live-description">
+            {t("sources.shared.description")}
+          </FieldLabel>
           <Input
             id="live-description"
             value={description}
@@ -202,7 +228,7 @@ export function LiveDataSourceEditor({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="transit-static-url">
-                GTFS Static ZIP URL
+                {t("sources.live.staticUrl")}
               </FieldLabel>
               <Input
                 id="transit-static-url"
@@ -213,7 +239,7 @@ export function LiveDataSourceEditor({
             </Field>
             <Field>
               <FieldLabel htmlFor="transit-trip-url">
-                Trip Updates URL
+                {t("sources.live.tripUrl")}
               </FieldLabel>
               <Input
                 id="transit-trip-url"
@@ -226,7 +252,7 @@ export function LiveDataSourceEditor({
             </Field>
             <Field>
               <FieldLabel htmlFor="transit-alerts-url">
-                Service Alerts URL (optional)
+                {t("sources.live.alertsUrl")}
               </FieldLabel>
               <Input
                 id="transit-alerts-url"
@@ -240,7 +266,9 @@ export function LiveDataSourceEditor({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="transit-timezone">IANA timezone</FieldLabel>
+              <FieldLabel htmlFor="transit-timezone">
+                {t("sources.live.ianaTimezone")}
+              </FieldLabel>
               <Input
                 id="transit-timezone"
                 value={(configuration as TransitSourceConfig).timezone}
@@ -251,7 +279,7 @@ export function LiveDataSourceEditor({
           </div>
           <Field>
             <FieldLabel htmlFor="transit-stop-ids">
-              Stop IDs (comma or newline separated)
+              {t("sources.live.stopIds")}
             </FieldLabel>
             <Textarea
               id="transit-stop-ids"
@@ -269,7 +297,7 @@ export function LiveDataSourceEditor({
           </Field>
           <Field>
             <FieldLabel htmlFor="transit-route-ids">
-              Route IDs (optional)
+              {t("sources.live.routeIds")}
             </FieldLabel>
             <Input
               id="transit-route-ids"
@@ -294,7 +322,9 @@ export function LiveDataSourceEditor({
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="cap-url">CAP or feed-index URL</FieldLabel>
+              <FieldLabel htmlFor="cap-url">
+                {t("sources.live.capUrl")}
+              </FieldLabel>
               <Input
                 id="cap-url"
                 value={(configuration as CAPAlertsSourceConfig).url}
@@ -303,7 +333,9 @@ export function LiveDataSourceEditor({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="cap-feed-mode">Feed mode</FieldLabel>
+              <FieldLabel htmlFor="cap-feed-mode">
+                {t("sources.live.feedMode")}
+              </FieldLabel>
               <RheaSelect
                 value={(configuration as CAPAlertsSourceConfig).feedMode}
                 disabled={readOnly}
@@ -313,16 +345,19 @@ export function LiveDataSourceEditor({
                   })
                 }
               >
-                <SelectTrigger id="cap-feed-mode" aria-label="Feed mode">
+                <SelectTrigger
+                  id="cap-feed-mode"
+                  aria-label={t("sources.live.feedMode")}
+                >
                   <SelectValue>
                     {optionLabel(
-                      feedModeOptions,
+                      feedModes,
                       (configuration as CAPAlertsSourceConfig).feedMode,
                     )}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {feedModeOptions.map((option) => (
+                  {feedModes.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -331,7 +366,9 @@ export function LiveDataSourceEditor({
               </RheaSelect>
             </Field>
             <Field>
-              <FieldLabel htmlFor="cap-language">Preferred language</FieldLabel>
+              <FieldLabel htmlFor="cap-language">
+                {t("sources.live.preferredLanguage")}
+              </FieldLabel>
               <Input
                 id="cap-language"
                 placeholder="en-US"
@@ -346,7 +383,9 @@ export function LiveDataSourceEditor({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="cap-severity">Minimum severity</FieldLabel>
+              <FieldLabel htmlFor="cap-severity">
+                {t("sources.live.minimumSeverity")}
+              </FieldLabel>
               <RheaSelect
                 value={(configuration as CAPAlertsSourceConfig).minimumSeverity}
                 disabled={readOnly}
@@ -357,16 +396,19 @@ export function LiveDataSourceEditor({
                   })
                 }
               >
-                <SelectTrigger id="cap-severity" aria-label="Minimum severity">
+                <SelectTrigger
+                  id="cap-severity"
+                  aria-label={t("sources.live.minimumSeverity")}
+                >
                   <SelectValue>
                     {optionLabel(
-                      severityOptions,
+                      severities,
                       (configuration as CAPAlertsSourceConfig).minimumSeverity,
                     )}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {severityOptions.map((option) => (
+                  {severities.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -377,7 +419,7 @@ export function LiveDataSourceEditor({
           </div>
           <Field>
             <FieldLabel htmlFor="cap-include-areas">
-              Include area keywords
+              {t("sources.live.includeAreas")}
             </FieldLabel>
             <Input
               id="cap-include-areas"
@@ -399,7 +441,7 @@ export function LiveDataSourceEditor({
           </Field>
           <Field>
             <FieldLabel htmlFor="cap-exclude-areas">
-              Exclude area keywords
+              {t("sources.live.excludeAreas")}
             </FieldLabel>
             <Input
               id="cap-exclude-areas"
@@ -426,14 +468,16 @@ export function LiveDataSourceEditor({
           <div className="grid gap-4 sm:grid-cols-2">
             {(
               [
-                ["locationLabel", "Location label", "text"],
-                ["timezone", "IANA timezone", "text"],
-                ["latitude", "Latitude", "number"],
-                ["longitude", "Longitude", "number"],
+                ["locationLabel", "sources.live.locationLabel", "text"],
+                ["timezone", "sources.live.timezone", "text"],
+                ["latitude", "sources.live.latitude", "number"],
+                ["longitude", "sources.live.longitude", "number"],
               ] as const
-            ).map(([key, label, type]) => (
+            ).map(([key, labelKey, type]) => (
               <Field key={key}>
-                <FieldLabel htmlFor={`air-quality-${key}`}>{label}</FieldLabel>
+                <FieldLabel htmlFor={`air-quality-${key}`}>
+                  {t(labelKey)}
+                </FieldLabel>
                 <Input
                   id={`air-quality-${key}`}
                   type={type}
@@ -460,7 +504,7 @@ export function LiveDataSourceEditor({
             ))}
             <Field>
               <FieldLabel htmlFor="air-quality-standard">
-                AQI standard
+                {t("sources.live.aqiStandard")}
               </FieldLabel>
               <RheaSelect
                 value={(configuration as AirQualitySourceConfig).aqiStandard}
@@ -473,17 +517,17 @@ export function LiveDataSourceEditor({
               >
                 <SelectTrigger
                   id="air-quality-standard"
-                  aria-label="AQI standard"
+                  aria-label={t("sources.live.aqiStandard")}
                 >
                   <SelectValue>
                     {optionLabel(
-                      aqiStandardOptions,
+                      aqiStandards,
                       (configuration as AirQualitySourceConfig).aqiStandard,
                     )}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {aqiStandardOptions.map((option) => (
+                  {aqiStandards.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -493,7 +537,9 @@ export function LiveDataSourceEditor({
             </Field>
           </div>
           <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium">Measurements</legend>
+            <legend className="text-sm font-medium">
+              {t("sources.live.measurements")}
+            </legend>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {pollutantOptions.map((pollutant) => (
                 // The wrapping label names the checkbox; no extra aria-label.
@@ -533,13 +579,10 @@ export function LiveDataSourceEditor({
                 patch({ nonCommercialAccepted: checked === true })
               }
             />
-            <span>
-              This installation’s hosted Open-Meteo use is noncommercial
-            </span>
+            <span>{t("sources.live.nonCommercial")}</span>
           </label>
           <FieldDescription>
-            Commercial installations must configure a self-hosted air-quality
-            endpoint at deployment time. API keys are not stored by Tilecast.
+            {t("sources.live.commercialNote")}
           </FieldDescription>
         </>
       )}
@@ -550,7 +593,9 @@ export function LiveDataSourceEditor({
           disabled={previewMutation.isPending}
           onClick={() => previewMutation.mutate()}
         >
-          {previewMutation.isPending ? "Loading preview…" : "Preview real data"}
+          {previewMutation.isPending
+            ? t("sources.shared.loadingPreview")
+            : t("sources.shared.previewRealData")}
         </RheaButton>
       )}
       {preview && (
@@ -562,10 +607,12 @@ export function LiveDataSourceEditor({
             >
               <strong className="text-sm">{dataset.id}</strong>
               <span className="text-sm text-muted-foreground">
-                {dataset.records?.length ??
-                  dataset.points?.length ??
-                  Object.keys(dataset.values ?? {}).length}{" "}
-                values
+                {t("sources.live.valuesCount", {
+                  count:
+                    dataset.records?.length ??
+                    dataset.points?.length ??
+                    Object.keys(dataset.values ?? {}).length,
+                })}
               </span>
               {dataset.attribution && (
                 <small className="text-xs text-muted-foreground">
@@ -579,20 +626,20 @@ export function LiveDataSourceEditor({
       {(save.error || previewMutation.error) && (
         <Alert variant="destructive">
           <AlertDescription>
-            {(save.error ?? previewMutation.error)?.message}
+            {apiErrorMessage(save.error ?? previewMutation.error)}
           </AlertDescription>
         </Alert>
       )}
       {dataSource && (
         <Alert>
           <AlertDescription>
-            Suggested Widgets:{" "}
-            {provider === "transit"
-              ? "Schedule / Departures, Timeline, Status Board"
-              : provider === "cap_alerts"
-                ? "Spotlight, Status Board, Timeline"
-                : "Stat Grid, Chart, Progress"}
-            .
+            {t(
+              provider === "transit"
+                ? "sources.live.suggestedTransit"
+                : provider === "cap_alerts"
+                  ? "sources.live.suggestedCap"
+                  : "sources.live.suggestedAir",
+            )}
           </AlertDescription>
         </Alert>
       )}

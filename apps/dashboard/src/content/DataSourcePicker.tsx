@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DataSource, DataSourceProvider } from "../api/types";
 import { Badge } from "../components/ui/badge";
@@ -49,7 +50,11 @@ import {
 import { Input } from "../components/ui/input";
 import { ConnectDataFlow } from "./DataSourceCreateFlow";
 import { previewRecordMaps } from "./previewRecords";
-import { providerLabel, sourceIcon } from "./dataSourceProviderMeta";
+import {
+  providerLabel,
+  sourceIcon,
+  type ContentT,
+} from "./dataSourceProviderMeta";
 
 // Studio shows at most this many sample values so a wide source cannot overflow the control.
 const sampleFieldLimit = 4;
@@ -78,106 +83,114 @@ function providerSignature(providers: DataSourceProvider[]) {
 // provider lists still give us enough information to present a useful contract, while
 // definition-driven Widgets pass an exact guide derived from their field schema.
 function inferredFormatGuide(
-  providers?: DataSourceProvider[],
+  providers: DataSourceProvider[] | undefined,
+  t: ContentT,
 ): DataFormatGuide | undefined {
   if (!providers?.length) return undefined;
   const signature = providerSignature(providers);
   if (signature === "weather")
     return {
-      shape: "Weather data",
-      summary:
-        "Use a Weather Data Source; Tilecast supplies its typed forecast fields.",
+      shape: t("sources.picker.guide.weather.shape"),
+      summary: t("sources.picker.guide.weather.summary"),
       fields: [
         {
           key: "temperature",
-          label: "Temperature and conditions",
+          label: t("sources.picker.guide.weather.tempField"),
           types: ["number", "text"],
         },
       ],
-      example: { temperature: 72, condition: "Partly cloudy" },
+      example: {
+        temperature: 72,
+        condition: t("sources.picker.guide.weather.exampleCondition"),
+      },
     };
   if (signature === "csv,json,manual,weather")
     return {
-      shape: "Records with a numeric value",
-      summary: "Each row needs the number this Widget should feature.",
+      shape: t("sources.picker.guide.numeric.shape"),
+      summary: t("sources.picker.guide.numeric.summary"),
       fields: [
         {
           key: "value",
-          label: "Value",
+          label: t("sources.picker.guide.numeric.valueField"),
           types: ["number", "integer"],
           required: true,
         },
       ],
-      example: { label: "Daily attendance", value: 94.6 },
+      example: {
+        label: t("sources.picker.guide.numeric.exampleLabel"),
+        value: 94.6,
+      },
     };
   if (signature === "air_quality,csv,json,manual,weather")
     return {
-      shape: "Numeric records or a time series",
-      summary:
-        "Provide one or more numeric fields that can be mapped in the Widget.",
+      shape: t("sources.picker.guide.series.shape"),
+      summary: t("sources.picker.guide.series.summary"),
       fields: [
         {
           key: "value",
-          label: "Measured value",
+          label: t("sources.picker.guide.series.valueField"),
           types: ["number", "integer", "percent", "currency"],
           required: true,
         },
       ],
-      example: { label: "Fundraising", value: 7450, target: 10000 },
+      example: {
+        label: t("sources.picker.guide.series.exampleLabel"),
+        value: 7450,
+        target: 10000,
+      },
     };
   if (
     signature === "calendar,csv,json,manual,weather" ||
     signature === "calendar,cap_alerts,csv,json,manual,transit,weather"
   )
     return {
-      shape: "Time-ordered records",
-      summary:
-        "Each row should have a readable title and a date or date-and-time field.",
+      shape: t("sources.picker.guide.time.shape"),
+      summary: t("sources.picker.guide.time.summary"),
       fields: [
         {
           key: "title",
-          label: "Title",
+          label: t("sources.picker.guide.time.titleField"),
           types: ["text"],
           required: true,
         },
         {
           key: "start",
-          label: "Date or time",
+          label: t("sources.picker.guide.time.startField"),
           types: ["date", "datetime"],
           required: true,
         },
       ],
       example: {
-        title: "Period 2",
+        title: t("sources.picker.guide.time.exampleTitle"),
         start: "2026-08-24T09:03:00-04:00",
       },
     };
   return {
-    shape: "Record rows",
-    summary:
-      "Use one row per item and map the fields you want the Widget to display.",
+    shape: t("sources.picker.guide.rows.shape"),
+    summary: t("sources.picker.guide.rows.summary"),
     fields: [
       {
         key: "title",
-        label: "Display field",
+        label: t("sources.picker.guide.rows.titleField"),
         types: ["text", "number", "date", "datetime"],
         required: true,
       },
     ],
     example: {
-      title: "Today’s announcement",
-      detail: "Library closes at 4 PM",
+      title: t("sources.picker.guide.rows.exampleTitle"),
+      detail: t("sources.picker.guide.rows.exampleDetail"),
     },
   };
 }
 
-function dataTypeLabel(type: string) {
-  if (type === "datetime") return "date & time";
-  if (type === "integer") return "whole number";
+function dataTypeLabel(type: string, t: ContentT) {
+  if (type === "datetime") return t("sources.picker.typeDatetime");
+  if (type === "integer") return t("sources.picker.typeInteger");
   return type.replaceAll("_", " ");
 }
 
 function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
+  const { t } = useTranslation("content");
   return (
     <Collapsible defaultOpen>
       <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -185,7 +198,9 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
           <Database size={18} />
         </span>
         <span className="grid flex-1 gap-0.5">
-          <strong className="text-sm font-medium">Data format</strong>
+          <strong className="text-sm font-medium">
+            {t("sources.picker.guideTitle")}
+          </strong>
           <small className="text-xs text-muted-foreground">{guide.shape}</small>
         </span>
         <ChevronDown size={16} aria-hidden="true" />
@@ -200,7 +215,7 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
                   <strong className="font-medium">{field.label}</strong>
                   {field.required && (
                     <small className="text-xs text-muted-foreground">
-                      Required
+                      {t("sources.picker.requiredFlag")}
                     </small>
                   )}
                 </span>
@@ -210,7 +225,7 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
                       key={type}
                       className="rounded-md bg-muted px-1.5 py-0.5 text-xs"
                     >
-                      {dataTypeLabel(type)}
+                      {dataTypeLabel(type, t)}
                     </code>
                   ))}
                 </span>
@@ -223,7 +238,7 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
             example into a tall column of punctuation an author has to read past. */}
         <div className="grid gap-1">
           <span className="text-xs font-medium text-muted-foreground">
-            Example row
+            {t("sources.picker.exampleRow")}
           </span>
           <dl className="grid gap-0.5 rounded-xl bg-muted p-2 text-sm">
             {Object.entries(guide.example).map(([key, entry]) => (
@@ -246,28 +261,29 @@ function statusDotClass(status: unknown) {
 }
 
 export function SourceStatus({ status }: { status: unknown }) {
+  const { t } = useTranslation("content");
   return (
     <Badge variant="outline">
       <span
         className={`size-1.5 rounded-full ${statusDotClass(status)}`}
         aria-hidden="true"
       />
-      {statusLabel(status)}
+      {statusLabel(status, t)}
     </Badge>
   );
 }
 
-function statusLabel(status: unknown) {
-  if (status === "error") return "Last refresh failed";
+function statusLabel(status: unknown, t: ContentT) {
+  if (status === "error") return t("sources.picker.statusError");
   if (typeof status !== "string" || status.length === 0)
-    return "Status unavailable";
-  if (status === "ready") return "Ready";
+    return t("sources.picker.statusUnknown");
+  if (status === "ready") return t("sources.picker.statusReady");
   return status.replaceAll("_", " ");
 }
 
-function recordCountLabel(recordCount: unknown) {
+function recordCountLabel(recordCount: unknown, t: ContentT) {
   if (typeof recordCount !== "number") return undefined;
-  return `${recordCount} record${recordCount === 1 ? "" : "s"}`;
+  return t("sources.picker.records", { count: recordCount });
 }
 
 // useConnectDataFlow owns the two-step Connect state. Both the empty state and the picker
@@ -314,6 +330,7 @@ export function ConnectDataNotice({
   disabled?: boolean;
   onCreated: (id: string) => void;
 }) {
+  const { t } = useTranslation("content");
   const connect = useConnectDataFlow(createProviders, csrf, onCreated);
   const canCreate = !disabled && Boolean(csrf);
   return (
@@ -323,12 +340,12 @@ export function ConnectDataNotice({
           <EmptyMedia variant="icon">
             <Database size={20} aria-hidden="true" />
           </EmptyMedia>
-          <EmptyTitle>No compatible data connected yet</EmptyTitle>
+          <EmptyTitle>{t("sources.picker.emptyTitle")}</EmptyTitle>
           <EmptyDescription>
             {message ??
               (canCreate
-                ? "Connect a calendar, spreadsheet, feed, or table to fill this Widget."
-                : "Ask an editor to connect a compatible Data Source.")}
+                ? t("sources.picker.emptyCreateHint")
+                : t("sources.picker.emptyReadonlyHint"))}
           </EmptyDescription>
         </EmptyHeader>
         {canCreate && (
@@ -339,7 +356,8 @@ export function ConnectDataNotice({
               size="sm"
               onClick={connect.open}
             >
-              <Plus size={15} aria-hidden="true" /> Connect new data
+              <Plus size={15} aria-hidden="true" />{" "}
+              {t("sources.picker.connectNew")}
             </RheaButton>
           </EmptyContent>
         )}
@@ -350,7 +368,7 @@ export function ConnectDataNotice({
 }
 
 export function DataSourcePicker({
-  label = "Data Source",
+  label,
   description,
   value,
   sources,
@@ -385,15 +403,17 @@ export function DataSourcePicker({
   formatGuide?: DataFormatGuide;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const connect = useConnectDataFlow(createProviders, csrf, onChange);
   const [choosing, setChoosing] = useState(false);
+  const resolvedLabel = label ?? t("sources.providerLabels.dataSource");
   const selected = sources.find((source) => source.id === value);
   // A referenced source that is not in the compatible list — deleted, or no longer accepted by
   // this field — must be shown as missing rather than silently resolving to another source.
   const missing = Boolean(value) && !selected;
   const canCreate = allowCreate && !disabled && Boolean(csrf);
   const resolvedFormatGuide =
-    formatGuide ?? inferredFormatGuide(createProviders);
+    formatGuide ?? inferredFormatGuide(createProviders, t);
 
   // Sample values come from the saved-source preview, fetched only for the selected source.
   // The list response carries no records, so previewing every row would be an N+1.
@@ -431,16 +451,20 @@ export function DataSourcePicker({
         <>
           <div className="grid gap-1">
             <span className="text-sm font-medium">
-              {label}
+              {resolvedLabel}
               {required ? " *" : ""}
             </span>
             <button
               type="button"
               className="flex w-full items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-              aria-label={`${label}: ${
-                selected?.name ??
-                (missing ? "Unavailable Data Source" : "Choose data")
-              }`}
+              aria-label={t("sources.picker.triggerLabel", {
+                label: resolvedLabel,
+                current:
+                  selected?.name ??
+                  (missing
+                    ? t("sources.picker.unavailableFallback")
+                    : t("sources.picker.chooseData")),
+              })}
               aria-haspopup="dialog"
               aria-expanded={choosing}
               disabled={disabled}
@@ -456,16 +480,18 @@ export function DataSourcePicker({
               <span className="grid flex-1 gap-0.5">
                 <strong className="truncate text-sm font-medium">
                   {selected?.name ??
-                    (missing ? "Unavailable Data Source" : "Choose data")}
+                    (missing
+                      ? t("sources.picker.unavailableFallback")
+                      : t("sources.picker.chooseData"))}
                 </strong>
                 <small className="text-xs text-muted-foreground">
                   {selected
-                    ? providerLabel(selected.provider)
+                    ? providerLabel(selected.provider, t)
                     : missing
-                      ? "Choose a replacement"
-                      : `${sources.length} compatible ${
-                          sources.length === 1 ? "source" : "sources"
-                        }`}
+                      ? t("sources.picker.chooseReplacement")
+                      : t("sources.picker.compatibleCount", {
+                          count: sources.length,
+                        })}
                 </small>
               </span>
               <ChevronRight size={18} aria-hidden="true" />
@@ -478,17 +504,16 @@ export function DataSourcePicker({
           </div>
           {missing && (
             <p role="alert" className="text-sm text-destructive">
-              The Data Source this was built with is no longer available. Choose
-              another to keep this content working.
+              {t("sources.picker.missingAlert")}
             </p>
           )}
           {selected && (
             <div className="grid gap-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <SourceStatus status={selected.status} />
-                {recordCountLabel(selected.cachedRecordCount) && (
+                {recordCountLabel(selected.cachedRecordCount, t) && (
                   <span className="text-xs text-muted-foreground">
-                    {recordCountLabel(selected.cachedRecordCount)}
+                    {recordCountLabel(selected.cachedRecordCount, t)}
                   </span>
                 )}
               </div>
@@ -546,11 +571,12 @@ function DataSourceSelectionDialog({
   onConnect: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
   const visible = needle
     ? sources.filter((source) =>
-        `${source.name} ${providerLabel(source.provider)}`
+        `${source.name} ${providerLabel(source.provider, t)}`
           .toLowerCase()
           .includes(needle),
       )
@@ -567,17 +593,17 @@ function DataSourceSelectionDialog({
     >
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Choose data</DialogTitle>
+          <DialogTitle>{t("sources.picker.chooseData")}</DialogTitle>
           <DialogDescription>
-            Select an existing compatible source or connect a new one.
+            {t("sources.picker.dialogDescription")}
           </DialogDescription>
         </DialogHeader>
         {sources.length > 1 && (
           <Input
             type="search"
             value={query}
-            placeholder="Search sources"
-            aria-label="Search compatible sources"
+            placeholder={t("sources.picker.searchPlaceholder")}
+            aria-label={t("sources.picker.searchLabel")}
             onChange={(event) => setQuery(event.target.value)}
           />
         )}
@@ -593,13 +619,20 @@ function DataSourceSelectionDialog({
                   <X size={18} />
                 </span>
                 <span className="grid flex-1 gap-0.5">
-                  <strong className="text-sm font-medium">No data</strong>
+                  <strong className="text-sm font-medium">
+                    {t("sources.picker.noData")}
+                  </strong>
                   <small className="text-xs text-muted-foreground">
-                    Leave this Widget disconnected.
+                    {t("sources.picker.noDataHint")}
                   </small>
                 </span>
                 <span aria-hidden="true" />
-                {!value && <Check size={18} aria-label="Selected" />}
+                {!value && (
+                  <Check
+                    size={18}
+                    aria-label={t("sources.picker.selectedLabel")}
+                  />
+                )}
               </button>
             </li>
           )}
@@ -618,19 +651,22 @@ function DataSourceSelectionDialog({
                     {source.name}
                   </strong>
                   <small className="text-xs text-muted-foreground">
-                    {providerLabel(source.provider)}
+                    {providerLabel(source.provider, t)}
                   </small>
                 </span>
                 <span className="grid items-end gap-1">
                   <SourceStatus status={source.status} />
-                  {recordCountLabel(source.cachedRecordCount) && (
+                  {recordCountLabel(source.cachedRecordCount, t) && (
                     <small className="text-xs text-muted-foreground">
-                      {recordCountLabel(source.cachedRecordCount)}
+                      {recordCountLabel(source.cachedRecordCount, t)}
                     </small>
                   )}
                 </span>
                 {value === source.id && (
-                  <Check size={18} aria-label="Selected" />
+                  <Check
+                    size={18}
+                    aria-label={t("sources.picker.selectedLabel")}
+                  />
                 )}
               </button>
             </li>
@@ -638,17 +674,18 @@ function DataSourceSelectionDialog({
         </ul>
         {needle && visible.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No compatible sources match “{query}”.
+            {t("sources.picker.noMatch", { query })}
           </p>
         )}
         <DialogFooter>
           {canCreate && (
             <RheaButton type="button" onClick={onConnect}>
-              <Plus size={15} aria-hidden="true" /> Connect new data
+              <Plus size={15} aria-hidden="true" />{" "}
+              {t("sources.picker.connectNew")}
             </RheaButton>
           )}
           <RheaButton type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t("common:actions.cancel")}
           </RheaButton>
         </DialogFooter>
       </DialogContent>

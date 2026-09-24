@@ -33,7 +33,9 @@ import {
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import QRCode from "qrcode";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import type {
   Asset,
   DataSource,
@@ -63,6 +65,7 @@ import type {
   PresentationNode,
 } from "../api/types";
 import { DataSourcePicker } from "./DataSourcePicker";
+import type { ContentT } from "./dataSourceProviderMeta";
 import { WidgetThumbnail } from "./WidgetThumbnail";
 import { previewRecordMaps, type PreviewDatasets } from "./previewRecords";
 import { PreviewTimeControl } from "./PreviewTimeControl";
@@ -96,19 +99,30 @@ export function WidgetProviderGallery({
     return () => removeEventListener("keydown", escape);
   }, [onClose]);
 
+  const { t } = useTranslation(["content", "common"]);
   const catalog = definitions.data?.widgets ?? [];
   const categories = [
-    "News",
-    "Google",
-    "Design & Documents",
-    "Dashboards",
-    "Feeds",
-    "Video",
-    "Social",
-    "Building Blocks / Advanced",
-  ];
+    { value: "News", labelKey: "editors.gallery.catNews" },
+    { value: "Google", labelKey: "editors.gallery.catGoogle" },
+    { value: "Design & Documents", labelKey: "editors.gallery.catDesign" },
+    { value: "Dashboards", labelKey: "editors.gallery.catDashboards" },
+    { value: "Feeds", labelKey: "editors.gallery.catFeeds" },
+    { value: "Video", labelKey: "editors.gallery.catVideo" },
+    { value: "Social", labelKey: "editors.gallery.catSocial" },
+    {
+      value: "Building Blocks / Advanced",
+      labelKey: "editors.gallery.catAdvanced",
+    },
+  ] as const;
+  const categoryLabel = (name: string) => {
+    if (name === "All") return t("editors.gallery.catAll");
+    if (name === "Featured") return t("editors.gallery.featured");
+    const entry = categories.find((candidate) => candidate.value === name);
+    return entry ? t(entry.labelKey) : name;
+  };
   const galleryCategory = (definition: (typeof catalog)[number]) => {
-    if (categories.includes(definition.category)) return definition.category;
+    if (categories.some((entry) => entry.value === definition.category))
+      return definition.category;
     if (definition.id === "youtube") return "Video";
     return "Building Blocks / Advanced";
   };
@@ -130,10 +144,10 @@ export function WidgetProviderGallery({
   const sections =
     category === "All"
       ? categories
-          .map((name) => ({
-            name,
+          .map((entry) => ({
+            name: entry.value,
             items: visible.filter(
-              (definition) => galleryCategory(definition) === name,
+              (definition) => galleryCategory(definition) === entry.value,
             ),
           }))
           .filter((section) => section.items.length > 0)
@@ -205,17 +219,17 @@ export function WidgetProviderGallery({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <h2 id="source-gallery-title" className="text-xl font-semibold">
-              Create Widget
+              {t("editors.gallery.title")}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Choose an App or building block for your signage.
+              {t("editors.gallery.subtitle")}
             </p>
           </div>
           <RheaButton
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Close"
+            aria-label={t("common:actions.close")}
             onClick={onClose}
           >
             <X aria-hidden="true" />
@@ -225,25 +239,28 @@ export function WidgetProviderGallery({
           <Input
             type="search"
             value={search}
-            placeholder="Search Apps and Widgets"
-            aria-label="Search Widget catalog"
+            placeholder={t("editors.gallery.searchPlaceholder")}
+            aria-label={t("editors.gallery.searchLabel")}
             onChange={(event) => setSearch(event.target.value)}
             className="max-w-xs"
           />
           <div
             className="flex flex-wrap items-center gap-1"
-            aria-label="Widget categories"
+            aria-label={t("editors.gallery.categoriesLabel")}
           >
-            {["All", ...categories].map((name) => (
+            {[
+              { value: "All", labelKey: "editors.gallery.catAll" as const },
+              ...categories,
+            ].map((entry) => (
               <RheaButton
                 type="button"
-                key={name}
-                variant={category === name ? "secondary" : "ghost"}
+                key={entry.value}
+                variant={category === entry.value ? "secondary" : "ghost"}
                 size="sm"
-                aria-pressed={category === name}
-                onClick={() => setCategory(name)}
+                aria-pressed={category === entry.value}
+                onClick={() => setCategory(entry.value)}
               >
-                {name}
+                {t(entry.labelKey)}
               </RheaButton>
             ))}
           </div>
@@ -252,9 +269,11 @@ export function WidgetProviderGallery({
           {category === "All" && !needle && featured.length > 0 && (
             <section className="grid gap-2">
               <div className="space-y-0.5">
-                <h3 className="text-sm font-semibold">Featured</h3>
+                <h3 className="text-sm font-semibold">
+                  {t("editors.gallery.featured")}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Recommended integrations for common signage needs.
+                  {t("editors.gallery.featuredHint")}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -264,21 +283,23 @@ export function WidgetProviderGallery({
           )}
           {sections.map((section) => (
             <section className="grid gap-2" key={section.name}>
-              <h3 className="text-sm font-semibold">{section.name}</h3>
+              <h3 className="text-sm font-semibold">
+                {categoryLabel(section.name)}
+              </h3>
               {section.items.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {section.items.map(card)}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No Widgets match this search.
+                  {t("editors.gallery.noMatch")}
                 </p>
               )}
             </section>
           ))}
           {visible.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              No Apps or Widgets match “{search}”.
+              {t("editors.gallery.noResults", { query: search })}
             </p>
           )}
         </div>
@@ -322,7 +343,7 @@ type NativeConfig =
   | ProgressWidgetConfig
   | TimelineWidgetConfig
   | WorldClockWidgetConfig;
-const nativeDefault = (provider: NativeProvider): NativeConfig => {
+const nativeDefault = (provider: NativeProvider, t: ContentT): NativeConfig => {
   const colors = { foregroundColor: "#F5F7FA", backgroundColor: "#0E141B" };
   if (provider === "clock")
     return {
@@ -353,7 +374,7 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       recurrence: "none",
       layout: "stacked",
       label: "",
-      completionText: "Event started",
+      completionText: t("editors.native.defaults.eventStarted"),
       completionAction: "completed_text",
       showDays: true,
       showHours: true,
@@ -369,7 +390,7 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       format: "number",
       precision: 0,
       alignment: "center",
-      emptyState: "No value available",
+      emptyState: t("editors.native.defaults.emptyValue"),
       ...colors,
     };
   if (provider === "cards")
@@ -379,7 +400,7 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       columns: 2,
       maximumItems: 6,
       density: "comfortable",
-      emptyState: "No items available",
+      emptyState: t("editors.native.defaults.emptyItems"),
       ...colors,
     };
   if (provider === "weather")
@@ -397,15 +418,21 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
     return {
       dataSourceId: "",
       titleField: "",
-      emptyState: "No information available",
+      emptyState: t("editors.native.defaults.emptyInfo"),
       ...colors,
     };
   if (provider === "stat_grid")
     return {
       dataSourceId: "",
-      metrics: [{ label: "Value", valueField: "", format: "number" }],
+      metrics: [
+        {
+          label: t("editors.native.defaults.metricLabel"),
+          valueField: "",
+          format: "number",
+        },
+      ],
       columns: 2,
-      emptyState: "No information available",
+      emptyState: t("editors.native.defaults.emptyInfo"),
       ...colors,
     };
   if (provider === "chart")
@@ -413,10 +440,16 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       dataSourceId: "",
       dataset: "records",
       chartType: "line",
-      series: [{ field: "", label: "Series 1", color: "#4DB6FF" }],
+      series: [
+        {
+          field: "",
+          label: t("editors.native.defaults.seriesLabel", { index: 1 }),
+          color: "#4DB6FF",
+        },
+      ],
       showLegend: true,
       showAxes: true,
-      emptyState: "No chart data available",
+      emptyState: t("editors.native.defaults.emptyChart"),
       ...colors,
     };
   if (provider === "progress")
@@ -424,10 +457,10 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       dataSourceId: "",
       valueField: "",
       staticTarget: 100,
-      label: "Progress",
+      label: t("editors.native.defaults.progressLabel"),
       showPercent: true,
-      completionText: "Complete",
-      emptyState: "No information available",
+      completionText: t("editors.native.defaults.completeText"),
+      emptyState: t("editors.native.defaults.emptyInfo"),
       ...colors,
     };
   if (provider === "timeline")
@@ -437,14 +470,14 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       titleField: "",
       orientation: "vertical",
       maximumItems: 8,
-      emptyState: "No milestones available",
+      emptyState: t("editors.native.defaults.emptyMilestones"),
       ...colors,
     };
   if (provider === "world_clock")
     return {
       zones: [
         {
-          label: "Local",
+          label: t("editors.native.defaults.localZone"),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         },
       ],
@@ -459,7 +492,7 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       dataSourceId: "",
       fields: ["title", "subtitle"],
       maximumItems: provider === "menu" ? 2 : 20,
-      emptyState: "No items available",
+      emptyState: t("editors.native.defaults.emptyItems"),
       rowSpacing: "comfortable",
       mode: provider === "menu" ? "single_record" : "records",
       ...colors,
@@ -470,12 +503,12 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
     separator: " • ",
     speed: "normal",
     direction: "left",
-    emptyState: "No items available",
+    emptyState: t("editors.native.defaults.emptyItems"),
     ...colors,
   };
 };
 
-function nativeWidgetGuidance(provider: NativeProvider) {
+function nativeWidgetGuidance(provider: NativeProvider, t: ContentT) {
   if (
     [
       "ticker",
@@ -493,11 +526,11 @@ function nativeWidgetGuidance(provider: NativeProvider) {
       "timeline",
     ].includes(provider)
   )
-    return "Connect the information to show, choose how it is presented, and check the live preview.";
-  return "Configure what appears on screen and check the live preview as you work.";
+    return t("editors.native.guidanceData");
+  return t("editors.native.guidanceSimple");
 }
 
-function nativeWidgetContentGuidance(provider: NativeProvider) {
+function nativeWidgetContentGuidance(provider: NativeProvider, t: ContentT) {
   if (
     [
       "ticker",
@@ -515,17 +548,37 @@ function nativeWidgetContentGuidance(provider: NativeProvider) {
       "timeline",
     ].includes(provider)
   )
-    return "Start by choosing the data this Widget should use, then map and format the fields that appear.";
+    return t("editors.native.contentGuidanceData");
   if (provider === "countdown")
-    return "Set the target time, decide what happens when it is reached, and choose which time units appear.";
-  if (provider === "qrcode")
-    return "Enter the destination people should open after scanning, then add an optional on-screen label.";
+    return t("editors.native.contentGuidanceCountdown");
+  if (provider === "qrcode") return t("editors.native.contentGuidanceQrcode");
   if (provider === "world_clock")
-    return "Add each location and its IANA timezone, such as America/New_York or Europe/London.";
+    return t("editors.native.contentGuidanceWorldClock");
   if (provider === "clock" || provider === "date")
-    return "Choose the timezone and format that should appear on the screen.";
-  return "Enter the content people should see and choose how it behaves on screen.";
+    return t("editors.native.contentGuidanceClockDate");
+  return t("editors.native.contentGuidanceSimple");
 }
+
+const providerNameKeys = {
+  clock: "editors.native.providerNames.clock",
+  date: "editors.native.providerNames.date",
+  qrcode: "editors.native.providerNames.qrcode",
+  countdown: "editors.native.providerNames.countdown",
+  ticker: "editors.native.providerNames.ticker",
+  menu: "editors.native.providerNames.menu",
+  list: "editors.native.providerNames.list",
+  table: "editors.native.providerNames.table",
+  agenda: "editors.native.providerNames.agenda",
+  metric: "editors.native.providerNames.metric",
+  cards: "editors.native.providerNames.cards",
+  weather: "editors.native.providerNames.weather",
+  spotlight: "editors.native.providerNames.spotlight",
+  stat_grid: "editors.native.providerNames.statGrid",
+  chart: "editors.native.providerNames.chart",
+  progress: "editors.native.providerNames.progress",
+  timeline: "editors.native.providerNames.timeline",
+  world_clock: "editors.native.providerNames.worldClock",
+} as const satisfies Record<NativeProvider, string>;
 
 export function NativeAppEditor({
   provider,
@@ -547,13 +600,15 @@ export function NativeAppEditor({
   presetId?: WidgetPreset;
 }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(["content", "common"]);
   const previewRef = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(asset?.name ?? "");
   const [description, setDescription] = useState(asset?.description ?? "");
   const [configuration, setConfiguration] = useState<NativeConfig>(
     (asset?.widget?.configuration as NativeConfig | undefined) ??
-      nativeDefault(provider),
+      nativeDefault(provider, t),
   );
+  const providerName = t(providerNameKeys[provider]);
   const [previewTime, setPreviewTime] = useState(initialPreviewTime);
   const dataSources = useQuery({
     queryKey: ["widget-data-sources"],
@@ -689,8 +744,8 @@ export function NativeAppEditor({
         !compiledPreview.data ||
         (selectedDataSourceId && sourcePreview.isLoading)
       )
-        throw new Error("Wait for the Widget preview before saving.");
-      const previewImage = await captureWidgetPreview(previewRef.current);
+        throw new Error(t("editors.native.waitPreview"));
+      const previewImage = await captureWidgetPreview(previewRef.current, t);
       const input = { provider, presetId, name, description, configuration };
       const saved = asset
         ? api.updateWidget(asset.id, input, csrf)
@@ -738,21 +793,22 @@ export function NativeAppEditor({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <h2 id="native-app-title" className="text-xl font-semibold">
-              {asset ? "Edit" : "Create"}{" "}
-              {provider === "qrcode"
-                ? "QR Code"
-                : provider[0]!.toUpperCase() + provider.slice(1)}{" "}
-              Widget
+              {t(
+                asset
+                  ? "editors.native.titleEdit"
+                  : "editors.native.titleCreate",
+                { provider: providerName },
+              )}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {nativeWidgetGuidance(provider)}
+              {nativeWidgetGuidance(provider, t)}
             </p>
           </div>
           <RheaButton
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Close"
+            aria-label={t("common:actions.close")}
             onClick={onClose}
           >
             <X aria-hidden="true" />
@@ -762,20 +818,28 @@ export function NativeAppEditor({
           {presetId && (
             <Alert>
               <AlertDescription>
-                Guided preset: <strong>{presetId.replaceAll("_", " ")}</strong>.
-                This saves as a reusable {provider.replaceAll("_", " ")} Widget;
-                playback does not depend on the preset.
+                <Trans
+                  i18nKey="editors.native.presetNotice"
+                  ns="content"
+                  values={{
+                    preset: presetId.replaceAll("_", " "),
+                    provider: provider.replaceAll("_", " "),
+                  }}
+                  components={{ preset: <strong /> }}
+                />
               </AlertDescription>
             </Alert>
           )}
           <section className="widget-editor__section">
             <header>
-              <h3>Widget details</h3>
-              <p>Name this Widget so it is easy to recognize later.</p>
+              <h3>{t("editors.native.detailsTitle")}</h3>
+              <p>{t("editors.native.detailsDescription")}</p>
             </header>
             <div className="widget-editor__section-body">
               <Field>
-                <FieldLabel htmlFor="widget-name">Widget name</FieldLabel>
+                <FieldLabel htmlFor="widget-name">
+                  {t("editors.native.widgetName")}
+                </FieldLabel>
                 <Input
                   id="widget-name"
                   value={name}
@@ -783,11 +847,13 @@ export function NativeAppEditor({
                   onChange={(e) => setName(e.target.value)}
                 />
                 <FieldDescription>
-                  Used to find this Widget in Content and playlists.
+                  {t("editors.native.widgetHint")}
                 </FieldDescription>
               </Field>
               <Field>
-                <FieldLabel htmlFor="description">Description</FieldLabel>
+                <FieldLabel htmlFor="description">
+                  {t("editors.native.descriptionLabel")}
+                </FieldLabel>
                 <Input
                   id="description"
                   value={description}
@@ -795,20 +861,22 @@ export function NativeAppEditor({
                   onChange={(e) => setDescription(e.target.value)}
                 />
                 <FieldDescription>
-                  Optional notes for other people managing this installation.
+                  {t("editors.native.descriptionHint")}
                 </FieldDescription>
               </Field>
             </div>
           </section>
           <section className="widget-editor__section">
             <header>
-              <h3>Content and behavior</h3>
-              <p>{nativeWidgetContentGuidance(provider)}</p>
+              <h3>{t("editors.native.contentTitle")}</h3>
+              <p>{nativeWidgetContentGuidance(provider, t)}</p>
             </header>
             <div className="widget-editor__section-body">
               {(provider === "clock" || provider === "date") && (
                 <Field>
-                  <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+                  <FieldLabel htmlFor="timezone">
+                    {t("editors.native.clock.timezone")}
+                  </FieldLabel>
                   <Input
                     id="timezone"
                     value={
@@ -824,8 +892,7 @@ export function NativeAppEditor({
                     }
                   />
                   <FieldDescription>
-                    Use an IANA timezone such as America/New_York. Use UTC for
-                    universal time.
+                    {t("editors.native.clock.timezoneHint")}
                   </FieldDescription>
                 </Field>
               )}
@@ -833,12 +900,18 @@ export function NativeAppEditor({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="widget-time-format">
-                      Time format
+                      {t("editors.native.clock.timeFormat")}
                     </FieldLabel>
                     <RheaSelect
                       items={[
-                        { value: "12", label: "12-hour" },
-                        { value: "24", label: "24-hour" },
+                        {
+                          value: "12",
+                          label: t("editors.native.clock.format12"),
+                        },
+                        {
+                          value: "24",
+                          label: t("editors.native.clock.format24"),
+                        },
                       ]}
                       value={(configuration as ClockWidgetConfig).format}
                       disabled={readOnly}
@@ -851,13 +924,17 @@ export function NativeAppEditor({
                     >
                       <SelectTrigger
                         id="widget-time-format"
-                        aria-label="Time format"
+                        aria-label={t("editors.native.clock.timeFormat")}
                       >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="12">12-hour</SelectItem>
-                        <SelectItem value="24">24-hour</SelectItem>
+                        <SelectItem value="12">
+                          {t("editors.native.clock.format12")}
+                        </SelectItem>
+                        <SelectItem value="24">
+                          {t("editors.native.clock.format24")}
+                        </SelectItem>
                       </SelectContent>
                     </RheaSelect>
                   </Field>
@@ -871,23 +948,35 @@ export function NativeAppEditor({
                           showSeconds: checked === true,
                         }))
                       }
-                      aria-label="Show seconds"
+                      aria-label={t("editors.native.clock.showSeconds")}
                     />
-                    <span>Show seconds</span>
+                    <span>{t("editors.native.clock.showSeconds")}</span>
                   </label>
                 </div>
               )}
               {provider === "date" && (
                 <Field>
                   <FieldLabel htmlFor="widget-date-format">
-                    Date format
+                    {t("editors.native.date.dateFormat")}
                   </FieldLabel>
                   <RheaSelect
                     items={[
-                      { value: "full", label: "Full" },
-                      { value: "long", label: "Long" },
-                      { value: "medium", label: "Medium" },
-                      { value: "short", label: "Short" },
+                      {
+                        value: "full",
+                        label: t("editors.native.date.formatFull"),
+                      },
+                      {
+                        value: "long",
+                        label: t("editors.native.date.formatLong"),
+                      },
+                      {
+                        value: "medium",
+                        label: t("editors.native.date.formatMedium"),
+                      },
+                      {
+                        value: "short",
+                        label: t("editors.native.date.formatShort"),
+                      },
                     ]}
                     value={(configuration as DateWidgetConfig).format}
                     disabled={readOnly}
@@ -900,15 +989,23 @@ export function NativeAppEditor({
                   >
                     <SelectTrigger
                       id="widget-date-format"
-                      aria-label="Date format"
+                      aria-label={t("editors.native.date.dateFormat")}
                     >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="full">Full</SelectItem>
-                      <SelectItem value="long">Long</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="short">Short</SelectItem>
+                      <SelectItem value="full">
+                        {t("editors.native.date.formatFull")}
+                      </SelectItem>
+                      <SelectItem value="long">
+                        {t("editors.native.date.formatLong")}
+                      </SelectItem>
+                      <SelectItem value="medium">
+                        {t("editors.native.date.formatMedium")}
+                      </SelectItem>
+                      <SelectItem value="short">
+                        {t("editors.native.date.formatShort")}
+                      </SelectItem>
                     </SelectContent>
                   </RheaSelect>
                 </Field>
@@ -918,7 +1015,7 @@ export function NativeAppEditor({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="countdown-target">
-                        Target date and time
+                        {t("editors.native.countdown.target")}
                       </FieldLabel>
                       <Input
                         id="countdown-target"
@@ -935,7 +1032,7 @@ export function NativeAppEditor({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="countdown-timezone">
-                        Timezone
+                        {t("editors.native.countdown.timezone")}
                       </FieldLabel>
                       <Input
                         id="countdown-timezone"
@@ -952,11 +1049,19 @@ export function NativeAppEditor({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="countdown-mode">Mode</FieldLabel>
+                      <FieldLabel htmlFor="countdown-mode">
+                        {t("editors.native.countdown.mode")}
+                      </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "countdown", label: "Count down" },
-                          { value: "count_up", label: "Count up" },
+                          {
+                            value: "countdown",
+                            label: t("editors.native.countdown.modeDown"),
+                          },
+                          {
+                            value: "count_up",
+                            label: t("editors.native.countdown.modeUp"),
+                          },
                         ]}
                         value={(configuration as CountdownWidgetConfig).mode}
                         disabled={readOnly}
@@ -972,24 +1077,48 @@ export function NativeAppEditor({
                           }))
                         }
                       >
-                        <SelectTrigger id="countdown-mode" aria-label="Mode">
+                        <SelectTrigger
+                          id="countdown-mode"
+                          aria-label={t("editors.native.countdown.mode")}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="countdown">Count down</SelectItem>
-                          <SelectItem value="count_up">Count up</SelectItem>
+                          <SelectItem value="countdown">
+                            {t("editors.native.countdown.modeDown")}
+                          </SelectItem>
+                          <SelectItem value="count_up">
+                            {t("editors.native.countdown.modeUp")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="countdown-repeat">Repeat</FieldLabel>
+                      <FieldLabel htmlFor="countdown-repeat">
+                        {t("editors.native.countdown.repeat")}
+                      </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "none", label: "Does not repeat" },
-                          { value: "daily", label: "Daily" },
-                          { value: "weekly", label: "Weekly" },
-                          { value: "monthly", label: "Monthly" },
-                          { value: "yearly", label: "Yearly" },
+                          {
+                            value: "none",
+                            label: t("editors.native.countdown.repeatNone"),
+                          },
+                          {
+                            value: "daily",
+                            label: t("editors.native.countdown.repeatDaily"),
+                          },
+                          {
+                            value: "weekly",
+                            label: t("editors.native.countdown.repeatWeekly"),
+                          },
+                          {
+                            value: "monthly",
+                            label: t("editors.native.countdown.repeatMonthly"),
+                          },
+                          {
+                            value: "yearly",
+                            label: t("editors.native.countdown.repeatYearly"),
+                          },
                         ]}
                         value={
                           (configuration as CountdownWidgetConfig).recurrence ??
@@ -1010,29 +1139,49 @@ export function NativeAppEditor({
                       >
                         <SelectTrigger
                           id="countdown-repeat"
-                          aria-label="Repeat"
+                          aria-label={t("editors.native.countdown.repeat")}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">Does not repeat</SelectItem>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                          <SelectItem value="yearly">Yearly</SelectItem>
+                          <SelectItem value="none">
+                            {t("editors.native.countdown.repeatNone")}
+                          </SelectItem>
+                          <SelectItem value="daily">
+                            {t("editors.native.countdown.repeatDaily")}
+                          </SelectItem>
+                          <SelectItem value="weekly">
+                            {t("editors.native.countdown.repeatWeekly")}
+                          </SelectItem>
+                          <SelectItem value="monthly">
+                            {t("editors.native.countdown.repeatMonthly")}
+                          </SelectItem>
+                          <SelectItem value="yearly">
+                            {t("editors.native.countdown.repeatYearly")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="countdown-layout">Layout</FieldLabel>
+                      <FieldLabel htmlFor="countdown-layout">
+                        {t("editors.native.countdown.layout")}
+                      </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "stacked", label: "Title above countdown" },
+                          {
+                            value: "stacked",
+                            label: t("editors.native.countdown.layoutStacked"),
+                          },
                           {
                             value: "horizontal",
-                            label: "Title beside countdown",
+                            label: t(
+                              "editors.native.countdown.layoutHorizontal",
+                            ),
                           },
-                          { value: "countdown_only", label: "Countdown only" },
+                          {
+                            value: "countdown_only",
+                            label: t("editors.native.countdown.layoutOnly"),
+                          },
                         ]}
                         value={
                           (configuration as CountdownWidgetConfig).layout ??
@@ -1048,35 +1197,41 @@ export function NativeAppEditor({
                       >
                         <SelectTrigger
                           id="countdown-layout"
-                          aria-label="Layout"
+                          aria-label={t("editors.native.countdown.layout")}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="stacked">
-                            Title above countdown
+                            {t("editors.native.countdown.layoutStacked")}
                           </SelectItem>
                           <SelectItem value="horizontal">
-                            Title beside countdown
+                            {t("editors.native.countdown.layoutHorizontal")}
                           </SelectItem>
                           <SelectItem value="countdown_only">
-                            Countdown only
+                            {t("editors.native.countdown.layoutOnly")}
                           </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="countdown-completion">
-                        Completion behavior
+                        {t("editors.native.countdown.completion")}
                       </FieldLabel>
                       <RheaSelect
                         items={[
                           {
                             value: "completed_text",
-                            label: "Show completion text",
+                            label: t("editors.native.countdown.completionShow"),
                           },
-                          { value: "hide", label: "Hide" },
-                          { value: "count_up", label: "Continue counting up" },
+                          {
+                            value: "hide",
+                            label: t("editors.native.countdown.completionHide"),
+                          },
+                          {
+                            value: "count_up",
+                            label: t("editors.native.countdown.completionUp"),
+                          },
                         ]}
                         value={
                           (configuration as CountdownWidgetConfig)
@@ -1097,17 +1252,19 @@ export function NativeAppEditor({
                       >
                         <SelectTrigger
                           id="countdown-completion"
-                          aria-label="Completion behavior"
+                          aria-label={t("editors.native.countdown.completion")}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="completed_text">
-                            Show completion text
+                            {t("editors.native.countdown.completionShow")}
                           </SelectItem>
-                          <SelectItem value="hide">Hide</SelectItem>
+                          <SelectItem value="hide">
+                            {t("editors.native.countdown.completionHide")}
+                          </SelectItem>
                           <SelectItem value="count_up">
-                            Continue counting up
+                            {t("editors.native.countdown.completionUp")}
                           </SelectItem>
                         </SelectContent>
                       </RheaSelect>
@@ -1115,7 +1272,9 @@ export function NativeAppEditor({
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="countdown-title">Title</FieldLabel>
+                      <FieldLabel htmlFor="countdown-title">
+                        {t("editors.native.countdown.title")}
+                      </FieldLabel>
                       <Input
                         id="countdown-title"
                         value={
@@ -1136,7 +1295,7 @@ export function NativeAppEditor({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="countdown-completion-text">
-                        Completion text
+                        {t("editors.native.countdown.completionText")}
                       </FieldLabel>
                       <Input
                         id="countdown-completion-text"
@@ -1160,36 +1319,42 @@ export function NativeAppEditor({
                   </div>
                   <fieldset className="grid gap-2">
                     <legend className="text-sm font-medium">
-                      Visible units
+                      {t("editors.native.countdown.units")}
                     </legend>
                     <div className="flex flex-wrap gap-x-4 gap-y-2">
-                      {(["Days", "Hours", "Minutes", "Seconds"] as const).map(
-                        (unit) => {
-                          const key =
-                            `show${unit}` as keyof CountdownWidgetConfig;
-                          return (
-                            <label
-                              key={unit}
-                              className="flex items-center gap-2 text-sm"
-                            >
-                              <RheaCheckbox
-                                checked={Boolean(
-                                  (configuration as CountdownWidgetConfig)[key],
-                                )}
-                                disabled={readOnly}
-                                onCheckedChange={(checked) =>
-                                  setConfiguration((current) => ({
-                                    ...current,
-                                    [key]: checked === true,
-                                  }))
-                                }
-                                aria-label={unit}
-                              />
-                              <span>{unit}</span>
-                            </label>
-                          );
-                        },
-                      )}
+                      {(
+                        [
+                          ["Days", "editors.native.countdown.unitDays"],
+                          ["Hours", "editors.native.countdown.unitHours"],
+                          ["Minutes", "editors.native.countdown.unitMinutes"],
+                          ["Seconds", "editors.native.countdown.unitSeconds"],
+                        ] as const
+                      ).map(([unit, labelKey]) => {
+                        const key =
+                          `show${unit}` as keyof CountdownWidgetConfig;
+                        const unitLabel = t(labelKey);
+                        return (
+                          <label
+                            key={unit}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <RheaCheckbox
+                              checked={Boolean(
+                                (configuration as CountdownWidgetConfig)[key],
+                              )}
+                              disabled={readOnly}
+                              onCheckedChange={(checked) =>
+                                setConfiguration((current) => ({
+                                  ...current,
+                                  [key]: checked === true,
+                                }))
+                              }
+                              aria-label={unitLabel}
+                            />
+                            <span>{unitLabel}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </fieldset>
                 </>
@@ -1197,7 +1362,9 @@ export function NativeAppEditor({
               {provider === "qrcode" && (
                 <>
                   <Field>
-                    <FieldLabel htmlFor="qrcode-value">Text or URL</FieldLabel>
+                    <FieldLabel htmlFor="qrcode-value">
+                      {t("editors.native.qr.source")}
+                    </FieldLabel>
                     <Textarea
                       id="qrcode-value"
                       value={(configuration as QRCodeWidgetConfig).value}
@@ -1213,7 +1380,9 @@ export function NativeAppEditor({
                   </Field>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="qrcode-label">Label</FieldLabel>
+                      <FieldLabel htmlFor="qrcode-label">
+                        {t("editors.native.qr.label")}
+                      </FieldLabel>
                       <Input
                         id="qrcode-label"
                         value={
@@ -1230,14 +1399,26 @@ export function NativeAppEditor({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="qrcode-error-correction">
-                        Error correction
+                        {t("editors.native.qr.errorCorrection")}
                       </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "low", label: "Low" },
-                          { value: "medium", label: "Medium" },
-                          { value: "quartile", label: "Quartile" },
-                          { value: "high", label: "High" },
+                          {
+                            value: "low",
+                            label: t("editors.native.qr.ecLow"),
+                          },
+                          {
+                            value: "medium",
+                            label: t("editors.native.qr.ecMedium"),
+                          },
+                          {
+                            value: "quartile",
+                            label: t("editors.native.qr.ecQuartile"),
+                          },
+                          {
+                            value: "high",
+                            label: t("editors.native.qr.ecHigh"),
+                          },
                         ]}
                         value={
                           (configuration as QRCodeWidgetConfig).errorCorrection
@@ -1253,31 +1434,49 @@ export function NativeAppEditor({
                       >
                         <SelectTrigger
                           id="qrcode-error-correction"
-                          aria-label="Error correction"
+                          aria-label={t("editors.native.qr.errorCorrection")}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="quartile">Quartile</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="low">
+                            {t("editors.native.qr.ecLow")}
+                          </SelectItem>
+                          <SelectItem value="medium">
+                            {t("editors.native.qr.ecMedium")}
+                          </SelectItem>
+                          <SelectItem value="quartile">
+                            {t("editors.native.qr.ecQuartile")}
+                          </SelectItem>
+                          <SelectItem value="high">
+                            {t("editors.native.qr.ecHigh")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                       <FieldDescription>
-                        Higher correction is easier to scan if the code is
-                        damaged, but makes the pattern denser.
+                        {t("editors.native.qr.ecHint")}
                       </FieldDescription>
                     </Field>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="qrcode-speed">Speed</FieldLabel>
+                      <FieldLabel htmlFor="qrcode-speed">
+                        {t("editors.native.qr.speed")}
+                      </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "slow", label: "Slow" },
-                          { value: "normal", label: "Normal" },
-                          { value: "fast", label: "Fast" },
+                          {
+                            value: "slow",
+                            label: t("editors.native.qr.speedSlow"),
+                          },
+                          {
+                            value: "normal",
+                            label: t("editors.native.qr.speedNormal"),
+                          },
+                          {
+                            value: "fast",
+                            label: t("editors.native.qr.speedFast"),
+                          },
                         ]}
                         value={(configuration as TickerWidgetConfig).speed}
                         disabled={readOnly}
@@ -1288,24 +1487,39 @@ export function NativeAppEditor({
                           }))
                         }
                       >
-                        <SelectTrigger id="qrcode-speed" aria-label="Speed">
+                        <SelectTrigger
+                          id="qrcode-speed"
+                          aria-label={t("editors.native.qr.speed")}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="slow">Slow</SelectItem>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="fast">Fast</SelectItem>
+                          <SelectItem value="slow">
+                            {t("editors.native.qr.speedSlow")}
+                          </SelectItem>
+                          <SelectItem value="normal">
+                            {t("editors.native.qr.speedNormal")}
+                          </SelectItem>
+                          <SelectItem value="fast">
+                            {t("editors.native.qr.speedFast")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="qrcode-direction">
-                        Direction
+                        {t("editors.native.qr.direction")}
                       </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "left", label: "Left" },
-                          { value: "right", label: "Right" },
+                          {
+                            value: "left",
+                            label: t("editors.native.qr.directionLeft"),
+                          },
+                          {
+                            value: "right",
+                            label: t("editors.native.qr.directionRight"),
+                          },
                         ]}
                         value={(configuration as TickerWidgetConfig).direction}
                         disabled={readOnly}
@@ -1318,13 +1532,17 @@ export function NativeAppEditor({
                       >
                         <SelectTrigger
                           id="qrcode-direction"
-                          aria-label="Direction"
+                          aria-label={t("editors.native.qr.direction")}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="left">Left</SelectItem>
-                          <SelectItem value="right">Right</SelectItem>
+                          <SelectItem value="left">
+                            {t("editors.native.qr.directionLeft")}
+                          </SelectItem>
+                          <SelectItem value="right">
+                            {t("editors.native.qr.directionRight")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
@@ -1332,8 +1550,7 @@ export function NativeAppEditor({
                   {(configuration as QRCodeWidgetConfig).value.length > 500 && (
                     <Alert>
                       <AlertDescription>
-                        Dense QR Code. Test scanning at the intended display
-                        distance.
+                        {t("editors.native.qr.denseWarning")}
                       </AlertDescription>
                     </Alert>
                   )}
@@ -1357,7 +1574,7 @@ export function NativeAppEditor({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <fieldset className="grid gap-2">
                       <legend className="text-sm font-medium">
-                        Fields (up to three)
+                        {t("editors.native.ticker.fields")}
                       </legend>
                       <div className="flex flex-wrap gap-x-4 gap-y-2">
                         {availableFields.map((field) => {
@@ -1409,7 +1626,7 @@ export function NativeAppEditor({
                     </fieldset>
                     <Field>
                       <FieldLabel htmlFor="ticker-separator">
-                        Separator
+                        {t("editors.native.ticker.separator")}
                       </FieldLabel>
                       <Input
                         id="ticker-separator"
@@ -1425,7 +1642,7 @@ export function NativeAppEditor({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="ticker-field-separator">
-                        Field separator
+                        {t("editors.native.ticker.fieldSeparator")}
                       </FieldLabel>
                       <Input
                         id="ticker-field-separator"
@@ -1462,11 +1679,11 @@ export function NativeAppEditor({
                   />
                   <fieldset className="grid gap-2">
                     <legend className="text-sm font-medium">
-                      Displayed fields
+                      {t("editors.native.display.fields")}
                     </legend>
                     {!availableFields.length ? (
                       <p className="text-sm text-muted-foreground">
-                        Select a Data Source to choose its fields.
+                        {t("editors.native.display.selectSource")}
                       </p>
                     ) : (
                       <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -1513,15 +1730,27 @@ export function NativeAppEditor({
                     <div className="grid gap-3 sm:grid-cols-2">
                       {(
                         [
-                          ["primaryField", "Primary field"],
-                          ["secondaryField", "Secondary field"],
-                          ["leadingField", "Leading field"],
-                          ["trailingField", "Trailing field"],
+                          [
+                            "primaryField",
+                            "editors.native.display.primaryField",
+                          ],
+                          [
+                            "secondaryField",
+                            "editors.native.display.secondaryField",
+                          ],
+                          [
+                            "leadingField",
+                            "editors.native.display.leadingField",
+                          ],
+                          [
+                            "trailingField",
+                            "editors.native.display.trailingField",
+                          ],
                         ] as const
-                      ).map(([key, label]) => (
+                      ).map(([key, labelKey]) => (
                         <FieldSelect
                           key={key}
-                          label={label}
+                          label={t(labelKey)}
                           value={
                             (configuration as DisplayWidgetConfig)[key] ?? ""
                           }
@@ -1549,9 +1778,9 @@ export function NativeAppEditor({
                               showDividers: checked === true,
                             }))
                           }
-                          aria-label="Show row dividers"
+                          aria-label={t("editors.native.display.showDividers")}
                         />
-                        <span>Show row dividers</span>
+                        <span>{t("editors.native.display.showDividers")}</span>
                       </label>
                     </div>
                   )}
@@ -1559,15 +1788,18 @@ export function NativeAppEditor({
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field>
                         <FieldLabel htmlFor="menu-presentation">
-                          Presentation
+                          {t("editors.native.display.presentation")}
                         </FieldLabel>
                         <RheaSelect
                           items={[
                             {
                               value: "single_record",
-                              label: "Fields from one record",
+                              label: t("editors.native.display.modeSingle"),
                             },
-                            { value: "records", label: "Label and value rows" },
+                            {
+                              value: "records",
+                              label: t("editors.native.display.modeRows"),
+                            },
                           ]}
                           value={
                             (configuration as DisplayWidgetConfig).mode ??
@@ -1583,16 +1815,18 @@ export function NativeAppEditor({
                         >
                           <SelectTrigger
                             id="menu-presentation"
-                            aria-label="Presentation"
+                            aria-label={t(
+                              "editors.native.display.presentation",
+                            )}
                           >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="single_record">
-                              Fields from one record
+                              {t("editors.native.display.modeSingle")}
                             </SelectItem>
                             <SelectItem value="records">
-                              Label and value rows
+                              {t("editors.native.display.modeRows")}
                             </SelectItem>
                           </SelectContent>
                         </RheaSelect>
@@ -1601,7 +1835,7 @@ export function NativeAppEditor({
                         "records" && (
                         <>
                           <FieldSelect
-                            label="Label field"
+                            label={t("editors.native.display.labelField")}
                             value={
                               (configuration as DisplayWidgetConfig)
                                 .labelField ?? ""
@@ -1616,7 +1850,7 @@ export function NativeAppEditor({
                             }
                           />
                           <FieldSelect
-                            label="Value field"
+                            label={t("editors.native.display.valueField")}
                             value={
                               (configuration as DisplayWidgetConfig)
                                 .valueField ?? ""
@@ -1650,9 +1884,9 @@ export function NativeAppEditor({
                                 showHeader: checked === true,
                               }))
                             }
-                            aria-label="Show column headers"
+                            aria-label={t("editors.native.display.showHeader")}
                           />
-                          <span>Show column headers</span>
+                          <span>{t("editors.native.display.showHeader")}</span>
                         </label>
                         <label className="flex items-center gap-2 text-sm">
                           <RheaCheckbox
@@ -1667,14 +1901,18 @@ export function NativeAppEditor({
                                 alternatingRows: checked === true,
                               }))
                             }
-                            aria-label="Alternate row backgrounds"
+                            aria-label={t(
+                              "editors.native.display.alternatingRows",
+                            )}
                           />
-                          <span>Alternate row backgrounds</span>
+                          <span>
+                            {t("editors.native.display.alternatingRows")}
+                          </span>
                         </label>
                       </div>
                       <fieldset className="grid gap-2">
                         <legend className="text-sm font-medium">
-                          Column presentation
+                          {t("editors.native.display.columnPresentation")}
                         </legend>
                         {(configuration as DisplayWidgetConfig).fields.map(
                           (fieldKey) => {
@@ -1715,7 +1953,7 @@ export function NativeAppEditor({
                                   <FieldLabel
                                     htmlFor={`column-label-${fieldKey}`}
                                   >
-                                    Label
+                                    {t("editors.native.display.columnLabel")}
                                   </FieldLabel>
                                   <Input
                                     id={`column-label-${fieldKey}`}
@@ -1732,22 +1970,51 @@ export function NativeAppEditor({
                                   <FieldLabel
                                     htmlFor={`column-format-${fieldKey}`}
                                   >
-                                    Format
+                                    {t("editors.native.display.columnFormat")}
                                   </FieldLabel>
                                   <RheaSelect
                                     items={[
-                                      { value: "text", label: "Text" },
-                                      { value: "number", label: "Number" },
-                                      { value: "integer", label: "Integer" },
-                                      { value: "percent", label: "Percent" },
-                                      { value: "currency", label: "Currency" },
+                                      {
+                                        value: "text",
+                                        label: t(
+                                          "editors.native.display.formatText",
+                                        ),
+                                      },
+                                      {
+                                        value: "number",
+                                        label: t(
+                                          "editors.native.display.formatNumber",
+                                        ),
+                                      },
+                                      {
+                                        value: "integer",
+                                        label: t(
+                                          "editors.native.display.formatInteger",
+                                        ),
+                                      },
+                                      {
+                                        value: "percent",
+                                        label: t(
+                                          "editors.native.display.formatPercent",
+                                        ),
+                                      },
+                                      {
+                                        value: "currency",
+                                        label: t(
+                                          "editors.native.display.formatCurrency",
+                                        ),
+                                      },
                                       {
                                         value: "date-short",
-                                        label: "Short date",
+                                        label: t(
+                                          "editors.native.display.formatShortDate",
+                                        ),
                                       },
                                       {
                                         value: "date-long",
-                                        label: "Long date",
+                                        label: t(
+                                          "editors.native.display.formatLongDate",
+                                        ),
                                       },
                                     ]}
                                     value={existing.format ?? "text"}
@@ -1760,29 +2027,46 @@ export function NativeAppEditor({
                                   >
                                     <SelectTrigger
                                       id={`column-format-${fieldKey}`}
-                                      aria-label={`Format for ${fieldKey}`}
+                                      aria-label={t(
+                                        "editors.native.display.formatFor",
+                                        { field: fieldKey },
+                                      )}
                                     >
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="text">Text</SelectItem>
+                                      <SelectItem value="text">
+                                        {t("editors.native.display.formatText")}
+                                      </SelectItem>
                                       <SelectItem value="number">
-                                        Number
+                                        {t(
+                                          "editors.native.display.formatNumber",
+                                        )}
                                       </SelectItem>
                                       <SelectItem value="integer">
-                                        Integer
+                                        {t(
+                                          "editors.native.display.formatInteger",
+                                        )}
                                       </SelectItem>
                                       <SelectItem value="percent">
-                                        Percent
+                                        {t(
+                                          "editors.native.display.formatPercent",
+                                        )}
                                       </SelectItem>
                                       <SelectItem value="currency">
-                                        Currency
+                                        {t(
+                                          "editors.native.display.formatCurrency",
+                                        )}
                                       </SelectItem>
                                       <SelectItem value="date-short">
-                                        Short date
+                                        {t(
+                                          "editors.native.display.formatShortDate",
+                                        )}
                                       </SelectItem>
                                       <SelectItem value="date-long">
-                                        Long date
+                                        {t(
+                                          "editors.native.display.formatLongDate",
+                                        )}
                                       </SelectItem>
                                     </SelectContent>
                                   </RheaSelect>
@@ -1791,13 +2075,30 @@ export function NativeAppEditor({
                                   <FieldLabel
                                     htmlFor={`column-alignment-${fieldKey}`}
                                   >
-                                    Alignment
+                                    {t(
+                                      "editors.native.display.columnAlignment",
+                                    )}
                                   </FieldLabel>
                                   <RheaSelect
                                     items={[
-                                      { value: "left", label: "Left" },
-                                      { value: "center", label: "Center" },
-                                      { value: "right", label: "Right" },
+                                      {
+                                        value: "left",
+                                        label: t(
+                                          "editors.native.display.alignLeft",
+                                        ),
+                                      },
+                                      {
+                                        value: "center",
+                                        label: t(
+                                          "editors.native.display.alignCenter",
+                                        ),
+                                      },
+                                      {
+                                        value: "right",
+                                        label: t(
+                                          "editors.native.display.alignRight",
+                                        ),
+                                      },
                                     ]}
                                     value={existing.alignment ?? "left"}
                                     disabled={readOnly}
@@ -1810,17 +2111,24 @@ export function NativeAppEditor({
                                   >
                                     <SelectTrigger
                                       id={`column-alignment-${fieldKey}`}
-                                      aria-label={`Alignment for ${fieldKey}`}
+                                      aria-label={t(
+                                        "editors.native.display.alignmentFor",
+                                        { field: fieldKey },
+                                      )}
                                     >
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="left">Left</SelectItem>
+                                      <SelectItem value="left">
+                                        {t("editors.native.display.alignLeft")}
+                                      </SelectItem>
                                       <SelectItem value="center">
-                                        Center
+                                        {t(
+                                          "editors.native.display.alignCenter",
+                                        )}
                                       </SelectItem>
                                       <SelectItem value="right">
-                                        Right
+                                        {t("editors.native.display.alignRight")}
                                       </SelectItem>
                                     </SelectContent>
                                   </RheaSelect>
@@ -1829,7 +2137,7 @@ export function NativeAppEditor({
                                   <FieldLabel
                                     htmlFor={`column-width-${fieldKey}`}
                                   >
-                                    Width %
+                                    {t("editors.native.display.columnWidth")}
                                   </FieldLabel>
                                   <Input
                                     id={`column-width-${fieldKey}`}
@@ -1856,16 +2164,22 @@ export function NativeAppEditor({
                     <div className="grid gap-3 sm:grid-cols-2">
                       {(
                         [
-                          ["dateField", "Date field"],
-                          ["timeField", "Time field"],
-                          ["titleField", "Title field"],
-                          ["locationField", "Location field"],
-                          ["descriptionField", "Description field"],
+                          ["dateField", "editors.native.display.agendaDate"],
+                          ["timeField", "editors.native.display.agendaTime"],
+                          ["titleField", "editors.native.display.agendaTitle"],
+                          [
+                            "locationField",
+                            "editors.native.display.agendaLocation",
+                          ],
+                          [
+                            "descriptionField",
+                            "editors.native.display.agendaDescription",
+                          ],
                         ] as const
-                      ).map(([key, label]) => (
+                      ).map(([key, labelKey]) => (
                         <FieldSelect
                           key={key}
-                          label={label}
+                          label={t(labelKey)}
                           value={
                             (configuration as DisplayWidgetConfig)[key] ?? ""
                           }
@@ -1884,7 +2198,7 @@ export function NativeAppEditor({
                   )}
                   <Field>
                     <FieldLabel htmlFor="display-maximum-items">
-                      Maximum items
+                      {t("editors.native.display.maxItems")}
                     </FieldLabel>
                     <Input
                       id="display-maximum-items"
@@ -1903,12 +2217,12 @@ export function NativeAppEditor({
                       }
                     />
                     <FieldDescription>
-                      Limits how many rows or events can appear at once.
+                      {t("editors.native.display.maxItemsHint")}
                     </FieldDescription>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="display-empty-state">
-                      Message when there is no data
+                      {t("editors.native.display.emptyMessage")}
                     </FieldLabel>
                     <Input
                       id="display-empty-state"
@@ -1924,7 +2238,7 @@ export function NativeAppEditor({
                       }
                     />
                     <FieldDescription>
-                      Shown on screen when the source returns no usable records.
+                      {t("editors.native.display.emptyMessageHint")}
                     </FieldDescription>
                   </Field>
                 </>
@@ -1946,7 +2260,7 @@ export function NativeAppEditor({
                   />
                   <div className="grid gap-3 sm:grid-cols-2">
                     <FieldSelect
-                      label="Value field"
+                      label={t("editors.native.metric.valueField")}
                       value={(configuration as MetricWidgetConfig).valueField}
                       fields={availableFields.filter((field) =>
                         ["number", "integer", "percent", "currency"].includes(
@@ -1963,7 +2277,7 @@ export function NativeAppEditor({
                     />
                     <Field>
                       <FieldLabel htmlFor="static-label">
-                        Static label
+                        {t("editors.native.metric.staticLabel")}
                       </FieldLabel>
                       <Input
                         id="static-label"
@@ -1980,7 +2294,7 @@ export function NativeAppEditor({
                       />
                     </Field>
                     <FieldSelect
-                      label="Label field"
+                      label={t("editors.native.metric.labelField")}
                       value={
                         (configuration as MetricWidgetConfig).labelField ?? ""
                       }
@@ -1995,7 +2309,7 @@ export function NativeAppEditor({
                       }
                     />
                     <FieldSelect
-                      label="Secondary field"
+                      label={t("editors.native.metric.secondaryField")}
                       value={
                         (configuration as MetricWidgetConfig).secondaryField ??
                         ""
@@ -2011,13 +2325,27 @@ export function NativeAppEditor({
                       }
                     />
                     <Field>
-                      <FieldLabel htmlFor="metric-format">Format</FieldLabel>
+                      <FieldLabel htmlFor="metric-format">
+                        {t("editors.native.metric.format")}
+                      </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "number", label: "Number" },
-                          { value: "integer", label: "Integer" },
-                          { value: "percent", label: "Percent" },
-                          { value: "currency", label: "Currency" },
+                          {
+                            value: "number",
+                            label: t("editors.native.metric.formatNumber"),
+                          },
+                          {
+                            value: "integer",
+                            label: t("editors.native.metric.formatInteger"),
+                          },
+                          {
+                            value: "percent",
+                            label: t("editors.native.metric.formatPercent"),
+                          },
+                          {
+                            value: "currency",
+                            label: t("editors.native.metric.formatCurrency"),
+                          },
                         ]}
                         value={(configuration as MetricWidgetConfig).format}
                         disabled={readOnly}
@@ -2028,20 +2356,31 @@ export function NativeAppEditor({
                           }))
                         }
                       >
-                        <SelectTrigger id="metric-format" aria-label="Format">
+                        <SelectTrigger
+                          id="metric-format"
+                          aria-label={t("editors.native.metric.format")}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="number">Number</SelectItem>
-                          <SelectItem value="integer">Integer</SelectItem>
-                          <SelectItem value="percent">Percent</SelectItem>
-                          <SelectItem value="currency">Currency</SelectItem>
+                          <SelectItem value="number">
+                            {t("editors.native.metric.formatNumber")}
+                          </SelectItem>
+                          <SelectItem value="integer">
+                            {t("editors.native.metric.formatInteger")}
+                          </SelectItem>
+                          <SelectItem value="percent">
+                            {t("editors.native.metric.formatPercent")}
+                          </SelectItem>
+                          <SelectItem value="currency">
+                            {t("editors.native.metric.formatCurrency")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="metric-precision">
-                        Decimal places
+                        {t("editors.native.metric.precision")}
                       </FieldLabel>
                       <Input
                         id="metric-precision"
@@ -2059,7 +2398,9 @@ export function NativeAppEditor({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="prefix">Prefix</FieldLabel>
+                      <FieldLabel htmlFor="prefix">
+                        {t("editors.native.metric.prefix")}
+                      </FieldLabel>
                       <Input
                         id="prefix"
                         value={
@@ -2075,7 +2416,9 @@ export function NativeAppEditor({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="suffix">Suffix</FieldLabel>
+                      <FieldLabel htmlFor="suffix">
+                        {t("editors.native.metric.suffix")}
+                      </FieldLabel>
                       <Input
                         id="suffix"
                         value={
@@ -2092,13 +2435,22 @@ export function NativeAppEditor({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="metric-alignment">
-                        Alignment
+                        {t("editors.native.metric.alignment")}
                       </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "left", label: "Left" },
-                          { value: "center", label: "Center" },
-                          { value: "right", label: "Right" },
+                          {
+                            value: "left",
+                            label: t("editors.native.metric.alignLeft"),
+                          },
+                          {
+                            value: "center",
+                            label: t("editors.native.metric.alignCenter"),
+                          },
+                          {
+                            value: "right",
+                            label: t("editors.native.metric.alignRight"),
+                          },
                         ]}
                         value={(configuration as MetricWidgetConfig).alignment}
                         disabled={readOnly}
@@ -2111,21 +2463,27 @@ export function NativeAppEditor({
                       >
                         <SelectTrigger
                           id="metric-alignment"
-                          aria-label="Alignment"
+                          aria-label={t("editors.native.metric.alignment")}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="left">Left</SelectItem>
-                          <SelectItem value="center">Center</SelectItem>
-                          <SelectItem value="right">Right</SelectItem>
+                          <SelectItem value="left">
+                            {t("editors.native.metric.alignLeft")}
+                          </SelectItem>
+                          <SelectItem value="center">
+                            {t("editors.native.metric.alignCenter")}
+                          </SelectItem>
+                          <SelectItem value="right">
+                            {t("editors.native.metric.alignRight")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
                   </div>
                   <Field>
                     <FieldLabel htmlFor="metric-empty-state">
-                      Empty state
+                      {t("editors.native.metric.emptyState")}
                     </FieldLabel>
                     <Input
                       id="metric-empty-state"
@@ -2160,7 +2518,7 @@ export function NativeAppEditor({
                   />
                   <div className="grid gap-3 sm:grid-cols-2">
                     <FieldSelect
-                      label="Title field"
+                      label={t("editors.native.cards.titleField")}
                       value={(configuration as CardsWidgetConfig).titleField}
                       fields={availableFields}
                       disabled={readOnly}
@@ -2172,11 +2530,15 @@ export function NativeAppEditor({
                       }
                     />
                     {(
-                      ["subtitleField", "bodyField", "badgeField"] as const
-                    ).map((key) => (
+                      [
+                        ["subtitleField", "editors.native.cards.subtitleField"],
+                        ["bodyField", "editors.native.cards.bodyField"],
+                        ["badgeField", "editors.native.cards.badgeField"],
+                      ] as const
+                    ).map(([key, labelKey]) => (
                       <FieldSelect
                         key={key}
-                        label={key.replace("Field", "")}
+                        label={t(labelKey)}
                         value={(configuration as CardsWidgetConfig)[key] ?? ""}
                         fields={availableFields}
                         allowEmpty
@@ -2190,7 +2552,9 @@ export function NativeAppEditor({
                       />
                     ))}
                     <Field>
-                      <FieldLabel htmlFor="columns">Columns</FieldLabel>
+                      <FieldLabel htmlFor="columns">
+                        {t("editors.native.cards.columns")}
+                      </FieldLabel>
                       <Input
                         id="columns"
                         type="number"
@@ -2208,7 +2572,7 @@ export function NativeAppEditor({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="maximum-items">
-                        Maximum items
+                        {t("editors.native.cards.maxItems")}
                       </FieldLabel>
                       <Input
                         id="maximum-items"
@@ -2228,11 +2592,19 @@ export function NativeAppEditor({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="cards-density">Density</FieldLabel>
+                      <FieldLabel htmlFor="cards-density">
+                        {t("editors.native.cards.density")}
+                      </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "comfortable", label: "Comfortable" },
-                          { value: "compact", label: "Compact" },
+                          {
+                            value: "comfortable",
+                            label: t("editors.native.cards.densityComfortable"),
+                          },
+                          {
+                            value: "compact",
+                            label: t("editors.native.cards.densityCompact"),
+                          },
                         ]}
                         value={(configuration as CardsWidgetConfig).density}
                         disabled={readOnly}
@@ -2243,14 +2615,19 @@ export function NativeAppEditor({
                           }))
                         }
                       >
-                        <SelectTrigger id="cards-density" aria-label="Density">
+                        <SelectTrigger
+                          id="cards-density"
+                          aria-label={t("editors.native.cards.density")}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="comfortable">
-                            Comfortable
+                            {t("editors.native.cards.densityComfortable")}
                           </SelectItem>
-                          <SelectItem value="compact">Compact</SelectItem>
+                          <SelectItem value="compact">
+                            {t("editors.native.cards.densityCompact")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
@@ -2273,42 +2650,50 @@ export function NativeAppEditor({
                     }
                   />
                   <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {[
-                      ["showLocation", "Location"],
-                      ["showCurrent", "Current conditions"],
-                      ["showHumidity", "Humidity"],
-                      ["showWind", "Wind"],
-                      ["showPrecipitation", "Precipitation"],
-                    ].map(([key, label]) => (
-                      <label
-                        key={key}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <RheaCheckbox
-                          checked={Boolean(
-                            (
-                              configuration as unknown as Record<
-                                string,
-                                unknown
-                              >
-                            )[key!],
-                          )}
-                          disabled={readOnly}
-                          onCheckedChange={(checked) =>
-                            setConfiguration((current) => ({
-                              ...current,
-                              [key!]: checked === true,
-                            }))
-                          }
-                          aria-label={label}
-                        />
-                        <span>{label}</span>
-                      </label>
-                    ))}
+                    {(
+                      [
+                        ["showLocation", "editors.native.weather.showLocation"],
+                        ["showCurrent", "editors.native.weather.showCurrent"],
+                        ["showHumidity", "editors.native.weather.showHumidity"],
+                        ["showWind", "editors.native.weather.showWind"],
+                        [
+                          "showPrecipitation",
+                          "editors.native.weather.showPrecipitation",
+                        ],
+                      ] as const
+                    ).map(([key, labelKey]) => {
+                      const toggleLabel = t(labelKey);
+                      return (
+                        <label
+                          key={key}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <RheaCheckbox
+                            checked={Boolean(
+                              (
+                                configuration as unknown as Record<
+                                  string,
+                                  unknown
+                                >
+                              )[key],
+                            )}
+                            disabled={readOnly}
+                            onCheckedChange={(checked) =>
+                              setConfiguration((current) => ({
+                                ...current,
+                                [key]: checked === true,
+                              }))
+                            }
+                            aria-label={toggleLabel}
+                          />
+                          <span>{toggleLabel}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                   <Field>
                     <FieldLabel htmlFor="weather-forecast-days">
-                      Forecast days
+                      {t("editors.native.weather.forecastDays")}
                     </FieldLabel>
                     <Input
                       id="weather-forecast-days"
@@ -2349,16 +2734,36 @@ export function NativeAppEditor({
                   <div className="grid gap-3 sm:grid-cols-2">
                     {(
                       [
-                        ["titleField", "Title field", false],
-                        ["subtitleField", "Subtitle field", true],
-                        ["bodyField", "Body field", true],
-                        ["badgeField", "Badge field", true],
-                        ["dateField", "Date field", true],
+                        [
+                          "titleField",
+                          "editors.native.spotlight.titleField",
+                          false,
+                        ],
+                        [
+                          "subtitleField",
+                          "editors.native.spotlight.subtitleField",
+                          true,
+                        ],
+                        [
+                          "bodyField",
+                          "editors.native.spotlight.bodyField",
+                          true,
+                        ],
+                        [
+                          "badgeField",
+                          "editors.native.spotlight.badgeField",
+                          true,
+                        ],
+                        [
+                          "dateField",
+                          "editors.native.spotlight.dateField",
+                          true,
+                        ],
                       ] as const
-                    ).map(([key, label, allowEmpty]) => (
+                    ).map(([key, labelKey, allowEmpty]) => (
                       <FieldSelect
                         key={key}
-                        label={label}
+                        label={t(labelKey)}
                         value={
                           (configuration as SpotlightWidgetConfig)[key] ?? ""
                         }
@@ -2375,7 +2780,7 @@ export function NativeAppEditor({
                     ))}
                     <Field>
                       <FieldLabel htmlFor="spotlight-image">
-                        Uploaded image
+                        {t("editors.native.spotlight.image")}
                       </FieldLabel>
                       <RheaSelect
                         value={
@@ -2392,7 +2797,7 @@ export function NativeAppEditor({
                       >
                         <SelectTrigger
                           id="spotlight-image"
-                          aria-label="Uploaded image"
+                          aria-label={t("editors.native.spotlight.image")}
                         >
                           <SelectValue>
                             {(imageAssets.data?.items ?? []).find(
@@ -2400,11 +2805,13 @@ export function NativeAppEditor({
                                 item.id ===
                                 (configuration as SpotlightWidgetConfig)
                                   .imageAssetId,
-                            )?.name ?? "No image"}
+                            )?.name ?? t("editors.native.spotlight.noImage")}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No image</SelectItem>
+                          <SelectItem value="">
+                            {t("editors.native.spotlight.noImage")}
+                          </SelectItem>
                           {(imageAssets.data?.items ?? []).map((item) => (
                             <SelectItem key={item.id} value={item.id}>
                               {item.name}
@@ -2432,7 +2839,9 @@ export function NativeAppEditor({
                     }
                   />
                   <Field>
-                    <FieldLabel htmlFor="stat-grid-columns">Columns</FieldLabel>
+                    <FieldLabel htmlFor="stat-grid-columns">
+                      {t("editors.native.statGrid.columns")}
+                    </FieldLabel>
                     <Input
                       id="stat-grid-columns"
                       type="number"
@@ -2449,7 +2858,7 @@ export function NativeAppEditor({
                     />
                   </Field>
                   <fieldset>
-                    <legend>Metrics</legend>
+                    <legend>{t("editors.native.statGrid.metrics")}</legend>
                     {(configuration as StatGridWidgetConfig).metrics.map(
                       (metric, index) => (
                         <div
@@ -2458,7 +2867,7 @@ export function NativeAppEditor({
                         >
                           <Field>
                             <FieldLabel htmlFor={`stat-grid-label-${index}`}>
-                              Label
+                              {t("editors.native.statGrid.label")}
                             </FieldLabel>
                             <Input
                               id={`stat-grid-label-${index}`}
@@ -2485,7 +2894,7 @@ export function NativeAppEditor({
                             />
                           </Field>
                           <FieldSelect
-                            label="Value field"
+                            label={t("editors.native.statGrid.valueField")}
                             value={metric.valueField}
                             fields={availableFields.filter((field) =>
                               [
@@ -2513,14 +2922,34 @@ export function NativeAppEditor({
                           />
                           <Field>
                             <FieldLabel htmlFor={`stat-grid-format-${index}`}>
-                              Format
+                              {t("editors.native.statGrid.format")}
                             </FieldLabel>
                             <RheaSelect
                               items={[
-                                { value: "number", label: "Number" },
-                                { value: "integer", label: "Integer" },
-                                { value: "percent", label: "Percent" },
-                                { value: "currency", label: "Currency" },
+                                {
+                                  value: "number",
+                                  label: t(
+                                    "editors.native.statGrid.formatNumber",
+                                  ),
+                                },
+                                {
+                                  value: "integer",
+                                  label: t(
+                                    "editors.native.statGrid.formatInteger",
+                                  ),
+                                },
+                                {
+                                  value: "percent",
+                                  label: t(
+                                    "editors.native.statGrid.formatPercent",
+                                  ),
+                                },
+                                {
+                                  value: "currency",
+                                  label: t(
+                                    "editors.native.statGrid.formatCurrency",
+                                  ),
+                                },
                               ]}
                               value={metric.format ?? "number"}
                               disabled={readOnly}
@@ -2546,16 +2975,25 @@ export function NativeAppEditor({
                             >
                               <SelectTrigger
                                 id={`stat-grid-format-${index}`}
-                                aria-label={`Format for metric ${index + 1}`}
+                                aria-label={t(
+                                  "editors.native.statGrid.formatForMetric",
+                                  { index: index + 1 },
+                                )}
                               >
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="number">Number</SelectItem>
-                                <SelectItem value="integer">Integer</SelectItem>
-                                <SelectItem value="percent">Percent</SelectItem>
+                                <SelectItem value="number">
+                                  {t("editors.native.statGrid.formatNumber")}
+                                </SelectItem>
+                                <SelectItem value="integer">
+                                  {t("editors.native.statGrid.formatInteger")}
+                                </SelectItem>
+                                <SelectItem value="percent">
+                                  {t("editors.native.statGrid.formatPercent")}
+                                </SelectItem>
                                 <SelectItem value="currency">
-                                  Currency
+                                  {t("editors.native.statGrid.formatCurrency")}
                                 </SelectItem>
                               </SelectContent>
                             </RheaSelect>
@@ -2579,7 +3017,7 @@ export function NativeAppEditor({
                               }))
                             }
                           >
-                            Remove
+                            {t("editors.native.statGrid.removeMetric")}
                           </RheaButton>
                         </div>
                       ),
@@ -2598,7 +3036,7 @@ export function NativeAppEditor({
                           metrics: [
                             ...(current as StatGridWidgetConfig).metrics,
                             {
-                              label: "Value",
+                              label: t("editors.native.defaults.metricLabel"),
                               valueField: "",
                               format: "number",
                             },
@@ -2606,7 +3044,7 @@ export function NativeAppEditor({
                         }))
                       }
                     >
-                      Add metric
+                      {t("editors.native.statGrid.addMetric")}
                     </RheaButton>
                   </fieldset>
                 </>
@@ -2628,12 +3066,23 @@ export function NativeAppEditor({
                   />
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="chart-type">Chart type</FieldLabel>
+                      <FieldLabel htmlFor="chart-type">
+                        {t("editors.native.chart.chartType")}
+                      </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "line", label: "Line" },
-                          { value: "bar", label: "Bar" },
-                          { value: "donut", label: "Donut" },
+                          {
+                            value: "line",
+                            label: t("editors.native.chart.typeLine"),
+                          },
+                          {
+                            value: "bar",
+                            label: t("editors.native.chart.typeBar"),
+                          },
+                          {
+                            value: "donut",
+                            label: t("editors.native.chart.typeDonut"),
+                          },
                         ]}
                         value={(configuration as ChartWidgetConfig).chartType}
                         disabled={readOnly}
@@ -2644,18 +3093,29 @@ export function NativeAppEditor({
                           }))
                         }
                       >
-                        <SelectTrigger id="chart-type" aria-label="Chart type">
+                        <SelectTrigger
+                          id="chart-type"
+                          aria-label={t("editors.native.chart.chartType")}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="line">Line</SelectItem>
-                          <SelectItem value="bar">Bar</SelectItem>
-                          <SelectItem value="donut">Donut</SelectItem>
+                          <SelectItem value="line">
+                            {t("editors.native.chart.typeLine")}
+                          </SelectItem>
+                          <SelectItem value="bar">
+                            {t("editors.native.chart.typeBar")}
+                          </SelectItem>
+                          <SelectItem value="donut">
+                            {t("editors.native.chart.typeDonut")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="chart-dataset">Dataset</FieldLabel>
+                      <FieldLabel htmlFor="chart-dataset">
+                        {t("editors.native.chart.dataset")}
+                      </FieldLabel>
                       <Input
                         id="chart-dataset"
                         value={
@@ -2672,7 +3132,7 @@ export function NativeAppEditor({
                     </Field>
                   </div>
                   <fieldset>
-                    <legend>Series</legend>
+                    <legend>{t("editors.native.chart.series")}</legend>
                     {(configuration as ChartWidgetConfig).series.map(
                       (series, index) => (
                         <div
@@ -2680,7 +3140,7 @@ export function NativeAppEditor({
                           key={index}
                         >
                           <FieldSelect
-                            label="Numeric field"
+                            label={t("editors.native.chart.numericField")}
                             value={series.field}
                             fields={availableFields.filter((field) =>
                               [
@@ -2708,7 +3168,7 @@ export function NativeAppEditor({
                           />
                           <Field>
                             <FieldLabel htmlFor={`chart-label-${index}`}>
-                              Label
+                              {t("editors.native.chart.label")}
                             </FieldLabel>
                             <Input
                               id={`chart-label-${index}`}
@@ -2735,7 +3195,7 @@ export function NativeAppEditor({
                           </Field>
                           <Field>
                             <FieldLabel htmlFor={`chart-color-${index}`}>
-                              Color
+                              {t("editors.native.chart.color")}
                             </FieldLabel>
                             <Input
                               id={`chart-color-${index}`}
@@ -2780,7 +3240,7 @@ export function NativeAppEditor({
                               }))
                             }
                           >
-                            Remove
+                            {t("editors.native.chart.removeSeries")}
                           </RheaButton>
                         </div>
                       ),
@@ -2799,14 +3259,14 @@ export function NativeAppEditor({
                             ...(current as ChartWidgetConfig).series,
                             {
                               field: "",
-                              label: "Series",
+                              label: t("editors.native.chart.newSeriesLabel"),
                               color: "#FFB547",
                             },
                           ],
                         }))
                       }
                     >
-                      Add series
+                      {t("editors.native.chart.addSeries")}
                     </RheaButton>
                   </fieldset>
                 </>
@@ -2828,7 +3288,7 @@ export function NativeAppEditor({
                   />
                   <div className="grid gap-3 sm:grid-cols-2">
                     <FieldSelect
-                      label="Value field"
+                      label={t("editors.native.progress.valueField")}
                       value={(configuration as ProgressWidgetConfig).valueField}
                       fields={availableFields.filter((field) =>
                         ["number", "integer", "percent", "currency"].includes(
@@ -2844,7 +3304,7 @@ export function NativeAppEditor({
                       }
                     />
                     <FieldSelect
-                      label="Target field"
+                      label={t("editors.native.progress.targetField")}
                       value={
                         (configuration as ProgressWidgetConfig).targetField ??
                         ""
@@ -2865,7 +3325,7 @@ export function NativeAppEditor({
                     />
                     <Field>
                       <FieldLabel htmlFor="static-target">
-                        Static target
+                        {t("editors.native.progress.staticTarget")}
                       </FieldLabel>
                       <Input
                         id="static-target"
@@ -2889,7 +3349,9 @@ export function NativeAppEditor({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="label-3">Label</FieldLabel>
+                      <FieldLabel htmlFor="label-3">
+                        {t("editors.native.progress.label")}
+                      </FieldLabel>
                       <Input
                         id="label-3"
                         value={
@@ -2925,15 +3387,31 @@ export function NativeAppEditor({
                   <div className="grid gap-3 sm:grid-cols-2">
                     {(
                       [
-                        ["dateField", "Date field", false],
-                        ["titleField", "Title field", false],
-                        ["bodyField", "Body field", true],
-                        ["statusField", "Status field", true],
+                        [
+                          "dateField",
+                          "editors.native.timeline.dateField",
+                          false,
+                        ],
+                        [
+                          "titleField",
+                          "editors.native.timeline.titleField",
+                          false,
+                        ],
+                        [
+                          "bodyField",
+                          "editors.native.timeline.bodyField",
+                          true,
+                        ],
+                        [
+                          "statusField",
+                          "editors.native.timeline.statusField",
+                          true,
+                        ],
                       ] as const
-                    ).map(([key, label, allowEmpty]) => (
+                    ).map(([key, labelKey, allowEmpty]) => (
                       <FieldSelect
                         key={key}
-                        label={label}
+                        label={t(labelKey)}
                         value={
                           (configuration as TimelineWidgetConfig)[key] ?? ""
                         }
@@ -2950,12 +3428,22 @@ export function NativeAppEditor({
                     ))}
                     <Field>
                       <FieldLabel htmlFor="timeline-orientation">
-                        Orientation
+                        {t("editors.native.timeline.orientation")}
                       </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "vertical", label: "Vertical" },
-                          { value: "horizontal", label: "Horizontal" },
+                          {
+                            value: "vertical",
+                            label: t(
+                              "editors.native.timeline.orientationVertical",
+                            ),
+                          },
+                          {
+                            value: "horizontal",
+                            label: t(
+                              "editors.native.timeline.orientationHorizontal",
+                            ),
+                          },
                         ]}
                         value={
                           (configuration as TimelineWidgetConfig).orientation
@@ -2971,13 +3459,17 @@ export function NativeAppEditor({
                       >
                         <SelectTrigger
                           id="timeline-orientation"
-                          aria-label="Orientation"
+                          aria-label={t("editors.native.timeline.orientation")}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="vertical">Vertical</SelectItem>
-                          <SelectItem value="horizontal">Horizontal</SelectItem>
+                          <SelectItem value="vertical">
+                            {t("editors.native.timeline.orientationVertical")}
+                          </SelectItem>
+                          <SelectItem value="horizontal">
+                            {t("editors.native.timeline.orientationHorizontal")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
@@ -2989,12 +3481,18 @@ export function NativeAppEditor({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="world-clock-format">
-                        Time format
+                        {t("editors.native.clock.timeFormat")}
                       </FieldLabel>
                       <RheaSelect
                         items={[
-                          { value: "12", label: "12-hour" },
-                          { value: "24", label: "24-hour" },
+                          {
+                            value: "12",
+                            label: t("editors.native.clock.format12"),
+                          },
+                          {
+                            value: "24",
+                            label: t("editors.native.clock.format24"),
+                          },
                         ]}
                         value={(configuration as WorldClockWidgetConfig).format}
                         disabled={readOnly}
@@ -3007,19 +3505,23 @@ export function NativeAppEditor({
                       >
                         <SelectTrigger
                           id="world-clock-format"
-                          aria-label="Time format"
+                          aria-label={t("editors.native.clock.timeFormat")}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="12">12-hour</SelectItem>
-                          <SelectItem value="24">24-hour</SelectItem>
+                          <SelectItem value="12">
+                            {t("editors.native.clock.format12")}
+                          </SelectItem>
+                          <SelectItem value="24">
+                            {t("editors.native.clock.format24")}
+                          </SelectItem>
                         </SelectContent>
                       </RheaSelect>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="world-clock-columns">
-                        Columns
+                        {t("editors.native.worldClock.columns")}
                       </FieldLabel>
                       <Input
                         id="world-clock-columns"
@@ -3040,13 +3542,15 @@ export function NativeAppEditor({
                     </Field>
                   </div>
                   <fieldset className="grid gap-2">
-                    <legend className="text-sm font-medium">Locations</legend>
+                    <legend className="text-sm font-medium">
+                      {t("editors.native.worldClock.locations")}
+                    </legend>
                     {(configuration as WorldClockWidgetConfig).zones.map(
                       (zone, index) => (
                         <div className="grid gap-3 sm:grid-cols-2" key={index}>
                           <Field>
                             <FieldLabel htmlFor={`world-clock-label-${index}`}>
-                              Label
+                              {t("editors.native.worldClock.label")}
                             </FieldLabel>
                             <Input
                               id={`world-clock-label-${index}`}
@@ -3076,7 +3580,7 @@ export function NativeAppEditor({
                             <FieldLabel
                               htmlFor={`world-clock-timezone-${index}`}
                             >
-                              IANA timezone
+                              {t("editors.native.worldClock.timezone")}
                             </FieldLabel>
                             <Input
                               id={`world-clock-timezone-${index}`}
@@ -3118,12 +3622,17 @@ export function NativeAppEditor({
                           ...current,
                           zones: [
                             ...(current as WorldClockWidgetConfig).zones,
-                            { label: "Location", timezone: "UTC" },
+                            {
+                              label: t(
+                                "editors.native.worldClock.newLocationLabel",
+                              ),
+                              timezone: "UTC",
+                            },
                           ],
                         }))
                       }
                     >
-                      Add location
+                      {t("editors.native.worldClock.addLocation")}
                     </RheaButton>
                   </fieldset>
                 </>
@@ -3132,16 +3641,16 @@ export function NativeAppEditor({
           </section>
           <section className="widget-editor__section">
             <header>
-              <h3>Appearance</h3>
-              <p>
-                Adjust spacing, scale, and colors after the content looks right.
-              </p>
+              <h3>{t("editors.native.appearance.title")}</h3>
+              <p>{t("editors.native.appearance.description")}</p>
             </header>
             <div className="widget-editor__section-body">
               <div className="widget-editor__subsection">
                 <header>
-                  <strong>Size and spacing</strong>
-                  <p>Control how much of the Widget the content occupies.</p>
+                  <strong>
+                    {t("editors.native.appearance.sizeAndSpacing")}
+                  </strong>
+                  <p>{t("editors.native.appearance.sizeAndSpacingHint")}</p>
                 </header>
                 <label className="flex items-center gap-2 text-sm">
                   <RheaSwitch
@@ -3156,15 +3665,21 @@ export function NativeAppEditor({
                         return automatic;
                       })
                     }
-                    aria-label="Use a custom scale"
+                    aria-label={t("editors.native.appearance.customScale")}
                   />
-                  <span>Use a custom scale</span>
+                  <span>{t("editors.native.appearance.customScale")}</span>
                 </label>
                 {configuration.textScale !== undefined && (
                   <Field>
-                    <FieldTitle>Scale ({configuration.textScale}%)</FieldTitle>
+                    <FieldTitle>
+                      {t("editors.native.appearance.scale", {
+                        value: configuration.textScale,
+                      })}
+                    </FieldTitle>
                     <Slider
-                      aria-label={`Scale ${configuration.textScale} percent`}
+                      aria-label={t("editors.native.appearance.scaleAria", {
+                        value: configuration.textScale,
+                      })}
                       min={25}
                       max={500}
                       step={25}
@@ -3184,10 +3699,14 @@ export function NativeAppEditor({
                 )}
                 <Field>
                   <FieldTitle>
-                    Padding ({configuration.contentPadding ?? 10}%)
+                    {t("editors.native.appearance.padding", {
+                      value: configuration.contentPadding ?? 10,
+                    })}
                   </FieldTitle>
                   <Slider
-                    aria-label={`Padding ${configuration.contentPadding ?? 10} percent`}
+                    aria-label={t("editors.native.appearance.paddingAria", {
+                      value: configuration.contentPadding ?? 10,
+                    })}
                     min={0}
                     max={40}
                     step={1}
@@ -3204,21 +3723,17 @@ export function NativeAppEditor({
                     }}
                   />
                 </Field>
-                <small>
-                  By default, content uses the center 80% of the Widget. Reduce
-                  padding to let it fill more space; custom scale ranges up to
-                  500% and still fits long text within the available area.
-                </small>
+                <small>{t("editors.native.appearance.paddingHint")}</small>
               </div>
               <div className="widget-editor__subsection">
                 <header>
-                  <strong>Colors</strong>
-                  <p>Set the foreground and background used on screen.</p>
+                  <strong>{t("editors.native.appearance.colors")}</strong>
+                  <p>{t("editors.native.appearance.colorsHint")}</p>
                 </header>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="text-and-accent-color">
-                      Text and accent color
+                      {t("editors.native.appearance.foregroundColor")}
                     </FieldLabel>
                     <Input
                       id="text-and-accent-color"
@@ -3232,7 +3747,7 @@ export function NativeAppEditor({
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="background-color">
-                      Background color
+                      {t("editors.native.appearance.backgroundColor")}
                     </FieldLabel>
                     <Input
                       id="background-color"
@@ -3248,10 +3763,13 @@ export function NativeAppEditor({
               </div>
             </div>
           </section>
-          <aside className="widget-editor__preview" aria-label="Live preview">
+          <aside
+            className="widget-editor__preview"
+            aria-label={t("editors.native.livePreview")}
+          >
             <header>
-              <strong>Live preview</strong>
-              <span>Updates as you make changes.</span>
+              <strong>{t("editors.native.livePreview")}</strong>
+              <span>{t("editors.native.livePreviewHint")}</span>
             </header>
             <PreviewTimeControl value={previewTime} onChange={setPreviewTime} />
             <div
@@ -3270,9 +3788,9 @@ export function NativeAppEditor({
                   }
                 />
               ) : compiledPreview.isLoading || sourcePreview.isLoading ? (
-                "Preparing preview…"
+                t("editors.native.previewPreparing")
               ) : (
-                "Complete the required fields to see a preview."
+                t("editors.native.previewIncomplete")
               )}
             </div>
           </aside>
@@ -3293,7 +3811,9 @@ export function NativeAppEditor({
               }
               onClick={() => save.mutate()}
             >
-              {save.isPending ? "Saving…" : "Save Widget"}
+              {save.isPending
+                ? t("editors.native.saving")
+                : t("editors.native.saveWidget")}
             </RheaButton>
           )}
         </footer>
@@ -3320,6 +3840,7 @@ export function DeclarativePresentationPreview({
   assetImageUrl?: string;
   onWebReady?: () => void;
 }) {
+  const { t } = useTranslation("content");
   const [liveNow, setLiveNow] = useState(() => now ?? new Date());
   useEffect(() => {
     if (now || presentation.kind !== "native") return;
@@ -3331,14 +3852,14 @@ export function DeclarativePresentationPreview({
   }, [now, presentation.kind]);
   if (presentation.kind === "web") {
     const url = presentation.web?.url;
-    if (!url) return "Web presentation URL is unavailable.";
+    if (!url) return t("preview.webUrlUnavailable");
     const external =
       new URL(url, window.location.href).origin !== window.location.origin;
     return (
       <iframe
         className="presentation-preview__web"
         src={url}
-        title="Web Widget preview"
+        title={t("preview.webTitle")}
         sandbox={`allow-scripts allow-forms allow-popups allow-presentation${external ? " allow-same-origin" : ""}`}
         allow="autoplay; encrypted-media; fullscreen"
         referrerPolicy="strict-origin-when-cross-origin"
@@ -3357,7 +3878,7 @@ export function DeclarativePresentationPreview({
       assetImageUrl={assetImageUrl}
     />
   ) : (
-    "Presentation root is unavailable."
+    t("preview.rootUnavailable")
   );
 }
 
@@ -3574,6 +4095,8 @@ function PreviewNode({
   now: Date;
   assetImageUrl?: string;
 }) {
+  const { t } = useTranslation("content");
+  const locale = useFormatLocale();
   const props = node.props ?? {};
   const binding = node.binding;
   // A node reads the dataset it names. An unknown name falls back to the primary records so a
@@ -3627,13 +4150,13 @@ function PreviewNode({
       const format = candidate.format?.split(":") ?? [];
       const timezone = format.at(-1) || "UTC";
       if (format[0] === "date")
-        return new Intl.DateTimeFormat(undefined, {
+        return new Intl.DateTimeFormat(locale, {
           dateStyle:
             (format[1] as "full" | "long" | "medium" | "short") ?? "full",
           timeZone: timezone,
         }).format(now);
       if (format[0] === "time")
-        return new Intl.DateTimeFormat(undefined, {
+        return new Intl.DateTimeFormat(locale, {
           timeStyle: format[2] === "true" ? "medium" : "short",
           hour12: format[1] !== "24",
           timeZone: timezone,
@@ -3645,7 +4168,7 @@ function PreviewNode({
           return formatCountdownPreview(
             decode(format[2]),
             format[4] || "countdown",
-            decode(format[8]) || "Complete",
+            decode(format[8]) || t("editors.native.defaults.completeText"),
             now,
             format[5] || "none",
             decode(format[3]) || "UTC",
@@ -3653,7 +4176,8 @@ function PreviewNode({
             format[7] || "1111",
           );
         }
-        const completionText = format.pop() || "Complete";
+        const completionText =
+          format.pop() || t("editors.native.defaults.completeText");
         const mode = format.pop() || "countdown";
         format.pop(); // Timezone is already reflected in the saved ISO target.
         const target = format.slice(1).join(":");
@@ -4038,6 +4562,7 @@ export function selectTemporalRecords(
 }
 
 function PresentationQrCode({ value }: { value: string }) {
+  const { t } = useTranslation("content");
   const [url, setUrl] = useState("");
   useEffect(() => {
     let current = true;
@@ -4060,10 +4585,10 @@ function PresentationQrCode({ value }: { value: string }) {
     <img
       className="presentation-preview__qr-code"
       src={url}
-      alt={`QR Code for ${value}`}
+      alt={t("preview.qrCodeAlt", { value })}
     />
   ) : (
-    <span>Preparing QR Code…</span>
+    <span>{t("preview.qrPreparing")}</span>
   );
 }
 
@@ -4086,10 +4611,11 @@ function DataSourceSelect({
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation("content");
   return (
     <DataSourcePicker
       value={value}
-      description="Choose the information this Widget should display. You can connect a new source without leaving the editor."
+      description={t("editors.native.dataSourceHint")}
       sources={sources}
       createProviders={createProviders}
       csrf={csrf}
@@ -4114,8 +4640,11 @@ function FieldSelect({
   allowEmpty?: boolean;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation("content");
   const id = useId();
-  const emptyLabel = allowEmpty ? "None" : "Select a Data Source first";
+  const emptyLabel = allowEmpty
+    ? t("editors.native.fieldNone")
+    : t("editors.native.fieldSelectSource");
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -4140,9 +4669,7 @@ function FieldSelect({
           ))}
         </SelectContent>
       </RheaSelect>
-      <FieldDescription>
-        Choose which field from the connected data supplies this value.
-      </FieldDescription>
+      <FieldDescription>{t("editors.native.fieldHint")}</FieldDescription>
     </Field>
   );
 }
@@ -4176,6 +4703,7 @@ export function YouTubeSourceEditor({
   page?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation("content");
   const configured = asset?.widget?.configuration as YouTubeConfig | undefined;
   const [name, setName] = useState(asset?.name ?? "");
   const [description, setDescription] = useState(asset?.description ?? "");
@@ -4266,25 +4794,26 @@ export function YouTubeSourceEditor({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <h2 id="youtube-source-title" className="text-xl font-semibold">
-              {asset ? "Edit YouTube Widget" : "Create YouTube Widget"}
+              {asset
+                ? t("editors.youtube.editTitle")
+                : t("editors.youtube.createTitle")}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Videos and playlists play fullscreen through YouTube’s embedded
-              player.
+              {t("editors.youtube.subtitle")}
             </p>
           </div>
           <RheaButton
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Close"
+            aria-label={t("editors.youtube.close")}
             onClick={close}
           >
             <X aria-hidden="true" />
           </RheaButton>
         </div>
         <Field>
-          <FieldLabel htmlFor="name">Name</FieldLabel>
+          <FieldLabel htmlFor="name">{t("editors.youtube.name")}</FieldLabel>
           <Input
             id="name"
             disabled={readOnly}
@@ -4296,7 +4825,9 @@ export function YouTubeSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="youtube-description">Description</FieldLabel>
+          <FieldLabel htmlFor="youtube-description">
+            {t("editors.youtube.description")}
+          </FieldLabel>
           <Textarea
             id="youtube-description"
             disabled={readOnly}
@@ -4309,7 +4840,7 @@ export function YouTubeSourceEditor({
         </Field>
         <Field>
           <FieldLabel htmlFor="youtube-url">
-            YouTube video or playlist URL
+            {t("editors.youtube.url")}
           </FieldLabel>
           <Input
             id="youtube-url"
@@ -4317,15 +4848,12 @@ export function YouTubeSourceEditor({
             value={configuration.url}
             onChange={(event) => set("url", event.target.value)}
           />
-          <FieldDescription>
-            Tilecast detects whether this is a video or playlist. No YouTube API
-            key is required.
-          </FieldDescription>
+          <FieldDescription>{t("editors.youtube.urlHint")}</FieldDescription>
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="youtube-start">
-              Start time (seconds)
+              {t("editors.youtube.startTime")}
             </FieldLabel>
             <Input
               id="youtube-start"
@@ -4339,7 +4867,9 @@ export function YouTubeSourceEditor({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="youtube-end">End time (optional)</FieldLabel>
+            <FieldLabel htmlFor="youtube-end">
+              {t("editors.youtube.endTime")}
+            </FieldLabel>
             <Input
               id="youtube-end"
               type="number"
@@ -4355,7 +4885,9 @@ export function YouTubeSourceEditor({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="youtube-volume">Volume</FieldLabel>
+            <FieldLabel htmlFor="youtube-volume">
+              {t("editors.youtube.volume")}
+            </FieldLabel>
             <div className="flex items-center gap-2">
               <Input
                 id="youtube-volume"
@@ -4371,7 +4903,9 @@ export function YouTubeSourceEditor({
             </div>
           </Field>
           <Field>
-            <FieldLabel htmlFor="youtube-captions">Caption language</FieldLabel>
+            <FieldLabel htmlFor="youtube-captions">
+              {t("editors.youtube.captionLanguage")}
+            </FieldLabel>
             <Input
               id="youtube-captions"
               disabled={readOnly || !configuration.captions}
@@ -4384,31 +4918,37 @@ export function YouTubeSourceEditor({
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           {(
             [
-              ["loop", "Loop playback"],
-              ["muted", "Mute audio"],
-              ["captions", "Show captions"],
-              ["controls", "Show YouTube controls"],
+              ["loop", "editors.youtube.loop"],
+              ["muted", "editors.youtube.muted"],
+              ["captions", "editors.youtube.captions"],
+              ["controls", "editors.youtube.controls"],
             ] as const
-          ).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-2 text-sm">
-              <RheaSwitch
-                disabled={readOnly}
-                checked={configuration[key]}
-                onCheckedChange={(checked) => set(key, checked === true)}
-                aria-label={label}
-              />
-              <span>{label}</span>
-            </label>
-          ))}
+          ).map(([key, labelKey]) => {
+            const toggleLabel = t(labelKey);
+            return (
+              <label key={key} className="flex items-center gap-2 text-sm">
+                <RheaSwitch
+                  disabled={readOnly}
+                  checked={configuration[key]}
+                  onCheckedChange={(checked) => set(key, checked === true)}
+                  aria-label={toggleLabel}
+                />
+                <span>{toggleLabel}</span>
+              </label>
+            );
+          })}
         </div>
         <Field>
           <FieldLabel htmlFor="youtube-playback-mode">
-            Playlist item behavior
+            {t("editors.youtube.playbackMode")}
           </FieldLabel>
           <RheaSelect
             items={[
-              { value: "until_end", label: "Play until video ends" },
-              { value: "fixed_duration", label: "Play for a fixed duration" },
+              { value: "until_end", label: t("editors.youtube.untilEnd") },
+              {
+                value: "fixed_duration",
+                label: t("editors.youtube.fixedDurationMode"),
+              },
             ]}
             disabled={readOnly}
             value={configuration.playlistPlaybackMode}
@@ -4421,14 +4961,16 @@ export function YouTubeSourceEditor({
           >
             <SelectTrigger
               id="youtube-playback-mode"
-              aria-label="Playlist item behavior"
+              aria-label={t("editors.youtube.playbackMode")}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="until_end">Play until video ends</SelectItem>
+              <SelectItem value="until_end">
+                {t("editors.youtube.untilEnd")}
+              </SelectItem>
               <SelectItem value="fixed_duration">
-                Play for a fixed duration
+                {t("editors.youtube.fixedDurationMode")}
               </SelectItem>
             </SelectContent>
           </RheaSelect>
@@ -4436,7 +4978,7 @@ export function YouTubeSourceEditor({
         {configuration.playlistPlaybackMode === "fixed_duration" && (
           <Field>
             <FieldLabel htmlFor="youtube-fixed-duration">
-              Fixed duration (seconds)
+              {t("editors.youtube.fixedDuration")}
             </FieldLabel>
             <Input
               id="youtube-fixed-duration"
@@ -4452,12 +4994,20 @@ export function YouTubeSourceEditor({
           </Field>
         )}
         <Field>
-          <FieldLabel htmlFor="youtube-failure">Failure behavior</FieldLabel>
+          <FieldLabel htmlFor="youtube-failure">
+            {t("editors.youtube.failureBehavior")}
+          </FieldLabel>
           <RheaSelect
             items={[
-              { value: "placeholder", label: "Show Tilecast placeholder" },
-              { value: "fallback_image", label: "Show fallback image" },
-              { value: "skip", label: "Skip playlist item" },
+              {
+                value: "placeholder",
+                label: t("editors.youtube.failurePlaceholder"),
+              },
+              {
+                value: "fallback_image",
+                label: t("editors.youtube.failureFallbackImage"),
+              },
+              { value: "skip", label: t("editors.youtube.failureSkip") },
             ]}
             disabled={readOnly}
             value={configuration.failureBehavior}
@@ -4465,22 +5015,29 @@ export function YouTubeSourceEditor({
               set("failureBehavior", next as YouTubeConfig["failureBehavior"])
             }
           >
-            <SelectTrigger id="youtube-failure" aria-label="Failure behavior">
+            <SelectTrigger
+              id="youtube-failure"
+              aria-label={t("editors.youtube.failureBehavior")}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="placeholder">
-                Show Tilecast placeholder
+                {t("editors.youtube.failurePlaceholder")}
               </SelectItem>
               <SelectItem value="fallback_image">
-                Show fallback image
+                {t("editors.youtube.failureFallbackImage")}
               </SelectItem>
-              <SelectItem value="skip">Skip playlist item</SelectItem>
+              <SelectItem value="skip">
+                {t("editors.youtube.failureSkip")}
+              </SelectItem>
             </SelectContent>
           </RheaSelect>
         </Field>
         <Field>
-          <FieldLabel htmlFor="youtube-fallback">Fallback image</FieldLabel>
+          <FieldLabel htmlFor="youtube-fallback">
+            {t("editors.youtube.fallbackImage")}
+          </FieldLabel>
           <RheaSelect
             disabled={readOnly}
             value={configuration.fallbackImageAssetId ?? ""}
@@ -4488,15 +5045,20 @@ export function YouTubeSourceEditor({
               set("fallbackImageAssetId", next || undefined)
             }
           >
-            <SelectTrigger id="youtube-fallback" aria-label="Fallback image">
+            <SelectTrigger
+              id="youtube-fallback"
+              aria-label={t("editors.youtube.fallbackImage")}
+            >
               <SelectValue>
                 {images.data?.items?.find(
                   (image) => image.id === configuration.fallbackImageAssetId,
-                )?.name ?? "None"}
+                )?.name ?? t("editors.youtube.noFallback")}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None</SelectItem>
+              <SelectItem value="">
+                {t("editors.youtube.noFallback")}
+              </SelectItem>
               {images.data?.items?.map((image) => (
                 <SelectItem key={image.id} value={image.id}>
                   {image.name}
@@ -4516,27 +5078,31 @@ export function YouTubeSourceEditor({
               disabled={save.isPending || !name.trim()}
               onClick={() => save.mutate()}
             >
-              {save.isPending ? "Saving…" : "Save Widget"}
+              {save.isPending
+                ? t("editors.native.saving")
+                : t("editors.native.saveWidget")}
             </RheaButton>
           )}
           <RheaButton type="button" variant="outline" onClick={requestClose}>
-            Cancel
+            {t("editors.youtube.cancel")}
           </RheaButton>
         </footer>
         <RheaAlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Discard unsaved YouTube changes?
+                {t("editors.youtube.discardTitle")}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Your edits will be lost.
+                {t("editors.youtube.discardDescription")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Keep editing</AlertDialogCancel>
+              <AlertDialogCancel>
+                {t("editors.youtube.keepEditing")}
+              </AlertDialogCancel>
               <AlertDialogAction onClick={onClose}>
-                Discard changes
+                {t("editors.youtube.discardConfirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

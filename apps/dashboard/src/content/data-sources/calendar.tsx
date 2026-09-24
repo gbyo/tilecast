@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { apiErrorMessage, useFormatLocale } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
@@ -19,56 +21,69 @@ import type {
   CalendarPreview,
   DataSourceDetail,
 } from "../../api/types";
+import type { ContentT } from "../dataSourceProviderMeta";
 import { EditorFrame, optionLabel } from "./shared";
 
 const displayModeOptions = [
-  { value: "today", label: "Today" },
-  { value: "upcoming", label: "Upcoming" },
-  { value: "this_week", label: "This week" },
-  { value: "agenda", label: "Agenda" },
-];
+  { value: "today", labelKey: "sources.calendar.displayToday" },
+  { value: "upcoming", labelKey: "sources.calendar.displayUpcoming" },
+  { value: "this_week", labelKey: "sources.calendar.displayThisWeek" },
+  { value: "agenda", labelKey: "sources.calendar.displayAgenda" },
+] as const;
 
 const calendarRefreshOptions = [
-  { value: 300, label: "5 minutes" },
-  { value: 900, label: "15 minutes" },
-  { value: 3600, label: "1 hour" },
-  { value: 21600, label: "6 hours" },
-  { value: 86400, label: "1 day" },
-];
+  { value: 300, labelKey: "sources.calendar.refresh5" },
+  { value: 900, labelKey: "sources.calendar.refresh15" },
+  { value: 3600, labelKey: "sources.calendar.refreshHour" },
+  { value: 21600, labelKey: "sources.calendar.refresh6h" },
+  { value: 86400, labelKey: "sources.calendar.refreshDay" },
+] as const;
 
 const stalenessOptions = [
-  { value: 24, label: "1 day" },
-  { value: 72, label: "3 days" },
-  { value: 168, label: "7 days" },
-  { value: 720, label: "30 days" },
-];
+  { value: 24, labelKey: "sources.calendar.stale1d" },
+  { value: 72, labelKey: "sources.calendar.stale3d" },
+  { value: 168, labelKey: "sources.calendar.stale7d" },
+  { value: 720, labelKey: "sources.calendar.stale30d" },
+] as const;
 
-const calendarFieldLabels: Record<keyof CalendarConfig["fields"], string> = {
-  title: "Title",
-  startTime: "Start time",
-  endTime: "End time",
-  date: "Date",
-  location: "Location",
-  descriptionExcerpt: "Description excerpt",
+const calendarFieldLabelKeys: Record<
+  keyof CalendarConfig["fields"],
+  | "sources.calendar.fieldTitle"
+  | "sources.calendar.fieldStartTime"
+  | "sources.calendar.fieldEndTime"
+  | "sources.calendar.fieldDate"
+  | "sources.calendar.fieldLocation"
+  | "sources.calendar.fieldExcerpt"
+> = {
+  title: "sources.calendar.fieldTitle",
+  startTime: "sources.calendar.fieldStartTime",
+  endTime: "sources.calendar.fieldEndTime",
+  date: "sources.calendar.fieldDate",
+  location: "sources.calendar.fieldLocation",
+  descriptionExcerpt: "sources.calendar.fieldExcerpt",
 };
 
-const defaultCalendar: CalendarConfig = {
-  calendars: [{ name: "Calendar", url: "https://" }],
-  displayMode: "upcoming",
-  maxEvents: 10,
-  fields: {
-    title: true,
-    startTime: true,
-    endTime: false,
-    date: true,
-    location: true,
-    descriptionExcerpt: false,
-  },
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-  refreshIntervalSeconds: 900,
-  stalenessLimitHours: 168,
-  emptyState: "No events scheduled",
-};
+function defaultCalendarConfig(t: ContentT): CalendarConfig {
+  return {
+    calendars: [
+      { name: t("sources.calendar.defaultFeedName"), url: "https://" },
+    ],
+    displayMode: "upcoming",
+    maxEvents: 10,
+    fields: {
+      title: true,
+      startTime: true,
+      endTime: false,
+      date: true,
+      location: true,
+      descriptionExcerpt: false,
+    },
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    refreshIntervalSeconds: 900,
+    stalenessLimitHours: 168,
+    emptyState: t("sources.calendar.defaultEmptyState"),
+  };
+}
 
 export function CalendarDataSourceEditor({
   dataSource,
@@ -86,12 +101,26 @@ export function CalendarDataSourceEditor({
   page?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const configured = dataSource?.configuration as CalendarConfig | undefined;
   const [name, setName] = useState(dataSource?.name ?? "");
   const [description, setDescription] = useState(dataSource?.description ?? "");
   const [configuration, setConfiguration] = useState<CalendarConfig>(
-    configured ?? defaultCalendar,
+    () => configured ?? defaultCalendarConfig(t),
   );
+  const displayOptions = displayModeOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const refreshIntervals = calendarRefreshOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const stalenessLimits = stalenessOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
   const [preview, setPreview] = useState<CalendarPreview>();
   const diagnostics = useQuery({
     queryKey: ["data-source-diagnostics", dataSource?.id],
@@ -143,10 +172,12 @@ export function CalendarDataSourceEditor({
   const diagnostic = diagnostics.data;
   return (
     <EditorFrame
-      title={
-        dataSource ? "Edit Calendar Data Source" : "Create Calendar Data Source"
-      }
-      description="Tilecast fetches and sanitizes public iCalendar feeds for native playback."
+      title={t(
+        dataSource
+          ? "sources.calendar.editTitle"
+          : "sources.calendar.createTitle",
+      )}
+      description={t("sources.calendar.frameDescription")}
       page={page}
       onClose={onClose}
       footer={
@@ -158,8 +189,8 @@ export function CalendarDataSourceEditor({
             onClick={() => previewMutation.mutate()}
           >
             {previewMutation.isPending
-              ? "Loading preview…"
-              : "Preview real data"}
+              ? t("sources.shared.loadingPreview")
+              : t("sources.shared.previewRealData")}
           </RheaButton>
           {!readOnly && (
             <RheaButton
@@ -167,7 +198,9 @@ export function CalendarDataSourceEditor({
               disabled={save.isPending || !name.trim()}
               onClick={() => save.mutate()}
             >
-              {save.isPending ? "Saving…" : "Save Data Source"}
+              {save.isPending
+                ? t("common:actions.saving")
+                : t("sources.shared.saveDataSource")}
             </RheaButton>
           )}
         </>
@@ -175,7 +208,9 @@ export function CalendarDataSourceEditor({
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="calendar-name">Name</FieldLabel>
+          <FieldLabel htmlFor="calendar-name">
+            {t("sources.shared.name")}
+          </FieldLabel>
           <Input
             id="calendar-name"
             disabled={readOnly}
@@ -184,7 +219,9 @@ export function CalendarDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="calendar-description">Description</FieldLabel>
+          <FieldLabel htmlFor="calendar-description">
+            {t("sources.shared.description")}
+          </FieldLabel>
           <Input
             id="calendar-description"
             disabled={readOnly}
@@ -194,12 +231,14 @@ export function CalendarDataSourceEditor({
         </Field>
       </div>
       <fieldset className="grid gap-3">
-        <legend className="text-sm font-medium">Calendars</legend>
+        <legend className="text-sm font-medium">
+          {t("sources.calendar.calendarsLegend")}
+        </legend>
         {configuration.calendars.map((feed, index) => (
           <div className="grid gap-4 sm:grid-cols-2" key={index}>
             <Field>
               <FieldLabel htmlFor={`calendar-feed-name-${index}`}>
-                Calendar name
+                {t("sources.calendar.feedName")}
               </FieldLabel>
               <Input
                 id={`calendar-feed-name-${index}`}
@@ -212,7 +251,7 @@ export function CalendarDataSourceEditor({
             </Field>
             <Field>
               <FieldLabel htmlFor={`calendar-feed-url-${index}`}>
-                Public ICS URL
+                {t("sources.calendar.feedUrl")}
               </FieldLabel>
               <div className="flex items-center gap-2">
                 <Input
@@ -230,7 +269,9 @@ export function CalendarDataSourceEditor({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={`Remove ${feed.name}`}
+                    aria-label={t("sources.calendar.removeFeed", {
+                      name: feed.name,
+                    })}
                     onClick={() =>
                       setConfiguration((current) => ({
                         ...current,
@@ -257,20 +298,25 @@ export function CalendarDataSourceEditor({
                 calendars: [
                   ...current.calendars,
                   {
-                    name: `Calendar ${current.calendars.length + 1}`,
+                    name: t("sources.calendar.newFeedName", {
+                      index: current.calendars.length + 1,
+                    }),
                     url: "https://",
                   },
                 ],
               }))
             }
           >
-            <Plus size={16} aria-hidden="true" /> Add calendar
+            <Plus size={16} aria-hidden="true" />{" "}
+            {t("sources.calendar.addCalendar")}
           </RheaButton>
         )}
       </fieldset>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field>
-          <FieldLabel htmlFor="calendar-display">Display</FieldLabel>
+          <FieldLabel htmlFor="calendar-display">
+            {t("sources.calendar.display")}
+          </FieldLabel>
           <RheaSelect
             disabled={readOnly}
             value={configuration.displayMode}
@@ -281,13 +327,16 @@ export function CalendarDataSourceEditor({
               })
             }
           >
-            <SelectTrigger id="calendar-display" aria-label="Display">
+            <SelectTrigger
+              id="calendar-display"
+              aria-label={t("sources.calendar.display")}
+            >
               <SelectValue>
-                {optionLabel(displayModeOptions, configuration.displayMode)}
+                {optionLabel(displayOptions, configuration.displayMode)}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {displayModeOptions.map((option) => (
+              {displayOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
@@ -296,7 +345,9 @@ export function CalendarDataSourceEditor({
           </RheaSelect>
         </Field>
         <Field>
-          <FieldLabel htmlFor="calendar-max-events">Maximum events</FieldLabel>
+          <FieldLabel htmlFor="calendar-max-events">
+            {t("sources.calendar.maxEvents")}
+          </FieldLabel>
           <Input
             id="calendar-max-events"
             disabled={readOnly}
@@ -313,7 +364,9 @@ export function CalendarDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="calendar-timezone">Timezone</FieldLabel>
+          <FieldLabel htmlFor="calendar-timezone">
+            {t("sources.calendar.timezone")}
+          </FieldLabel>
           <Input
             id="calendar-timezone"
             disabled={readOnly}
@@ -328,7 +381,9 @@ export function CalendarDataSourceEditor({
         </Field>
       </div>
       <fieldset className="grid gap-2">
-        <legend className="text-sm font-medium">Event details</legend>
+        <legend className="text-sm font-medium">
+          {t("sources.calendar.eventDetails")}
+        </legend>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           {(
             Object.keys(
@@ -350,16 +405,18 @@ export function CalendarDataSourceEditor({
                   })
                 }
               />
-              <span>{calendarFieldLabels[field]}</span>
+              <span>{t(calendarFieldLabelKeys[field])}</span>
             </label>
           ))}
         </div>
       </fieldset>
       {configuration.calendars.length > 1 && (
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium">Calendar filter</legend>
+          <legend className="text-sm font-medium">
+            {t("sources.calendar.filterLegend")}
+          </legend>
           <p className="text-xs text-muted-foreground">
-            No selection includes every configured calendar.
+            {t("sources.calendar.filterHint")}
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {configuration.calendars.map((feed) => {
@@ -394,7 +451,9 @@ export function CalendarDataSourceEditor({
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="calendar-keyword">Keyword filter</FieldLabel>
+          <FieldLabel htmlFor="calendar-keyword">
+            {t("sources.calendar.keywordFilter")}
+          </FieldLabel>
           <Input
             id="calendar-keyword"
             disabled={readOnly}
@@ -408,7 +467,9 @@ export function CalendarDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="calendar-empty-state">Empty state</FieldLabel>
+          <FieldLabel htmlFor="calendar-empty-state">
+            {t("sources.calendar.emptyStateLabel")}
+          </FieldLabel>
           <Input
             id="calendar-empty-state"
             disabled={readOnly}
@@ -422,7 +483,9 @@ export function CalendarDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="calendar-refresh">Refresh interval</FieldLabel>
+          <FieldLabel htmlFor="calendar-refresh">
+            {t("sources.calendar.refreshInterval")}
+          </FieldLabel>
           <RheaSelect
             disabled={readOnly}
             value={configuration.refreshIntervalSeconds}
@@ -433,16 +496,19 @@ export function CalendarDataSourceEditor({
               })
             }
           >
-            <SelectTrigger id="calendar-refresh" aria-label="Refresh interval">
+            <SelectTrigger
+              id="calendar-refresh"
+              aria-label={t("sources.calendar.refreshInterval")}
+            >
               <SelectValue>
                 {optionLabel(
-                  calendarRefreshOptions,
+                  refreshIntervals,
                   configuration.refreshIntervalSeconds,
                 )}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {calendarRefreshOptions.map((option) => (
+              {refreshIntervals.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
@@ -451,7 +517,9 @@ export function CalendarDataSourceEditor({
           </RheaSelect>
         </Field>
         <Field>
-          <FieldLabel htmlFor="calendar-staleness">Keep cached data</FieldLabel>
+          <FieldLabel htmlFor="calendar-staleness">
+            {t("sources.calendar.keepCached")}
+          </FieldLabel>
           <RheaSelect
             disabled={readOnly}
             value={configuration.stalenessLimitHours}
@@ -464,17 +532,17 @@ export function CalendarDataSourceEditor({
           >
             <SelectTrigger
               id="calendar-staleness"
-              aria-label="Keep cached data"
+              aria-label={t("sources.calendar.keepCached")}
             >
               <SelectValue>
                 {optionLabel(
-                  stalenessOptions,
+                  stalenessLimits,
                   configuration.stalenessLimitHours,
                 )}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {stalenessOptions.map((option) => (
+              {stalenessLimits.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
@@ -485,24 +553,31 @@ export function CalendarDataSourceEditor({
       </div>
       {diagnostic && (
         <div className="grid gap-1 rounded-lg border p-3 text-sm">
-          <strong>Refresh diagnostics</strong>
+          <strong>{t("sources.calendar.diagnostics")}</strong>
           <span>
             {diagnostic.parseStatus} ·{" "}
-            {diagnostic.httpResultCategory ?? "not attempted"} ·{" "}
-            {diagnostic.availableEventCount} events
-            {diagnostic.usingCachedData ? " · cached data" : ""}
+            {diagnostic.httpResultCategory ?? t("sources.calendar.diagUnknown")}{" "}
+            ·{" "}
+            {t("sources.calendar.diagEvents", {
+              count: diagnostic.availableEventCount,
+            })}
+            {diagnostic.usingCachedData
+              ? ` ${t("sources.calendar.diagCached")}`
+              : ""}
           </span>
           <small className="text-xs text-muted-foreground">
-            Last attempt:{" "}
+            {t("sources.calendar.lastAttempt")}{" "}
             {diagnostic.lastAttemptedRefresh
-              ? new Date(diagnostic.lastAttemptedRefresh).toLocaleString()
-              : "Not yet"}
+              ? new Date(diagnostic.lastAttemptedRefresh).toLocaleString(locale)
+              : t("sources.calendar.notYet")}
           </small>
           <small className="text-xs text-muted-foreground">
-            Last success:{" "}
+            {t("sources.calendar.lastSuccess")}{" "}
             {diagnostic.lastSuccessfulRefresh
-              ? new Date(diagnostic.lastSuccessfulRefresh).toLocaleString()
-              : "Not yet"}
+              ? new Date(diagnostic.lastSuccessfulRefresh).toLocaleString(
+                  locale,
+                )
+              : t("sources.calendar.notYet")}
           </small>
         </div>
       )}
@@ -516,12 +591,12 @@ export function CalendarDataSourceEditor({
                 className="grid gap-0.5 rounded-lg border p-3"
               >
                 <strong className="text-sm">
-                  {event.title || "Untitled event"}
+                  {event.title || t("sources.calendar.untitledEvent")}
                 </strong>
                 <span className="text-sm text-muted-foreground">
                   {event.allDay
-                    ? new Date(event.start).toLocaleDateString()
-                    : new Date(event.start).toLocaleString()}
+                    ? new Date(event.start).toLocaleDateString(locale)
+                    : new Date(event.start).toLocaleString(locale)}
                 </span>
                 {event.location && (
                   <small className="text-xs text-muted-foreground">
@@ -540,7 +615,7 @@ export function CalendarDataSourceEditor({
       {(previewMutation.error || save.error) && (
         <Alert variant="destructive">
           <AlertDescription>
-            {(previewMutation.error ?? save.error)?.message}
+            {apiErrorMessage(previewMutation.error ?? save.error)}
           </AlertDescription>
         </Alert>
       )}

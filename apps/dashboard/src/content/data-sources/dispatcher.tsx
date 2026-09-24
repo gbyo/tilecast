@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { DataSourceDetail, DataSourceProvider } from "../../api/types";
 import { GenericDataSourceEditor } from "../GenericDefinitionEditors";
@@ -31,6 +32,7 @@ export function DataSourceEditor({
     queryKey: ["content-definitions"],
     queryFn: api.contentDefinitions,
   });
+  const { t } = useTranslation("content");
   const definition = definitions.data?.dataSources?.find(
     (candidate) => candidate.id === provider,
   );
@@ -39,7 +41,9 @@ export function DataSourceEditor({
   // without a hardcoded provider check here.
   if (!legacyDataSourceProviders.has(provider) && definitions.isLoading)
     return (
-      <div className="table-loading">Loading Data Source definition...</div>
+      <div className="table-loading">
+        {t("sources.dispatcher.loadingDefinition")}
+      </div>
     );
   if (definition && !definition.legacyEditor)
     return (
