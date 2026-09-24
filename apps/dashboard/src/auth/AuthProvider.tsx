@@ -73,11 +73,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const { t } = useTranslation(["auth"]);
   const [challenge, setChallenge] = useState<MFAChallenge | undefined>();
   const passkeyAutofillController = useRef<AbortController | null>(null);
+  const passkeyAutofillRequest = useRef<Promise<void> | null>(null);
   const cancelPasskeyAutofill = () => {
+    const pendingRequest = passkeyAutofillRequest.current;
     const controller = passkeyAutofillController.current;
-    if (!controller) return;
-    passkeyAutofillController.current = null;
-    controller.abort();
+    if (controller) {
+      passkeyAutofillController.current = null;
+      controller.abort();
+    }
+    return pendingRequest ?? Promise.resolve();
   };
   const query = useQuery({
     queryKey: authKey,
@@ -121,7 +125,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   // between two requests, so it cannot be split across React state.
   const passkeyChallengeMutation = useMutation({
     mutationFn: async () => {
-      cancelPasskeyAutofill();
+      await cancelPasskeyAutofill();
       if (!challenge) throw new Error(t("errors.challengeExpired"));
       const ceremony = await api.mfaPasskeyOptions(challenge.challengeToken);
       const credential = (await navigator.credentials.get({
@@ -165,8 +169,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   };
 
   const passkeyLoginMutation = useMutation({
-    mutationFn: () => {
-      cancelPasskeyAutofill();
+    mutationFn: async () => {
+      await cancelPasskeyAutofill();
       return runPasskeyCeremony();
     },
     onSuccess: setSession,
@@ -176,10 +180,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     // Chromium allows only one WebAuthn ceremony at a time. Keep the pending
     // conditional request owned here so an explicit passkey action can cancel
     // it before opening its modal ceremony.
-    cancelPasskeyAutofill();
+    const previousRequest = cancelPasskeyAutofill();
     const controller = new AbortController();
     passkeyAutofillController.current = controller;
-    void (async () => {
+    let request: Promise<void>;
+    request = (async () => {
+      await previousRequest;
       if (!(await conditionalMediationAvailable())) return;
       if (controller.signal.aborted) return;
       try {
@@ -190,8 +196,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } finally {
         if (passkeyAutofillController.current === controller)
           passkeyAutofillController.current = null;
+        if (passkeyAutofillRequest.current === request)
+          passkeyAutofillRequest.current = null;
       }
     })();
+    passkeyAutofillRequest.current = request;
     return () => {
       if (passkeyAutofillController.current === controller)
         passkeyAutofillController.current = null;
