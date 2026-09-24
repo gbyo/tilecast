@@ -15,16 +15,23 @@ test_sha256 (void)
 static void
 test_runtime_paths (void)
 {
-  g_assert_true (tc_runtime_path_is_allowed ("/static/index.html"));
-  g_assert_true (tc_runtime_path_is_allowed ("/dist/renderer/renderer.js"));
-  g_assert_false (tc_runtime_path_is_allowed ("/static/../../identity/node-key.pk8"));
-  g_assert_false (tc_runtime_path_is_allowed ("/static/.."));
-  g_assert_false (tc_runtime_path_is_allowed ("/static/%2e%2e"));
-  g_assert_false (tc_runtime_path_is_allowed ("/static/a/b.js"));
+  g_assert_true (tc_runtime_path_is_allowed ("/index.html"));
+  g_assert_true (tc_runtime_path_is_allowed ("/runtime.js"));
+  g_assert_true (tc_runtime_path_is_allowed ("/fonts/geist-latin-wght-normal.woff2"));
+  g_assert_false (tc_runtime_path_is_allowed ("/fonts/../../identity/device-credential"));
+  g_assert_false (tc_runtime_path_is_allowed ("/../identity/device-credential"));
+  g_assert_false (tc_runtime_path_is_allowed ("/.."));
+  g_assert_false (tc_runtime_path_is_allowed ("/%2e%2e"));
+  g_assert_false (tc_runtime_path_is_allowed ("/fonts/a/b.woff2"));
+  g_assert_false (tc_runtime_path_is_allowed ("/static/index.html"));
   g_assert_false (tc_runtime_path_is_allowed ("/etc/passwd"));
-  g_assert_false (tc_runtime_path_is_allowed ("/static/"));
-  g_assert_cmpstr (tc_runtime_content_type ("/static/index.html"), ==, "text/html; charset=utf-8");
-  g_assert_null (tc_runtime_content_type ("/static/archive.tar"));
+  g_assert_false (tc_runtime_path_is_allowed ("/fonts/"));
+  g_assert_false (tc_runtime_path_is_allowed ("/"));
+  g_assert_false (tc_runtime_path_is_allowed ("index.html"));
+  g_assert_false (tc_runtime_path_is_allowed (NULL));
+  g_assert_cmpstr (tc_runtime_content_type ("/index.html"), ==, "text/html; charset=utf-8");
+  g_assert_cmpstr (tc_runtime_content_type ("/fonts/x.woff2"), ==, "font/woff2");
+  g_assert_null (tc_runtime_content_type ("/archive.tar"));
 }
 
 static void
