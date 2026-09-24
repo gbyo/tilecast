@@ -2116,6 +2116,7 @@ export type ContentDefinitionField = {
     | "date"
     | "datetime"
     | "timezone"
+    | "currency_code"
     | "url"
     | "data_source"
     | "data_source_field"
@@ -2182,7 +2183,14 @@ export type DataSourceDefinition = {
   defaultConfiguration: Record<string, unknown>;
   outputSchema: {
     kind: "scalar" | "records" | "time_series" | "list" | "object";
-    fields: { key: string; label: string; type: string; required?: boolean }[];
+    fields: {
+      key: string;
+      label: string;
+      type: string;
+      currency?: string;
+      currencyConfigKey?: string;
+      required?: boolean;
+    }[];
   };
   adapterId: string;
   refreshBehavior: string;
@@ -2334,6 +2342,7 @@ export type DataSourceField = {
   key: string;
   label: string;
   type: string;
+  currency?: string;
 };
 export type DataSource = {
   id: string;
@@ -2539,7 +2548,7 @@ export type AirQualitySourceConfig = {
   latitude: number;
   longitude: number;
   timezone: string;
-  aqiStandard: "us" | "european";
+  aqiStandard?: "us" | "european";
   pollutants: string[];
   forecastHours: number;
   nonCommercialAccepted: boolean;
