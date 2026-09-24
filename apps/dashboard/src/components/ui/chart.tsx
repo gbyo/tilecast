@@ -199,7 +199,10 @@ function ChartTooltipContent({
           .map((item, index) => {
             const key = String(nameKey ?? item.name ?? item.dataKey ?? "value");
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
-            const indicatorColor = color ?? item.fill ?? item.color;
+            const indicatorColor =
+              color ??
+              getStringProperty(getPayloadProperty(item, "payload"), "fill") ??
+              item.color;
 
             return (
               <div
@@ -329,25 +332,29 @@ function getPayloadConfigFromPayload(
   payload: unknown,
   key: string,
 ) {
-  if (!isRecord(payload)) {
-    return undefined;
-  }
-
-  const nestedPayload = isRecord(payload.payload) ? payload.payload : undefined;
+  const nestedPayload = getPayloadProperty(payload, "payload");
   const configLabelKey =
     getStringProperty(payload, key) ??
-    (nestedPayload ? getStringProperty(nestedPayload, key) : undefined) ??
+    getStringProperty(nestedPayload, key) ??
     key;
 
   return config[configLabelKey] ?? config[key];
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function getPayloadProperty(payload: unknown, key: string): unknown {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    Array.isArray(payload)
+  ) {
+    return undefined;
+  }
+
+  return (payload as Record<string, unknown>)[key];
 }
 
-function getStringProperty(record: Record<string, unknown>, key: string) {
-  const value = record[key];
+function getStringProperty(payload: unknown, key: string): string | undefined {
+  const value = getPayloadProperty(payload, key);
   return typeof value === "string" ? value : undefined;
 }
 
