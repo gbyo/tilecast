@@ -13,7 +13,7 @@ import type { Manifest } from "./types";
 
 const at = new Date("2026-07-15T12:00:00-04:00");
 
-function typedSource(id: string): ManifestDataSource {
+function typedSource(id: string, currency?: string): ManifestDataSource {
   return {
     id,
     name: id,
@@ -22,7 +22,7 @@ function typedSource(id: string): ManifestDataSource {
     configuration: {
       fields: [
         { key: "title", label: "Title", type: "text" },
-        { key: "price", label: "Price", type: "currency" },
+        { key: "price", label: "Price", type: "currency", currency },
       ],
       records: [
         { id: "1", values: { title: "Coffee", price: "3.5" } },
@@ -178,13 +178,25 @@ describe("normalizeSource", () => {
     expect(norm.records).toHaveLength(2);
     expect(norm.records[0]!.fields["title"]).toBe("Coffee");
     expect(norm.fieldTypes["price"]).toBe("currency");
+    expect(norm.records[0]!.rawFields["price"]).toBe("3.5");
+    expect(norm.records[0]!.fields["price"]).not.toMatch(/[€£$¥]/);
   });
 });
 
 describe("renderWidget", () => {
-  const ctx = (sources: ManifestDataSource[]) => ({
+  const ctx = (
+    sources: ManifestDataSource[],
+    regionalFormat?: {
+      locale: string;
+      timezone: string;
+      dateFormat: "locale";
+      timeFormat: "locale";
+      firstDayOfWeek: "monday";
+    },
+  ) => ({
     dataSources: new Map(sources.map((s) => [s.id, s])),
     at,
+    regionalFormat,
   });
 
   it("renders a clock as a self-updating node", () => {
@@ -204,6 +216,37 @@ describe("renderWidget", () => {
     const stack = JSON.stringify(payload.root);
     expect(stack).toContain('"t":"clock"');
     expect(stack).toContain('"hour12":false');
+  });
+
+  it("uses organization time defaults for a new clock while preserving explicit choices", () => {
+    const regionalFormat = {
+      locale: "de-DE",
+      timezone: "Europe/Berlin",
+      dateFormat: "locale" as const,
+      timeFormat: "locale" as const,
+      firstDayOfWeek: "monday" as const,
+    };
+    const widget: ManifestWidget = {
+      assetId: "organization-clock",
+      name: "Clock",
+      provider: "clock",
+      configVersion: 13,
+      configuration: { timezone: "", format: "locale", showSeconds: false },
+    };
+    const inherited = JSON.stringify(
+      renderWidget(widget, ctx([], regionalFormat)),
+    );
+    expect(inherited).toContain('"timezone":"Europe/Berlin"');
+    expect(inherited).toContain('"locale":"de-DE"');
+    expect(inherited).not.toContain('"hour12":true');
+
+    const explicit = JSON.stringify(
+      renderWidget(
+        { ...widget, configuration: { ...widget.configuration, format: "12" } },
+        ctx([], regionalFormat),
+      ),
+    );
+    expect(explicit).toContain('"hour12":true');
   });
 
   it("renders a recurring countdown in the selected horizontal layout", () => {
@@ -290,7 +333,7 @@ describe("renderWidget", () => {
     });
   });
 
-  it("renders a metric from a typed source with currency formatting", () => {
+  it("renders a metric with explicit EUR metadata using the organization locale", () => {
     const widget: ManifestWidget = {
       assetId: "w2",
       name: "Price",
@@ -303,8 +346,20 @@ describe("renderWidget", () => {
         precision: 2,
       },
     };
-    const payload = renderWidget(widget, ctx([typedSource("s1")]))!;
-    expect(JSON.stringify(payload.root)).toContain("$3.50");
+    const payload = renderWidget(
+      widget,
+      ctx([typedSource("s1", "EUR")], {
+        locale: "de-DE",
+        timezone: "Europe/Berlin",
+        dateFormat: "locale",
+        timeFormat: "locale",
+        firstDayOfWeek: "monday",
+      }),
+    )!;
+    const rendered = JSON.stringify(payload.root).replace(/\\u00a0/g, " ");
+    expect(rendered).toContain("3,50");
+    expect(rendered).toContain("€");
+    expect(rendered).not.toContain("$");
   });
 
   it("renders a menu/list from records", () => {
@@ -417,11 +472,22 @@ describe("renderPresentation (v13 declarative)", () => {
         },
       ],
     };
-    const datasets = new Map([["s1", normalizeSource(typedSource("s1"), at)]]);
-    const tree = renderPresentation(root, { datasets, at });
+    const regionalFormat = {
+      locale: "de-DE",
+      timezone: "Europe/Berlin",
+      dateFormat: "locale" as const,
+      timeFormat: "locale" as const,
+      firstDayOfWeek: "monday" as const,
+    };
+    const datasets = new Map([
+      ["s1", normalizeSource(typedSource("s1", "EUR"), at, regionalFormat)],
+    ]);
+    const tree = renderPresentation(root, { datasets, at, regionalFormat });
     const json = JSON.stringify(tree);
     expect(json).toContain("Coffee");
-    expect(json).toContain("$3.50");
+    expect(json).toContain("3,50");
+    expect(json).toContain("€");
+    expect(json).not.toContain("$");
     expect(json).toContain("Tea");
   });
 

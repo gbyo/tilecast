@@ -617,7 +617,7 @@ func (s *Service) availableDataSourceFields(provider string, raw json.RawMessage
 		var config ManualSourceConfig
 		_ = json.Unmarshal(raw, &config)
 		for _, column := range config.Columns {
-			fields = append(fields, DataSourceField{Key: column.Key, Label: column.Label, Type: column.Type})
+			fields = append(fields, DataSourceField{Key: column.Key, Label: column.Label, Type: column.Type, Currency: column.Currency})
 		}
 		return fields
 	}

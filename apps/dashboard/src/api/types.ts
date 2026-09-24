@@ -2563,7 +2563,7 @@ export type TypedDatasetPayload = {
 };
 export type ClockWidgetConfig = {
   timezone: string;
-  format: "12" | "24";
+  format: "locale" | "12" | "24";
   showSeconds: boolean;
   foregroundColor: string;
   backgroundColor: string;
@@ -2572,7 +2572,7 @@ export type ClockWidgetConfig = {
 };
 export type DateWidgetConfig = {
   timezone: string;
-  format: "full" | "long" | "medium" | "short";
+  format: "locale" | "full" | "long" | "medium" | "short";
   foregroundColor: string;
   backgroundColor: string;
   textScale?: number;
@@ -2771,7 +2771,7 @@ export type TimelineWidgetConfig = WidgetVisualConfig & {
 };
 export type WorldClockWidgetConfig = WidgetVisualConfig & {
   zones: { label: string; timezone: string }[];
-  format: "12" | "24";
+  format: "locale" | "12" | "24";
   showSeconds: boolean;
   showDate: boolean;
   columns: number;

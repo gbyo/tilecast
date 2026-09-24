@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -122,6 +123,22 @@ fun FullscreenPlayback(
     onWebsiteStatus: (WebsitePlaybackStatus) -> Unit = {},
     onWidgetStatus: (WidgetPlaybackStatus) -> Unit = {},
     onProgress: () -> Unit = {},
+) {
+    CompositionLocalProvider(
+        LocalTilecastRegionalFormatting provides session.playbackDefaults?.regionalFormat,
+    ) {
+        FullscreenPlaybackBody(session, onBoundary, onError, onWebsiteStatus, onWidgetStatus, onProgress)
+    }
+}
+
+@Composable
+private fun FullscreenPlaybackBody(
+    session: PlaybackSession,
+    onBoundary: (String, String) -> Unit,
+    onError: (String) -> Unit,
+    onWebsiteStatus: (WebsitePlaybackStatus) -> Unit,
+    onWidgetStatus: (WidgetPlaybackStatus) -> Unit,
+    onProgress: () -> Unit,
 ) {
     val takeoverDecision = TakeoverController.evaluate(
         session.content.serverNow(),

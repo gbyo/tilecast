@@ -9,7 +9,7 @@
  * null so the previously active presentation stays up.
  */
 
-import { safeColor } from "./format";
+import { formatValue, safeColor, type RegionalFormatting } from "./format";
 import { normalizeSource } from "./datasource";
 import { isAvailableAt } from "./content-availability";
 import { renderWidget } from "./widget-render";
@@ -50,6 +50,7 @@ export interface LayoutRenderContext {
   dataSources: Map<string, ManifestDataSource>;
   at: Date;
   playback?: Record<string, unknown>;
+  regionalFormat?: RegionalFormatting;
 }
 
 function assetVariant(
@@ -193,6 +194,7 @@ function renderPlacement(
         assets: ctx.manifest.assets,
         at: ctx.at,
         zoneHeight: placement.height,
+        regionalFormat: ctx.regionalFormat,
       });
       if (!payload) {
         return null;
@@ -412,12 +414,16 @@ function resolvePrimitiveText(
     return primitive.text ?? "";
   }
   const source = ctx.dataSources.get(binding.dataSourceId);
-  const record = source
-    ? // Normalize lazily here would be ideal; layout bindings read the first
-      // record's well-known fields, matching the Android LayoutPrimitiveRenderer.
-      firstRecordFields(source, ctx.at)
+  const normalized = source
+    ? normalizeSource(source, ctx.at, ctx.regionalFormat)
     : null;
-  const value = record ? (record[binding.field] ?? "") : "";
+  const record = normalized?.records[0];
+  const raw = record?.rawFields[binding.field] ?? "";
+  const display = record?.fields[binding.field] ?? "";
+  const value =
+    binding.format && binding.format !== "text"
+      ? formatLayoutBinding(raw, binding.format, normalized, binding.field, ctx)
+      : display || raw;
   if (!value) {
     if (binding.hideWhenEmpty) {
       return null;
@@ -427,12 +433,18 @@ function resolvePrimitiveText(
   return `${binding.prefix ?? ""}${value}${binding.suffix ?? ""}`;
 }
 
-function firstRecordFields(
-  source: ManifestDataSource,
-  at: Date,
-): Record<string, string> | null {
-  const normalized = normalizeSource(source, at);
-  return normalized.records[0]?.fields ?? null;
+function formatLayoutBinding(
+  raw: string,
+  format: string,
+  source: ReturnType<typeof normalizeSource> | null,
+  field: string,
+  ctx: LayoutRenderContext,
+): string {
+  return formatValue(raw, {
+    format,
+    currency: source?.fieldCurrencies[field],
+    regionalFormat: ctx.regionalFormat,
+  });
 }
 
 function clamp01(value: number): number {

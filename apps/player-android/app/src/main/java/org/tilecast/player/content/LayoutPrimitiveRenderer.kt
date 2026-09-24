@@ -39,9 +39,6 @@ import org.tilecast.player.network.StructuredSourceConfig
 import org.tilecast.player.R
 import java.time.Instant
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.text.NumberFormat
 
 @Composable
 fun LayoutPrimitiveCanvas(
@@ -54,6 +51,7 @@ fun LayoutPrimitiveCanvas(
     nowProvider: () -> Instant = { Instant.now() },
 ) {
     var now by remember { mutableStateOf(nowProvider()) }
+    val regional = LocalTilecastRegionalFormatting.current
     LaunchedEffect(structuredSources) { while (true) { now = nowProvider(); kotlinx.coroutines.delay(30_000) } }
     BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val sourceWidth = viewport?.width ?: document.canvas.width
@@ -75,7 +73,7 @@ fun LayoutPrimitiveCanvas(
         val sy = height.value / sourceHeight
         val hiddenGroups = document.placements.filter { it.primitive?.kind == "group" && it.primitive.binding?.hideWhenEmpty == true }.filter { group ->
             val binding = group.primitive?.binding ?: return@filter false
-            structuredSources[binding.dataSourceId]?.let { resolveLayoutBinding(binding, it, now).isBlank() } ?: true
+            structuredSources[binding.dataSourceId]?.let { resolveLayoutBinding(binding, it, now, regional).isBlank() } ?: true
         }.map { it.id }.toSet()
         val canvasModifier = if (drawBackground) {
             Modifier.size(width, height).background(layoutColor(document.canvas.backgroundColor))
@@ -95,7 +93,7 @@ fun LayoutPrimitiveCanvas(
                 val right = minOf(placement.x + placement.width, (originX + sourceWidth).toFloat())
                 val bottom = minOf(placement.y + placement.height, (originY + sourceHeight).toFloat())
                 if (right > left && bottom > top) {
-                    PrimitivePlacement(placement.copy(x = left - originX, y = top - originY, width = right - left, height = bottom - top), sx, sy, structuredSources, now)
+                    PrimitivePlacement(placement.copy(x = left - originX, y = top - originY, width = right - left, height = bottom - top), sx, sy, structuredSources, now, regional)
                 }
             }
         }
@@ -105,7 +103,7 @@ fun LayoutPrimitiveCanvas(
 private fun placementGroupVisible(placement: LayoutPlacement, hiddenGroups: Set<String>) = placement.groupId == null || placement.groupId !in hiddenGroups
 
 @Composable
-private fun PrimitivePlacement(placement: LayoutPlacement, sx: Float, sy: Float, structuredSources: Map<String, StructuredSourceConfig>, now: Instant) {
+private fun PrimitivePlacement(placement: LayoutPlacement, sx: Float, sy: Float, structuredSources: Map<String, StructuredSourceConfig>, now: Instant, regional: org.tilecast.player.network.RegionalFormatting?) {
     val primitive = placement.primitive ?: return
     val shape = RoundedCornerShape((primitive.cornerRadius * minOf(sx, sy)).dp)
     val box = Modifier.offset((placement.x * sx).dp, (placement.y * sy).dp).size((placement.width * sx).dp, (placement.height * sy).dp).alpha(placement.opacity).clip(shape)
@@ -117,7 +115,7 @@ private fun PrimitivePlacement(placement: LayoutPlacement, sx: Float, sy: Float,
             textModifier.padding((primitive.padding * sx).dp),
             contentAlignment = when (primitive.verticalAlign) { "top" -> Alignment.TopStart; "bottom" -> Alignment.BottomStart; else -> Alignment.CenterStart },
         ) {
-            val resolved = primitive.binding?.let { binding -> structuredSources[binding.dataSourceId]?.let { resolveLayoutBinding(binding, it, now) } }
+            val resolved = primitive.binding?.let { binding -> structuredSources[binding.dataSourceId]?.let { resolveLayoutBinding(binding, it, now, regional) } }
             if (primitive.binding?.hideWhenEmpty == true && resolved.isNullOrEmpty()) return@Box
             Text(
                 text = resolved ?: primitive.text,
@@ -159,17 +157,12 @@ internal fun layoutFontFamily(name: String): FontFamily = when (name) {
     else -> FontFamily.SansSerif
 }
 
-internal fun resolveLayoutBinding(binding: org.tilecast.player.network.LayoutBinding, source: StructuredSourceConfig, now: Instant): String {
-    val record = selectDateAwareRecords(source, now).firstOrNull()
+internal fun resolveLayoutBinding(binding: org.tilecast.player.network.LayoutBinding, source: StructuredSourceConfig, now: Instant, regional: org.tilecast.player.network.RegionalFormatting? = null): String {
+    val record = selectDateAwareRecords(source, now, regional.firstDay()).firstOrNull()
     val raw = record?.let { when (binding.field) { "title" -> it.title; "subtitle" -> it.subtitle; "date" -> it.values["date"] ?: it.date; "author" -> it.author; "description" -> it.description; else -> it.values[binding.field] } }.orEmpty()
     if (raw.isBlank()) return binding.fallbackText
-    val formatted = when (binding.format) {
-        "date-short", "date-long" -> runCatching { LocalDate.parse(raw.take(10)).format(DateTimeFormatter.ofLocalizedDate(if (binding.format == "date-long") FormatStyle.LONG else FormatStyle.SHORT)) }.getOrDefault(raw)
-        "number" -> raw.toDoubleOrNull()?.let(NumberFormat.getNumberInstance()::format) ?: raw
-        "integer" -> raw.toDoubleOrNull()?.let { NumberFormat.getIntegerInstance().format(it) } ?: raw
-        "currency" -> raw.toDoubleOrNull()?.let(NumberFormat.getCurrencyInstance()::format) ?: raw
-        else -> raw
-    }
+    val currency = source.data.fieldCurrencies[binding.field]
+    val formatted = regional.formatValue(raw, binding.format, null, currency)
     return binding.prefix + formatted + binding.suffix
 }
 

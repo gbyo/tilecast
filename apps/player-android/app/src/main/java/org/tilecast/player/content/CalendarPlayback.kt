@@ -30,20 +30,19 @@ import org.tilecast.player.network.ManifestItem
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 
 internal fun visibleCalendarEvents(
     config: CalendarSourceConfig,
     now: Instant,
+    firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY,
 ): List<CalendarEvent> {
     val zone = runCatching { ZoneId.of(config.timezone) }.getOrDefault(ZoneId.of("UTC"))
     val localNow = now.atZone(zone)
     val startOfToday = localNow.toLocalDate().atStartOfDay(zone).toInstant()
     val endOfToday = localNow.toLocalDate().plusDays(1).atStartOfDay(zone).toInstant()
-    val weekStart = localNow.toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay(zone).toInstant()
-    val weekEnd = localNow.toLocalDate().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY)).plusDays(1).atStartOfDay(zone).toInstant()
+    val weekStart = localNow.toLocalDate().with(TemporalAdjusters.previousOrSame(firstDayOfWeek)).atStartOfDay(zone).toInstant()
+    val weekEnd = weekStart.atZone(zone).toLocalDate().plusDays(7).atStartOfDay(zone).toInstant()
     return config.data.events
         .asSequence()
         .filter { event ->
@@ -70,7 +69,8 @@ fun CalendarSourceItem(
     startOffsetMs: Long = 0,
 ) {
     val now = Instant.now()
-    val events = visibleCalendarEvents(config, now)
+    val regional = LocalTilecastRegionalFormatting.current
+    val events = visibleCalendarEvents(config, now, regional.firstDay())
     val state = if (config.data.unavailable) "unavailable" else if (config.data.usingCachedData) "cached" else if (events.isEmpty()) "empty" else "ready"
     DisposableEffect(dataSource.id, state) {
         onStatus(WidgetPlaybackStatus(dataSource.id, "calendar", state))
@@ -100,15 +100,16 @@ fun CalendarSourceItem(
 @Composable
 private fun CalendarEventRow(event: CalendarEvent, config: CalendarSourceConfig) {
     val zone = runCatching { ZoneId.of(config.timezone) }.getOrDefault(ZoneId.of("UTC"))
+    val regional = LocalTilecastRegionalFormatting.current
     val start = Instant.parse(event.start).atZone(zone)
     val end = Instant.parse(event.end).atZone(zone)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
         if (config.fields.date || config.fields.startTime || config.fields.endTime) {
             Column(Modifier.fillMaxWidth(0.24f)) {
-                if (config.fields.date) Text(start.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = Color(0xFF9FB7CB), fontSize = 18.sp)
+                if (config.fields.date) Text(regional.formatDate(start.toLocalDate()), color = Color(0xFF9FB7CB), fontSize = 18.sp)
                 if (event.allDay) Text("All day", color = Color(0xFFF5F7FA), fontSize = 20.sp)
                 else if (config.fields.startTime) {
-                    val range = if (config.fields.endTime) "${formatTime(start)} - ${formatTime(end)}" else formatTime(start)
+                    val range = if (config.fields.endTime) "${regional.formatTime(start)} - ${regional.formatTime(end)}" else regional.formatTime(start)
                     Text(range, color = Color(0xFFF5F7FA), fontSize = 20.sp)
                 }
             }
@@ -121,5 +122,3 @@ private fun CalendarEventRow(event: CalendarEvent, config: CalendarSourceConfig)
     }
     HorizontalDivider(Modifier.padding(top = 12.dp), color = Color(0xFF273642))
 }
-
-private fun formatTime(value: ZonedDateTime): String = value.format(DateTimeFormatter.ofPattern("h:mm a"))

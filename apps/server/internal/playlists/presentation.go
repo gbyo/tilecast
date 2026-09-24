@@ -185,9 +185,10 @@ type WebReload struct {
 
 type typedRecordProjection struct {
 	Fields []struct {
-		Key   string `json:"key"`
-		Label string `json:"label"`
-		Type  string `json:"type"`
+		Key      string `json:"key"`
+		Label    string `json:"label"`
+		Type     string `json:"type"`
+		Currency string `json:"currency,omitempty"`
 	} `json:"fields"`
 	Records []struct {
 		ID     string            `json:"id"`
@@ -216,7 +217,10 @@ func projectDataDocument(raw json.RawMessage) (*DataDocument, error) {
 			ID     string `json:"id"`
 			Kind   string `json:"kind"`
 			Fields []struct {
-				Key, Label, Type string
+				Key      string `json:"key"`
+				Label    string `json:"label"`
+				Type     string `json:"type"`
+				Currency string `json:"currency,omitempty"`
 			} `json:"fields"`
 			Records []struct {
 				ID     string            `json:"id"`
@@ -252,7 +256,7 @@ func projectDataDocument(raw json.RawMessage) (*DataDocument, error) {
 					return nil, errors.New("projected dataset field is invalid")
 				}
 				fieldTypes[field.Key] = field.Type
-				dataset.Fields = append(dataset.Fields, DocumentField{Key: field.Key, Label: field.Label, Type: field.Type, Unit: source.Units[field.Key]})
+				dataset.Fields = append(dataset.Fields, DocumentField{Key: field.Key, Label: field.Label, Type: field.Type, Unit: source.Units[field.Key], Currency: field.Currency})
 			}
 			for _, record := range source.Records {
 				values := map[string]DocumentValue{}
@@ -298,7 +302,7 @@ func projectDataDocument(raw json.RawMessage) (*DataDocument, error) {
 			return nil, errors.New("projected field is invalid")
 		}
 		fieldTypes[field.Key] = field.Type
-		dataset.Fields = append(dataset.Fields, DocumentField{Key: field.Key, Label: field.Label, Type: field.Type})
+		dataset.Fields = append(dataset.Fields, DocumentField{Key: field.Key, Label: field.Label, Type: field.Type, Currency: field.Currency})
 	}
 	for _, record := range projected.Records {
 		if record.ID == "" || len(record.ID) > 80 || len(record.Values) > 16 {
@@ -661,10 +665,10 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 	}
 	switch provider {
 	case "clock":
-		surface.Children = []PresentationNode{text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "12") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(c, "timezone", "UTC")}, "metric")}
+		surface.Children = []PresentationNode{text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "locale") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(c, "timezone", "")}, "metric")}
 		caps["environment.time"] = 1
 	case "date":
-		surface.Children = []PresentationNode{text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "date:" + stringValue(c, "format", "full") + ":" + stringValue(c, "timezone", "UTC")}, "metric")}
+		surface.Children = []PresentationNode{text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "date:" + stringValue(c, "format", "locale") + ":" + stringValue(c, "timezone", "")}, "metric")}
 		caps["environment.time"] = 1
 	case "countdown":
 		flags := ""
@@ -701,10 +705,10 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 		children := make([]PresentationNode, 0, len(zones))
 		for _, rawZone := range zones {
 			zone, _ := rawZone.(map[string]any)
-			timeNode := text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "12") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(zone, "timezone", "UTC")}, "metric")
+			timeNode := text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "locale") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(zone, "timezone", "")}, "metric")
 			zoneChildren := []PresentationNode{text(PresentationBinding{Source: "literal", Value: stringValue(zone, "label", "")}, "label"), timeNode}
 			if boolValue(c["showDate"]) {
-				zoneChildren = append(zoneChildren, text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "date:medium:" + stringValue(zone, "timezone", "UTC")}, "body"))
+				zoneChildren = append(zoneChildren, text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "date:medium:" + stringValue(zone, "timezone", "")}, "body"))
 			}
 			children = append(children, PresentationNode{Type: "column", Props: map[string]any{"card": true}, Children: zoneChildren})
 		}

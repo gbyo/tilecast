@@ -2,6 +2,8 @@ package org.tilecast.player.content
 
 import java.time.Instant
 import java.time.LocalDate
+import java.time.DayOfWeek
+import java.time.temporal.TemporalAdjusters
 import java.time.ZoneId
 import org.tilecast.player.network.StructuredRecord
 import org.tilecast.player.network.StructuredSourceConfig
@@ -10,7 +12,7 @@ import org.tilecast.player.network.StructuredSourceConfig
 // display their cached records. This local, offline selection is re-evaluated from the
 // already cached dataset, so date changes, DST transitions, reboots, sleep recovery,
 // timezone changes, and clock corrections never require a new manifest.
-internal fun selectDateAwareRecords(config: StructuredSourceConfig, now: Instant): List<StructuredRecord> {
+internal fun selectDateAwareRecords(config: StructuredSourceConfig, now: Instant, firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY): List<StructuredRecord> {
 	val selection = config.dateSelection
 	if (!selection.enabled) return config.data.records
 	val zone = runCatching { ZoneId.of(selection.timezone) }.getOrDefault(ZoneId.of("UTC"))
@@ -20,7 +22,7 @@ internal fun selectDateAwareRecords(config: StructuredSourceConfig, now: Instant
 	val dated = config.data.records.mapNotNull { record -> date(record)?.let { it to record } }
 	var matches = dated.filter { (value, _) -> !selection.excludePast || !value.isBefore(today) }.filter { (value, _) -> when (selection.mode) {
 		"next_available" -> !value.isBefore(target)
-		"current_week" -> { val start = today.minusDays((today.dayOfWeek.value - 1).toLong()); !value.isBefore(start) && !value.isAfter(start.plusDays(6)) }
+		"current_week" -> { val start = today.with(TemporalAdjusters.previousOrSame(firstDayOfWeek)); !value.isBefore(start) && !value.isAfter(start.plusDays(6)) }
 		"custom_range" -> runCatching { !value.isBefore(LocalDate.parse(selection.customStartDate)) && !value.isAfter(LocalDate.parse(selection.customEndDate)) }.getOrDefault(false)
 		else -> value == target
 	} }

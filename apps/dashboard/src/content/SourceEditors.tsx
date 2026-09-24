@@ -384,15 +384,15 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
   const colors = { foregroundColor: "#F5F7FA", backgroundColor: "#0E141B" };
   if (provider === "clock")
     return {
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      format: "12",
+      timezone: "",
+      format: "locale",
       showSeconds: false,
       ...colors,
     };
   if (provider === "date")
     return {
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      format: "full",
+      timezone: "",
+      format: "locale",
       ...colors,
     };
   if (provider === "qrcode")
@@ -515,10 +515,10 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
       zones: [
         {
           label: t("widgets.defaults.zoneLocal"),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+          timezone: "",
         },
       ],
-      format: "12",
+      format: "locale",
       showSeconds: false,
       showDate: true,
       columns: 1,
@@ -931,6 +931,12 @@ export function NativeAppEditor({
                     <Select
                       items={[
                         {
+                          value: "locale",
+                          label: t(
+                            "widgets.editors.options.organizationFormat",
+                          ),
+                        },
+                        {
                           value: "12",
                           label: t("widgets.editors.options.hour12"),
                         },
@@ -944,7 +950,7 @@ export function NativeAppEditor({
                       onValueChange={(next) =>
                         setConfiguration((current) => ({
                           ...(current as ClockWidgetConfig),
-                          format: next as "12" | "24",
+                          format: next as ClockWidgetConfig["format"],
                         }))
                       }
                     >
@@ -955,6 +961,9 @@ export function NativeAppEditor({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="locale">
+                          {t("widgets.editors.options.organizationFormat")}
+                        </SelectItem>
                         <SelectItem value="12">
                           {t("widgets.editors.options.hour12")}
                         </SelectItem>
@@ -988,6 +997,10 @@ export function NativeAppEditor({
                   <Select
                     items={[
                       {
+                        value: "locale",
+                        label: t("widgets.editors.options.organizationFormat"),
+                      },
+                      {
                         value: "full",
                         label: t("widgets.editors.options.dateFull"),
                       },
@@ -1020,6 +1033,9 @@ export function NativeAppEditor({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="locale">
+                        {t("widgets.editors.options.organizationFormat")}
+                      </SelectItem>
                       <SelectItem value="full">
                         {t("widgets.editors.options.dateFull")}
                       </SelectItem>
@@ -1081,6 +1097,18 @@ export function NativeAppEditor({
                       </FieldLabel>
                       <Select
                         items={[
+                          {
+                            value: "locale",
+                            label: t(
+                              "widgets.editors.options.organizationFormat",
+                            ),
+                          },
+                          {
+                            value: "locale",
+                            label: t(
+                              "widgets.editors.options.organizationFormat",
+                            ),
+                          },
                           {
                             value: "countdown",
                             label: t("widgets.editors.countdown.modeDown"),
@@ -3516,6 +3544,12 @@ export function NativeAppEditor({
                       <Select
                         items={[
                           {
+                            value: "locale",
+                            label: t(
+                              "widgets.editors.options.organizationFormat",
+                            ),
+                          },
+                          {
                             value: "12",
                             label: t("widgets.editors.options.hour12"),
                           },
@@ -3540,6 +3574,9 @@ export function NativeAppEditor({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="locale">
+                            {t("widgets.editors.options.organizationFormat")}
+                          </SelectItem>
                           <SelectItem value="12">
                             {t("widgets.editors.options.hour12")}
                           </SelectItem>

@@ -572,6 +572,7 @@
         "saveWidget": "Guardar widget"
       },
       "options": {
+        "organizationFormat": "Usar la configuración de la organización",
         "hour12": "12 horas",
         "hour24": "24 horas",
         "dateFull": "Completa",
@@ -610,7 +611,7 @@
         "completeFields": "Completa los campos obligatorios para ver una vista previa."
       },
       "clock": {
-        "timezoneHint": "Usa un huso horario de IANA como America/New_York. Usa UTC para la hora universal.",
+        "timezoneHint": "Déjalo en blanco para usar la zona horaria de la organización o escribe cualquier identificador IANA válido.",
         "showSeconds": "Mostrar segundos"
       },
       "date": {

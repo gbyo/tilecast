@@ -1,6 +1,7 @@
 package org.tilecast.player.content
 
 import java.time.Instant
+import java.time.DayOfWeek
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.tilecast.player.network.DateSelection
@@ -9,6 +10,21 @@ import org.tilecast.player.network.StructuredRecord
 import org.tilecast.player.network.StructuredSourceConfig
 
 class StructuredSourcePlaybackTest {
+    @Test fun currentWeekUsesConfiguredFirstDay() {
+        val config = StructuredSourceConfig(
+            dateSelection = DateSelection(enabled = true, timezone = "UTC", mode = "current_week"),
+            data = StructuredPreparedData(records = listOf(
+                StructuredRecord("friday", "Friday", date = "2026-07-10"),
+                StructuredRecord("sunday", "Sunday", date = "2026-07-12"),
+                StructuredRecord("saturday", "Saturday", date = "2026-07-18"),
+            )),
+        )
+        val now = Instant.parse("2026-07-15T12:00:00Z")
+        assertEquals(listOf("Sunday", "Saturday"), selectDateAwareRecords(config, now, DayOfWeek.SUNDAY).map { it.title })
+        assertEquals(listOf("Saturday"), selectDateAwareRecords(config, now, DayOfWeek.MONDAY).map { it.title })
+        assertEquals(listOf("Friday", "Sunday"), selectDateAwareRecords(config, now, DayOfWeek.FRIDAY).map { it.title })
+    }
+
     @Test fun selectsLocalDateWithoutAssumingTwentyFourHours() {
         val config = StructuredSourceConfig(
             dateSelection = DateSelection(enabled = true, timezone = "America/New_York", mode = "today", noMatchBehavior = "empty"),
