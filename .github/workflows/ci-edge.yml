@@ -154,26 +154,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-node@v7
         with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: apps/server/go.sum
-      - name: Start PostgreSQL
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @tilecast/player-runtime
+      - name: Build the real-server image
         run: |
-          # A throwaway cluster: trust local connections, as ci/run-e2e-server.sh does.
-          sudo sed -i -E 's/(scram-sha-256|md5|peer)$/trust/' /etc/postgresql/*/main/pg_hba.conf
-          sudo systemctl start postgresql.service
-          sudo -u postgres createuser --superuser "$USER"
-      - run: rustup show active-toolchain
-        working-directory: apps/edge
-      - uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            apps/edge/target
-          key: edge-rust-${{ runner.os }}-${{ hashFiles('apps/edge/Cargo.lock', 'apps/edge/rust-toolchain.toml') }}
-      - run: python3 apps/edge/ci/e2e_server.py
+          set -euo pipefail
+          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
+          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
+          docker build -t tilecast-edge-e2e -f apps/edge/ci/Dockerfile.e2e apps/edge/ci
+      - name: Real server, tilecastd and the WPE renderer
+        run: |
+          mkdir -p "$RUNNER_TEMP/edge-target"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
+            tilecast-edge-e2e /src/apps/edge/ci/run-e2e-server.sh
 
   required:
     name: Required Edge validation

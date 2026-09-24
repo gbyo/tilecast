@@ -2,7 +2,7 @@
 # Runs ci/e2e_server.py with a real Tilecast Server, PostgreSQL, tilecastd
 # and tilecast-renderer-wpe together. Run in the tilecast-edge-e2e image
 # (ci/Dockerfile.e2e) with the repository mounted at /src; build
-# apps/player-linux first (renderer-wpe/assemble-runtime.sh uses it):
+# packages/player-runtime first (renderer-wpe/assemble-runtime.sh uses it):
 #
 #   docker run --rm -v "$PWD:/src" -v tilecast-edge-target:/target \
 #     tilecast-edge-e2e /src/apps/edge/ci/run-e2e-server.sh

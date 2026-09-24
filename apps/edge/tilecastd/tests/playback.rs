@@ -576,22 +576,18 @@ async fn item_boundary(renderer: &FakeRenderer) {
 /// The playback status fields the server validates before recording player
 /// status (`playlists.Service.ReportStatus`); one unknown value discards the
 /// whole status.
-fn heartbeat(context: &DaemonContext) -> impl std::future::Future<Output = Value> + '_ {
-    async move {
-        let heartbeat = tilecastd::server_link::build_heartbeat(context).await;
-        if let Some(source) = heartbeat.get("selectionSource") {
-            assert!(
-                ["takeover", "schedule", "direct_fallback", "none"].contains(&source.as_str().unwrap()),
-                "the server discards status with selectionSource {source}"
-            );
-        }
-        if let Some(state) = heartbeat.get("takeoverState") {
-            assert!(
-                ["pending", "preparing", "ready", "active", "failed", "expired"].contains(&state.as_str().unwrap())
-            );
-        }
-        heartbeat
+async fn heartbeat(context: &DaemonContext) -> Value {
+    let heartbeat = tilecastd::server_link::build_heartbeat(context).await;
+    if let Some(source) = heartbeat.get("selectionSource") {
+        assert!(
+            ["takeover", "schedule", "direct_fallback", "none"].contains(&source.as_str().unwrap()),
+            "the server discards status with selectionSource {source}"
+        );
     }
+    if let Some(state) = heartbeat.get("takeoverState") {
+        assert!(["pending", "preparing", "ready", "active", "failed", "expired"].contains(&state.as_str().unwrap()));
+    }
+    heartbeat
 }
 
 async fn settle() {
@@ -613,9 +609,9 @@ async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     let binding = harness.binding();
     assert!(player.stage(&binding, Stage::Pending).await.is_some(), "prepared and waiting for evidence");
     assert!(player.stage(&binding, Stage::Active).await.is_none(), "acceptance alone never commits");
-    let heartbeat = heartbeat(&player.context).await;
-    assert_eq!(heartbeat["pendingManifestVersion"], 3);
-    assert!(heartbeat.get("activeManifestVersion").is_none());
+    let pending = heartbeat(&player.context).await;
+    assert_eq!(pending["pendingManifestVersion"], 3);
+    assert!(pending.get("activeManifestVersion").is_none());
 
     let (item, _) = first_item(&activation).unwrap();
     renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&item)).await;
