@@ -401,15 +401,16 @@ describe("command search", () => {
   it("fuzzy matches screens and route destinations", () => {
     expect(fuzzyScore("scrns", "Screens")).toBeGreaterThan(0);
     expect(fuzzyScore("xyz", "Screens")).toBe(-1);
-    expect(
-      buildCommandResults(
-        studioRoutes,
-        [lobbyScreen],
-        "aftkrt",
-        undefined,
-        undefined,
-        i18n.getFixedT("navigation"),
-      )[0]?.to,
-    ).toBe("/screens/screen-1");
+    const result = buildCommandResults(
+      studioRoutes,
+      [lobbyScreen],
+      "aftkrt",
+      undefined,
+      undefined,
+      i18n.getFixedT("en", "navigation"),
+    )[0];
+
+    expect(result?.to).toBe("/screens/screen-1");
+    expect(result?.description).toBe("Offline · Lobby");
   });
 });

@@ -178,7 +178,8 @@
       "youtubeWidget": "YouTube Widget"
     },
     "upload": {
-      "activeCount": "{{count}} active",
+      "activeCount_one": "{{count}} active",
+      "activeCount_other": "{{count}} active",
       "cancelUpload": "Cancel {{name}}",
       "chooseFiles": "Choose media files",
       "finalizing": "Finalizing",

@@ -35,8 +35,10 @@
     "toggleNavigation": "Toggle navigation",
     "search": "Search Tilecast",
     "notifications": "Notifications",
-    "notificationsWithCount": "Notifications, {{count}} active",
-    "activeCount": "{{count}} active",
+    "notificationsWithCount_one": "Notifications, {{count}} active",
+    "notificationsWithCount_other": "Notifications, {{count}} active",
+    "activeCount_one": "{{count}} active",
+    "activeCount_other": "{{count}} active",
     "noneActive": "No active",
     "caughtUp": "You’re all caught up.",
     "groups": {

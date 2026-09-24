@@ -186,7 +186,10 @@
       "youtubeWidget": "Виджет YouTube"
     },
     "upload": {
-      "activeCount": "{{count}} активно",
+      "activeCount_one": "{{count}} активно",
+      "activeCount_few": "{{count}} активных",
+      "activeCount_many": "{{count}} активных",
+      "activeCount_other": "{{count}} активных",
       "cancelUpload": "Отменить {{name}}",
       "chooseFiles": "Выбрать медиафайлы",
       "finalizing": "Завершение",

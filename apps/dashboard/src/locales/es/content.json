@@ -182,7 +182,9 @@
       "youtubeWidget": "Widget de YouTube"
     },
     "upload": {
-      "activeCount": "{{count}} activas",
+      "activeCount_one": "{{count}} activa",
+      "activeCount_many": "{{count}} activas",
+      "activeCount_other": "{{count}} activas",
       "cancelUpload": "Cancelar {{name}}",
       "chooseFiles": "Elegir archivos multimedia",
       "finalizing": "Finalizando",
