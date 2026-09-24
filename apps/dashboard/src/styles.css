@@ -146,7 +146,7 @@ a {
   padding: 0;
   overflow: hidden;
   color: var(--tc-ink);
-  text-align: left;
+  text-align: start;
   background: var(--tc-surface);
   border: 1px solid var(--tc-border);
   border-radius: var(--tc-radius-md);
@@ -404,7 +404,7 @@ a {
   border-bottom: 1px solid var(--tc-border);
 }
 .device-facts div:nth-child(odd) {
-  border-right: 1px solid var(--tc-border);
+  border-inline-end: 1px solid var(--tc-border);
 }
 .device-facts dt {
   color: var(--tc-ink-muted);
@@ -427,7 +427,7 @@ a {
     grid-template-columns: 1fr;
   }
   .device-facts div:nth-child(odd) {
-    border-right: 0;
+    border-inline-end: 0;
   }
 }
 .schedule-card {
