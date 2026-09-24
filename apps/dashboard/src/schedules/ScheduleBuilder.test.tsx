@@ -185,6 +185,21 @@ describe("ScheduleBuilder mode switches", () => {
       "true",
     );
   });
+
+  it("shows the full timezone list before searching", async () => {
+    mockAuth();
+    mockLists();
+    const user = userEvent.setup();
+    renderEditor();
+
+    const timezone = await screen.findByRole("combobox", { name: "Timezone" });
+    await user.click(timezone);
+    expect(
+      await screen.findByRole("option", {
+        name: "Auckland (Pacific/Auckland)",
+      }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("ScheduleBuilder presentation picker", () => {
