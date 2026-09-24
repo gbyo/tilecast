@@ -92,7 +92,10 @@
       "loadError": "Не удалось загрузить медиатеку",
       "loading": "Загрузка медиа…",
       "title": "Медиа",
-      "totalAssets": "Файлов: {{count}}.",
+      "totalAssets_one": "{{count}} файл.",
+      "totalAssets_few": "{{count}} файла.",
+      "totalAssets_many": "{{count}} файлов.",
+      "totalAssets_other": "{{count}} файлов.",
       "uploadAssets": "Загрузить файлы",
       "viewArchive": "Архив",
       "viewLabel": "Вид библиотеки",
@@ -307,7 +310,10 @@
       "searchLayouts": "Поиск макетов",
       "searchPlaylists": "Поиск плейлистов",
       "searchPresentations": "Поиск презентаций",
-      "tagDriven": " · по меткам"
+      "tagDriven": " · по меткам",
+      "clearSearchPresentations": "Очистить поиск презентаций",
+      "clearSearchLayouts": "Очистить поиск макетов",
+      "clearSearchPlaylists": "Очистить поиск плейлистов"
     },
     "toolbar": {
       "allCollections": "Все коллекции",
@@ -331,7 +337,8 @@
       "sortName": "Название",
       "sortNewest": "Сначала новые",
       "sortOldest": "Сначала старые",
-      "sortRecent": "Недавно обновлённые"
+      "sortRecent": "Недавно обновлённые",
+      "clearContentSearch": "Очистить поиск контента"
     },
     "tray": {
       "clearSelection": "Снять выделение",

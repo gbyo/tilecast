@@ -104,7 +104,8 @@
       "revoked": "Vinculación revocada"
     },
     "settingsSearch": {
-      "dependencyGraph": "Rastrear contenido, presentaciones, programaciones, grupos y pantallas"
+      "dependencyGraph": "Rastrear contenido, presentaciones, programaciones, grupos y pantallas",
+      "sectionFallback": "Ajustes de {{label}}"
     }
   },
   "error": {

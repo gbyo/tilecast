@@ -214,7 +214,7 @@ export function ManualDataSourceEditor({
               <RheaSelect
                 items={manualColumnTypes.map((type) => ({
                   value: type,
-                  label: type,
+                  label: columnTypeLabels[type],
                 }))}
                 value={column.type}
                 disabled={readOnly}
@@ -234,7 +234,7 @@ export function ManualDataSourceEditor({
                       }),
                   })}
                 >
-                  <SelectValue />
+                  <SelectValue>{columnTypeLabels[column.type]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {manualColumnTypes.map((type) => (

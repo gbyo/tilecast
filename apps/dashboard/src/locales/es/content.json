@@ -89,7 +89,9 @@
       "loadError": "No se pudo cargar la biblioteca multimedia",
       "loading": "Cargando multimedia…",
       "title": "Multimedia",
-      "totalAssets": "Archivos multimedia: {{count}}.",
+      "totalAssets_one": "{{count}} archivo multimedia.",
+      "totalAssets_other": "{{count}} archivos multimedia.",
+      "totalAssets_many": "{{count}} archivos multimedia.",
       "uploadAssets": "Subir archivos",
       "viewArchive": "Archivo",
       "viewLabel": "Vista de la biblioteca",
@@ -300,7 +302,10 @@
       "searchLayouts": "Buscar diseños",
       "searchPlaylists": "Buscar listas de reproducción",
       "searchPresentations": "Buscar presentaciones",
-      "tagDriven": " · por etiquetas"
+      "tagDriven": " · por etiquetas",
+      "clearSearchPresentations": "Borrar la búsqueda de presentaciones",
+      "clearSearchLayouts": "Borrar la búsqueda de diseños",
+      "clearSearchPlaylists": "Borrar la búsqueda de listas de reproducción"
     },
     "toolbar": {
       "allCollections": "Todas las colecciones",
@@ -324,7 +329,8 @@
       "sortName": "Nombre",
       "sortNewest": "Más recientes",
       "sortOldest": "Más antiguos",
-      "sortRecent": "Actualizados recientemente"
+      "sortRecent": "Actualizados recientemente",
+      "clearContentSearch": "Borrar la búsqueda de contenido"
     },
     "tray": {
       "clearSelection": "Borrar la selección",

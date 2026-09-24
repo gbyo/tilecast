@@ -80,6 +80,11 @@ function WidgetSnapshotCapture({
   const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
   const uploaded = useRef(false);
+  // The capture effect must not restart when the language changes: cleanup
+  // would cancel an in-progress capture that is never retried. The ref always
+  // carries the latest translator for subsequent messages.
+  const tRef = useRef(t);
+  tRef.current = t;
   const provider = asset.widget!.provider;
   const authorConfiguration = (asset.widget!.authorConfiguration ??
     asset.widget!.configuration) as Record<string, unknown>;
@@ -153,7 +158,7 @@ function WidgetSnapshotCapture({
           try {
             const element = previewRef.current;
             if (cancelled || !element) return;
-            const image = await captureWidgetPreview(element, t);
+            const image = await captureWidgetPreview(element, tRef.current);
             if (cancelled) return;
             await api.uploadWidgetPreview(asset.id, image, csrf);
             if (!cancelled)
@@ -171,7 +176,7 @@ function WidgetSnapshotCapture({
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [ready, failed, asset.id, csrf, onSettled, queryClient, t]);
+  }, [ready, failed, asset.id, csrf, onSettled, queryClient]);
 
   return (
     <div className="widget-snapshot-backfill" aria-hidden="true">
