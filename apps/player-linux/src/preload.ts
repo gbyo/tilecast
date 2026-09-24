@@ -1,278 +1,151 @@
-import { contextBridge, ipcRenderer } from "electron";
-import type { StoredManifest } from "./core/manifest";
-import type { Presentation, PresentationItem } from "./core/player";
-import type { ManifestPlugin } from "./core/types";
-import {
-  activateSynchronizedClock,
-  enrichSynchronizedPresentation,
-  projectSynchronizedPresentation,
-  synchronizedNowMs,
-  synchronizedPlaybackPosition,
-  type SynchronizedClockActivation,
-  type SynchronizedPlayingPresentation,
-  type SynchronizedPlaybackPosition,
-} from "./core/synchronized-playback";
-import { StateStore, defaultDataDir } from "./core/storage";
-
-interface SyncPositionEvent {
-  itemId: string;
-  kind: PresentationItem["kind"];
-  offsetMs: number;
-  occurrence: number;
-  videoStartOffsetMs: number;
-}
-
-type PresentCallback = (presentation: unknown) => void;
-type SyncPositionCallback = (position: SyncPositionEvent | null) => void;
-type PluginCallback = (payload: {
-  plugins: ManifestPlugin[];
-  clockOffsetMs: number;
-}) => void;
-
-const store = new StateStore(process.env.TILECAST_DATA_DIR ?? defaultDataDir());
-const presentCallbacks = new Set<PresentCallback>();
-const syncPositionCallbacks = new Set<SyncPositionCallback>();
-const pluginCallbacks = new Set<PluginCallback>();
-
-let activeSynchronized: SynchronizedPlayingPresentation | null = null;
 /**
- * Wall-clock and monotonic instants captured when the active synchronized
- * presentation was activated. Progression comes from the monotonic delta so a
- * clock correction mid-playback cannot rewind or fast-forward the timeline; the
- * wall-clock value is used only to place the initial position relative to the
- * server's playback anchor. Reactivating recaptures both.
+ * The Electron host adapter for the shared Tilecast Player Runtime.
+ *
+ * Implements TilecastRuntimeHostV1 (packages/player-runtime/src/host/
+ * contract.ts) over a fixed set of typed IPC channels, and nothing else: no
+ * generic invoke, no Node access, no state or filesystem reads. Everything the
+ * runtime needs is prepared in the main process, so this preload runs in the
+ * OS sandbox and requires only "electron".
  */
-let synchronizedClock: SynchronizedClockActivation | null = null;
-let lastOccurrence: number | null = null;
-let lastItemId: string | null = null;
-let lastPresentation: unknown = null;
-let lastSyncPosition: SyncPositionEvent | null = null;
-let boundaryTimer: NodeJS.Timeout | null = null;
-let driftTimer: NodeJS.Timeout | null = null;
-let presentationRequest = 0;
-let syntheticGeneration = 1_000_000_000;
+import { contextBridge, ipcRenderer } from "electron";
+import type {
+  DiscoveredServerV1,
+  EvidenceReportV1,
+  HostMessageV1,
+  NoiseMeterReportV1,
+  PlaybackErrorReportV1,
+  PresentationResultV1,
+  RuntimeReadyV1,
+  SetupResultV1,
+  TilecastRuntimeHostV1,
+} from "@tilecast/player-runtime/host-contract";
 
-function emitPresentation(presentation: unknown): void {
-  lastPresentation = presentation;
-  for (const callback of presentCallbacks) {
-    callback(presentation);
+// A sandboxed preload cannot require the runtime package, so the contract's
+// two constants are restated here; the type import above keeps them honest.
+const CONTRACT_VERSION: TilecastRuntimeHostV1["contractVersion"] = 1;
+/** The evidence vocabulary the player's supervisor understands. */
+const PLAYER_EVIDENCE = new Set<string>([
+  "item-started",
+  "item-transition",
+  "image-shown",
+  "video-progress",
+  "widget-shown",
+  "widget-alive",
+  "widget-empty",
+  "layout-shown",
+  "layout-alive",
+  "layout-zone-rendered",
+  "website-loaded",
+  "website-alive",
+]);
+
+const listeners = new Set<(message: HostMessageV1) => void>();
+// The latest presentation and plugin state, replayed to a new subscriber so a
+// reloaded runtime resumes where the player left off.
+let lastPresentation: HostMessageV1 | null = null;
+let lastPlugins: HostMessageV1 | null = null;
+
+function emit(message: HostMessageV1): void {
+  if (message.type === "presentation") lastPresentation = message;
+  if (message.type === "plugins") lastPlugins = message;
+  for (const listener of listeners) {
+    try {
+      listener(message);
+    } catch (error) {
+      console.error("tilecast host listener failed", error);
+    }
   }
 }
 
-function emitSyncPosition(position: SyncPositionEvent | null): void {
-  lastSyncPosition = position;
-  for (const callback of syncPositionCallbacks) {
-    callback(position);
-  }
-}
+ipcRenderer.on("runtime-message", (_event, message: HostMessageV1) => {
+  emit(message);
+});
 
-function clearSyncTimers(): void {
-  if (boundaryTimer) {
-    clearTimeout(boundaryTimer);
-    boundaryTimer = null;
-  }
-  if (driftTimer) {
-    clearInterval(driftTimer);
-    driftTimer = null;
-  }
-}
+const text = (value: unknown, max: number) => String(value ?? "").slice(0, max);
 
-function positionEvent(
-  presentation: SynchronizedPlayingPresentation,
-  position: SynchronizedPlaybackPosition,
-): SyncPositionEvent {
-  const item = presentation.items[position.index]!;
-  return {
-    itemId: item.id,
-    kind: item.kind,
-    offsetMs: position.offsetMs,
-    occurrence: position.occurrence,
-    videoStartOffsetMs: item.videoStartOffsetMs ?? 0,
-  };
-}
-
-function scheduleBoundary(position: SynchronizedPlaybackPosition): void {
-  if (boundaryTimer) {
-    clearTimeout(boundaryTimer);
-  }
-  boundaryTimer = setTimeout(
-    () => emitExpectedSynchronizedPosition(false),
-    position.remainingMs + 5,
-  );
-  boundaryTimer.unref?.();
-}
-
-function synchronizedTimelineNowMs(): number {
-  return synchronizedClock ? synchronizedNowMs(synchronizedClock) : Date.now();
-}
-
-function emitExpectedSynchronizedPosition(force: boolean): void {
-  const presentation = activeSynchronized;
-  if (!presentation) {
-    return;
-  }
-
-  const position = synchronizedPlaybackPosition(
-    presentation.synchronizedPlayback,
-    synchronizedTimelineNowMs(),
-  );
-  emitSyncPosition(positionEvent(presentation, position));
-
-  if (!force && position.occurrence === lastOccurrence) {
-    scheduleBoundary(position);
-    return;
-  }
-
-  if (lastOccurrence !== null) {
-    ipcRenderer.send("progress", {
-      itemId: lastItemId,
-      kind: "item-transition",
+const host: TilecastRuntimeHostV1 = {
+  contractVersion: CONTRACT_VERSION,
+  info: {
+    host: "electron",
+    hostVersion: text(process.env["TILECAST_PLAYER_VERSION"], 32) || "unknown",
+    engine: "chromium",
+    engineVersion: text(process.versions["chrome"], 32),
+  },
+  capabilities: {
+    remoteWeb: "electron-webview",
+    synchronizedPlayback: true,
+    setup: true,
+    discovery: true,
+    noiseMeter: "renderer-microphone",
+  },
+  subscribe(listener) {
+    listeners.add(listener);
+    if (lastPresentation) listener(lastPresentation);
+    if (lastPlugins) listener(lastPlugins);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+  ready(ready: RuntimeReadyV1) {
+    ipcRenderer.send("runtime-ready", {
+      contractVersion: Number(ready.contractVersion),
+      runtimeVersion: text(ready.runtimeVersion, 32),
     });
-  }
-
-  const projected = projectSynchronizedPresentation(
-    presentation,
-    position,
-    syntheticGeneration++,
-  );
-  lastOccurrence = position.occurrence;
-  lastItemId = presentation.items[position.index]?.id ?? null;
-  if (lastItemId !== null) {
-    ipcRenderer.send("progress", { itemId: lastItemId, kind: "item-started" });
-  }
-  emitPresentation(projected);
-  scheduleBoundary(position);
-}
-
-function activatePresentation(
-  presentation: Presentation | SynchronizedPlayingPresentation,
-): void {
-  clearSyncTimers();
-  if (
-    presentation.state !== "playing" ||
-    !("synchronizedPlayback" in presentation)
-  ) {
-    activeSynchronized = null;
-    synchronizedClock = null;
-    lastOccurrence = null;
-    lastItemId = null;
-    emitSyncPosition(null);
-    emitPresentation(presentation);
-    return;
-  }
-
-  activeSynchronized = presentation;
-  // A fresh activation reads the wall clock once, so a late-joining player (or
-  // one whose schedule/takeover anchor just changed) still lands at the right
-  // point in the shared cycle.
-  synchronizedClock = activateSynchronizedClock();
-  lastOccurrence = null;
-  lastItemId = null;
-  emitExpectedSynchronizedPosition(true);
-  driftTimer = setInterval(() => {
-    const active = activeSynchronized;
-    if (!active) {
-      return;
-    }
-    const position = synchronizedPlaybackPosition(
-      active.synchronizedPlayback,
-      synchronizedTimelineNowMs(),
-    );
-    if (position.occurrence !== lastOccurrence) {
-      emitExpectedSynchronizedPosition(false);
-    } else {
-      emitSyncPosition(positionEvent(active, position));
-    }
-  }, 250);
-  driftTimer.unref?.();
-}
-
-ipcRenderer.on("present", (_event, presentation: Presentation) => {
-  const request = ++presentationRequest;
-  void (async () => {
-    let stored: StoredManifest | null = null;
-    if (presentation.state === "playing") {
-      stored = await store.readJson<StoredManifest>("manifest-active.json");
-    }
-    if (request !== presentationRequest) {
-      return;
-    }
-    activatePresentation(enrichSynchronizedPresentation(presentation, stored));
-  })();
-});
-
-ipcRenderer.on(
-  "plugins",
-  (_event, payload: { plugins: ManifestPlugin[]; clockOffsetMs: number }) => {
-    for (const callback of pluginCallbacks) callback(payload);
   },
-);
-
-/** Minimal, typed bridge; the renderer has no Node access. */
-contextBridge.exposeInMainWorld("tilecast", {
-  onPresent(callback: PresentCallback): void {
-    presentCallbacks.add(callback);
-    if (lastPresentation !== null) {
-      callback(lastPresentation);
+  // The Electron player accepts every presentation it sends; the result is
+  // informational only.
+  presentationResult(result: PresentationResultV1) {
+    if (result.outcome === "rejected") {
+      ipcRenderer.send("playback-error", {
+        itemId: null,
+        message: text(`presentation rejected: ${result.message ?? ""}`, 240),
+      });
     }
   },
-  onPlugins(callback: PluginCallback): void {
-    pluginCallbacks.add(callback);
+  reportEvidence(report: EvidenceReportV1) {
+    if (!PLAYER_EVIDENCE.has(report.kind)) return;
+    ipcRenderer.send("progress", {
+      itemId: report.itemId === null ? null : text(report.itemId, 160),
+      kind: report.kind,
+      zoneId:
+        report.zoneId === undefined ? undefined : text(report.zoneId, 160),
+    });
   },
-  onSyncPosition(callback: SyncPositionCallback): void {
-    syncPositionCallbacks.add(callback);
-    callback(lastSyncPosition);
+  reportPlaybackError(report: PlaybackErrorReportV1) {
+    ipcRenderer.send("playback-error", {
+      itemId: report.itemId === null ? null : text(report.itemId, 160),
+      message: text(report.message, 240),
+    });
   },
-  onIdentify(
-    callback: (data: { name: string; durationSeconds: number }) => void,
-  ): void {
-    ipcRenderer.on("identify", (_event, data) => callback(data));
+  setup: {
+    submitServerUrl(url: string): Promise<SetupResultV1> {
+      return ipcRenderer.invoke("setup-server-url", text(url, 512));
+    },
   },
-  onRetryItem(callback: () => void): void {
-    ipcRenderer.on("retry-item", () => callback());
+  discovery: {
+    list(): Promise<DiscoveredServerV1[]> {
+      return ipcRenderer.invoke("list-discovered-servers");
+    },
   },
-  onSkipItem(callback: () => void): void {
-    ipcRenderer.on("skip-item", () => callback());
+  // The Noise Meter's whole outbound surface: derived numbers and a bounded
+  // diagnostic. The microphone stream and every sample stay in the renderer.
+  noiseMeter: {
+    report(report: NoiseMeterReportV1) {
+      ipcRenderer.send("noise-meter-report", {
+        status: text(report.status, 32),
+        level: typeof report.level === "number" ? report.level : null,
+        bucket: report.bucket ?? null,
+      });
+    },
+    diagnostic(message: string, detail?: Record<string, unknown>) {
+      ipcRenderer.send("noise-meter-diagnostic", { message, detail });
+    },
   },
-  reportProgress(itemId: string | null, kind: string, zoneId?: string): void {
-    ipcRenderer.send("progress", { itemId, kind, zoneId });
+  remoteWeb: {
+    reportRecovered() {
+      ipcRenderer.send("website-recovered");
+    },
   },
-  reportPlaybackError(itemId: string | null, message: string): void {
-    ipcRenderer.send("playback-error", { itemId, message });
-  },
-  // The Noise Meter's whole outbound surface: a diagnostic string so a field
-  // failure is findable in the player log. Levels stay in the renderer and
-  // audio never leaves the capture graph.
-  reportNoiseMeterDiagnostic(
-    message: string,
-    detail?: Record<string, unknown>,
-  ): void {
-    ipcRenderer.send("noise-meter-diagnostic", { message, detail });
-  },
-  /**
-   * The Noise Meter's report: its current state and, every ten seconds, one
-   * completed aggregate. Numbers only — the microphone stream, the analyser,
-   * and every sample stay inside the renderer and are never serialized.
-   */
-  reportNoiseMeter(report: {
-    status: string;
-    level?: number | null;
-    bucket?: unknown;
-  }): void {
-    ipcRenderer.send("noise-meter-report", report);
-  },
-  reportWebsiteRecovered(): void {
-    ipcRenderer.send("website-recovered");
-  },
-  submitServerUrl(url: string): Promise<{ ok: boolean; error?: string }> {
-    return ipcRenderer.invoke("setup-server-url", url);
-  },
-  onDiscoveredServer(
-    callback: (server: { name: string; serverUrl: string }) => void,
-  ): void {
-    ipcRenderer.on("discovered-server", (_event, server) => callback(server));
-  },
-  listDiscoveredServers(): Promise<{ name: string; serverUrl: string }[]> {
-    return ipcRenderer.invoke("list-discovered-servers");
-  },
-});
+};
+
+contextBridge.exposeInMainWorld("tilecastRuntimeHost", host);

@@ -26,10 +26,7 @@ import * as path from "path";
 import { pathToFileURL } from "url";
 import { logger, setLogLevel } from "../core/log";
 import { linuxKioskPolicy, type LinuxKioskPolicy } from "../core/linux-kiosk";
-import {
-  loadOutsideActiveHoursPresentation,
-  type OutsideActiveHoursPresentation,
-} from "../core/outside-hours";
+import { loadOutsideActiveHoursPresentation } from "../core/outside-hours";
 import { PlayerRuntime, type Presentation } from "../core/player";
 import type { ManifestPlugin } from "../core/types";
 import { StateStore, defaultDataDir } from "../core/storage";
@@ -45,14 +42,22 @@ import {
   validIpv4,
 } from "../core/presentation-network";
 import { LinuxDisplayControl } from "./display-control";
+import {
+  loadRuntimeFiles,
+  RUNTIME_ENTRY_URL,
+  RUNTIME_SCHEME,
+  RUNTIME_SCHEME_PRIVILEGES,
+  serveRuntimeRequest,
+} from "./runtime-protocol";
+import { presentationMessage, type HostPresentation } from "./runtime-messages";
+import type { HostMessageV1 } from "@tilecast/player-runtime/host-contract";
+import type { StoredManifest } from "../core/manifest";
 
 const log = logger("main");
 
 const PLAYER_VERSION = app.getVersion() || "0.1.0";
 const SERVER_URL_FILE = "server.json";
 const OUTSIDE_HOURS_REFRESH_MS = 5_000;
-
-type HostPresentation = Presentation | OutsideActiveHoursPresentation;
 
 if (process.env.TILECAST_LOG_LEVEL === "debug") {
   setLogLevel("debug");
@@ -72,7 +77,10 @@ protocol.registerSchemesAsPrivileged([
     scheme: "tcmedia",
     privileges: { standard: true, stream: true, supportFetchAPI: true },
   },
+  RUNTIME_SCHEME_PRIVILEGES,
 ]);
+// The sandboxed preload reports this in the runtime's host diagnostics.
+process.env.TILECAST_PLAYER_VERSION = PLAYER_VERSION;
 
 let window: BrowserWindow | null = null;
 let runtime: PlayerRuntime | null = null;
@@ -213,23 +221,18 @@ function createWindow(): BrowserWindow {
       preload: path.join(__dirname, "..", "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      // The OS sandbox defaults to on (Electron >= 20). A sandboxed preload can
-      // only require "electron" and a few polyfilled built-ins, but ours pulls
-      // in local core modules (StateStore -> fs, synchronized-playback) to
-      // enrich presentations before exposing the "tilecast" bridge. Under the
-      // sandbox that require throws, exposeInMainWorld never runs, and the
-      // renderer's top-level tilecast.onPresent() call dies — a permanent black
-      // screen. Disabling only the OS sandbox (contextIsolation stays on,
-      // nodeIntegration stays off) keeps the renderer itself isolated while
-      // letting the trusted preload load its Node-backed modules.
-      sandbox: false,
+      // The preload is a thin TilecastRuntimeHostV1 adapter that requires only
+      // "electron"; everything Node-backed runs here in the main process, so
+      // the renderer keeps the OS sandbox.
+      sandbox: true,
       webviewTag: true,
       backgroundThrottling: false,
     },
   });
   win.setMenuBarVisibility(false);
   win.once("ready-to-show", () => win.show());
-  win.loadFile(path.join(__dirname, "..", "..", "static", "index.html"));
+  // The shared Player Runtime, from the same trusted origin every host uses.
+  void win.loadURL(RUNTIME_ENTRY_URL);
 
   win.webContents.on("render-process-gone", (_event, details) => {
     log.error("renderer process gone; recreating window", {
@@ -240,8 +243,8 @@ function createWindow(): BrowserWindow {
   win.webContents.on("did-finish-load", () => {
     // (Re)send state after any load or reload so a recreated renderer
     // resumes exactly where the player left off.
-    win.webContents.send("present", lastPresentation);
-    win.webContents.send("plugins", lastPlugins);
+    sendPresentation(lastPresentation);
+    sendRuntimeMessage(win, { type: "plugins", ...lastPlugins });
   });
   win.on("unresponsive", () => {
     log.error("window unresponsive; recreating");
@@ -287,10 +290,34 @@ function recreateWindow(): void {
   }
 }
 
-function sendPresentation(presentation: HostPresentation): void {
-  if (window && !window.isDestroyed()) {
-    window.webContents.send("present", presentation);
+function sendRuntimeMessage(
+  target: BrowserWindow | null,
+  message: HostMessageV1,
+): void {
+  if (target && !target.isDestroyed()) {
+    target.webContents.send("runtime-message", message);
   }
+}
+
+let presentationRequest = 0;
+
+/**
+ * A playing presentation is sent with its shared-timeline anchor when the
+ * screen belongs to a synchronized group. The anchor comes from the active
+ * manifest on disk; a newer presentation supersedes a read still in flight.
+ */
+function sendPresentation(presentation: HostPresentation): void {
+  const request = ++presentationRequest;
+  void (async () => {
+    let stored: StoredManifest | null = null;
+    if (presentation.state === "playing") {
+      stored = await store
+        .readJson<StoredManifest>("manifest-active.json")
+        .catch(() => null);
+    }
+    if (request !== presentationRequest) return;
+    sendRuntimeMessage(window, presentationMessage(presentation, stored));
+  })();
 }
 
 async function refreshOutsideActiveHoursPresentation(): Promise<void> {
@@ -329,9 +356,11 @@ function presentPlugins(
   clockOffsetMs: number,
 ): void {
   lastPlugins = { plugins, clockOffsetMs };
-  if (window && !window.isDestroyed()) {
-    window.webContents.send("plugins", lastPlugins);
-  }
+  sendRuntimeMessage(window, {
+    type: "plugins",
+    plugins,
+    clockOffsetMs,
+  });
 }
 
 /**
@@ -398,6 +427,20 @@ async function availableStorageBytes(): Promise<number | null> {
   }
 }
 
+/**
+ * tilecast://runtime/ serves the built shared Player Runtime and nothing else.
+ * A missing or incomplete artifact is fatal: there is no older renderer to
+ * fall back to, and a relaunch loop is visible in the logs.
+ */
+async function setupRuntimeProtocol(): Promise<void> {
+  const directory = require("@tilecast/player-runtime/runtime-dir") as string;
+  const files = await loadRuntimeFiles(directory);
+  log.info("player runtime", { version: files.version });
+  protocol.handle(RUNTIME_SCHEME, (request) =>
+    serveRuntimeRequest(files, request.url),
+  );
+}
+
 function setupMediaProtocol(): void {
   protocol.handle("tcmedia", async (request) => {
     // tcmedia://variant/<assetId>/<variantId>
@@ -446,7 +489,8 @@ function setupMediaProtocol(): void {
  * Media capture policy.
  *
  * Exactly one surface may open a microphone: the trusted player renderer, which
- * loads static/index.html from disk and is the only place the Noise Meter runs.
+ * loads the shared runtime from tilecast://runtime/ and is the only place the
+ * Noise Meter runs.
  * Everything else is refused — including camera capture for that same renderer,
  * which nothing in Tilecast asks for and which a permission granted by media
  * type rather than by name would otherwise hand over with the microphone.
@@ -570,7 +614,11 @@ async function startRuntime(serverUrl: string): Promise<void> {
       applyPlayerConfiguration: (config) =>
         applyLinuxKioskPolicy(linuxKioskPolicy(config)),
       identify: (name, durationSeconds) => {
-        window?.webContents.send("identify", { name, durationSeconds });
+        sendRuntimeMessage(window, {
+          type: "identify",
+          name,
+          durationSeconds,
+        });
       },
       recreateRenderer: () => {
         if (window && !window.isDestroyed()) {
@@ -606,8 +654,10 @@ async function startRuntime(serverUrl: string): Promise<void> {
           ),
         );
       },
-      retryCurrentItem: () => window?.webContents.send("retry-item"),
-      skipCurrentItem: () => window?.webContents.send("skip-item"),
+      retryCurrentItem: () =>
+        sendRuntimeMessage(window, { type: "command", command: "retry-item" }),
+      skipCurrentItem: () =>
+        sendRuntimeMessage(window, { type: "command", command: "skip-item" }),
       prepareExternalPresentation: async (config) => {
         const capabilities = await airplay.probeCapabilities();
         const decoder = capabilities.decoder as SupportedDecoder | null;
@@ -871,6 +921,7 @@ app.whenReady().then(async () => {
   applyLinuxKioskPolicy(activeLinuxKioskPolicy);
 
   setupMediaProtocol();
+  await setupRuntimeProtocol();
   applyMediaPermissionPolicy();
   guardWebContents();
 
@@ -890,6 +941,15 @@ app.whenReady().then(async () => {
     },
   );
   ipcMain.on("website-recovered", () => runtime?.onWebsiteRecovered());
+  ipcMain.on(
+    "runtime-ready",
+    (_event, data: { contractVersion?: unknown; runtimeVersion?: unknown }) => {
+      log.info("player runtime ready", {
+        contractVersion: Number(data?.contractVersion),
+        runtimeVersion: String(data?.runtimeVersion ?? "").slice(0, 32),
+      });
+    },
+  );
   // Noise Meter state and completed history buckets. The renderer measures;
   // the runtime owns the durable queue and the heartbeat that drains it.
   ipcMain.on(
@@ -933,7 +993,7 @@ app.whenReady().then(async () => {
     present({ state: "setup" });
     // Offer LAN-discovered servers as one-tap choices on the setup screen.
     discovery = new LanDiscovery((server: DiscoveredServer) => {
-      window?.webContents.send("discovered-server", server);
+      sendRuntimeMessage(window, { type: "discovered-server", server });
     });
     discovery.start();
     ipcMain.handle("list-discovered-servers", () => discovery?.list() ?? []);

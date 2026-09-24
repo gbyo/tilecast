@@ -13,7 +13,15 @@ module.exports = {
   toolsets: {
     appimage: "1.0.3",
   },
-  files: ["dist/**", "static/**"],
+  files: [
+    "dist/**",
+    // The shared Player Runtime is a workspace package: ship only its built
+    // artifact and Node entry points, never its sources or test harness.
+    "!node_modules/@tilecast/player-runtime/{src,static,scripts,conformance}/**",
+    "!node_modules/@tilecast/player-runtime/dist/conformance/**",
+    "!node_modules/@tilecast/player-runtime/*.{ts,json}",
+    "node_modules/@tilecast/player-runtime/package.json",
+  ],
   linux: {
     target: ["AppImage"],
     category: "AudioVideo",
