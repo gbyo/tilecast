@@ -195,8 +195,14 @@ fn identity(candidate: &Candidate, resolved: &ResolvedPresentation) -> PlaybackI
     }
 }
 
-fn extras(resolved: &ResolvedPresentation) -> ServerExtras {
+fn extras(resolved: &ResolvedPresentation, offset_ms: i64) -> ServerExtras {
     ServerExtras {
+        timing: resolved.timing.as_ref().map(|timing| edge_protocol::ipc::event::SyncTiming {
+            group_id: edge_protocol::bounded::SafeText::lossy(&timing.group_id),
+            anchor_unix_ms: timing.anchor_ms,
+            durations_ms: timing.durations_ms.clone(),
+            clock_offset_ms: offset_ms,
+        }),
         projection: resolved.projection.clone(),
         plugins: resolved.plugins.clone(),
         plugin_aliases: resolved.plugin_aliases.clone(),
@@ -209,6 +215,7 @@ struct Current {
     identity: Option<PlaybackIdentity>,
     document: PresentationDocument,
     content: Vec<edge_protocol::ipc::presentation::ContentRef>,
+    timing: Option<edge_protocol::ipc::event::SyncTiming>,
     accepted: bool,
     evidence: bool,
 }
@@ -221,6 +228,7 @@ async fn current(context: &DaemonContext) -> Option<Current> {
         identity: activation.identity.clone(),
         document: activation.document.clone(),
         content: activation.content.clone(),
+        timing: activation.timing.clone(),
         accepted: engine.current_is_accepted(),
         evidence: engine.current_has_activation_evidence(),
     })
@@ -335,7 +343,7 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
                 return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
             }
             let identity = identity(&candidate, &resolved);
-            let extras = extras(&resolved);
+            let extras = extras(&resolved, offset_ms);
             let result = context.presentation.lock().await.activate_server_presentation(
                 identity,
                 resolved.document,
@@ -405,6 +413,7 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
         identity: None,
         document: PresentationDocument::Setup {},
         content: Vec::new(),
+        timing: None,
         accepted: false,
         evidence: false,
     });
@@ -444,13 +453,17 @@ async fn show(
         && current.manifest == Some(candidate.digest)
         && current.document == resolved.document
         && current.content == resolved.content
+        // The anchor is fixed at activation: a later clock-offset sample must
+        // not restart synchronized playback.
+        && current.timing.as_ref().map(|t| (t.group_id.as_str().to_owned(), t.anchor_unix_ms, t.durations_ms.clone()))
+            == resolved.timing.as_ref().map(|t| (t.group_id.clone(), t.anchor_ms, t.durations_ms.clone()))
         && current.identity.as_ref().map(|i| (i.playlist_id, i.layout_id, i.schedule_id, i.takeover_id))
             == Some((identity.playlist_id, identity.layout_id, identity.schedule_id, identity.takeover_id));
     if !matches {
         if pin(context, PinReason::ActivePresentation, candidate).await.is_err() {
             return resolved.next_transition_ms.map(|at| at.saturating_sub(offset_ms));
         }
-        let extras = extras(&resolved);
+        let extras = extras(&resolved, offset_ms);
         let next = resolved.next_transition_ms;
         if let Err(error) = context.presentation.lock().await.activate_server_presentation(
             identity,

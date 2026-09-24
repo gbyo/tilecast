@@ -75,6 +75,8 @@ pub struct PlaybackIdentity {
 /// Everything a server presentation activation carries besides its document.
 #[derive(Debug, Clone, Default)]
 pub struct ServerExtras {
+    /// The synchronized group's timeline, anchored at activation.
+    pub timing: Option<SyncTiming>,
     pub projection: Option<ProjectionContext>,
     pub plugins: Vec<serde_json::Value>,
     pub plugin_aliases: Vec<MediaAlias>,
@@ -328,10 +330,11 @@ impl PresentationEngine {
         for plugin in &extras.plugins {
             edge_protocol::ipc::presentation::validate_value(plugin, &content)?;
         }
+        let timing = extras.timing.clone();
         self.activate_revision(
             document,
             content,
-            None,
+            timing,
             ActivationSource::ServerManifest,
             Some(identity),
             extras,

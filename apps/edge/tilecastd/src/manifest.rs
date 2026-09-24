@@ -67,6 +67,7 @@ pub mod profile {
         "video",
         "render-tree-v1",
         "layout-v1",
+        "synchronized-playback-v1",
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
@@ -145,12 +146,26 @@ pub struct Candidate {
 #[derive(Debug, Clone)]
 pub struct ResolvedPresentation {
     pub document: PresentationDocument,
+    /// The shared timeline of a synchronized group, when the screen belongs
+    /// to one and shows a playlist.
+    pub timing: Option<GroupTiming>,
     pub content: Vec<ContentRef>,
     pub projection: Option<ProjectionContext>,
     pub plugins: Vec<Value>,
     pub plugin_aliases: Vec<MediaAlias>,
     pub selection: Selection,
     pub next_transition_ms: Option<i64>,
+}
+
+/// A synchronized group's timeline for one presentation (the reference
+/// player's `enrichSynchronizedPresentation`): every member places the same
+/// items on the same anchor with the same effective durations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupTiming {
+    pub group_id: String,
+    /// Corrected Unix milliseconds.
+    pub anchor_ms: i64,
+    pub durations_ms: Vec<u64>,
 }
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
@@ -459,7 +474,11 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
             }
         }
     }
-    if document.get("syncGroup").is_some_and(|value| !value.is_null()) {
+    if document.get("syncGroup").is_some_and(|group| {
+        !group.is_null()
+            && (group.get("id").and_then(Value::as_str).is_none_or(|id| id.is_empty() || id.len() > 64)
+                || group.get("playbackEpoch").and_then(Value::as_str).is_none())
+    }) {
         push(Incompatibility::SynchronizedPlayback);
     }
     if document.get("viewport").is_some_and(|value| !value.is_null())
@@ -736,6 +755,7 @@ impl Candidate {
             }
             ResolvedPresentation {
                 document,
+                timing: None,
                 content,
                 projection,
                 plugins: plugins.clone(),
@@ -900,13 +920,70 @@ impl Candidate {
         } else {
             None
         };
+        let timing = self.group_timing(&selection, &items, source_items);
         let document = PresentationDocument::Playing {
             items,
             takeover: selection.source == Source::Takeover,
             generation: self.version.max(0) as u64,
-            synchronized: false,
+            synchronized: timing.is_some(),
         };
-        Ok(finish(document, content, projection, selection))
+        let mut resolved = finish(document, content, projection, selection);
+        resolved.timing = timing;
+        Ok(resolved)
+    }
+
+    /// The group timeline when this screen is in a synchronized group. The
+    /// anchor is the takeover's, the Quick Present's or the active schedule
+    /// window's start, and otherwise the group's playback epoch.
+    fn group_timing(&self, selection: &Selection, items: &[PresentationItem], source: &[Value]) -> Option<GroupTiming> {
+        let group = self.document.get("syncGroup").filter(|group| !group.is_null())?;
+        let group_id = group.get("id")?.as_str()?.to_owned();
+        let epoch = group.get("playbackEpoch")?.as_str()?.parse::<jiff::Timestamp>().ok()?.as_millisecond();
+        if items.is_empty() {
+            return None;
+        }
+        let anchor_ms = match selection.source {
+            Source::Takeover | Source::QuickPresent | Source::Schedule => selection.playback_anchor_ms.unwrap_or(epoch),
+            Source::Direct | Source::None => epoch,
+        };
+        let durations_ms = items
+            .iter()
+            .map(|built| {
+                let item = source.iter().find(|item| item.get("id").and_then(Value::as_str) == Some(built.id.as_str()));
+                self.effective_duration_ms(built, item)
+            })
+            .collect();
+        Some(GroupTiming { group_id, anchor_ms, durations_ms })
+    }
+
+    /// The reference player's `effectiveDurationMs`, shared with Android: only
+    /// the manifest carries an authored duration; a video otherwise runs its
+    /// trimmed length, other interactive kinds 30 s, anything else 10 s.
+    fn effective_duration_ms(&self, built: &PresentationItem, item: Option<&Value>) -> u64 {
+        let authored = item.and_then(|item| item.get("durationMs")).and_then(Value::as_u64).filter(|ms| *ms > 0);
+        let explicit = if built.kind == ItemKind::Video { authored } else { authored.or(built.duration_ms) };
+        if let Some(ms) = explicit.filter(|ms| *ms > 0) {
+            return ms;
+        }
+        match built.kind {
+            ItemKind::Website | ItemKind::Widget | ItemKind::Layout | ItemKind::Youtube => 30_000,
+            ItemKind::Video => {
+                let offset = |key: &str| item.and_then(|item| item.get(key)).and_then(Value::as_u64);
+                let start = offset("videoStartOffsetMs").or(built.video_start_offset_ms).unwrap_or(0);
+                let asset_seconds = item
+                    .and_then(|item| {
+                        let asset = self.asset(item.get("assetId")?.as_str()?, item.get("variantId")?.as_str()?)?;
+                        self.asset_value(asset)?.get("durationSeconds")?.as_f64()
+                    })
+                    .filter(|seconds| seconds.is_finite() && *seconds > 0.0)
+                    .map(|seconds| (seconds * 1_000.0).round() as u64);
+                match offset("videoEndOffsetMs").or(built.video_end_offset_ms).or(asset_seconds) {
+                    Some(end) => end.saturating_sub(start).max(1),
+                    None => 10_000,
+                }
+            }
+            ItemKind::Image => 10_000,
+        }
     }
 
     /// The manifest subset the trusted runtime's `renderWidget` and
@@ -1312,7 +1389,8 @@ mod tests {
                 "presentation_incompatible_streaming_delivery",
             ),
             (
-                Box::new(|v| v["syncGroup"] = serde_json::json!({"id": ITEM, "playbackEpoch": "2026-01-01T00:00:00Z"})),
+                // A group without an epoch cannot be placed on a shared timeline.
+                Box::new(|v| v["syncGroup"] = serde_json::json!({"id": ITEM})),
                 "presentation_incompatible_synchronized_playback",
             ),
             (Box::new(|v| v["viewport"] = serde_json::json!({"x": 0})), "presentation_incompatible_span"),
@@ -1353,6 +1431,45 @@ mod tests {
             vec![Incompatibility::StreamingDelivery],
             "automatic video above the download threshold would need streaming"
         );
+    }
+
+    #[test]
+    fn synchronized_groups_share_one_anchor_and_the_reference_durations() {
+        const VIDEO: &str = "5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d";
+        const VIDEO_VARIANT: &str = "6b5c4d3e-2f1a-4b0c-9d8e-7f6a5b4c3d2e";
+        let mut value = manifest();
+        value["syncGroup"] = serde_json::json!({"id": "lobby-wall", "playbackEpoch": "2026-09-01T00:00:00Z"});
+        value["assets"].as_array_mut().unwrap().push(serde_json::json!({"assetId": VIDEO, "variantId": VIDEO_VARIANT,
+            "sha256": "f".repeat(64), "fileSize": 200, "mimeType": "video/mp4", "durationSeconds": 12.5,
+            "downloadPath": format!("/api/v1/player/assets/{VIDEO}/variants/{VIDEO_VARIANT}")}));
+        value["playlist"]["items"].as_array_mut().unwrap().push(serde_json::json!({
+            "id": "7c6d5e4f-3a2b-4c1d-8e9f-0a1b2c3d4e5f", "assetId": VIDEO, "variantId": VIDEO_VARIANT,
+            "assetType": "video", "deliveryPolicy": "automatic", "videoStartOffsetMs": 2500,
+            "fitMode": "contain", "transition": "none", "audioEnabled": false, "volume": 0}));
+        let candidate = parse(value.clone()).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        let resolved = candidate.presentation(1_789_000_000_000).unwrap();
+        let timing = resolved.timing.expect("group timing");
+        assert_eq!(timing.group_id, "lobby-wall");
+        assert_eq!(timing.anchor_ms, "2026-09-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap().as_millisecond());
+        // The image's authored 10 s; the video's trimmed file length.
+        assert_eq!(timing.durations_ms, vec![10_000, 10_000]);
+        let PresentationDocument::Playing { synchronized, .. } = resolved.document else { panic!("playing") };
+        assert!(synchronized);
+
+        // A takeover anchors on its activation, not the epoch.
+        let takeover_playlist = "8d7e6f5a-4b3c-4d2e-9f0a-1b2c3d4e5f6a";
+        value["playlists"] =
+            serde_json::json!([{"id": takeover_playlist, "items": [value["playlist"]["items"][0].clone()]}]);
+        value["takeover"] = serde_json::json!({"id": ITEM, "playlistId": takeover_playlist,
+            "activatedAt": "2026-09-24T10:00:00Z", "expiresAt": "2099-01-01T00:00:00Z"});
+        let candidate = parse(value).unwrap();
+        let at = "2026-09-24T10:05:00Z".parse::<jiff::Timestamp>().unwrap().as_millisecond();
+        let timing = candidate.presentation(at).unwrap().timing.expect("group timing");
+        assert_eq!(timing.anchor_ms, "2026-09-24T10:00:00Z".parse::<jiff::Timestamp>().unwrap().as_millisecond());
+
+        // No group, no timeline.
+        assert!(parse(manifest()).unwrap().presentation(at).unwrap().timing.is_none());
     }
 
     #[test]

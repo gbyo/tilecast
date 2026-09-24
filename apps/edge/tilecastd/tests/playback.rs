@@ -38,7 +38,8 @@ use tilecastd::config::EdgeConfig;
 use tilecastd::daemon::{Daemon, DaemonContext};
 
 const CREDENTIAL: &str = "tc_device_01j8xk2m4n6p8q0r2s4t6v8w0y.ZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQ";
-const FEATURES: &[&str] = &["status-surfaces-v1", "image", "video", "render-tree-v1", "layout-v1"];
+const FEATURES: &[&str] =
+    &["status-surfaces-v1", "image", "video", "render-tree-v1", "layout-v1", "synchronized-playback-v1"];
 
 // ------------------------------------------------------------ fake server
 
@@ -1431,4 +1432,71 @@ async fn safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconcile
     assert!(harness.fake.manifest_requests.load(Ordering::SeqCst) > before, "sync_now reconciled the manifest");
     renderer.stop();
     player.stop().await;
+}
+
+// ------------------------------------------------------------ M6: synchronized playback
+
+fn grouped(screen: ScreenId, version: i64, assets: &[&Asset], items: &[uuid::Uuid]) -> Value {
+    let mut value = manifest(screen, version, assets);
+    value["playlist"]["items"] = Value::Array(assets.iter().zip(items).map(|(asset, id)| asset.item(*id)).collect());
+    value["syncGroup"] = json!({"id": "lobby-wall", "playbackEpoch": "2026-09-01T00:00:00Z"});
+    value
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn two_players_in_a_group_share_one_timeline_that_a_clock_correction_never_moves() {
+    let first = Asset::new("wall-a", "image/png");
+    let second = Asset::new("wall-b", "image/png");
+    let items = [uuid::Uuid::new_v4(), uuid::Uuid::new_v4()];
+    let mut timings = Vec::new();
+    let mut running = Vec::new();
+    for _ in 0..2 {
+        let harness = Harness::new().await;
+        harness.fake.add_asset(&first, AssetMode::Serve);
+        harness.fake.add_asset(&second, AssetMode::Serve);
+        harness.fake.set_manifest(grouped(harness.screen, 3, &[&first, &second], &items));
+        let player = harness.start().await;
+        let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+        let activation = wait_for("the synchronized activation", || {
+            renderer
+                .last()
+                .filter(|a| matches!(a.presentation, PresentationDocument::Playing { synchronized: true, .. }))
+        })
+        .await;
+        timings.push(activation.timing.clone().expect("group timing"));
+        running.push((harness, player, renderer));
+    }
+    let (a, b) = (&timings[0], &timings[1]);
+    assert_eq!((a.group_id.as_str(), a.anchor_unix_ms), (b.group_id.as_str(), b.anchor_unix_ms));
+    assert_eq!(a.anchor_unix_ms, "2026-09-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap().as_millisecond());
+    assert_eq!(a.durations_ms, vec![10_000, 10_000]);
+    assert_eq!(a.durations_ms, b.durations_ms);
+
+    // A new server clock sample must not re-anchor or restart what plays.
+    let (harness, player, renderer) = &running[0];
+    let binding = harness.binding();
+    wait_until("promotion", || async { player.stage(&binding, Stage::Active).await.is_some() }).await;
+    let before = renderer.activation_count();
+    let now = Timestamp::from_unix_millis(now_ms()).unwrap();
+    player
+        .context
+        .db()
+        .unwrap()
+        .run(move |c| {
+            let mut state = edge_state::repo::playback::get(c)?;
+            state.server_clock_offset_ms = Some(4_321);
+            state.server_clock_synchronized_at = Some(now);
+            edge_state::repo::playback::put(c, &state, now)
+        })
+        .await
+        .unwrap();
+    for _ in 0..5 {
+        player.context.manifest_wake.notify_one();
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    assert_eq!(renderer.activation_count(), before, "a clock correction never restarts synchronized playback");
+    for (_, player, renderer) in running {
+        renderer.stop();
+        player.stop().await;
+    }
 }
