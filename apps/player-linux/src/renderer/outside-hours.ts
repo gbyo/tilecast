@@ -77,6 +77,11 @@
     overlay.replaceChildren();
   }
 
+  function showBlack(): void {
+    overlay.replaceChildren();
+    overlay.className = "visible";
+  }
+
   function showCustomText(presentation: OutsideHoursPresentation): void {
     const text = document.createElement("div");
     text.className = "outside-hours-text";
@@ -113,6 +118,11 @@
 
     if (presentation.display === "custom_text") {
       showCustomText(presentation);
+      return;
+    }
+
+    if (presentation.display === "black") {
+      showBlack();
       return;
     }
 
