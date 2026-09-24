@@ -1369,5 +1369,16 @@
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out"
     }
+  },
+  "preview": {
+    "capture": {
+      "encodeFailed": "Image could not be encoded.",
+      "readFailed": "Image could not be read.",
+      "rasterFailed": "Preview could not be rasterized.",
+      "createFailed": "Preview image could not be created.",
+      "notReady": "Preview is not ready yet.",
+      "noCanvas": "Preview canvas is unavailable.",
+      "tooDetailed": "Preview image is too detailed to store."
+    }
   }
 }

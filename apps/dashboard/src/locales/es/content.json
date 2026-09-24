@@ -1396,5 +1396,16 @@
       "zoomIn": "Acercar",
       "zoomOut": "Alejar"
     }
+  },
+  "preview": {
+    "capture": {
+      "encodeFailed": "No se pudo codificar la imagen.",
+      "readFailed": "No se pudo leer la imagen.",
+      "rasterFailed": "No se pudo rasterizar la vista previa.",
+      "createFailed": "No se pudo crear la imagen de vista previa.",
+      "notReady": "La vista previa aún no está lista.",
+      "noCanvas": "El lienzo de vista previa no está disponible.",
+      "tooDetailed": "La imagen de vista previa es demasiado detallada para guardarla."
+    }
   }
 }

@@ -133,7 +133,7 @@ export function GenericWidgetEditor({
 
       if (!previewRef.current || !compiledPreview.data || sourcesLoading)
         throw new Error(t("widgets.errors.previewWait"));
-      const previewImage = await captureWidgetPreview(previewRef.current);
+      const previewImage = await captureWidgetPreview(previewRef.current, t);
       const saved = asset
         ? api.updateWidget(asset.id, input, csrf)
         : api.createWidget(input, csrf);

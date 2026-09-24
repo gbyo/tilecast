@@ -758,7 +758,7 @@ export function NativeAppEditor({
         (selectedDataSourceId && sourcePreview.isLoading)
       )
         throw new Error(t("widgets.errors.previewWait"));
-      const previewImage = await captureWidgetPreview(previewRef.current);
+      const previewImage = await captureWidgetPreview(previewRef.current, t);
       const input = { provider, presetId, name, description, configuration };
       const saved = asset
         ? api.updateWidget(asset.id, input, csrf)

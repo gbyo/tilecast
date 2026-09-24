@@ -1,5 +1,6 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Asset, WidgetDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -73,6 +74,7 @@ function WidgetSnapshotCapture({
   asset: Asset;
   onSettled: () => void;
 }) {
+  const { t } = useTranslation(["content"]);
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const queryClient = useQueryClient();
@@ -151,7 +153,7 @@ function WidgetSnapshotCapture({
           try {
             const element = previewRef.current;
             if (cancelled || !element) return;
-            const image = await captureWidgetPreview(element);
+            const image = await captureWidgetPreview(element, t);
             if (cancelled) return;
             await api.uploadWidgetPreview(asset.id, image, csrf);
             if (!cancelled)
@@ -169,7 +171,7 @@ function WidgetSnapshotCapture({
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [ready, failed, asset.id, csrf, onSettled, queryClient]);
+  }, [ready, failed, asset.id, csrf, onSettled, queryClient, t]);
 
   return (
     <div className="widget-snapshot-backfill" aria-hidden="true">
