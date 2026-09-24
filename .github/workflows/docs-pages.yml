@@ -12,11 +12,6 @@ on:
       - ".github/workflows/docs-pages.yml"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 # One deployment at a time. A queued run waits instead of cancelling a
 # deployment that is already in progress.
 concurrency:
@@ -27,6 +22,9 @@ jobs:
   build:
     name: Build docs
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -49,6 +47,9 @@ jobs:
     name: Deploy docs
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
