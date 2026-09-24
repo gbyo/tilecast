@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      The trusted Tilecast display document. Every host loads this exact file
+      from tilecast://runtime/index.html. Scripts and styles come only from the
+      runtime itself; media only from host-authorized tcmedia: URIs.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' tcmedia: data:; media-src tcmedia:; frame-src https: http:;"
+    />
+    <meta name="color-scheme" content="light" />
+    <title>Tilecast Player</title>
+    <link rel="stylesheet" href="runtime.css" />
+    <script defer src="runtime.js"></script>
+  </head>
+  <body>
+    <tc-player></tc-player>
+  </body>
+</html>
