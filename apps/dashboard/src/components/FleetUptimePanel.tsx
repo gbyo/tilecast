@@ -20,14 +20,7 @@ import type {
   UptimeWindow,
 } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "./ui/empty";
-import { buttonVariants } from "./ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import {
   ChartContainer,
   ChartLegend,
