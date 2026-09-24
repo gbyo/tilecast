@@ -173,8 +173,13 @@ impl ServerClient {
         &self.base_url
     }
 
-    fn url(&self, path: &str) -> String {
+    pub(crate) fn url(&self, path: &str) -> String {
         format!("{}{}", self.base_url, path)
+    }
+
+    /// The unauthenticated HTTP client (identity and pairing only).
+    pub(crate) fn http(&self) -> &reqwest::Client {
+        &self.http
     }
 
     pub async fn identity(&self) -> Result<ServerIdentity, ServerError> {
@@ -237,6 +242,13 @@ pub(crate) async fn error_from(response: reqwest::Response) -> ServerError {
         code: error.code.chars().take(64).collect(),
         message: error.message.chars().take(240).collect(),
     }
+}
+
+pub(crate) async fn decode_bounded<T: DeserializeOwned>(
+    response: reqwest::Response,
+    limit: usize,
+) -> Result<T, ServerError> {
+    decode(response, limit).await
 }
 
 async fn decode<T: DeserializeOwned>(response: reqwest::Response, limit: usize) -> Result<T, ServerError> {
