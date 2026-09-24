@@ -13,11 +13,17 @@ The Tilecast Server installer uses the newest stable Linux AppImage cached and v
 
 The server-provided installer requires root for installation. It installs the AppImage under an unprivileged kiosk account. The default account is the one that invoked `sudo`; pass `--user` to select another account.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Prepare a Linux release
+
+<Steps>
 
 1. In Studio, open **Settings** > **Player updates** and select **Linux**.
 2. If the release you want is not listed, select **Sync from GitHub**.
 3. Select **Download** beside the release and wait until Studio shows **Ready to deploy**. The installer cannot proceed until the server has a cached, verified Linux release.
+
+</Steps>
 
 ## Install the Player
 

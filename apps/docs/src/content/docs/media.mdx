@@ -5,14 +5,20 @@ description: Add images and videos to the Tilecast media library and prepare the
 
 Tilecast Studio's **Media** library stores images and videos for reuse in Playlists and Layouts. An upload must finish processing and show **Ready** before you can add it to a presentation.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Upload images and videos
 
 An Owner, Administrator, or Editor can upload media.
+
+<Steps>
 
 1. Open **Content** > **Media**.
 2. Select **Upload assets**, or drag files into the library.
 3. Choose image or video files. The file picker accepts JPEG, PNG, WebP, and GIF images, plus MP4, MOV, WebM, and MKV video files.
 4. Wait for each item to reach **Ready**. Tilecast checks the file and prepares it for Player playback. Items that are still **Uploading**, **Inspecting**, or **Processing** aren't available to presentations.
+
+</Steps>
 
 If the browser loses its connection during an upload, select the original file again to resume it. It must have the same name and size as the file used to start that upload. Open the asset details for a failed item and select **Retry processing** when that action is available.
 

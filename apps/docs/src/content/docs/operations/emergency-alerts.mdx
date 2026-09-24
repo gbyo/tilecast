@@ -13,16 +13,24 @@ Alert delivery is best-effort and is not a life-safety system. Keep local emerge
 
 An Owner or Administrator can open **Operations** > **Plugins**, select **Add plugin**, choose **Emergency Alerts**, and install it. Then open **Emergency Alerts** from the installed plugin list. Installation does not enable monitoring or create rules.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Choose which alerts Tilecast checks
+
+<Steps>
 
 1. In **Emergency Alerts**, turn on **Automated NWS monitoring**.
 2. Under **Alert coverage**, select a **State or territory**. Choose **Monitor entire state** to include it all, or add one or more **County or forecast zone** locations. You can combine state coverage and specific locations.
 3. Choose a **Poll interval**. Tilecast offers one, two, five, or fifteen minutes; the interface recommends one or two minutes for most sites.
 4. Select **Save NWS monitor**.
 
+</Steps>
+
 Tilecast reads the locations from the NWS. If the location list cannot load, check that the server can reach `api.weather.gov` and retry. Use **Check now** to request an immediate poll. **Last success**, **Last attempt**, **Matched rules**, and **Health** show the latest monitor result.
 
 ## Add a response rule
+
+<Steps>
 
 1. Under **Weather event rules**, select **Add rule** and enter a **Rule name**.
 2. Enter one or more **NWS event names**, separated by commas, or leave the field empty to match every event that meets the severity and urgency thresholds. Names are matched without regard to capitalization; use the event wording shown by the NWS.
@@ -32,6 +40,8 @@ Tilecast reads the locations from the NWS. If the location list cannot load, che
    - **Tilecast live NWS alert — ticker bar** leaves playback running and shows the alert in a bar. Choose whether it pushes content up or overlays the bottom edge, plus its height and speed.
    - **Use a custom playlist — fullscreen** starts a selected, non-empty playlist. Create or edit one in [Tilecast Studio](../../studio/).
 5. Set the **Maximum duration**, then choose at least one **Target screens** or **Target groups**. Enable the rule and select **Add rule**.
+
+</Steps>
 
 Only enabled rules and enabled monitoring act on alerts. Tilecast ends the response when the alert is no longer active or the maximum duration is reached. Fullscreen playback then returns to the schedule or fallback that applies at that time; a ticker is removed while normal playback continues.
 

@@ -5,9 +5,13 @@ description: Publish Playlist or Layout schedules to selected screens and Displa
 
 A **Campaign** coordinates published content, timing, and destinations in one release. Each content block becomes a schedule for its selected screens or Display Groups. Use a Campaign when several schedule changes should go live together; use [Schedules](../schedules/) to manage a schedule on its own.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Build a Campaign draft
 
 An Owner, Administrator, or Editor can create and edit a Campaign. An Owner or Administrator can submit or publish it.
+
+<Steps>
 
 1. Open **Presentations** > **Campaigns**, then select **Create campaign**.
 2. Name the Campaign. In its draft, set a timezone and optional Campaign start and end.
@@ -15,6 +19,8 @@ An Owner, Administrator, or Editor can create and edit a Campaign. An Owner or A
 4. Under **Destinations**, select **Add destination** and choose the screens or Display Groups that should receive the release.
 5. Select **Save draft**, then select **Preflight** and resolve any errors it reports.
 6. Select **Submit / publish**. Follow the submission status if content review is enabled for the installation.
+
+</Steps>
 
 Preflight checks the referenced content, schedule windows, and destination membership before publishing changes to schedules. For a Campaign that reaches more than 10 screens, schedule-overlap checks sample 10 screens; Preflight still validates all destinations and content references. Review any sampling warning and verify the affected screens' schedules separately.
 

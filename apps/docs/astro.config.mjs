@@ -1,6 +1,11 @@
 // @ts-check
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import starlightLlmsTxt from "starlight-llms-txt";
+import starlightPageContextAction from "starlight-page-context-action";
+import starlightOpenAPIPlugin, {
+  createOpenAPISidebarGroup,
+} from "starlight-openapi";
 
 const repository = "https://github.com/gbyo/tilecast";
 
@@ -14,6 +19,25 @@ const syncTokenTheme = `(() => {
   sync();
   new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
 })();`;
+
+// Local Starlight plugin. Generated reference pages have no source file, so
+// the per-page Markdown actions are hidden there (see route-middleware.mjs).
+// It uses only the public addRouteMiddleware hook.
+/** @returns {import("@astrojs/starlight/types").StarlightPlugin} */
+function tilecastDocsPlugin() {
+  return {
+    name: "tilecast-docs",
+    hooks: {
+      "config:setup"({ addRouteMiddleware }) {
+        addRouteMiddleware({
+          entrypoint: new URL("./src/route-middleware.mjs", import.meta.url)
+            .pathname,
+          order: "pre",
+        });
+      },
+    },
+  };
+}
 
 export default defineConfig({
   site: "https://gbyo.github.io",
@@ -34,6 +58,52 @@ export default defineConfig({
       title: "Tilecast Docs",
       description:
         "Install Tilecast, connect Tilecast Player to your displays, and publish content from Tilecast Studio.",
+      plugins: [
+        tilecastDocsPlugin(),
+        // Generates llms.txt, llms-full.txt, and llms-small.txt from the
+        // public docs collection. Draft pages are excluded automatically.
+        // Engineering documents outside apps/docs are never included.
+        starlightLlmsTxt({
+          projectName: "Tilecast",
+          // Content collection IDs include the file extension.
+          exclude: ["404.md"],
+          optionalLinks: [
+            {
+              label: "Tilecast repository",
+              url: "https://github.com/gbyo/tilecast",
+              description:
+                "Source code, releases, and engineering references for Tilecast.",
+            },
+          ],
+        }),
+        // Generates endpoint reference pages from the canonical OpenAPI
+        // description. docs/openapi.yaml stays the single source of truth;
+        // no copy is maintained inside apps/docs.
+        starlightOpenAPIPlugin([
+          {
+            base: "reference/api/endpoints",
+            schema: "../../docs/openapi.yaml",
+            sidebar: {
+              label: "Endpoints",
+              collapsed: true,
+              operations: { badges: true, labels: "summary" },
+            },
+          },
+        ]),
+        // Adds Copy page and View as Markdown actions above the table of
+        // contents. AI chat and scroll actions stay off: the docs send
+        // nothing to third-party services.
+        starlightPageContextAction({
+          actions: {
+            copy: true,
+            viewMarkdown: true,
+            chatgpt: false,
+            claude: false,
+            t3chat: false,
+            scrollTop: false,
+          },
+        }),
+      ],
       logo: {
         light: "../../.github/logos/tilecast-logo-black.svg",
         dark: "../../.github/logos/tilecast-logo-white.svg",
@@ -62,20 +132,84 @@ export default defineConfig({
         styleOverrides: { borderRadius: "var(--tc-radius-panel)" },
       },
       head: [{ tag: "script", content: syncTokenTheme }],
-      // Each top-level section is listed explicitly so its order is an
-      // editorial decision. When a section gains pages, turn its entry into
-      // a group. High-volume reference areas can then use `autogenerate`.
+      // Each group and its page order are an editorial decision: the sidebar
+      // follows the reader's task flow, not the content directory layout or
+      // Studio's own navigation. A sidebar badge must communicate something
+      // that affects the reader, such as a platform or coverage limit.
       sidebar: [
         { label: "Home", slug: "index" },
-        { slug: "getting-started" },
-        { slug: "installation" },
-        { slug: "studio" },
-        { slug: "players" },
-        { slug: "administration" },
-        { slug: "operations" },
-        { slug: "integrations" },
-        { slug: "developers" },
-        { slug: "reference" },
+        {
+          label: "Set up",
+          items: [{ slug: "getting-started" }, { slug: "installation" }],
+        },
+        {
+          label: "Studio content",
+          items: [
+            { slug: "studio" },
+            { slug: "media" },
+            { slug: "data-sources" },
+            { slug: "widgets" },
+            { slug: "playlists" },
+            { slug: "layouts" },
+            { slug: "schedules" },
+            { slug: "campaigns" },
+          ],
+        },
+        {
+          label: "Players and screens",
+          items: [
+            { slug: "players" },
+            { slug: "players/install-android" },
+            { slug: "players/install-linux" },
+            { slug: "players/pair-a-display" },
+            { slug: "players/update-a-player" },
+            { slug: "screens/pair-and-replace" },
+            { slug: "screens/display-groups" },
+          ],
+        },
+        {
+          label: "Operations",
+          items: [
+            { slug: "operations" },
+            { slug: "operations/activity" },
+            { slug: "operations/screen-status" },
+            { slug: "operations/takeover" },
+            { slug: "operations/player-commands" },
+            { slug: "operations/plugins" },
+            {
+              slug: "operations/emergency-alerts",
+              badge: { text: "US", variant: "note" },
+            },
+          ],
+        },
+        {
+          label: "Administration",
+          items: [
+            { slug: "administration" },
+            { slug: "administration/users-and-roles" },
+            { slug: "administration/sign-in-security" },
+            { slug: "administration/player-policies" },
+            { slug: "administration/backups" },
+            { slug: "administration/player-updates" },
+          ],
+        },
+        {
+          label: "Integrate and build",
+          items: [
+            { slug: "integrations" },
+            { slug: "integrations/tokens" },
+            { slug: "integrations/manual-table" },
+            { slug: "integrations/fleet-health" },
+            { slug: "integrations/notifications" },
+            { slug: "developers" },
+            { slug: "reference" },
+            { slug: "reference/api" },
+            // Generated endpoint reference from docs/openapi.yaml. The
+            // handwritten API overview stays the starting point; these
+            // pages own endpoint-by-endpoint details.
+            createOpenAPISidebarGroup(),
+          ],
+        },
       ],
     }),
   ],

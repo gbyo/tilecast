@@ -23,25 +23,63 @@ shallow clone shows the wrong date. Use a full clone.
 
 ## Files
 
-| Path                      | Contents                                                      |
-| ------------------------- | ------------------------------------------------------------- |
-| `astro.config.mjs`        | Site URL, base path, sidebar, theme, and Starlight settings   |
-| `src/content/docs/`       | Pages. The file path is the URL path.                         |
-| `src/styles/tilecast.css` | Starlight theme variables mapped to `@tilecast/design-tokens` |
-| `scripts/check-links.mjs` | Post-build check for internal links and heading anchors       |
-| `STYLE.md`                | Writing rules for public pages                                |
+| Path                       | Contents                                                      |
+| -------------------------- | ------------------------------------------------------------- |
+| `astro.config.mjs`         | Site URL, base path, sidebar, theme, and Starlight settings   |
+| `src/content/docs/`        | Pages. The file path is the URL path.                         |
+| `src/route-middleware.mjs` | Hides page Markdown actions on generated routes               |
+| `src/styles/tilecast.css`  | Starlight theme variables mapped to `@tilecast/design-tokens` |
+| `scripts/check-links.mjs`  | Post-build check for internal links and heading anchors       |
+| `STYLE.md`                 | Writing rules for public pages                                |
+
+Public pages live below `src/content/docs/`. Engineering specifications and
+contracts live with the code they describe:
+
+```text
+tilecast/
+├── apps/docs/src/content/docs/  Public site. Style rules: apps/docs/STYLE.md.
+├── docs/                        Engineering references and contracts.
+├── wiki/                        Engineering wiki (not published to the site).
+└── README.md files              Build, test, and operator notes per area.
+```
 
 ## Add a page
 
 1. Read [`STYLE.md`](STYLE.md).
 2. Add a Markdown file below `src/content/docs/`. Use `.mdx` only when the page
-   uses a Starlight component.
-3. Add the page to `sidebar` in `astro.config.mjs`. The sidebar is explicit. A
-   page that is not in the sidebar is not in the site navigation.
-4. Run `npm run docs:build`.
+   uses a Starlight component. The route is the same either way.
+3. Add the page to the matching task-oriented group in `sidebar` in
+   `astro.config.mjs`. The sidebar is explicit and grouped by reader task, not
+   by directory. A page that is not in the sidebar is not in the site
+   navigation. Keep the landing page first in its group.
+4. Run `npm run docs:build`. The build also checks internal links, and the
+   link checker resolves the renamed `.mdx` file to the same route.
 
-When a top-level section has more than one page, change its sidebar entry to a
-group. A large reference section can use `autogenerate` for its directory.
+## Drafts and search
+
+A page with `draft: true` in its frontmatter renders in `npm run docs:dev`
+but is excluded from the production build and from search. Use a draft to
+keep a page visible while its research or review is incomplete, never to
+publish placeholder copy.
+
+`pagefind: false` keeps a utility page such as the custom 404 out of search
+results. See [`STYLE.md`](STYLE.md) for when each one applies.
+
+## Agent-friendly output
+
+The build also emits machine-readable documentation next to the HTML pages:
+
+| Output           | Contents                                                             |
+| ---------------- | -------------------------------------------------------------------- |
+| `llms.txt`       | Index of the public docs for coding assistants, with page summaries. |
+| `llms-full.txt`  | The full public docs text in one file.                               |
+| `llms-small.txt` | A compact index for smaller context windows.                         |
+| Copy page        | Each page has a Copy action above its table of contents.             |
+| View as Markdown | Each page has a cleaned Markdown version for reading or pasting.     |
+
+These outputs cover the same public pages as the site. Draft pages are
+excluded. Engineering documents in `docs/` are not public product
+documentation and are not included.
 
 ## Theme
 

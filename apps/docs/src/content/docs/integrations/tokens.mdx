@@ -5,7 +5,11 @@ description: Give a script or service limited access to Tilecast without sharing
 
 Integration tokens are for scripts and services that need to update a Manual Table or read fleet health. Only the **Owner** can create and revoke them from **Settings** > **Integration tokens**.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Create a token
+
+<Steps>
 
 1. Select **Create a token** and enter a **Name** that identifies the system using it.
 2. Choose one or both **Capabilities**:
@@ -14,6 +18,8 @@ Integration tokens are for scripts and services that need to update a Manual Tab
 3. For a write token, choose **Limit to Data Sources**. Selecting none permits writes to any Manual Table; selecting sources restricts the token to those sources.
 4. Set **Expires on** if the token is temporary. The selected day is its last day of use. Leave it empty only when the integration needs a token without an expiry.
 5. Select **Create token**, then copy the secret into the system's secret store.
+
+</Steps>
 
 Tilecast shows the complete token once. It cannot be read back later. A token uses this header format:
 

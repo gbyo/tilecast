@@ -5,14 +5,20 @@ description: Set up an authenticator app or passkey, save recovery codes, and re
 
 Tilecast Studio supports an authenticator app, passkeys, and single-use recovery codes. Each person manages their factors under **My Account** > **Sign-in security**. An Owner or Administrator can require multi-factor authentication for the installation under **Settings** > **Sign-in security**.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Enroll a factor
 
 ### Use an authenticator app
+
+<Steps>
 
 1. Open **My Account** > **Sign-in security**.
 2. Under **Authenticator app**, select **Set up**.
 3. Scan the QR code with an authenticator app, or enter the displayed key by hand.
 4. Enter the app's six-digit code to confirm enrollment.
+
+</Steps>
 
 ### Add a passkey
 

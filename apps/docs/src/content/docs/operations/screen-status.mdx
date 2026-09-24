@@ -5,6 +5,8 @@ description: Read the connection status in Screens > Fleet and choose what to ch
 
 **Screens** > **Fleet** shows the Player's current connection status. A connection status says whether Tilecast can reach the Player. It does not prove that content is playing correctly.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Read the Fleet status
 
 | Status              | What it means                                                                                    |
@@ -18,11 +20,15 @@ description: Read the connection status in Screens > Fleet and choose what to ch
 
 ## If the screen is offline or stale
 
+<Steps>
+
 1. Open **Screens** > **Fleet** and select the screen.
 2. Check **Last contact**, the Player version, and the device details in the screen view.
 3. Confirm the device has power and can reach the server's current address. If you use a hostname, check that it resolves on the display's network.
 4. If the Player reports a server identity mismatch, verify the installation before resetting or pairing the device. See [Connect a display](../../players/).
 5. If the screen is disabled or its pairing was revoked, ask an Owner or Administrator to enable it or pair the Player again.
+
+</Steps>
 
 If the Player can connect but content is failing, open [Activity](../activity/) and check **Incidents**. A screen can be reachable while playback is impaired.
 

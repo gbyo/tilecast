@@ -5,21 +5,31 @@ description: Configure Tilecast notifications for people and send signed events 
 
 Tilecast can send selected condition alerts to people by email and post signed JSON to your webhook receiver. Email requires an SMTP relay configured on the Tilecast server. Webhooks work without SMTP.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Enable email notifications
+
+<Steps>
 
 1. An Owner or Administrator opens **Settings** > **Notifications**.
 2. Configure **Send notifications**, **From address**, and **Minimum severity** for the organization. The minimum severity filters which conditions are sent.
 3. Configure the server's SMTP settings, beginning with `TILECAST_SMTP_HOST`, then restart Tilecast Server. Studio shows whether email delivery is available. The [deployment environment example](https://github.com/gbyo/tilecast/blob/main/deploy/docker/.env.example) lists the supported SMTP variables.
 4. Each person opens **My Account** > **Preferences**, chooses **Notify me** as **Immediate** or **Digest**, enters **Send to**, and selects the categories to receive.
 
+</Steps>
+
 The categories are **Screen problems**, **Content problems**, **Backups**, and **Player updates**. A person's notification preference is off until they opt in. The organization can set **Daily digest time**, **Notification timezone**, and **Quiet hours** under **Settings** > **Notifications**. Digest and quiet hours apply to email; critical conditions are sent immediately. Select **Send a test to myself** to test the configured email path. The test goes to your own notification address and ignores quiet hours and category subscriptions.
 
 ## Add a webhook
+
+<Steps>
 
 1. In **Settings** > **Notifications**, add a webhook with a **Name** and **URL**.
 2. Select categories to receive, or leave the selection empty for all categories.
 3. Select **Add webhook** and copy the signing secret into your receiver's secret store. Tilecast shows it once.
 4. Use **Test** on the webhook entry and check **Recent deliveries** to confirm the receiver accepted it.
+
+</Steps>
 
 Tilecast posts signed JSON with `X-Tilecast-Timestamp` and `X-Tilecast-Signature` headers. To verify a request, compute `HMAC-SHA256(secret, timestamp + "." + raw_body)` and compare it with the signature header. Reject timestamps that are not recent to prevent replay. A 2xx response marks delivery as successful. A receiver's 4xx response or redirect is treated as permanent; rate limits and server errors can be retried. The delivery log shows the last result and error. Email digests and quiet hours do not delay webhook delivery.
 

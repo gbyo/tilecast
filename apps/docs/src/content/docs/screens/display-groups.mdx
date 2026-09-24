@@ -5,11 +5,17 @@ description: Group screens that should share fallback content, schedules, and sy
 
 A Display Group is a set of screens that share fallback content, schedules, and playback position. Use one for displays that should stay synchronized, such as several screens in a lobby.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Create a group and add screens
+
+<Steps>
 
 1. In Studio, open **Screens** > **Display Groups** and select **Create Display Group**.
 2. Enter a group name and optional description, then create the group.
 3. Open the group and add screens under **Screens**. Search by screen name or location, choose an available screen, and add it.
+
+</Steps>
 
 Only screens that aren't already assigned to another Display Group appear as available. A screen can belong to one Display Group at a time. To move a screen, remove it from its current group before adding it to another.
 
