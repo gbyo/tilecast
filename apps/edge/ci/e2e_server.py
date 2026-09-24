@@ -447,17 +447,19 @@ def main():
                             {"expectedDraftRevision": layout["data"]["draftRevision"]}, expect=(200, 201))
                 return layout_id
 
-            # The server negotiates widgets against the capabilities this
-            # player reports: a Clock needs environment.time, which Edge does
-            # not claim (a ticking projection would restart playback), so the
-            # assignment is refused before anything reaches the player.
+            # Time-bound widgets: the shared runtime keeps a Clock ticking in
+            # place, so Edge reports environment.time and the server accepts
+            # the assignment.
             clock = published_layout("Lobby clock", {"provider": "clock", "configuration": {
                 "timezone": "UTC", "format": "24", "showSeconds": False,
                 "foregroundColor": "#ffffff", "backgroundColor": "#111111"}})
-            status, refused = client.call("PUT", f"/api/v1/screens/{screen_id}/playlist-assignment",
-                                          {"layoutId": clock})
-            assert status == 409 and refused["error"]["code"] == "playlist_conflict", (status, refused)
-            assert "environment.time" in refused["error"]["message"], refused
+            mark = os.path.getsize(daemon_log_path)
+            _, assignment = client.call("PUT", f"/api/v1/screens/{screen_id}/playlist-assignment",
+                                        {"layoutId": clock}, expect=200)
+            clock_version = assignment["data"]["manifestVersion"]
+            wait_for(lambda: evidence(daemon_log_path, mark, ("layout_shown",)), "clock layout evidence", timeout=180)
+            wait_for(lambda: reported(clock_version), "the heartbeat to report the clock layout", timeout=150)
+            print("clock: manifest", clock_version, "shown with a ticking clock")
 
             # A published Layout with a QR Code Widget over the uploaded
             # image, assigned directly.

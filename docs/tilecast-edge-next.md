@@ -100,7 +100,6 @@ Each later milestone uses the same three headings in its pull request descriptio
 - **LAN discovery** is covered by unit tests (TXT parsing and the URL policy); the CI images run no Avahi daemon, so browsing is verified on a real LAN only. Manual entry and `tilecastctl pair` are covered end to end.
 - **Physical hardware:** the renderer is proven in the headless image only. DRM on real display hardware and Wayland kiosks need device validation (M11).
 - **Remote web content** is not shown: websites, YouTube, web Widgets and streamed delivery are typed incompatibilities until WPE website isolation is qualified (M11). The heartbeat reports `webRuntimeVersion: 0`, so the server refuses such assignments up front where it can.
-- **Time-bound native Widgets** (Clock, Date, World Clock, Countdown) need `environment.time`, which Edge does not claim: re-projecting a ticking value would restart playback. The server refuses those assignments for Edge screens. They need an in-place projection update first.
 
 ## 5. Test map
 

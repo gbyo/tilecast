@@ -2838,6 +2838,9 @@ export class PlayerRuntime {
         "selection.relative_date": 1,
         "selection.temporal": 1,
         "playback.auto_skip": 1,
+        // The shared projection keeps Clock, Countdown and World Clock
+        // ticking in place, so time-bound widgets are supported.
+        "environment.time": 1,
       },
       webRuntimeVersion: 2,
       webBundleLimitBytes: 20 * 1024 * 1024,

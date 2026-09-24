@@ -102,6 +102,10 @@ pub mod profile {
         ("selection.relative_date", 1),
         ("selection.temporal", 1),
         ("playback.auto_skip", 1),
+        // Clock, Date, Countdown and World Clock bind the current time. The
+        // runtime projects them as self-updating nodes (or, for a date, text
+        // that changes once a day), so re-projection never restarts playback.
+        ("environment.time", 1),
     ];
 
     /// Remote web content is not supported until the WPE website isolation is
@@ -1349,6 +1353,19 @@ mod tests {
             vec![Incompatibility::StreamingDelivery],
             "automatic video above the download threshold would need streaming"
         );
+    }
+
+    #[test]
+    fn time_bound_widgets_are_compatible() {
+        let mut value = manifest();
+        value["widgets"] = serde_json::json!([{"assetId": WIDGET, "name": "Lobby clock", "provider": "clock",
+            "presentation": {"schemaVersion": 1, "kind": "native",
+                "requiredCapabilities": {"content.text": 1, "binding.core": 1, "environment.time": 1},
+                "native": {"root": {"type": "text", "binding": {"source": "environment", "path": "currentTime",
+                    "format": "time:24:false:UTC"}}}}}]);
+        let candidate = parse(value).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        assert_eq!(profile::native_capability("environment.time"), 1);
     }
 
     #[test]
