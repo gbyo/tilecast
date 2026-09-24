@@ -201,7 +201,7 @@ export function TargetFields<TForm extends FieldValues>({
         <FieldLabel htmlFor={idPrefix + "-target-scope"}>
           {t("shared.targetType")}
         </FieldLabel>
-        <RheaSelect
+        <Select
           items={targetScopeOptions.map((option) => ({
             value: option.value,
             label: t(option.labelKey),

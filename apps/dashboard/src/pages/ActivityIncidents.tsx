@@ -8,14 +8,9 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { buttonVariants } from "../components/ui/button";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "../components/ui/empty";
-import {
   activityParams,
   activityRequest,
+  EmptyState,
   ErrorNotice,
   humanize,
   Loading,

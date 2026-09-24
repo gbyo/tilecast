@@ -183,7 +183,7 @@ export function LiveDataSourceEditor({
             {save.isPending
               ? t("common:actions.saving")
               : t("dataSources.editor.save")}
-          </RheaButton>
+          </Button>
         )
       }
     >
@@ -324,7 +324,7 @@ export function LiveDataSourceEditor({
               <FieldLabel htmlFor="cap-feed-mode">
                 {t("dataSources.live.feedMode")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={(configuration as CAPAlertsSourceConfig).feedMode}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -381,7 +381,7 @@ export function LiveDataSourceEditor({
               <FieldLabel htmlFor="cap-severity">
                 {t("dataSources.live.minimumSeverity")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={(configuration as CAPAlertsSourceConfig).minimumSeverity}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -605,7 +605,7 @@ export function LiveDataSourceEditor({
           {previewMutation.isPending
             ? t("dataSources.preview.loading")
             : t("dataSources.preview.realData")}
-        </RheaButton>
+        </Button>
       )}
       {preview && (
         <div className="grid gap-2">

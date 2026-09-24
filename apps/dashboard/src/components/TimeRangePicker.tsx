@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { Field, FieldLabel } from "./ui/field";
 
 export type TimeRangePreset = "24h" | "7d" | "30d" | "custom";
 
@@ -135,7 +134,7 @@ export function TimeRangePicker({
       role="group"
       aria-label={t("range.label")}
     >
-      <span className="grid gap-1 text-xs font-medium">
+      <label className="grid gap-1 text-xs font-medium">
         <span>{t("range.label")}</span>
         <Select
           items={items}
@@ -155,7 +154,7 @@ export function TimeRangePicker({
             ))}
           </SelectContent>
         </Select>
-      </Field>
+      </label>
       {preset === "custom" && (
         <>
           <label className="grid gap-1 text-xs font-medium">
@@ -179,7 +178,7 @@ export function TimeRangePicker({
               min={customFrom || undefined}
               onChange={onCustomToChange}
             />
-          </Field>
+          </label>
         </>
       )}
     </div>

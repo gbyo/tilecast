@@ -267,42 +267,10 @@ export function PlaylistPicker({
                         <Check size={17} aria-label="Selected" />
                       </ItemActions>
                     )}
-                  </span>
-                  <span
-                    className="shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  >
-                    {choice.kind === "layout" ? (
-                      <LayoutTemplate size={17} />
-                    ) : tagDriven ? (
-                      <Tags size={17} />
-                    ) : (
-                      <ListVideo size={17} />
-                    )}
-                  </span>
-                  <span className="grid min-w-0 gap-0.5">
-                    <strong className="truncate text-sm">
-                      {choice.kind === "playlist"
-                        ? choice.playlist.name
-                        : choice.layout.name}
-                    </strong>
-                    <small className="truncate text-xs text-muted-foreground">
-                      {choice.kind === "layout"
-                        ? t("picker.playlist.layoutRevision", {
-                            revision: choice.layout.publishedRevision,
-                          })
-                        : t("picker.playlist.itemCount", {
-                            count: choice.playlist.itemCount,
-                          })}
-                      {choice.kind === "playlist" && tagDriven
-                        ? t("picker.playlist.tagDriven")
-                        : ""}
-                    </small>
-                  </span>
-                  {id === chosen && <Check size={17} aria-hidden="true" />}
-                </button>
-              );
-            })
+                  </Item>
+                );
+              })}
+            </ItemGroup>
           )}
         </div>
         <DialogFooter className="border-t border-border pt-3">

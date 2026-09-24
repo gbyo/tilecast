@@ -5,7 +5,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { Button, buttonVariants } from "./ui/button";
+import { buttonVariants } from "./ui/button";
 import {
   Empty,
   EmptyContent,

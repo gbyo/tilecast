@@ -431,13 +431,22 @@ export function PlaylistLibraryPage() {
                   {playlist.description || "No description"}
                 </ItemDescription>
                 <ItemDescription className="flex flex-wrap items-center gap-x-2">
-                  <span>{itemCountLabel(playlist.itemCount)}</span>
-                  <span>Revision {playlist.revision}</span>
-                  <span>{formatPlaylistUpdatedAt(playlist.updatedAt)}</span>
+                  <span>{t("count.items", { count: playlist.itemCount })}</span>
+                  <span>
+                    {t("library.revision", { revision: playlist.revision })}
+                  </span>
+                  <span>
+                    {formatPlaylistUpdatedAt(
+                      playlist.updatedAt,
+                      t,
+                      Date.now(),
+                      formatLocale,
+                    )}
+                  </span>
                 </ItemDescription>
               </ItemContent>
               <ItemActions>
-                <Badge variant="outline">{playlistStatus(playlist)}</Badge>
+                <Badge variant="outline">{playlistStatus(playlist, t)}</Badge>
                 <ChevronRight
                   size={17}
                   aria-hidden="true"

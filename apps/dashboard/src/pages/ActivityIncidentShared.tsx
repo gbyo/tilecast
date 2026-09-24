@@ -275,7 +275,7 @@ export function IncidentRow({
             }
           >
             {t("incidents.details")}
-          </RheaButton>
+          </Button>
         </div>
       </div>
       {!onOpenDetail && expanded && (
@@ -394,7 +394,7 @@ export function IncidentActionButtons({
           onClick={() => onAct(item.action)}
         >
           {t(item.labelKey)}
-        </RheaButton>
+        </Button>
       ))}
     </>
   );

@@ -178,10 +178,10 @@ function CampaignLibrary() {
         </div>
         {canCreate && (
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton type="button" onClick={() => setCreating(true)}>
+            <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />{" "}
               {t("campaigns.library.createButton")}
-            </RheaButton>
+            </Button>
           </div>
         )}
       </header>
@@ -263,10 +263,10 @@ function CampaignLibrary() {
             )}
           </div>
           <DialogFooter>
-            <RheaButton type="button" variant="outline" onClick={closeCreate}>
+            <Button type="button" variant="outline" onClick={closeCreate}>
               {t("common:actions.cancel")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               disabled={!name.trim() || create.isPending}
               onClick={() => create.mutate()}
@@ -274,7 +274,7 @@ function CampaignLibrary() {
               {create.isPending
                 ? t("campaigns.library.creating")
                 : t("campaigns.library.createSubmit")}
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -588,7 +588,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             disabled={preflightRun.isPending}
           >
             {t("campaigns.editor.preflightButton")}
-          </RheaButton>
+          </Button>
           {canEdit && (
             <Button
               type="button"
@@ -597,7 +597,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             >
               <Save size={16} aria-hidden="true" />{" "}
               {t("campaigns.editor.saveDraft")}
-            </RheaButton>
+            </Button>
           )}
           {canPublish && (
             <Button
@@ -607,7 +607,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             >
               <Send size={16} aria-hidden="true" />{" "}
               {t("campaigns.editor.submitPublish")}
-            </RheaButton>
+            </Button>
           )}
           {canEdit && (
             <Button
@@ -618,7 +618,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             >
               <Archive size={16} aria-hidden="true" />{" "}
               {t("campaigns.editor.archiveButton")}
-            </RheaButton>
+            </Button>
           )}
         </div>
       </header>
@@ -1032,7 +1032,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   }
                 >
                   {t("campaigns.editor.removeButton")}
-                </RheaButton>
+                </Button>
               )}
             </div>
           ))}
@@ -1071,7 +1071,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 <FieldLabel htmlFor="campaign-content">
                   {t("campaigns.editor.contentLabel")}
                 </FieldLabel>
-                <RheaSelect
+                <Select
                   value={selectedContent}
                   onValueChange={(next) => setSelectedContent(next as string)}
                   items={[
@@ -1122,7 +1122,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               >
                 <Plus size={16} aria-hidden="true" />{" "}
                 {t("campaigns.editor.addBlock")}
-              </RheaButton>
+              </Button>
             </div>
           )}
         </section>
@@ -1165,7 +1165,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     }
                   >
                     {t("campaigns.editor.removeButton")}
-                  </RheaButton>
+                  </Button>
                 )}
               </div>
             ))}
@@ -1259,7 +1259,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               >
                 <Plus size={16} aria-hidden="true" />{" "}
                 {t("campaigns.editor.addDestination")}
-              </RheaButton>
+              </Button>
             </div>
           )}
         </section>
@@ -1337,7 +1337,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 >
                   <RotateCcw size={16} aria-hidden="true" />{" "}
                   {t("campaigns.editor.restoreDraft")}
-                </RheaButton>
+                </Button>
               )}
             </div>
           ))}
@@ -1385,7 +1385,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     disabled={restorePublication.isPending}
                   >
                     {t("campaigns.editor.restoreAsDraft")}
-                  </RheaButton>
+                  </Button>
                 )}
                 {canPublish && (
                   <Button
@@ -1396,7 +1396,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     disabled={rollback.isPending}
                   >
                     {t("campaigns.editor.rollbackToRelease")}
-                  </RheaButton>
+                  </Button>
                 )}
               </div>
             </div>

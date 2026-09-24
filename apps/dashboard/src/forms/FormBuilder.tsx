@@ -580,8 +580,8 @@ export function FormBuilder({
             >
               {saveDraft.isPending && <Spinner aria-hidden="true" />}
               {t("builder.saveDraft")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               variant="default"
               disabled={
                 publish.isPending ||
@@ -591,7 +591,7 @@ export function FormBuilder({
               onClick={() => setShowPublish(true)}
             >
               {t("builder.publish")}
-            </RheaButton>
+            </Button>
           </div>
         </div>
       )}
@@ -601,12 +601,12 @@ export function FormBuilder({
           <AlertTitle>{t("builder.leave.title")}</AlertTitle>
           <AlertDescription>{t("builder.leave.body")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
               {t("builder.leave.stay")}
-            </RheaButton>
-            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
               {t("builder.leave.leave")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -637,8 +637,8 @@ export function FormBuilder({
               disabled={publish.isPending}
             >
               {t("common:actions.cancel")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               variant="default"
               disabled={publish.isPending}
               aria-busy={publish.isPending || undefined}
@@ -646,7 +646,7 @@ export function FormBuilder({
             >
               {publish.isPending && <Spinner aria-hidden="true" />}
               {t("builder.publishConfirm")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}

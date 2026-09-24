@@ -1,7 +1,8 @@
 import { useConfirm } from "../components/ConfirmDialog";
 import { DateTimeInput } from "../components/date-picker";
+import { StatusDot } from "../components/StatusDot";
+import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
@@ -35,12 +36,6 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { toast } from "../components/ui/toast";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -842,13 +837,16 @@ export function PlayerUpdatesPanel({
                 ) : !releases.data.githubAuth.connected ? (
                   <Button
                     variant="secondary"
-                    disabled={check.isPending}
-                    onClick={() => check.mutate()}
+                    disabled={
+                      !releases.data.githubAuth.available ||
+                      startGitHubAuth.isPending
+                    }
+                    onClick={() => startGitHubAuth.mutate()}
                   >
-                    {check.isPending ? (
+                    {startGitHubAuth.isPending ? (
                       <Spinner />
                     ) : (
-                      <RefreshCw size={16} aria-hidden="true" />
+                      <Github size={16} aria-hidden="true" />
                     )}
                     {startGitHubAuth.isPending
                       ? t("updates.panel.starting")
@@ -1014,8 +1012,8 @@ export function PlayerUpdatesPanel({
                         className="border-b border-border last:border-0"
                       >
                         <TableHead
-                          scope="col"
-                          className="px-3 py-2 font-medium"
+                          scope="row"
+                          className="px-3 py-2 text-left font-normal"
                         >
                           <span className="flex flex-wrap items-center gap-2">
                             <strong className="font-semibold">
@@ -1446,55 +1444,6 @@ export function PlayerUpdatesPanel({
                             platform: platformLabel,
                           })}
                     </p>
-                    {purgeAction(purging) === "delete" ? (
-                      <p>
-                        It has never been deployed, so the release and its
-                        cached file are both removed.
-                      </p>
-                    ) : (
-                      <p>
-                        {purging.deploymentCount}{" "}
-                        {purging.deploymentCount === 1
-                          ? "deployment references"
-                          : "deployments reference"}{" "}
-                        this release, so it stays listed for that history and
-                        only the cached file is removed.
-                      </p>
-                    )}
-                    {purgeAction(purging) === "free" &&
-                      purging.source === "upload" && (
-                        <Alert role="status">
-                          <AlertTitle>
-                            This release was uploaded directly.
-                          </AlertTitle>
-                          <AlertDescription>
-                            Tilecast cannot download it again. Deploying it
-                            later requires uploading the same signed release
-                            once more.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                  </div>
-                )}
-                <DialogFooter>
-                  <Button variant="ghost" onClick={() => setPurging(undefined)}>
-                    Cancel
-                  </Button>
-                  {purging && (
-                    <Button
-                      variant="destructive"
-                      disabled={purge.isPending}
-                      onClick={() => purge.mutate(purging)}
-                    >
-                      {purge.isPending ? (
-                        <Spinner />
-                      ) : (
-                        <Trash2 size={16} aria-hidden="true" />
-                      )}
-                      {purgeAction(purging) === "delete"
-                        ? "Delete release"
-                        : "Free cached file"}
-                    </Button>
                   )}
                 </div>
               </div>
@@ -1648,13 +1597,8 @@ export function PlayerUpdatesPanel({
                 </Button>
                 <Button
                   variant="default"
-                  disabled={
-                    !releaseId ||
-                    !selectedScreens.length ||
-                    windowMissing ||
-                    deploy.isPending
-                  }
-                  onClick={() => setConfirmDeploy(true)}
+                  disabled={deploy.isPending}
+                  onClick={() => deploy.mutate()}
                 >
                   {deploy.isPending ? (
                     <Spinner />
@@ -1761,105 +1705,7 @@ export function PlayerUpdatesPanel({
                           })}
                         </small>
                       )}
-                      Deploy update
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </section>
-          )}
-          <section className="grid gap-3 rounded-xl border border-border p-4">
-            <header className="grid gap-1">
-              <h3 className="text-base font-semibold">Deployment history</h3>
-              <p className="text-sm text-muted-foreground">
-                Open a deployment to read the status of each screen it reaches.
-                Waiting for approval means the TV still needs someone to accept
-                the installer; it is not a failure.
-              </p>
-            </header>
-            {deployments.error && (
-              <div className="mt-4 grid gap-3">
-                <Alert variant="destructive">
-                  <AlertTitle>
-                    Deployment history could not be loaded.
-                  </AlertTitle>
-                  <AlertDescription>
-                    {mutationError(deployments.error)}
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <Table className="w-full min-w-[48rem] text-sm">
-                <caption className="sr-only">
-                  {platformLabel} Player deployment history
-                </caption>
-                <TableHeader>
-                  <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
-                    <TableHead scope="col" className="px-3 py-2 font-medium">
-                      Deployment
-                    </TableHead>
-                    <TableHead scope="col" className="px-3 py-2 font-medium">
-                      Status
-                    </TableHead>
-                    <TableHead scope="col" className="px-3 py-2 font-medium">
-                      Screens
-                    </TableHead>
-                    <TableHead scope="col" className="px-3 py-2 font-medium">
-                      What this needs
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {platformDeployments.map((item) => {
-                    const headline = deploymentHeadline(item);
-                    const needsAttention =
-                      item.failedCount > 0 ||
-                      item.waitingForUserCount > 0 ||
-                      item.status === "paused";
-                    return (
-                      <TableRow
-                        key={item.id}
-                        className="border-b border-border last:border-0"
-                      >
-                        <TableHead
-                          scope="row"
-                          className="px-3 py-2 text-left font-normal"
-                        >
-                          <strong className="font-semibold">{item.name}</strong>
-                          <small className="block font-mono text-xs text-muted-foreground">
-                            {item.versionName} ({item.versionCode}) ·{" "}
-                            {humanize(item.mode)}
-                          </small>
-                        </TableHead>
-                        <TableCell className="px-3 py-2">
-                          <UpdateStatus value={item.status} />
-                          <small className="block text-xs text-muted-foreground">
-                            {rolloutSummary(item)}
-                          </small>
-                        </TableCell>
-                        <TableCell className="px-3 py-2">
-                          <DeploymentMeter compact {...item} />
-                          <small className="text-xs text-muted-foreground">
-                            {outstandingSummary(item)}
-                          </small>
-                        </TableCell>
-                        <TableCell className="px-3 py-2">
-                          <span
-                            className={
-                              needsAttention
-                                ? "text-xs font-semibold text-destructive"
-                                : "text-sm"
-                            }
-                          >
-                            {headline}
-                          </span>
-                          {item.lastFailure && (
-                            <small className="block text-xs text-muted-foreground">
-                              Last failure: {item.lastFailure}
-                            </small>
-                          )}
-                          {/* The way in sits with the sentence that gives a reason
+                      {/* The way in sits with the sentence that gives a reason
                           to take it, which also keeps this table at four
                           columns: a column of its own for one button forced a
                           horizontal scroll in a narrow settings pane. */}
@@ -1956,24 +1802,6 @@ type ReleaseReadiness = {
   detail: string;
   cacheable: boolean;
 };
-
-function statusBadgeAppearance(tone: ReleaseReadiness["tone"]) {
-  const variants = {
-    success: "secondary",
-    info: "outline",
-    warning: "outline",
-    danger: "destructive",
-    neutral: "outline",
-  } as const;
-  const colors = {
-    success: "text-[var(--tc-status-success)]",
-    info: "text-[var(--tc-status-info)]",
-    warning: "text-[var(--tc-status-warning)]",
-    danger: "",
-    neutral: "text-[var(--tc-status-neutral)]",
-  } as const;
-  return { variant: variants[tone], className: colors[tone] };
-}
 
 // One column replaces the former Verification and Cache pair. A release is only
 // deployable once its manifest signature is verified and the artifact is cached,

@@ -10,7 +10,6 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { toast } from "./ui/toast";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Field, FieldDescription, FieldLabel } from "./ui/field";
 import {
   Dialog,
   DialogContent,
@@ -472,7 +471,7 @@ export function AirPlayPresentDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </Field>
+              </label>
             </div>
             {create.error && (
               <Alert variant="destructive">

@@ -13,6 +13,7 @@ import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -48,7 +49,6 @@ import {
 } from "../components/ui/table";
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 const stateLabelKeys = {
   pending: "contentReview.state.pending",

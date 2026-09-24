@@ -159,7 +159,7 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
               {update.isPending
                 ? t("spanWall.switchBusy")
                 : t("spanWall.switchAction")}
-            </RheaButton>
+            </Button>
           </div>
         )}
       </section>
@@ -265,15 +265,15 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
               {update.isPending
                 ? t("common:actions.saving")
                 : t("spanWall.saveAction")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               variant="ghost"
               disabled={update.isPending}
               onClick={() => update.mutate({ displayMode: "mirror" })}
             >
               {t("spanWall.returnAction")}
-            </RheaButton>
+            </Button>
           </div>
         )}
       </div>

@@ -105,11 +105,11 @@ export function PlaylistTimeline({
             <Button type="button" variant="outline" onClick={onAddLayout}>
               <PanelsTopLeft size={15} aria-hidden="true" />
               {t("timeline.addLayout")}
-            </RheaButton>
-            <RheaButton type="button" onClick={onAddContent}>
+            </Button>
+            <Button type="button" onClick={onAddContent}>
               <Plus size={15} aria-hidden="true" />
               {t("timeline.addContent")}
-            </RheaButton>
+            </Button>
           </div>
         )}
       </div>
@@ -145,7 +145,7 @@ export function PlaylistTimeline({
               <Button type="button" onClick={onAddContent}>
                 <Plus size={15} aria-hidden="true" />
                 {t("timeline.addContent")}
-              </RheaButton>
+              </Button>
             </EmptyContent>
           )}
         </Empty>

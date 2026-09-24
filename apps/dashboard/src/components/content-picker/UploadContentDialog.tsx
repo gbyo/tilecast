@@ -1,4 +1,4 @@
-import { Upload } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -145,20 +145,19 @@ export function UploadContentDialog({
           }
         }}
       >
-        <section
-          ref={dialog}
-          className="upload-content-dialog"
-          role="dialog"
-          aria-modal="true"
+        <DialogContent
+          className="upload-content-dialog max-w-[min(45rem,calc(100%-2rem))] gap-4 overflow-y-auto p-6"
           aria-labelledby="upload-content-title"
         >
           <header>
-            <div>
-              <h3 id="upload-content-title">
+            <DialogHeader className="text-left">
+              <DialogTitle id="upload-content-title">
                 {t("picker.upload.uploadMedia")}
-              </h3>
-              <p>{t("picker.upload.subtitle")}</p>
-            </div>
+              </DialogTitle>
+              <DialogDescription>
+                {t("picker.upload.subtitle")}
+              </DialogDescription>
+            </DialogHeader>
             <Button
               autoFocus
               variant="ghost"
@@ -169,7 +168,7 @@ export function UploadContentDialog({
               <X size={18} />
             </Button>
           </header>
-          <button
+          <Button
             type="button"
             variant="outline"
             className="picker-upload-dropzone h-auto w-full grid min-h-[11.25rem] place-items-center content-center gap-2 border-dashed bg-muted py-8 text-foreground hover:bg-accent"
@@ -180,7 +179,7 @@ export function UploadContentDialog({
             <Upload size={24} />
             <strong>{t("picker.upload.dropHint")}</strong>
             <span>{t("picker.upload.acceptedHint")}</span>
-          </button>
+          </Button>
           <input
             ref={input}
             className="visually-hidden"

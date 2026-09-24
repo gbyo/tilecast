@@ -149,7 +149,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
               }}
             >
               {create.isPending ? t("backups.queuing") : t("backups.create")}
-            </RheaButton>
+            </Button>
           </div>
           {data?.lastSuccessful && (
             <p className="text-sm text-muted-foreground">
@@ -226,7 +226,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                     >
                       <ShieldCheck size={15} aria-hidden="true" />{" "}
                       {t("backups.verify")}
-                    </RheaButton>
+                    </Button>
                     <a
                       className={buttonVariants({ variant: "ghost" })}
                       href={`/api/v1/system/backups/${archive.id}/download`}
@@ -252,8 +252,8 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                     >
                       <RotateCcw size={15} aria-hidden="true" />{" "}
                       {t("backups.restore")}
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       variant="destructive"
                       disabled={busy}
                       onClick={() => remove.mutate(archive)}
@@ -263,7 +263,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                     >
                       <Trash2 size={15} aria-hidden="true" />{" "}
                       {t("common:actions.delete")}
-                    </RheaButton>
+                    </Button>
                   </ItemActions>
                 </Item>
               ))}

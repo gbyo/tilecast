@@ -17,14 +17,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "../components/ui/item";
+import { Item, ItemGroup } from "../components/ui/item";
 import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
 import { PlaylistEditorPage } from "../components/playlist-editor/PlaylistEditor";
 import {
@@ -86,7 +79,7 @@ export function PlaylistsPage() {
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               {t("list.create")}
-            </RheaButton>
+            </Button>
           </div>
         )}
       </header>
@@ -137,7 +130,7 @@ export function PlaylistsPage() {
                 </span>
                 <span>{t("count.items", { count: playlist.itemCount })}</span>
               </span>
-            </Link>
+            </Item>
           ))}
         </ItemGroup>
       )}

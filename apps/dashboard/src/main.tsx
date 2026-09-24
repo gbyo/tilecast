@@ -17,7 +17,6 @@ import "./styles/player-updates.css";
 import "./styles/context-menu.css";
 import "./styles/popover.css";
 import "./styles/playlist-editor.css";
-import { TooltipProvider } from "./components/ui/tooltip";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },

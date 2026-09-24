@@ -103,16 +103,16 @@ export function PlaylistCreateDialog({
           )}
         </div>
         <DialogFooter>
-          <RheaButton type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             {t("common:actions.cancel")}
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="button"
             disabled={!name.trim() || create.isPending}
             onClick={() => create.mutate()}
           >
             {create.isPending ? t("create.creating") : t("create.submit")}
-          </RheaButton>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

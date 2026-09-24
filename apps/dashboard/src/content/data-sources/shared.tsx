@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Button as RheaButton } from "../../components/ui/button";
+import { Button as Button } from "../../components/ui/button";
 
 // Providers handled by a dedicated legacy editor below. Anything not listed here is a
 // release-defined Source that routes to the generic, definition-driven editor.

@@ -225,11 +225,11 @@ describe("Activity navigation", () => {
   it("offers Incidents between Proof of Play and Screen Events", async () => {
     renderTab("/activity?tab=incidents");
 
-    const tabs = await screen.findByRole("tablist", {
+    const tabs = await screen.findByRole("navigation", {
       name: "Activity reports",
     });
     const labels = within(tabs)
-      .getAllByRole("tab")
+      .getAllByRole("button")
       .map((tab) => tab.textContent);
     expect(labels).toEqual([
       "Overview",
@@ -245,11 +245,11 @@ describe("Activity navigation", () => {
     role = "viewer";
     renderTab("/activity?tab=incidents");
 
-    const tabs = await screen.findByRole("tablist", {
+    const tabs = await screen.findByRole("navigation", {
       name: "Activity reports",
     });
     const labels = within(tabs)
-      .getAllByRole("tab")
+      .getAllByRole("button")
       .map((tab) => tab.textContent);
     // The raw diagnostic stream stays restricted; the grouped view does not.
     expect(labels).toContain("Incidents");

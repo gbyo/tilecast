@@ -344,7 +344,7 @@ describe("Layout editor layers and zoom controls", () => {
     fireEvent.click(
       await screen.findByRole("menuitem", { name: /Select all/ }),
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
 
     expect(screen.getAllByRole("button", { name: "Text" })[0]).toHaveAttribute(
       "aria-pressed",
@@ -356,7 +356,7 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
 
     const hide = await screen.findByRole("button", {
       name: "Hide Text",
@@ -380,7 +380,7 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
 
     const row = screen
       .getByRole("button", { name: "Text" })
@@ -410,7 +410,7 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
     fireEvent.click(screen.getByRole("button", { name: "Text" }));
 
     expect(await screen.findByText("Position & size")).toBeInTheDocument();

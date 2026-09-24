@@ -13,6 +13,7 @@ import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentSubmission, SubmissionStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { ViewTabs } from "../components/ViewTabs";
 import { PageHeader } from "../components/PageHeader";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
@@ -55,7 +56,6 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 const filterDefs = [
   { value: "in_review", labelKey: "submissions.filters.needsReview" },

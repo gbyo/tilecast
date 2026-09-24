@@ -114,7 +114,7 @@ export function WeatherDataSourceEditor({
             {save.isPending
               ? t("common:actions.saving")
               : t("dataSources.editor.save")}
-          </RheaButton>
+          </Button>
         )
       }
     >
@@ -195,7 +195,7 @@ export function WeatherDataSourceEditor({
           <FieldLabel htmlFor="weather-units">
             {t("dataSources.weather.units")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             value={configuration.units}
             disabled={readOnly}
             onValueChange={(next) =>
@@ -270,7 +270,7 @@ export function WeatherDataSourceEditor({
           {previewMutation.isPending
             ? t("common:status.loading")
             : t("dataSources.preview.forecast")}
-        </RheaButton>
+        </Button>
       )}
       {preview && (
         <div className="grid gap-2">

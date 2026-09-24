@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
@@ -170,18 +176,19 @@ describe("PlaylistEditor panes", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Updated lobby loop" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close playlist details" }),
-    );
+    fireEvent.click(within(details).getByRole("button", { name: "Close" }));
 
     await screen.findByRole("button", { name: "Playlist details" });
     fireEvent.click(screen.getByRole("button", { name: "Playlist details" }));
     expect(await screen.findByLabelText("Name")).toHaveValue(
       "Updated lobby loop",
     );
+    const reopenedDetails = await screen.findByRole("dialog", {
+      name: "Playlist details",
+    });
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Close playlist details" }),
+      within(reopenedDetails).getByRole("button", { name: "Close" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "History" }));
     expect(

@@ -111,7 +111,7 @@ export function OutputsPanel({
           >
             {rebuild.isPending && <Spinner aria-hidden="true" />}
             {t("outputs.rebuild")}
-          </RheaButton>
+          </Button>
         )}
       </div>
 

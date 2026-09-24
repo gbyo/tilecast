@@ -471,7 +471,7 @@ export function BrandBugEditorPage() {
             <FieldLabel htmlFor="brand-bug-image">
               {t("brandBug.editor.logoLabel")}
             </FieldLabel>
-            <RheaSelect
+            <Select
               items={[
                 { value: "none", label: "No image" },
                 ...(images.data?.items ?? []).map((item) => ({
@@ -509,7 +509,7 @@ export function BrandBugEditorPage() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
             <FieldDescription>{t("brandBug.editor.logoHint")}</FieldDescription>
           </Field>
           <FormField
@@ -531,7 +531,7 @@ export function BrandBugEditorPage() {
               <FieldLabel htmlFor="brand-bug-corner">
                 {t("brandBug.editor.cornerLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={(
                   Object.keys(cornerLabelKeys) as BrandBugInput["corner"][]
                 ).map((value) => ({
@@ -610,7 +610,7 @@ export function BrandBugEditorPage() {
               <FieldLabel htmlFor="brand-bug-backing">
                 {t("brandBug.editor.backingLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={backingOptions.map((option) => ({
                   value: option.value,
                   label: t(option.labelKey),
@@ -778,7 +778,7 @@ export function BrandBugEditorPage() {
               : editing
                 ? t("common:actions.saveChanges")
                 : t("shared.createInstance")}
-          </RheaButton>
+          </Button>
         </div>
       </form>
     </main>

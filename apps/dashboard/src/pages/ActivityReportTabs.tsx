@@ -14,6 +14,7 @@ import {
   ActivityPagination,
   activityParams,
   activityRequest,
+  EmptyState,
   ErrorNotice,
   formatDuration,
   formatWhen,
@@ -55,7 +56,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { Field, FieldLabel } from "../components/ui/field";
 import {
   Sheet,
   SheetContent,
@@ -224,7 +224,7 @@ export function ProofTab({
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
+            </label>
           </header>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <MetricTile

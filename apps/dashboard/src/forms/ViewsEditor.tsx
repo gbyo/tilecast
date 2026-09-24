@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type {
@@ -185,9 +186,9 @@ function ViewList({
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap gap-2">
-        <RheaButton variant="default" onClick={onNew}>
+        <Button variant="default" onClick={onNew}>
           {t("views.newView")}
-        </RheaButton>
+        </Button>
       </div>
       {error && (
         <Alert variant="destructive">
@@ -242,22 +243,22 @@ function ViewList({
                         onClick={() => onEdit(view)}
                       >
                         {t("common:actions.edit")}
-                      </RheaButton>
-                      <RheaButton
+                      </Button>
+                      <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => onDuplicate(view)}
                       >
                         {t("views.duplicate")}
-                      </RheaButton>
-                      <RheaButton
+                      </Button>
+                      <Button
                         variant="ghost"
                         size="sm"
                         disabled={remove.isPending}
                         onClick={() => remove.mutate(view.id)}
                       >
                         {t("common:actions.delete")}
-                      </RheaButton>
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -386,12 +387,12 @@ function ViewForm({
           <AlertTitle>{t("views.leaveTitle")}</AlertTitle>
           <AlertDescription>{t("views.leaveBody")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
               {t("views.stay")}
-            </RheaButton>
-            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
               {t("views.leave")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -664,7 +665,7 @@ function ViewForm({
                 }
               >
                 {t("views.removeItem")}
-              </RheaButton>
+              </Button>
             </div>
           );
         })}
@@ -687,7 +688,7 @@ function ViewForm({
           }}
         >
           {t("views.addFilter")}
-        </RheaButton>
+        </Button>
       </FieldSet>
 
       <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
@@ -759,7 +760,7 @@ function ViewForm({
               }
             >
               {t("views.removeItem")}
-            </RheaButton>
+            </Button>
           </div>
         ))}
         <Button
@@ -774,7 +775,7 @@ function ViewForm({
           }}
         >
           {t("views.addSort")}
-        </RheaButton>
+        </Button>
       </FieldSet>
 
       <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
@@ -844,7 +845,7 @@ function ViewForm({
               <FieldLabel htmlFor="form-view-end-field">
                 {t("views.endField")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={[
                   { value: NONE_VALUE, label: t("views.noneOption") },
                   ...timeFields.map((field) => ({
@@ -922,10 +923,10 @@ function ViewForm({
       </FieldSet>
 
       <div className="flex flex-wrap gap-2">
-        <RheaButton variant="ghost" onClick={onDone}>
+        <Button variant="ghost" onClick={onDone}>
           {t("common:actions.back")}
-        </RheaButton>
-        <RheaButton
+        </Button>
+        <Button
           variant="secondary"
           disabled={runPreview.isPending || nameMissing}
           aria-busy={runPreview.isPending || undefined}
@@ -933,8 +934,8 @@ function ViewForm({
         >
           {runPreview.isPending && <Spinner aria-hidden="true" />}
           {t("views.previewButton")}
-        </RheaButton>
-        <RheaButton
+        </Button>
+        <Button
           variant="default"
           disabled={save.isPending || nameMissing}
           aria-busy={save.isPending || undefined}
@@ -942,7 +943,7 @@ function ViewForm({
         >
           {save.isPending && <Spinner aria-hidden="true" />}
           {t("views.saveButton")}
-        </RheaButton>
+        </Button>
       </div>
 
       {preview && (

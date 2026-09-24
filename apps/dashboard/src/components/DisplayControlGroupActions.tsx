@@ -102,7 +102,7 @@ export function DisplayControlGroupActions({
             }}
           >
             {t(action.labelKey)}
-          </RheaButton>
+          </Button>
         ))}
       </div>
       {memberCount === 0 ? (
@@ -156,7 +156,7 @@ export function DisplayControlGroupActions({
               onClick={() => apply.mutate()}
             >
               {apply.isPending ? t("detail.sending") : t("groupctl.send")}
-            </RheaButton>
+            </Button>
           </div>
           {lastResult && (
             <Alert>

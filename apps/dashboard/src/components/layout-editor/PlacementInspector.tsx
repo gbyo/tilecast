@@ -226,19 +226,19 @@ function AlignmentToggle({
         size="sm"
         spacing={1}
       >
-        <RheaToggleGroupItem
+        <ToggleGroupItem
           value="left"
           aria-label={`${label}: ${t("inspector.alignLeft")}`}
         >
           <AlignLeft size={15} aria-hidden="true" />
-        </RheaToggleGroupItem>
-        <RheaToggleGroupItem
+        </ToggleGroupItem>
+        <ToggleGroupItem
           value="center"
           aria-label={`${label}: ${t("inspector.alignCenter")}`}
         >
           <AlignCenter size={15} aria-hidden="true" />
-        </RheaToggleGroupItem>
-        <RheaToggleGroupItem
+        </ToggleGroupItem>
+        <ToggleGroupItem
           value="right"
           aria-label={`${label}: ${t("inspector.alignRight")}`}
         >
@@ -378,11 +378,7 @@ export function PlacementInspector({
     t("inspector.shapeTitle"),
   ];
   return (
-    <Accordion
-      multiple
-      defaultValue={openSections}
-      className="grid gap-0"
-    >
+    <Accordion multiple defaultValue={openSections} className="grid gap-0">
       <InspectorSection title={t("inspector.sectionLayer")}>
         <Field>
           <FieldLabel htmlFor="placement-name">
@@ -472,7 +468,7 @@ export function PlacementInspector({
           <Button type="button" variant="secondary" onClick={group}>
             <Group size={16} aria-hidden="true" />
             {t("editor.menuGroup")}
-          </RheaButton>
+          </Button>
         )}
       </InspectorSection>
       <InspectorSection title={t("inspector.sectionPosition")}>
@@ -647,7 +643,7 @@ export function PlacementInspector({
           >
             <AppWindow size={16} aria-hidden="true" />
             {t("inspector.widgetEdit")}
-          </RheaButton>
+          </Button>
         </InspectorSection>
       )}
       {item.type === "playlistZone" && (
@@ -735,7 +731,7 @@ export function PlacementInspector({
             onClick={() => void navigate(`/playlists/${item.playlistId}`)}
           >
             {t("inspector.zoneEdit")}
-          </RheaButton>
+          </Button>
         </InspectorSection>
       )}
       {item.type === "asset" && (
@@ -822,10 +818,10 @@ export function PlacementInspector({
       )}
       {primitive?.kind === "group" && (
         <InspectorSection title={t("inspector.groupTitle")}>
-          <RheaButton type="button" variant="secondary" onClick={ungroup}>
+          <Button type="button" variant="secondary" onClick={ungroup}>
             <Ungroup size={16} aria-hidden="true" />
             {t("editor.menuUngroup")}
-          </RheaButton>
+          </Button>
           {!primitive.binding && dataSources.length === 0 ? (
             <ConnectDataNotice
               message={t("inspector.groupConnectHint")}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type {
@@ -225,12 +226,12 @@ export function WorkflowEditor({
           <AlertTitle>{t("workflow.leaveTitle")}</AlertTitle>
           <AlertDescription>{t("workflow.leaveBody")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
               {t("workflow.stay")}
-            </RheaButton>
-            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
               {t("workflow.leave")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -258,9 +259,9 @@ export function WorkflowEditor({
           <h3 className="text-base font-semibold">
             {t("workflow.statesTitle")}
           </h3>
-          <RheaButton variant="secondary" size="sm" onClick={addState}>
+          <Button variant="secondary" size="sm" onClick={addState}>
             {t("workflow.addState")}
-          </RheaButton>
+          </Button>
         </div>
         <RadioGroup
           aria-label={t("workflow.initialOption")}
@@ -425,14 +426,14 @@ export function WorkflowEditor({
           <h3 className="text-base font-semibold">
             {t("workflow.transitionsTitle")}
           </h3>
-          <RheaButton
+          <Button
             variant="secondary"
             size="sm"
             onClick={addTransition}
             disabled={states.length === 0}
           >
             {t("workflow.addTransition")}
-          </RheaButton>
+          </Button>
         </div>
         <div className="overflow-x-auto rounded-xl border border-border">
           <Table className="w-full text-sm">
@@ -516,7 +517,7 @@ export function WorkflowEditor({
                     />
                   </TableCell>
                   <TableCell className="px-3 py-2">
-                    <RheaSelect
+                    <Select
                       items={CAPABILITY_OPTIONS.map((option) => ({
                         value: option.value,
                         label: t(option.labelKey),
@@ -590,10 +591,10 @@ export function WorkflowEditor({
             </ul>
           </AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => setConfirming(false)}>
+            <Button variant="ghost" onClick={() => setConfirming(false)}>
               {t("workflow.reviewAgain")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               variant="default"
               disabled={save.isPending}
               aria-busy={save.isPending || undefined}
@@ -601,7 +602,7 @@ export function WorkflowEditor({
             >
               {save.isPending && <Spinner aria-hidden="true" />}
               {t("workflow.saveAnyway")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -615,7 +616,7 @@ export function WorkflowEditor({
         >
           {save.isPending && <Spinner aria-hidden="true" />}
           {t("workflow.saveWorkflow")}
-        </RheaButton>
+        </Button>
       </div>
     </div>
   );

@@ -90,7 +90,7 @@ describe("permanent user deletion", () => {
     );
 
     const name = await screen.findByText("Former Editor");
-    const row = name.closest<HTMLElement>('[data-slot="item"]');
+    const row = name.closest<HTMLElement>("article");
     expect(row).not.toBeNull();
     await userEvent.click(within(row!).getByRole("button", { name: "Edit" }));
     await userEvent.click(

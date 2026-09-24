@@ -667,7 +667,7 @@ export function NoiseMeterEditorPage() {
               <FieldLabel htmlFor="noise-meter-display-mode">
                 {t("noiseMeter.editor.displayLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={noiseDisplayModeOptions.map((option) => ({
                   value: option.value,
                   label: t(option.labelKey),
@@ -824,7 +824,7 @@ export function NoiseMeterEditorPage() {
               <FieldLabel htmlFor="noise-meter-retention">
                 {t("noiseMeter.editor.retentionLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={retentionDays.map((days) => ({
                   value: String(days),
                   label: t("noiseMeter.editor.retention", { count: days }),
@@ -906,7 +906,7 @@ export function NoiseMeterEditorPage() {
               : editing
                 ? t("common:actions.saveChanges")
                 : t("shared.createInstance")}
-          </RheaButton>
+          </Button>
         </div>
       </form>
     </main>

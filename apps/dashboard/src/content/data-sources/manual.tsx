@@ -144,7 +144,7 @@ export function ManualDataSourceEditor({
             {save.isPending
               ? t("common:actions.saving")
               : t("dataSources.editor.save")}
-          </RheaButton>
+          </Button>
         )
       }
     >
@@ -281,7 +281,7 @@ export function ManualDataSourceEditor({
               >
                 <Trash2 size={15} aria-hidden="true" />{" "}
                 {t("dataSources.manual.removeColumn")}
-              </RheaButton>
+              </Button>
             )}
           </div>
         ))}
@@ -306,7 +306,7 @@ export function ManualDataSourceEditor({
           >
             <Plus size={15} aria-hidden="true" />{" "}
             {t("dataSources.manual.addColumn")}
-          </RheaButton>
+          </Button>
         )}
       </fieldset>
       <fieldset className="grid gap-3">
@@ -453,7 +453,7 @@ export function ManualDataSourceEditor({
           >
             <Plus size={15} aria-hidden="true" />{" "}
             {t("dataSources.manual.addRow")}
-          </RheaButton>
+          </Button>
         )}
       </fieldset>
       <fieldset className="grid gap-3">
@@ -483,7 +483,7 @@ export function ManualDataSourceEditor({
               <FieldLabel htmlFor="manual-date-field">
                 {t("dataSources.manual.dateField")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={configuration.dateField ?? ""}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -570,7 +570,7 @@ export function ManualDataSourceEditor({
               <FieldLabel htmlFor="manual-selection">
                 {t("dataSources.manual.selection")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={configuration.dateSelection.mode}
                 disabled={readOnly}
                 onValueChange={(next) =>

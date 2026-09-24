@@ -2,7 +2,7 @@ import { Save, Tag, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ContentTag } from "../../api/types";
 import { Alert, AlertDescription } from "../ui/alert";
-import { Button as RheaButton } from "../ui/button";
+import { Button as Button } from "../ui/button";
 import { Field, FieldDescription, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import {
@@ -130,7 +130,7 @@ export function PlaylistDetailsDrawer({
           </Alert>
         )}
         <div>
-          <RheaButton
+          <Button
             type="button"
             size="sm"
             disabled={!canManage || !metadataDirty || metadataSaving}
@@ -140,7 +140,7 @@ export function PlaylistDetailsDrawer({
             {metadataSaving
               ? t("common:actions.saving")
               : t("details.saveDetails")}
-          </RheaButton>
+          </Button>
         </div>
       </section>
 
@@ -153,7 +153,7 @@ export function PlaylistDetailsDrawer({
           <FieldLabel htmlFor="playlist-details-source">
             {t("details.sourceLabel")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             disabled={!canManage}
             value={sourceType}
             onValueChange={(next) =>
@@ -186,7 +186,7 @@ export function PlaylistDetailsDrawer({
               <FieldLabel htmlFor="playlist-details-match">
                 {t("details.matchLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 disabled={!canManage}
                 value={tagMatch}
                 onValueChange={(next) =>
@@ -221,7 +221,7 @@ export function PlaylistDetailsDrawer({
                   tags.map((tag) => {
                     const active = tagIds.includes(tag.id);
                     return (
-                      <RheaButton
+                      <Button
                         key={tag.id}
                         type="button"
                         variant={active ? "default" : "outline"}
@@ -236,7 +236,7 @@ export function PlaylistDetailsDrawer({
                           aria-hidden="true"
                         />
                         {tag.name}
-                      </RheaButton>
+                      </Button>
                     );
                   })
                 ) : (
@@ -284,7 +284,7 @@ export function PlaylistDetailsDrawer({
           </Alert>
         )}
         <div>
-          <RheaButton
+          <Button
             type="button"
             size="sm"
             disabled={
@@ -299,7 +299,7 @@ export function PlaylistDetailsDrawer({
             {tagRuleSaving
               ? t("common:actions.saving")
               : t("details.saveSource")}
-          </RheaButton>
+          </Button>
         </div>
       </section>
     </div>
@@ -307,7 +307,7 @@ export function PlaylistDetailsDrawer({
   const eyebrow =
     sourceType === "tag" ? t("details.kindTag") : t("details.kindSettings");
   const closeButton = (
-    <RheaButton
+    <Button
       type="button"
       variant="ghost"
       size="icon-sm"
@@ -316,7 +316,7 @@ export function PlaylistDetailsDrawer({
       onClick={onClose}
     >
       <X aria-hidden="true" />
-    </RheaButton>
+    </Button>
   );
 
   if (desktop) {

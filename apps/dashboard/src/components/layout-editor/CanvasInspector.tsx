@@ -48,7 +48,7 @@ export function CanvasInspector({
           <FieldLabel htmlFor="canvas-preset">
             {t("canvas.presetLabel")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             value={presetValue}
             onValueChange={(next) => {
               const [width, height] = (next || presetValue)

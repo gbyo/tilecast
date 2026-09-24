@@ -392,6 +392,7 @@
       "assignedPlaylist": "Lista asignada",
       "layoutPreview": "Vista previa del diseño",
       "layoutDataSources_one": "{{count}} fuente de datos",
+      "layoutDataSources_many": "{{count}} fuentes de datos",
       "layoutDataSources_other": "{{count}} fuentes de datos",
       "playlistRevision": "versión {{revision}}",
       "publishedLayout": "Diseño publicado",

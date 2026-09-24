@@ -2,13 +2,7 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Asset } from "../../api/types";
 import { Button } from "../ui/button";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemGroup,
-  ItemTitle,
-} from "../ui/item";
+import { ItemGroup } from "../ui/item";
 
 export function SelectedContentTray({
   items,

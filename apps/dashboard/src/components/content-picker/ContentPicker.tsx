@@ -4,8 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Globe2, Upload, X } from "lucide-react";
-import { createPortal } from "react-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Asset, WidgetProvider } from "../../api/types";
@@ -272,12 +271,16 @@ export function ContentPicker({
       >
         <DialogHeader className="content-picker__header">
           <div>
-            <h2 id="content-picker-title">{resolvedTitle}</h2>
-            <p>{resolvedDescription}</p>
+            <DialogTitle className="content-picker__title">
+              {resolvedTitle}
+            </DialogTitle>
+            <DialogDescription className="content-picker__description">
+              {resolvedDescription}
+            </DialogDescription>
           </div>
           <div className="content-picker__primary-actions">
             {(allowed.has("image") || allowed.has("video")) && (
-              <Button variant="secondary" onClick={() => setChild("upload")}>
+              <Button variant="secondary" onClick={() => setUploadOpen(true)}>
                 <Upload size={16} /> {t("picker.upload.uploadMedia")}
               </Button>
             )}

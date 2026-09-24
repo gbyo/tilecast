@@ -4,12 +4,6 @@ import { DateInput } from "../components/date-picker";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
-import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -23,7 +17,6 @@ import { ButtonGroup, ButtonGroupText } from "../components/ui/button-group";
 import {
   Empty,
   EmptyContent,
-  EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
@@ -36,7 +29,6 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Input } from "../components/ui/input";
-import { Field, FieldLabel } from "../components/ui/field";
 import { Kbd } from "../components/ui/kbd";
 import {
   Menubar,
@@ -649,7 +641,6 @@ export function LayoutEditorPage() {
   const previewFrameRef = useRef<HTMLDivElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [picker, setPicker] = useState<"media" | "widgets" | "playlists">();
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<
     | { kind: "placement"; id: string; name: string }
     | { kind: "layout"; name: string }
@@ -2301,80 +2292,10 @@ export function LayoutEditorPage() {
                   },
                 ]}
               />
-            </div>
-          )}
-        </>
-      );
-    }
-    return (
-      <>
-        <div className="layout-panel-heading">
-          <strong>Layout settings</strong>
-        </div>
-        <CanvasInspector document={document} update={update} />
-        {layoutQuery.data && (
-          <UsedByPanel
-            emptyMessage="No campaign, screen, or schedule shows this Layout yet."
-            groups={[
-              {
-                label: "Screens",
-                items: layoutQuery.data.usage.screens,
-                to: (screenId) => `/screens/${screenId}`,
-              },
-              {
-                label: "Schedules",
-                items: layoutQuery.data.usage.schedules,
-                to: (scheduleId) => `/schedules/${scheduleId}`,
-              },
-              {
-                label: "Campaigns",
-                items: layoutQuery.data.usage.campaigns,
-                to: (campaignId) => `/campaigns/${campaignId}`,
-              },
-            ]}
-          />
+            )}
+          </>
         )}
-      </>
-    );
-  };
-  const librarySidebar = (
-    <aside className="layout-editor-left">
-      <Tabs
-        value={sidebarSection}
-        onValueChange={(value) => {
-          if (value) setSidebarSection(value as LayoutSidebarSection);
-        }}
-        orientation="vertical"
-        className="layout-sidebar-tabs"
-      >
-        <TabsList
-          variant="line"
-          className="layout-sidebar-nav"
-          aria-label="Layout builder"
-        >
-          {sidebarSections.map(([section, label, Icon]) => (
-            <TabsTrigger
-              key={section}
-              value={section}
-              className="layout-sidebar-tab"
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        <div className="layout-sidebar-panel">
-          {sidebarSections.map(([section]) => (
-            <TabsContent
-              key={section}
-              value={section}
-              className="layout-sidebar-content"
-            >
-              {renderSidebarPanel(section)}
-            </TabsContent>
-          ))}
-        </div>
-      </Tabs>
+      </div>
     </aside>
   );
 
@@ -2651,13 +2572,12 @@ export function LayoutEditorPage() {
               <label className="grid gap-1.5 text-sm font-medium">
                 <span>{t("editor.renameNameLabel")}</span>
                 <Input
-                  id="rename-target-name"
                   value={renameValue}
                   autoFocus
                   maxLength={120}
                   onChange={(event) => setRenameValue(event.target.value)}
                 />
-              </Field>
+              </label>
             </div>
             <DialogFooter>
               <Button
@@ -3167,10 +3087,11 @@ export function LayoutEditorPage() {
           {stage}
         </>
       )}
-      {/* Keep the selected picker mounted until its generated Dialog completes closing. */}
+      {/* Mounted on demand, like the playlist editor: the picker keeps its search and
+          selection in local state, so a fresh mount is the reset. */}
       {(picker === "media" || picker === "widgets") && (
         <ContentPicker
-          open={pickerOpen}
+          open
           mode="multiple"
           csrf={csrf}
           allowedTypes={picker === "widgets" ? ["widget"] : ["image", "video"]}
@@ -3187,12 +3108,9 @@ export function LayoutEditorPage() {
           confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(assets) => {
             addContentBatch(assets);
-            setPickerOpen(false);
+            setPicker(undefined);
           }}
-          onClose={() => setPickerOpen(false)}
-          onCloseComplete={() => {
-            if (!pickerOpen) setPicker(undefined);
-          }}
+          onClose={() => setPicker(undefined)}
           onCreateWidget={() =>
             void navigate(
               `/widgets/new?returnTo=${encodeURIComponent(location.pathname)}`,
@@ -3207,12 +3125,9 @@ export function LayoutEditorPage() {
           confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(choice) => {
             if (choice.kind === "playlist") addPlaylistZone(choice.playlist);
-            setPickerOpen(false);
+            setPicker(undefined);
           }}
-          onClose={() => setPickerOpen(false)}
-          onCloseComplete={() => {
-            if (!pickerOpen) setPicker(undefined);
-          }}
+          onClose={() => setPicker(undefined)}
         />
       )}
       <Dialog open={preview} onOpenChange={setPreview}>
@@ -3307,7 +3222,9 @@ export function LayoutEditorPage() {
         <DialogContent className="layout-history-dialog max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("editor.historyTitle")}</DialogTitle>
-            <DialogDescription>{t("editor.historyDescription")}</DialogDescription>
+            <DialogDescription>
+              {t("editor.historyDescription")}
+            </DialogDescription>
           </DialogHeader>
           <div className="source-editor__body">
             {revisions.isLoading ? (
@@ -3543,10 +3460,7 @@ function PlacementView({
         />
       )}
       {selected && !item.locked && onResize && (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-xs"
+        <button
           className="layout-resize-handle"
           aria-label={t("editor.resizeLabel")}
           onPointerDown={onResize}

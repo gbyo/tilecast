@@ -133,7 +133,7 @@ export function FormFieldEditor({
         <FieldLabel htmlFor="form-field-type">
           {t("fieldEditor.type")}
         </FieldLabel>
-        <RheaSelect
+        <Select
           items={controlOptions.map((control) => ({
             value: control,
             label: t(controlMeta(control).labelKey),
@@ -345,7 +345,7 @@ function OptionsEditor({
             onClick={() => setOptions(options.filter((_, i) => i !== index))}
           >
             {t("fieldEditor.remove")}
-          </RheaButton>
+          </Button>
         </div>
       ))}
       <Button
@@ -370,7 +370,7 @@ function OptionsEditor({
         }}
       >
         {t("fieldEditor.addOption")}
-      </RheaButton>
+      </Button>
     </fieldset>
   );
 }

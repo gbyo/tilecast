@@ -18,14 +18,9 @@ import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Badge } from "../components/ui/badge";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "../components/ui/empty";
-import {
   activityParams,
   activityRequest,
+  EmptyState,
   ErrorNotice,
   formatDay,
   formatDuration,

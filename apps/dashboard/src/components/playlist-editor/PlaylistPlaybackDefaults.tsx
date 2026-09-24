@@ -98,7 +98,7 @@ export function PlaylistPlaybackDefaults({
         <Button type="button" variant="ghost" size="sm" onClick={onOpenDetails}>
           <SlidersHorizontal size={14} aria-hidden="true" />
           {t("defaults.more")}
-        </RheaButton>
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -106,7 +106,7 @@ export function PlaylistPlaybackDefaults({
           <FieldLabel htmlFor="playlist-transition">
             {t("defaults.transitionLabel")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             disabled={
               !canManage || tagDriven || transitionPending || !items.length
             }

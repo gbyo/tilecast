@@ -92,7 +92,7 @@ export function PlaylistEditorHeader({
         <Button type="button" variant="outline" onClick={onPreview}>
           <ExternalLink size={15} aria-hidden="true" />
           {t("header.preview")}
-        </RheaButton>
+        </Button>
         {canSubmit && (
           <Button
             type="button"
@@ -105,7 +105,7 @@ export function PlaylistEditorHeader({
               : canPublish
                 ? t("header.publish")
                 : t("header.submitReview")}
-          </RheaButton>
+          </Button>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger

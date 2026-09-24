@@ -12,9 +12,7 @@ import { api, ApiError } from "../api/client";
 import { apiErrorMessage } from "../i18n";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
-import { Bubble, BubbleContent } from "../components/ui/bubble";
 import { Button } from "../components/ui/button";
 import {
   Dialog,
@@ -471,7 +469,7 @@ function RecordReviewBody({
           >
             {busy && <Spinner aria-hidden="true" />}
             {t("common:actions.saveChanges")}
-          </RheaButton>
+          </Button>
         )}
       </section>
 
@@ -554,8 +552,8 @@ function RecordReviewBody({
               }}
             >
               {t("common:actions.cancel")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               disabled={busy || note.trim() === ""}
               onClick={() => {
                 if (pendingTransition)
@@ -563,7 +561,7 @@ function RecordReviewBody({
               }}
             >
               {pendingTransition?.label ?? t("common:actions.confirm")}
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -610,7 +608,7 @@ function RecordReviewBody({
               onClick={() => void addComment()}
             >
               {t("review.commentButton")}
-            </RheaButton>
+            </Button>
           </div>
         )}
       </section>

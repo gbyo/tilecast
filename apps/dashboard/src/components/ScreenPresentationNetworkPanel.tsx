@@ -8,7 +8,6 @@ import type { PresentationNetworkReadiness, Screen } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Field, FieldDescription, FieldLabel } from "./ui/field";
 import { Skeleton } from "./ui/skeleton";
 import { toast } from "./ui/toast";
 import {
@@ -263,7 +262,7 @@ export function ScreenPresentationNetworkPanel({
                 ))}
               </SelectContent>
             </Select>
-          </Field>
+          </label>
           <div className="flex flex-wrap gap-2 sm:justify-end">
             <Button
               variant="default"

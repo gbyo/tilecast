@@ -642,7 +642,7 @@ export function CountdownBarEditorPage() {
             <FieldLabel htmlFor="countdown-schedule-type">
               {t("countdown.editor.scheduleLabel")}
             </FieldLabel>
-            <RheaSelect
+            <Select
               items={scheduleTypeOptions.map((option) => ({
                 value: option.value,
                 label: t(option.labelKey),
@@ -784,7 +784,7 @@ export function CountdownBarEditorPage() {
               <FieldLabel htmlFor="countdown-display-mode">
                 {t("countdown.editor.modeLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={displayModeOptions.map((option) => ({
                   value: option.value,
                   label: t(option.labelKey),
@@ -820,7 +820,7 @@ export function CountdownBarEditorPage() {
               <FieldLabel htmlFor="countdown-progress-fill">
                 {t("countdown.editor.progressLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={progressFillOptions.map((option) => ({
                   value: option.value,
                   label: t(option.labelKey),
@@ -1003,7 +1003,7 @@ export function CountdownBarEditorPage() {
               : editing
                 ? t("common:actions.saveChanges")
                 : t("shared.createInstance")}
-          </RheaButton>
+          </Button>
         </div>
       </form>
     </main>

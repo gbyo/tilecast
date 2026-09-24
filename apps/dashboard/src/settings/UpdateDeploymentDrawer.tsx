@@ -29,8 +29,9 @@ import {
 } from "../components/ui/sheet";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
-import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
+import { StatusDot } from "../components/StatusDot";
+import { ViewTabs } from "../components/ViewTabs";
 import { api } from "../api/client";
 import type { Screen, UpdateDeploymentScreen } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -340,7 +341,7 @@ export function UpdateDeploymentDrawer({
           <XCircle size={16} aria-hidden="true" />
         )}
         {t("updates.cancel")}
-      </RheaButton>
+      </Button>
     </div>
   );
   return desktop ? (
@@ -464,7 +465,7 @@ function DeploymentScreenRow({
               <RefreshCw size={14} aria-hidden="true" />
             )}{" "}
             {t("common:actions.retry")}
-          </RheaButton>
+          </Button>
         )}
       </div>
     </li>

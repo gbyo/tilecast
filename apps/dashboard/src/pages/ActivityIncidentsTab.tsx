@@ -7,12 +7,6 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "../components/ui/empty";
-import {
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -30,6 +24,7 @@ import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   activityParams,
   activityRequest,
+  EmptyState,
   ErrorNotice,
   formatDuration,
   formatWhen,
@@ -148,13 +143,9 @@ export function IncidentsTab({
         )}
         {hasActiveFilters && items.length === 0 && (
           <div>
-            <RheaButton
-              type="button"
-              variant="secondary"
-              onClick={onClearFilters}
-            >
+            <Button type="button" variant="secondary" onClick={onClearFilters}>
               {t("shared.clearFilters")}
-            </RheaButton>
+            </Button>
           </div>
         )}
       </section>

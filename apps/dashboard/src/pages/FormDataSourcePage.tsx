@@ -9,13 +9,8 @@ import type {
 } from "../api/types";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { ViewTabs } from "../components/ViewTabs";
 import { Pagination } from "../components/Pagination";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -358,7 +353,7 @@ function ResponsesTab({
           <FieldLabel htmlFor="responses-state">
             {t("detail.filters.state")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             value={stateFilter}
             onValueChange={(value) => {
               setStateFilter(value ?? "needs_review");
@@ -397,7 +392,7 @@ function ResponsesTab({
           <FieldLabel htmlFor="responses-sort">
             {t("detail.filters.sort")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             value={sort}
             onValueChange={(value) => setSort(value ?? "updated")}
           >

@@ -15,7 +15,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { LayoutOrientation, LayoutSummary } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";

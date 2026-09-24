@@ -281,6 +281,12 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
   );
 }
 
+function statusDotClass(status: unknown) {
+  if (status === "ready") return "bg-emerald-500";
+  if (status === "error") return "bg-destructive";
+  return "bg-muted-foreground";
+}
+
 export function SourceStatus({ status }: { status: unknown }) {
   const { t } = useTranslation(["content", "common"]);
   return (
@@ -379,7 +385,7 @@ export function ConnectDataNotice({
             >
               <Plus size={15} aria-hidden="true" />{" "}
               {t("dataSources.picker.connectButton")}
-            </RheaButton>
+            </Button>
           </EmptyContent>
         )}
       </Empty>
@@ -680,24 +686,16 @@ function DataSourceSelectionDialog({
               <ItemContent>
                 <ItemTitle className="truncate">{source.name}</ItemTitle>
                 <ItemDescription>
-                  {providerLabel(source.provider)}
+                  {providerLabel(source.provider, t)}
                 </ItemDescription>
               </ItemContent>
               <ItemActions className="flex-col items-end gap-1">
                 <SourceStatus status={source.status} />
-                {recordCountLabel(source.cachedRecordCount) && (
+                {recordCountLabel(source.cachedRecordCount, t) && (
                   <small className="text-xs text-muted-foreground">
-                    {providerLabel(source.provider, t)}
+                    {recordCountLabel(source.cachedRecordCount, t)}
                   </small>
-                </span>
-                <span className="grid items-end gap-1">
-                  <SourceStatus status={source.status} />
-                  {recordCountLabel(source.cachedRecordCount, t) && (
-                    <small className="text-xs text-muted-foreground">
-                      {recordCountLabel(source.cachedRecordCount, t)}
-                    </small>
-                  )}
-                </span>
+                )}
                 {value === source.id && (
                   <Check
                     size={18}
@@ -705,11 +703,6 @@ function DataSourceSelectionDialog({
                   />
                 )}
               </ItemActions>
-              {value === source.id && (
-                <ItemActions>
-                  <Check size={18} aria-label="Selected" />
-                </ItemActions>
-              )}
             </Item>
           ))}
         </ItemGroup>
@@ -720,14 +713,14 @@ function DataSourceSelectionDialog({
         )}
         <DialogFooter>
           {canCreate && (
-            <RheaButton type="button" onClick={onConnect}>
+            <Button type="button" onClick={onConnect}>
               <Plus size={15} aria-hidden="true" />{" "}
               {t("dataSources.picker.connectButton")}
-            </RheaButton>
+            </Button>
           )}
-          <RheaButton type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             {t("common:actions.cancel")}
-          </RheaButton>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -458,7 +458,7 @@ function GenericEditorShell({
             )}
           </div>
         )}
-        <footer>
+        <footer className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
           <Button variant="ghost" onClick={onClose}>
             {t("common:actions.cancel")}
           </Button>
@@ -470,22 +470,9 @@ function GenericEditorShell({
               {pending ? t("common:actions.saving") : saveLabel}
             </Button>
           )}
-        </div>
-      )}
-      <footer className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        {!readOnly && (
-          <Button
-            disabled={pending || saveDisabled || !name.trim()}
-            onClick={onSave}
-          >
-            {pending ? "Saving…" : saveLabel}
-          </Button>
-        )}
-      </footer>
-    </section>
+        </footer>
+      </section>
+    </div>
   );
 }
 

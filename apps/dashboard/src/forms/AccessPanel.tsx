@@ -254,9 +254,9 @@ function AccessRow({
               {t("access.alwaysManager")}
             </span>
           ) : editing ? null : (
-            <RheaButton variant="ghost" size="sm" onClick={onEdit}>
+            <Button variant="ghost" size="sm" onClick={onEdit}>
               {t("access.editAccess")}
-            </RheaButton>
+            </Button>
           )}
         </TableCell>
       </TableRow>
@@ -442,10 +442,10 @@ function CapabilityEditor({
         })}
       </ul>
       <div className="flex flex-wrap gap-2">
-        <RheaButton variant="ghost" onClick={onCancel} disabled={saving}>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
           {t("common:actions.cancel")}
-        </RheaButton>
-        <RheaButton
+        </Button>
+        <Button
           variant="default"
           disabled={saving}
           aria-busy={saving || undefined}
@@ -453,7 +453,7 @@ function CapabilityEditor({
         >
           {saving && <Spinner aria-hidden="true" />}
           {t("access.saveAccess")}
-        </RheaButton>
+        </Button>
       </div>
     </div>
   );

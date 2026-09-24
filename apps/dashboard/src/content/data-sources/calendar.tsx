@@ -174,7 +174,7 @@ export function CalendarDataSourceEditor({
             {previewMutation.isPending
               ? t("dataSources.preview.loading")
               : t("dataSources.preview.realData")}
-          </RheaButton>
+          </Button>
           {!readOnly && (
             <Button
               type="button"
@@ -184,7 +184,7 @@ export function CalendarDataSourceEditor({
               {save.isPending
                 ? t("common:actions.saving")
                 : t("dataSources.editor.save")}
-            </RheaButton>
+            </Button>
           )}
         </>
       }
@@ -290,7 +290,7 @@ export function CalendarDataSourceEditor({
           >
             <Plus size={16} aria-hidden="true" />{" "}
             {t("dataSources.calendar.addCalendar")}
-          </RheaButton>
+          </Button>
         )}
       </fieldset>
       <div className="grid gap-4 sm:grid-cols-3">
@@ -298,7 +298,7 @@ export function CalendarDataSourceEditor({
           <FieldLabel htmlFor="calendar-display">
             {t("dataSources.calendar.display")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             disabled={readOnly}
             value={configuration.displayMode}
             onValueChange={(next) =>
@@ -477,7 +477,7 @@ export function CalendarDataSourceEditor({
           <FieldLabel htmlFor="calendar-refresh">
             {t("dataSources.editor.refreshInterval")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             disabled={readOnly}
             value={configuration.refreshIntervalSeconds}
             onValueChange={(next) =>
@@ -518,7 +518,7 @@ export function CalendarDataSourceEditor({
           <FieldLabel htmlFor="calendar-staleness">
             {t("dataSources.calendar.keepCached")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             disabled={readOnly}
             value={configuration.stalenessLimitHours}
             onValueChange={(next) =>

@@ -15,7 +15,6 @@ import type { User } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
@@ -27,15 +26,7 @@ import {
 } from "../components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from "../components/ui/item";
+import { ItemGroup } from "../components/ui/item";
 import {
   Select,
   SelectContent,
@@ -223,7 +214,7 @@ export function UsersPage() {
             <FieldLabel htmlFor="users-add-role">
               {t("users.addForm.roleLabel")}
             </FieldLabel>
-            <RheaSelect
+            <Select
               items={allowedRoles.map((value) => ({
                 value,
                 label: t(roleKeys[value]),
@@ -241,7 +232,7 @@ export function UsersPage() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
             <FieldDescription>{t(roleDescriptionKeys[role])}</FieldDescription>
           </Field>
         </div>
@@ -392,17 +383,6 @@ export function UsersPage() {
   );
 }
 
-function nameInitials(name: string) {
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => Array.from(part)[0]?.toLocaleUpperCase() ?? "")
-    .join("");
-  return initials || "?";
-}
-
 function UserEditorDialog({
   user,
   currentUser,
@@ -549,7 +529,7 @@ function UserEditorDialog({
               <FieldLabel htmlFor="users-edit-role">
                 {t("users.editDialog.roleLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={allowedRoles.map((value) => ({
                   value,
                   label: t(roleKeys[value]),

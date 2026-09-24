@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button as Button } from "../components/ui/button";
 
 export function SettingsActionBar({
   dirty,
@@ -44,9 +44,9 @@ export function SettingsActionBar({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {error && onReload && (
-          <RheaButton type="button" variant="ghost" onClick={onReload}>
+          <Button type="button" variant="ghost" onClick={onReload}>
             {t("actionBar.reload")}
-          </RheaButton>
+          </Button>
         )}
         {dirty && (
           <>
@@ -57,8 +57,8 @@ export function SettingsActionBar({
               onClick={onCancel}
             >
               {t("common:actions.cancel")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               variant="default"
               disabled={saving}
@@ -67,7 +67,7 @@ export function SettingsActionBar({
               {saving
                 ? t("common:actions.saving")
                 : t("common:actions.saveChanges")}
-            </RheaButton>
+            </Button>
           </>
         )}
       </div>

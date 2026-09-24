@@ -291,8 +291,8 @@ export function PlayerPolicyEditor({
               onClick={() => setConfirmReset(true)}
             >
               {t("policies.resetAll")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               size="sm"
               disabled={!dirty || save.isPending}
@@ -301,7 +301,7 @@ export function PlayerPolicyEditor({
               {save.isPending
                 ? t("common:actions.saving")
                 : t("common:actions.saveChanges")}
-            </RheaButton>
+            </Button>
           </>
         )}
       </div>
@@ -440,9 +440,9 @@ export function PlayerPolicyEditor({
                         : t("policies.emptySection")}
                     </p>
                   )}
-                </CollapsibleContent>
-              </section>
-            </Collapsible>
+                </div>
+              )}
+            </section>
           );
         })}
       </div>
@@ -477,8 +477,8 @@ export function PlayerPolicyEditor({
               onClick={cancelChanges}
             >
               {t("common:actions.cancel")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               disabled={save.isPending}
               onClick={() => save.mutate()}
@@ -486,7 +486,7 @@ export function PlayerPolicyEditor({
               {save.isPending
                 ? t("common:actions.saving")
                 : t("common:actions.saveChanges")}
-            </RheaButton>
+            </Button>
           </div>
         </div>
       )}
@@ -573,7 +573,7 @@ function PolicyRow({
             onClick={() => onToggle(false)}
           >
             {t("policies.revert")}
-          </RheaButton>
+          </Button>
         )}
       </div>
       {overridden && (

@@ -503,7 +503,7 @@ function DefinitionControl({
             onClick={() => setValue([...items, {}])}
           >
             <Plus size={15} aria-hidden="true" /> {t("widgets.form.addItem")}
-          </RheaButton>
+          </Button>
         )}
       </fieldset>
     );

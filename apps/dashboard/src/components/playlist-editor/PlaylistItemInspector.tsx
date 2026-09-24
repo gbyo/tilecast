@@ -253,7 +253,7 @@ export function PlaylistItemInspectorBody({
             <FieldLabel htmlFor="inspector-transition">
               {t("inspector.transitionLabel")}
             </FieldLabel>
-            <RheaSelect
+            <Select
               disabled={!editable || usesPlayerDefaults}
               value={item.transition}
               onValueChange={(next) => {
@@ -304,7 +304,7 @@ export function PlaylistItemInspectorBody({
             <FieldLabel htmlFor="inspector-fit">
               {t("inspector.fitLabel")}
             </FieldLabel>
-            <RheaSelect
+            <Select
               disabled={!editable || usesPlayerDefaults}
               value={item.fitMode}
               onValueChange={(next) =>
@@ -334,7 +334,7 @@ export function PlaylistItemInspectorBody({
             <FieldLabel htmlFor="inspector-delivery">
               {t("inspector.deliveryLabel")}
             </FieldLabel>
-            <RheaSelect
+            <Select
               disabled={!editable}
               value={item.deliveryPolicy}
               onValueChange={(next) =>
@@ -531,11 +531,11 @@ export function PlaylistItemInspectorBody({
           >
             <Trash2 size={15} aria-hidden="true" />
             {t("inspector.removeItem")}
-          </RheaButton>
+          </Button>
         )}
-        <RheaButton type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={onClose}>
           {t("inspector.done")}
-        </RheaButton>
+        </Button>
       </div>
       <AlertDialog
         open={confirmingDelete}

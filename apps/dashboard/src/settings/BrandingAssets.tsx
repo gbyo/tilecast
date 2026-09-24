@@ -274,7 +274,7 @@ function BrandingAssetUpload({
               : value
                 ? t("branding.replace")
                 : t("branding.upload")}
-          </RheaButton>
+          </Button>
           {value && (
             <Button
               type="button"
@@ -291,7 +291,7 @@ function BrandingAssetUpload({
               }}
             >
               {t("branding.remove")}
-            </RheaButton>
+            </Button>
           )}
         </div>
         {(error || actionError) && (

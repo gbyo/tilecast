@@ -34,6 +34,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
+import { rfc3339ToLocalDateTime } from "../lib/dateTime";
 import {
   DashboardListToolbar,
   DashboardSearch,
@@ -2650,10 +2651,10 @@ function MediaAssetDetails({
   const [name, setName] = useState(asset.name);
   const [description, setDescription] = useState(asset.description);
   const [availableFrom, setAvailableFrom] = useState(
-    dateTimeLocalValue(asset.availableFrom),
+    rfc3339ToLocalDateTime(asset.availableFrom),
   );
   const [expiresAt, setExpiresAt] = useState(
-    dateTimeLocalValue(asset.expiresAt),
+    rfc3339ToLocalDateTime(asset.expiresAt),
   );
   const mutation = useMutation({
     mutationFn: () =>

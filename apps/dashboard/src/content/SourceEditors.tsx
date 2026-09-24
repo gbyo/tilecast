@@ -298,7 +298,7 @@ export function WidgetProviderGallery({
                 onClick={() => setCategory(name)}
               >
                 {galleryCategoryLabel(t, name)}
-              </RheaButton>
+              </Button>
             ))}
           </div>
         </div>
@@ -1079,7 +1079,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="countdown-mode">
                         {t("widgets.editors.countdown.mode")}
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           {
                             value: "countdown",
@@ -1124,7 +1124,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="countdown-repeat">
                         {t("widgets.editors.countdown.repeat")}
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           {
                             value: "none",
@@ -1193,7 +1193,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="countdown-layout">
                         {t("widgets.editors.countdown.layout")}
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           {
                             value: "stacked",
@@ -1368,7 +1368,7 @@ export function NativeAppEditor({
                             key={unit}
                             className="flex items-center gap-2 text-sm"
                           >
-                            <RheaCheckbox
+                            <Checkbox
                               checked={Boolean(
                                 (configuration as CountdownWidgetConfig)[key],
                               )}
@@ -1495,7 +1495,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="qrcode-speed">
                         {t("widgets.editors.qrcode.speed")}
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           {
                             value: "slow",
@@ -2350,7 +2350,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="metric-format">
                         {t("widgets.editors.shared.format")}
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           {
                             value: "number",
@@ -2620,7 +2620,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="cards-density">
                         {t("widgets.editors.cards.density")}
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           {
                             value: "comfortable",
@@ -3050,7 +3050,7 @@ export function NativeAppEditor({
                             }
                           >
                             {t("widgets.editors.shared.remove")}
-                          </RheaButton>
+                          </Button>
                         </div>
                       ),
                     )}
@@ -3077,7 +3077,7 @@ export function NativeAppEditor({
                       }
                     >
                       {t("widgets.editors.statGrid.addMetric")}
-                    </RheaButton>
+                    </Button>
                   </fieldset>
                 </>
               )}
@@ -3101,7 +3101,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="chart-type">
                         {t("widgets.editors.chart.chartType")}
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           {
                             value: "line",
@@ -3273,7 +3273,7 @@ export function NativeAppEditor({
                             }
                           >
                             {t("widgets.editors.shared.remove")}
-                          </RheaButton>
+                          </Button>
                         </div>
                       ),
                     )}
@@ -3299,7 +3299,7 @@ export function NativeAppEditor({
                       }
                     >
                       {t("widgets.editors.chart.addSeries")}
-                    </RheaButton>
+                    </Button>
                   </fieldset>
                 </>
               )}
@@ -3661,7 +3661,7 @@ export function NativeAppEditor({
                       }
                     >
                       {t("widgets.editors.worldClock.addLocation")}
-                    </RheaButton>
+                    </Button>
                   </fieldset>
                 </>
               )}
@@ -3842,7 +3842,7 @@ export function NativeAppEditor({
               {save.isPending
                 ? t("common:actions.saving")
                 : t("widgets.editors.shared.saveWidget")}
-            </RheaButton>
+            </Button>
           )}
         </footer>
       </section>
@@ -5064,7 +5064,7 @@ export function YouTubeSourceEditor({
           <FieldLabel htmlFor="youtube-failure">
             {t("widgets.editors.youtube.failure")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             items={[
               {
                 value: "placeholder",
@@ -5108,7 +5108,7 @@ export function YouTubeSourceEditor({
           <FieldLabel htmlFor="youtube-fallback">
             {t("widgets.editors.youtube.fallback")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             items={[
               { value: "", label: t("widgets.editors.shared.none") },
               ...(images.data?.items ?? []).map((image) => ({
@@ -5160,11 +5160,11 @@ export function YouTubeSourceEditor({
               {save.isPending
                 ? t("common:actions.saving")
                 : t("widgets.editors.shared.saveWidget")}
-            </RheaButton>
+            </Button>
           )}
-          <RheaButton type="button" variant="outline" onClick={requestClose}>
+          <Button type="button" variant="outline" onClick={requestClose}>
             {t("common:actions.cancel")}
-          </RheaButton>
+          </Button>
         </footer>
         <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
           <AlertDialogContent>

@@ -312,7 +312,7 @@ export function GitHubOAuthSetupPortal() {
                   placeholder="Ov23li…"
                   onChange={(event) => setClientId(event.target.value)}
                 />
-              </Field>
+              </label>
             </SetupStep>
 
             {message && (

@@ -248,7 +248,7 @@ export function PresentationNetworksPanel({
             disabled={unavailable}
           >
             <Plus size={16} aria-hidden="true" /> {t("networks.add")}
-          </RheaButton>
+          </Button>
         </div>
 
         {networks.isLoading ? (
@@ -271,7 +271,7 @@ export function PresentationNetworksPanel({
               disabled={unavailable}
             >
               {t("networks.addFirst")}
-            </RheaButton>
+            </Button>
           </Empty>
         ) : (
           <div className="grid gap-2">
@@ -314,8 +314,8 @@ export function PresentationNetworksPanel({
                     onClick={() => open(network)}
                   >
                     <Pencil size={14} aria-hidden="true" /> {t("networks.edit")}
-                  </RheaButton>
-                  <RheaButton
+                  </Button>
+                  <Button
                     variant="destructive"
                     size="sm"
                     disabled={remove.isPending}
@@ -337,7 +337,7 @@ export function PresentationNetworksPanel({
                   >
                     <Trash2 size={14} aria-hidden="true" />{" "}
                     {t("common:actions.delete")}
-                  </RheaButton>
+                  </Button>
                 </span>
               </article>
             ))}
@@ -640,8 +640,8 @@ export function PresentationNetworksPanel({
                     disabled={save.isPending}
                   >
                     {t("common:actions.cancel")}
-                  </RheaButton>
-                  <RheaButton
+                  </Button>
+                  <Button
                     variant="default"
                     type="submit"
                     disabled={
@@ -655,7 +655,7 @@ export function PresentationNetworksPanel({
                     }
                   >
                     {save.isPending && <Spinner />} {t("networks.save")}
-                  </RheaButton>
+                  </Button>
                 </DialogFooter>
               </form>
             )}

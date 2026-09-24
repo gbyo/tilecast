@@ -6,12 +6,6 @@ import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Field, FieldLabel } from "../components/ui/field";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "../components/ui/empty";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -29,6 +23,7 @@ import {
 import {
   activityParams,
   activityRequest,
+  EmptyState,
   ErrorNotice,
   formatDuration,
   humanize,

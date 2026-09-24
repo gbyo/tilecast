@@ -3,6 +3,13 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2 } from "lucide-react";
 import { translateKnown } from "../i18n";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
 import { Pagination } from "../components/Pagination";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";

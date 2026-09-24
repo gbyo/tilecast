@@ -439,12 +439,12 @@ export function SubmissionEditor({
           <AlertTitle>{t("editor.leaveTitle")}</AlertTitle>
           <AlertDescription>{t("editor.leaveBody")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
               {t("editor.stay")}
-            </RheaButton>
-            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
               {t("editor.leave")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -508,7 +508,7 @@ export function SubmissionEditor({
             >
               {busy === "draft" && <Spinner aria-hidden="true" />}
               {t("editor.saveDraft")}
-            </RheaButton>
+            </Button>
             {canSubmit && (
               <Button
                 type="submit"

@@ -683,15 +683,15 @@ export function PlaylistEditorPage() {
                       onClick={openDetails}
                     >
                       {t("editor.detailsButton")}
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={openHistory}
                     >
                       {t("editor.historyButton")}
-                    </RheaButton>
+                    </Button>
                   </div>
                 </aside>
               )}
@@ -892,7 +892,7 @@ export function PlaylistEditorPage() {
               onClick={() => setLayoutPicker(false)}
             >
               {t("common:actions.cancel")}
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

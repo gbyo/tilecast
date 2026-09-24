@@ -936,7 +936,7 @@ export function StructuredDataSourceEditor({
               <FieldLabel htmlFor="structured-sort">
                 {t("dataSources.structured.sort")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={configuration.sort}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -1022,7 +1022,7 @@ export function StructuredDataSourceEditor({
                     <FieldLabel htmlFor="csv-delimiter">
                       {t("dataSources.structured.delimiter")}
                     </FieldLabel>
-                    <RheaSelect
+                    <Select
                       value={configuration.delimiter ?? ""}
                       disabled={readOnly}
                       onValueChange={(next) =>
@@ -1158,7 +1158,7 @@ export function StructuredDataSourceEditor({
                         {t("dataSources.structured.addTimestamps", {
                           count: unmappedTimestamps.length,
                         })}
-                      </RheaButton>
+                      </Button>
                     )}
                   {!readOnly &&
                     Object.keys(mapping.valueFields ?? {}).length <
@@ -1176,7 +1176,7 @@ export function StructuredDataSourceEditor({
                       >
                         <Plus size={15} aria-hidden="true" />{" "}
                         {t("dataSources.structured.addValue")}
-                      </RheaButton>
+                      </Button>
                     )}
                 </div>
               </fieldset>
@@ -1283,7 +1283,7 @@ export function StructuredDataSourceEditor({
                         <FieldLabel htmlFor="date-mode">
                           {t("dataSources.manual.selection")}
                         </FieldLabel>
-                        <RheaSelect
+                        <Select
                           value={configuration.dateSelection.mode}
                           disabled={readOnly}
                           onValueChange={(next) =>
@@ -1596,7 +1596,7 @@ export function StructuredDataSourceEditor({
                 >
                   <Plus size={15} aria-hidden="true" />{" "}
                   {t("dataSources.structured.addFilter")}
-                </RheaButton>
+                </Button>
               )}
             </div>
           </fieldset>
@@ -1743,7 +1743,7 @@ export function StructuredDataSourceEditor({
             {previewMutation.isPending
               ? t("dataSources.preview.loading")
               : t("dataSources.preview.mappedData")}
-          </RheaButton>
+          </Button>
           {!readOnly && (
             <Button
               type="button"
@@ -1753,7 +1753,7 @@ export function StructuredDataSourceEditor({
               {save.isPending
                 ? t("common:actions.saving")
                 : t("dataSources.editor.save")}
-            </RheaButton>
+            </Button>
           )}
         </footer>
       </section>

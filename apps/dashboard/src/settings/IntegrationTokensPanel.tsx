@@ -224,7 +224,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                     }}
                   >
                     {t("integrations.copied")}
-                  </RheaButton>
+                  </Button>
                 </div>
               </AlertDescription>
             </Alert>
@@ -292,7 +292,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                       >
                         <Trash2 size={15} aria-hidden="true" />{" "}
                         {t("integrations.revoke")}
-                      </RheaButton>
+                      </Button>
                     )}
                   </ItemActions>
                 </Item>
@@ -456,7 +456,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                 {create.isPending
                   ? t("integrations.creating")
                   : t("integrations.createAction")}
-              </RheaButton>
+              </Button>
             </div>
           </form>
         </section>

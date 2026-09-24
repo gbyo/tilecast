@@ -166,7 +166,7 @@ export function ActivityRetentionPanel({
             onClick={() => checked?.ok && save.mutate(checked.payload)}
           >
             {save.isPending ? t("common:actions.saving") : t("retention.save")}
-          </RheaButton>
+          </Button>
         )}
       </header>
 
@@ -193,7 +193,7 @@ export function ActivityRetentionPanel({
               {query.isFetching
                 ? t("retention.retrying")
                 : t("retention.retry")}
-            </RheaButton>
+            </Button>
           </AlertDescription>
         </Alert>
       )}

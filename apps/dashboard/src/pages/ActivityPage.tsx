@@ -9,15 +9,8 @@ import {
   resolveTimeRange,
   type TimeRangePreset,
 } from "../components/TimeRangePicker";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
-import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
   Popover,
@@ -32,6 +25,7 @@ import { Download, SlidersHorizontal } from "lucide-react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { translateKnown } from "../i18n";
+import { ViewTabs } from "../components/ViewTabs";
 import { OverviewTab } from "./ActivityOverviewPanel";
 import { AuditTab, EventsTab, ProofTab } from "./ActivityReportTabs";
 import { ContentHealthTab } from "./ContentHealthTab";
@@ -501,42 +495,42 @@ export function ActivityPage() {
               </PopoverContent>
             </Popover>
           )}
+        </FilterBar>
+      )}
 
-          {tab === "overview" && (
-            <OverviewTab
-              range={range}
-              canViewScreenEvents={privileged}
-              canViewAudit={privileged || role === "editor"}
-            />
-          )}
-          {tab === "proof" && (
-            <ProofTab
-              range={range}
-              filters={values}
-              dimension={summaryDimension}
-              setDimension={setSummaryDimension}
-              hasActiveFilters={hasActiveFilters}
-              canExtendRange={preset === "24h"}
-              onClearFilters={clear}
-              onExtendRange={() => setRange("range", "7d")}
-              onViewScreenEvents={
-                privileged ? () => selectTab("events") : undefined
-              }
-            />
-          )}
-          {tab === "incidents" && (
-            <IncidentsTab
-              range={range}
-              filters={values}
-              hasActiveFilters={hasActiveFilters}
-              onClearFilters={clear}
-            />
-          )}
-          {tab === "content-health" && <ContentHealthTab />}
-          {tab === "events" && <EventsTab range={range} filters={values} />}
-          {tab === "audit" && <AuditTab range={range} filters={values} />}
-        </TabsContent>
-      </Tabs>
+      {tab === "overview" && (
+        <OverviewTab
+          range={range}
+          canViewScreenEvents={privileged}
+          canViewAudit={privileged || role === "editor"}
+        />
+      )}
+      {tab === "proof" && (
+        <ProofTab
+          range={range}
+          filters={values}
+          dimension={summaryDimension}
+          setDimension={setSummaryDimension}
+          hasActiveFilters={hasActiveFilters}
+          canExtendRange={preset === "24h"}
+          onClearFilters={clear}
+          onExtendRange={() => setRange("range", "7d")}
+          onViewScreenEvents={
+            privileged ? () => selectTab("events") : undefined
+          }
+        />
+      )}
+      {tab === "incidents" && (
+        <IncidentsTab
+          range={range}
+          filters={values}
+          hasActiveFilters={hasActiveFilters}
+          onClearFilters={clear}
+        />
+      )}
+      {tab === "content-health" && <ContentHealthTab />}
+      {tab === "events" && <EventsTab range={range} filters={values} />}
+      {tab === "audit" && <AuditTab range={range} filters={values} />}
     </section>
   );
 }

@@ -319,7 +319,7 @@ export function FilterChips({
         onClick={onClear}
       >
         {t("actions.clearAll")}
-      </button>
+      </Button>
     </div>
   );
 }

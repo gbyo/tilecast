@@ -478,7 +478,7 @@ function LocationPicker({
       >
         {t("picker.createLocation")}
       </Link>
-    </Field>
+    </label>
   );
 }
 
@@ -772,7 +772,7 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
                 maxLength={500}
                 onChange={(event) => setCancelReason(event.target.value)}
               />
-            </Field>
+            </label>
             <DialogFooter>
               <Button
                 variant="outline"
@@ -1062,7 +1062,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
+            </label>
             <fieldset className="grid gap-3 border-t border-border pt-4">
               <legend className="text-sm font-semibold">
                 {t("takeover.targetScreens")}
@@ -1253,7 +1253,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                 value={activationPassword}
                 onChange={(event) => setActivationPassword(event.target.value)}
               />
-            </Field>
+            </label>
             {activate.error && (
               <Alert variant="destructive">
                 <CircleAlert aria-hidden="true" />
@@ -3527,7 +3527,7 @@ export function ScreenDetailPage() {
                   {detailsForm.formState.errors.name.message}
                 </FieldError>
               )}
-            </Field>
+            </label>
             <LocationPicker
               locations={locations.data?.items ?? []}
               value={detailsForm.watch("locationId")}
@@ -3557,7 +3557,7 @@ export function ScreenDetailPage() {
                   id="editScreenRoomNumber"
                   {...detailsForm.register("roomNumber")}
                 />
-              </Field>
+              </label>
             </div>
             <label
               className="grid gap-2 text-sm font-medium"
@@ -3573,7 +3573,7 @@ export function ScreenDetailPage() {
                   {detailsForm.formState.errors.description.message}
                 </FieldError>
               )}
-            </Field>
+            </label>
             <DialogFooter>
               <Button
                 variant="outline"
