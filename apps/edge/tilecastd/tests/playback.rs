@@ -1495,6 +1495,19 @@ async fn two_players_in_a_group_share_one_timeline_that_a_clock_correction_never
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
     assert_eq!(renderer.activation_count(), before, "a clock correction never restarts synchronized playback");
+
+    // A renderer that rejoins (a crash, a restart) places itself with the
+    // current offset on the unchanged anchor.
+    let (harness, player, renderer) = running.remove(0);
+    renderer.stop();
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    let rejoined = wait_for("the rejoining activation", || {
+        renderer.last().filter(|a| a.timing.as_ref().is_some_and(|t| t.clock_offset_ms == 4_321))
+    })
+    .await;
+    let timing = rejoined.timing.expect("group timing");
+    assert_eq!((timing.anchor_unix_ms, timing.durations_ms), (a.anchor_unix_ms, a.durations_ms.clone()));
+    running.push((harness, player, renderer));
     for (_, player, renderer) in running {
         renderer.stop();
         player.stop().await;

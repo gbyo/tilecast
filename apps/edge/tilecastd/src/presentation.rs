@@ -105,6 +105,7 @@ impl Activation {
         &self,
         document: PresentationDocument,
         content: Vec<RendererMediaRef>,
+        timing: Option<SyncTiming>,
         projection: Option<ProjectionContext>,
     ) -> Event {
         Event::PresentationActivate(Box::new(PresentationActivate {
@@ -112,7 +113,7 @@ impl Activation {
             generation: self.generation,
             presentation: document,
             content,
-            timing: self.timing.clone(),
+            timing,
             projection,
         }))
     }
@@ -153,6 +154,7 @@ fn rewrite_media_value(
 struct RendererPayload {
     document: PresentationDocument,
     content: Vec<RendererMediaRef>,
+    timing: Option<SyncTiming>,
     projection: Option<ProjectionContext>,
     plugins: Option<PluginState>,
 }
@@ -186,6 +188,10 @@ fn renderer_payload(
             })
         })
         .collect::<Option<Vec<_>>>()?;
+    // The group anchor and durations are fixed at activation; the offset is
+    // the current one, so a renderer that (re)joins after a clock sample
+    // places itself with the best estimate. Active playback never re-anchors.
+    let timing = activation.timing.clone().map(|timing| SyncTiming { clock_offset_ms, ..timing });
     let projection = match &activation.extras.projection {
         Some(projection) => {
             let mut projection = rewrite(projection, capabilities)?;
@@ -207,7 +213,7 @@ fn renderer_payload(
         // Plugins belong to server presentations; anything else clears them.
         Some(PluginState { plugins: Vec::new(), content: Vec::new(), clock_offset_ms, aliases: Vec::new() })
     };
-    Some(RendererPayload { document, content, projection, plugins })
+    Some(RendererPayload { document, content, timing, projection, plugins })
 }
 
 /// Evidence that the activation's own content appeared, as opposed to
@@ -629,7 +635,7 @@ impl PresentationEngine {
                 footer_text: None,
                 status: None,
             });
-            let event = current.event(fallback, Vec::new(), None);
+            let event = current.event(fallback, Vec::new(), None, None);
             let _ = session.send_event(event);
             return;
         }
@@ -669,7 +675,12 @@ impl PresentationEngine {
         };
         if let Some(link) = self.renderer.as_mut().filter(|link| link.session.id() == session.id()) {
             link.media = Some((reference, capabilities));
-            let _ = link.session.send_event(current.event(payload.document, payload.content, payload.projection));
+            let _ = link.session.send_event(current.event(
+                payload.document,
+                payload.content,
+                payload.timing,
+                payload.projection,
+            ));
             if let Some(plugins) = payload.plugins {
                 let _ = link.session.send_event(Event::PluginState(plugins));
             }
@@ -704,6 +715,8 @@ impl PresentationEngine {
             last_progress_at: link.and_then(|l| l.last_progress_at),
             last_error_code: link.and_then(|l| l.last_error_code.as_deref()).and_then(|c| ShortToken::new(c).ok()),
             incompatible_reason: self.incompatible_reason.as_deref().map(SafeText::lossy),
+            current_item_id: link.and_then(|l| l.current_item.as_ref()).map(|(id, _)| ShortText::lossy(id)),
+            current_item_started_at: link.and_then(|l| l.current_item.as_ref()).map(|(_, at)| *at),
         }
     }
 

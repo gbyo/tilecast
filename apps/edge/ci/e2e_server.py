@@ -30,7 +30,7 @@ tilecast-edge-e2e image.
 """
 
 import argparse
-
+import datetime
 import hashlib
 import http.cookiejar
 import json
@@ -141,8 +141,8 @@ def evidence(log_path, since, kinds):
 class Renderer:
     """A real tilecast-renderer-wpe on WPE_PLATFORM=headless."""
 
-    def __init__(self, args, runtime, work):
-        self.args, self.runtime, self.work = args, runtime, work
+    def __init__(self, args, runtime, work, log="renderer.log"):
+        self.args, self.runtime, self.work, self.log = args, runtime, work, log
         self.process = None
 
     def start(self):
@@ -150,7 +150,7 @@ class Renderer:
         # Containers without unprivileged user namespaces cannot run WebKit's
         # bubblewrap sandbox. CI only; production keeps the sandbox.
         env.setdefault("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1")
-        log = open(os.path.join(self.work, "renderer.log"), "a")
+        log = open(os.path.join(self.work, self.log), "a")
         wait_for(lambda: os.path.exists(os.path.join(self.runtime, "edge.sock")), "daemon socket", timeout=30)
         self.process = subprocess.Popen(
             [self.args.renderer, "--platform=headless", f"--socket={os.path.join(self.runtime, 'edge.sock')}",
@@ -176,6 +176,41 @@ def tree(root):
             with open(path, "rb") as handle:
                 out[os.path.relpath(path, root)] = hashlib.sha256(handle.read()).hexdigest()
     return out
+
+
+def unix_ms(value):
+    """Milliseconds from an RFC 3339 timestamp with any sub-second precision."""
+    match = re.fullmatch(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d+))?(Z|[+-]\d\d:\d\d)", value)
+    assert match, value
+    base = datetime.datetime.fromisoformat(match.group(1) + match.group(3).replace("Z", "+00:00"))
+    fraction = (match.group(2) or "0")[:3].ljust(3, "0")
+    return int(base.timestamp()) * 1000 + int(fraction)
+
+
+def item_starts(tilecastctl, sockets, seconds):
+    """Every item start each daemon accepted from its renderer during the
+    window, as (item id, accepted-at ms). The daemon stamps the evidence, so
+    the 100 ms poll only has to be shorter than an item."""
+    seen = {socket: [] for socket in sockets}
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        for socket in sockets:
+            out = subprocess.run([tilecastctl, "--socket", socket, "--json", "status"], capture_output=True, text=True)
+            renderer = json.loads(out.stdout or "{}").get("renderer", {})
+            if renderer.get("currentItemStartedAt"):
+                start = (renderer.get("currentItemId"), unix_ms(renderer["currentItemStartedAt"]))
+                if not seen[socket] or seen[socket][-1] != start:
+                    seen[socket].append(start)
+        time.sleep(0.1)
+    return [seen[socket] for socket in sockets]
+
+
+def grid_phase_ms(at_ms, anchor_ms, durations):
+    """How far after its nearest shared boundary an instant falls."""
+    cycle = sum(durations)
+    within = (at_ms - anchor_ms) % cycle
+    boundaries = [sum(durations[:index]) for index in range(len(durations))] + [cycle]
+    return min((within - boundary for boundary in boundaries), key=abs)
 
 
 # An idempotency key the legacy player had already executed.
@@ -539,6 +574,108 @@ def main():
         processes.remove(fresh)
         print("pairing: a clean installation paired, was approved and connected")
 
+        if args.renderer:
+            # M6: two players in one synchronized group. Each is its own
+            # tilecastd and WPE runtime; only the server's group epoch and
+            # the manifest's item durations tie them together.
+            ffmpeg("-f", "lavfi", "-i", "color=c=0x1d4ed8:size=1280x720", "-frames:v", "1",
+                   os.path.join(media, "wall.png"))
+            wall = upload(client, os.path.join(media, "wall.png"), "image/png")
+            _, loop = client.call("POST", "/api/v1/playlists",
+                                  {"name": "Wall loop", "description": "", "sourceType": "static"}, expect=(200, 201))
+            loop_id = loop["data"]["id"]
+            client.call("POST", f"/api/v1/playlists/{loop_id}/items", item(image["id"], 3000), expect=(200, 201))
+            _, loop = client.call("POST", f"/api/v1/playlists/{loop_id}/items", item(wall["id"], 3000),
+                                  expect=(200, 201))
+            client.call("POST", f"/api/v1/playlists/{loop_id}/publish",
+                        {"expectedDraftRevision": loop["data"]["draftRevision"]}, expect=(200, 201))
+            _, group = client.call("POST", "/api/v1/screen-groups", {"name": "Lobby wall", "description": ""},
+                                   expect=(200, 201))
+            group_id = group["data"]["id"]
+            for member in (screen_id, fresh_screen):
+                client.call("POST", f"/api/v1/screen-groups/{group_id}/screens", {"screenId": member}, expect=200)
+            _, group = client.call("PUT", f"/api/v1/screen-groups/{group_id}/playlist-assignment",
+                                   {"playlistId": loop_id}, expect=200)
+            epoch = unix_ms(group["data"]["playbackEpoch"])
+
+            with open(fresh_config, "a") as handle:
+                handle.write(f'[renderer]\nbinary = "{args.renderer}"\nstall_threshold_seconds = 60\n')
+            fresh = subprocess.Popen([tilecastd, "--config", fresh_config, "run"], stdout=fresh_log,
+                                     stderr=subprocess.STDOUT)
+            processes.append(fresh)
+            walls = [Renderer(args, runtime, work), Renderer(args, fresh_runtime, work, "fresh-renderer.log")]
+            for wall_renderer in walls:
+                processes.append(wall_renderer.start())
+            sockets = [socket, fresh_socket]
+            logs = [daemon_log_path, os.path.join(work, "fresh.log")]
+
+            def on(member, version=None):
+                _, assignment = client.call("GET", f"/api/v1/screens/{member}/playlist-assignment", expect=200)
+                data = assignment["data"] or {}
+                return (data.get("currentPlaylistId") == loop_id
+                        and data.get("playerActiveManifestVersion") == (version or data.get("manifestVersion")))
+
+            wait_for(lambda: on(screen_id) and on(fresh_screen), "both players on the group loop", timeout=240)
+
+            def shared_timeline(durations, seconds, label):
+                """Both players' item starts fall on the epoch's boundary grid
+                and on each other's. The first sample of each may predate the
+                window (or be a late join), so it is not a boundary."""
+                starts = [found[1:] for found in item_starts(tilecastctl, sockets, seconds)]
+                expected = seconds * 1000 // max(durations) - 1
+                for found in starts:
+                    assert len(found) >= expected, f"{label}: only {len(found)} boundaries in {seconds}s: {found}"
+                    for _, at in found:
+                        phase = grid_phase_ms(at, epoch, durations)
+                        assert -20 <= phase <= 250, f"{label}: a start is {phase} ms off the shared grid"
+                skews = []
+                for item_id, at in starts[0]:
+                    other = [b for i, b in starts[1] if i == item_id and abs(b - at) < min(durations) / 2]
+                    if other:
+                        skews.append(abs(other[0] - at))
+                assert len(skews) >= expected, f"{label}: players did not share boundaries: {starts}"
+                assert max(skews) <= 250, f"{label}: boundary skew {max(skews)} ms"
+                print(f"sync {label}: {len(skews)} shared boundaries, skew mean "
+                      f"{sum(skews) / len(skews):.1f} ms, max {max(skews)} ms")
+
+            shared_timeline([3000, 3000], 20, "two players")
+
+            # A renderer crash: the restarted runtime re-reads the corrected
+            # wall clock once and rejoins the group mid-cycle.
+            walls[1].process.kill()
+            walls[1].process.wait(timeout=10)
+            processes.remove(walls[1].process)
+            processes.append(walls[1].start())
+            time.sleep(8)
+            shared_timeline([3000, 3000], 15, "after a renderer crash")
+
+            # A pending manifest (a third item) activates on a shared boundary
+            # on both players and moves both onto the new grid together.
+            marks = [os.path.getsize(path) for path in logs]
+            _, loop = client.call("POST", f"/api/v1/playlists/{loop_id}/items", item(wall["id"], 2000),
+                                  expect=(200, 201))
+            client.call("POST", f"/api/v1/playlists/{loop_id}/publish",
+                        {"expectedDraftRevision": loop["data"]["draftRevision"]}, expect=(200, 201))
+            _, assignment = client.call("GET", f"/api/v1/screens/{screen_id}/playlist-assignment", expect=200)
+            grown = assignment["data"]["manifestVersion"]
+
+            def activated_on_boundary(path, mark):
+                with open(path, encoding="utf-8", errors="replace") as handle:
+                    handle.seek(mark)
+                    lines = [line for line in handle.read().splitlines() if "activation_started" in line]
+                return any(f"version={grown}" in line and "boundary=true" in line for line in lines)
+
+            wait_for(lambda: all(activated_on_boundary(path, mark) for path, mark in zip(logs, marks)),
+                     "the grown loop to activate on a shared boundary", timeout=180)
+            time.sleep(4)
+            shared_timeline([3000, 3000, 2000], 20, "after a pending manifest")
+            for wall_renderer in walls:
+                wall_renderer.stop()
+                processes.remove(wall_renderer.process)
+            fresh.send_signal(signal.SIGTERM)
+            assert fresh.wait(timeout=20) == 0
+            processes.remove(fresh)
+
         daemon.send_signal(signal.SIGTERM)
         assert daemon.wait(timeout=20) == 0, "tilecastd did not stop cleanly"
         processes.remove(daemon)
@@ -552,10 +689,11 @@ def main():
         wait_for(lambda: not os.path.exists(credential_path), "credential removal after revocation")
         assert tree(legacy) == before, "legacy state changed"
         print("PASS: import, identity gate, player contact, configuration, commands, "
-              + ("content, offline cache, " if args.renderer else "") + "fresh pairing, revocation")
+              + ("content, offline cache, " if args.renderer else "") + "fresh pairing, "
+              + ("synchronized group, " if args.renderer else "") + "revocation")
         return 0
     except Exception:
-        for name in ("server.log", "tilecastd.log", "fresh.log"):
+        for name in ("server.log", "tilecastd.log", "fresh.log", "renderer.log", "fresh-renderer.log"):
             path = os.path.join(work, name)
             if os.path.exists(path):
                 print(f"==== {name}", file=sys.stderr)
