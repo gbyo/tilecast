@@ -597,6 +597,7 @@ describe("renderPresentation (v13 declarative)", () => {
                 },
               },
             ],
+            // @ts-expect-error a server field the projection ignores
             cache: { usingCachedData: false, unavailable: false },
           },
         ],

@@ -1,12 +1,10 @@
 /**
  * Renderer playback policy — the decisions, with none of the DOM.
  *
- * The renderer scripts are plain global scripts (no module syntax) so they can
- * run in the sandboxed page directly; this file is another one, loaded first,
- * so `renderer.ts` and `synchronized-video.ts` call these helpers as ordinary
- * globals. Keeping the rules here means they are unit-testable without a DOM
- * and, more importantly, that there is exactly one place that decides who is
- * allowed to change the current playlist occurrence.
+ * Keeping the rules here means they are unit-testable without a DOM and, more
+ * importantly, that there is exactly one place that decides who is allowed to
+ * change the current playlist occurrence. The playback machines and the video
+ * surface call these helpers; nothing else re-implements them.
  */
 
 // ------------------------------------------------------- playback authority
@@ -22,15 +20,15 @@
 // An ungrouped presentation has no shared timeline, so the renderer keeps full
 // local authority and behaves exactly as before.
 
-type PlaybackAuthority = "local" | "shared";
+export type PlaybackAuthority = "local" | "shared";
 
 /** Why an item is reporting that it is done. */
-type CompletionSource =
+export type CompletionSource =
   "ended" | "duration-timer" | "end-offset" | "skip" | "failure";
 
-type CompletionOutcome = "ignore" | "restart" | "advance";
+export type CompletionOutcome = "ignore" | "restart" | "advance";
 
-function playbackAuthorityOf(
+export function playbackAuthorityOf(
   synchronized: boolean | undefined,
 ): PlaybackAuthority {
   return synchronized === true ? "shared" : "local";
@@ -44,7 +42,7 @@ function playbackAuthorityOf(
  * single-video playlist, restarting it twice). The first signal wins; every
  * later one is ignored until the next occurrence has genuinely started.
  */
-class ItemCompletion {
+export class ItemCompletion {
   private settled = false;
 
   constructor(
@@ -95,13 +93,13 @@ class ItemCompletion {
 // created for was replaced. Both identities have to match, not just the
 // generation: two items of the same presentation share a generation.
 
-interface PlaybackToken {
+export interface PlaybackToken {
   generation: number;
   /** Bumped every time the renderer mounts an item. */
   render: number;
 }
 
-function isCurrentPlayback(
+export function isCurrentPlayback(
   captured: PlaybackToken,
   current: PlaybackToken,
 ): boolean {
@@ -117,7 +115,7 @@ function isCurrentPlayback(
 // longer the active item the container is detached, and neither a pending timer
 // nor a media event on a detached element may keep the loop running.
 
-interface ZoneStep {
+export interface ZoneStep {
   /** The layout that owns the zone is still the current item. */
   alive: boolean;
   /** The zone has already shown something (so it should be on screen). */
@@ -126,7 +124,7 @@ interface ZoneStep {
   connected: boolean;
 }
 
-function zoneStepAllowed(step: ZoneStep): boolean {
+export function zoneStepAllowed(step: ZoneStep): boolean {
   if (!step.alive) {
     return false;
   }
@@ -142,13 +140,13 @@ function zoneStepAllowed(step: ZoneStep): boolean {
 // "plays five frames then jumps backward" artefact. In the middle band a small
 // playback-rate nudge converges invisibly. Only a genuinely large gap justifies
 // a seek, and a seek is not repeated while the previous one is still settling.
-const SYNC_IGNORE_DRIFT_MS = 80;
-const SYNC_RATE_DRIFT_MS = 250;
-const SYNC_SEEK_COOLDOWN_MS = 1_000;
-const SYNC_FAST_RATE = 1.02;
-const SYNC_SLOW_RATE = 0.98;
+export const SYNC_IGNORE_DRIFT_MS = 80;
+export const SYNC_RATE_DRIFT_MS = 250;
+export const SYNC_SEEK_COOLDOWN_MS = 1_000;
+export const SYNC_FAST_RATE = 1.02;
+export const SYNC_SLOW_RATE = 0.98;
 
-interface VideoSyncState {
+export interface VideoSyncState {
   /**
    * When the last corrective seek was issued, on a monotonic clock. A fresh
    * element has never seeked for correction — the one intentional seek that
@@ -158,7 +156,7 @@ interface VideoSyncState {
   lastSeekAtMs: number | null;
 }
 
-interface VideoSyncInput {
+export interface VideoSyncInput {
   /** Where the shared timeline says this video should be, in media time. */
   expectedMs: number;
   /** Where it actually is, in media time. */
@@ -168,13 +166,13 @@ interface VideoSyncInput {
   state: VideoSyncState;
 }
 
-interface VideoSyncCorrection {
+export interface VideoSyncCorrection {
   action: "hold" | "rate" | "seek";
   playbackRate: number;
   seekToMs: number | null;
 }
 
-function newVideoSyncState(): VideoSyncState {
+export function newVideoSyncState(): VideoSyncState {
   return { lastSeekAtMs: null };
 }
 
@@ -186,7 +184,9 @@ function newVideoSyncState(): VideoSyncState {
  * right offset. Seeking merely because the occurrence changed threw away those
  * first frames on every single boundary.
  */
-function videoSyncCorrection(input: VideoSyncInput): VideoSyncCorrection {
+export function videoSyncCorrection(
+  input: VideoSyncInput,
+): VideoSyncCorrection {
   const driftMs = input.expectedMs - input.actualMs;
   const absolute = Math.abs(driftMs);
   const rate = driftMs > 0 ? SYNC_FAST_RATE : SYNC_SLOW_RATE;
@@ -214,7 +214,10 @@ function videoSyncCorrection(input: VideoSyncInput): VideoSyncCorrection {
   };
 }
 
-function recordVideoSyncSeek(state: VideoSyncState, nowMs: number): void {
+export function recordVideoSyncSeek(
+  state: VideoSyncState,
+  nowMs: number,
+): void {
   state.lastSeekAtMs = nowMs;
 }
 
@@ -230,7 +233,7 @@ function recordVideoSyncSeek(state: VideoSyncState, nowMs: number): void {
 // place on one element, which is why the same playlist judders in a group and
 // not out of it.
 
-function transitionForSwap(
+export function transitionForSwap(
   configured: string | undefined,
   outgoingItemId: string | null,
   incomingItemId: string,
@@ -249,7 +252,7 @@ function transitionForSwap(
 // whatever happened to be in the back at that moment — including a layer that
 // had already been refilled for the next item.
 
-interface OutgoingLayerCleanup {
+export interface OutgoingLayerCleanup {
   /** The captured layer is now the visible one again (a fast swap back). */
   outgoingIsFront: boolean;
   /** Fill counter captured when the crossfade started. */
@@ -258,7 +261,7 @@ interface OutgoingLayerCleanup {
   currentFill: number;
 }
 
-function shouldClearOutgoingLayer(input: OutgoingLayerCleanup): boolean {
+export function shouldClearOutgoingLayer(input: OutgoingLayerCleanup): boolean {
   return !input.outgoingIsFront && input.capturedFill === input.currentFill;
 }
 
@@ -268,13 +271,12 @@ function shouldClearOutgoingLayer(input: OutgoingLayerCleanup): boolean {
  * it waits for the transition to finish; the incoming layer is fully opaque by
  * then, so nothing black can be exposed.
  */
-function shouldPauseOutgoingLayer(input: OutgoingLayerCleanup): boolean {
+export function shouldPauseOutgoingLayer(input: OutgoingLayerCleanup): boolean {
   return shouldClearOutgoingLayer(input);
 }
 
-// Exposed for unit tests only. In the player these are plain globals shared
-// between the renderer scripts, which have no module loader.
-(globalThis as unknown as Record<string, unknown>)["tilecastPlaybackPolicy"] = {
+/** The whole policy as one object, as the playback tests address it. */
+export const tilecastPlaybackPolicy = {
   ItemCompletion,
   isCurrentPlayback,
   newVideoSyncState,

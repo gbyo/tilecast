@@ -1,3 +1,4 @@
+import type { TilecastManifestPluginEntry } from "./countdown-bar-resolver";
 /**
  * Noise Meter: room level measurement for the Linux Player, kept out of the
  * renderer so the parts that decide *whether* a bar should be on screen can be
@@ -25,7 +26,7 @@
  * into this player. It is not dB, dBA, or SPL, and nothing here should present
  * it as a calibrated physical measurement.
  */
-interface TilecastNoiseMeterPlugin {
+export interface TilecastNoiseMeterPlugin {
   id: string;
   type: string;
   version: number;
@@ -51,7 +52,7 @@ interface TilecastNoiseMeterPlugin {
 }
 
 /** One applicable instance, with every value already clamped into range. */
-interface TilecastNoiseMeterSettings {
+export interface TilecastNoiseMeterSettings {
   id: string;
   name: string;
   /** Shown in place of the bar's own TOO LOUD label when non-empty. */
@@ -84,10 +85,10 @@ interface TilecastNoiseMeterSettings {
   scheduleTimezone: string;
 }
 
-type TilecastNoiseMeterState =
+export type TilecastNoiseMeterState =
   "normal" | "triggering" | "loud" | "recovering" | "unavailable";
 
-interface TilecastNoiseMeterReading {
+export interface TilecastNoiseMeterReading {
   state: TilecastNoiseMeterState;
   /** Whether the bar should hold the bottom strip right now. */
   visible: boolean;
@@ -95,17 +96,17 @@ interface TilecastNoiseMeterReading {
   level: number;
 }
 
-interface TilecastNoiseMeterMachine {
+export interface TilecastNoiseMeterMachine {
   update(level: number | null, nowMs: number): TilecastNoiseMeterReading;
   reset(): void;
 }
 
-interface TilecastNoiseMeterSmoother {
+export interface TilecastNoiseMeterSmoother {
   push(level: number, nowMs: number): number;
   reset(): void;
 }
 
-interface TilecastNoiseMeterCaptureOptions {
+export interface TilecastNoiseMeterCaptureOptions {
   /** Called with each window's RMS, or `null` when the input is unavailable. */
   onLevel(rms: number | null): void;
   onDiagnostic?(message: string, detail?: Record<string, unknown>): void;
@@ -117,7 +118,7 @@ interface TilecastNoiseMeterCaptureOptions {
   observeDeviceChange?(listener: () => void): () => void;
 }
 
-interface TilecastNoiseMeterCapture {
+export interface TilecastNoiseMeterCapture {
   start(): void;
   stop(): void;
   readonly active: boolean;
@@ -128,7 +129,7 @@ interface TilecastNoiseMeterCapture {
  * is ever written down: an average, a peak, three durations, and how many times
  * the meter tripped. No sample, no waveform, and nothing that could be replayed.
  */
-interface TilecastNoiseHistoryBucket {
+export interface TilecastNoiseHistoryBucket {
   /** Start of the fixed ten-second grid slot, as an ISO instant. */
   startedAt: string;
   averageLevel: number;
@@ -141,7 +142,7 @@ interface TilecastNoiseHistoryBucket {
   triggerCount: number;
 }
 
-interface TilecastNoiseHistoryAggregator {
+export interface TilecastNoiseHistoryAggregator {
   /**
    * Feed one live reading. Returns a bucket when this reading closed the
    * previous one, so the caller hands completed aggregates onward and keeps
@@ -157,10 +158,10 @@ interface TilecastNoiseHistoryAggregator {
   reset(): void;
 }
 
-type TilecastBottomStripOwner =
+export type TilecastBottomStripOwner =
   "alert_ticker" | "noise_meter" | "countdown_bar" | "none";
 
-interface TilecastNoiseMeterModule {
+export interface TilecastNoiseMeterModule {
   resolve(
     plugins: TilecastManifestPluginEntry[] | null | undefined,
   ): TilecastNoiseMeterSettings | null;
@@ -204,7 +205,7 @@ interface TilecastNoiseMeterModule {
   readonly historyBucketMs: number;
 }
 
-const tilecastNoiseMeter: TilecastNoiseMeterModule = (() => {
+export const tilecastNoiseMeter: TilecastNoiseMeterModule = (() => {
   // ~16 updates a second: fast enough to read as live movement, slow enough to
   // stay invisible on the low-end mini PCs these players run on.
   const SAMPLE_INTERVAL_MS = 60;
@@ -878,11 +879,3 @@ const tilecastNoiseMeter: TilecastNoiseMeterModule = (() => {
     historyBucketMs: HISTORY_BUCKET_MS,
   });
 })();
-
-// Exposed for unit tests only. In the player this is a plain global shared
-// between the renderer scripts, which have no module loader.
-(
-  globalThis as typeof globalThis & {
-    tilecastNoiseMeter: TilecastNoiseMeterModule;
-  }
-).tilecastNoiseMeter = tilecastNoiseMeter;

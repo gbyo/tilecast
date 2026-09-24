@@ -1,3 +1,4 @@
+import type { TilecastManifestPluginEntry } from "./countdown-bar-resolver";
 /**
  * Emergency Alerts ticker resolution: whether a live alert bar should be on
  * screen right now, and how fast its text should travel. Kept as a tiny global
@@ -9,7 +10,7 @@
  * is the expiry, so a player running on a cached manifest takes the bar down on
  * its own rather than keeping an alert on screen that may already be over.
  */
-interface TilecastAlertTickerPlugin {
+export interface TilecastAlertTickerPlugin {
   id: string;
   type: string;
   version: number;
@@ -26,7 +27,7 @@ interface TilecastAlertTickerPlugin {
   };
 }
 
-interface TilecastActiveAlertTicker {
+export interface TilecastActiveAlertTicker {
   id: string;
   message: string;
   severity: string;
@@ -38,7 +39,7 @@ interface TilecastActiveAlertTicker {
   expiresAt: string;
 }
 
-interface TilecastAlertTickerResolver {
+export interface TilecastAlertTickerResolver {
   resolve(
     plugins: TilecastManifestPluginEntry[] | null | undefined,
     localNow: Date,
@@ -46,7 +47,7 @@ interface TilecastAlertTickerResolver {
   ): TilecastActiveAlertTicker | null;
 }
 
-const tilecastAlertTicker: TilecastAlertTickerResolver = (() => {
+export const tilecastAlertTicker: TilecastAlertTickerResolver = (() => {
   // Named speeds rather than a pixel rate in the manifest: the same alert has to
   // read at the same pace on displays of different widths and densities.
   const RATES = { slow: 60, medium: 120, fast: 200 } as const;
@@ -91,11 +92,3 @@ const tilecastAlertTicker: TilecastAlertTickerResolver = (() => {
     },
   });
 })();
-
-// Exposed for unit tests only. In the player this is a plain global shared
-// between the renderer scripts, which have no module loader.
-(
-  globalThis as typeof globalThis & {
-    tilecastAlertTicker: TilecastAlertTickerResolver;
-  }
-).tilecastAlertTicker = tilecastAlertTicker;

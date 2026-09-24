@@ -1,6 +1,5 @@
+import { tilecastCountdownBar } from "./countdown-bar-resolver";
 import { describe, expect, it } from "vitest";
-import "./countdown-display";
-import "./countdown-bar-resolver";
 
 interface CountdownBarPlugin {
   id: string;
@@ -51,11 +50,7 @@ interface CountdownBarResolver {
   } | null;
 }
 
-const resolver = (
-  globalThis as typeof globalThis & {
-    tilecastCountdownBar: CountdownBarResolver;
-  }
-).tilecastCountdownBar;
+const resolver = tilecastCountdownBar;
 
 function weekly(
   overrides: Partial<CountdownBarPlugin["config"]> = {},

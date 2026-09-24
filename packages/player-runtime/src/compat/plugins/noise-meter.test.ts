@@ -1,5 +1,5 @@
+import { tilecastNoiseMeter } from "./noise-meter";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import "./noise-meter";
 
 interface NoiseMeterPlugin {
   id: string;
@@ -110,9 +110,7 @@ interface NoiseMeterModule {
   readonly sampleIntervalMs: number;
 }
 
-const meter = (
-  globalThis as typeof globalThis & { tilecastNoiseMeter: NoiseMeterModule }
-).tilecastNoiseMeter;
+const meter = tilecastNoiseMeter;
 
 function instance(
   overrides: Partial<NoiseMeterPlugin["config"]> = {},

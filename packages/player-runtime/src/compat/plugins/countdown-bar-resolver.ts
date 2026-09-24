@@ -1,3 +1,4 @@
+import { tilecastCountdownDisplay } from "./countdown-display";
 /**
  * Countdown Bar schedule resolution: which configured bar — if any — should be
  * on screen right now. Kept as a tiny global beside the countdown display
@@ -11,14 +12,14 @@
  * own configuration shape, so an entry belonging to another plugin — or to a
  * plugin this Player predates — travels through untouched.
  */
-interface TilecastManifestPluginEntry {
+export interface TilecastManifestPluginEntry {
   id: string;
   type: string;
   version: number;
   config: unknown;
 }
 
-interface TilecastCountdownBarPlugin {
+export interface TilecastCountdownBarPlugin {
   id: string;
   type: string;
   version: number;
@@ -45,7 +46,7 @@ interface TilecastCountdownBarPlugin {
   };
 }
 
-interface TilecastActiveCountdownBar {
+export interface TilecastActiveCountdownBar {
   id: string;
   message: string;
   value: string;
@@ -72,7 +73,7 @@ interface TilecastActiveCountdownBar {
   fontSizePx: number;
 }
 
-interface TilecastCountdownBarResolver {
+export interface TilecastCountdownBarResolver {
   resolve(
     plugins: TilecastManifestPluginEntry[] | null | undefined,
     localNow: Date,
@@ -80,7 +81,7 @@ interface TilecastCountdownBarResolver {
   ): TilecastActiveCountdownBar | null;
 }
 
-const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
+export const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
   const COMPLETION_DISPLAY_MS = 60_000;
   const CONFETTI_DISPLAY_MS = 12_000;
   const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -311,11 +312,3 @@ const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
     },
   });
 })();
-
-// Exposed for unit tests only. In the player this is a plain global shared
-// between the renderer scripts, which have no module loader.
-(
-  globalThis as typeof globalThis & {
-    tilecastCountdownBar: TilecastCountdownBarResolver;
-  }
-).tilecastCountdownBar = tilecastCountdownBar;

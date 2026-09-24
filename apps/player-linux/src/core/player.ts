@@ -62,7 +62,7 @@ import {
   isAvailableAt,
   nextAvailabilityTransition,
   type AvailabilityWindow,
-} from "./content-availability";
+} from "@tilecast/player-runtime/projection";
 import { cacheIdentityMatches, makeCacheIdentity } from "./cache-identity";
 import { downloadVerified } from "./download";
 import {
@@ -98,19 +98,22 @@ import {
 } from "./schedule";
 import { PlayerSocket } from "./socket";
 import { activeHoursFromConfig, evaluateActiveHours } from "./active-hours";
-import { renderWidget } from "./widget-render";
-import { renderLayout } from "./layout-render";
-import { resolveRegionalFormatting } from "./format";
+import { renderWidget } from "@tilecast/player-runtime/projection";
+import { renderLayout } from "@tilecast/player-runtime/projection";
+import { resolveRegionalFormatting } from "@tilecast/player-runtime/projection";
 import {
   fallbackDurationMsFor,
   resolvePlaybackItemSettings,
-} from "./playback-defaults";
+} from "@tilecast/player-runtime/projection";
 import type {
   ManifestDataSource,
   ManifestLayout,
   ManifestWidget,
-} from "./content-types";
-import type { LayoutRenderPayload, WidgetRenderPayload } from "./render-tree";
+} from "@tilecast/player-runtime/projection";
+import type {
+  LayoutRenderPayload,
+  WidgetRenderPayload,
+} from "@tilecast/player-runtime/projection";
 import type { StateStore } from "./storage";
 import {
   NOISE_HISTORY_BATCH,
@@ -167,7 +170,7 @@ const SELECTION_EVAL_INTERVAL_MS = 30_000;
 const SUPERVISOR_TICK_MS = 15_000;
 const DEFAULT_STATUS_INTERVAL_S = 60;
 
-export { resolvePlaybackItemSettings } from "./playback-defaults";
+export { resolvePlaybackItemSettings } from "@tilecast/player-runtime/projection";
 
 function spanViewport(manifest: Manifest): SpanViewport | undefined {
   const canvas = manifest.canvas;
