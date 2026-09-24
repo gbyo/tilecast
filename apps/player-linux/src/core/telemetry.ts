@@ -249,6 +249,7 @@ export class TelemetryReporter {
   private counters = emptyCounters();
   private timer: NodeJS.Timeout | null = null;
   private stopped = false;
+  private flushing = false;
   private lastFlushMs: number;
   /** Bounded so a long outage cannot grow the in-memory sample sets. */
   private static readonly MAX_SAMPLES = 600;
@@ -353,77 +354,82 @@ export class TelemetryReporter {
 
   /** Sends one sample and resets the counters. Failures drop the sample. */
   async flush(): Promise<void> {
-    if (this.stopped) return;
-    const now = this.now();
-    const elapsedSeconds = Math.max(
-      0,
-      Math.round((now - this.lastFlushMs) / 1000),
-    );
-    const counters = this.counters;
-    this.counters = emptyCounters();
-    this.lastFlushMs = now;
-
-    const drift = counters.syncDriftSamples.map(Math.abs);
-    const sample = {
-      observedAt: new Date(now).toISOString(),
-      ...this.gauges(),
-      interval: {
-        seconds: elapsedSeconds,
-        connectedSeconds: Math.round(counters.connectedSeconds),
-        disconnectedSeconds: Math.round(counters.disconnectedSeconds),
-        healthyPlaybackSeconds: Math.round(counters.healthyPlaybackSeconds),
-        stalledPlaybackSeconds: Math.round(counters.stalledPlaybackSeconds),
-        blackOutputSeconds: Math.round(counters.blackOutputSeconds),
-        droppedFrames: counters.droppedFrames,
-        frameChangeCount: counters.frameChangeCount,
-        downloadedBytes: counters.downloadedBytes,
-        cacheHits: counters.cacheHits,
-        cacheMisses: counters.cacheMisses,
-        consecutiveDownloadFailures: counters.consecutiveDownloadFailures,
-        averageMemoryBytes: mean(counters.memorySamples),
-        peakMemoryBytes: maximum(counters.memorySamples),
-        averageCpuPercent: mean(counters.cpuSamples),
-        thermalSeconds: counters.thermalSeconds,
-        syncDriftP50Ms: percentile(drift, 0.5),
-        syncDriftP95Ms: percentile(drift, 0.95),
-        syncDriftMaxMs: maximum(drift),
-
-        httpRequestCount: counters.httpRequestCount,
-        httpFailureCount: counters.httpFailureCount,
-        httpClientErrorCount: counters.httpClientErrorCount,
-        httpServerErrorCount: counters.httpServerErrorCount,
-        requestRetryCount: counters.requestRetryCount,
-        socketReconnectCount: counters.socketReconnectCount,
-        networkInterfaceChangeCount: counters.networkInterfaceChangeCount,
-        timeToFirstByteP95Ms: percentile(counters.timeToFirstByteSamples, 0.95),
-        averageThroughputBytesPerSecond: mean(counters.throughputSamples),
-
-        frameTimeP95Ms: percentile(counters.frameTimeSamples, 0.95),
-        frameTimeP99Ms: percentile(counters.frameTimeSamples, 0.99),
-        jankFrameCount: counters.jankFrameCount,
-        rendererCrashCount: counters.rendererCrashCount,
-        surfaceLostCount: counters.surfaceLostCount,
-        decoderInitFailureCount: counters.decoderInitFailureCount,
-
-        cacheEvictionCount: counters.cacheEvictionCount,
-        cacheEvictedBytes: counters.cacheEvictedBytes,
-        integrityFailureCount: counters.integrityFailureCount,
-        downloadResumeCount: counters.downloadResumeCount,
-        downloadFailureCount: counters.downloadFailureCount,
-
-        unexpectedRebootCount: counters.unexpectedRebootCount,
-        displaySleepCount: counters.displaySleepCount,
-        displayWakeCount: counters.displayWakeCount,
-      },
-    };
-
+    if (this.stopped || this.flushing) return;
+    this.flushing = true;
     try {
-      await this.client.postTelemetry(sample);
-    } catch {
-      // Telemetry is not proof of play. A dropped sample loses a minute of
-      // detail; buffering it would trade that for unbounded memory on a
-      // player that has been offline for hours.
-      log.debug("telemetry sample dropped");
+      const now = this.now();
+      const elapsedSeconds = Math.max(
+        0,
+        Math.round((now - this.lastFlushMs) / 1000),
+      );
+      const counters = this.counters;
+      this.counters = emptyCounters();
+      this.lastFlushMs = now;
+
+      const drift = counters.syncDriftSamples.map(Math.abs);
+      const sample = {
+        observedAt: new Date(now).toISOString(),
+        ...this.gauges(),
+        interval: {
+          seconds: elapsedSeconds,
+          connectedSeconds: Math.round(counters.connectedSeconds),
+          disconnectedSeconds: Math.round(counters.disconnectedSeconds),
+          healthyPlaybackSeconds: Math.round(counters.healthyPlaybackSeconds),
+          stalledPlaybackSeconds: Math.round(counters.stalledPlaybackSeconds),
+          blackOutputSeconds: Math.round(counters.blackOutputSeconds),
+          droppedFrames: counters.droppedFrames,
+          frameChangeCount: counters.frameChangeCount,
+          downloadedBytes: counters.downloadedBytes,
+          cacheHits: counters.cacheHits,
+          cacheMisses: counters.cacheMisses,
+          consecutiveDownloadFailures: counters.consecutiveDownloadFailures,
+          averageMemoryBytes: mean(counters.memorySamples),
+          peakMemoryBytes: maximum(counters.memorySamples),
+          averageCpuPercent: mean(counters.cpuSamples),
+          thermalSeconds: counters.thermalSeconds,
+          syncDriftP50Ms: percentile(drift, 0.5),
+          syncDriftP95Ms: percentile(drift, 0.95),
+          syncDriftMaxMs: maximum(drift),
+
+          httpRequestCount: counters.httpRequestCount,
+          httpFailureCount: counters.httpFailureCount,
+          httpClientErrorCount: counters.httpClientErrorCount,
+          httpServerErrorCount: counters.httpServerErrorCount,
+          requestRetryCount: counters.requestRetryCount,
+          socketReconnectCount: counters.socketReconnectCount,
+          networkInterfaceChangeCount: counters.networkInterfaceChangeCount,
+          timeToFirstByteP95Ms: percentile(counters.timeToFirstByteSamples, 0.95),
+          averageThroughputBytesPerSecond: mean(counters.throughputSamples),
+
+          frameTimeP95Ms: percentile(counters.frameTimeSamples, 0.95),
+          frameTimeP99Ms: percentile(counters.frameTimeSamples, 0.99),
+          jankFrameCount: counters.jankFrameCount,
+          rendererCrashCount: counters.rendererCrashCount,
+          surfaceLostCount: counters.surfaceLostCount,
+          decoderInitFailureCount: counters.decoderInitFailureCount,
+
+          cacheEvictionCount: counters.cacheEvictionCount,
+          cacheEvictedBytes: counters.cacheEvictedBytes,
+          integrityFailureCount: counters.integrityFailureCount,
+          downloadResumeCount: counters.downloadResumeCount,
+          downloadFailureCount: counters.downloadFailureCount,
+
+          unexpectedRebootCount: counters.unexpectedRebootCount,
+          displaySleepCount: counters.displaySleepCount,
+          displayWakeCount: counters.displayWakeCount,
+        },
+      };
+
+      try {
+        await this.client.postTelemetry(sample);
+      } catch {
+        // Telemetry is not proof of play. A dropped sample loses a minute of
+        // detail; buffering it would trade that for unbounded memory on a
+        // player that has been offline for hours.
+        log.debug("telemetry sample dropped");
+      }
+    } finally {
+      this.flushing = false;
     }
   }
 }
