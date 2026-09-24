@@ -29,7 +29,7 @@ Only the latest pending or approved pairing session for a player installation is
 
 ## Authenticated connection
 
-Player endpoints accept `Authorization: Bearer <device-credential>`. Dashboard cookies are never accepted. `/api/v1/player/socket` uses protocol version 1 and supports `player.hello`, `player.status`, `server.ping`, and `player.pong`. `/api/v1/player/heartbeat` is the lower-frequency fallback.
+Player endpoints accept `Authorization: Bearer <device-credential>`. Dashboard cookies are never accepted. `/api/v1/player/socket` uses protocol version 1 and supports `player.hello`, `player.status`, `server.ping`, and `player.pong`. The `server.ping` `timestamp` is RFC 3339 with sub-second precision (servers before this change sent whole seconds), so a player can sample its clock offset from it. `/api/v1/player/heartbeat` is the lower-frequency fallback.
 
 The same authenticated socket carries bounded binary `TCLS` version 1 frames
 only while Studio holds an ephemeral live-stream lease. The fixed header is
