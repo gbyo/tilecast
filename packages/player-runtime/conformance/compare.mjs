@@ -5,7 +5,8 @@
  *   node conformance/compare.mjs --a DIR/electron --b DIR/wpe --report DIR/report
  *
  * Semantic: every checkpoint's runtime state, evidence, playback errors and
- * presentation results must be identical. Visual: checkpoints marked visual
+ * presentation results must be identical (except that Layout zones finishing
+ * back to back may report in either order). Visual: checkpoints marked visual
  * are compared perceptually (pixelmatch, anti-aliasing tolerant) and fail
  * above a small mismatch budget, since two engines rasterize text and edges
  * slightly differently. Active video and remote web content are never
@@ -127,7 +128,26 @@ for (const name of names) {
       continue;
     }
     const project = (checkpoint, field) => {
-      if (!LEGACY) return checkpoint[field];
+      if (!LEGACY) {
+        if (field !== "evidence") return checkpoint[field];
+        // Each Layout zone reports independently (a render node on its first
+        // painted frame, an image on decode), so two zones finishing back to
+        // back may arrive in either order. Only within such a run is the
+        // order relaxed; its position among other evidence is still exact.
+        const zone = (e) => e.startsWith("layout-zone-rendered:");
+        const out = [];
+        let run = [];
+        for (const e of [...(checkpoint.evidence ?? []), null]) {
+          if (e !== null && zone(e)) {
+            run.push(e);
+            continue;
+          }
+          out.push(...run.sort());
+          run = [];
+          if (e !== null) out.push(e);
+        }
+        return out;
+      }
       if (field === "state") {
         // Only what the old DOM can say: whitespace between text nodes and
         // the new probe's item id are not behavior.
