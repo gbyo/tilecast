@@ -167,7 +167,7 @@
     },
     {
       "id": "public-holidays",
-      "version": 1,
+      "version": 2,
       "name": "Public Holidays",
       "description": "List a country's public holidays for a given year.",
       "category": "Live Information",
@@ -179,7 +179,6 @@
             "label": "Year",
             "control": "integer",
             "required": true,
-            "default": 2026,
             "minimum": 2000,
             "maximum": 2100
           },
@@ -190,15 +189,11 @@
             "control": "text",
             "required": true,
             "minLength": 2,
-            "maxLength": 2,
-            "default": "US"
+            "maxLength": 2
           }
         ]
       },
-      "defaultConfiguration": {
-        "year": 2026,
-        "countryCode": "US"
-      },
+      "defaultConfiguration": {},
       "outputSchema": {
         "kind": "records",
         "fields": [

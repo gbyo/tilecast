@@ -4,7 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type {
@@ -20,9 +20,19 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "../components/ui/toast";
 import { useFormatLocale } from "../i18n";
+import { initialDataSourceConfiguration } from "./dataSourceDefaults";
+import {
+  isISO4217CurrencyCode,
+  useOrganizationRegionalProfile,
+} from "../settings/regionalProfile";
 import { widgetSaveErrorMessage } from "./SourceEditors";
 import { DefinitionForm } from "./DefinitionForm";
-import { previewDatasetMaps, type PreviewDatasets } from "./previewRecords";
+import {
+  previewDatasetCurrencies,
+  previewDatasetMaps,
+  type PreviewDatasetCurrencies,
+  type PreviewDatasets,
+} from "./previewRecords";
 import { DeclarativePresentationPreview } from "./SourceEditors";
 import { PreviewTimeControl } from "./PreviewTimeControl";
 import {
@@ -54,7 +64,9 @@ export function GenericWidgetEditor({
   const { t } = useTranslation(["content", "common"]);
   const formatLocale = useFormatLocale();
   const queryClient = useQueryClient();
+  const regional = useOrganizationRegionalProfile();
   const previewRef = useRef<HTMLDivElement>(null);
+  const configurationTouched = useRef(Boolean(asset));
   const [name, setName] = useState(asset?.name ?? definition.name);
   const [description, setDescription] = useState(
     asset?.description ?? definition.description,
@@ -64,6 +76,20 @@ export function GenericWidgetEditor({
       asset?.widget?.configuration ??
       definition.defaultConfiguration,
   );
+  useEffect(() => {
+    if (
+      asset ||
+      definition.id !== "countdown" ||
+      !regional.ready ||
+      configurationTouched.current
+    ) {
+      return;
+    }
+    setConfiguration((current) => ({
+      ...current,
+      timezone: regional.timezone,
+    }));
+  }, [asset, definition.id, regional.ready, regional.timezone]);
   const [previewTime, setPreviewTime] =
     useState<PreviewTime>(initialPreviewTime);
   const managedDataSourceId = asset?.widget?.managedDataSourceId;
@@ -111,6 +137,13 @@ export function GenericWidgetEditor({
     (all, id, index) => ({
       ...all,
       ...previewDatasetMaps(id, sourcePreviews[index]?.data),
+    }),
+    {},
+  );
+  const previewCurrencies = dataSourceIds.reduce<PreviewDatasetCurrencies>(
+    (all, id, index) => ({
+      ...all,
+      ...previewDatasetCurrencies(id, sourcePreviews[index]?.data),
     }),
     {},
   );
@@ -186,6 +219,8 @@ export function GenericWidgetEditor({
               presentation={compiledPreview.data}
               source={primarySourcePreview}
               datasets={previewDatasets}
+              datasetCurrencies={previewCurrencies}
+              regional={regional}
               now={resolvePreviewNow(previewTime)}
               assetImageUrl={
                 typeof configuration.imageAssetId === "string" &&
@@ -203,7 +238,10 @@ export function GenericWidgetEditor({
       <DefinitionForm
         fields={definition.configurationSchema.fields}
         value={configuration}
-        onChange={setConfiguration}
+        onChange={(value) => {
+          configurationTouched.current = true;
+          setConfiguration(value);
+        }}
         readOnly={readOnly}
         csrf={csrf}
       />
@@ -260,13 +298,43 @@ export function GenericDataSourceEditor({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
+  const regional = useOrganizationRegionalProfile();
   const [name, setName] = useState(dataSource?.name ?? definition.name);
   const [description, setDescription] = useState(
     dataSource?.description ?? definition.description,
   );
   const [configuration, setConfiguration] = useState<Record<string, unknown>>(
-    dataSource?.configuration ?? definition.defaultConfiguration,
+    dataSource?.configuration ?? initialDataSourceConfiguration(definition),
   );
+  useEffect(() => {
+    if (
+      dataSource ||
+      definition.id !== "public-holidays" ||
+      !regional.ready ||
+      !regional.region
+    ) {
+      return;
+    }
+    setConfiguration((current) =>
+      typeof current.countryCode === "string" && current.countryCode.trim()
+        ? current
+        : { ...current, countryCode: regional.region },
+    );
+  }, [dataSource, definition.id, regional.ready, regional.region]);
+  const missingHolidayCountry =
+    definition.id === "public-holidays" &&
+    !(
+      typeof configuration.countryCode === "string" &&
+      configuration.countryCode.trim()
+    );
+  const missingMenuCurrency =
+    !dataSource &&
+    definition.id === "menu-items" &&
+    !isISO4217CurrencyCode(
+      typeof configuration.priceCurrency === "string"
+        ? configuration.priceCurrency
+        : "",
+    );
   const save = useMutation({
     mutationFn: () => {
       const input = {
@@ -302,7 +370,7 @@ export function GenericDataSourceEditor({
       setDetail={setDescription}
       readOnly={readOnly}
       pending={save.isPending}
-      saveDisabled={false}
+      saveDisabled={missingHolidayCountry || missingMenuCurrency}
       error={save.error}
       onClose={onClose}
       onSave={() => save.mutate()}

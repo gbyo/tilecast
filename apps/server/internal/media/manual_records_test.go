@@ -83,6 +83,48 @@ func TestManualRecordsHasNoBoundaryWithoutWindows(t *testing.T) {
 	}
 }
 
+func TestMenuItemCurrencyMetadataFlowsToTypedPreview(t *testing.T) {
+	definition, ok := contentdefs.MustLoad().DataSource("menu-items")
+	if !ok {
+		t.Fatal("menu-items definition is missing")
+	}
+	configuration := map[string]any{
+		"priceCurrency": "EUR",
+		"records":       []any{map[string]any{"title": "Soup", "price": 4.5}},
+	}
+	payload := manualRecordsPayload(definition, configuration, time.Now()).Payload
+	fields := payload.Datasets[0].Fields
+	for _, field := range fields {
+		if field.Key == "price" {
+			if field.Currency != "EUR" {
+				t.Fatalf("expected EUR field metadata, got %#v", field)
+			}
+			return
+		}
+	}
+	t.Fatal("price field is missing")
+}
+
+func TestMenuItemsRequireCurrencyForNewSourceButKeepLegacyConfigReadable(t *testing.T) {
+	definition, ok := contentdefs.MustLoad().DataSource("menu-items")
+	if !ok {
+		t.Fatal("menu-items definition is missing")
+	}
+	if err := validateDefinitionCurrencyMetadata(definition, map[string]any{"priceCurrency": ""}, nil); err == nil {
+		t.Fatal("new Menu Items source must declare a price currency")
+	}
+	if err := validateDefinitionCurrencyMetadata(definition, map[string]any{"priceCurrency": "EUR"}, nil); err != nil {
+		t.Fatalf("explicit EUR source should be accepted: %v", err)
+	}
+	if err := validateDefinitionCurrencyMetadata(
+		definition,
+		map[string]any{"priceCurrency": ""},
+		map[string]any{"priceCurrency": ""},
+	); err != nil {
+		t.Fatalf("legacy source without metadata should remain editable: %v", err)
+	}
+}
+
 func TestManualRecordsSortsByPriorityThenDate(t *testing.T) {
 	definition := announcementsDefinition(t)
 	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
