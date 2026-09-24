@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { Image as ImageIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { FormField, FormSchema } from "../api/types";
 import { Button } from "../components/ui/button";
 import { DateInput, DateTimeInput } from "../components/date-picker";
@@ -99,6 +100,7 @@ export function FormRenderer({
   imageHandlers,
   idPrefix,
 }: FormRendererProps) {
+  const { t } = useTranslation("forms");
   const generated = useId();
   const scope = idPrefix ?? generated;
   return (
@@ -127,7 +129,7 @@ export function FormRenderer({
           />
         ))}
         {schema.fields.length === 0 && (
-          <p className="form-renderer__empty">This form has no fields yet.</p>
+          <p className="form-renderer__empty">{t("renderer.empty")}</p>
         )}
       </div>
     </div>
@@ -380,6 +382,7 @@ function CharacterCount({
   value: string;
   maxLength: number;
 }) {
+  const { t } = useTranslation("forms");
   // Count code points, matching the length check in validateSubmission.
   const used = [...value].length;
   const remaining = maxLength - used;
@@ -389,8 +392,8 @@ function CharacterCount({
       className={`form-renderer__counter${remaining <= 0 ? " is-full" : ""}`}
     >
       {remaining <= 0
-        ? `Character limit reached (${maxLength})`
-        : `${remaining} of ${maxLength} characters left`}
+        ? t("renderer.charLimitReached", { max: maxLength })
+        : t("renderer.charsLeft", { remaining, max: maxLength })}
     </span>
   );
 }
@@ -414,6 +417,7 @@ function FieldControl({
   onChange?: (key: string, next: string | string[] | boolean) => void;
   imageHandlers?: ImageHandlers;
 }) {
+  const { t } = useTranslation("forms");
   const disabled = readOnly || !onChange;
   const emit = (next: string | string[] | boolean) =>
     onChange?.(field.key, next);
@@ -455,7 +459,7 @@ function FieldControl({
             aria-describedby={describedBy}
             aria-invalid={invalid ? true : undefined}
           >
-            <SelectValue placeholder="Select…" />
+            <SelectValue placeholder={t("renderer.selectPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
             {(field.options ?? []).map((option) => (
@@ -492,7 +496,7 @@ function FieldControl({
             disabled
           />
           <span className="form-renderer__image-note">
-            Image uploads are available when submitting.
+            {t("renderer.imageNoteSubmit")}
           </span>
         </div>
       );
@@ -570,6 +574,7 @@ function ImageField({
   onSelect: (fieldKey: string, file: File) => void;
   onRemove: (fieldKey: string) => void;
 }) {
+  const { t } = useTranslation("forms");
   const previewUrl = state?.pendingUrl ?? state?.contentUrl;
   const hasImage = Boolean(previewUrl);
   const attachmentState = state?.error
@@ -595,14 +600,14 @@ function ImageField({
           <AttachmentTitle>{state?.pendingName ?? label}</AttachmentTitle>
           <AttachmentDescription>
             {state?.error
-              ? "Image needs attention."
+              ? t("renderer.imageAttention")
               : state?.uploading
-                ? "Uploading…"
+                ? t("renderer.uploading")
                 : state?.pendingName
-                  ? "Uploads when you save."
+                  ? t("renderer.pendingUpload", { name: state.pendingName })
                   : hasImage
-                    ? "Image attached."
-                    : "No image provided."}
+                    ? t("renderer.imageAttached")
+                    : t("renderer.noImage")}
           </AttachmentDescription>
         </AttachmentContent>
         {!disabled && (
@@ -614,7 +619,7 @@ function ImageField({
                 disabled={state?.uploading}
                 onClick={() => onRemove(fieldKey)}
               >
-                Remove
+                {t("renderer.removeImage")}
               </AttachmentAction>
             )}
             <Button
@@ -623,14 +628,20 @@ function ImageField({
               render={<label />}
               disabled={state?.uploading}
             >
-              {hasImage ? "Replace" : "Choose"}
+              {hasImage
+                ? t("renderer.replaceImage")
+                : t("renderer.chooseImage")}
               <input
                 id={id}
                 type="file"
                 accept="image/*"
                 aria-describedby={describedBy}
                 aria-invalid={invalid ? true : undefined}
-                aria-label={hasImage ? "Replace " + label : "Choose " + label}
+                aria-label={
+                  hasImage
+                    ? t("renderer.replaceLabel", { label })
+                    : t("renderer.chooseLabel", { label })
+                }
                 className="visually-hidden"
                 disabled={state?.uploading}
                 onChange={(event) => {

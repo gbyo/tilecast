@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { translateKnown } from "../i18n";
 import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Field, FieldLabel } from "../components/ui/field";
@@ -62,20 +64,24 @@ type ComplianceReport = {
   dimension: string;
 };
 
+// Dimension structures hold translation keys, never rendered text. Labels are
+// resolved with t() at render so the panel follows language changes.
 const dimensions = [
-  { value: "screen", label: "Screen" },
-  { value: "location", label: "Location" },
-  { value: "group", label: "Group" },
-  { value: "presentation", label: "Presentation" },
-  { value: "schedule", label: "Schedule" },
-  { value: "date", label: "Date" },
-  { value: "reason", label: "Failure reason" },
-];
+  { value: "screen", labelKey: "compliance.dimensions.screen" },
+  { value: "location", labelKey: "compliance.dimensions.location" },
+  { value: "group", labelKey: "compliance.dimensions.group" },
+  { value: "presentation", labelKey: "compliance.dimensions.presentation" },
+  { value: "schedule", labelKey: "compliance.dimensions.schedule" },
+  { value: "date", labelKey: "compliance.dimensions.date" },
+  { value: "reason", labelKey: "compliance.dimensions.reason" },
+] as const;
 
 function formatPercent(value: number | null) {
   // Null means nothing measurable was expected. Showing 0% would say every
   // expected play was missed, when in fact none was expected.
-  return value == null ? "No data" : `${value.toFixed(1)}%`;
+  return value == null
+    ? translateKnown("activity:shared.noData", "No data")
+    : `${value.toFixed(1)}%`;
 }
 
 const emptyReport: ComplianceReport = {
@@ -110,6 +116,7 @@ function formatMinutes(milliseconds: number) {
  * that went missing.
  */
 export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
+  const { t } = useTranslation("activity");
   const [dimension, setDimension] = useState("screen");
   const params = activityParams(range, { dimension });
   const query = useQuery({
@@ -129,28 +136,29 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
   };
   const breakdown = data.breakdown;
 
+  const dimensionOptions = dimensions.map((item) => ({
+    value: item.value,
+    label: t(item.labelKey),
+  }));
+
   return (
     <section
       className="grid gap-3 rounded-xl border border-border p-4"
-      aria-label="Playback compliance"
+      aria-label={t("compliance.label")}
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid min-w-0 flex-1 gap-1">
-          <h3 className="text-base font-semibold">
-            Expected versus actual playback
-          </h3>
+          <h3 className="text-base font-semibold">{t("compliance.title")}</h3>
           <p className="text-sm text-muted-foreground">
-            Measured over {range.label} against what was expected at the time,
-            not against the current configuration. Takeover and intentionally
-            stopped time is excluded from the percentage and shown separately.
+            {t("compliance.description", { range: range.label })}
           </p>
         </div>
         <Field className="gap-1">
           <FieldLabel htmlFor="playback-compliance-dimension">
-            Break down by
+            {t("compliance.breakdownBy")}
           </FieldLabel>
           <Select
-            items={dimensions}
+            items={dimensionOptions}
             value={dimension}
             onValueChange={(next) => {
               if (next) setDimension(next);
@@ -160,12 +168,12 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
               id="playback-compliance-dimension"
               size="sm"
               className="w-40"
-              aria-label="Break down by"
+              aria-label={t("compliance.breakdownBy")}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {dimensions.map((item) => (
+              {dimensionOptions.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
                   {item.label}
                 </SelectItem>
@@ -177,54 +185,65 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <MetricTile
-          label="Playback compliance"
+          label={t("compliance.tiles.compliance")}
           value={formatPercent(data.compliancePercent)}
-          hint="Confirmed over measurable expected time"
+          hint={t("compliance.tiles.complianceHint")}
         />
         <MetricTile
-          label="Expected screen-minutes"
+          label={t("compliance.tiles.expected")}
           value={formatMinutes(data.measurableExpectedMs)}
-          hint={`${data.windows.toLocaleString()} windows`}
+          hint={t("compliance.tiles.windows", {
+            count: data.windows,
+            display: data.windows.toLocaleString(),
+          })}
         />
         <MetricTile
-          label="Confirmed screen-minutes"
+          label={t("compliance.tiles.confirmed")}
           value={formatMinutes(data.confirmedMs)}
-          hint="Player-confirmed root playback"
+          hint={t("compliance.tiles.confirmedHint")}
         />
         <MetricTile
-          label="Missed screen-minutes"
+          label={t("compliance.tiles.missed")}
           value={formatMinutes(data.missedMs)}
-          hint="Expected but not confirmed"
+          hint={t("compliance.tiles.missedHint")}
         />
         <MetricTile
-          label="Late starts"
+          label={t("compliance.tiles.lateStarts")}
           value={data.lateStarts}
-          hint={`${data.earlyEndings.toLocaleString()} ended early`}
+          hint={t("compliance.tiles.endedEarly", {
+            count: data.earlyEndings,
+            display: data.earlyEndings.toLocaleString(),
+          })}
         />
         <MetricTile
-          label="Never started"
+          label={t("compliance.tiles.neverStarted")}
           value={data.neverStarted}
-          hint={`${data.offlineMisses.toLocaleString()} while offline`}
+          hint={t("compliance.tiles.whileOffline", {
+            count: data.offlineMisses,
+            display: data.offlineMisses.toLocaleString(),
+          })}
         />
       </div>
 
       <div className="grid gap-1.5">
-        <h4 className="text-sm font-semibold">Excluded from the percentage</h4>
+        <h4 className="text-sm font-semibold">
+          {t("compliance.excludedTitle")}
+        </h4>
         <ul className="grid gap-1 text-sm">
           <li className="flex items-center justify-between gap-2">
-            <span>Takeover overrode normal playback</span>
+            <span>{t("compliance.takeoverExcluded")}</span>
             <span className="tabular-nums">
               {formatMinutes(data.takeoverOverriddenMs)}
             </span>
           </li>
           <li className="flex items-center justify-between gap-2">
-            <span>Playback intentionally stopped</span>
+            <span>{t("compliance.cancelledExcluded")}</span>
             <span className="tabular-nums">
               {formatMinutes(data.cancelledMs)}
             </span>
           </li>
           <li className="flex items-center justify-between gap-2">
-            <span>Too short to measure</span>
+            <span>{t("compliance.notMeasurable")}</span>
             <span className="tabular-nums">
               {formatMinutes(data.notMeasurableMs)}
             </span>
@@ -233,7 +252,7 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
       </div>
 
       {breakdown.length === 0 ? (
-        <EmptyState message="No expected playback was recorded in this range." />
+        <EmptyState message={t("compliance.empty")} />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
           <Table className="w-full min-w-[42rem] text-sm">
@@ -243,19 +262,19 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
                   {humanize(data.dimension)}
                 </TableHead>
                 <TableHead className="px-3 py-2 text-right font-medium">
-                  Compliance
+                  {t("compliance.table.compliance")}
                 </TableHead>
                 <TableHead className="px-3 py-2 text-right font-medium">
-                  Expected
+                  {t("compliance.table.expected")}
                 </TableHead>
                 <TableHead className="px-3 py-2 text-right font-medium">
-                  Confirmed
+                  {t("compliance.table.confirmed")}
                 </TableHead>
                 <TableHead className="px-3 py-2 text-right font-medium">
-                  Missed
+                  {t("compliance.table.missed")}
                 </TableHead>
                 <TableHead className="px-3 py-2 text-right font-medium">
-                  Main reason
+                  {t("compliance.table.mainReason")}
                 </TableHead>
               </TableRow>
             </TableHeader>

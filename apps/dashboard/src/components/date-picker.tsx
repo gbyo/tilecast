@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CalendarDays, X } from "lucide-react";
 import { cn } from "cn";
+import { es, ru } from "date-fns/locale";
 import { Button, buttonVariants } from "./ui/button";
 import { Calendar } from "./ui/calendar";
 import { Input } from "./ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { useFormatLocale } from "../i18n";
 
 function parseDatePart(value: string): Date | undefined {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -23,9 +26,17 @@ function formatDatePart(date: Date): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-function displayDate(value: string): string {
+function displayDate(value: string, locale: string): string {
   const date = parseDatePart(value);
-  return date ? date.toLocaleDateString() : "Pick a date";
+  return date ? date.toLocaleDateString(locale) : "";
+}
+
+/** Calendar month names follow the interface language, like the dates. */
+function calendarLocale(tag: string) {
+  const primary = tag.split("-")[0]?.toLowerCase();
+  if (primary === "es") return es;
+  if (primary === "ru") return ru;
+  return undefined;
 }
 
 /**
@@ -59,9 +70,12 @@ export function DateInput({
   required?: boolean;
   onBlur?: () => void;
 }) {
+  const { t } = useTranslation("schedules");
+  const formatLocale = useFormatLocale();
   const [open, setOpen] = useState(false);
   const minDate = min ? parseDatePart(min) : undefined;
   const maxDate = max ? parseDatePart(max) : undefined;
+  const formatted = displayDate(value, formatLocale);
   return (
     <span className="inline-flex items-center gap-1.5">
       <Popover open={open} onOpenChange={setOpen}>
@@ -89,13 +103,14 @@ export function DateInput({
             className="shrink-0 text-muted-foreground"
           />
           <span className={value ? "" : "text-muted-foreground"}>
-            {displayDate(value)}
+            {formatted || t("datePicker.pickDate")}
           </span>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-auto p-0">
           <Calendar
             mode="single"
             captionLayout="dropdown"
+            locale={calendarLocale(formatLocale)}
             selected={parseDatePart(value)}
             defaultMonth={
               parseDatePart(value) ??
@@ -120,7 +135,7 @@ export function DateInput({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Clear date"
+          aria-label={t("datePicker.clear")}
           onClick={() => onChange("")}
         >
           <X size={15} aria-hidden="true" />
@@ -165,6 +180,7 @@ export function DateTimeInput({
   required?: boolean;
   onBlur?: () => void;
 }) {
+  const { t } = useTranslation("schedules");
   const [datePart, rawTimePart] = value.split("T");
   const [minDate, minTime] = (min ?? "").split("T");
   const [maxDate, maxTime] = (max ?? "").split("T");
@@ -201,7 +217,7 @@ export function DateTimeInput({
       <Input
         id={`${id}-time`}
         type="time"
-        aria-label={timeLabel ?? (ariaLabel ? ariaLabel + " time" : "Time")}
+        aria-label={t("datePicker.time")}
         aria-describedby={describedBy}
         aria-invalid={invalid}
         aria-required={required}

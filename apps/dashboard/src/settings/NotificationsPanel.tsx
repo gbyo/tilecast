@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trans, useTranslation } from "react-i18next";
 import { Send, Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { NotificationCategory, NotificationWebhook } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -27,15 +29,25 @@ import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 
-const categoryLabels: Record<NotificationCategory, string> = {
-  incident: "Screen problems",
-  content_health: "Content problems",
-  backup: "Backups",
-  update: "Player updates",
+type CategoryLabelKey =
+  | "notifications.categories.incident"
+  | "notifications.categories.content_health"
+  | "notifications.categories.backup"
+  | "notifications.categories.update";
+
+// Category names hold translation keys, never rendered text. Labels resolve
+// with t() at render so the panel follows language changes.
+const categoryLabelKeys: Record<NotificationCategory, CategoryLabelKey> = {
+  incident: "notifications.categories.incident",
+  content_health: "notifications.categories.content_health",
+  backup: "notifications.categories.backup",
+  update: "notifications.categories.update",
 };
-const allCategories = Object.keys(categoryLabels) as NotificationCategory[];
+const allCategories = Object.keys(categoryLabelKeys) as NotificationCategory[];
 
 export function NotificationsPanel({ manageable }: { manageable: boolean }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -65,8 +77,9 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
   const sendTest = useMutation({
     mutationFn: () => api.sendTestNotification(csrf),
     onSuccess: (data) => {
-      setTestResult(`Test message sent to ${data.sentTo}.`);
-      toast.add({ title: "Test notification sent.", type: "success" });
+      const message = t("notifications.testSent", { sentTo: data.sentTo });
+      setTestResult(message);
+      toast.add({ title: message, type: "success" });
     },
     onError: () => setTestResult(undefined),
   });
@@ -77,7 +90,10 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
       categories: NotificationCategory[];
     }) => api.createNotificationWebhook(body, csrf),
     onSuccess: (data) => {
-      toast.add({ title: "Notification webhook created.", type: "success" });
+      toast.add({
+        title: t("notifications.toasts.webhookCreated"),
+        type: "success",
+      });
       setNewSecret(data.signingSecret);
       refresh();
     },
@@ -95,14 +111,20 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
         csrf,
       ),
     onSuccess: () => {
-      toast.add({ title: "Notification webhook updated.", type: "success" });
+      toast.add({
+        title: t("notifications.toasts.webhookUpdated"),
+        type: "success",
+      });
       refresh();
     },
   });
   const testWebhook = useMutation({
     mutationFn: (id: string) => api.testNotificationWebhook(id, csrf),
     onSuccess: () => {
-      toast.add({ title: "Webhook test sent.", type: "success" });
+      toast.add({
+        title: t("notifications.toasts.webhookTestSent"),
+        type: "success",
+      });
       refresh();
     },
   });
@@ -110,16 +132,19 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
   const removeWebhook = useMutation({
     mutationFn: async (webhook: NotificationWebhook) => {
       const ok = await confirm({
-        title: `Remove the webhook "${webhook.name}"?`,
-        body: "Its signing secret cannot be recovered, so the receiver will need a new one.",
-        action: "Remove",
+        title: t("notifications.removeTitle", { name: webhook.name }),
+        body: t("notifications.removeBody"),
+        action: t("notifications.remove"),
         destructive: true,
       });
       if (!ok) throw new CancelledAction();
       return api.deleteNotificationWebhook(webhook.id, csrf);
     },
     onSuccess: () => {
-      toast.add({ title: "Notification webhook removed.", type: "success" });
+      toast.add({
+        title: t("notifications.toasts.webhookRemoved"),
+        type: "success",
+      });
       refresh();
     },
   });
@@ -132,42 +157,47 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
       <div className="grid gap-4">
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Email delivery</h3>
+            <h3 className="text-base font-semibold">
+              {t("notifications.email.title")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Tilecast sends through an SMTP relay configured on the server, not
-              through an account in Studio.
+              {t("notifications.email.description")}
             </p>
           </header>
           {status.isLoading ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Spinner aria-hidden="true" />
-              Checking notification delivery…
+              {t("notifications.checking")}
             </p>
           ) : emailConfigured ? (
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <Badge variant="default">Available</Badge> An SMTP relay is
-              configured. Each account chooses what it receives under My Account
-              → Preferences.
+              <Badge variant="default">{t("notifications.available")}</Badge>{" "}
+              {t("notifications.configured")}
             </p>
           ) : (
             <Alert role="status">
               <AlertDescription>
-                <strong>Email is unavailable.</strong>{" "}
+                <strong>{t("notifications.emailUnavailable")}</strong>{" "}
                 {status.data?.emailUnavailableReason}
                 <br />
-                Set <code>TILECAST_SMTP_HOST</code> (and{" "}
-                <code>TILECAST_SMTP_PORT</code>,{" "}
-                <code>TILECAST_SMTP_USERNAME</code>,{" "}
-                <code>TILECAST_SMTP_PASSWORD</code> where the relay needs them),
-                then restart the server.
+                <Trans
+                  i18nKey="notifications.smtpSetup"
+                  ns="settings"
+                  // i18n-ignore: environment variable names are constants, not language text
+                  components={{
+                    smtpHost: <code>TILECAST_SMTP_HOST</code>, // i18n-ignore
+                    smtpPort: <code>TILECAST_SMTP_PORT</code>, // i18n-ignore
+                    smtpUsername: <code>TILECAST_SMTP_USERNAME</code>, // i18n-ignore
+                    smtpPassword: <code>TILECAST_SMTP_PASSWORD</code>, // i18n-ignore
+                  }}
+                />
               </AlertDescription>
             </Alert>
           )}
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-1">
               <p className="text-sm text-muted-foreground">
-                A test goes to your own notification address and ignores quiet
-                hours and subscriptions.
+                {t("notifications.testHint")}
               </p>
             </div>
             <RheaButton
@@ -179,7 +209,9 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
               }}
             >
               <Send size={15} aria-hidden="true" />{" "}
-              {sendTest.isPending ? "Sending…" : "Send a test to myself"}
+              {sendTest.isPending
+                ? t("notifications.sending")
+                : t("notifications.sendTest")}
             </RheaButton>
           </div>
           {testResult && (
@@ -219,24 +251,26 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
 
             <section className="grid gap-3 rounded-xl border border-border p-4">
               <header className="grid gap-1">
-                <h3 className="text-base font-semibold">Recent deliveries</h3>
+                <h3 className="text-base font-semibold">
+                  {t("notifications.deliveries.title")}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  What Tilecast tried to send, and what happened. A failure here
-                  means the message did not arrive.
+                  {t("notifications.deliveries.description")}
                 </p>
               </header>
               {deliveries.isLoading ? (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Spinner aria-hidden="true" />
-                  Loading deliveries…
+                  {t("notifications.loadingDeliveries")}
                 </p>
               ) : !deliveries.data?.length ? (
                 <Empty>
                   <EmptyHeader>
-                    <EmptyTitle>No deliveries</EmptyTitle>
+                    <EmptyTitle>
+                      {t("notifications.deliveriesEmpty")}
+                    </EmptyTitle>
                     <EmptyDescription>
-                      Nothing has been sent yet. Deliveries appear here when a
-                      condition is reported.
+                      {t("notifications.deliveriesEmptyHint")}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -252,14 +286,16 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
                           {delivery.subject || delivery.eventKey}
                         </strong>
                         <small className="text-xs text-muted-foreground">
-                          {formatDate(delivery.createdAt)} · {delivery.channel}{" "}
-                          · {delivery.target}
+                          {formatDate(delivery.createdAt, locale)} ·{" "}
+                          {delivery.channel} · {delivery.target}
                         </small>
                       </span>
                       <span className="text-sm text-muted-foreground">
                         {delivery.status}
                         {delivery.attempts > 1
-                          ? ` after ${delivery.attempts} attempts`
+                          ? t("notifications.afterAttempts", {
+                              count: delivery.attempts,
+                            })
                           : ""}
                         {delivery.lastError ? ` — ${delivery.lastError}` : ""}
                       </span>
@@ -306,6 +342,8 @@ function WebhookSection({
   onTest: (id: string) => void;
   onRemove: (webhook: NotificationWebhook) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [categories, setCategories] = useState<NotificationCategory[]>([]);
@@ -313,10 +351,11 @@ function WebhookSection({
   return (
     <section className="grid gap-3 rounded-xl border border-border p-4">
       <header className="grid gap-1">
-        <h3 className="text-base font-semibold">Webhooks</h3>
+        <h3 className="text-base font-semibold">
+          {t("notifications.webhooks.title")}
+        </h3>
         <p className="text-sm text-muted-foreground">
-          Tilecast posts signed JSON to a URL you control. Use a relay to reach
-          a chat service; Tilecast has no per-service integrations.
+          {t("notifications.webhooks.description")}
         </p>
       </header>
 
@@ -324,22 +363,35 @@ function WebhookSection({
         <Alert role="status">
           <AlertDescription className="grid gap-2">
             <span>
-              <strong>Copy this signing secret now.</strong> Tilecast does not
-              show it again, and there is no way to read it back.
+              <Trans
+                i18nKey="notifications.secretNotice"
+                ns="settings"
+                components={{ strong: <strong /> }}
+              />
             </span>
             <pre className="overflow-x-auto rounded-xl border border-border bg-muted p-3 font-mono text-xs break-all">
               {newSecret}
             </pre>
             <span>
-              Verify a request by computing{" "}
-              <code>HMAC-SHA256(secret, timestamp + "." + body)</code> and
-              comparing it with the <code>X-Tilecast-Signature</code> header.
-              Reject a request whose <code>X-Tilecast-Timestamp</code> is not
-              recent.
+              <Trans
+                i18nKey="notifications.verifyHint"
+                ns="settings"
+                components={{
+                  // i18n-ignore: signature formula and header names are constants, not language text
+                  hmac: (
+                    <code>
+                      {/* i18n-ignore */}
+                      HMAC-SHA256(secret, timestamp + &quot;.&quot; + body)
+                    </code>
+                  ),
+                  sigHeader: <code>X-Tilecast-Signature</code>, // i18n-ignore
+                  tsHeader: <code>X-Tilecast-Timestamp</code>, // i18n-ignore
+                }}
+              />
             </span>
             <div>
               <RheaButton variant="ghost" onClick={onDismissSecret}>
-                I have copied it
+                {t("integrations.copied")}
               </RheaButton>
             </div>
           </AlertDescription>
@@ -349,13 +401,15 @@ function WebhookSection({
       {loading ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner aria-hidden="true" />
-          Loading webhooks…
+          {t("notifications.loadingWebhooks")}
         </p>
       ) : !webhooks.length ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>No webhooks</EmptyTitle>
-            <EmptyDescription>No webhooks are configured.</EmptyDescription>
+            <EmptyTitle>{t("notifications.webhooksEmpty")}</EmptyTitle>
+            <EmptyDescription>
+              {t("notifications.webhooksEmptyHint")}
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -374,37 +428,49 @@ function WebhookSection({
                 </span>
                 <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Badge variant={webhook.enabled ? "default" : "secondary"}>
-                    {webhook.enabled ? "Enabled" : "Disabled"}
+                    {webhook.enabled
+                      ? t("enumValues.enabled")
+                      : t("enumValues.disabled")}
                   </Badge>
                   {" · "}
                   {webhook.categories.length
                     ? webhook.categories
-                        .map((category) => categoryLabels[category])
+                        .map((category) => t(categoryLabelKeys[category]))
                         .join(", ")
-                    : "All categories"}
+                    : t("notifications.allCategories")}
                   {webhook.lastSuccessAt
-                    ? ` · Last delivered ${formatDate(webhook.lastSuccessAt)}`
-                    : " · Never delivered"}
+                    ? t("notifications.lastDelivered", {
+                        date: formatDate(webhook.lastSuccessAt, locale),
+                      })
+                    : t("notifications.neverDelivered")}
                 </span>
                 {webhook.lastError && (
                   <span className="text-xs text-muted-foreground">
-                    Last error: {webhook.lastError}
+                    {t("notifications.lastError", {
+                      error: webhook.lastError,
+                    })}
                   </span>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <RheaButton variant="ghost" onClick={() => onTest(webhook.id)}>
-                  <Send size={15} aria-hidden="true" /> Test
+                  <Send size={15} aria-hidden="true" />{" "}
+                  {t("notifications.test")}
                 </RheaButton>
                 <RheaButton variant="ghost" onClick={() => onToggle(webhook)}>
-                  {webhook.enabled ? "Disable" : "Enable"}
+                  {webhook.enabled
+                    ? t("notifications.disable")
+                    : t("notifications.enable")}
                 </RheaButton>
                 <RheaButton
                   variant="destructive"
                   onClick={() => onRemove(webhook)}
-                  aria-label={`Remove ${webhook.name}`}
+                  aria-label={t("notifications.removeWebhook", {
+                    name: webhook.name,
+                  })}
                 >
-                  <Trash2 size={15} aria-hidden="true" /> Remove
+                  <Trash2 size={15} aria-hidden="true" />{" "}
+                  {t("notifications.remove")}
                 </RheaButton>
               </div>
             </article>
@@ -435,10 +501,10 @@ function WebhookSection({
       >
         <Field className="gap-3 sm:grid sm:grid-cols-2 sm:items-start">
           <FieldContent>
-            <FieldLabel htmlFor="webhook-name">Name</FieldLabel>
-            <FieldDescription>
-              How this receiver is identified in the delivery log.
-            </FieldDescription>
+            <FieldLabel htmlFor="webhook-name">
+              {t("notifications.form.name")}
+            </FieldLabel>
+            <FieldDescription>{t("notifications.form.nameHint")}</FieldDescription>
           </FieldContent>
           <Input
             id="webhook-name"
@@ -450,10 +516,10 @@ function WebhookSection({
         </Field>
         <Field className="gap-3 sm:grid sm:grid-cols-2 sm:items-start">
           <FieldContent>
-            <FieldLabel htmlFor="webhook-url">URL</FieldLabel>
-            <FieldDescription>
-              HTTPS is required unless the receiver is on the local network.
-            </FieldDescription>
+            <FieldLabel htmlFor="webhook-url">
+              {t("notifications.form.url")}
+            </FieldLabel>
+            <FieldDescription>{t("notifications.form.urlHint")}</FieldDescription>
           </FieldContent>
           <Input
             id="webhook-url"
@@ -465,11 +531,9 @@ function WebhookSection({
         </Field>
         <FieldSet className="grid gap-2">
           <FieldLegend variant="label" className="mb-0">
-            Categories
+            {t("notifications.form.categories")}
           </FieldLegend>
-          <FieldDescription>
-            Select none to receive every category.
-          </FieldDescription>
+          <FieldDescription>{t("notifications.form.categoriesHint")}</FieldDescription>
           <div className="grid content-start gap-2">
             {allCategories.map((category) => (
               <Field
@@ -492,7 +556,7 @@ function WebhookSection({
                   htmlFor={"webhook-category-" + category}
                   className="font-normal"
                 >
-                  {categoryLabels[category]}
+                  {t(categoryLabelKeys[category])}
                 </FieldLabel>
               </Field>
             ))}
@@ -505,7 +569,9 @@ function WebhookSection({
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
           <RheaButton variant="default" type="submit" disabled={creating}>
-            {creating ? "Adding…" : "Add webhook"}
+            {creating
+              ? t("notifications.form.adding")
+              : t("notifications.form.add")}
           </RheaButton>
         </div>
       </form>
@@ -515,6 +581,6 @@ function WebhookSection({
 
 class CancelledAction extends Error {}
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleString();
+function formatDate(value: string, locale: string) {
+  return new Date(value).toLocaleString(locale);
 }

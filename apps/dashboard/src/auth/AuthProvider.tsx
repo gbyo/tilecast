@@ -5,6 +5,7 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type {
   AuthStatus,
@@ -65,6 +66,10 @@ function isChallenge(
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
+  // The provider builds the only user-visible errors in this file (an
+  // expired challenge, a missing passkey) at call time, so they translate
+  // here; everything the server says is rendered by the pages untouched.
+  const { t } = useTranslation(["auth"]);
   const [challenge, setChallenge] = useState<MFAChallenge | undefined>();
   const query = useQuery({
     queryKey: authKey,
@@ -99,7 +104,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   });
   const verifyMutation = useMutation({
     mutationFn: (code: string) => {
-      if (!challenge) throw new Error("This sign-in attempt has expired.");
+      if (!challenge) throw new Error(t("errors.challengeExpired"));
       return api.verifyMfa(challenge.challengeToken, code);
     },
     onSuccess: setSession,
@@ -108,12 +113,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   // between two requests, so it cannot be split across React state.
   const passkeyChallengeMutation = useMutation({
     mutationFn: async () => {
-      if (!challenge) throw new Error("This sign-in attempt has expired.");
+      if (!challenge) throw new Error(t("errors.challengeExpired"));
       const ceremony = await api.mfaPasskeyOptions(challenge.challengeToken);
       const credential = (await navigator.credentials.get({
         publicKey: toRequestOptions(ceremony.options),
       })) as PublicKeyCredential | null;
-      if (!credential) throw new Error("No passkey was provided.");
+      if (!credential) throw new Error(t("errors.noPasskeyProvided"));
       return api.passkeyLogin(
         ceremony.challengeToken,
         serializeAssertion(credential),
@@ -132,7 +137,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       publicKey: toRequestOptions(ceremony.options),
       ...(signal ? { mediation: "conditional" as const, signal } : {}),
     })) as PublicKeyCredential | null;
-    if (!credential) throw new Error("No passkey was provided.");
+    if (!credential) throw new Error(t("errors.noPasskeyProvided"));
     try {
       return await api.passkeyLogin(
         ceremony.challengeToken,

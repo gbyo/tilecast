@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { ContentHealthReport } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -23,6 +24,7 @@ import {
 // screen look wrong when nothing is reported as broken? A board showing last
 // week's menu is online, playing, and compliant.
 export function ContentHealthTab() {
+  const { t } = useTranslation("activity");
   const report = useQuery({
     queryKey: ["content-health"],
     queryFn: api.contentHealth,
@@ -30,12 +32,14 @@ export function ContentHealthTab() {
   });
 
   if (report.isLoading)
-    return <div className="table-loading">Checking content health…</div>;
+    return <div className="table-loading">{t("contentHealth.loading")}</div>;
   if (report.error)
     return (
       <Alert variant="destructive">
         <AlertDescription>
-          Content health could not be loaded. {report.error.message}
+          {t("contentHealth.loadError", {
+            message: report.error.message,
+          })}
         </AlertDescription>
       </Alert>
     );
@@ -51,12 +55,16 @@ export function ContentHealthTab() {
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>Nothing needs attention.</EmptyTitle>
+          <EmptyTitle>{t("contentHealth.healthyTitle")}</EmptyTitle>
           <EmptyDescription>
-            Every Data Source has refreshed within the last{" "}
-            {data.thresholds.staleSourceHours} hours, every assigned playlist
-            has content available, and no media expires in the next{" "}
-            {data.thresholds.expiringMediaDays} days.
+            {t("contentHealth.healthyDescription", {
+              hours: t("contentHealth.hours", {
+                count: data.thresholds.staleSourceHours,
+              }),
+              days: t("contentHealth.days", {
+                count: data.thresholds.expiringMediaDays,
+              }),
+            })}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -67,11 +75,8 @@ export function ContentHealthTab() {
       {data.emptyPlaylists.length > 0 && (
         <section className="settings-subsection">
           <header>
-            <h3>Playlists with nothing to play</h3>
-            <p>
-              These are assigned to a screen. Everything in them has expired, is
-              not available yet, or was removed.
-            </p>
+            <h3>{t("contentHealth.emptyPlaylistsTitle")}</h3>
+            <p>{t("contentHealth.emptyPlaylistsHint")}</p>
           </header>
           <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.emptyPlaylists.map((playlist) => (
@@ -83,13 +88,15 @@ export function ContentHealthTab() {
                     </Link>
                   </ItemTitle>
                   <ItemDescription>
-                    {playlist.screenCount === 1
-                      ? "1 screen"
-                      : `${playlist.screenCount} screens`}
+                    {t("contentHealth.screens", {
+                      count: playlist.screenCount,
+                    })}
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
-                  <Badge variant="destructive">Nothing available</Badge>
+                  <Badge variant="destructive">
+                    {t("contentHealth.nothingAvailable")}
+                  </Badge>
                 </ItemActions>
               </Item>
             ))}
@@ -100,11 +107,13 @@ export function ContentHealthTab() {
       {data.staleSources.length > 0 && (
         <section className="settings-subsection">
           <header>
-            <h3>Data Sources that are not refreshing</h3>
+            <h3>{t("contentHealth.staleTitle")}</h3>
             <p>
-              Screens keep showing the cached copy, so they look correct while
-              the data ages. Stale after {data.thresholds.staleSourceHours}{" "}
-              hours.
+              {t("contentHealth.staleHint", {
+                hours: t("contentHealth.hoursAfter", {
+                  count: data.thresholds.staleSourceHours,
+                }),
+              })}
             </p>
           </header>
           <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
@@ -117,16 +126,20 @@ export function ContentHealthTab() {
                     </Link>
                   </ItemTitle>
                   <ItemDescription>
-                    {source.provider} · last updated{" "}
-                    {source.lastSuccessAt
-                      ? new Date(source.lastSuccessAt).toLocaleString()
-                      : "never"}
+                    {t("contentHealth.sourceUpdated", {
+                      provider: source.provider,
+                      when: source.lastSuccessAt
+                        ? new Date(source.lastSuccessAt).toLocaleString(
+                            formatLocale,
+                          )
+                        : t("contentHealth.never"),
+                    })}
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions className="text-sm text-muted-foreground">
                   {source.errorCode
-                    ? `Last error: ${source.errorCode}`
-                    : "No successful refresh"}
+                    ? t("contentHealth.lastError", { code: source.errorCode })
+                    : t("contentHealth.noRefresh")}
                 </ItemActions>
               </Item>
             ))}
@@ -137,11 +150,8 @@ export function ContentHealthTab() {
       {data.expiringAssets.length > 0 && (
         <section className="settings-subsection">
           <header>
-            <h3>Media expiring soon</h3>
-            <p>
-              Not a fault yet. Media stops playing at its expiry, and a playlist
-              that loses its last item stops having anything to show.
-            </p>
+            <h3>{t("contentHealth.expiringTitle")}</h3>
+            <p>{t("contentHealth.expiringHint")}</p>
           </header>
           <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.expiringAssets.map((asset) => (
@@ -149,12 +159,18 @@ export function ContentHealthTab() {
                 <ItemContent>
                   <ItemTitle>{asset.name}</ItemTitle>
                   <ItemDescription>
-                    Expires {new Date(asset.expiresAt).toLocaleString()}
+                    {t("contentHealth.expiresAt", {
+                      when: new Date(asset.expiresAt).toLocaleString(
+                        formatLocale,
+                      ),
+                    })}
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <Badge variant={asset.inUse ? "secondary" : "outline"}>
-                    {asset.inUse ? "In a playlist" : "Not in a playlist"}
+                    {asset.inUse
+                      ? t("contentHealth.inPlaylist")
+                      : t("contentHealth.notInPlaylist")}
                   </Badge>
                 </ItemActions>
               </Item>
@@ -166,11 +182,8 @@ export function ContentHealthTab() {
       {data.unassignedScreens.length > 0 && (
         <section className="settings-subsection">
           <header>
-            <h3>Screens with nothing assigned</h3>
-            <p>
-              These show the no-content message. That is a setup state, not a
-              fault, so it does not raise an incident.
-            </p>
+            <h3>{t("contentHealth.unassignedTitle")}</h3>
+            <p>{t("contentHealth.unassignedHint")}</p>
           </header>
           <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
             {data.unassignedScreens.map((screen) => (
@@ -179,10 +192,10 @@ export function ContentHealthTab() {
                   <ItemTitle>
                     <Link to={`/screens/${screen.id}`}>{screen.name}</Link>
                   </ItemTitle>
-                  <ItemDescription>No playlist assigned</ItemDescription>
+                  <ItemDescription>{t("contentHealth.noPlaylist")}</ItemDescription>
                 </ItemContent>
                 <ItemActions>
-                  <Badge variant="outline">Setup</Badge>
+                  <Badge variant="outline">{t("contentHealth.setup")}</Badge>
                 </ItemActions>
               </Item>
             ))}

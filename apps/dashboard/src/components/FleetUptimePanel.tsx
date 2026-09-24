@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { Trans, useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import { translateKnown } from "../i18n";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChevronDown,
@@ -41,24 +44,36 @@ import {
   CollapsibleTrigger,
 } from "./ui/collapsible";
 
-const windows: { key: UptimeWindow; label: string }[] = [
-  { key: "24h", label: "24 hours" },
-  { key: "7d", label: "7 days" },
-  { key: "30d", label: "30 days" },
+// Window and state structures hold translation keys, never rendered text.
+// Labels are resolved with t() at render so the panel follows language
+// changes.
+const windows: {
+  key: UptimeWindow;
+  labelKey: "uptime.windows.24h" | "uptime.windows.7d" | "uptime.windows.30d";
+}[] = [
+  { key: "24h", labelKey: "uptime.windows.24h" },
+  { key: "7d", labelKey: "uptime.windows.7d" },
+  { key: "30d", labelKey: "uptime.windows.30d" },
 ];
 
-const chartConfig = {
-  up: { label: "Up", color: "var(--color-emerald-600)" },
-  impaired: { label: "Impaired", color: "var(--color-amber-500)" },
-  down: { label: "Down", color: "var(--color-red-600)" },
-  unknown: { label: "No data", color: "var(--color-muted)" },
-} satisfies ChartConfig;
+const chartColors = {
+  up: "var(--color-emerald-600)",
+  impaired: "var(--color-amber-500)",
+  down: "var(--color-red-600)",
+  unknown: "var(--color-muted)",
+} as const;
 
-const stateLabels: Record<UptimeState, string> = {
-  up: "Up",
-  impaired: "Impaired",
-  down: "Down",
-  unknown: "No data",
+const stateLabelKeys: Record<
+  UptimeState,
+  | "uptime.states.up"
+  | "uptime.states.impaired"
+  | "uptime.states.down"
+  | "uptime.states.unknown"
+> = {
+  up: "uptime.states.up",
+  impaired: "uptime.states.impaired",
+  down: "uptime.states.down",
+  unknown: "uptime.states.unknown",
 };
 
 const stateClass: Record<UptimeState, string> = {
@@ -69,10 +84,11 @@ const stateClass: Record<UptimeState, string> = {
 };
 
 export function FleetUptimePanel({
-  description = "Measured player time spent connected and playing.",
+  description,
 }: {
   description?: string;
 } = {}) {
+  const { t } = useTranslation("activity");
   const [activeWindow, setActiveWindow] = useState<UptimeWindow>("24h");
   const query = useQuery({
     queryKey: ["fleet-uptime", activeWindow],
@@ -89,9 +105,11 @@ export function FleetUptimePanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 id="uptime-heading" className="text-base font-semibold">
-            Fleet health
+            {t("uptime.title")}
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {description ?? t("uptime.defaultDescription")}
+          </p>
         </div>
         <ToggleGroup
           multiple={false}
@@ -102,7 +120,7 @@ export function FleetUptimePanel({
               setActiveWindow(selected);
             }
           }}
-          aria-label="Uptime window"
+          aria-label={t("uptime.windowLabel")}
           variant="outline"
           size="sm"
           spacing={0}
@@ -111,7 +129,7 @@ export function FleetUptimePanel({
             <ToggleGroupItem
               key={option.key}
               value={option.key}
-              aria-label={option.label}
+              aria-label={t(option.labelKey)}
             >
               {option.key}
             </ToggleGroupItem>
@@ -120,44 +138,40 @@ export function FleetUptimePanel({
       </div>
 
       {query.isLoading ? (
-        <div className="space-y-3" aria-label="Loading fleet health">
+        <div className="space-y-3" aria-label={t("uptime.loading")}>
           <Skeleton className="h-8 w-32" />
           <Skeleton className="h-48 w-full rounded-xl" />
         </div>
       ) : query.isError ? (
         <Alert variant="destructive">
           <CircleAlert aria-hidden="true" />
-          <AlertTitle>Uptime could not be loaded</AlertTitle>
-          <AlertDescription>
-            Refresh the page or check the Tilecast server connection.
-          </AlertDescription>
+          <AlertTitle>{t("uptime.loadFailed")}</AlertTitle>
+          <AlertDescription>{t("shared.refreshHint")}</AlertDescription>
         </Alert>
       ) : !report || report.screensTracked === 0 ? (
         <Empty className="border-0 py-5">
           <EmptyHeader>
-            <EmptyTitle>No screens to measure</EmptyTitle>
             <EmptyDescription>
-              Pair a player to start recording its connection and playback
-              state.
+              <Trans
+                i18nKey="uptime.emptyState"
+                ns="activity"
+                components={{
+                  pairLink: (
+                    <Link
+                      className="underline underline-offset-4"
+                      to="/screens/pair"
+                    />
+                  ),
+                }}
+              />
             </EmptyDescription>
           </EmptyHeader>
-          <EmptyContent>
-            <Link
-              className={buttonVariants({ variant: "secondary", size: "sm" })}
-              to="/screens/pair"
-            >
-              Pair a screen
-            </Link>
-          </EmptyContent>
         </Empty>
       ) : report.uptimePercent === null ? (
         <Empty className="border-0 py-5">
           <EmptyHeader>
-            <EmptyTitle>No player state recorded yet</EmptyTitle>
-            <EmptyDescription>
-              Uptime appears once paired players report connection and playback
-              state for this window.
-            </EmptyDescription>
+            <EmptyTitle>{t("uptime.noStateTitle")}</EmptyTitle>
+            <EmptyDescription>{t("uptime.noStateHint")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -168,7 +182,20 @@ export function FleetUptimePanel({
 }
 
 function UptimeBody({ report }: { report: UptimeReport }) {
+  const { t } = useTranslation("activity");
   const [screensOpen, setScreensOpen] = useState(false);
+  const chartConfig = {
+    up: { label: t("uptime.states.up"), color: chartColors.up },
+    impaired: {
+      label: t("uptime.states.impaired"),
+      color: chartColors.impaired,
+    },
+    down: { label: t("uptime.states.down"), color: chartColors.down },
+    unknown: {
+      label: t("uptime.states.unknown"),
+      color: chartColors.unknown,
+    },
+  } satisfies ChartConfig;
   const chartData = report.buckets.map((bucket) => ({
     ...bucket,
     tick: bucket.start,
@@ -182,19 +209,25 @@ function UptimeBody({ report }: { report: UptimeReport }) {
             {formatPercent(report.uptimePercent)}
           </div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Up · {report.windowLabel}
+            {t("uptime.upNow", { window: report.windowLabel })}
           </div>
         </div>
         <UptimeTrend report={report} />
         <dl className="ml-0 flex min-w-0 basis-full flex-wrap gap-x-5 gap-y-2 text-sm sm:ml-auto sm:w-auto sm:basis-auto">
-          <Metric label="Down" value={formatSeconds(report.downSeconds)} />
           <Metric
-            label="Impaired"
+            label={t("uptime.downLabel")}
+            value={formatSeconds(report.downSeconds)}
+          />
+          <Metric
+            label={t("uptime.impairedLabel")}
             value={formatSeconds(report.impairedSeconds)}
           />
           <Metric
-            label="Screens with downtime"
-            value={`${report.screensWithDowntime} of ${report.screensTracked}`}
+            label={t("uptime.downtimeLabel")}
+            value={t("uptime.downtimeValue", {
+              down: report.screensWithDowntime,
+              tracked: report.screensTracked,
+            })}
           />
         </dl>
       </div>
@@ -206,7 +239,7 @@ function UptimeBody({ report }: { report: UptimeReport }) {
             className="h-48 w-full aspect-auto"
             initialDimension={{ width: 720, height: 192 }}
             role="img"
-            aria-label={chartDescription(report)}
+            aria-label={chartDescription(report, t)}
           >
             <BarChart data={chartData} accessibilityLayer>
               <CartesianGrid vertical={false} />
@@ -283,10 +316,7 @@ function UptimeBody({ report }: { report: UptimeReport }) {
           </ChartContainer>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          Not enough interval data to chart yet. The figures above reflect
-          reported state.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("uptime.noChart")}</p>
       )}
 
       <Collapsible
@@ -295,7 +325,9 @@ function UptimeBody({ report }: { report: UptimeReport }) {
         className="border-t border-border pt-3"
       >
         <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <span>Per screen · {screenBreakdown(report)}</span>
+          <span>
+            {t("uptime.perScreenTitle")} · {screenBreakdown(report, t)}
+          </span>
           <ChevronDown
             size={16}
             aria-hidden="true"
@@ -314,8 +346,10 @@ function UptimeBody({ report }: { report: UptimeReport }) {
         </CollapsibleContent>
         {report.screens.length < report.screensTracked && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Showing the lowest {report.screens.length} of{" "}
-            {report.screensTracked} screens.
+            {t("uptime.showingLowest", {
+              shown: report.screens.length,
+              count: report.screensTracked,
+            })}
           </p>
         )}
       </Collapsible>
@@ -332,15 +366,15 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function screenBreakdown(report: UptimeReport) {
-  const parts = [`${report.screensTracked} screens`];
+function screenBreakdown(report: UptimeReport, t: TFunction<"activity">) {
+  const parts = [t("uptime.screens", { count: report.screensTracked })];
   parts.push(
     report.screensWithDowntime > 0
-      ? `${report.screensWithDowntime} with downtime`
-      : "none with downtime",
+      ? t("uptime.withDowntime", { count: report.screensWithDowntime })
+      : t("uptime.noDowntime"),
   );
   if (report.screensUnmeasured > 0) {
-    parts.push(`${report.screensUnmeasured} not measured yet`);
+    parts.push(t("uptime.unmeasured", { count: report.screensUnmeasured }));
   }
   return parts.join(" · ");
 }
@@ -354,6 +388,7 @@ function ScreenRow({
   buckets: UptimeBucket[];
   bucketSeconds: number;
 }) {
+  const { t } = useTranslation("activity");
   return (
     <div className="grid grid-cols-[minmax(9rem,1fr)_minmax(7rem,2fr)_4rem] items-center gap-x-3 gap-y-1 py-2 text-sm sm:grid-cols-[minmax(11rem,1fr)_minmax(8rem,2fr)_4rem_minmax(8rem,auto)]">
       <Link
@@ -365,13 +400,27 @@ function ScreenRow({
       <div
         className="flex h-3 min-w-0 gap-px overflow-hidden rounded-sm"
         role="img"
-        aria-label={`${screen.screenName}: ${formatPercent(screen.uptimePercent)} up${screen.downSeconds > 0 ? `, ${formatSeconds(screen.downSeconds)} down` : ""}`}
+        aria-label={
+          screen.downSeconds > 0
+            ? t("uptime.rowAriaDown", {
+                name: screen.screenName,
+                percent: formatPercent(screen.uptimePercent),
+                down: formatSeconds(screen.downSeconds),
+              })
+            : t("uptime.rowAria", {
+                name: screen.screenName,
+                percent: formatPercent(screen.uptimePercent),
+              })
+        }
       >
         {screen.buckets.map((state, index) => (
           <span
             key={buckets[index]?.start ?? index}
             className={`min-w-0 flex-1 ${stateClass[state]}`}
-            title={`${stateLabels[state]} · ${formatRange(buckets[index]?.start, bucketSeconds)}`}
+            title={t("uptime.rowTitle", {
+              state: t(stateLabelKeys[state]),
+              range: formatRange(buckets[index]?.start, bucketSeconds),
+            })}
           />
         ))}
       </div>
@@ -380,22 +429,27 @@ function ScreenRow({
       </span>
       <span className="col-span-3 text-xs text-muted-foreground sm:col-span-1">
         {screen.downSeconds > 0
-          ? `${formatSeconds(screen.downSeconds)} down`
+          ? t("uptime.rowDown", {
+              value: formatSeconds(screen.downSeconds),
+            })
           : screen.impairedSeconds > 0
-            ? `${formatSeconds(screen.impairedSeconds)} impaired`
+            ? t("uptime.rowImpaired", {
+                value: formatSeconds(screen.impairedSeconds),
+              })
             : screen.uptimePercent === null
-              ? "Not reporting yet"
-              : "No interruptions"}
+              ? t("uptime.notReporting")
+              : t("uptime.noInterruptions")}
       </span>
     </div>
   );
 }
 
 function UptimeTrend({ report }: { report: UptimeReport }) {
+  const { t } = useTranslation("activity");
   if (report.uptimePercent === null || report.previousUptimePercent === null) {
     return (
       <span className="text-xs text-muted-foreground">
-        No comparable earlier window
+        {t("uptime.trendNone")}
       </span>
     );
   }
@@ -403,7 +457,7 @@ function UptimeTrend({ report }: { report: UptimeReport }) {
   if (Math.abs(delta) < 0.05) {
     return (
       <span className="text-xs text-muted-foreground">
-        Unchanged from the previous window
+        {t("uptime.trendFlat")}
       </span>
     );
   }
@@ -413,16 +467,25 @@ function UptimeTrend({ report }: { report: UptimeReport }) {
       className={`inline-flex items-center gap-1 text-xs ${delta > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}
     >
       <Icon className="size-3.5" aria-hidden="true" />
-      {`${delta > 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)} points vs previous window`}
+      {t("uptime.trendDelta", {
+        delta: `${delta > 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)}`,
+      })}
     </span>
   );
 }
 
-function chartDescription(report: UptimeReport) {
+function chartDescription(report: UptimeReport, t: TFunction<"activity">) {
   const bucketsWithDowntime = report.buckets.filter(
     (bucket) => bucket.downPercent > 0,
   ).length;
-  return `${report.windowLabel}: ${formatPercent(report.uptimePercent)} up across ${report.screensTracked} screens, ${formatSeconds(report.downSeconds)} down, with downtime in ${bucketsWithDowntime} of ${report.buckets.length} intervals.`;
+  return t("uptime.chartDescription", {
+    window: report.windowLabel,
+    percent: formatPercent(report.uptimePercent),
+    screens: t("uptime.chartScreens", { count: report.screensTracked }),
+    down: formatSeconds(report.downSeconds),
+    downtimeBuckets: bucketsWithDowntime,
+    totalBuckets: report.buckets.length,
+  });
 }
 
 function readString(value: unknown, key: string): string | undefined {
@@ -459,7 +522,7 @@ function formatTooltipPercent(value: unknown) {
 
 function formatSeconds(seconds: number) {
   if (typeof seconds !== "number" || !Number.isFinite(seconds)) return "—";
-  if (seconds <= 0) return "None";
+  if (seconds <= 0) return translateKnown("activity:shared.none", "None");
   const days = Math.floor(seconds / 86_400);
   const hours = Math.floor((seconds % 86_400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);

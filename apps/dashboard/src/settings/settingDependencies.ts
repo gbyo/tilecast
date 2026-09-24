@@ -1,4 +1,14 @@
-export type Dependency = { key: string; equals?: unknown; message: string };
+export type DependencyMessageKey =
+  | "dependencies.customText"
+  | "dependencies.intervalReload"
+  | "dependencies.activeHours"
+  | "dependencies.managedKiosk"
+  | "dependencies.accessibilityAssist";
+export type Dependency = {
+  key: string;
+  equals?: unknown;
+  messageKey: DependencyMessageKey;
+};
 export const settingDependencies: Record<string, Dependency | Dependency[]> = {
   "power.active_hours_timezone": activeHours(),
   "power.active_hours_days": activeHours(),
@@ -14,7 +24,7 @@ export const settingDependencies: Record<string, Dependency | Dependency[]> = {
     {
       key: "power.outside_active_hours_display",
       equals: "custom_text",
-      message: "Choose Custom text to edit this setting.",
+      messageKey: "dependencies.customText",
     },
   ],
   "managed_kiosk.lock_task_enabled": kiosk(),
@@ -31,31 +41,36 @@ export const settingDependencies: Record<string, Dependency | Dependency[]> = {
   "website.minimum_refresh_seconds": {
     key: "website.default_reload_policy",
     equals: "interval",
-    message: "Choose interval reloads to set a refresh interval.",
+    messageKey: "dependencies.intervalReload",
   },
 };
 function activeHours(): Dependency {
   return {
     key: "power.active_hours_enabled",
     equals: true,
-    message: "Enable active hours to edit this setting.",
+    messageKey: "dependencies.activeHours",
   };
 }
 function kiosk(): Dependency {
   return {
     key: "reliability.mode",
     equals: "managed_kiosk",
-    message: "Select Managed Kiosk to edit this setting.",
+    messageKey: "dependencies.managedKiosk",
   };
 }
 function accessibility(): Dependency {
   return {
     key: "accessibility.control_assist_enabled",
     equals: true,
-    message: "Enable Accessibility Control Assist to edit this setting.",
+    messageKey: "dependencies.accessibilityAssist",
   };
 }
-export function dependencyState(key: string, values: Record<string, unknown>) {
+export function dependencyState(
+  key: string,
+  values: Record<string, unknown>,
+):
+  | { disabled: true; messageKey: DependencyMessageKey }
+  | { disabled: false; messageKey?: undefined } {
   const configured = settingDependencies[key];
   if (!configured) return { disabled: false };
   const dependencies = Array.isArray(configured) ? configured : [configured];
@@ -64,6 +79,6 @@ export function dependencyState(key: string, values: Record<string, unknown>) {
     return values[dependency.key] !== expected;
   });
   return unmet
-    ? { disabled: true, message: unmet.message }
+    ? { disabled: true, messageKey: unmet.messageKey }
     : { disabled: false };
 }

@@ -1,5 +1,6 @@
 import { Bell, CircleAlert, Search, TriangleAlert } from "lucide-react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import type {
   NotificationFeed,
   NotificationPriority,
@@ -34,11 +35,12 @@ export type StudioBreadcrumb = { label: string; to: string };
 
 const notificationGroups: {
   priority: NotificationPriority;
-  label: string;
+  labelKey:
+    "header.groups.critical" | "header.groups.warning" | "header.groups.info";
 }[] = [
-  { priority: "critical", label: "Critical" },
-  { priority: "warning", label: "Needs attention" },
-  { priority: "info", label: "Info" },
+  { priority: "critical", labelKey: "header.groups.critical" },
+  { priority: "warning", labelKey: "header.groups.warning" },
+  { priority: "info", labelKey: "header.groups.info" },
 ];
 
 function shortcutLabel() {
@@ -55,9 +57,10 @@ export function SiteHeader({
   notifications: NotificationFeed;
   onSearch: () => void;
 }) {
+  const { t } = useTranslation(["navigation", "common"]);
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4 md:px-6">
-      <SidebarTrigger aria-label="Toggle navigation" />
+      <SidebarTrigger aria-label={t("header.toggleNavigation")} />
       {breadcrumbs.length > 0 ? (
         <Breadcrumb className="min-w-0 flex-1">
           <BreadcrumbList className="flex-nowrap overflow-hidden">
@@ -96,7 +99,8 @@ export function SiteHeader({
         onClick={onSearch}
       >
         <Search aria-hidden="true" />
-        <span className="flex-1 text-left">Search Tilecast</span>
+        <span className="flex-1 text-left">{t("header.search")}</span>
+        {/* i18n-ignore: keyboard shortcut glyphs, not language text */}
         <Kbd className="hidden shrink-0 sm:inline-flex">{shortcutLabel()}</Kbd>
       </Button>
 
@@ -106,7 +110,13 @@ export function SiteHeader({
             <Button
               variant="ghost"
               size="icon"
-              aria-label={`Notifications${notifications.count ? `, ${notifications.count} active` : ""}`}
+              aria-label={
+                notifications.count
+                  ? t("header.notificationsWithCount", {
+                      count: notifications.count,
+                    })
+                  : t("header.notifications")
+              }
             />
           }
         >
@@ -121,6 +131,7 @@ export function SiteHeader({
               className="absolute -top-1 -right-1 h-4 min-w-4 justify-center px-1 text-[10px]"
               aria-hidden="true"
             >
+              {/* i18n-ignore: badge overflow marker, not language text */}
               {notifications.count > 99 ? "99+" : notifications.count}
             </Badge>
           )}
@@ -130,14 +141,18 @@ export function SiteHeader({
           className="w-[min(24rem,calc(100vw-2rem))] gap-3 p-3"
         >
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold">Notifications</h2>
+            <h2 className="text-sm font-semibold">
+              {t("header.notifications")}
+            </h2>
             <span className="text-xs text-muted-foreground">
-              {notifications.count || "No"} active
+              {notifications.count
+                ? t("header.activeCount", { count: notifications.count })
+                : t("header.noneActive")}
             </span>
           </div>
           {notifications.count === 0 ? (
             <p className="py-3 text-sm text-muted-foreground">
-              You’re all caught up.
+              {t("header.caughtUp")}
             </p>
           ) : (
             <div className="max-h-[min(65vh,28rem)] space-y-3 overflow-y-auto">
@@ -148,11 +163,12 @@ export function SiteHeader({
                 if (!items.length) return null;
                 const Icon =
                   group.priority === "critical" ? CircleAlert : TriangleAlert;
+                const label = t(group.labelKey);
                 return (
-                  <section key={group.priority} aria-label={group.label}>
+                  <section key={group.priority} aria-label={label}>
                     <h3 className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                       <Icon className="size-3.5" aria-hidden="true" />
-                      {group.label}
+                      {label}
                       <span>({items.length})</span>
                     </h3>
                     <ItemGroup className="gap-1">

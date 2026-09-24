@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ClipboardList, Ellipsis, LogOut, UserRound } from "lucide-react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import type { User } from "@/api/types";
 
 export function NavUser({
@@ -28,6 +29,8 @@ export function NavUser({
   disabled?: boolean;
 }) {
   const { isMobile } = useSidebar();
+  const { t } = useTranslation(["navigation", "common"]);
+  // i18n-ignore: avatar initial letter, not language text
   const initial = user.name.trim().slice(0, 1).toLocaleUpperCase() || "T";
 
   return (
@@ -41,7 +44,7 @@ export function NavUser({
                 className="aria-expanded:bg-sidebar-accent"
               />
             }
-            aria-label={`Open account menu for ${user.name}`}
+            aria-label={t("userMenu.openLabel", { name: user.name })}
           >
             <Avatar className="size-8 rounded-md">
               <AvatarFallback className="rounded-md">{initial}</AvatarFallback>
@@ -71,16 +74,16 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuItem render={<Link to="/forms" />}>
               <ClipboardList aria-hidden="true" />
-              My Forms
+              {t("userMenu.myForms")}
             </DropdownMenuItem>
             <DropdownMenuItem render={<Link to="/account" />}>
               <UserRound aria-hidden="true" />
-              My Account
+              {t("userMenu.myAccount")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onSignOut} disabled={disabled}>
               <LogOut aria-hidden="true" />
-              Sign out
+              {t("userMenu.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
