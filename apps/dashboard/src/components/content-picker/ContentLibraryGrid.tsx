@@ -1,22 +1,19 @@
 import { Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Asset } from "../../api/types";
 import { AssetPreview } from "../content/AssetPreview";
 
-function statusLabel(status: Asset["processingStatus"]) {
-  return (
-    {
-      ready: "Ready",
-      uploading: "Uploading",
-      uploaded: "Uploaded",
-      queued: "Waiting",
-      inspecting: "Inspecting",
-      processing: "Processing",
-      failed: "Failed",
-      deleting: "Deleting",
-      deleted: "Deleted",
-    }[status] ?? status
-  );
-}
+const statusKeys = {
+  ready: "picker.grid.status.ready",
+  uploading: "picker.grid.status.uploading",
+  uploaded: "picker.grid.status.uploaded",
+  queued: "picker.grid.status.queued",
+  inspecting: "picker.grid.status.inspecting",
+  processing: "picker.grid.status.processing",
+  failed: "picker.grid.status.failed",
+  deleting: "picker.grid.status.deleting",
+  deleted: "picker.grid.status.deleted",
+} as const;
 
 export function ContentLibraryGrid({
   items,
@@ -33,6 +30,7 @@ export function ContentLibraryGrid({
   highlightedIds: Set<string>;
   onToggle: (asset: Asset) => void;
 }) {
+  const { t } = useTranslation("content");
   return (
     <div className={`picker-library picker-library--${view}`}>
       {items.map((asset) => {
@@ -61,17 +59,17 @@ export function ContentLibraryGrid({
               <small>
                 {asset.type === "widget"
                   ? asset.widget?.provider === "youtube"
-                    ? "YouTube Widget"
-                    : "Website Widget"
+                    ? t("picker.grid.typeYouTube")
+                    : t("picker.grid.typeWebsite")
                   : asset.type === "image"
-                    ? "Image"
-                    : "Video"}
+                    ? t("picker.grid.typeImage")
+                    : t("picker.grid.typeVideo")}
               </small>
             </span>
             <span
               className={`media-status media-status--${asset.processingStatus}`}
             >
-              {statusLabel(asset.processingStatus)}
+              {t(statusKeys[asset.processingStatus])}
             </span>
           </button>
         );

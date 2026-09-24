@@ -6,6 +6,7 @@ import {
 import { Globe2, Upload, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Asset, WidgetProvider } from "../../api/types";
 import { ContentLibraryGrid } from "./ContentLibraryGrid";
@@ -52,13 +53,17 @@ export function ContentPicker({
   allowedProviders,
   disabledItemIds = [],
   selectedIds = [],
-  confirmLabel = "Add content",
-  title = "Choose content",
-  description = "Select existing content or upload media. Apps are managed in their own library.",
+  confirmLabel,
+  title,
+  description,
   onConfirm,
   onClose,
   onCreateWidget,
 }: ContentPickerProps) {
+  const { t } = useTranslation(["content", "common"]);
+  const resolvedConfirmLabel = confirmLabel ?? t("picker.defaults.confirm");
+  const resolvedTitle = title ?? t("picker.defaults.title");
+  const resolvedDescription = description ?? t("picker.defaults.description");
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ContentPickerFilter>("all");
@@ -256,11 +261,11 @@ export function ContentPicker({
       setFailures([
         {
           id: "picker",
-          name: "Content selection",
+          name: t("picker.errors.selectionName"),
           message:
             error instanceof Error
               ? error.message
-              : "Content could not be added.",
+              : t("picker.errors.addFailed"),
         },
       ]);
     } finally {
@@ -278,24 +283,24 @@ export function ContentPicker({
       >
         <header className="content-picker__header">
           <div>
-            <h2 id="content-picker-title">{title}</h2>
-            <p>{description}</p>
+            <h2 id="content-picker-title">{resolvedTitle}</h2>
+            <p>{resolvedDescription}</p>
           </div>
           <div className="content-picker__primary-actions">
             {(allowed.has("image") || allowed.has("video")) && (
               <Button variant="secondary" onClick={() => setChild("upload")}>
-                <Upload size={16} /> Upload media
+                <Upload size={16} /> {t("picker.actions.uploadMedia")}
               </Button>
             )}
             {allowed.has("widget") && onCreateWidget && (
               <Button variant="secondary" onClick={onCreateWidget}>
-                <Globe2 size={16} /> Create widget
+                <Globe2 size={16} /> {t("picker.actions.createWidget")}
               </Button>
             )}
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Close content picker"
+              aria-label={t("picker.closeLabel")}
               onClick={onClose}
             >
               <X size={18} />
@@ -324,24 +329,24 @@ export function ContentPicker({
         />
         <main className="content-picker__library">
           {library.isLoading ? (
-            <div className="table-loading">Loading content…</div>
+            <div className="table-loading">{t("picker.library.loading")}</div>
           ) : library.isError ? (
             <Alert variant="destructive">
-              <AlertTitle>Content could not be loaded.</AlertTitle>
+              <AlertTitle>{t("picker.library.loadError")}</AlertTitle>
               <AlertDescription>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => void library.refetch()}
                 >
-                  Try again
+                  {t("picker.library.retry")}
                 </Button>
               </AlertDescription>
             </Alert>
           ) : combined.length === 0 ? (
             <div className="content-empty">
-              <h3>No matching content</h3>
-              <p>Try a different search or create new content.</p>
+              <h3>{t("picker.library.emptyTitle")}</h3>
+              <p>{t("picker.library.emptyDescription")}</p>
             </div>
           ) : (
             <>
@@ -361,8 +366,8 @@ export function ContentPicker({
                   onClick={() => void library.fetchNextPage()}
                 >
                   {library.isFetchingNextPage
-                    ? "Loading…"
-                    : "Load more content"}
+                    ? t("picker.library.loadingMore")
+                    : t("picker.library.loadMore")}
                 </Button>
               )}
             </>
@@ -379,7 +384,7 @@ export function ContentPicker({
         />
         {failures.length > 0 && (
           <Alert variant="destructive">
-            <AlertTitle>Some content could not be added.</AlertTitle>
+            <AlertTitle>{t("picker.errors.title")}</AlertTitle>
             <AlertDescription>
               <ul className="list-disc pl-4">
                 {failures.map((failure) => (
@@ -393,20 +398,20 @@ export function ContentPicker({
         )}
         <footer className="content-picker__footer">
           <span>
-            {chosen.length} item{chosen.length === 1 ? "" : "s"} selected
-            {selectionPreparing ? " · waiting for processing" : ""}
+            {t("picker.footer.selected", { count: chosen.length })}
+            {selectionPreparing ? t("picker.footer.waiting") : ""}
           </span>
           <div>
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               disabled={chosen.length === 0 || selectionPreparing || confirming}
               onClick={() => void confirm()}
             >
               {confirming
-                ? "Adding…"
-                : `${confirmLabel}${chosen.length > 0 ? ` (${chosen.length})` : ""}`}
+                ? t("picker.footer.adding")
+                : `${resolvedConfirmLabel}${chosen.length > 0 ? ` (${chosen.length})` : ""}`}
             </Button>
           </div>
         </footer>

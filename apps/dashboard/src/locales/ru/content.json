@@ -1,1 +1,558 @@
-{}
+{
+  "media": {
+    "header": {
+      "title": "Медиа",
+      "uploadAssets": "Загрузить ресурсы",
+      "descriptionActive": "Загруженные изображения и видео, доступные для плейлистов и макетов.",
+      "descriptionArchive": "Архивированный и просроченный контент хранится здесь, пока вы его не восстановите или не удалите навсегда.",
+      "total": "Ресурсов: {{total}}"
+    },
+    "libraryView": {
+      "label": "Вид библиотеки",
+      "library": "Библиотека",
+      "archive": "Архив"
+    },
+    "cardView": {
+      "label": "Вид",
+      "grid": "Вид плиткой",
+      "list": "Вид списком"
+    },
+    "upload": {
+      "chooseFilesAria": "Выбрать медиафайлы"
+    },
+    "queue": {
+      "label": "Очередь загрузки",
+      "title": "Загрузки",
+      "activeCount": "Активных: {{count}}",
+      "progress": "{{uploaded}} из {{size}} · {{percent}}% · {{state}}",
+      "progressAria": "Прогресс загрузки {{filename}}",
+      "retryAria": "Повторить или продолжить {{filename}}",
+      "cancelAria": "Отменить {{filename}}",
+      "resumePrompt": "Выберите тот же файл, чтобы продолжить загрузку.",
+      "fileMismatch": "Выберите исходный файл с тем же именем и размером.",
+      "uploadFailed": "Не удалось загрузить.",
+      "stateFinalizing": "Завершение"
+    },
+    "filters": {
+      "searchLabel": "Поиск медиа",
+      "typeLabel": "Фильтры по типу контента",
+      "typeMedia": "Медиа",
+      "typeImages": "Изображения",
+      "typeVideos": "Видео",
+      "statusLabel": "Фильтр по статусу",
+      "statusAll": "Все статусы",
+      "folderLabel": "Фильтр по папке",
+      "folderAll": "Все папки",
+      "collectionLabel": "Фильтр по коллекции",
+      "collectionAll": "Все коллекции",
+      "tagLabel": "Фильтр по тегу",
+      "tagAll": "Все теги",
+      "reset": "Сбросить фильтры"
+    },
+    "sort": {
+      "label": "Сортировка медиа",
+      "recentlyUpdated": "Недавно обновлённые",
+      "newest": "Самые новые",
+      "oldest": "Самые старые",
+      "name": "Название"
+    },
+    "bulkDelete": {
+      "title_one": "Удалить навсегда {{count}} архивированный ресурс?",
+      "title_few": "Удалить навсегда {{count}} архивированных ресурса?",
+      "title_many": "Удалить навсегда {{count}} архивированных ресурсов?",
+      "title_other": "Удалить навсегда {{count}} архивированного ресурса?",
+      "keep": "Оставить ресурсы"
+    },
+    "dialogs": {
+      "cannotUndo": "Это действие нельзя отменить.",
+      "deletePermanently": "Удалить навсегда"
+    },
+    "list": {
+      "loadError": "Не удалось загрузить библиотеку медиа",
+      "loading": "Загрузка медиа…"
+    },
+    "archiveDialog": {
+      "title": "Переместить {{name}} в архив?",
+      "body": "Архивированные ресурсы остаются доступными, пока вы их не восстановите или не удалите навсегда.",
+      "keep": "Оставить в библиотеке",
+      "confirm": "Переместить в архив"
+    },
+    "deleteDialog": {
+      "title": "Удалить навсегда {{name}}?",
+      "keep": "Оставить ресурс"
+    },
+    "empty": {
+      "archiveTitle": "Архив пуст",
+      "title": "Медиа пока нет",
+      "archiveDescription": "Ресурсы, которые вы архивируете или срок которых истекает, появятся здесь, и их можно будет восстановить.",
+      "manageDescription": "Перетащите сюда изображения или видео либо выберите файлы, чтобы начать библиотеку.",
+      "viewerDescription": "Загружать медиа могут владелец, администратор или редактор.",
+      "chooseFiles": "Выбрать файлы"
+    },
+    "actions": {
+      "open": "Открыть",
+      "select": "Выбрать",
+      "clearSelection": "Снять выделение",
+      "duplicate": "Дублировать",
+      "archive": "Архивировать",
+      "restore": "Восстановить в библиотеку"
+    },
+    "status": {
+      "uploading": "Загрузка",
+      "uploaded": "Загружено",
+      "waiting": "Ожидание",
+      "inspecting": "Проверка",
+      "processing": "Обработка",
+      "ready": "Готово",
+      "failed": "Ошибка",
+      "deleting": "Удаление",
+      "deleted": "Удалено"
+    },
+    "badges": {
+      "expired": "Просрочено",
+      "archived": "В архиве"
+    },
+    "card": {
+      "actionsFor": "Действия для {{name}}",
+      "editLabel": "Изменить {{name}}",
+      "viewLabel": "Просмотреть {{name}}",
+      "selectLabel": "Выбрать {{name}}",
+      "duplicateLabel": "Дублировать {{name}}",
+      "archiveLabel": "Архивировать {{name}}",
+      "playlists_one": "{{count}} плейлист",
+      "playlists_few": "{{count}} плейлиста",
+      "playlists_many": "{{count}} плейлистов",
+      "playlists_other": "{{count}} плейлиста",
+      "layouts_one": "{{count}} макет",
+      "layouts_few": "{{count}} макета",
+      "layouts_many": "{{count}} макетов",
+      "layouts_other": "{{count}} макета"
+    },
+    "createOrganizer": {
+      "folder": {
+        "title": "Создать папку",
+        "label": "Название папки",
+        "hint": "Каждый ресурс хранится в одной папке. Используйте папки для крупных областей, например зданий или отделов."
+      },
+      "collection": {
+        "title": "Создать коллекцию",
+        "label": "Название коллекции",
+        "hint": "Коллекции объединяют связанные ресурсы для повторного использования. Ресурс может входить в несколько коллекций."
+      },
+      "tag": {
+        "title": "Создать тег",
+        "label": "Название тега",
+        "hint": "Теги — это цветные метки для быстрого фильтра. У ресурса может быть несколько тегов."
+      },
+      "colorLabel": "Цвет",
+      "createErrorFolder": "Не удалось создать папку",
+      "createErrorCollection": "Не удалось создать коллекцию",
+      "createErrorTag": "Не удалось создать тег"
+    },
+    "manage": {
+      "saveError": "Не удалось сохранить изменение.",
+      "rename": "Переименовать",
+      "renameAria": "Новое название для {{name}}",
+      "keep": "Оставить",
+      "deleteTitle": "Удалить {{name}}?",
+      "foldersTitle": "Папки",
+      "collectionsTitle": "Коллекции",
+      "tagsTitle": "Теги",
+      "emptyFolders": "Папок пока нет.",
+      "emptyCollections": "Коллекций пока нет.",
+      "emptyTags": "Тегов пока нет.",
+      "confirmDeleteFolder": "Удалить папку «{{name}}»? Её ресурсы останутся в библиотеке и станут без папки. Это действие нельзя отменить.",
+      "confirmDeleteCollection": "Удалить коллекцию «{{name}}»? Её ресурсы останутся в библиотеке. Это действие нельзя отменить.",
+      "confirmDeleteTag": "Удалить тег «{{name}}»? Он будет удалён из всех ресурсов. Это действие нельзя отменить.",
+      "title": "Управление организацией",
+      "description": "Переименовывайте или удаляйте папки, коллекции и теги. Ресурсы останутся в библиотеке."
+    },
+    "organizer": {
+      "label": "Организация контента",
+      "createFolder": "Создать папку",
+      "createCollection": "Создать коллекцию",
+      "createTag": "Создать тег",
+      "manage": "Управление",
+      "selectedCount": "Выбрано: {{count}}",
+      "selectPage": "Выбрать страницу",
+      "clear": "Очистить",
+      "organize": "Упорядочить",
+      "restore": "Восстановить",
+      "updateError": "Не удалось обновить выбранный контент.",
+      "applyError": "Не удалось упорядочить контент."
+    },
+    "organizeDialog": {
+      "title_one": "Упорядочить {{count}} выбранный ресурс",
+      "title_few": "Упорядочить {{count}} выбранных ресурса",
+      "title_many": "Упорядочить {{count}} выбранных ресурсов",
+      "title_other": "Упорядочить {{count}} выбранного ресурса",
+      "description": "Выберите одно или несколько изменений. Существующие теги и коллекции сохранятся, если вы явно их не удалите.",
+      "folderLabel": "Переместить в папку",
+      "folderUnchanged": "Не менять папку",
+      "folderUnfiled": "Переместить в «Без папки»",
+      "tagLabel": "Изменение тега",
+      "tagUnchanged": "Не менять теги",
+      "tagAdd": "Добавить {{name}}",
+      "tagRemove": "Удалить {{name}}",
+      "collectionLabel": "Изменение коллекции",
+      "collectionUnchanged": "Не менять коллекции",
+      "collectionAdd": "Добавить в {{name}}",
+      "collectionRemove": "Убрать из {{name}}",
+      "apply": "Применить изменения"
+    },
+    "organization": {
+      "title": "Организация",
+      "folderLabel": "Папка",
+      "unfiled": "Без папки",
+      "tagsLabel": "Теги",
+      "tagsEmpty": "Тегов пока нет. Создайте теги на панели инструментов библиотеки медиа.",
+      "collectionsLabel": "Коллекции",
+      "collectionsEmpty": "Коллекций пока нет. Создайте коллекции на панели инструментов библиотеки медиа.",
+      "updateError": "Не удалось обновить организацию"
+    },
+    "details": {
+      "label": "Сведения о {{name}}",
+      "eyebrow": "Медиаресурс",
+      "nameLabel": "Название",
+      "descriptionLabel": "Описание",
+      "availableFromLabel": "Доступно с",
+      "availableFromHint": "Оставьте пустым, чтобы контент был доступен сразу.",
+      "expiresAtLabel": "Срок действия до",
+      "expiresAtHint": "Проигрыватель прекратит его использовать в указанные местные дату и время, даже офлайн.",
+      "statusLabel": "Статус",
+      "originalFileLabel": "Исходный файл",
+      "detectedTypeLabel": "Определённый тип",
+      "shaLabel": "SHA-256",
+      "noUsage": "Этот медиаресурс пока не использует ни один плейлист или макет.",
+      "playlistsLabel": "Плейлисты",
+      "layoutsLabel": "Макеты",
+      "publishedHint": "Опубликовано",
+      "draftHint": "Черновик",
+      "retryProcessing": "Повторить обработку",
+      "archiveAsset": "Архивировать ресурс"
+    }
+  },
+  "widgets": {
+    "list": {
+      "title": "Виджеты",
+      "subtitle": "Повторно используемый визуальный контент для плейлистов и макетов.",
+      "create": "Создать виджет",
+      "search": "Поиск виджетов",
+      "providerFilter": "Фильтр по поставщику виджета",
+      "allTypes": "Все типы виджетов",
+      "viewLabel": "Вид",
+      "gridView": "Вид плиткой",
+      "listView": "Вид списком",
+      "loadError": "Не удалось загрузить виджеты.",
+      "loading": "Загрузка виджетов",
+      "emptyTitle": "Виджетов пока нет",
+      "emptyDescription": "Создайте повторно используемый виджет для контента."
+    },
+    "editor": {
+      "loading": "Загрузка виджета",
+      "loadingDefinition": "Загрузка определения виджета",
+      "unavailableTitle": "Виджет недоступен",
+      "unavailableDescription": "Не удалось загрузить этот виджет.",
+      "backToList": "Назад к виджетам",
+      "noUsage": "Этот виджет пока не использует ни один плейлист или макет.",
+      "playlistsLabel": "Плейлисты",
+      "layoutsLabel": "Макеты",
+      "publishedHint": "Опубликовано",
+      "draftHint": "Черновик"
+    },
+    "websiteEditor": {
+      "editTitle": "Изменить веб-приложение",
+      "createTitle": "Создать веб-приложение",
+      "subtitle": "Полноэкранный публичный веб-контент. Длительность настраивается в плейлисте.",
+      "nameLabel": "Название",
+      "descriptionLabel": "Описание",
+      "urlLabel": "HTTPS-адрес",
+      "reloadLabel": "Политика перезагрузки",
+      "reloadOnce": "Загружать один раз во время активности",
+      "reloadEach": "Перезагружать при каждой активации",
+      "reloadInterval": "Перезагружать по интервалу",
+      "refreshLabel": "Интервал обновления (секунды)",
+      "failureLabel": "Поведение при сбое",
+      "failurePlaceholder": "Показывать заглушку Tilecast",
+      "failureLastSuccess": "Оставлять последнюю загруженную страницу",
+      "failureFallbackImage": "Показывать резервное изображение",
+      "failureSkip": "Пропускать элемент",
+      "fallbackLabel": "Резервное изображение",
+      "fallbackNone": "Нет",
+      "advancedTitle": "Расширенные настройки сайта",
+      "hostsLabel": "Разрешённые хосты верхнего уровня (через запятую)",
+      "hostsHint": "Хост адреса всегда добавляется. Это ограничивает навигацию верхнего уровня, а не все сторонние подресурсы.",
+      "jsLabel": "JavaScript включён",
+      "domLabel": "DOM-хранилище включено",
+      "cookiesLabel": "Файлы cookie",
+      "cookiesDisabled": "Отключены",
+      "cookiesFirstParty": "Только собственные",
+      "cookiesFirstAndThird": "Собственные и сторонние",
+      "timeoutLabel": "Таймаут загрузки (секунды)",
+      "zoomLabel": "Масштаб (проценты)",
+      "scrollXLabel": "Прокрутка по горизонтали",
+      "scrollYLabel": "Прокрутка по вертикали",
+      "agentLabel": "Пользовательский user agent",
+      "agentHint": "Оставьте пустым для стандартного user agent Android WebView. Переопределения могут ломать сайты.",
+      "diagnosticsTitle": "Диагностика проигрывателя",
+      "allowedHosts": "Разрешённые хосты: {{hosts}}",
+      "lastLoadLabel": "Последняя успешная загрузка:",
+      "lastFailureLabel": "Последний сбой:",
+      "reportingLabel": "Отчитывающиеся экраны:",
+      "notReported": "Нет данных",
+      "noneValue": "Нет",
+      "save": "Сохранить сайт",
+      "delete": "Удалить сайт",
+      "deleteTitle": "Удалить {{name}}?",
+      "deleteKeep": "Оставить сайт",
+      "discardTitle": "Отменить несохранённые изменения?",
+      "discardBody": "Ваши правки будут потеряны.",
+      "discardKeep": "Продолжить редактирование",
+      "discardConfirm": "Отменить изменения"
+    }
+  },
+  "picker": {
+    "defaults": {
+      "confirm": "Добавить контент",
+      "title": "Выбрать контент",
+      "description": "Выберите существующий контент или загрузите медиа. Приложения управляются в отдельной библиотеке."
+    },
+    "actions": {
+      "uploadMedia": "Загрузить медиа",
+      "createWidget": "Создать виджет"
+    },
+    "closeLabel": "Закрыть выбор контента",
+    "library": {
+      "loading": "Загрузка контента…",
+      "loadError": "Не удалось загрузить контент.",
+      "retry": "Повторить",
+      "emptyTitle": "Подходящего контента нет",
+      "emptyDescription": "Попробуйте другой поиск или создайте новый контент.",
+      "loadingMore": "Загрузка…",
+      "loadMore": "Загрузить ещё контент"
+    },
+    "errors": {
+      "selectionName": "Выбор контента",
+      "addFailed": "Не удалось добавить контент.",
+      "title": "Часть контента не удалось добавить."
+    },
+    "footer": {
+      "selected_one": "{{count}} ресурс выбран",
+      "selected_few": "{{count}} ресурса выбрано",
+      "selected_many": "{{count}} ресурсов выбрано",
+      "selected_other": "{{count}} ресурса выбрано",
+      "waiting": " · ожидание обработки",
+      "adding": "Добавление…"
+    },
+    "toolbar": {
+      "search": "Поиск контента",
+      "typeLabel": "Тип контента",
+      "filterAll": "Все",
+      "filterImages": "Изображения",
+      "filterVideos": "Видео",
+      "filterSources": "Источники",
+      "filterWebsites": "Сайты",
+      "filterYouTube": "YouTube",
+      "filterCalendars": "Календари",
+      "folderFilter": "Фильтр по папке",
+      "foldersAll": "Все папки",
+      "collectionFilter": "Фильтр по коллекции",
+      "collectionsAll": "Все коллекции",
+      "tagFilter": "Фильтр по тегу",
+      "tagsAll": "Все теги",
+      "sortLabel": "Сортировка контента",
+      "sortRecent": "Недавно обновлённые",
+      "sortNewest": "Самые новые",
+      "sortOldest": "Самые старые",
+      "sortName": "Название",
+      "viewLabel": "Вид контента",
+      "gridView": "Вид плиткой",
+      "listView": "Вид списком"
+    },
+    "grid": {
+      "typeYouTube": "Виджет YouTube",
+      "typeWebsite": "Виджет сайта",
+      "typeImage": "Изображение",
+      "typeVideo": "Видео",
+      "status": {
+        "uploading": "Загрузка",
+        "uploaded": "Загружено",
+        "queued": "Ожидание",
+        "inspecting": "Проверка",
+        "processing": "Обработка",
+        "ready": "Готово",
+        "failed": "Ошибка",
+        "deleting": "Удаление",
+        "deleted": "Удалено"
+      }
+    },
+    "tray": {
+      "selectedCount": "Выбрано: {{count}}",
+      "clear": "Снять выделение",
+      "removeLabel": "Убрать {{name}} из выбранного"
+    },
+    "upload": {
+      "closeLabel": "Вернуться к контенту",
+      "activeTitle": "Загрузки ещё активны. Закрыть окно загрузки?",
+      "title": "Загрузить медиа",
+      "description": "Загрузите одно или несколько изображений или видео.",
+      "closeUploads": "Закрыть загрузки",
+      "dropHint": "Перетащите файлы сюда или выберите файлы",
+      "dropFormats": "Изображения и видео · поддерживается несколько файлов",
+      "stateWaiting": "Ожидание",
+      "stateUploading": "Загрузка",
+      "stateProcessing": "Обработка",
+      "stateFailed": "Ошибка"
+    },
+    "playlist": {
+      "titleBoth": "Выбрать презентацию",
+      "titleLayout": "Выбрать макет",
+      "titlePlaylist": "Выбрать плейлист",
+      "searchBoth": "Поиск презентаций",
+      "searchLayouts": "Поиск макетов",
+      "searchPlaylists": "Поиск плейлистов",
+      "loadingBoth": "Загрузка презентаций",
+      "loadingLayouts": "Загрузка макетов",
+      "loadingPlaylists": "Загрузка плейлистов",
+      "loadErrorBoth": "Не удалось загрузить презентации.",
+      "loadErrorLayouts": "Не удалось загрузить макеты.",
+      "loadErrorPlaylists": "Не удалось загрузить плейлисты.",
+      "retryBody": "Повторите запрос к библиотеке.",
+      "retry": "Повторить",
+      "emptySearchBoth": "Презентации не соответствуют поиску.",
+      "emptySearchLayouts": "Макеты не соответствуют поиску.",
+      "emptySearchPlaylists": "Плейлисты не соответствуют поиску.",
+      "emptyBoth": "Презентаций пока нет. Сначала создайте одну.",
+      "emptyLayouts": "Макетов пока нет. Сначала создайте один.",
+      "emptyPlaylists": "Плейлистов пока нет. Сначала создайте один.",
+      "layoutRevision": "Макет · ревизия {{revision}}",
+      "itemCount_one": "{{count}} элемент",
+      "itemCount_few": "{{count}} элемента",
+      "itemCount_many": "{{count}} элементов",
+      "itemCount_other": "{{count}} элемента",
+      "tagDriven": " · по тегу",
+      "confirmDefault": "Добавить плейлист"
+    }
+  },
+  "graph": {
+    "types": {
+      "dataSource": {
+        "label": "Источник данных",
+        "plural": "Источники данных"
+      },
+      "asset": {
+        "label": "Медиа",
+        "plural": "Медиа"
+      },
+      "widget": {
+        "label": "Виджет",
+        "plural": "Виджеты"
+      },
+      "layout": {
+        "label": "Макет",
+        "plural": "Макеты"
+      },
+      "playlist": {
+        "label": "Плейлист",
+        "plural": "Плейлисты"
+      },
+      "campaign": {
+        "label": "Кампания",
+        "plural": "Кампании"
+      },
+      "schedule": {
+        "label": "Расписание",
+        "plural": "Расписания"
+      },
+      "screenGroup": {
+        "label": "Группа экранов",
+        "plural": "Группы экранов"
+      },
+      "screen": {
+        "label": "Экран",
+        "plural": "Экраны"
+      }
+    },
+    "relationships": {
+      "emptyUpstream": "Нет прямых входящих связей.",
+      "emptyDownstream": "Нет прямых исходящих связей."
+    },
+    "loadError": "Не удалось загрузить граф зависимостей.",
+    "loading": "Построение зависимостей…",
+    "emptyTitle": "Пока нечего отображать",
+    "emptyDescription": "Добавьте контент, презентацию или экран, чтобы начать строить граф.",
+    "canvasLabel": "Визуальный граф зависимостей",
+    "searchLabel": "Поиск по графу",
+    "searchPlaceholder": "Поиск узлов",
+    "clearSearch": "Очистить поиск",
+    "typeFilter": "Фильтр по типу",
+    "allTypes": "Все типы",
+    "zoomIn": "Увеличить",
+    "zoomOut": "Уменьшить",
+    "fitGraph": "Вписать граф",
+    "legend": {
+      "sources": "Источники",
+      "presentations": "Презентации",
+      "delivery": "Доставка"
+    },
+    "hint": "Перетаскивайте для панорамы · прокрутка для масштаба · стрелки указывают на потребителей",
+    "inspector": {
+      "label": "Сведения о зависимостях {{name}}",
+      "open": "Открыть",
+      "close": "Закрыть инспектор",
+      "upstream": "входящие",
+      "downstream": "исходящие",
+      "dependenciesTitle": "Прямые зависимости",
+      "consumersTitle": "Прямые потребители"
+    }
+  },
+  "dataSources": {
+    "list": {
+      "title": "Источники данных",
+      "subtitle": "Повторно используемые подключения, которые получают, разбирают и кешируют данные.",
+      "create": "Создать источник данных",
+      "search": "Поиск источников данных",
+      "allTypes": "Все типы источников данных",
+      "providerFilter": "Фильтр по поставщику источника данных",
+      "sortLabel": "Сортировка по обновлению",
+      "sortUpdated": "Обновлено",
+      "loadError": "Не удалось загрузить источники данных.",
+      "actionError": "Не удалось выполнить действие с источником данных.",
+      "loading": "Загрузка источников данных",
+      "emptyTitle": "Источников данных пока нет",
+      "emptyDescription": "Создайте повторно используемое подключение для своих виджетов."
+    },
+    "table": {
+      "name": "Название",
+      "provider": "Поставщик",
+      "status": "Статус",
+      "records": "Записей в кеше",
+      "updated": "Обновлено",
+      "usedBy": "Используется",
+      "actions": "Действия"
+    },
+    "row": {
+      "view": "Просмотреть",
+      "actionsFor": "Действия для {{name}}"
+    },
+    "actions": {
+      "open": "Открыть",
+      "duplicate": "Дублировать"
+    },
+    "deleteDialog": {
+      "title": "Удалить {{name}}?",
+      "body": "Виджеты, читающие этот источник данных, покажут пустое состояние. Это действие нельзя отменить."
+    },
+    "editor": {
+      "loading": "Загрузка источника данных",
+      "loadingDefinition": "Загрузка определения источника данных",
+      "unavailableTitle": "Источник данных недоступен",
+      "unavailableDescription": "Не удалось загрузить этот источник данных.",
+      "backToList": "Назад к источникам данных",
+      "noPermission": "У вас нет прав для создания источников данных",
+      "noUsage": "Этот источник данных пока не читает ни один виджет или привязка макета.",
+      "widgetsLabel": "Виджеты",
+      "bindingsLabel": "Текстовые привязки макета"
+    }
+  }
+}

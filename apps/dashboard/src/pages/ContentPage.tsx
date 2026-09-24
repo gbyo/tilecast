@@ -30,7 +30,10 @@ import {
   type DragEvent,
   type ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api, ApiError } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import {
   DashboardListToolbar,
   DashboardSearch,
@@ -158,24 +161,38 @@ type SavedUpload = Pick<
 const resumeKey = "tilecast.resumable-uploads.v1";
 const chunkSize = 5 * 1024 * 1024;
 
+export type ContentT = TFunction<"content", undefined>;
+
 export function canManageContent(user?: User) {
   return Boolean(user && user.role !== "viewer");
 }
 
-export function statusLabel(status: AssetStatus) {
-  return (
-    {
-      uploading: "Uploading",
-      uploaded: "Uploaded",
-      queued: "Waiting",
-      inspecting: "Inspecting",
-      processing: "Processing",
-      ready: "Ready",
-      failed: "Failed",
-      deleting: "Deleting",
-      deleted: "Deleted",
-    } satisfies Record<AssetStatus, string>
-  )[status];
+const statusKeys = {
+  uploading: "media.status.uploading",
+  uploaded: "media.status.uploaded",
+  queued: "media.status.waiting",
+  inspecting: "media.status.inspecting",
+  processing: "media.status.processing",
+  ready: "media.status.ready",
+  failed: "media.status.failed",
+  deleting: "media.status.deleting",
+  deleted: "media.status.deleted",
+} as const satisfies Record<AssetStatus, string>;
+
+export function statusLabel(status: AssetStatus, t: ContentT) {
+  return t(statusKeys[status]);
+}
+
+const queueStateKeys = {
+  waiting: "media.status.waiting",
+  uploading: "media.status.uploading",
+  finalizing: "media.queue.stateFinalizing",
+  processing: "media.status.processing",
+  failed: "media.status.failed",
+} as const;
+
+export function queueStateLabel(state: QueueItem["state"], t: ContentT) {
+  return t(queueStateKeys[state]);
 }
 
 function formatBytes(value: number) {
@@ -302,6 +319,7 @@ function FilterSelect({
 }
 
 export function ContentPage() {
+  const { t } = useTranslation(["content", "common"]);
   const auth = useAuth();
   const canManage = canManageContent(auth.status?.user);
   const csrf = auth.status?.csrfToken ?? "";
@@ -342,7 +360,7 @@ export function ContentPage() {
         ...item,
         localId: item.sessionId ?? crypto.randomUUID(),
         state: "failed",
-        error: "Select the same file to resume this upload.",
+        error: t("media.queue.resumePrompt"),
       }));
     } catch {
       return [];
@@ -438,7 +456,7 @@ export function ContentPage() {
       (file.name !== resume.filename || file.size !== resume.sizeBytes)
     ) {
       updateQueue(localId, {
-        error: "Choose the original file with the same name and size.",
+        error: t("media.queue.fileMismatch"),
       });
       return;
     }
@@ -503,7 +521,10 @@ export function ContentPage() {
       if ((error as Error).name !== "AbortError")
         updateQueue(localId, {
           state: "failed",
-          error: error instanceof Error ? error.message : "Upload failed.",
+          error:
+            error instanceof Error
+              ? error.message
+              : t("media.queue.uploadFailed"),
         });
     } finally {
       controllers.current.delete(localId);
@@ -549,29 +570,38 @@ export function ContentPage() {
     >
       <header className="space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">Media</h1>
+          <h1 className="text-xl font-semibold">{t("media.header.title")}</h1>
           {canManage && libraryView === "active" && (
             <Button type="button" onClick={() => fileInput.current?.click()}>
-              <Upload size={16} aria-hidden="true" /> Upload assets
+              <Upload size={16} aria-hidden="true" />{" "}
+              {t("media.header.uploadAssets")}
             </Button>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
           {libraryView === "active"
-            ? "Uploaded images and videos available to playlists and Layouts."
-            : "Archived and expired content stays here until you restore or permanently delete it."}
+            ? t("media.header.descriptionActive")
+            : t("media.header.descriptionArchive")}
           {typeof assets.data?.total === "number" && (
-            <> {assets.data.total} assets.</>
+            <> {t("media.header.total", { total: assets.data.total })}</>
           )}
         </p>
       </header>
       <SingleToggleGroup
-        label="Library view"
+        label={t("media.libraryView.label")}
         value={libraryView}
         onChange={setLibraryView}
         options={[
-          { value: "active", label: "Library", text: "Library" },
-          { value: "archive", label: "Archive", text: "Archive" },
+          {
+            value: "active",
+            label: t("media.libraryView.library"),
+            text: t("media.libraryView.library"),
+          },
+          {
+            value: "archive",
+            label: t("media.libraryView.archive"),
+            text: t("media.libraryView.archive"),
+          },
         ]}
       />
       <input
@@ -581,15 +611,15 @@ export function ContentPage() {
         multiple
         accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-matroska"
         onChange={pickFiles}
-        aria-label="Choose media files"
+        aria-label={t("media.upload.chooseFilesAria")}
       />
 
       {libraryView === "active" && queue.length > 0 && (
-        <section className="space-y-2" aria-label="Upload queue">
+        <section className="space-y-2" aria-label={t("media.queue.label")}>
           <p className="text-sm font-medium">
-            Uploads{" "}
+            {t("media.queue.title")}{" "}
             <span className="font-normal text-muted-foreground">
-              {queue.length} active
+              {t("media.queue.activeCount", { count: queue.length })}
             </span>
           </p>
           {queue.map((item) => {
@@ -615,28 +645,38 @@ export function ContentPage() {
                 <AttachmentContent>
                   <AttachmentTitle>{item.filename}</AttachmentTitle>
                   <AttachmentDescription>
-                    {formatBytes(item.uploadedBytes)} of{" "}
-                    {formatBytes(item.sizeBytes)} · {percent}% · {item.state}
+                    {t("media.queue.progress", {
+                      uploaded: formatBytes(item.uploadedBytes),
+                      size: formatBytes(item.sizeBytes),
+                      percent,
+                      state: queueStateLabel(item.state, t),
+                    })}
                   </AttachmentDescription>
                   {item.error && (
                     <p className="text-sm text-destructive">{item.error}</p>
                   )}
                   <Progress
-                    aria-label={`Upload progress for ${item.filename}`}
+                    aria-label={t("media.queue.progressAria", {
+                      filename: item.filename,
+                    })}
                     value={percent}
                   />
                 </AttachmentContent>
                 <AttachmentActions>
                   {item.state === "failed" && (
                     <AttachmentAction
-                      aria-label={`Retry or resume ${item.filename}`}
+                      aria-label={t("media.queue.retryAria", {
+                        filename: item.filename,
+                      })}
                       onClick={() => resume(item)}
                     >
                       <RotateCcw aria-hidden="true" />
                     </AttachmentAction>
                   )}
                   <AttachmentAction
-                    aria-label={`Cancel ${item.filename}`}
+                    aria-label={t("media.queue.cancelAria", {
+                      filename: item.filename,
+                    })}
                     onClick={() => void cancel(item)}
                   >
                     <X aria-hidden="true" />
@@ -652,42 +692,54 @@ export function ContentPage() {
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
-          label="Search media"
-          placeholder="Search media"
+          label={t("media.filters.searchLabel")}
+          placeholder={t("media.filters.searchLabel")}
         />
         <SingleToggleGroup
-          label="Content type filters"
+          label={t("media.filters.typeLabel")}
           value={contentFilter}
           onChange={setContentFilter}
           options={[
-            { value: "media", label: "Media", text: "Media" },
-            { value: "image", label: "Images", text: "Images" },
-            { value: "video", label: "Videos", text: "Videos" },
+            {
+              value: "media",
+              label: t("media.filters.typeMedia"),
+              text: t("media.filters.typeMedia"),
+            },
+            {
+              value: "image",
+              label: t("media.filters.typeImages"),
+              text: t("media.filters.typeImages"),
+            },
+            {
+              value: "video",
+              label: t("media.filters.typeVideos"),
+              text: t("media.filters.typeVideos"),
+            },
           ]}
         />
         <FilterSelect
-          label="Filter by status"
+          label={t("media.filters.statusLabel")}
           className="w-40 max-sm:flex-1"
           value={status}
           onChange={setStatus}
           options={[
-            { value: "", label: "All statuses" },
-            { value: "ready", label: "Ready" },
-            { value: "queued", label: "Waiting" },
-            { value: "inspecting", label: "Inspecting" },
-            { value: "processing", label: "Processing" },
-            { value: "failed", label: "Failed" },
+            { value: "", label: t("media.filters.statusAll") },
+            { value: "ready", label: t("media.status.ready") },
+            { value: "queued", label: t("media.status.waiting") },
+            { value: "inspecting", label: t("media.status.inspecting") },
+            { value: "processing", label: t("media.status.processing") },
+            { value: "failed", label: t("media.status.failed") },
           ]}
         />
         {libraryView === "active" && (
           <>
             <FilterSelect
-              label="Filter by folder"
+              label={t("media.filters.folderLabel")}
               className="w-44 max-sm:flex-1"
               value={folderFilter}
               onChange={setFolderFilter}
               options={[
-                { value: "", label: "All folders" },
+                { value: "", label: t("media.filters.folderAll") },
                 ...(folders.data?.map((folder) => ({
                   value: folder.id,
                   label: `${folder.name} (${folder.assetCount})`,
@@ -695,12 +747,12 @@ export function ContentPage() {
               ]}
             />
             <FilterSelect
-              label="Filter by collection"
+              label={t("media.filters.collectionLabel")}
               className="w-44 max-sm:flex-1"
               value={collectionFilter}
               onChange={setCollectionFilter}
               options={[
-                { value: "", label: "All collections" },
+                { value: "", label: t("media.filters.collectionAll") },
                 ...(collections.data?.map((collection) => ({
                   value: collection.id,
                   label: `${collection.name} (${collection.assetCount})`,
@@ -708,12 +760,12 @@ export function ContentPage() {
               ]}
             />
             <FilterSelect
-              label="Filter by tag"
+              label={t("media.filters.tagLabel")}
               className="w-44 max-sm:flex-1"
               value={tagFilter}
               onChange={setTagFilter}
               options={[
-                { value: "", label: "All tags" },
+                { value: "", label: t("media.filters.tagAll") },
                 ...(tags.data?.map((tag) => ({
                   value: tag.id,
                   label: `${tag.name} (${tag.assetCount ?? 0})`,
@@ -723,15 +775,15 @@ export function ContentPage() {
           </>
         )}
         <FilterSelect
-          label="Sort media"
+          label={t("media.sort.label")}
           className="w-44 max-sm:flex-1"
           value={sort}
           onChange={setSort}
           options={[
-            { value: "updated", label: "Recently updated" },
-            { value: "newest", label: "Newest" },
-            { value: "oldest", label: "Oldest" },
-            { value: "name", label: "Name" },
+            { value: "updated", label: t("media.sort.recentlyUpdated") },
+            { value: "newest", label: t("media.sort.newest") },
+            { value: "oldest", label: t("media.sort.oldest") },
+            { value: "name", label: t("media.sort.name") },
           ]}
         />
         {(search ||
@@ -752,11 +804,11 @@ export function ContentPage() {
               setTagFilter("");
             }}
           >
-            Reset filters
+            {t("media.filters.reset")}
           </Button>
         )}
         <SingleToggleGroup
-          label="View"
+          label={t("media.cardView.label")}
           variant="outline"
           spacing={0}
           value={view}
@@ -765,12 +817,12 @@ export function ContentPage() {
             {
               value: "grid",
               label: <Grid2X2 size={16} aria-hidden="true" />,
-              text: "Grid view",
+              text: t("media.cardView.grid"),
             },
             {
               value: "list",
               label: <List size={16} aria-hidden="true" />,
-              text: "List view",
+              text: t("media.cardView.list"),
             },
           ]}
         />
@@ -812,17 +864,16 @@ export function ContentPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Permanently delete {checkedAssetIds.size} archived item
-              {checkedAssetIds.size === 1 ? "" : "s"}?
+              {t("media.bulkDelete.title", { count: checkedAssetIds.size })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This cannot be undone.
+              {t("media.dialogs.cannotUndo")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep items</AlertDialogCancel>
+            <AlertDialogCancel>{t("media.bulkDelete.keep")}</AlertDialogCancel>
             <AlertDialogAction onClick={() => void deleteCheckedAssets()}>
-              Delete permanently
+              {t("media.dialogs.deletePermanently")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -830,7 +881,7 @@ export function ContentPage() {
 
       {assets.isError && (
         <Alert variant="destructive">
-          <AlertTitle>The media library could not be loaded</AlertTitle>
+          <AlertTitle>{t("media.list.loadError")}</AlertTitle>
           <AlertDescription>
             {assets.error instanceof ApiError ? assets.error.message : ""}
           </AlertDescription>
@@ -839,7 +890,9 @@ export function ContentPage() {
       {assets.isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-4 w-48" />
-          <p className="text-sm text-muted-foreground">Loading media…</p>
+          <p className="text-sm text-muted-foreground">
+            {t("media.list.loading")}
+          </p>
         </div>
       ) : assets.data?.items?.length === 0 ? (
         <ContentEmpty
@@ -908,15 +961,18 @@ export function ContentPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Move {confirmArchiveAsset?.name} to the archive?
+              {t("media.archiveDialog.title", {
+                name: confirmArchiveAsset?.name,
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Archived items stay available until you restore or permanently
-              delete them.
+              {t("media.archiveDialog.body")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep in library</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("media.archiveDialog.keep")}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 const asset = confirmArchiveAsset;
@@ -927,7 +983,7 @@ export function ContentPage() {
                     .then(refreshOrganization);
               }}
             >
-              Move to archive
+              {t("media.archiveDialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -941,14 +997,18 @@ export function ContentPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Permanently delete {confirmDeleteAsset?.name}?
+              {t("media.deleteDialog.title", {
+                name: confirmDeleteAsset?.name,
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This cannot be undone.
+              {t("media.dialogs.cannotUndo")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep item</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("media.deleteDialog.keep")}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 const asset = confirmDeleteAsset;
@@ -959,7 +1019,7 @@ export function ContentPage() {
                     .then(refreshOrganization);
               }}
             >
-              Delete permanently
+              {t("media.dialogs.deletePermanently")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -979,6 +1039,7 @@ export function ContentEmpty({
   onDrop?: (event: DragEvent) => void;
   archived?: boolean;
 }) {
+  const { t } = useTranslation("content");
   return (
     <Empty
       onDragOver={(event) => event.preventDefault()}
@@ -993,20 +1054,20 @@ export function ContentEmpty({
           )}
         </EmptyMedia>
         <EmptyTitle>
-          {archived ? "Archive is empty" : "No media yet"}
+          {archived ? t("media.empty.archiveTitle") : t("media.empty.title")}
         </EmptyTitle>
         <EmptyDescription>
           {archived
-            ? "Items you archive—or that reach their expiration—appear here and can be restored later."
+            ? t("media.empty.archiveDescription")
             : canManage
-              ? "Drag images or videos here, or choose files to begin your library."
-              : "An Owner, Administrator, or Editor can upload media."}
+              ? t("media.empty.manageDescription")
+              : t("media.empty.viewerDescription")}
         </EmptyDescription>
       </EmptyHeader>
       {canManage && !archived && (
         <EmptyContent>
           <Button variant="outline" onClick={onChoose}>
-            Choose files
+            {t("media.empty.chooseFiles")}
           </Button>
         </EmptyContent>
       )}
@@ -1041,6 +1102,7 @@ export function AssetCollection({
   folderNames?: Map<string, string>;
   archived?: boolean;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   // Every action is also reachable from a visible control, so the menus stay a
   // shortcut rather than the only route to duplication or deletion.
   const actionsFor = (asset: Asset): AssetMenuAction[] => {
@@ -1048,39 +1110,43 @@ export function AssetCollection({
       ? []
       : [
           {
-            label: canManage ? "Edit" : "Open",
+            label: canManage
+              ? t("common:actions.edit")
+              : t("media.actions.open"),
             icon: <SquarePen size={14} aria-hidden="true" />,
             onSelect: () => onSelect(asset),
           },
         ];
     if (canManage && onToggle)
       actions.push({
-        label: selectedIds.has(asset.id) ? "Clear selection" : "Select",
+        label: selectedIds.has(asset.id)
+          ? t("media.actions.clearSelection")
+          : t("media.actions.select"),
         onSelect: () => onToggle(asset.id),
       });
     // Only Widgets have a duplicate endpoint; uploaded media has no server-side copy.
     if (canManage && onDuplicate && asset.type === "widget")
       actions.push({
-        label: "Duplicate",
+        label: t("media.actions.duplicate"),
         icon: <Copy size={14} aria-hidden="true" />,
         onSelect: () => onDuplicate(asset),
       });
     if (canManage && !archived && onArchive)
       actions.push({
-        label: "Archive",
+        label: t("media.actions.archive"),
         icon: <Archive size={14} aria-hidden="true" />,
         separated: actions.length > 0,
         onSelect: () => onArchive(asset),
       });
     if (canManage && archived && onRestore)
       actions.push({
-        label: "Restore to library",
+        label: t("media.actions.restore"),
         icon: <ArchiveRestore size={14} aria-hidden="true" />,
         onSelect: () => onRestore(asset),
       });
     if (canManage && archived && onDelete)
       actions.push({
-        label: "Delete permanently",
+        label: t("media.dialogs.deletePermanently"),
         icon: <Trash2 size={14} aria-hidden="true" />,
         danger: true,
         separated: actions.length > 0,
@@ -1171,9 +1237,12 @@ function AssetContextMenu({
   asset: Asset;
   actions: AssetMenuAction[];
 }) {
+  const { t } = useTranslation("content");
   if (actions.length === 0) return null;
   return (
-    <ContextMenuContent aria-label={`Actions for ${asset.name}`}>
+    <ContextMenuContent
+      aria-label={t("media.card.actionsFor", { name: asset.name })}
+    >
       {actions.map((action, index) => (
         <Fragment key={`${action.label}-${index}`}>
           {action.separated && <ContextMenuSeparator />}
@@ -1193,16 +1262,21 @@ function AssetContextMenu({
 function assetStatusBadge(
   asset: Asset,
   archived: boolean,
+  t: ContentT,
 ): {
   label: string;
   variant: "secondary" | "destructive" | "outline";
 } {
   if (archived && isExpiredAsset(asset))
-    return { label: "Expired", variant: "outline" };
-  if (archived) return { label: "Archived", variant: "outline" };
+    return { label: t("media.badges.expired"), variant: "outline" };
+  if (archived)
+    return { label: t("media.badges.archived"), variant: "outline" };
   if (asset.processingStatus === "failed")
-    return { label: "Failed", variant: "destructive" };
-  return { label: statusLabel(asset.processingStatus), variant: "secondary" };
+    return { label: t("media.status.failed"), variant: "destructive" };
+  return {
+    label: statusLabel(asset.processingStatus, t),
+    variant: "secondary",
+  };
 }
 
 function AssetSummary({ asset }: { asset: Asset }) {
@@ -1211,7 +1285,8 @@ function AssetSummary({ asset }: { asset: Asset }) {
       {asset.type === "video" && formatDuration(asset.durationSeconds)}
       {asset.type === "widget" &&
         (asset.widget?.provider === "youtube"
-          ? "YouTube"
+          ? // i18n-ignore: YouTube is a brand name and stays in Latin script
+            "YouTube"
           : asset.widget?.provider
             ? asset.widget.provider.toUpperCase()
             : asset.website?.displayUrl)}
@@ -1280,8 +1355,11 @@ function MediaAssetCard({
   onArchive?: () => void;
   actions: AssetMenuAction[];
 }) {
-  const status = assetStatusBadge(asset, archived);
-  const openLabel = `${archived ? "View" : "Edit"} ${asset.name}`;
+  const { t } = useTranslation(["content", "common"]);
+  const status = assetStatusBadge(asset, archived, t);
+  const openLabel = archived
+    ? t("media.card.viewLabel", { name: asset.name })
+    : t("media.card.editLabel", { name: asset.name });
   // The card root is the right-click target itself, so assisted-technology and
   // test hooks keep working: `asset-card` stays a stable structural hook.
   return (
@@ -1295,7 +1373,7 @@ function MediaAssetCard({
       >
         {onToggle && (
           <Checkbox
-            aria-label={`Select ${asset.name}`}
+            aria-label={t("media.card.selectLabel", { name: asset.name })}
             checked={selected}
             onCheckedChange={() => onToggle()}
             className="absolute top-2 left-2 z-10 bg-background/90"
@@ -1305,7 +1383,7 @@ function MediaAssetCard({
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon-sm" />}
-              aria-label={`Actions for ${asset.name}`}
+              aria-label={t("media.card.actionsFor", { name: asset.name })}
               className="absolute top-2 right-2 z-10 bg-background/90"
             >
               <EllipsisVertical aria-hidden="true" />
@@ -1341,9 +1419,13 @@ function MediaAssetCard({
         {asset.type === "widget" && !archived && (
           <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2">
             <span className="text-xs text-muted-foreground">
-              {asset.playlistUsage ?? 0} playlist
-              {asset.playlistUsage === 1 ? "" : "s"}
-              {` · ${asset.layoutUsage?.length ?? 0} Layout${asset.layoutUsage?.length === 1 ? "" : "s"}`}
+              {t("media.card.playlists", {
+                count: asset.playlistUsage ?? 0,
+              })}{" "}
+              ·{" "}
+              {t("media.card.layouts", {
+                count: asset.layoutUsage?.length ?? 0,
+              })}
             </span>
             {canManage && (
               <>
@@ -1353,7 +1435,7 @@ function MediaAssetCard({
                   size="sm"
                   onClick={onSelect}
                 >
-                  Edit
+                  {t("common:actions.edit")}
                 </Button>
                 {onDuplicate && (
                   <Button
@@ -1361,9 +1443,12 @@ function MediaAssetCard({
                     variant="ghost"
                     size="sm"
                     onClick={onDuplicate}
-                    aria-label={`Duplicate ${asset.name}`}
+                    aria-label={t("media.card.duplicateLabel", {
+                      name: asset.name,
+                    })}
                   >
-                    <Copy size={14} aria-hidden="true" /> Duplicate
+                    <Copy size={14} aria-hidden="true" />{" "}
+                    {t("media.actions.duplicate")}
                   </Button>
                 )}
                 {onArchive && (
@@ -1372,9 +1457,12 @@ function MediaAssetCard({
                     variant="ghost"
                     size="sm"
                     onClick={onArchive}
-                    aria-label={`Archive ${asset.name}`}
+                    aria-label={t("media.card.archiveLabel", {
+                      name: asset.name,
+                    })}
                   >
-                    <Archive size={14} aria-hidden="true" /> Archive
+                    <Archive size={14} aria-hidden="true" />{" "}
+                    {t("media.actions.archive")}
                   </Button>
                 )}
               </>
@@ -1402,12 +1490,13 @@ function MediaAssetListRow({
   onToggle?: () => void;
   actions: AssetMenuAction[];
 }) {
-  const status = assetStatusBadge(asset, archived);
+  const { t } = useTranslation("content");
+  const status = assetStatusBadge(asset, archived, t);
   return (
     <Item size="sm">
       {onToggle && (
         <Checkbox
-          aria-label={`Select ${asset.name}`}
+          aria-label={t("media.card.selectLabel", { name: asset.name })}
           checked={selected}
           onCheckedChange={() => onToggle()}
         />
@@ -1417,7 +1506,11 @@ function MediaAssetListRow({
           <button
             type="button"
             onClick={onSelect}
-            aria-label={`${archived ? "View" : "Edit"} ${asset.name}`}
+            aria-label={
+              archived
+                ? t("media.card.viewLabel", { name: asset.name })
+                : t("media.card.editLabel", { name: asset.name })
+            }
             className="truncate text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             {asset.name}
@@ -1433,7 +1526,7 @@ function MediaAssetListRow({
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon-sm" />}
-              aria-label={`Actions for ${asset.name}`}
+              aria-label={t("media.card.actionsFor", { name: asset.name })}
             >
               <EllipsisVertical aria-hidden="true" />
             </DropdownMenuTrigger>
@@ -1449,24 +1542,44 @@ function MediaAssetListRow({
 
 type OrganizerKind = "folder" | "collection" | "tag";
 
-const organizerCopy: Record<
+const organizerKeys: Record<
   OrganizerKind,
-  { title: string; label: string; hint: string }
+  {
+    titleKey:
+      | "media.createOrganizer.folder.title"
+      | "media.createOrganizer.collection.title"
+      | "media.createOrganizer.tag.title";
+    labelKey:
+      | "media.createOrganizer.folder.label"
+      | "media.createOrganizer.collection.label"
+      | "media.createOrganizer.tag.label";
+    hintKey:
+      | "media.createOrganizer.folder.hint"
+      | "media.createOrganizer.collection.hint"
+      | "media.createOrganizer.tag.hint";
+    errorKey:
+      | "media.createOrganizer.createErrorFolder"
+      | "media.createOrganizer.createErrorCollection"
+      | "media.createOrganizer.createErrorTag";
+  }
 > = {
   folder: {
-    title: "Create folder",
-    label: "Folder name",
-    hint: "Each asset lives in one folder. Use folders for broad areas like buildings or departments.",
+    titleKey: "media.createOrganizer.folder.title",
+    labelKey: "media.createOrganizer.folder.label",
+    hintKey: "media.createOrganizer.folder.hint",
+    errorKey: "media.createOrganizer.createErrorFolder",
   },
   collection: {
-    title: "Create collection",
-    label: "Collection name",
-    hint: "Collections group related assets for reuse. An asset can belong to several collections.",
+    titleKey: "media.createOrganizer.collection.title",
+    labelKey: "media.createOrganizer.collection.label",
+    hintKey: "media.createOrganizer.collection.hint",
+    errorKey: "media.createOrganizer.createErrorCollection",
   },
   tag: {
-    title: "Create tag",
-    label: "Tag name",
-    hint: "Tags are colored labels for quick filtering. An asset can have several tags.",
+    titleKey: "media.createOrganizer.tag.title",
+    labelKey: "media.createOrganizer.tag.label",
+    hintKey: "media.createOrganizer.tag.hint",
+    errorKey: "media.createOrganizer.createErrorTag",
   },
 };
 
@@ -1481,6 +1594,7 @@ export function CreateOrganizerDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const [name, setName] = useState("");
   const [color, setColor] = useState("#64748b");
   const create = useMutation({
@@ -1495,7 +1609,7 @@ export function CreateOrganizerDialog({
       onClose();
     },
   });
-  const copy = organizerCopy[kind];
+  const copy = organizerKeys[kind];
   return (
     <Dialog
       open
@@ -1505,8 +1619,8 @@ export function CreateOrganizerDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{copy.title}</DialogTitle>
-          <DialogDescription>{copy.hint}</DialogDescription>
+          <DialogTitle>{t(copy.titleKey)}</DialogTitle>
+          <DialogDescription>{t(copy.hintKey)}</DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-4"
@@ -1517,7 +1631,7 @@ export function CreateOrganizerDialog({
         >
           <Field>
             <FieldLabel htmlFor={`organizer-${kind}-name`}>
-              {copy.label}
+              {t(copy.labelKey)}
             </FieldLabel>
             <Input
               id={`organizer-${kind}-name`}
@@ -1530,7 +1644,9 @@ export function CreateOrganizerDialog({
           </Field>
           {kind === "tag" && (
             <Field>
-              <FieldLabel htmlFor="organizer-tag-color">Color</FieldLabel>
+              <FieldLabel htmlFor="organizer-tag-color">
+                {t("media.createOrganizer.colorLabel")}
+              </FieldLabel>
               <Input
                 id="organizer-tag-color"
                 type="color"
@@ -1542,7 +1658,7 @@ export function CreateOrganizerDialog({
           )}
           {create.isError && (
             <Alert variant="destructive">
-              <AlertTitle>{`The ${kind} could not be created`}</AlertTitle>
+              <AlertTitle>{t(copy.errorKey)}</AlertTitle>
               <AlertDescription>
                 {create.error instanceof ApiError ? create.error.message : ""}
               </AlertDescription>
@@ -1550,11 +1666,11 @@ export function CreateOrganizerDialog({
           )}
           <DialogFooter>
             <Button variant="outline" type="button" onClick={onClose}>
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button type="submit" disabled={create.isPending}>
               {create.isPending && <Spinner aria-hidden="true" />}
-              {copy.title}
+              {t(copy.titleKey)}
             </Button>
           </DialogFooter>
         </form>
@@ -1576,6 +1692,7 @@ function ManageOrganizerRow({
   onRename: (name: string) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
   const [busy, setBusy] = useState(false);
@@ -1588,9 +1705,7 @@ function ManageOrganizerRow({
       setEditing(false);
     } catch (cause) {
       setError(
-        cause instanceof ApiError
-          ? cause.message
-          : "The change could not be saved.",
+        cause instanceof ApiError ? cause.message : t("media.manage.saveError"),
       );
     } finally {
       setBusy(false);
@@ -1610,13 +1725,13 @@ function ManageOrganizerRow({
           <Input
             autoFocus
             required
-            aria-label={`New name for ${name}`}
+            aria-label={t("media.manage.renameAria", { name })}
             value={value}
             onChange={(event) => setValue(event.target.value)}
             className="min-w-32 flex-1"
           />
           <Button type="submit" size="sm" disabled={busy}>
-            Save
+            {t("common:actions.save")}
           </Button>
           <Button
             type="button"
@@ -1628,7 +1743,7 @@ function ManageOrganizerRow({
               setError("");
             }}
           >
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
         </form>
       ) : (
@@ -1644,7 +1759,7 @@ function ManageOrganizerRow({
               size="sm"
               onClick={() => setEditing(true)}
             >
-              <Pencil size={13} aria-hidden="true" /> Rename
+              <Pencil size={13} aria-hidden="true" /> {t("media.manage.rename")}
             </Button>
             <Button
               type="button"
@@ -1653,19 +1768,22 @@ function ManageOrganizerRow({
               disabled={busy}
               onClick={() => setConfirmDelete(true)}
             >
-              <Trash2 size={13} aria-hidden="true" /> Delete
+              <Trash2 size={13} aria-hidden="true" />{" "}
+              {t("common:actions.delete")}
             </Button>
           </span>
           <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {t("media.manage.deleteTitle", { name })}
+                </AlertDialogTitle>
                 <AlertDialogDescription>
                   {confirmDescription}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Keep</AlertDialogCancel>
+                <AlertDialogCancel>{t("media.manage.keep")}</AlertDialogCancel>
                 <AlertDialogAction
                   disabled={busy}
                   onClick={() => {
@@ -1673,7 +1791,7 @@ function ManageOrganizerRow({
                     void run(onDelete);
                   }}
                 >
-                  Delete
+                  {t("common:actions.delete")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -1700,21 +1818,31 @@ function ManageOrganizationDialog({
   onChanged: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("content");
   const sections: {
-    title: string;
-    empty: string;
+    titleKey:
+      | "media.manage.foldersTitle"
+      | "media.manage.collectionsTitle"
+      | "media.manage.tagsTitle";
+    emptyKey:
+      | "media.manage.emptyFolders"
+      | "media.manage.emptyCollections"
+      | "media.manage.emptyTags";
     rows: {
       id: string;
       name: string;
       count: number;
       rename: (name: string) => Promise<unknown>;
       remove: () => Promise<unknown>;
-      confirmText: string;
+      confirmKey:
+        | "media.manage.confirmDeleteFolder"
+        | "media.manage.confirmDeleteCollection"
+        | "media.manage.confirmDeleteTag";
     }[];
   }[] = [
     {
-      title: "Folders",
-      empty: "No folders yet.",
+      titleKey: "media.manage.foldersTitle",
+      emptyKey: "media.manage.emptyFolders",
       rows: folders.map((folder) => ({
         id: folder.id,
         name: folder.name,
@@ -1730,12 +1858,12 @@ function ManageOrganizationDialog({
             csrf,
           ),
         remove: () => api.deleteContentFolder(folder.id, csrf),
-        confirmText: `Delete the folder "${folder.name}"? Its assets stay in the library and become unfiled.`,
+        confirmKey: "media.manage.confirmDeleteFolder",
       })),
     },
     {
-      title: "Collections",
-      empty: "No collections yet.",
+      titleKey: "media.manage.collectionsTitle",
+      emptyKey: "media.manage.emptyCollections",
       rows: collections.map((collection) => ({
         id: collection.id,
         name: collection.name,
@@ -1747,12 +1875,12 @@ function ManageOrganizationDialog({
             csrf,
           ),
         remove: () => api.deleteContentCollection(collection.id, csrf),
-        confirmText: `Delete the collection "${collection.name}"? Its assets stay in the library.`,
+        confirmKey: "media.manage.confirmDeleteCollection",
       })),
     },
     {
-      title: "Tags",
-      empty: "No tags yet.",
+      titleKey: "media.manage.tagsTitle",
+      emptyKey: "media.manage.emptyTags",
       rows: tags.map((tag) => ({
         id: tag.id,
         name: tag.name,
@@ -1760,7 +1888,7 @@ function ManageOrganizationDialog({
         rename: (name) =>
           api.updateContentTag(tag.id, { name, color: tag.color }, csrf),
         remove: () => api.deleteContentTag(tag.id, csrf),
-        confirmText: `Delete the tag "${tag.name}"? It is removed from all assets.`,
+        confirmKey: "media.manage.confirmDeleteTag",
       })),
     },
   ];
@@ -1773,18 +1901,17 @@ function ManageOrganizationDialog({
     >
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Manage organization</DialogTitle>
-          <DialogDescription>
-            Rename or delete folders, collections, and tags. Assets stay in the
-            library.
-          </DialogDescription>
+          <DialogTitle>{t("media.manage.title")}</DialogTitle>
+          <DialogDescription>{t("media.manage.description")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-5">
           {sections.map((section) => (
-            <section key={section.title} className="grid gap-2">
-              <h3 className="text-sm font-medium">{section.title}</h3>
+            <section key={section.titleKey} className="grid gap-2">
+              <h3 className="text-sm font-medium">{t(section.titleKey)}</h3>
               {section.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{section.empty}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t(section.emptyKey)}
+                </p>
               ) : (
                 <ul className="grid gap-2">
                   {section.rows.map((row) => (
@@ -1792,7 +1919,9 @@ function ManageOrganizationDialog({
                       key={row.id}
                       name={row.name}
                       count={row.count}
-                      confirmDescription={`${row.confirmText} This cannot be undone.`}
+                      confirmDescription={t(row.confirmKey, {
+                        name: row.name,
+                      })}
                       onRename={async (name) => {
                         await row.rename(name);
                         onChanged();
@@ -1842,6 +1971,7 @@ function ContentOrganizer({
   onRestore: () => void | Promise<void>;
   onDelete: () => void | Promise<void>;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const [folderId, setFolderId] = useState("");
   const [tagId, setTagId] = useState("");
   const [collectionId, setCollectionId] = useState("");
@@ -1859,7 +1989,7 @@ function ContentOrganizer({
       setError(
         cause instanceof ApiError
           ? cause.message
-          : "The selected content could not be updated.",
+          : t("media.organizer.updateError"),
       );
     } finally {
       setBusy(false);
@@ -1902,14 +2032,14 @@ function ContentOrganizer({
       setError(
         cause instanceof ApiError
           ? cause.message
-          : "Content could not be organized.",
+          : t("media.organizer.applyError"),
       );
     }
   };
   return (
     <div
       className="flex flex-wrap items-center gap-2"
-      aria-label="Content organization"
+      aria-label={t("media.organizer.label")}
     >
       {!archiveMode && assetIds.length === 0 && (
         <div className="flex flex-wrap items-center gap-1">
@@ -1919,7 +2049,8 @@ function ContentOrganizer({
             size="sm"
             onClick={() => setCreating("folder")}
           >
-            <FolderPlus size={15} aria-hidden="true" /> Create folder
+            <FolderPlus size={15} aria-hidden="true" />{" "}
+            {t("media.organizer.createFolder")}
           </Button>
           <Button
             type="button"
@@ -1927,7 +2058,8 @@ function ContentOrganizer({
             size="sm"
             onClick={() => setCreating("collection")}
           >
-            <Library size={15} aria-hidden="true" /> Create collection
+            <Library size={15} aria-hidden="true" />{" "}
+            {t("media.organizer.createCollection")}
           </Button>
           <Button
             type="button"
@@ -1935,7 +2067,8 @@ function ContentOrganizer({
             size="sm"
             onClick={() => setCreating("tag")}
           >
-            <Tags size={15} aria-hidden="true" /> Create tag
+            <Tags size={15} aria-hidden="true" />{" "}
+            {t("media.organizer.createTag")}
           </Button>
           {(folders.length > 0 ||
             collections.length > 0 ||
@@ -1946,7 +2079,8 @@ function ContentOrganizer({
               size="sm"
               onClick={() => setManaging(true)}
             >
-              <Pencil size={15} aria-hidden="true" /> Manage
+              <Pencil size={15} aria-hidden="true" />{" "}
+              {t("media.organizer.manage")}
             </Button>
           )}
         </div>
@@ -1954,7 +2088,7 @@ function ContentOrganizer({
       {assetIds.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
           <strong className="text-sm font-medium">
-            {assetIds.length} selected
+            {t("media.organizer.selectedCount", { count: assetIds.length })}
           </strong>
           <span className="flex flex-wrap items-center gap-1">
             <Button
@@ -1963,10 +2097,10 @@ function ContentOrganizer({
               size="sm"
               onClick={onSelectAll}
             >
-              Select page
+              {t("media.organizer.selectPage")}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={onClear}>
-              Clear
+              {t("media.organizer.clear")}
             </Button>
           </span>
           <span className="flex flex-wrap items-center gap-1">
@@ -1977,7 +2111,8 @@ function ContentOrganizer({
                 size="sm"
                 onClick={() => setOrganizing(true)}
               >
-                <Folder size={15} aria-hidden="true" /> Organize
+                <Folder size={15} aria-hidden="true" />{" "}
+                {t("media.organizer.organize")}
               </Button>
             )}
             <Button
@@ -1992,7 +2127,9 @@ function ContentOrganizer({
               ) : (
                 <Archive size={15} aria-hidden="true" />
               )}
-              {archiveMode ? "Restore" : "Archive"}
+              {archiveMode
+                ? t("media.organizer.restore")
+                : t("media.actions.archive")}
             </Button>
             {archiveMode && (
               <Button
@@ -2002,7 +2139,8 @@ function ContentOrganizer({
                 disabled={busy}
                 onClick={() => void run(onDelete)}
               >
-                <Trash2 size={15} aria-hidden="true" /> Delete permanently
+                <Trash2 size={15} aria-hidden="true" />{" "}
+                {t("media.dialogs.deletePermanently")}
               </Button>
             )}
           </span>
@@ -2041,25 +2179,31 @@ function ContentOrganizer({
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                Organize {assetIds.length} selected item
-                {assetIds.length === 1 ? "" : "s"}
+                {t("media.organizeDialog.title", { count: assetIds.length })}
               </DialogTitle>
               <DialogDescription>
-                Choose one or more changes. Existing tags and collections stay
-                unless you explicitly remove them.
+                {t("media.organizeDialog.description")}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4">
               <Field>
-                <FieldLabel htmlFor="bulk-folder">Move to folder</FieldLabel>
+                <FieldLabel htmlFor="bulk-folder">
+                  {t("media.organizeDialog.folderLabel")}
+                </FieldLabel>
                 <FilterSelect
                   id="bulk-folder"
-                  label="Move to folder"
+                  label={t("media.organizeDialog.folderLabel")}
                   value={folderId}
                   onChange={setFolderId}
                   options={[
-                    { value: "", label: "Leave folder unchanged" },
-                    { value: "unfiled", label: "Move to Unfiled" },
+                    {
+                      value: "",
+                      label: t("media.organizeDialog.folderUnchanged"),
+                    },
+                    {
+                      value: "unfiled",
+                      label: t("media.organizeDialog.folderUnfiled"),
+                    },
                     ...folders.map((folder) => ({
                       value: folder.id,
                       label: folder.name,
@@ -2068,19 +2212,31 @@ function ContentOrganizer({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="bulk-tag">Tag change</FieldLabel>
+                <FieldLabel htmlFor="bulk-tag">
+                  {t("media.organizeDialog.tagLabel")}
+                </FieldLabel>
                 <FilterSelect
                   id="bulk-tag"
-                  label="Tag change"
+                  label={t("media.organizeDialog.tagLabel")}
                   value={tagId}
                   onChange={setTagId}
                   options={[
-                    { value: "", label: "Leave tags unchanged" },
+                    {
+                      value: "",
+                      label: t("media.organizeDialog.tagUnchanged"),
+                    },
                     ...tags.flatMap((tag) => [
-                      { value: `add:${tag.id}`, label: `Add ${tag.name}` },
+                      {
+                        value: `add:${tag.id}`,
+                        label: t("media.organizeDialog.tagAdd", {
+                          name: tag.name,
+                        }),
+                      },
                       {
                         value: `remove:${tag.id}`,
-                        label: `Remove ${tag.name}`,
+                        label: t("media.organizeDialog.tagRemove", {
+                          name: tag.name,
+                        }),
                       },
                     ]),
                   ]}
@@ -2088,23 +2244,30 @@ function ContentOrganizer({
               </Field>
               <Field>
                 <FieldLabel htmlFor="bulk-collection">
-                  Collection change
+                  {t("media.organizeDialog.collectionLabel")}
                 </FieldLabel>
                 <FilterSelect
                   id="bulk-collection"
-                  label="Collection change"
+                  label={t("media.organizeDialog.collectionLabel")}
                   value={collectionId}
                   onChange={setCollectionId}
                   options={[
-                    { value: "", label: "Leave collections unchanged" },
+                    {
+                      value: "",
+                      label: t("media.organizeDialog.collectionUnchanged"),
+                    },
                     ...collections.flatMap((collection) => [
                       {
                         value: `add:${collection.id}`,
-                        label: `Add to ${collection.name}`,
+                        label: t("media.organizeDialog.collectionAdd", {
+                          name: collection.name,
+                        }),
                       },
                       {
                         value: `remove:${collection.id}`,
-                        label: `Remove from ${collection.name}`,
+                        label: t("media.organizeDialog.collectionRemove", {
+                          name: collection.name,
+                        }),
                       },
                     ]),
                   ]}
@@ -2117,14 +2280,14 @@ function ContentOrganizer({
                 type="button"
                 onClick={() => setOrganizing(false)}
               >
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               <Button
                 type="button"
                 disabled={!folderId && !tagId && !collectionId}
                 onClick={() => void apply()}
               >
-                Apply changes
+                {t("media.organizeDialog.apply")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -2231,6 +2394,7 @@ export function AssetOrganization({
       void queryClient.invalidateQueries({ queryKey: ["content-tags"] });
     },
   });
+  const { t } = useTranslation("content");
   const assetTagIds = new Set((asset.tags ?? []).map((tag) => tag.id));
   const assetCollectionIds = new Set(asset.collectionIds ?? []);
   if (
@@ -2241,13 +2405,15 @@ export function AssetOrganization({
   )
     return null;
   return (
-    <section className="grid gap-4" aria-label="Organization">
-      <h3 className="text-sm font-medium">Organization</h3>
+    <section className="grid gap-4" aria-label={t("media.organization.title")}>
+      <h3 className="text-sm font-medium">{t("media.organization.title")}</h3>
       <Field>
-        <FieldLabel htmlFor="asset-folder">Folder</FieldLabel>
+        <FieldLabel htmlFor="asset-folder">
+          {t("media.organization.folderLabel")}
+        </FieldLabel>
         <FilterSelect
           id="asset-folder"
-          label="Folder"
+          label={t("media.organization.folderLabel")}
           value={asset.folderId ?? ""}
           disabled={!canManage || organize.isPending}
           onChange={(value) =>
@@ -2257,7 +2423,7 @@ export function AssetOrganization({
             })
           }
           options={[
-            { value: "", label: "Unfiled" },
+            { value: "", label: t("media.organization.unfiled") },
             ...(folders.data?.map((folder) => ({
               value: folder.id,
               label: folder.name,
@@ -2266,15 +2432,17 @@ export function AssetOrganization({
         />
       </Field>
       <Field>
-        <span className="text-sm leading-none font-medium">Tags</span>
+        <span className="text-sm leading-none font-medium">
+          {t("media.organization.tagsLabel")}
+        </span>
         {(tags.data?.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No tags yet. Create tags from the media library toolbar.
+            {t("media.organization.tagsEmpty")}
           </p>
         ) : (
           <ToggleGroup
             multiple
-            aria-label="Tags"
+            aria-label={t("media.organization.tagsLabel")}
             value={[...assetTagIds]}
             disabled={!canManage || organize.isPending}
             onValueChange={(next) => {
@@ -2306,16 +2474,17 @@ export function AssetOrganization({
         )}
       </Field>
       <Field>
-        <span className="text-sm leading-none font-medium">Collections</span>
+        <span className="text-sm leading-none font-medium">
+          {t("media.organization.collectionsLabel")}
+        </span>
         {(collections.data?.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No collections yet. Create collections from the media library
-            toolbar.
+            {t("media.organization.collectionsEmpty")}
           </p>
         ) : (
           <ToggleGroup
             multiple
-            aria-label="Collections"
+            aria-label={t("media.organization.collectionsLabel")}
             value={[...assetCollectionIds]}
             disabled={!canManage || organize.isPending}
             onValueChange={(next) => {
@@ -2348,7 +2517,7 @@ export function AssetOrganization({
       </Field>
       {organize.isError && (
         <Alert variant="destructive">
-          <AlertTitle>Organization could not be updated</AlertTitle>
+          <AlertTitle>{t("media.organization.updateError")}</AlertTitle>
           <AlertDescription>
             {organize.error instanceof ApiError ? organize.error.message : ""}
           </AlertDescription>
@@ -2371,6 +2540,7 @@ function MediaAssetDetails({
   onClose: () => void;
   onChanged: (asset: Asset) => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
   const [name, setName] = useState(asset.name);
   const [description, setDescription] = useState(asset.description);
@@ -2409,12 +2579,12 @@ function MediaAssetDetails({
     >
       <SheetContent
         side="right"
-        aria-label={`Details for ${asset.name}`}
+        aria-label={t("media.details.label", { name: asset.name })}
         className="overflow-y-auto"
       >
         <SheetHeader>
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Media asset
+            {t("media.details.eyebrow")}
           </p>
           <SheetTitle>{asset.name}</SheetTitle>
         </SheetHeader>
@@ -2428,7 +2598,9 @@ function MediaAssetDetails({
             />
           )}
           <Field>
-            <FieldLabel htmlFor="asset-name">Name</FieldLabel>
+            <FieldLabel htmlFor="asset-name">
+              {t("media.details.nameLabel")}
+            </FieldLabel>
             <Input
               id="asset-name"
               value={name}
@@ -2439,7 +2611,7 @@ function MediaAssetDetails({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="asset-available-from">
-                Available from
+                {t("media.details.availableFromLabel")}
               </FieldLabel>
               <Input
                 id="asset-available-from"
@@ -2449,11 +2621,13 @@ function MediaAssetDetails({
                 onChange={(event) => setAvailableFrom(event.target.value)}
               />
               <p className="text-sm text-muted-foreground">
-                Leave blank to make this content available immediately.
+                {t("media.details.availableFromHint")}
               </p>
             </Field>
             <Field>
-              <FieldLabel htmlFor="asset-expires-at">Expires at</FieldLabel>
+              <FieldLabel htmlFor="asset-expires-at">
+                {t("media.details.expiresAtLabel")}
+              </FieldLabel>
               <Input
                 id="asset-expires-at"
                 type="datetime-local"
@@ -2462,13 +2636,14 @@ function MediaAssetDetails({
                 onChange={(event) => setExpiresAt(event.target.value)}
               />
               <p className="text-sm text-muted-foreground">
-                The Player stops using it at this local date and time, even
-                offline.
+                {t("media.details.expiresAtHint")}
               </p>
             </Field>
           </div>
           <Field>
-            <FieldLabel htmlFor="asset-description">Description</FieldLabel>
+            <FieldLabel htmlFor="asset-description">
+              {t("media.details.descriptionLabel")}
+            </FieldLabel>
             <Textarea
               id="asset-description"
               value={description}
@@ -2484,38 +2659,48 @@ function MediaAssetDetails({
           />
           <dl className="grid gap-2 text-sm">
             <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">Status</dt>
+              <dt className="text-muted-foreground">
+                {t("media.details.statusLabel")}
+              </dt>
               <dd className="font-medium">
-                {statusLabel(asset.processingStatus)}
+                {statusLabel(asset.processingStatus, t)}
               </dd>
             </div>
             <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">Original file</dt>
+              <dt className="text-muted-foreground">
+                {t("media.details.originalFileLabel")}
+              </dt>
               <dd className="font-medium">{asset.originalFilename}</dd>
             </div>
             <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">Detected type</dt>
+              <dt className="text-muted-foreground">
+                {t("media.details.detectedTypeLabel")}
+              </dt>
               <dd className="font-medium">{asset.detectedMimeType}</dd>
             </div>
             <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">SHA-256</dt>
+              <dt className="text-muted-foreground">
+                {t("media.details.shaLabel")}
+              </dt>
               <dd className="font-mono text-xs break-all">{asset.sha256}</dd>
             </div>
           </dl>
           <UsedByPanel
-            emptyMessage="No playlist or Layout uses this media yet."
+            emptyMessage={t("media.details.noUsage")}
             groups={[
               {
-                label: "Playlists",
+                label: t("media.details.playlistsLabel"),
                 items: asset.playlistsUsing ?? [],
                 to: (playlistId) => `/playlists/${playlistId}`,
               },
               {
-                label: "Layouts",
+                label: t("media.details.layoutsLabel"),
                 items: (asset.layoutUsage ?? []).map((usage) => ({
                   id: usage.id,
                   name: usage.name,
-                  hint: usage.published ? "Published" : "Draft",
+                  hint: usage.published
+                    ? t("media.details.publishedHint")
+                    : t("media.details.draftHint"),
                 })),
                 to: (layoutId) => `/layouts/${layoutId}`,
               },
@@ -2534,7 +2719,7 @@ function MediaAssetDetails({
               disabled={mutation.isPending}
             >
               {mutation.isPending && <Spinner aria-hidden="true" />}
-              Save changes
+              {t("common:actions.saveChanges")}
             </Button>
             {asset.processingStatus === "failed" && (
               <Button
@@ -2543,11 +2728,12 @@ function MediaAssetDetails({
                   void api.retryAsset(asset.id, csrf).then(onChanged)
                 }
               >
-                Retry processing
+                {t("media.details.retryProcessing")}
               </Button>
             )}
             <Button variant="outline" onClick={() => setConfirmArchive(true)}>
-              <Archive size={15} aria-hidden="true" /> Archive asset
+              <Archive size={15} aria-hidden="true" />{" "}
+              {t("media.details.archiveAsset")}
             </Button>
           </SheetFooter>
         )}
@@ -2555,15 +2741,16 @@ function MediaAssetDetails({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Move {asset.name} to the archive?
+                {t("media.archiveDialog.title", { name: asset.name })}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Archived items stay available until you restore or permanently
-                delete them.
+                {t("media.archiveDialog.body")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Keep in library</AlertDialogCancel>
+              <AlertDialogCancel>
+                {t("media.archiveDialog.keep")}
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={() =>
                   void api.archiveAssets([asset.id], csrf).then(() => {
@@ -2574,7 +2761,7 @@ function MediaAssetDetails({
                   })
                 }
               >
-                Move to archive
+                {t("media.archiveDialog.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -2623,6 +2810,8 @@ export function WebsiteEditor({
   onSaved: (asset: Asset) => void;
   page?: boolean;
 }) {
+  const { t } = useTranslation(["content", "common"]);
+  const formatLocale = useFormatLocale();
   const initial: WebsiteInput = asset?.website
     ? {
         name: asset.name,
@@ -2701,13 +2890,16 @@ export function WebsiteEditor({
     if (dirty) setConfirmDiscard(true);
     else onClose();
   };
-  const title = asset ? "Edit Website App" : "Create Website App";
-  const subtitle =
-    "Fullscreen public website content. Duration is configured in the playlist.";
+  const title = asset
+    ? t("widgets.websiteEditor.editTitle")
+    : t("widgets.websiteEditor.createTitle");
+  const subtitle = t("widgets.websiteEditor.subtitle");
   const form = (
     <div className="grid gap-4">
       <Field>
-        <FieldLabel htmlFor="website-name">Name</FieldLabel>
+        <FieldLabel htmlFor="website-name">
+          {t("widgets.websiteEditor.nameLabel")}
+        </FieldLabel>
         <Input
           id="website-name"
           disabled={readOnly}
@@ -2716,7 +2908,9 @@ export function WebsiteEditor({
         />
       </Field>
       <Field>
-        <FieldLabel htmlFor="website-description">Description</FieldLabel>
+        <FieldLabel htmlFor="website-description">
+          {t("widgets.websiteEditor.descriptionLabel")}
+        </FieldLabel>
         <Textarea
           id="website-description"
           disabled={readOnly}
@@ -2725,7 +2919,9 @@ export function WebsiteEditor({
         />
       </Field>
       <Field>
-        <FieldLabel htmlFor="website-url">HTTPS URL</FieldLabel>
+        <FieldLabel htmlFor="website-url">
+          {t("widgets.websiteEditor.urlLabel")}
+        </FieldLabel>
         <Input
           id="website-url"
           disabled={readOnly}
@@ -2734,26 +2930,37 @@ export function WebsiteEditor({
         />
       </Field>
       <Field>
-        <FieldLabel htmlFor="website-reload">Reload policy</FieldLabel>
+        <FieldLabel htmlFor="website-reload">
+          {t("widgets.websiteEditor.reloadLabel")}
+        </FieldLabel>
         <FilterSelect
           id="website-reload"
-          label="Reload policy"
+          label={t("widgets.websiteEditor.reloadLabel")}
           disabled={readOnly}
           value={input.reloadPolicy}
           onChange={(value) =>
             set("reloadPolicy", value as WebsiteInput["reloadPolicy"])
           }
           options={[
-            { value: "load_once", label: "Load once while active" },
-            { value: "on_each_activation", label: "Reload on each activation" },
-            { value: "interval", label: "Reload on interval" },
+            {
+              value: "load_once",
+              label: t("widgets.websiteEditor.reloadOnce"),
+            },
+            {
+              value: "on_each_activation",
+              label: t("widgets.websiteEditor.reloadEach"),
+            },
+            {
+              value: "interval",
+              label: t("widgets.websiteEditor.reloadInterval"),
+            },
           ]}
         />
       </Field>
       {input.reloadPolicy === "interval" && (
         <Field>
           <FieldLabel htmlFor="website-refresh">
-            Refresh interval (seconds)
+            {t("widgets.websiteEditor.refreshLabel")}
           </FieldLabel>
           <Input
             id="website-refresh"
@@ -2768,33 +2975,49 @@ export function WebsiteEditor({
         </Field>
       )}
       <Field>
-        <FieldLabel htmlFor="website-failure">Failure behavior</FieldLabel>
+        <FieldLabel htmlFor="website-failure">
+          {t("widgets.websiteEditor.failureLabel")}
+        </FieldLabel>
         <FilterSelect
           id="website-failure"
-          label="Failure behavior"
+          label={t("widgets.websiteEditor.failureLabel")}
           disabled={readOnly}
           value={input.failureBehavior}
           onChange={(value) =>
             set("failureBehavior", value as WebsiteInput["failureBehavior"])
           }
           options={[
-            { value: "placeholder", label: "Show Tilecast placeholder" },
-            { value: "last_success", label: "Keep last rendered page" },
-            { value: "fallback_image", label: "Show fallback image" },
-            { value: "skip", label: "Skip item" },
+            {
+              value: "placeholder",
+              label: t("widgets.websiteEditor.failurePlaceholder"),
+            },
+            {
+              value: "last_success",
+              label: t("widgets.websiteEditor.failureLastSuccess"),
+            },
+            {
+              value: "fallback_image",
+              label: t("widgets.websiteEditor.failureFallbackImage"),
+            },
+            {
+              value: "skip",
+              label: t("widgets.websiteEditor.failureSkip"),
+            },
           ]}
         />
       </Field>
       <Field>
-        <FieldLabel htmlFor="website-fallback">Fallback image</FieldLabel>
+        <FieldLabel htmlFor="website-fallback">
+          {t("widgets.websiteEditor.fallbackLabel")}
+        </FieldLabel>
         <FilterSelect
           id="website-fallback"
-          label="Fallback image"
+          label={t("widgets.websiteEditor.fallbackLabel")}
           disabled={readOnly}
           value={input.fallbackImageAssetId ?? ""}
           onChange={(value) => set("fallbackImageAssetId", value || undefined)}
           options={[
-            { value: "", label: "None" },
+            { value: "", label: t("widgets.websiteEditor.fallbackNone") },
             ...(images.data?.items?.map((image) => ({
               value: image.id,
               label: image.name,
@@ -2804,13 +3027,13 @@ export function WebsiteEditor({
       </Field>
       <Collapsible>
         <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          Advanced website settings
+          {t("widgets.websiteEditor.advancedTitle")}
           <ChevronDown size={16} aria-hidden="true" />
         </CollapsibleTrigger>
         <CollapsibleContent className="grid gap-4 pt-3">
           <Field>
             <FieldLabel htmlFor="website-hosts">
-              Allowed top-level hosts (comma separated)
+              {t("widgets.websiteEditor.hostsLabel")}
             </FieldLabel>
             <Input
               id="website-hosts"
@@ -2827,53 +3050,64 @@ export function WebsiteEditor({
               }
             />
             <p className="text-sm text-muted-foreground">
-              The URL host is always added. This restricts top-level navigation,
-              not all third-party subresources.
+              {t("widgets.websiteEditor.hostsHint")}
             </p>
           </Field>
           <Field orientation="horizontal">
             <Switch
               id="website-js"
-              aria-label="JavaScript enabled"
+              aria-label={t("widgets.websiteEditor.jsLabel")}
               disabled={readOnly}
               checked={input.javascriptEnabled}
               onCheckedChange={(checked) => set("javascriptEnabled", checked)}
             />
-            <FieldLabel htmlFor="website-js">JavaScript enabled</FieldLabel>
+            <FieldLabel htmlFor="website-js">
+              {t("widgets.websiteEditor.jsLabel")}
+            </FieldLabel>
           </Field>
           <Field orientation="horizontal">
             <Switch
               id="website-dom"
-              aria-label="DOM storage enabled"
+              aria-label={t("widgets.websiteEditor.domLabel")}
               disabled={readOnly}
               checked={input.domStorageEnabled}
               onCheckedChange={(checked) => set("domStorageEnabled", checked)}
             />
-            <FieldLabel htmlFor="website-dom">DOM storage enabled</FieldLabel>
+            <FieldLabel htmlFor="website-dom">
+              {t("widgets.websiteEditor.domLabel")}
+            </FieldLabel>
           </Field>
           <Field>
-            <FieldLabel htmlFor="website-cookies">Cookies</FieldLabel>
+            <FieldLabel htmlFor="website-cookies">
+              {t("widgets.websiteEditor.cookiesLabel")}
+            </FieldLabel>
             <FilterSelect
               id="website-cookies"
-              label="Cookies"
+              label={t("widgets.websiteEditor.cookiesLabel")}
               disabled={readOnly}
               value={input.cookiePolicy}
               onChange={(value) =>
                 set("cookiePolicy", value as WebsiteInput["cookiePolicy"])
               }
               options={[
-                { value: "disabled", label: "Disabled" },
-                { value: "first_party", label: "First-party only" },
+                {
+                  value: "disabled",
+                  label: t("widgets.websiteEditor.cookiesDisabled"),
+                },
+                {
+                  value: "first_party",
+                  label: t("widgets.websiteEditor.cookiesFirstParty"),
+                },
                 {
                   value: "first_and_third_party",
-                  label: "First- and third-party",
+                  label: t("widgets.websiteEditor.cookiesFirstAndThird"),
                 },
               ]}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="website-timeout">
-              Load timeout (seconds)
+              {t("widgets.websiteEditor.timeoutLabel")}
             </FieldLabel>
             <Input
               id="website-timeout"
@@ -2888,7 +3122,9 @@ export function WebsiteEditor({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="website-zoom">Zoom percentage</FieldLabel>
+            <FieldLabel htmlFor="website-zoom">
+              {t("widgets.websiteEditor.zoomLabel")}
+            </FieldLabel>
             <Input
               id="website-zoom"
               disabled={readOnly}
@@ -2904,7 +3140,7 @@ export function WebsiteEditor({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="website-scroll-x">
-                Horizontal scroll
+                {t("widgets.websiteEditor.scrollXLabel")}
               </FieldLabel>
               <Input
                 id="website-scroll-x"
@@ -2917,7 +3153,7 @@ export function WebsiteEditor({
             </Field>
             <Field>
               <FieldLabel htmlFor="website-scroll-y">
-                Vertical scroll
+                {t("widgets.websiteEditor.scrollYLabel")}
               </FieldLabel>
               <Input
                 id="website-scroll-y"
@@ -2930,7 +3166,9 @@ export function WebsiteEditor({
             </Field>
           </div>
           <Field>
-            <FieldLabel htmlFor="website-agent">Custom user agent</FieldLabel>
+            <FieldLabel htmlFor="website-agent">
+              {t("widgets.websiteEditor.agentLabel")}
+            </FieldLabel>
             <Input
               id="website-agent"
               disabled={readOnly}
@@ -2939,33 +3177,42 @@ export function WebsiteEditor({
               onChange={(event) => set("customUserAgent", event.target.value)}
             />
             <p className="text-sm text-muted-foreground">
-              Leave blank for Android WebView’s standard user agent. Overrides
-              can break sites.
+              {t("widgets.websiteEditor.agentHint")}
             </p>
           </Field>
         </CollapsibleContent>
       </Collapsible>
       {diagnostics.data && (
-        <section className="grid gap-1 text-sm" aria-label="Player diagnostics">
-          <h3 className="text-sm font-medium">Player diagnostics</h3>
+        <section
+          className="grid gap-1 text-sm"
+          aria-label={t("widgets.websiteEditor.diagnosticsTitle")}
+        >
+          <h3 className="text-sm font-medium">
+            {t("widgets.websiteEditor.diagnosticsTitle")}
+          </h3>
           <p className="text-muted-foreground">
-            Allowed hosts: {diagnostics.data.allowedHosts.join(", ")}
+            {t("widgets.websiteEditor.allowedHosts", {
+              hosts: diagnostics.data.allowedHosts.join(", "),
+            })}
           </p>
           <p className="text-muted-foreground">
-            Last successful load:{" "}
+            {t("widgets.websiteEditor.lastLoadLabel")}{" "}
             {diagnostics.data.lastSuccessfulLoad
-              ? new Date(diagnostics.data.lastSuccessfulLoad).toLocaleString()
-              : "Not reported"}
+              ? new Date(diagnostics.data.lastSuccessfulLoad).toLocaleString(
+                  formatLocale,
+                )
+              : t("widgets.websiteEditor.notReported")}
           </p>
           <p className="text-muted-foreground">
-            Last failure:{" "}
-            {diagnostics.data.lastFailureCategory ?? "Not reported"}
+            {t("widgets.websiteEditor.lastFailureLabel")}{" "}
+            {diagnostics.data.lastFailureCategory ??
+              t("widgets.websiteEditor.notReported")}
           </p>
           <p className="text-muted-foreground">
-            Reporting screens:{" "}
+            {t("widgets.websiteEditor.reportingLabel")}{" "}
             {diagnostics.data.reportingScreens
               .map((screen) => `${screen.name} (${screen.state})`)
-              .join(", ") || "None"}
+              .join(", ") || t("widgets.websiteEditor.noneValue")}
           </p>
         </section>
       )}
@@ -2978,18 +3225,18 @@ export function WebsiteEditor({
         {!readOnly && (
           <Button disabled={save.isPending} onClick={() => save.mutate()}>
             {save.isPending && <Spinner aria-hidden="true" />}
-            Save website
+            {t("widgets.websiteEditor.save")}
           </Button>
         )}
         <Button variant="outline" onClick={requestClose}>
-          Cancel
+          {t("common:actions.cancel")}
         </Button>
         {asset && !readOnly && (
           <Button
             variant="destructive"
             onClick={() => setConfirmDeleteWebsite(true)}
           >
-            Delete website
+            {t("widgets.websiteEditor.delete")}
           </Button>
         )}
       </div>
@@ -2997,16 +3244,18 @@ export function WebsiteEditor({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Discard unsaved website changes?
+              {t("widgets.websiteEditor.discardTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Your edits will be lost.
+              {t("widgets.websiteEditor.discardBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("widgets.websiteEditor.discardKeep")}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={onClose}>
-              Discard changes
+              {t("widgets.websiteEditor.discardConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -3017,19 +3266,23 @@ export function WebsiteEditor({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {asset?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("widgets.websiteEditor.deleteTitle", { name: asset?.name })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This cannot be undone.
+              {t("media.dialogs.cannotUndo")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep website</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("widgets.websiteEditor.deleteKeep")}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (asset) void api.deleteAsset(asset.id, csrf).then(onClose);
               }}
             >
-              Delete website
+              {t("widgets.websiteEditor.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -3048,7 +3301,7 @@ export function WebsiteEditor({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Close"
+            aria-label={t("common:actions.close")}
             onClick={requestClose}
           >
             <X aria-hidden="true" />

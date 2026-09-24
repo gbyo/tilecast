@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, LayoutTemplate, ListVideo, Tags } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { LayoutSummary, Playlist } from "../../api/types";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
@@ -49,28 +50,53 @@ export function PlaylistPicker({
   open,
   title,
   description,
-  confirmLabel = "Add playlist",
+  confirmLabel,
   includeLayouts = false,
   allowedKinds,
   selectedId = "",
   onConfirm,
   onClose,
 }: PlaylistPickerProps) {
+  const { t } = useTranslation(["content", "common"]);
   const kinds: readonly PlaylistPickerKind[] =
     allowedKinds ?? (includeLayouts ? ["playlist", "layout"] : ["playlist"]);
   const canChoosePlaylists = kinds.includes("playlist");
   const canChooseLayouts = kinds.includes("layout");
   const mixedKinds = canChoosePlaylists && canChooseLayouts;
-  const noun = mixedKinds
-    ? "presentations"
+  const resolvedConfirmLabel =
+    confirmLabel ?? t("picker.playlist.confirmDefault");
+  const resolvedTitle =
+    title ??
+    (mixedKinds
+      ? t("picker.playlist.titleBoth")
+      : canChooseLayouts
+        ? t("picker.playlist.titleLayout")
+        : t("picker.playlist.titlePlaylist"));
+  const searchText = mixedKinds
+    ? t("picker.playlist.searchBoth")
     : canChooseLayouts
-      ? "layouts"
-      : "playlists";
-  const defaultTitle = mixedKinds
-    ? "Choose presentation"
+      ? t("picker.playlist.searchLayouts")
+      : t("picker.playlist.searchPlaylists");
+  const loadingText = mixedKinds
+    ? t("picker.playlist.loadingBoth")
     : canChooseLayouts
-      ? "Choose layout"
-      : "Choose playlist";
+      ? t("picker.playlist.loadingLayouts")
+      : t("picker.playlist.loadingPlaylists");
+  const loadErrorText = mixedKinds
+    ? t("picker.playlist.loadErrorBoth")
+    : canChooseLayouts
+      ? t("picker.playlist.loadErrorLayouts")
+      : t("picker.playlist.loadErrorPlaylists");
+  const emptySearchText = mixedKinds
+    ? t("picker.playlist.emptySearchBoth")
+    : canChooseLayouts
+      ? t("picker.playlist.emptySearchLayouts")
+      : t("picker.playlist.emptySearchPlaylists");
+  const emptyText = mixedKinds
+    ? t("picker.playlist.emptyBoth")
+    : canChooseLayouts
+      ? t("picker.playlist.emptyLayouts")
+      : t("picker.playlist.emptyPlaylists");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState(selectedId);
   const playlists = useQuery({
@@ -116,30 +142,27 @@ export function PlaylistPicker({
     >
       <DialogContent className="flex max-h-[min(90vh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
         <DialogHeader>
-          <DialogTitle>{title ?? defaultTitle}</DialogTitle>
+          <DialogTitle>{resolvedTitle}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <DashboardSearch
           autoFocus
           value={search}
           onValueChange={setSearch}
-          label={`Search ${noun}`}
-          placeholder={`Search ${noun}`}
+          label={searchText}
+          placeholder={searchText}
         />
         <div className="grid gap-2">
           {loading ? (
-            <div className="space-y-2" aria-label={`Loading ${noun}`}>
+            <div className="space-y-2" aria-label={loadingText}>
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
           ) : failed ? (
             <Alert variant="destructive">
-              <AlertTitle>
-                {noun.charAt(0).toUpperCase() + noun.slice(1)} could not be
-                loaded.
-              </AlertTitle>
+              <AlertTitle>{loadErrorText}</AlertTitle>
               <AlertDescription className="flex items-center justify-between gap-3">
-                <span>Retry the library request.</span>
+                <span>{t("picker.playlist.retryBody")}</span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -148,15 +171,13 @@ export function PlaylistPicker({
                     if (canChooseLayouts) void layouts.refetch();
                   }}
                 >
-                  Try again
+                  {t("picker.playlist.retry")}
                 </Button>
               </AlertDescription>
             </Alert>
           ) : !choices.length ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              {search
-                ? `No ${noun} match this search.`
-                : `No ${noun} yet. Create one first.`}
+              {search ? emptySearchText : emptyText}
             </p>
           ) : (
             choices.map((choice) => {
@@ -208,10 +229,12 @@ export function PlaylistPicker({
                     </strong>
                     <small className="truncate text-xs text-muted-foreground">
                       {choice.kind === "layout"
-                        ? `Layout · revision ${choice.layout.publishedRevision}`
-                        : `${choice.playlist.itemCount} item${
-                            choice.playlist.itemCount === 1 ? "" : "s"
-                          }${tagDriven ? " · tag-driven" : ""}`}
+                        ? t("picker.playlist.layoutRevision", {
+                            revision: choice.layout.publishedRevision,
+                          })
+                        : `${t("picker.playlist.itemCount", {
+                            count: choice.playlist.itemCount,
+                          })}${tagDriven ? t("picker.playlist.tagDriven") : ""}`}
                     </small>
                   </span>
                   {id === chosen && <Check size={17} aria-hidden="true" />}
@@ -222,14 +245,14 @@ export function PlaylistPicker({
         </div>
         <DialogFooter className="border-t border-border pt-3">
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button
             variant="default"
             disabled={!selected}
             onClick={() => selected && onConfirm(selected)}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

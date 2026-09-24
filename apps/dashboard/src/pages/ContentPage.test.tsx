@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "../api/client";
 import type { Asset, User } from "../api/types";
 import { WidgetProviderGallery } from "../content/SourceEditors";
+import { i18n } from "../i18n";
 import {
   AssetCollection,
   AssetOrganization,
@@ -175,10 +176,11 @@ describe("content library", () => {
   });
 
   it("uses honest processing labels", () => {
-    expect(statusLabel("queued")).toBe("Waiting");
-    expect(statusLabel("inspecting")).toBe("Inspecting");
-    expect(statusLabel("processing")).toBe("Processing");
-    expect(statusLabel("failed")).toBe("Failed");
+    const t = i18n.getFixedT("en", "content");
+    expect(statusLabel("queued", t)).toBe("Waiting");
+    expect(statusLabel("inspecting", t)).toBe("Inspecting");
+    expect(statusLabel("processing", t)).toBe("Processing");
+    expect(statusLabel("failed", t)).toBe("Failed");
   });
 
   it("treats elapsed expiration as an archive state", () => {

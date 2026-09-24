@@ -21,9 +21,16 @@ const accepted =
   "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-matroska";
 const chunkSize = 4 * 1024 * 1024;
 
+const stateKeys = {
+  waiting: "picker.upload.stateWaiting",
+  uploading: "picker.upload.stateUploading",
+  processing: "picker.upload.stateProcessing",
+  failed: "picker.upload.stateFailed",
+} as const;
+
 export function UploadContentDialog({
   csrf,
-  closeLabel = "Return to content",
+  closeLabel,
   onCreated,
   onClose,
 }: {
@@ -33,7 +40,9 @@ export function UploadContentDialog({
   onClose: () => void;
 }) {
   const [items, setItems] = useState<UploadItem[]>([]);
-  const { t } = useTranslation("errors");
+  const { t: tErrors } = useTranslation("errors");
+  const { t } = useTranslation(["content", "common"]);
+  const resolvedCloseLabel = closeLabel ?? t("picker.upload.closeLabel");
   const input = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -46,8 +55,8 @@ export function UploadContentDialog({
       return;
     }
     void confirm({
-      title: "Uploads are still active. Close this upload view?",
-      action: "Close",
+      title: t("picker.upload.activeTitle"),
+      action: t("common:actions.close"),
     }).then((ok) => {
       if (ok) onClose();
     });
@@ -92,7 +101,7 @@ export function UploadContentDialog({
         error:
           error instanceof Error
             ? apiErrorMessage(error)
-            : t("fallback.uploadFailed"),
+            : tErrors("fallback.uploadFailed"),
       });
     }
   };
@@ -151,14 +160,14 @@ export function UploadContentDialog({
         >
           <header>
             <div>
-              <h3 id="upload-content-title">Upload media</h3>
-              <p>Upload one or more images or videos.</p>
+              <h3 id="upload-content-title">{t("picker.upload.title")}</h3>
+              <p>{t("picker.upload.description")}</p>
             </div>
             <Button
               autoFocus
               variant="ghost"
               size="icon-sm"
-              aria-label="Close uploads"
+              aria-label={t("picker.upload.closeUploads")}
               onClick={close}
             >
               <X size={18} />
@@ -172,8 +181,8 @@ export function UploadContentDialog({
             onDrop={drop}
           >
             <Upload size={24} />
-            <strong>Drop files here or choose files</strong>
-            <span>Images and videos · multiple files supported</span>
+            <strong>{t("picker.upload.dropHint")}</strong>
+            <span>{t("picker.upload.dropFormats")}</span>
           </button>
           <input
             ref={input}
@@ -188,7 +197,7 @@ export function UploadContentDialog({
               <div key={item.id}>
                 <span>
                   <strong>{item.name}</strong>
-                  <small>{item.error ?? item.state}</small>
+                  <small>{item.error ?? t(stateKeys[item.state])}</small>
                 </span>
                 <progress value={item.uploaded} max={item.size} />
               </div>
@@ -196,7 +205,7 @@ export function UploadContentDialog({
           </div>
           <footer>
             <Button variant="secondary" onClick={close}>
-              {closeLabel}
+              {resolvedCloseLabel}
             </Button>
           </footer>
         </section>

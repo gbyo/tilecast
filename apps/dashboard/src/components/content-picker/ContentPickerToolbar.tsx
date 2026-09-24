@@ -1,4 +1,5 @@
 import { Grid2X2, List } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type {
   ContentCollection,
   ContentFolder,
@@ -48,6 +49,46 @@ function PickerSelect({
 export type ContentPickerFilter =
   "all" | "image" | "video" | "source" | "website" | "youtube" | "calendar";
 
+const filterKeys: {
+  value: ContentPickerFilter;
+  labelKey:
+    | "picker.toolbar.filterAll"
+    | "picker.toolbar.filterImages"
+    | "picker.toolbar.filterVideos"
+    | "picker.toolbar.filterSources"
+    | "picker.toolbar.filterWebsites"
+    | "picker.toolbar.filterYouTube"
+    | "picker.toolbar.filterCalendars";
+  type?: "image" | "video" | "widget";
+}[] = [
+  { value: "all", labelKey: "picker.toolbar.filterAll" },
+  { value: "image", labelKey: "picker.toolbar.filterImages", type: "image" },
+  { value: "video", labelKey: "picker.toolbar.filterVideos", type: "video" },
+  { value: "source", labelKey: "picker.toolbar.filterSources", type: "widget" },
+  {
+    value: "website",
+    labelKey: "picker.toolbar.filterWebsites",
+    type: "widget",
+  },
+  {
+    value: "youtube",
+    labelKey: "picker.toolbar.filterYouTube",
+    type: "widget",
+  },
+  {
+    value: "calendar",
+    labelKey: "picker.toolbar.filterCalendars",
+    type: "widget",
+  },
+];
+
+const sortKeys = [
+  { value: "updated", labelKey: "picker.toolbar.sortRecent" },
+  { value: "newest", labelKey: "picker.toolbar.sortNewest" },
+  { value: "oldest", labelKey: "picker.toolbar.sortOldest" },
+  { value: "name", labelKey: "picker.toolbar.sortName" },
+] as const;
+
 export function ContentPickerToolbar({
   search,
   filter,
@@ -87,34 +128,23 @@ export function ContentPickerToolbar({
   onSort: (value: string) => void;
   onView: (value: "grid" | "list") => void;
 }) {
+  const { t } = useTranslation("content");
   // A caller that only accepts media should not be offered app tabs that can never
   // match, and vice versa. "All" stays only when there is more than one thing to pick.
   const allowed = new Set(allowedTypes);
-  const filters: {
-    value: ContentPickerFilter;
-    label: string;
-    type?: "image" | "video" | "widget";
-  }[] = [
-    { value: "all", label: "All" },
-    { value: "image", label: "Images", type: "image" },
-    { value: "video", label: "Videos", type: "video" },
-    { value: "source", label: "Sources", type: "widget" },
-    { value: "website", label: "Websites", type: "widget" },
-    { value: "youtube", label: "YouTube", type: "widget" },
-    { value: "calendar", label: "Calendars", type: "widget" },
-  ];
+  const filters = filterKeys.filter(({ type }) => !type || allowed.has(type));
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/50 px-6 py-3 max-md:px-4">
       <DashboardSearch
         autoFocus
         value={search}
         onValueChange={onSearch}
-        label="Search content"
-        placeholder="Search content"
+        label={t("picker.toolbar.search")}
+        placeholder={t("picker.toolbar.search")}
       />
       <ToggleGroup
         className="max-w-full overflow-x-auto"
-        aria-label="Content type"
+        aria-label={t("picker.toolbar.typeLabel")}
         multiple={false}
         value={[filter]}
         onValueChange={(next) => {
@@ -122,21 +152,19 @@ export function ContentPickerToolbar({
           if (first !== undefined) onFilter(first);
         }}
       >
-        {filters
-          .filter(({ type }) => !type || allowed.has(type))
-          .map(({ value, label }) => (
-            <ToggleGroupItem key={value} value={value}>
-              {label}
-            </ToggleGroupItem>
-          ))}
+        {filters.map(({ value, labelKey }) => (
+          <ToggleGroupItem key={value} value={value}>
+            {t(labelKey)}
+          </ToggleGroupItem>
+        ))}
       </ToggleGroup>
       {folders.length > 0 && onFolderFilter && (
         <PickerSelect
-          label="Filter by folder"
+          label={t("picker.toolbar.folderFilter")}
           value={folderFilter}
           onChange={onFolderFilter}
           options={[
-            { value: "", label: "All folders" },
+            { value: "", label: t("picker.toolbar.foldersAll") },
             ...folders.map((folder) => ({
               value: folder.id,
               label: folder.name,
@@ -146,11 +174,11 @@ export function ContentPickerToolbar({
       )}
       {collections.length > 0 && onCollectionFilter && (
         <PickerSelect
-          label="Filter by collection"
+          label={t("picker.toolbar.collectionFilter")}
           value={collectionFilter}
           onChange={onCollectionFilter}
           options={[
-            { value: "", label: "All collections" },
+            { value: "", label: t("picker.toolbar.collectionsAll") },
             ...collections.map((collection) => ({
               value: collection.id,
               label: collection.name,
@@ -160,28 +188,26 @@ export function ContentPickerToolbar({
       )}
       {tags.length > 0 && onTagFilter && (
         <PickerSelect
-          label="Filter by tag"
+          label={t("picker.toolbar.tagFilter")}
           value={tagFilter}
           onChange={onTagFilter}
           options={[
-            { value: "", label: "All tags" },
+            { value: "", label: t("picker.toolbar.tagsAll") },
             ...tags.map((tag) => ({ value: tag.id, label: tag.name })),
           ]}
         />
       )}
       <PickerSelect
-        label="Sort content"
+        label={t("picker.toolbar.sortLabel")}
         value={sort}
         onChange={onSort}
-        options={[
-          { value: "updated", label: "Recently updated" },
-          { value: "newest", label: "Newest" },
-          { value: "oldest", label: "Oldest" },
-          { value: "name", label: "Name" },
-        ]}
+        options={sortKeys.map(({ value, labelKey }) => ({
+          value,
+          label: t(labelKey),
+        }))}
       />
       <ToggleGroup
-        aria-label="Content view"
+        aria-label={t("picker.toolbar.viewLabel")}
         variant="outline"
         spacing={0}
         multiple={false}
@@ -191,10 +217,10 @@ export function ContentPickerToolbar({
           if (first !== undefined) onView(first);
         }}
       >
-        <ToggleGroupItem value="grid" aria-label="Grid view">
+        <ToggleGroupItem value="grid" aria-label={t("picker.toolbar.gridView")}>
           <Grid2X2 size={16} aria-hidden="true" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="list" aria-label="List view">
+        <ToggleGroupItem value="list" aria-label={t("picker.toolbar.listView")}>
           <List size={16} aria-hidden="true" />
         </ToggleGroupItem>
       </ToggleGroup>

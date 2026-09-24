@@ -1,1 +1,552 @@
-{}
+{
+  "media": {
+    "header": {
+      "title": "Multimedia",
+      "uploadAssets": "Subir recursos",
+      "descriptionActive": "Imágenes y videos subidos disponibles para listas y diseños.",
+      "descriptionArchive": "El contenido archivado y vencido permanece aquí hasta que lo restaures o lo elimines definitivamente.",
+      "total": "{{total}} recursos."
+    },
+    "libraryView": {
+      "label": "Vista de biblioteca",
+      "library": "Biblioteca",
+      "archive": "Archivo"
+    },
+    "cardView": {
+      "label": "Vista",
+      "grid": "Vista de cuadrícula",
+      "list": "Vista de lista"
+    },
+    "upload": {
+      "chooseFilesAria": "Elegir archivos multimedia"
+    },
+    "queue": {
+      "label": "Cola de subidas",
+      "title": "Subidas",
+      "activeCount": "{{count}} activas",
+      "progress": "{{uploaded}} de {{size}} · {{percent}} % · {{state}}",
+      "progressAria": "Progreso de subida de {{filename}}",
+      "retryAria": "Reintentar o continuar {{filename}}",
+      "cancelAria": "Cancelar {{filename}}",
+      "resumePrompt": "Selecciona el mismo archivo para continuar esta subida.",
+      "fileMismatch": "Elige el archivo original con el mismo nombre y tamaño.",
+      "uploadFailed": "La subida falló.",
+      "stateFinalizing": "Finalizando"
+    },
+    "filters": {
+      "searchLabel": "Buscar multimedia",
+      "typeLabel": "Filtros por tipo de contenido",
+      "typeMedia": "Multimedia",
+      "typeImages": "Imágenes",
+      "typeVideos": "Videos",
+      "statusLabel": "Filtrar por estado",
+      "statusAll": "Todos los estados",
+      "folderLabel": "Filtrar por carpeta",
+      "folderAll": "Todas las carpetas",
+      "collectionLabel": "Filtrar por colección",
+      "collectionAll": "Todas las colecciones",
+      "tagLabel": "Filtrar por etiqueta",
+      "tagAll": "Todas las etiquetas",
+      "reset": "Restablecer filtros"
+    },
+    "sort": {
+      "label": "Ordenar multimedia",
+      "recentlyUpdated": "Actualizados recientemente",
+      "newest": "Más recientes",
+      "oldest": "Más antiguos",
+      "name": "Nombre"
+    },
+    "bulkDelete": {
+      "title_one": "¿Eliminar definitivamente {{count}} recurso archivado?",
+      "title_many": "¿Eliminar definitivamente {{count}} de recursos archivados?",
+      "title_other": "¿Eliminar definitivamente {{count}} recursos archivados?",
+      "keep": "Conservar recursos"
+    },
+    "dialogs": {
+      "cannotUndo": "Esto no se puede deshacer.",
+      "deletePermanently": "Eliminar definitivamente"
+    },
+    "list": {
+      "loadError": "No se pudo cargar la biblioteca multimedia",
+      "loading": "Cargando multimedia…"
+    },
+    "archiveDialog": {
+      "title": "¿Mover {{name}} al archivo?",
+      "body": "Los recursos archivados permanecen disponibles hasta que los restaures o los elimines definitivamente.",
+      "keep": "Conservar en la biblioteca",
+      "confirm": "Mover al archivo"
+    },
+    "deleteDialog": {
+      "title": "¿Eliminar definitivamente {{name}}?",
+      "keep": "Conservar recurso"
+    },
+    "empty": {
+      "archiveTitle": "El archivo está vacío",
+      "title": "Aún no hay multimedia",
+      "archiveDescription": "Los recursos que archives, o cuyo vencimiento llegue, aparecen aquí y puedes restaurarlos más tarde.",
+      "manageDescription": "Arrastra imágenes o videos aquí, o elige archivos para empezar tu biblioteca.",
+      "viewerDescription": "Un propietario, administrador o editor puede subir multimedia.",
+      "chooseFiles": "Elegir archivos"
+    },
+    "actions": {
+      "open": "Abrir",
+      "select": "Seleccionar",
+      "clearSelection": "Quitar selección",
+      "duplicate": "Duplicar",
+      "archive": "Archivar",
+      "restore": "Restaurar a la biblioteca"
+    },
+    "status": {
+      "uploading": "Subiendo",
+      "uploaded": "Subido",
+      "waiting": "En espera",
+      "inspecting": "Inspeccionando",
+      "processing": "Procesando",
+      "ready": "Listo",
+      "failed": "Fallido",
+      "deleting": "Eliminando",
+      "deleted": "Eliminado"
+    },
+    "badges": {
+      "expired": "Vencido",
+      "archived": "Archivado"
+    },
+    "card": {
+      "actionsFor": "Acciones para {{name}}",
+      "editLabel": "Editar {{name}}",
+      "viewLabel": "Ver {{name}}",
+      "selectLabel": "Seleccionar {{name}}",
+      "duplicateLabel": "Duplicar {{name}}",
+      "archiveLabel": "Archivar {{name}}",
+      "playlists_one": "{{count}} lista",
+      "playlists_many": "{{count}} de listas",
+      "playlists_other": "{{count}} listas",
+      "layouts_one": "{{count}} diseño",
+      "layouts_many": "{{count}} de diseños",
+      "layouts_other": "{{count}} diseños"
+    },
+    "createOrganizer": {
+      "folder": {
+        "title": "Crear carpeta",
+        "label": "Nombre de la carpeta",
+        "hint": "Cada recurso pertenece a una carpeta. Usa carpetas para áreas generales como edificios o departamentos."
+      },
+      "collection": {
+        "title": "Crear colección",
+        "label": "Nombre de la colección",
+        "hint": "Las colecciones agrupan recursos relacionados para reutilizarlos. Un recurso puede pertenecer a varias colecciones."
+      },
+      "tag": {
+        "title": "Crear etiqueta",
+        "label": "Nombre de la etiqueta",
+        "hint": "Las etiquetas son marcas de colores para filtrar rápido. Un recurso puede tener varias etiquetas."
+      },
+      "colorLabel": "Color",
+      "createErrorFolder": "No se pudo crear la carpeta",
+      "createErrorCollection": "No se pudo crear la colección",
+      "createErrorTag": "No se pudo crear la etiqueta"
+    },
+    "manage": {
+      "saveError": "No se pudo guardar el cambio.",
+      "rename": "Renombrar",
+      "renameAria": "Nuevo nombre para {{name}}",
+      "keep": "Conservar",
+      "deleteTitle": "¿Eliminar {{name}}?",
+      "foldersTitle": "Carpetas",
+      "collectionsTitle": "Colecciones",
+      "tagsTitle": "Etiquetas",
+      "emptyFolders": "Aún no hay carpetas.",
+      "emptyCollections": "Aún no hay colecciones.",
+      "emptyTags": "Aún no hay etiquetas.",
+      "confirmDeleteFolder": "¿Eliminar la carpeta «{{name}}»? Sus recursos permanecen en la biblioteca y quedan sin carpeta. Esto no se puede deshacer.",
+      "confirmDeleteCollection": "¿Eliminar la colección «{{name}}»? Sus recursos permanecen en la biblioteca. Esto no se puede deshacer.",
+      "confirmDeleteTag": "¿Eliminar la etiqueta «{{name}}»? Se quita de todos los recursos. Esto no se puede deshacer.",
+      "title": "Gestionar organización",
+      "description": "Cambia el nombre o elimina carpetas, colecciones y etiquetas. Los recursos permanecen en la biblioteca."
+    },
+    "organizer": {
+      "label": "Organización del contenido",
+      "createFolder": "Crear carpeta",
+      "createCollection": "Crear colección",
+      "createTag": "Crear etiqueta",
+      "manage": "Gestionar",
+      "selectedCount": "{{count}} seleccionados",
+      "selectPage": "Seleccionar página",
+      "clear": "Limpiar",
+      "organize": "Organizar",
+      "restore": "Restaurar",
+      "updateError": "No se pudo actualizar el contenido seleccionado.",
+      "applyError": "No se pudo organizar el contenido."
+    },
+    "organizeDialog": {
+      "title_one": "Organizar {{count}} recurso seleccionado",
+      "title_many": "Organizar {{count}} de recursos seleccionados",
+      "title_other": "Organizar {{count}} recursos seleccionados",
+      "description": "Elige uno o más cambios. Las etiquetas y colecciones existentes se conservan salvo que las quites explícitamente.",
+      "folderLabel": "Mover a la carpeta",
+      "folderUnchanged": "No cambiar la carpeta",
+      "folderUnfiled": "Mover a Sin carpeta",
+      "tagLabel": "Cambio de etiqueta",
+      "tagUnchanged": "No cambiar las etiquetas",
+      "tagAdd": "Agregar {{name}}",
+      "tagRemove": "Quitar {{name}}",
+      "collectionLabel": "Cambio de colección",
+      "collectionUnchanged": "No cambiar las colecciones",
+      "collectionAdd": "Agregar a {{name}}",
+      "collectionRemove": "Quitar de {{name}}",
+      "apply": "Aplicar cambios"
+    },
+    "organization": {
+      "title": "Organización",
+      "folderLabel": "Carpeta",
+      "unfiled": "Sin carpeta",
+      "tagsLabel": "Etiquetas",
+      "tagsEmpty": "Aún no hay etiquetas. Crea etiquetas desde la barra de la biblioteca multimedia.",
+      "collectionsLabel": "Colecciones",
+      "collectionsEmpty": "Aún no hay colecciones. Crea colecciones desde la barra de la biblioteca multimedia.",
+      "updateError": "No se pudo actualizar la organización"
+    },
+    "details": {
+      "label": "Detalles de {{name}}",
+      "eyebrow": "Recurso multimedia",
+      "nameLabel": "Nombre",
+      "descriptionLabel": "Descripción",
+      "availableFromLabel": "Disponible desde",
+      "availableFromHint": "Déjalo en blanco para que este contenido esté disponible de inmediato.",
+      "expiresAtLabel": "Vence el",
+      "expiresAtHint": "El reproductor deja de usarlo en esa fecha y hora locales, incluso sin conexión.",
+      "statusLabel": "Estado",
+      "originalFileLabel": "Archivo original",
+      "detectedTypeLabel": "Tipo detectado",
+      "shaLabel": "SHA-256",
+      "noUsage": "Ninguna lista o diseño usa este multimedia aún.",
+      "playlistsLabel": "Listas de reproducción",
+      "layoutsLabel": "Diseños",
+      "publishedHint": "Publicado",
+      "draftHint": "Borrador",
+      "retryProcessing": "Reintentar procesamiento",
+      "archiveAsset": "Archivar recurso"
+    }
+  },
+  "widgets": {
+    "list": {
+      "title": "Widgets",
+      "subtitle": "Contenido visual reutilizable para listas y diseños.",
+      "create": "Crear widget",
+      "search": "Buscar widgets",
+      "providerFilter": "Filtrar por proveedor de widget",
+      "allTypes": "Todos los tipos de widget",
+      "viewLabel": "Vista",
+      "gridView": "Vista de cuadrícula",
+      "listView": "Vista de lista",
+      "loadError": "No se pudieron cargar los widgets.",
+      "loading": "Cargando widgets",
+      "emptyTitle": "Aún no hay widgets",
+      "emptyDescription": "Crea un widget reutilizable para el contenido de señalización."
+    },
+    "editor": {
+      "loading": "Cargando widget",
+      "loadingDefinition": "Cargando definición del widget",
+      "unavailableTitle": "Widget no disponible",
+      "unavailableDescription": "No se pudo cargar este widget.",
+      "backToList": "Volver a los widgets",
+      "noUsage": "Ninguna lista o diseño usa este widget aún.",
+      "playlistsLabel": "Listas de reproducción",
+      "layoutsLabel": "Diseños",
+      "publishedHint": "Publicado",
+      "draftHint": "Borrador"
+    },
+    "websiteEditor": {
+      "editTitle": "Editar app web",
+      "createTitle": "Crear app web",
+      "subtitle": "Contenido web público en pantalla completa. La duración se configura en la lista.",
+      "nameLabel": "Nombre",
+      "descriptionLabel": "Descripción",
+      "urlLabel": "URL HTTPS",
+      "reloadLabel": "Política de recarga",
+      "reloadOnce": "Cargar una vez mientras está activo",
+      "reloadEach": "Recargar en cada activación",
+      "reloadInterval": "Recargar por intervalo",
+      "refreshLabel": "Intervalo de actualización (segundos)",
+      "failureLabel": "Comportamiento ante fallas",
+      "failurePlaceholder": "Mostrar marcador de Tilecast",
+      "failureLastSuccess": "Conservar la última página cargada",
+      "failureFallbackImage": "Mostrar imagen alternativa",
+      "failureSkip": "Omitir elemento",
+      "fallbackLabel": "Imagen alternativa",
+      "fallbackNone": "Ninguna",
+      "advancedTitle": "Ajustes avanzados del sitio web",
+      "hostsLabel": "Hosts principales permitidos (separados por comas)",
+      "hostsHint": "El host de la URL siempre se agrega. Esto restringe la navegación principal, no todos los subrecursos de terceros.",
+      "jsLabel": "JavaScript habilitado",
+      "domLabel": "Almacenamiento DOM habilitado",
+      "cookiesLabel": "Cookies",
+      "cookiesDisabled": "Deshabilitadas",
+      "cookiesFirstParty": "Solo propias",
+      "cookiesFirstAndThird": "Propias y de terceros",
+      "timeoutLabel": "Tiempo de espera de carga (segundos)",
+      "zoomLabel": "Porcentaje de zoom",
+      "scrollXLabel": "Desplazamiento horizontal",
+      "scrollYLabel": "Desplazamiento vertical",
+      "agentLabel": "Agente de usuario personalizado",
+      "agentHint": "Déjalo en blanco para usar el agente estándar de WebView de Android. Las sustituciones pueden romper sitios.",
+      "diagnosticsTitle": "Diagnóstico del reproductor",
+      "allowedHosts": "Hosts permitidos: {{hosts}}",
+      "lastLoadLabel": "Última carga correcta:",
+      "lastFailureLabel": "Última falla:",
+      "reportingLabel": "Pantallas que reportan:",
+      "notReported": "Sin datos",
+      "noneValue": "Ninguna",
+      "save": "Guardar sitio web",
+      "delete": "Eliminar sitio web",
+      "deleteTitle": "¿Eliminar {{name}}?",
+      "deleteKeep": "Conservar sitio web",
+      "discardTitle": "¿Descartar los cambios sin guardar?",
+      "discardBody": "Tus ediciones se perderán.",
+      "discardKeep": "Seguir editando",
+      "discardConfirm": "Descartar cambios"
+    }
+  },
+  "picker": {
+    "defaults": {
+      "confirm": "Agregar contenido",
+      "title": "Elegir contenido",
+      "description": "Selecciona contenido existente o sube multimedia. Las apps se gestionan en su propia biblioteca."
+    },
+    "actions": {
+      "uploadMedia": "Subir multimedia",
+      "createWidget": "Crear widget"
+    },
+    "closeLabel": "Cerrar selector de contenido",
+    "library": {
+      "loading": "Cargando contenido…",
+      "loadError": "No se pudo cargar el contenido.",
+      "retry": "Reintentar",
+      "emptyTitle": "Sin contenido coincidente",
+      "emptyDescription": "Prueba otra búsqueda o crea contenido nuevo.",
+      "loadingMore": "Cargando…",
+      "loadMore": "Cargar más contenido"
+    },
+    "errors": {
+      "selectionName": "Selección de contenido",
+      "addFailed": "No se pudo agregar el contenido.",
+      "title": "No se pudo agregar parte del contenido."
+    },
+    "footer": {
+      "selected_one": "{{count}} recurso seleccionado",
+      "selected_many": "{{count}} de recursos seleccionados",
+      "selected_other": "{{count}} recursos seleccionados",
+      "waiting": " · en espera de procesamiento",
+      "adding": "Agregando…"
+    },
+    "toolbar": {
+      "search": "Buscar contenido",
+      "typeLabel": "Tipo de contenido",
+      "filterAll": "Todo",
+      "filterImages": "Imágenes",
+      "filterVideos": "Videos",
+      "filterSources": "Fuentes",
+      "filterWebsites": "Sitios web",
+      "filterYouTube": "YouTube",
+      "filterCalendars": "Calendarios",
+      "folderFilter": "Filtrar por carpeta",
+      "foldersAll": "Todas las carpetas",
+      "collectionFilter": "Filtrar por colección",
+      "collectionsAll": "Todas las colecciones",
+      "tagFilter": "Filtrar por etiqueta",
+      "tagsAll": "Todas las etiquetas",
+      "sortLabel": "Ordenar contenido",
+      "sortRecent": "Actualizados recientemente",
+      "sortNewest": "Más recientes",
+      "sortOldest": "Más antiguos",
+      "sortName": "Nombre",
+      "viewLabel": "Vista de contenido",
+      "gridView": "Vista de cuadrícula",
+      "listView": "Vista de lista"
+    },
+    "grid": {
+      "typeYouTube": "Widget de YouTube",
+      "typeWebsite": "Widget de sitio web",
+      "typeImage": "Imagen",
+      "typeVideo": "Video",
+      "status": {
+        "uploading": "Subiendo",
+        "uploaded": "Subido",
+        "queued": "En espera",
+        "inspecting": "Inspeccionando",
+        "processing": "Procesando",
+        "ready": "Listo",
+        "failed": "Fallido",
+        "deleting": "Eliminando",
+        "deleted": "Eliminado"
+      }
+    },
+    "tray": {
+      "selectedCount": "{{count}} seleccionados",
+      "clear": "Limpiar selección",
+      "removeLabel": "Quitar {{name}} de la selección"
+    },
+    "upload": {
+      "closeLabel": "Volver al contenido",
+      "activeTitle": "Las subidas siguen activas. ¿Cerrar esta vista de subida?",
+      "title": "Subir multimedia",
+      "description": "Sube una o más imágenes o videos.",
+      "closeUploads": "Cerrar subidas",
+      "dropHint": "Suelta archivos aquí o elige archivos",
+      "dropFormats": "Imágenes y videos · se admiten varios archivos",
+      "stateWaiting": "En espera",
+      "stateUploading": "Subiendo",
+      "stateProcessing": "Procesando",
+      "stateFailed": "Fallido"
+    },
+    "playlist": {
+      "titleBoth": "Elegir presentación",
+      "titleLayout": "Elegir diseño",
+      "titlePlaylist": "Elegir lista",
+      "searchBoth": "Buscar presentaciones",
+      "searchLayouts": "Buscar diseños",
+      "searchPlaylists": "Buscar listas",
+      "loadingBoth": "Cargando presentaciones",
+      "loadingLayouts": "Cargando diseños",
+      "loadingPlaylists": "Cargando listas",
+      "loadErrorBoth": "No se pudieron cargar las presentaciones.",
+      "loadErrorLayouts": "No se pudieron cargar los diseños.",
+      "loadErrorPlaylists": "No se pudieron cargar las listas.",
+      "retryBody": "Reintenta la solicitud a la biblioteca.",
+      "retry": "Reintentar",
+      "emptySearchBoth": "Ninguna presentación coincide con esta búsqueda.",
+      "emptySearchLayouts": "Ningún diseño coincide con esta búsqueda.",
+      "emptySearchPlaylists": "Ninguna lista coincide con esta búsqueda.",
+      "emptyBoth": "Aún no hay presentaciones. Crea una primero.",
+      "emptyLayouts": "Aún no hay diseños. Crea uno primero.",
+      "emptyPlaylists": "Aún no hay listas. Crea una primero.",
+      "layoutRevision": "Diseño · revisión {{revision}}",
+      "itemCount_one": "{{count}} elemento",
+      "itemCount_many": "{{count}} de elementos",
+      "itemCount_other": "{{count}} elementos",
+      "tagDriven": " · por etiqueta",
+      "confirmDefault": "Agregar lista"
+    }
+  },
+  "graph": {
+    "types": {
+      "dataSource": {
+        "label": "Fuente de datos",
+        "plural": "Fuentes de datos"
+      },
+      "asset": {
+        "label": "Multimedia",
+        "plural": "Multimedia"
+      },
+      "widget": {
+        "label": "Widget",
+        "plural": "Widgets"
+      },
+      "layout": {
+        "label": "Diseño",
+        "plural": "Diseños"
+      },
+      "playlist": {
+        "label": "Lista de reproducción",
+        "plural": "Listas de reproducción"
+      },
+      "campaign": {
+        "label": "Campaña",
+        "plural": "Campañas"
+      },
+      "schedule": {
+        "label": "Programación",
+        "plural": "Programaciones"
+      },
+      "screenGroup": {
+        "label": "Grupo de pantallas",
+        "plural": "Grupos de pantallas"
+      },
+      "screen": {
+        "label": "Pantalla",
+        "plural": "Pantallas"
+      }
+    },
+    "relationships": {
+      "emptyUpstream": "Sin conexiones directas ascendentes.",
+      "emptyDownstream": "Sin conexiones directas descendentes."
+    },
+    "loadError": "No se pudo cargar el grafo de dependencias.",
+    "loading": "Mapeando dependencias…",
+    "emptyTitle": "Nada que mapear aún",
+    "emptyDescription": "Agrega contenido, una presentación o una pantalla para empezar a construir el grafo.",
+    "canvasLabel": "Grafo visual de dependencias",
+    "searchLabel": "Buscar en el grafo",
+    "searchPlaceholder": "Buscar nodos",
+    "clearSearch": "Limpiar búsqueda",
+    "typeFilter": "Filtrar por tipo",
+    "allTypes": "Todos los tipos",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "fitGraph": "Ajustar grafo",
+    "legend": {
+      "sources": "Fuentes",
+      "presentations": "Presentaciones",
+      "delivery": "Entrega"
+    },
+    "hint": "Arrastra para mover · Desplázate para acercar · Las flechas apuntan a los consumidores",
+    "inspector": {
+      "label": "Detalles de dependencia de {{name}}",
+      "open": "Abrir",
+      "close": "Cerrar inspector",
+      "upstream": "ascendentes",
+      "downstream": "descendentes",
+      "dependenciesTitle": "Dependencias directas",
+      "consumersTitle": "Consumidores directos"
+    }
+  },
+  "dataSources": {
+    "list": {
+      "title": "Fuentes de datos",
+      "subtitle": "Conexiones reutilizables que obtienen, procesan y almacenan datos en caché.",
+      "create": "Crear fuente de datos",
+      "search": "Buscar fuentes de datos",
+      "allTypes": "Todos los tipos de fuentes de datos",
+      "providerFilter": "Filtrar por proveedor de fuente de datos",
+      "sortLabel": "Ordenar por actualización",
+      "sortUpdated": "Actualizado",
+      "loadError": "No se pudieron cargar las fuentes de datos.",
+      "actionError": "No se pudo completar la acción de la fuente de datos.",
+      "loading": "Cargando fuentes de datos",
+      "emptyTitle": "Aún no hay fuentes de datos",
+      "emptyDescription": "Crea una conexión reutilizable para alimentar tus widgets."
+    },
+    "table": {
+      "name": "Nombre",
+      "provider": "Proveedor",
+      "status": "Estado",
+      "records": "Registros en caché",
+      "updated": "Actualizado",
+      "usedBy": "Usado por",
+      "actions": "Acciones"
+    },
+    "row": {
+      "view": "Ver",
+      "actionsFor": "Acciones para {{name}}"
+    },
+    "actions": {
+      "open": "Abrir",
+      "duplicate": "Duplicar"
+    },
+    "deleteDialog": {
+      "title": "¿Eliminar {{name}}?",
+      "body": "Los widgets que lean esta fuente de datos mostrarán su estado vacío. Esto no se puede deshacer."
+    },
+    "editor": {
+      "loading": "Cargando fuente de datos",
+      "loadingDefinition": "Cargando definición de la fuente de datos",
+      "unavailableTitle": "Fuente de datos no disponible",
+      "unavailableDescription": "No se pudo cargar esta fuente de datos.",
+      "backToList": "Volver a las fuentes de datos",
+      "noPermission": "No tienes permiso para crear fuentes de datos",
+      "noUsage": "Ningún widget o enlace de diseño lee esta fuente de datos aún.",
+      "widgetsLabel": "Widgets",
+      "bindingsLabel": "Enlaces de texto de diseño"
+    }
+  }
+}

@@ -1,1 +1,546 @@
-{}
+{
+  "media": {
+    "header": {
+      "title": "Media",
+      "uploadAssets": "Upload assets",
+      "descriptionActive": "Uploaded images and videos available to playlists and Layouts.",
+      "descriptionArchive": "Archived and expired content stays here until you restore or permanently delete it.",
+      "total": "{{total}} assets."
+    },
+    "libraryView": {
+      "label": "Library view",
+      "library": "Library",
+      "archive": "Archive"
+    },
+    "cardView": {
+      "label": "View",
+      "grid": "Grid view",
+      "list": "List view"
+    },
+    "upload": {
+      "chooseFilesAria": "Choose media files"
+    },
+    "queue": {
+      "label": "Upload queue",
+      "title": "Uploads",
+      "activeCount": "{{count}} active",
+      "progress": "{{uploaded}} of {{size}} · {{percent}}% · {{state}}",
+      "progressAria": "Upload progress for {{filename}}",
+      "retryAria": "Retry or resume {{filename}}",
+      "cancelAria": "Cancel {{filename}}",
+      "resumePrompt": "Select the same file to resume this upload.",
+      "fileMismatch": "Choose the original file with the same name and size.",
+      "uploadFailed": "Upload failed.",
+      "stateFinalizing": "Finalizing"
+    },
+    "filters": {
+      "searchLabel": "Search media",
+      "typeLabel": "Content type filters",
+      "typeMedia": "Media",
+      "typeImages": "Images",
+      "typeVideos": "Videos",
+      "statusLabel": "Filter by status",
+      "statusAll": "All statuses",
+      "folderLabel": "Filter by folder",
+      "folderAll": "All folders",
+      "collectionLabel": "Filter by collection",
+      "collectionAll": "All collections",
+      "tagLabel": "Filter by tag",
+      "tagAll": "All tags",
+      "reset": "Reset filters"
+    },
+    "sort": {
+      "label": "Sort media",
+      "recentlyUpdated": "Recently updated",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "name": "Name"
+    },
+    "bulkDelete": {
+      "title_one": "Permanently delete {{count}} archived item?",
+      "title_other": "Permanently delete {{count}} archived items?",
+      "keep": "Keep items"
+    },
+    "dialogs": {
+      "cannotUndo": "This cannot be undone.",
+      "deletePermanently": "Delete permanently"
+    },
+    "list": {
+      "loadError": "The media library could not be loaded",
+      "loading": "Loading media…"
+    },
+    "archiveDialog": {
+      "title": "Move {{name}} to the archive?",
+      "body": "Archived items stay available until you restore or permanently delete them.",
+      "keep": "Keep in library",
+      "confirm": "Move to archive"
+    },
+    "deleteDialog": {
+      "title": "Permanently delete {{name}}?",
+      "keep": "Keep item"
+    },
+    "empty": {
+      "archiveTitle": "Archive is empty",
+      "title": "No media yet",
+      "archiveDescription": "Items you archive—or that reach their expiration—appear here and can be restored later.",
+      "manageDescription": "Drag images or videos here, or choose files to begin your library.",
+      "viewerDescription": "An Owner, Administrator, or Editor can upload media.",
+      "chooseFiles": "Choose files"
+    },
+    "actions": {
+      "open": "Open",
+      "select": "Select",
+      "clearSelection": "Clear selection",
+      "duplicate": "Duplicate",
+      "archive": "Archive",
+      "restore": "Restore to library"
+    },
+    "status": {
+      "uploading": "Uploading",
+      "uploaded": "Uploaded",
+      "waiting": "Waiting",
+      "inspecting": "Inspecting",
+      "processing": "Processing",
+      "ready": "Ready",
+      "failed": "Failed",
+      "deleting": "Deleting",
+      "deleted": "Deleted"
+    },
+    "badges": {
+      "expired": "Expired",
+      "archived": "Archived"
+    },
+    "card": {
+      "actionsFor": "Actions for {{name}}",
+      "editLabel": "Edit {{name}}",
+      "viewLabel": "View {{name}}",
+      "selectLabel": "Select {{name}}",
+      "duplicateLabel": "Duplicate {{name}}",
+      "archiveLabel": "Archive {{name}}",
+      "playlists_one": "{{count}} playlist",
+      "playlists_other": "{{count}} playlists",
+      "layouts_one": "{{count}} Layout",
+      "layouts_other": "{{count}} Layouts"
+    },
+    "createOrganizer": {
+      "folder": {
+        "title": "Create folder",
+        "label": "Folder name",
+        "hint": "Each asset lives in one folder. Use folders for broad areas like buildings or departments."
+      },
+      "collection": {
+        "title": "Create collection",
+        "label": "Collection name",
+        "hint": "Collections group related assets for reuse. An asset can belong to several collections."
+      },
+      "tag": {
+        "title": "Create tag",
+        "label": "Tag name",
+        "hint": "Tags are colored labels for quick filtering. An asset can have several tags."
+      },
+      "colorLabel": "Color",
+      "createErrorFolder": "The folder could not be created",
+      "createErrorCollection": "The collection could not be created",
+      "createErrorTag": "The tag could not be created"
+    },
+    "manage": {
+      "saveError": "The change could not be saved.",
+      "rename": "Rename",
+      "renameAria": "New name for {{name}}",
+      "keep": "Keep",
+      "deleteTitle": "Delete {{name}}?",
+      "foldersTitle": "Folders",
+      "collectionsTitle": "Collections",
+      "tagsTitle": "Tags",
+      "emptyFolders": "No folders yet.",
+      "emptyCollections": "No collections yet.",
+      "emptyTags": "No tags yet.",
+      "confirmDeleteFolder": "Delete the folder \"{{name}}\"? Its assets stay in the library and become unfiled. This cannot be undone.",
+      "confirmDeleteCollection": "Delete the collection \"{{name}}\"? Its assets stay in the library. This cannot be undone.",
+      "confirmDeleteTag": "Delete the tag \"{{name}}\"? It is removed from all assets. This cannot be undone.",
+      "title": "Manage organization",
+      "description": "Rename or delete folders, collections, and tags. Assets stay in the library."
+    },
+    "organizer": {
+      "label": "Content organization",
+      "createFolder": "Create folder",
+      "createCollection": "Create collection",
+      "createTag": "Create tag",
+      "manage": "Manage",
+      "selectedCount": "{{count}} selected",
+      "selectPage": "Select page",
+      "clear": "Clear",
+      "organize": "Organize",
+      "restore": "Restore",
+      "updateError": "The selected content could not be updated.",
+      "applyError": "Content could not be organized."
+    },
+    "organizeDialog": {
+      "title_one": "Organize {{count}} selected item",
+      "title_other": "Organize {{count}} selected items",
+      "description": "Choose one or more changes. Existing tags and collections stay unless you explicitly remove them.",
+      "folderLabel": "Move to folder",
+      "folderUnchanged": "Leave folder unchanged",
+      "folderUnfiled": "Move to Unfiled",
+      "tagLabel": "Tag change",
+      "tagUnchanged": "Leave tags unchanged",
+      "tagAdd": "Add {{name}}",
+      "tagRemove": "Remove {{name}}",
+      "collectionLabel": "Collection change",
+      "collectionUnchanged": "Leave collections unchanged",
+      "collectionAdd": "Add to {{name}}",
+      "collectionRemove": "Remove from {{name}}",
+      "apply": "Apply changes"
+    },
+    "organization": {
+      "title": "Organization",
+      "folderLabel": "Folder",
+      "unfiled": "Unfiled",
+      "tagsLabel": "Tags",
+      "tagsEmpty": "No tags yet. Create tags from the media library toolbar.",
+      "collectionsLabel": "Collections",
+      "collectionsEmpty": "No collections yet. Create collections from the media library toolbar.",
+      "updateError": "Organization could not be updated"
+    },
+    "details": {
+      "label": "Details for {{name}}",
+      "eyebrow": "Media asset",
+      "nameLabel": "Name",
+      "descriptionLabel": "Description",
+      "availableFromLabel": "Available from",
+      "availableFromHint": "Leave blank to make this content available immediately.",
+      "expiresAtLabel": "Expires at",
+      "expiresAtHint": "The Player stops using it at this local date and time, even offline.",
+      "statusLabel": "Status",
+      "originalFileLabel": "Original file",
+      "detectedTypeLabel": "Detected type",
+      "shaLabel": "SHA-256",
+      "noUsage": "No playlist or Layout uses this media yet.",
+      "playlistsLabel": "Playlists",
+      "layoutsLabel": "Layouts",
+      "publishedHint": "Published",
+      "draftHint": "Draft",
+      "retryProcessing": "Retry processing",
+      "archiveAsset": "Archive asset"
+    }
+  },
+  "widgets": {
+    "list": {
+      "title": "Widgets",
+      "subtitle": "Reusable visual content for playlists and Layouts.",
+      "create": "Create Widget",
+      "search": "Search Widgets",
+      "providerFilter": "Filter by Widget provider",
+      "allTypes": "All Widget types",
+      "viewLabel": "View",
+      "gridView": "Grid view",
+      "listView": "List view",
+      "loadError": "Widgets could not be loaded.",
+      "loading": "Loading Widgets",
+      "emptyTitle": "No Widgets yet",
+      "emptyDescription": "Create a reusable Widget for signage content."
+    },
+    "editor": {
+      "loading": "Loading Widget",
+      "loadingDefinition": "Loading Widget definition",
+      "unavailableTitle": "Widget unavailable",
+      "unavailableDescription": "This Widget could not be loaded.",
+      "backToList": "Back to Widgets",
+      "noUsage": "No playlist or Layout uses this Widget yet.",
+      "playlistsLabel": "Playlists",
+      "layoutsLabel": "Layouts",
+      "publishedHint": "Published",
+      "draftHint": "Draft"
+    },
+    "websiteEditor": {
+      "editTitle": "Edit Website App",
+      "createTitle": "Create Website App",
+      "subtitle": "Fullscreen public website content. Duration is configured in the playlist.",
+      "nameLabel": "Name",
+      "descriptionLabel": "Description",
+      "urlLabel": "HTTPS URL",
+      "reloadLabel": "Reload policy",
+      "reloadOnce": "Load once while active",
+      "reloadEach": "Reload on each activation",
+      "reloadInterval": "Reload on interval",
+      "refreshLabel": "Refresh interval (seconds)",
+      "failureLabel": "Failure behavior",
+      "failurePlaceholder": "Show Tilecast placeholder",
+      "failureLastSuccess": "Keep last rendered page",
+      "failureFallbackImage": "Show fallback image",
+      "failureSkip": "Skip item",
+      "fallbackLabel": "Fallback image",
+      "fallbackNone": "None",
+      "advancedTitle": "Advanced website settings",
+      "hostsLabel": "Allowed top-level hosts (comma separated)",
+      "hostsHint": "The URL host is always added. This restricts top-level navigation, not all third-party subresources.",
+      "jsLabel": "JavaScript enabled",
+      "domLabel": "DOM storage enabled",
+      "cookiesLabel": "Cookies",
+      "cookiesDisabled": "Disabled",
+      "cookiesFirstParty": "First-party only",
+      "cookiesFirstAndThird": "First- and third-party",
+      "timeoutLabel": "Load timeout (seconds)",
+      "zoomLabel": "Zoom percentage",
+      "scrollXLabel": "Horizontal scroll",
+      "scrollYLabel": "Vertical scroll",
+      "agentLabel": "Custom user agent",
+      "agentHint": "Leave blank for Android WebView’s standard user agent. Overrides can break sites.",
+      "diagnosticsTitle": "Player diagnostics",
+      "allowedHosts": "Allowed hosts: {{hosts}}",
+      "lastLoadLabel": "Last successful load:",
+      "lastFailureLabel": "Last failure:",
+      "reportingLabel": "Reporting screens:",
+      "notReported": "Not reported",
+      "noneValue": "None",
+      "save": "Save website",
+      "delete": "Delete website",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteKeep": "Keep website",
+      "discardTitle": "Discard unsaved website changes?",
+      "discardBody": "Your edits will be lost.",
+      "discardKeep": "Keep editing",
+      "discardConfirm": "Discard changes"
+    }
+  },
+  "picker": {
+    "defaults": {
+      "confirm": "Add content",
+      "title": "Choose content",
+      "description": "Select existing content or upload media. Apps are managed in their own library."
+    },
+    "actions": {
+      "uploadMedia": "Upload media",
+      "createWidget": "Create widget"
+    },
+    "closeLabel": "Close content picker",
+    "library": {
+      "loading": "Loading content…",
+      "loadError": "Content could not be loaded.",
+      "retry": "Try again",
+      "emptyTitle": "No matching content",
+      "emptyDescription": "Try a different search or create new content.",
+      "loadingMore": "Loading…",
+      "loadMore": "Load more content"
+    },
+    "errors": {
+      "selectionName": "Content selection",
+      "addFailed": "Content could not be added.",
+      "title": "Some content could not be added."
+    },
+    "footer": {
+      "selected_one": "{{count}} item selected",
+      "selected_other": "{{count}} items selected",
+      "waiting": " · waiting for processing",
+      "adding": "Adding…"
+    },
+    "toolbar": {
+      "search": "Search content",
+      "typeLabel": "Content type",
+      "filterAll": "All",
+      "filterImages": "Images",
+      "filterVideos": "Videos",
+      "filterSources": "Sources",
+      "filterWebsites": "Websites",
+      "filterYouTube": "YouTube",
+      "filterCalendars": "Calendars",
+      "folderFilter": "Filter by folder",
+      "foldersAll": "All folders",
+      "collectionFilter": "Filter by collection",
+      "collectionsAll": "All collections",
+      "tagFilter": "Filter by tag",
+      "tagsAll": "All tags",
+      "sortLabel": "Sort content",
+      "sortRecent": "Recently updated",
+      "sortNewest": "Newest",
+      "sortOldest": "Oldest",
+      "sortName": "Name",
+      "viewLabel": "Content view",
+      "gridView": "Grid view",
+      "listView": "List view"
+    },
+    "grid": {
+      "typeYouTube": "YouTube Widget",
+      "typeWebsite": "Website Widget",
+      "typeImage": "Image",
+      "typeVideo": "Video",
+      "status": {
+        "uploading": "Uploading",
+        "uploaded": "Uploaded",
+        "queued": "Waiting",
+        "inspecting": "Inspecting",
+        "processing": "Processing",
+        "ready": "Ready",
+        "failed": "Failed",
+        "deleting": "Deleting",
+        "deleted": "Deleted"
+      }
+    },
+    "tray": {
+      "selectedCount": "{{count}} selected",
+      "clear": "Clear selection",
+      "removeLabel": "Remove {{name}} from selection"
+    },
+    "upload": {
+      "closeLabel": "Return to content",
+      "activeTitle": "Uploads are still active. Close this upload view?",
+      "title": "Upload media",
+      "description": "Upload one or more images or videos.",
+      "closeUploads": "Close uploads",
+      "dropHint": "Drop files here or choose files",
+      "dropFormats": "Images and videos · multiple files supported",
+      "stateWaiting": "Waiting",
+      "stateUploading": "Uploading",
+      "stateProcessing": "Processing",
+      "stateFailed": "Failed"
+    },
+    "playlist": {
+      "titleBoth": "Choose presentation",
+      "titleLayout": "Choose layout",
+      "titlePlaylist": "Choose playlist",
+      "searchBoth": "Search presentations",
+      "searchLayouts": "Search layouts",
+      "searchPlaylists": "Search playlists",
+      "loadingBoth": "Loading presentations",
+      "loadingLayouts": "Loading layouts",
+      "loadingPlaylists": "Loading playlists",
+      "loadErrorBoth": "Presentations could not be loaded.",
+      "loadErrorLayouts": "Layouts could not be loaded.",
+      "loadErrorPlaylists": "Playlists could not be loaded.",
+      "retryBody": "Retry the library request.",
+      "retry": "Try again",
+      "emptySearchBoth": "No presentations match this search.",
+      "emptySearchLayouts": "No layouts match this search.",
+      "emptySearchPlaylists": "No playlists match this search.",
+      "emptyBoth": "No presentations yet. Create one first.",
+      "emptyLayouts": "No layouts yet. Create one first.",
+      "emptyPlaylists": "No playlists yet. Create one first.",
+      "layoutRevision": "Layout · revision {{revision}}",
+      "itemCount_one": "{{count}} item",
+      "itemCount_other": "{{count}} items",
+      "tagDriven": " · tag-driven",
+      "confirmDefault": "Add playlist"
+    }
+  },
+  "graph": {
+    "types": {
+      "dataSource": {
+        "label": "Data Source",
+        "plural": "Data Sources"
+      },
+      "asset": {
+        "label": "Media",
+        "plural": "Media"
+      },
+      "widget": {
+        "label": "Widget",
+        "plural": "Widgets"
+      },
+      "layout": {
+        "label": "Layout",
+        "plural": "Layouts"
+      },
+      "playlist": {
+        "label": "Playlist",
+        "plural": "Playlists"
+      },
+      "campaign": {
+        "label": "Campaign",
+        "plural": "Campaigns"
+      },
+      "schedule": {
+        "label": "Schedule",
+        "plural": "Schedules"
+      },
+      "screenGroup": {
+        "label": "Display Group",
+        "plural": "Display Groups"
+      },
+      "screen": {
+        "label": "Screen",
+        "plural": "Screens"
+      }
+    },
+    "relationships": {
+      "emptyUpstream": "No direct upstream connections.",
+      "emptyDownstream": "No direct downstream connections."
+    },
+    "loadError": "The dependency graph could not be loaded.",
+    "loading": "Mapping dependencies…",
+    "emptyTitle": "Nothing to map yet",
+    "emptyDescription": "Add content, a presentation, or a screen to start building the graph.",
+    "canvasLabel": "Visual dependency graph",
+    "searchLabel": "Search graph",
+    "searchPlaceholder": "Search nodes",
+    "clearSearch": "Clear search",
+    "typeFilter": "Filter by type",
+    "allTypes": "All types",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fitGraph": "Fit graph",
+    "legend": {
+      "sources": "Sources",
+      "presentations": "Presentations",
+      "delivery": "Delivery"
+    },
+    "hint": "Drag to pan · Scroll to zoom · Arrows point to consumers",
+    "inspector": {
+      "label": "{{name}} dependency details",
+      "open": "Open",
+      "close": "Close inspector",
+      "upstream": "upstream",
+      "downstream": "downstream",
+      "dependenciesTitle": "Direct dependencies",
+      "consumersTitle": "Direct consumers"
+    }
+  },
+  "dataSources": {
+    "list": {
+      "title": "Data Sources",
+      "subtitle": "Reusable connections that fetch, parse, and cache data.",
+      "create": "Create Data Source",
+      "search": "Search Data Sources",
+      "allTypes": "All Data Source types",
+      "providerFilter": "Filter by Data Source provider",
+      "sortLabel": "Sort by updated",
+      "sortUpdated": "Updated",
+      "loadError": "Data Sources could not be loaded.",
+      "actionError": "The Data Source action could not be completed.",
+      "loading": "Loading Data Sources",
+      "emptyTitle": "No Data Sources yet",
+      "emptyDescription": "Create a reusable connection to feed your Widgets."
+    },
+    "table": {
+      "name": "Name",
+      "provider": "Provider",
+      "status": "Status",
+      "records": "Cached records",
+      "updated": "Updated",
+      "usedBy": "Used by",
+      "actions": "Actions"
+    },
+    "row": {
+      "view": "View",
+      "actionsFor": "Actions for {{name}}"
+    },
+    "actions": {
+      "open": "Open",
+      "duplicate": "Duplicate"
+    },
+    "deleteDialog": {
+      "title": "Delete {{name}}?",
+      "body": "Widgets reading this Data Source will show their empty state. This cannot be undone."
+    },
+    "editor": {
+      "loading": "Loading Data Source",
+      "loadingDefinition": "Loading Data Source definition",
+      "unavailableTitle": "Data Source unavailable",
+      "unavailableDescription": "This Data Source could not be loaded.",
+      "backToList": "Back to Data Sources",
+      "noPermission": "You do not have permission to create Data Sources",
+      "noUsage": "No Widget or Layout binding reads this Data Source yet.",
+      "widgetsLabel": "Widgets",
+      "bindingsLabel": "Layout text bindings"
+    }
+  }
+}
