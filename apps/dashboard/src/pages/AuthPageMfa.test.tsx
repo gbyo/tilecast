@@ -184,7 +184,7 @@ describe("sign-in with a second factor", () => {
     const getCredential = vi.fn(
       (options: CredentialRequestOptions): Promise<Credential | null> => {
         if (options.mediation === "conditional") {
-          conditionalSignal = options.signal;
+          conditionalSignal = options.signal ?? undefined;
           return new Promise((_, reject) => {
             options.signal?.addEventListener(
               "abort",
