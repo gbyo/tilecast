@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
-  Archive,
   Blocks,
   CalendarClock,
   ClipboardCheck,
@@ -48,7 +47,6 @@ const navigationGroups = [
         excludeActiveOn: ["/screens/archive"],
       },
       { titleKey: "items.displayGroups", url: "/groups", icon: <Users /> },
-      { titleKey: "items.archive", url: "/screens/archive", icon: <Archive /> },
     ],
   },
   {
