@@ -72,6 +72,27 @@ function mediaSrc(asset: ManifestAsset): string {
   return `tcmedia://variant/${asset.assetId}/${asset.variantId}`;
 }
 
+/**
+ * This screen's panel of a Span canvas, or undefined for a Mirror screen.
+ * Images and Layouts are clipped to it; Span video arrives as a server-made
+ * panel variant and is never cropped here.
+ */
+export function spanViewport(manifest: {
+  canvas?: { width: number; height: number } | null;
+  viewport?:
+    SpanViewport | Omit<SpanViewport, "canvasWidth" | "canvasHeight"> | null;
+}): SpanViewport | undefined {
+  const { canvas, viewport } = manifest;
+  if (!canvas || !viewport) {
+    return undefined;
+  }
+  return {
+    ...viewport,
+    canvasWidth: canvas.width,
+    canvasHeight: canvas.height,
+  };
+}
+
 export function renderLayout(
   document: LayoutDocument,
   ctx: LayoutRenderContext,

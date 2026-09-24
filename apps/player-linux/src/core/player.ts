@@ -99,7 +99,10 @@ import {
 import { PlayerSocket } from "./socket";
 import { activeHoursFromConfig, evaluateActiveHours } from "./active-hours";
 import { renderWidget } from "@tilecast/player-runtime/projection";
-import { renderLayout } from "@tilecast/player-runtime/projection";
+import {
+  renderLayout,
+  spanViewport,
+} from "@tilecast/player-runtime/projection";
 import { resolveRegionalFormatting } from "@tilecast/player-runtime/projection";
 import {
   fallbackDurationMsFor,
@@ -171,19 +174,6 @@ const SUPERVISOR_TICK_MS = 15_000;
 const DEFAULT_STATUS_INTERVAL_S = 60;
 
 export { resolvePlaybackItemSettings } from "@tilecast/player-runtime/projection";
-
-function spanViewport(manifest: Manifest): SpanViewport | undefined {
-  const canvas = manifest.canvas;
-  const viewport = manifest.viewport;
-  if (!canvas || !viewport) {
-    return undefined;
-  }
-  return {
-    ...viewport,
-    canvasWidth: canvas.width,
-    canvasHeight: canvas.height,
-  };
-}
 
 export interface PresentationItem {
   id: string;

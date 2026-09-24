@@ -151,6 +151,37 @@ describe("projection of widget and layout references", () => {
     expect(JSON.stringify(projected)).not.toContain("tcmedia://variant/");
   });
 
+  it("clips a Layout to this screen's Span panel, as Electron does", () => {
+    const panel = {
+      x: 960,
+      y: 0,
+      width: 960,
+      height: 1080,
+      rotation: 0,
+      order: 2,
+    };
+    const projector = createProjector({
+      ...projection,
+      manifest: {
+        ...manifest,
+        canvas: { width: 1920, height: 1080 },
+        viewport: panel,
+      },
+    })!;
+    const projected = projector.project(
+      playing([item("layout-1", "layout", { layout: { layoutId: LAYOUT } })]),
+      Date.UTC(2026, 8, 1),
+    ) as Extract<RuntimePresentation, { state: "playing" }>;
+    const payload = projected.items[0]!.layout as unknown as {
+      canvasWidth: number;
+      zones: { id: string; x: number; width: number }[];
+    };
+    // The left half is another panel's; the image zone moves to x = 0.
+    expect(payload.zones.map((zone) => [zone.id, zone.x, zone.width])).toEqual([
+      ["zone-image", 0, 960],
+    ]);
+  });
+
   it("skips an item that cannot render; none left is unavailable", () => {
     const projector = createProjector(projection)!;
     const projected = projector.project(
