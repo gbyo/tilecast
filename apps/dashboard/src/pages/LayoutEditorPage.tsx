@@ -116,6 +116,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
@@ -129,6 +130,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
+import { useFormatLocale } from "../i18n";
 import { layoutFontStack } from "../layoutFonts";
 import { captureLayoutPreview } from "../content/widgetPreviewCapture";
 
@@ -544,6 +546,9 @@ export function createPrimitivePlacement(
 export function LayoutEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation(["layouts", "common"]);
+  const { t: tContent } = useTranslation("content");
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const canPublish = ["owner", "administrator", "editor"].includes(
@@ -688,6 +693,7 @@ export function LayoutEditorPage() {
         canvas,
         document.canvas.width,
         document.canvas.height,
+        tContent,
       )
         .then((image) =>
           api.uploadLayoutPreview(
@@ -711,6 +717,7 @@ export function LayoutEditorPage() {
     id,
     layoutQuery.data,
     queryClient,
+    tContent,
   ]);
   const markUnsaved = useCallback(() => {
     changeVersionRef.current += 1;
@@ -805,6 +812,7 @@ export function LayoutEditorPage() {
           canvas,
           previewDocument.canvas.width,
           previewDocument.canvas.height,
+          tContent,
         )
           .then((previewImage) => {
             if (
@@ -836,7 +844,7 @@ export function LayoutEditorPage() {
     } finally {
       savingRef.current = false;
     }
-  }, [csrf, id, queryClient]);
+  }, [csrf, id, queryClient, tContent]);
   useEffect(() => {
     if (saveState !== "unsaved") return;
     const timer = window.setTimeout(() => void save(), 900);
@@ -1159,9 +1167,7 @@ export function LayoutEditorPage() {
       playlistResults.filter((result) => result.status === "rejected").length +
       assetResults.filter((result) => result.status === "rejected").length;
     if (failures)
-      setPreviewError(
-        `${failures} referenced item${failures === 1 ? " is" : "s are"} unavailable.`,
-      );
+      setPreviewError(t("editor.previewUnavailable", { count: failures }));
     setPreviewLoading(false);
   };
   const duplicateSelection = useCallback(() => {
@@ -1398,101 +1404,105 @@ export function LayoutEditorPage() {
     ).length;
     return [
       {
-        label: "Rename…",
+        label: t("editor.menuRename"),
         icon: <Pencil size={14} />,
         disabled: many,
         onSelect: () => renamePlacement(target),
       },
-      { label: "Copy", icon: <Copy size={14} />, onSelect: copySelection },
       {
-        label: "Paste",
+        label: t("editor.menuCopy"),
+        icon: <Copy size={14} />,
+        onSelect: copySelection,
+      },
+      {
+        label: t("editor.menuPaste"),
         icon: <ClipboardPaste size={14} />,
         disabled: !clipboard.current.length,
         onSelect: pasteClipboard,
       },
       {
-        label: "Duplicate",
+        label: t("editor.menuDuplicate"),
         icon: <CopyPlus size={14} />,
         onSelect: duplicateSelection,
       },
       {
-        label: "Arrange",
+        label: t("editor.menuArrange"),
         icon: <Layers size={14} />,
         separated: true,
         submenu: [
           {
-            label: "Bring to front",
+            label: t("editor.menuBringToFront"),
             icon: <ArrowUpToLine size={14} />,
             onSelect: () => arrangeSelection("front"),
           },
           {
-            label: "Bring forward",
+            label: t("editor.menuBringForward"),
             icon: <ArrowUp size={14} />,
             onSelect: () => arrangeSelection("forward"),
           },
           {
-            label: "Send backward",
+            label: t("editor.menuSendBackward"),
             icon: <ArrowDown size={14} />,
             onSelect: () => arrangeSelection("backward"),
           },
           {
-            label: "Send to back",
+            label: t("editor.menuSendToBack"),
             icon: <ArrowDownToLine size={14} />,
             onSelect: () => arrangeSelection("back"),
           },
         ],
       },
       {
-        label: many ? "Align" : "Align to canvas",
+        label: many ? t("editor.menuAlign") : t("editor.menuAlignToCanvas"),
         icon: <AlignCenterHorizontal size={14} />,
         disabled: !alignable,
         submenu: [
           {
-            label: "Left",
+            label: t("editor.menuAlignLeft"),
             icon: <AlignStartVertical size={14} />,
             onSelect: () => alignSelection("left"),
           },
           {
-            label: "Horizontal centres",
+            label: t("editor.menuAlignHCenter"),
             icon: <AlignCenterVertical size={14} />,
             onSelect: () => alignSelection("hcenter"),
           },
           {
-            label: "Right",
+            label: t("editor.menuAlignRight"),
             icon: <AlignEndVertical size={14} />,
             onSelect: () => alignSelection("right"),
           },
           {
-            label: "Top",
+            label: t("editor.menuAlignTop"),
             icon: <AlignStartHorizontal size={14} />,
             separated: true,
             onSelect: () => alignSelection("top"),
           },
           {
-            label: "Vertical centres",
+            label: t("editor.menuAlignVCenter"),
             icon: <AlignCenterHorizontal size={14} />,
             onSelect: () => alignSelection("vmiddle"),
           },
           {
-            label: "Bottom",
+            label: t("editor.menuAlignBottom"),
             icon: <AlignEndHorizontal size={14} />,
             onSelect: () => alignSelection("bottom"),
           },
           {
-            label: "Distribute horizontally",
+            label: t("editor.menuDistributeH"),
             icon: <AlignHorizontalDistributeCenter size={14} />,
             separated: true,
             disabled: alignable < 3,
             onSelect: () => distributeSelection("horizontal"),
           },
           {
-            label: "Distribute vertically",
+            label: t("editor.menuDistributeV"),
             icon: <AlignVerticalDistributeCenter size={14} />,
             disabled: alignable < 3,
             onSelect: () => distributeSelection("vertical"),
           },
           {
-            label: "Fill canvas",
+            label: t("editor.menuFillCanvas"),
             icon: <Maximize2 size={14} />,
             separated: true,
             onSelect: fillCanvas,
@@ -1500,35 +1510,37 @@ export function LayoutEditorPage() {
         ],
       },
       {
-        label: "Group selection",
+        label: t("editor.menuGroup"),
         icon: <Group size={14} />,
         disabled: selection.size < 2,
         onSelect: groupSelection,
       },
       {
-        label: "Ungroup",
+        label: t("editor.menuUngroup"),
         icon: <Ungroup size={14} />,
         disabled: !scope.some((item) => item.primitive?.kind === "group"),
         onSelect: ungroupSelection,
       },
       {
-        label: locked ? "Unlock" : "Lock",
+        label: locked ? t("editor.menuUnlock") : t("editor.menuLock"),
         icon: locked ? <LockOpen size={14} /> : <Lock size={14} />,
         separated: true,
         onSelect: () => toggleSelectionFlag("locked"),
       },
       {
-        label: hidden ? "Show" : "Hide",
+        label: hidden ? t("editor.menuShow") : t("editor.menuHide"),
         icon: hidden ? <Eye size={14} /> : <EyeOff size={14} />,
         onSelect: () => toggleSelectionFlag("visible"),
       },
       {
-        label: "Layer settings",
+        label: t("editor.menuLayerSettings"),
         icon: <Settings size={14} />,
         onSelect: () => setSidebarSection("layers"),
       },
       {
-        label: many ? `Delete ${scope.length} layers` : "Delete",
+        label: many
+          ? t("editor.menuDeleteCount", { count: scope.length })
+          : t("editor.menuDelete"),
         icon: <Trash2 size={14} />,
         separated: true,
         danger: true,
@@ -1538,76 +1550,78 @@ export function LayoutEditorPage() {
   };
   const canvasMenuItems = (): LayoutMenuEntry[] => [
     {
-      label: "Add element",
+      label: t("editor.menuAddElement"),
       icon: <Plus size={14} />,
       submenu: [
         {
-          label: "Text",
+          label: t("elementKinds.text"),
           icon: <Type size={14} />,
           onSelect: () => addPrimitive("text"),
         },
         {
-          label: "Rectangle",
+          label: t("elementKinds.rectangle"),
           icon: <RectangleHorizontal size={14} />,
           onSelect: () => addPrimitive("rectangle"),
         },
         {
-          label: "Circle",
+          label: t("elementKinds.circle"),
           icon: <Circle size={14} />,
           onSelect: () => addPrimitive("circle"),
         },
         {
-          label: "Line",
+          label: t("elementKinds.line"),
           icon: <Minus size={14} />,
           onSelect: () => addPrimitive("line"),
         },
       ],
     },
     {
-      label: "Paste",
+      label: t("editor.menuPaste"),
       icon: <ClipboardPaste size={14} />,
       disabled: !clipboard.current.length,
       onSelect: pasteClipboard,
     },
     {
-      label: "Select all",
+      label: t("editor.menuSelectAll"),
       icon: <BoxSelect size={14} />,
       separated: true,
       disabled: !document?.placements.length,
       onSelect: selectAll,
     },
     {
-      label: "Deselect",
+      label: t("editor.menuDeselect"),
       icon: <MousePointerClick size={14} />,
       disabled: !selection.size,
       onSelect: () => setSelection(new Set()),
     },
     {
-      label: "Undo",
+      label: t("editor.menuUndo"),
       icon: <Undo2 size={14} />,
       separated: true,
       disabled: !past.length,
       onSelect: undo,
     },
     {
-      label: "Redo",
+      label: t("editor.menuRedo"),
       icon: <Redo2 size={14} />,
       disabled: !future.length,
       onSelect: redo,
     },
     {
-      label: snap ? "Turn off snapping" : "Snap to grid",
+      label: snap ? t("editor.menuSnapOff") : t("editor.menuSnapOn"),
       icon: <Magnet size={14} />,
       separated: true,
       onSelect: () => setSnap((value) => !value),
     },
     {
-      label: safeArea ? "Hide safe area" : "Show safe area",
+      label: safeArea
+        ? t("editor.menuSafeAreaHide")
+        : t("editor.menuSafeAreaShow"),
       icon: <Scan size={14} />,
       onSelect: () => setSafeArea((value) => !value),
     },
     {
-      label: "Layout settings",
+      label: t("editor.sectionSettings"),
       icon: <Settings size={14} />,
       separated: true,
       onSelect: () => setSidebarSection("settings"),
@@ -1844,17 +1858,17 @@ export function LayoutEditorPage() {
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>Layout unavailable</EmptyTitle>
+          <EmptyTitle>{t("editor.unavailableTitle")}</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
           <Button variant="secondary" onClick={() => void navigate("/layouts")}>
-            Back to Layouts
+            {t("editor.unavailableBack")}
           </Button>
         </EmptyContent>
       </Empty>
     );
   if (layoutQuery.isLoading || !document)
-    return <p className="status-copy">Loading Layout editor…</p>;
+    return <p className="status-copy">{t("editor.loading")}</p>;
   const libraryAssets = [...(contentQuery.data?.items ?? []), ...pickedAssets];
   const libraryPlaylists = [
     ...(playlistsQuery.data?.items ?? []),
@@ -1911,19 +1925,37 @@ export function LayoutEditorPage() {
         ((event.clientY - bounds.top) / bounds.height) * document.canvas.height,
     });
   };
+  const sectionTitles = {
+    media: t("editor.sectionMedia"),
+    widgets: t("editor.sectionWidgets"),
+    playlists: t("editor.sectionPlaylists"),
+    elements: t("editor.sectionElements"),
+    layers: t("editor.sectionLayers"),
+    settings: t("editor.sectionSettings"),
+  } as const;
+  const browseLabels = {
+    media: t("editor.browseMedia"),
+    widgets: t("editor.browseWidgets"),
+    playlists: t("editor.browsePlaylists"),
+  } as const;
+  const shelfEmptyLabels = {
+    media: t("editor.shelfEmptyMedia"),
+    widgets: t("editor.shelfEmptyWidgets"),
+    playlists: t("editor.shelfEmptyPlaylists"),
+  } as const;
   const librarySidebar = (
     <aside className="layout-editor-left">
-      <nav className="layout-sidebar-nav" aria-label="Layout builder">
+      <nav className="layout-sidebar-nav" aria-label={t("editor.builderLabel")}>
         {(
           [
-            ["media", "Media", ImageIcon],
-            ["widgets", "Widgets", AppWindow],
-            ["playlists", "Playlists", ListVideo],
-            ["elements", "Elements", RectangleHorizontal],
-            ["layers", "Layers", BoxSelect],
-            ["settings", "Settings", Settings],
+            ["media", ImageIcon],
+            ["widgets", AppWindow],
+            ["playlists", ListVideo],
+            ["elements", RectangleHorizontal],
+            ["layers", BoxSelect],
+            ["settings", Settings],
           ] as const
-        ).map(([section, label, Icon]) => (
+        ).map(([section, Icon]) => (
           <button
             key={section}
             type="button"
@@ -1932,7 +1964,7 @@ export function LayoutEditorPage() {
             onClick={() => setSidebarSection(section)}
           >
             <Icon size={18} />
-            <span>{label}</span>
+            <span>{sectionTitles[section]}</span>
           </button>
         ))}
       </nav>
@@ -1942,15 +1974,7 @@ export function LayoutEditorPage() {
           sidebarSection === "playlists") && (
           <>
             <div className="layout-panel-heading">
-              <strong>
-                {
-                  {
-                    media: "Media",
-                    widgets: "Widgets",
-                    playlists: "Playlists",
-                  }[sidebarSection]
-                }
-              </strong>
+              <strong>{sectionTitles[sidebarSection]}</strong>
             </div>
             <Button
               type="button"
@@ -1959,17 +1983,11 @@ export function LayoutEditorPage() {
               onClick={() => setPicker(sidebarSection)}
             >
               <Search size={16} aria-hidden="true" />
-              {
-                {
-                  media: "Browse media library",
-                  widgets: "Browse apps",
-                  playlists: "Browse playlists",
-                }[sidebarSection]
-              }
+              {browseLabels[sidebarSection]}
             </Button>
             <div className="layout-panel-heading layout-panel-heading--sub">
-              <strong>Recent</strong>
-              <span>Drag to canvas</span>
+              <strong>{t("editor.shelfRecent")}</strong>
+              <span>{t("editor.shelfDragHint")}</span>
             </div>
             <div className="layout-content-shelf">
               {recentLibraryItems.map((item) => {
@@ -1992,7 +2010,7 @@ export function LayoutEditorPage() {
                       );
                     }}
                     onClick={() => addLibraryItem(item)}
-                    title={`Add ${name}`}
+                    title={t("editor.shelfAdd", { name })}
                   >
                     <span className="layout-content-shelf__preview">
                       {asset?.thumbnailUrl ? (
@@ -2013,7 +2031,9 @@ export function LayoutEditorPage() {
                       <strong>{name}</strong>
                       <small>
                         {playlist
-                          ? `${playlist.itemCount} items`
+                          ? t("common:count.items", {
+                              count: playlist.itemCount,
+                            })
                           : (asset?.widget?.provider ?? asset?.type)}
                       </small>
                     </span>
@@ -2022,8 +2042,7 @@ export function LayoutEditorPage() {
               })}
               {!recentLibraryItems.length && (
                 <p className="layout-content-shelf__empty">
-                  No recently created {sidebarSection}. Use the browse button
-                  above to search the whole library.
+                  {shelfEmptyLabels[sidebarSection]}
                 </p>
               )}
             </div>
@@ -2032,24 +2051,24 @@ export function LayoutEditorPage() {
         {sidebarSection === "elements" && (
           <>
             <div className="layout-panel-heading">
-              <strong>Elements</strong>
+              <strong>{t("editor.sectionElements")}</strong>
             </div>
             <div className="layout-add-grid">
               <button onClick={() => addPrimitive("text")}>
                 <Type size={20} />
-                Text
+                {t("elementKinds.text")}
               </button>
               <button onClick={() => addPrimitive("rectangle")}>
                 <RectangleHorizontal size={20} />
-                Rectangle
+                {t("elementKinds.rectangle")}
               </button>
               <button onClick={() => addPrimitive("circle")}>
                 <Circle size={20} />
-                Circle
+                {t("elementKinds.circle")}
               </button>
               <button onClick={() => addPrimitive("line")}>
                 <Minus size={20} />
-                Line
+                {t("elementKinds.line")}
               </button>
             </div>
           </>
@@ -2057,7 +2076,7 @@ export function LayoutEditorPage() {
         {sidebarSection === "layers" && (
           <>
             <div className="layout-panel-heading">
-              <strong>Layers</strong>
+              <strong>{t("editor.sectionLayers")}</strong>
               <span>{document.placements.length}</span>
             </div>
             <div className="layout-layers">
@@ -2110,11 +2129,15 @@ export function LayoutEditorPage() {
                           className="layout-layer-toggle"
                           aria-label={
                             item.visible
-                              ? `Hide ${item.name}`
-                              : `Show ${item.name}`
+                              ? t("editor.layerHide", { name: item.name })
+                              : t("editor.layerShow", { name: item.name })
                           }
                           aria-pressed={item.visible}
-                          title={item.visible ? "Hide" : "Show"}
+                          title={
+                            item.visible
+                              ? t("editor.menuHide")
+                              : t("editor.menuShow")
+                          }
                           onClick={(event) => {
                             event.stopPropagation();
                             update((d) => {
@@ -2138,11 +2161,15 @@ export function LayoutEditorPage() {
                           className="layout-layer-toggle"
                           aria-label={
                             item.locked
-                              ? `Unlock ${item.name}`
-                              : `Lock ${item.name}`
+                              ? t("editor.layerUnlock", { name: item.name })
+                              : t("editor.layerLock", { name: item.name })
                           }
                           aria-pressed={item.locked}
-                          title={item.locked ? "Unlock" : "Lock"}
+                          title={
+                            item.locked
+                              ? t("editor.menuUnlock")
+                              : t("editor.menuLock")
+                          }
                           onClick={(event) => {
                             event.stopPropagation();
                             update((d) => {
@@ -2161,7 +2188,11 @@ export function LayoutEditorPage() {
                         </Button>
                       </span>
                     </ContextMenuTrigger>
-                    <ContextMenuContent aria-label={`Actions for ${item.name}`}>
+                    <ContextMenuContent
+                      aria-label={t("editor.layerActions", {
+                        name: item.name,
+                      })}
+                    >
                       <LayoutEditorMenuEntries
                         items={placementMenuItems(item)}
                       />
@@ -2172,8 +2203,10 @@ export function LayoutEditorPage() {
             {!desktop && primary && (
               <div className="layout-layer-inspector">
                 <div className="layout-panel-heading">
-                  <strong>Selected layer</strong>
-                  <span>{selected.length} selected</span>
+                  <strong>{t("editor.selectedLayerTitle")}</strong>
+                  <span>
+                    {t("editor.selectedCount", { count: selected.length })}
+                  </span>
                 </div>
                 <PlacementInspector
                   item={primary}
@@ -2203,25 +2236,25 @@ export function LayoutEditorPage() {
         {sidebarSection === "settings" && (
           <>
             <div className="layout-panel-heading">
-              <strong>Layout settings</strong>
+              <strong>{t("editor.sectionSettings")}</strong>
             </div>
             <CanvasInspector document={document} update={update} />
             {layoutQuery.data && (
               <UsedByPanel
-                emptyMessage="No campaign, screen, or schedule shows this Layout yet."
+                emptyMessage={t("editor.usageEmpty")}
                 groups={[
                   {
-                    label: "Screens",
+                    label: t("editor.usageScreens"),
                     items: layoutQuery.data.usage.screens,
                     to: (screenId) => `/screens/${screenId}`,
                   },
                   {
-                    label: "Schedules",
+                    label: t("editor.usageSchedules"),
                     items: layoutQuery.data.usage.schedules,
                     to: (scheduleId) => `/schedules/${scheduleId}`,
                   },
                   {
-                    label: "Campaigns",
+                    label: t("editor.usageCampaigns"),
                     items: layoutQuery.data.usage.campaigns,
                     to: (campaignId) => `/campaigns/${campaignId}`,
                   },
@@ -2237,13 +2270,13 @@ export function LayoutEditorPage() {
   const stage = (
     <main className="layout-stage">
       <div className="layout-stage-controls">
-        <ButtonGroup aria-label="Canvas zoom">
+        <ButtonGroup aria-label={t("editor.zoomLabel")}>
           <Button
             variant="outline"
             size="sm"
             onClick={zoomOut}
-            title="Zoom out"
-            aria-label="Zoom out"
+            title={t("editor.zoomOut")}
+            aria-label={t("editor.zoomOut")}
           >
             <ZoomOut size={16} aria-hidden="true" />
           </Button>
@@ -2254,8 +2287,8 @@ export function LayoutEditorPage() {
             variant="outline"
             size="sm"
             onClick={zoomIn}
-            title="Zoom in"
-            aria-label="Zoom in"
+            title={t("editor.zoomIn")}
+            aria-label={t("editor.zoomIn")}
           >
             <ZoomIn size={16} aria-hidden="true" />
           </Button>
@@ -2263,8 +2296,8 @@ export function LayoutEditorPage() {
             variant="outline"
             size="sm"
             onClick={fitZoom}
-            title="Fit canvas to view"
-            aria-label="Fit canvas to view"
+            title={t("editor.zoomFit")}
+            aria-label={t("editor.zoomFit")}
           >
             <Maximize2 size={16} aria-hidden="true" />
           </Button>
@@ -2275,14 +2308,14 @@ export function LayoutEditorPage() {
             checked={snap}
             onCheckedChange={(checked) => setSnap(checked === true)}
           />
-          Snap
+          {t("editor.snapLabel")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={safeArea}
             onCheckedChange={(checked) => setSafeArea(checked === true)}
           />
-          Safe area
+          {t("editor.safeAreaLabel")}
         </label>
         <Popover>
           <PopoverTrigger
@@ -2290,8 +2323,8 @@ export function LayoutEditorPage() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                title="Keyboard shortcuts"
-                aria-label="Keyboard shortcuts"
+                title={t("editor.shortcutsTitle")}
+                aria-label={t("editor.shortcutsTitle")}
               >
                 <Keyboard size={16} aria-hidden="true" />
               </Button>
@@ -2300,70 +2333,70 @@ export function LayoutEditorPage() {
           <PopoverContent
             side="bottom"
             align="center"
-            aria-label="Canvas keyboard shortcuts"
+            aria-label={t("editor.shortcutsDialogLabel")}
           >
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Keyboard shortcuts
+              {t("editor.shortcutsTitle")}
             </p>
             <ul className="grid gap-2 text-sm">
               <li className="flex items-center justify-between gap-3">
-                <span>Save</span>
+                <span>{t("editor.shortcutSave")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>S</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}S</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Undo / redo</span>
+                <span>{t("editor.shortcutUndoRedo")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>Z</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Z</Kbd>
                   <Kbd>⇧</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Duplicate</span>
+                <span>{t("editor.menuDuplicate")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>D</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}D</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Copy / paste</span>
+                <span>{t("editor.shortcutCopyPaste")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>C</Kbd>
-                  <Kbd>V</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}C</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}V</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Select all</span>
+                <span>{t("editor.menuSelectAll")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>A</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}A</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Group / ungroup</span>
+                <span>{t("editor.shortcutGroup")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>G</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}G</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Arrange (Shift: front/back)</span>
+                <span>{t("editor.shortcutArrange")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
                   <Kbd>[</Kbd>
                   <Kbd>]</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Delete selection</span>
-                <Kbd>Del</Kbd>
+                <span>{t("editor.shortcutDelete")}</span>
+                <Kbd>{/* i18n-ignore: key name */}Del</Kbd>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Nudge (Shift: 10px)</span>
+                <span>{t("editor.shortcutNudge")}</span>
                 <Kbd>← ↑ ↓ →</Kbd>
               </li>
             </ul>
@@ -2465,8 +2498,8 @@ export function LayoutEditorPage() {
         <ContextMenuContent
           aria-label={
             menuTarget?.kind === "placement"
-              ? `Actions for ${menuTarget.item.name}`
-              : "Canvas actions"
+              ? t("editor.layerActions", { name: menuTarget.item.name })
+              : t("editor.menuCanvasActions")
           }
         >
           <LayoutEditorMenuEntries
@@ -2499,13 +2532,13 @@ export function LayoutEditorPage() {
             <DialogHeader>
               <DialogTitle>
                 {renameTarget?.kind === "layout"
-                  ? "Rename Layout"
-                  : "Rename layer"}
+                  ? t("editor.renameLayoutTitle")
+                  : t("editor.renameLayerTitle")}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-2">
               <label className="grid gap-1.5 text-sm font-medium">
-                <span>Name</span>
+                <span>{t("editor.renameNameLabel")}</span>
                 <Input
                   value={renameValue}
                   autoFocus
@@ -2520,15 +2553,15 @@ export function LayoutEditorPage() {
                 type="button"
                 onClick={() => setRenameTarget(null)}
               >
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={!renameValue.trim() || rename.isPending}
               >
                 {renameTarget?.kind === "layout" && rename.isPending
-                  ? "Renaming…"
-                  : "Rename"}
+                  ? t("editor.renameSubmitting")
+                  : t("editor.renameSubmit")}
               </Button>
             </DialogFooter>
           </form>
@@ -2539,8 +2572,10 @@ export function LayoutEditorPage() {
         <Button
           variant="ghost"
           size="icon"
-          title="Rename Layout"
-          aria-label={`Rename ${layoutQuery.data?.name ?? "Layout"}`}
+          title={t("editor.renameLayoutTitle")}
+          aria-label={t("editor.toolbarRenameAction", {
+            name: layoutQuery.data?.name ?? t("editor.toolbarDefaultName"),
+          })}
           onClick={() => {
             openRename({
               kind: "layout",
@@ -2558,7 +2593,7 @@ export function LayoutEditorPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Undo"
+                aria-label={t("editor.menuUndo")}
                 onClick={undo}
                 disabled={!past.length}
               >
@@ -2567,7 +2602,8 @@ export function LayoutEditorPage() {
             }
           />
           <TooltipContent>
-            Undo <Kbd>Ctrl+Z</Kbd>
+            {t("editor.menuUndo")}{" "}
+            <Kbd>{/* i18n-ignore: key name */}Ctrl+Z</Kbd>
           </TooltipContent>
         </Tooltip>
         <Tooltip>
@@ -2576,7 +2612,7 @@ export function LayoutEditorPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Redo"
+                aria-label={t("editor.menuRedo")}
                 onClick={redo}
                 disabled={!future.length}
               >
@@ -2585,7 +2621,8 @@ export function LayoutEditorPage() {
             }
           />
           <TooltipContent>
-            Redo <Kbd>Ctrl+Shift+Z</Kbd>
+            {t("editor.menuRedo")}{" "}
+            <Kbd>{/* i18n-ignore: key name */}Ctrl+Shift+Z</Kbd>
           </TooltipContent>
         </Tooltip>
         <span className="toolbar-divider" />
@@ -2598,7 +2635,7 @@ export function LayoutEditorPage() {
           }}
         >
           <Scan size={16} aria-hidden="true" />
-          Preview
+          {t("editor.toolbarPreview")}
         </Button>
         <Button
           variant="secondary"
@@ -2609,7 +2646,7 @@ export function LayoutEditorPage() {
           }}
         >
           <History size={16} aria-hidden="true" />
-          History
+          {t("editor.toolbarHistory")}
         </Button>
         <Button
           type="button"
@@ -2634,23 +2671,23 @@ export function LayoutEditorPage() {
           }
           title={
             saveState === "error"
-              ? "Try saving again"
+              ? t("editor.saveRetryTitle")
               : saveState === "unsaved"
-                ? "Save now (Ctrl/Command + S)"
+                ? t("editor.saveNowTitle")
                 : undefined
           }
           aria-live="polite"
         >
           <Save size={14} aria-hidden="true" />
           {saveState === "saved"
-            ? "Saved"
+            ? t("editor.saveSaved")
             : saveState === "saving"
-              ? "Saving…"
+              ? t("common:actions.saving")
               : saveState === "conflict"
-                ? "Reload required"
+                ? t("editor.saveConflict")
                 : saveState === "error"
-                  ? "Retry save"
-                  : "Save now"}
+                  ? t("editor.saveRetry")
+                  : t("editor.saveNow")}
         </Button>
         {canSubmit && (
           <Button
@@ -2661,11 +2698,11 @@ export function LayoutEditorPage() {
           >
             {publish.isPending
               ? canPublish
-                ? "Publishing…"
-                : "Submitting…"
+                ? t("editor.publishBusy")
+                : t("editor.submitBusy")
               : canPublish
-                ? "Publish"
-                : "Submit for review"}
+                ? t("editor.publishAction")
+                : t("editor.submitAction")}
           </Button>
         )}
       </div>
@@ -2674,7 +2711,7 @@ export function LayoutEditorPage() {
           orientation="horizontal"
           className="layout-editor-panes"
           role="group"
-          aria-label="Layout library, canvas, and inspector"
+          aria-label={t("editor.panesGroup")}
         >
           <ResizablePanel
             id="layout-library-pane"
@@ -2686,7 +2723,7 @@ export function LayoutEditorPage() {
           </ResizablePanel>
           <ResizableHandle
             withHandle
-            aria-label="Resize library and canvas panes"
+            aria-label={t("editor.panesResizeLibrary")}
           />
           <ResizablePanel
             id="layout-stage-pane"
@@ -2700,7 +2737,7 @@ export function LayoutEditorPage() {
             <>
               <ResizableHandle
                 withHandle
-                aria-label="Resize canvas and inspector panes"
+                aria-label={t("editor.panesResizeInspector")}
               />
               <ResizablePanel
                 id="layout-inspector-pane"
@@ -2710,11 +2747,13 @@ export function LayoutEditorPage() {
               >
                 <aside
                   className="layout-inspector-pane"
-                  aria-label="Layer inspector"
+                  aria-label={t("editor.panesInspector")}
                 >
                   <div className="layout-panel-heading">
-                    <strong>Inspector</strong>
-                    <span>{selected.length} selected</span>
+                    <strong>{t("editor.panesInspectorTitle")}</strong>
+                    <span>
+                      {t("editor.selectedCount", { count: selected.length })}
+                    </span>
                   </div>
                   <PlacementInspector
                     item={primary}
@@ -2756,13 +2795,17 @@ export function LayoutEditorPage() {
           mode="multiple"
           csrf={csrf}
           allowedTypes={picker === "widgets" ? ["widget"] : ["image", "video"]}
-          title={picker === "widgets" ? "Choose apps" : "Choose media"}
+          title={
+            picker === "widgets"
+              ? t("editor.pickerAppsTitle")
+              : t("editor.pickerMediaTitle")
+          }
           description={
             picker === "widgets"
-              ? "Add an app to the canvas. Apps keep rendering live once the Layout is published."
-              : "Add images or video to the canvas. Anything you upload here lands in your library too."
+              ? t("editor.pickerAppsDescription")
+              : t("editor.pickerMediaDescription")
           }
-          confirmLabel="Add to canvas"
+          confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(assets) => {
             addContentBatch(assets);
             setPicker(undefined);
@@ -2778,8 +2821,8 @@ export function LayoutEditorPage() {
       {picker === "playlists" && (
         <PlaylistPicker
           open
-          description="Add a playlist zone that loops independently inside this Layout."
-          confirmLabel="Add to canvas"
+          description={t("editor.pickerPlaylistDescription")}
+          confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(choice) => {
             if (choice.kind === "playlist") addPlaylistZone(choice.playlist);
             setPicker(undefined);
@@ -2796,7 +2839,7 @@ export function LayoutEditorPage() {
             </span>
             <Input
               type="date"
-              aria-label="Preview date"
+              aria-label={t("editor.previewDateLabel")}
               value={previewDate}
               onChange={(event) => {
                 const date = event.target.value;
@@ -2805,7 +2848,9 @@ export function LayoutEditorPage() {
               }}
             />
             {previewLoading && (
-              <span className="layout-preview-status">Loading content…</span>
+              <span className="layout-preview-status">
+                {t("editor.previewLoading")}
+              </span>
             )}
             {!previewLoading && previewError && (
               <span className="layout-preview-status layout-preview-status--warning">
@@ -2813,7 +2858,7 @@ export function LayoutEditorPage() {
               </span>
             )}
             <Button variant="secondary" onClick={() => setPreview(false)}>
-              Close preview
+              {t("editor.previewClose")}
             </Button>
           </div>
           <div
@@ -2872,20 +2917,26 @@ export function LayoutEditorPage() {
           >
             <header>
               <div>
-                <h2>Published revisions</h2>
-                <p>Restoring creates a new editable draft.</p>
+                <h2>{t("editor.historyTitle")}</h2>
+                <p>{t("editor.historyDescription")}</p>
               </div>
             </header>
             <div className="source-editor__body">
               {revisions.isLoading ? (
-                <p>Loading history…</p>
+                <p>{t("editor.historyLoading")}</p>
               ) : revisions.data?.items?.length ? (
                 revisions.data.items.map((revision) => (
                   <div className="layout-history-row" key={revision.id}>
                     <div>
-                      <strong>Revision {revision.revision}</strong>
+                      <strong>
+                        {t("editor.historyRevision", {
+                          revision: revision.revision,
+                        })}
+                      </strong>
                       <span>
-                        {new Date(revision.publishedAt).toLocaleString()}
+                        {new Date(revision.publishedAt).toLocaleString(
+                          formatLocale,
+                        )}
                       </span>
                       <code>{revision.documentSha256.slice(0, 12)}</code>
                     </div>
@@ -2893,17 +2944,17 @@ export function LayoutEditorPage() {
                       variant="secondary"
                       onClick={() => restore.mutate(revision.id)}
                     >
-                      Restore as draft
+                      {t("editor.historyRestore")}
                     </Button>
                   </div>
                 ))
               ) : (
-                <p>No published revisions yet.</p>
+                <p>{t("editor.historyEmpty")}</p>
               )}
             </div>
             <footer>
               <Button variant="secondary" onClick={() => setHistoryOpen(false)}>
-                Close
+                {t("common:actions.close")}
               </Button>
             </footer>
           </section>
@@ -2942,6 +2993,7 @@ function PlacementView({
   onResize?: (event: ReactPointerEvent) => void;
   onContextMenu?: (event: ReactMouseEvent<HTMLElement>) => void;
 }) {
+  const { t } = useTranslation("layouts");
   if (!item.visible) return null;
   const primitive = item.primitive;
   const style: React.CSSProperties = {
@@ -2984,7 +3036,11 @@ function PlacementView({
           <div className="layout-playlist-zone">
             <ListVideo size={22} />
             <strong>{playlist?.name ?? item.name}</strong>
-            <span>{playlist?.itemCount ?? 0} items · independent loop</span>
+            <span>
+              {t("editor.zoneBadge", {
+                count: playlist?.itemCount ?? 0,
+              })}
+            </span>
           </div>
         )
       ) : item.type === "asset" ? (
@@ -3089,7 +3145,7 @@ function PlacementView({
       {selected && !item.locked && onResize && (
         <button
           className="layout-resize-handle"
-          aria-label="Resize"
+          aria-label={t("editor.resizeLabel")}
           onPointerDown={onResize}
         />
       )}
