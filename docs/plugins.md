@@ -75,11 +75,21 @@ Forms remains a typed Data Source provider in the internal content contract beca
 
 Forms does not add a Player plugin manifest entry. Its published views flow through the ordinary authenticated Data Source projection used by Widgets and Layout bindings.
 
-## Dependency Graph is a system tool
+## Dependency Explorer is a system tool
 
-Dependency Graph is not a plugin: it has no installation and no instances, and projects nothing to Players. It lives at **Settings → System tools → Dependency Graph** (`/settings/dependency-graph`); the old `/plugins/dependency-graph` address redirects there. Its API remains at `GET /api/v1/plugins/dependency-graph` for now.
+Dependency Explorer is not a plugin: it has no installation and no instances, and projects nothing to Players. It lives at **Settings → System tools → Dependency Explorer** (`/settings/dependency-graph`); the old `/plugins/dependency-graph` address redirects there. Its API remains at `GET /api/v1/plugins/dependency-graph` for now. Because it is a spatial tool, Settings gives it the full content width and moves the section list into a **Settings sections** Sheet; every other section keeps the permanent section column.
 
-It maps Data Sources, media, Widgets, Layouts, playlists, Campaigns, schedules, sync groups, and screens. Edges point from a dependency to its consumer. Following them forward answers where a change can appear; following them backward answers what feeds a presentation or screen. The explorer reports direct relationships separately from the complete upstream and downstream counts, and every node links to its canonical Studio surface.
+It maps Data Sources, media, Widgets, Layouts, playlists, Campaigns, schedules, sync groups, and screens. Edges point from a dependency to its consumer. Following them forward answers where a change can appear; following them backward answers what feeds a presentation or screen. Every resource links to its canonical Studio surface.
+
+The explorer uses progressive disclosure so it stays readable with hundreds or thousands of resources:
+
+- **Overview.** With nothing selected it draws one node per resource type, with its count, in three labelled stages — Sources (Data Sources, Widgets, media), Presentations (Layouts, playlists, Campaigns), and Delivery (schedules, Display Groups, screens) — and one edge per type pair. Selecting a type highlights its edges with their relationship counts and lists its resources in the inspector without adding them to the graph.
+- **Search is navigation.** The resource search groups matches by type. Choosing one makes it the root.
+- **Focus.** The root sits in the centre column; direct dependencies are one column to its left, their dependencies two, and consumers likewise to the right. Direction (Dependencies, Both, Consumers) and depth (1, 2, or 3 hops, or All) re-derive and re-lay out the visible graph; the defaults are Both and 2 hops. Zoom and Fit act on the visible graph only.
+- **Large fan-out.** When one visible node connects to eight or more leaf resources of one type — screens that consume nothing further, or media that depend on nothing — and nothing else visible connects to them, they appear as one node such as “30 screens”. Selecting it lists them in the inspector, where **Show on graph** expands them. Resources that lead further, or that another visible node also reaches, are never grouped.
+- **Inspector.** On desktop it is a resizable pane beside the graph; on narrow screens it opens in a Sheet. It shows the selected resource's type, an Open resource link, total dependency and consumer counts, and its direct dependencies and consumers with their relationships. Selecting a row makes that resource the root.
+
+The query string carries the view, so a focused view can be shared and browser Back and Forward move between views: `?node=<type>:<id>` selects the root, `direction` and `depth` appear only when they differ from the defaults, and `?type=<type>` browses a type from the overview. A missing or unknown node falls back to the overview.
 
 The graph uses the same stored dependency records and assignment tables as playback and the existing “Used by” panels. Deleted content, deleted groups and schedules, and archived screens are excluded. A screen-scoped account sees only the screen nodes and screen-targeting edges allowed by the same scope used for the Screens list; the shared content library remains organization-wide.
 
