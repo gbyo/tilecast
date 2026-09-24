@@ -166,7 +166,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
             <Spinner aria-hidden="true" />
             {t("locations.loading")}
           </p>
-        ) : (
+        ) : query.isError ? null : (
           <ItemGroup className="gap-2">
             {matches.map((location) => (
               <Item key={location.id} variant="outline">
