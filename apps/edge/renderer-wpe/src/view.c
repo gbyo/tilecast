@@ -201,16 +201,19 @@ on_script_request (WebKitUserContentManager *manager, JSCValue *value, WebKitScr
   g_autoptr (JsonParser) parser = json_parser_new_immutable ();
   JsonObject *message = parse_message (value, parser);
   const char *type = message ? json_object_get_string_member_with_default (message, "type", "") : "";
-  if (g_strcmp0 (type, "setup.submit_server_url") != 0) {
+  /* A fixed set of requests, each with a fixed parameter shape. */
+  gboolean setup = g_strcmp0 (type, "setup.submit_server_url") == 0;
+  gboolean discovery = g_strcmp0 (type, "discovery.list") == 0;
+  if (!setup && !discovery) {
     webkit_script_message_reply_return_error_message (reply, "unsupported request");
     return TRUE;
   }
   g_autoptr (JsonBuilder) params = json_builder_new ();
   json_builder_begin_object (params);
-  gboolean ok = copy_string (params, message, "url", TRUE, 512);
+  gboolean ok = setup ? copy_string (params, message, "url", TRUE, 512) : TRUE;
   json_builder_end_object (params);
   g_autofree char *id = NULL;
-  if (!ok || !tc_ipc_send_request (host, "setup.submit_server_url", json_builder_get_root (params), &id)) {
+  if (!ok || !tc_ipc_send_request (host, type, json_builder_get_root (params), &id)) {
     webkit_script_message_reply_return_error_message (reply, ok ? "tilecastd is not reachable" : "invalid address");
     return TRUE;
   }

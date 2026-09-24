@@ -26,6 +26,8 @@
 //! * [`schedule`] — offline schedule and availability selection.
 //! * [`activation`] — what the renderer shows, and evidence-gated promotion.
 //! * [`media`], [`media_channel`] — renderer media capabilities.
+//! * [`pairing`], [`discovery`] — pairing a fresh installation and finding
+//!   servers on the LAN through Avahi.
 //! * [`legacy_import`] — the one-time `import-legacy` command.
 
 pub mod activation;
@@ -35,6 +37,7 @@ pub mod commands;
 pub mod config;
 pub mod config_sync;
 pub mod daemon;
+pub mod discovery;
 pub mod fixture;
 pub mod ipc_handler;
 pub mod legacy_import;
@@ -43,6 +46,7 @@ pub mod manifest;
 pub mod manifest_sync;
 pub mod media;
 pub mod media_channel;
+pub mod pairing;
 pub mod player_config;
 pub mod presentation;
 pub mod schedule;

@@ -106,6 +106,11 @@ pub struct DaemonContext {
     /// generation a server-link pass completed with whether it succeeded.
     pub sync_request: std::sync::atomic::AtomicU64,
     pub sync_done: tokio::sync::watch::Sender<(u64, bool)>,
+    /// Pairing of a fresh installation (`pairing`).
+    pub pairing: std::sync::Mutex<crate::pairing::PairingView>,
+    pub pairing_wake: tokio::sync::Notify,
+    pub pairing_suppressed: std::sync::atomic::AtomicBool,
+    pub pairing_renewal: std::sync::Mutex<Option<String>>,
     /// Set by `restart_player_process` before it cancels the daemon.
     pub restart_requested: std::sync::atomic::AtomicBool,
     pub shutdown: CancellationToken,
@@ -285,6 +290,10 @@ impl Daemon {
             command_server: tokio::sync::watch::Sender::new(None),
             sync_request: std::sync::atomic::AtomicU64::new(0),
             sync_done: tokio::sync::watch::Sender::new((0, false)),
+            pairing: std::sync::Mutex::new(Default::default()),
+            pairing_wake: tokio::sync::Notify::new(),
+            pairing_suppressed: std::sync::atomic::AtomicBool::new(false),
+            pairing_renewal: std::sync::Mutex::new(None),
             restart_requested: std::sync::atomic::AtomicBool::new(false),
             shutdown: CancellationToken::new(),
         });
@@ -370,6 +379,7 @@ impl Daemon {
         tasks.spawn(cas_maintenance_loop(Arc::clone(&context)));
         tasks.spawn(server_link::run(Arc::clone(&context)));
         tasks.spawn(crate::commands::run(Arc::clone(&context)));
+        tasks.spawn(crate::pairing::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);
