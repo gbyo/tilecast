@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 import { previewTimeInputValue, type PreviewTime } from "./previewTime";
 import { Button } from "../components/ui/button";
 import { DateTimeInput } from "../components/date-picker";
@@ -16,6 +17,7 @@ export function PreviewTimeControl({
   value: PreviewTime;
   onChange: (time: PreviewTime) => void;
 }) {
+  const { t } = useTranslation("schedules");
   const fixed = value.mode === "fixed";
   const inputId = useId();
   return (
@@ -49,6 +51,7 @@ export function PreviewTimeControl({
             <DateTimeInput
               id={inputId}
               aria-label="Preview date and time"
+              timeLabel={t("datePicker.previewTime")}
               value={value.value}
               onChange={(next) => onChange({ mode: "fixed", value: next })}
             />

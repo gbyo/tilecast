@@ -1425,6 +1425,7 @@
       "canaryLabel": "Canary screens",
       "canaryHint": "Remaining targets wait until every canary reconnects. Use 0 to deploy to all targets at once.",
       "windowLabel": "Maintenance window",
+      "windowTimeLabel": "Maintenance window time",
       "windowHint": "Players install at or after this local time on each screen.",
       "targetsLabel": "Target screens and Display Groups",
       "searchPlaceholder": "Search by name",

@@ -217,7 +217,12 @@ export function DateTimeInput({
       <Input
         id={`${id}-time`}
         type="time"
-        aria-label={timeLabel ?? t("datePicker.time")}
+        aria-label={
+          timeLabel ??
+          (ariaLabel
+            ? t("datePicker.timeFor", { label: ariaLabel })
+            : t("datePicker.time"))
+        }
         aria-describedby={describedBy}
         aria-invalid={invalid}
         aria-required={required}

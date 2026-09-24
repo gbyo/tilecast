@@ -195,7 +195,7 @@
     "selectPlaceholder": "Seleccionar…",
     "imageNoteSubmit": "La subida de imágenes está disponible al enviar.",
     "imageAttention": "La imagen necesita atención.",
-    "pendingUpload": "{{name}}: se subirá al guardar.",
+    "pendingUpload": "Se subirá al guardar.",
     "uploading": "Subiendo…",
     "imageAttached": "Imagen adjunta.",
     "replaceImage": "Cambiar imagen",

@@ -733,6 +733,7 @@ export function CountdownBarEditorPage() {
                   <DateTimeInput
                     id="countdown-one-time"
                     aria-label={t("countdown.editor.oneTimeLabel")}
+                    timeLabel={t("countdown.editor.targetTimeLabel")}
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}

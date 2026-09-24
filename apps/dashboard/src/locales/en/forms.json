@@ -195,7 +195,7 @@
     "selectPlaceholder": "Select…",
     "imageNoteSubmit": "Image uploads are available when submitting.",
     "imageAttention": "Image needs attention.",
-    "pendingUpload": "{{name}} — uploads when you save.",
+    "pendingUpload": "Uploads when you save.",
     "uploading": "Uploading…",
     "imageAttached": "Image attached.",
     "replaceImage": "Replace image",

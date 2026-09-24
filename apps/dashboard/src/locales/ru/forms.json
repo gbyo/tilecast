@@ -195,7 +195,7 @@
     "selectPlaceholder": "Выберите…",
     "imageNoteSubmit": "Загрузка изображений доступна при отправке.",
     "imageAttention": "Требуется проверить изображение.",
-    "pendingUpload": "{{name}} — загрузится при сохранении.",
+    "pendingUpload": "Загрузится при сохранении.",
     "uploading": "Загрузка…",
     "imageAttached": "Изображение прикреплено.",
     "replaceImage": "Заменить изображение",

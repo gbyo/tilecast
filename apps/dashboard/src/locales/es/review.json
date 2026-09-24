@@ -157,6 +157,7 @@
     "publish": {
       "publishNow": "Publicar ahora",
       "publishAtLabel": "Publicar el",
+      "publishAtTimeLabel": "Hora de publicación",
       "publishAtHint": "Programa la publicación para una fecha y hora futuras.",
       "schedule": "Programar"
     },

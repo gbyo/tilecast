@@ -1377,7 +1377,8 @@ export function PlayerUpdatesPanel({
                 </FieldLabel>
                 <DateTimeInput
                   id="deployment-window"
-                  aria-label="Maintenance window"
+                  aria-label={t("updates.panel.windowLabel")}
+                  timeLabel={t("updates.panel.windowTimeLabel")}
                   value={windowStart}
                   onChange={setWindowStart}
                 />

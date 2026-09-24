@@ -603,7 +603,7 @@ function ImageField({
               : state?.uploading
                 ? t("renderer.uploading")
                 : state?.pendingName
-                  ? t("renderer.pendingUpload", { name: state.pendingName })
+                  ? t("renderer.pendingUpload")
                   : hasImage
                     ? t("renderer.imageAttached")
                     : t("renderer.noImage")}
