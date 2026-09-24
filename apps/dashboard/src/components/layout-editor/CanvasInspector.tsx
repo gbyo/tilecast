@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { Accordion } from "../ui/accordion";
 import { InspectorSection, NumberField } from "./PlacementInspector";
 
 const canvasPresetOptions = [
@@ -34,9 +35,15 @@ export function CanvasInspector({
       : document.canvas.orientation === "portrait"
         ? t("orientation.portrait")
         : t("orientation.custom");
+  const sizeTitle = t("canvas.sizeTitle");
+  const backgroundTitle = t("canvas.backgroundTitle");
   return (
-    <div className="grid gap-4">
-      <InspectorSection title={t("canvas.sizeTitle")}>
+    <Accordion
+      multiple
+      defaultValue={[sizeTitle, backgroundTitle]}
+      className="grid gap-0"
+    >
+      <InspectorSection title={sizeTitle}>
         <Field>
           <FieldLabel htmlFor="canvas-preset">
             {t("canvas.presetLabel")}
@@ -105,7 +112,7 @@ export function CanvasInspector({
           />
         </div>
       </InspectorSection>
-      <InspectorSection title={t("canvas.backgroundTitle")}>
+      <InspectorSection title={backgroundTitle}>
         <Field>
           <FieldLabel htmlFor="canvas-background">
             {t("inspector.fields.background")}
@@ -140,6 +147,6 @@ export function CanvasInspector({
           </span>
         </div>
       </InspectorSection>
-    </div>
+    </Accordion>
   );
 }

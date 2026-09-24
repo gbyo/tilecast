@@ -140,15 +140,18 @@
     },
     "organizer": {
       "collectionCreateError": "No se pudo crear la colección",
+      "collectionCreated": "Colección creada",
       "collectionHint": "Las colecciones agrupan archivos relacionados para reutilizarlos. Un archivo puede pertenecer a varias colecciones.",
       "collectionLabel": "Nombre de la colección",
       "collectionTitle": "Crear colección",
       "colorLabel": "Color",
       "folderCreateError": "No se pudo crear la carpeta",
+      "folderCreated": "Carpeta creada",
       "folderHint": "Cada archivo vive en una carpeta. Usa las carpetas para áreas amplias como edificios o departamentos.",
       "folderLabel": "Nombre de la carpeta",
       "folderTitle": "Crear carpeta",
       "tagCreateError": "No se pudo crear la etiqueta",
+      "tagCreated": "Etiqueta creada",
       "tagHint": "Las etiquetas son rótulos de colores para filtrar rápido. Un archivo puede tener varias etiquetas.",
       "tagLabel": "Nombre de la etiqueta",
       "tagTitle": "Crear etiqueta"

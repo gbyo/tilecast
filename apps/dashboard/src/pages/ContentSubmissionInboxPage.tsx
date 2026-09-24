@@ -28,6 +28,11 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -482,14 +487,16 @@ export function ContentSubmissionInboxPage() {
                 </p>
               )}
             </dl>
-            <details>
-              <summary className="cursor-pointer text-sm font-medium">
+            <Collapsible className="grid gap-2">
+              <CollapsibleTrigger className="w-fit cursor-pointer text-sm font-medium underline-offset-4 hover:underline">
                 {t("submissions.detail.viewSnapshot")}
-              </summary>
-              <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
-                {JSON.stringify(selected.snapshot, null, 2)}
-              </pre>
-            </details>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
+                  {JSON.stringify(selected.snapshot, null, 2)}
+                </pre>
+              </CollapsibleContent>
+            </Collapsible>
             {canReview && selected.status === "in_review" && (
               <div className="grid gap-2">
                 <Field>

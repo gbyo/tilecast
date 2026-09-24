@@ -8,7 +8,6 @@ import {
   AppWindow,
   ArrowDown,
   ArrowUp,
-  ChevronDown,
   Copy,
   Eye,
   EyeOff,
@@ -30,10 +29,11 @@ import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button as RheaButton } from "../ui/button";
 import { Checkbox as RheaCheckbox } from "../ui/checkbox";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "../ui/collapsible";
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../ui/accordion";
 import {
   Combobox,
   ComboboxContent,
@@ -183,28 +183,22 @@ export function NumberField({
 export function InspectorSection({
   title,
   children,
-  defaultOpen = true,
 }: {
   title: string;
   children: ReactNode;
-  defaultOpen?: boolean;
 }) {
   return (
-    <section className="grid gap-3 border-b border-border pb-4 last:border-0 last:pb-0">
-      <Collapsible defaultOpen={defaultOpen}>
-        <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg text-left text-sm font-medium">
-          {title}
-          <ChevronDown
-            size={15}
-            aria-hidden="true"
-            className="shrink-0 text-muted-foreground"
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="grid gap-3 pt-3">
-          {children}
-        </CollapsibleContent>
-      </Collapsible>
-    </section>
+    <AccordionItem
+      value={title}
+      className="border-b border-border pb-4 last:border-0 last:pb-0"
+    >
+      <AccordionTrigger className="cursor-pointer rounded-lg border-0 py-0 hover:no-underline focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring">
+        {title}
+      </AccordionTrigger>
+      <AccordionContent className="grid gap-3 pt-3 pb-0">
+        {children}
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -375,8 +369,23 @@ export function PlacementInspector({
     });
   };
   const primitive = item.primitive;
+  const openSections = [
+    t("inspector.sectionLayer"),
+    t("inspector.sectionPosition"),
+    t("inspector.sectionAppearance"),
+    t("inspector.widgetTitle"),
+    t("inspector.zoneTitle"),
+    t("inspector.assetTitle"),
+    t("inspector.groupTitle"),
+    t("inspector.textTitle"),
+    t("inspector.shapeTitle"),
+  ];
   return (
-    <div className="grid gap-4">
+    <Accordion
+      multiple
+      defaultValue={openSections}
+      className="grid gap-0"
+    >
       <InspectorSection title={t("inspector.sectionLayer")}>
         <Field>
           <FieldLabel htmlFor="placement-name">
@@ -1228,7 +1237,7 @@ export function PlacementInspector({
             </div>
           </InspectorSection>
         )}
-    </div>
+    </Accordion>
   );
 }
 

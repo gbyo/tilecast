@@ -135,15 +135,18 @@
     },
     "organizer": {
       "collectionCreateError": "The collection could not be created",
+      "collectionCreated": "Collection created",
       "collectionHint": "Collections group related assets for reuse. An asset can belong to several collections.",
       "collectionLabel": "Collection name",
       "collectionTitle": "Create collection",
       "colorLabel": "Color",
       "folderCreateError": "The folder could not be created",
+      "folderCreated": "Folder created",
       "folderHint": "Each asset lives in one folder. Use folders for broad areas like buildings or departments.",
       "folderLabel": "Folder name",
       "folderTitle": "Create folder",
       "tagCreateError": "The tag could not be created",
+      "tagCreated": "Tag created",
       "tagHint": "Tags are colored labels for quick filtering. An asset can have several tags.",
       "tagLabel": "Tag name",
       "tagTitle": "Create tag"
