@@ -1,0 +1,40 @@
+---
+title: Set up a Presentation Network
+description: Connect a supported Linux Player to Wi-Fi temporarily when it acts as an AirPlay gateway.
+---
+
+A **Presentation Network** is a Wi-Fi profile that a supported Linux Player can join for an AirPlay session. Tilecast uses it when an AirPlay sender cannot discover the Player over Ethernet. The Player keeps Ethernet as its normal route to Tilecast Server, downloads, and other group displays.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Before you start
+
+- Use a Linux Player with a Wi-Fi adapter and NetworkManager. Its Ethernet connection must remain the normal route to Tilecast Server.
+- Prepare the Player with the optional Presentation Network support in the [Linux installation guide](../../players/install-linux/).
+- Configure `TILECAST_PRESENTATION_NETWORK_KEY` in the server environment before saving Wi-Fi credentials. It must decode to a 32-byte hex or Base64 value. See the repository's [deployment reference](https://github.com/gbyo/tilecast/blob/main/docs/deployment.md).
+- Use a supported WPA2 or WPA3 personal network, or WPA2 Enterprise with PEAP/MSCHAPv2.
+
+## Add and assign a network
+
+<Steps>
+
+1. In Studio, open **Settings** > **Presentation Networks**.
+2. Select **Add network** and enter a **Display name**, **SSID**, and authentication details. Select **Hidden SSID** if the access point does not advertise its name.
+3. Select **Save**. Studio does not show the saved Wi-Fi password again. When editing a profile, leave the credential empty to keep the saved one.
+4. Open an eligible Linux screen and go to **Device** > **Assigned Presentation Network**.
+5. Choose the network, select **Save assignment**, then select **Test connection** to check that the Player can join it.
+
+</Steps>
+
+Only Owners and Administrators can manage networks and assignments. For a Display Group AirPlay session, Tilecast selects an eligible member as the gateway. Assign a network to the Linux screen that can serve that role.
+
+## Check the connection
+
+The Player joins Wi-Fi only while it is the AirPlay gateway. Wi-Fi association alone does not guarantee discovery: the sender must still reach the gateway through Bonjour/mDNS. Guest-network client isolation, multicast filtering, a missing Wi-Fi adapter, a wrong password, or a failed DHCP request can prevent a session.
+
+A Presentation Network does not bridge VLANs, route traffic between wired and wireless networks, or bypass NAT or client isolation. If the sender and gateway cannot reach each other on the local network, use a network that permits discovery and traffic between them.
+
+## Next steps
+
+- [Present with AirPlay](../../operations/airplay-present/) from a supported Linux Player.
+- [Install the Linux Player](../../players/install-linux/) if it does not have Presentation Network support.

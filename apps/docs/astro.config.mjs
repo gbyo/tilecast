@@ -132,81 +132,159 @@ export default defineConfig({
         styleOverrides: { borderRadius: "var(--tc-radius-panel)" },
       },
       head: [{ tag: "script", content: syncTokenTheme }],
-      // Each group and its page order are an editorial decision: the sidebar
-      // follows the reader's task flow, not the content directory layout or
-      // Studio's own navigation. A sidebar badge must communicate something
-      // that affects the reader, such as a platform or coverage limit.
+      // Keep the top-level order task-first and arrange each section around
+      // the reader's work rather than the filesystem or Studio's own menu.
       sidebar: [
         { label: "Home", slug: "index" },
+        { slug: "getting-started" },
+        { slug: "installation" },
         {
-          label: "Set up",
-          items: [{ slug: "getting-started" }, { slug: "installation" }],
-        },
-        {
-          label: "Studio content",
+          label: "Tilecast Studio",
+          collapsed: true,
           items: [
-            { slug: "studio" },
-            { slug: "media" },
-            { slug: "data-sources" },
-            { slug: "widgets" },
-            { slug: "playlists" },
-            { slug: "layouts" },
-            { slug: "schedules" },
-            { slug: "campaigns" },
-          ],
-        },
-        {
-          label: "Players and screens",
-          items: [
-            { slug: "players" },
-            { slug: "players/install-android" },
-            { slug: "players/install-linux" },
-            { slug: "players/pair-a-display" },
-            { slug: "players/update-a-player" },
-            { slug: "screens/pair-and-replace" },
-            { slug: "screens/display-groups" },
-          ],
-        },
-        {
-          label: "Operations",
-          items: [
-            { slug: "operations" },
-            { slug: "operations/activity" },
-            { slug: "operations/screen-status" },
-            { slug: "operations/takeover" },
-            { slug: "operations/player-commands" },
-            { slug: "operations/plugins" },
+            { label: "Overview", slug: "studio" },
             {
-              slug: "operations/emergency-alerts",
-              badge: { text: "US", variant: "note" },
+              label: "Create content",
+              collapsed: true,
+              items: [
+                { slug: "media" },
+                { slug: "website-content" },
+                { slug: "data-sources" },
+                { slug: "widgets" },
+              ],
+            },
+            {
+              label: "Build presentations",
+              collapsed: true,
+              items: [
+                { slug: "playlists" },
+                { slug: "layouts" },
+                { slug: "campaigns" },
+                { slug: "schedules" },
+              ],
+            },
+            {
+              label: "Review content",
+              collapsed: true,
+              items: [{ slug: "studio/content-review" }],
             },
           ],
         },
         {
-          label: "Administration",
+          label: "Players",
+          collapsed: true,
           items: [
-            { slug: "administration" },
-            { slug: "administration/users-and-roles" },
-            { slug: "administration/sign-in-security" },
-            { slug: "administration/player-policies" },
-            { slug: "administration/backups" },
-            { slug: "administration/player-updates" },
+            { slug: "players" },
+            {
+              label: "Install and connect",
+              collapsed: true,
+              items: [
+                { slug: "players/install-android" },
+                { slug: "players/install-linux" },
+                { slug: "players/pair-a-display" },
+                { slug: "screens/pair-and-replace" },
+              ],
+            },
+            {
+              label: "Groups and walls",
+              collapsed: true,
+              items: [
+                { slug: "screens/display-groups" },
+                { slug: "screens/span-video-walls" },
+              ],
+            },
+            { slug: "players/update-a-player" },
           ],
         },
         {
-          label: "Integrate and build",
+          label: "Administration",
+          collapsed: true,
+          items: [
+            { slug: "administration" },
+            {
+              label: "Accounts and access",
+              collapsed: true,
+              items: [
+                { slug: "administration/users-and-roles" },
+                { slug: "administration/sign-in-security" },
+              ],
+            },
+            {
+              label: "Player and installation",
+              collapsed: true,
+              items: [
+                { slug: "administration/player-policies" },
+                { slug: "administration/presentation-networks" },
+                { slug: "administration/player-updates" },
+                { slug: "administration/backups" },
+              ],
+            },
+          ],
+        },
+        {
+          label: "Operations",
+          collapsed: true,
+          items: [
+            { slug: "operations" },
+            {
+              label: "Monitor screens",
+              collapsed: true,
+              items: [
+                { slug: "operations/activity" },
+                { slug: "operations/screen-status" },
+                { slug: "operations/live-preview" },
+              ],
+            },
+            {
+              label: "Temporary presentations",
+              collapsed: true,
+              items: [
+                { slug: "operations/quick-present" },
+                { slug: "operations/airplay-present" },
+                { slug: "operations/takeover" },
+              ],
+            },
+            {
+              label: "Device actions",
+              collapsed: true,
+              items: [
+                { slug: "screens/display-control" },
+                { slug: "operations/player-commands" },
+              ],
+            },
+            {
+              label: "Plugins and alerts",
+              collapsed: true,
+              items: [
+                { slug: "operations/plugins" },
+                {
+                  slug: "operations/emergency-alerts",
+                  badge: { text: "US", variant: "note" },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: "Integrations",
+          collapsed: true,
           items: [
             { slug: "integrations" },
             { slug: "integrations/tokens" },
             { slug: "integrations/manual-table" },
             { slug: "integrations/fleet-health" },
             { slug: "integrations/notifications" },
-            { slug: "developers" },
+          ],
+        },
+        { slug: "developers" },
+        {
+          label: "Reference",
+          collapsed: true,
+          items: [
             { slug: "reference" },
             { slug: "reference/api" },
-            // Generated endpoint reference from docs/openapi.yaml. The
-            // handwritten API overview stays the starting point; these
-            // pages own endpoint-by-endpoint details.
+            // Generated OpenAPI endpoint pages were already on main. Keep
+            // them under Reference without adding or editing their content.
             createOpenAPISidebarGroup(),
           ],
         },

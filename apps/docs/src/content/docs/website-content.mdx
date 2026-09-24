@@ -1,0 +1,39 @@
+---
+title: Add website content
+description: Save a website as a Website App and use it in a Playlist or Layout.
+---
+
+Tilecast Players load Website Apps on the display. The page and its resources must be reachable from the Player; Tilecast Server does not download a copy of a website for offline playback.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Create a Website App
+
+<Steps>
+
+1. In Studio, open **Content** > **Widgets** and select **Create Widget**.
+2. Choose **Website** from the catalog.
+3. Enter a **Name** and the public website address in **HTTPS URL**. Set **Reload policy**, **Load timeout (seconds)**, and **Failure behavior**.
+4. Open **Advanced website settings** and review **Allowed top-level hosts (comma separated)**. The URL's host is included automatically. Add other hosts only when the site needs to navigate to them.
+5. Select **Save website**.
+
+</Steps>
+
+The Website App appears in the Media library's **Websites** filter and in the content picker. Add it to a Playlist as fullscreen content or place it in a Layout with other content.
+
+## Choose where the Player can connect
+
+Use HTTPS for public websites. HTTP is accepted only when both the server environment variable `TILECAST_WEBSITE_ALLOW_PRIVATE_HTTP=true` and **Settings** > **Websites** > **Private HTTP enabled** allow it, and the URL uses a private-network host.
+
+The allowed-host list limits top-level navigation. It does not block every third-party resource a page may request. Website Apps do not support imported login cookies, OAuth tokens, or Tilecast credentials. A site that requires an unsupported sign-in flow may not work.
+
+## Plan for interruptions
+
+Website playback needs a network connection from the Player. If the site cannot load, choose the Website App's failure behavior: keep the last rendered page, show a fallback image, show Tilecast's placeholder, or skip the item. Set the **Load timeout (seconds)** and **Reload policy** to match the site. The Playlist item duration controls how long the website plays.
+
+Check that the exact display can reach the site. A page can work in your browser but fail on a TV or Linux Player because of DNS, network filtering, unsupported site behavior, or a site that blocks embedded browsers.
+
+## Next steps
+
+- Add the Website App to a [Playlist](../playlists/) or [Layout](../layouts/).
+- See [media library](../media/) organization and [Player policies](../administration/player-policies/) for website defaults.

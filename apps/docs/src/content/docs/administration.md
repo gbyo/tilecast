@@ -13,6 +13,7 @@ Use these pages to manage Studio accounts and installation-wide settings. Organi
 ## Player behavior and recovery
 
 - [Set Player policies](./player-policies/) to set organization defaults or override them for a Display Group or screen.
+- [Set up a Presentation Network](./presentation-networks/) to prepare a Linux Player for AirPlay when the sender cannot reach it over Ethernet.
 - [Back up and restore an installation](./backups/) to protect database, media, and cached Player releases.
 - [Update Tilecast Player](./player-updates/) to verify signed releases and deploy them to selected screens.
 
