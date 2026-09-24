@@ -1,7 +1,5 @@
+import { tilecastAlertTicker } from "./alert-ticker-resolver";
 import { describe, expect, it } from "vitest";
-import "./countdown-display";
-import "./countdown-bar-resolver";
-import "./alert-ticker-resolver";
 
 interface PluginEntry {
   id: string;
@@ -26,11 +24,7 @@ interface AlertTickerResolver {
   } | null;
 }
 
-const resolver = (
-  globalThis as typeof globalThis & {
-    tilecastAlertTicker: AlertTickerResolver;
-  }
-).tilecastAlertTicker;
+const resolver = tilecastAlertTicker;
 
 const now = new Date("2026-07-29T12:00:00Z");
 

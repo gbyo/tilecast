@@ -1,15 +1,11 @@
+import { tilecastCountdownDisplay } from "./countdown-display";
 import { describe, expect, it } from "vitest";
-import "./countdown-display";
 
 interface CountdownDisplay {
   compact(remainingMilliseconds: number): string;
 }
 
-const display = (
-  globalThis as typeof globalThis & {
-    tilecastCountdownDisplay: CountdownDisplay;
-  }
-).tilecastCountdownDisplay;
+const display = tilecastCountdownDisplay;
 
 describe("compact countdown display", () => {
   it("shows seconds below one hour", () => {

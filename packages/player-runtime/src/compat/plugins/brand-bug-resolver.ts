@@ -8,7 +8,7 @@
  * Unlike Countdown Bar, several marks can be visible at once — but only one per
  * corner, so two instances can never stack into an unreadable pile.
  */
-interface TilecastBrandBugPlugin {
+export interface TilecastBrandBugPlugin {
   id: string;
   type: string;
   version: number;
@@ -32,7 +32,7 @@ interface TilecastBrandBugPlugin {
   };
 }
 
-interface TilecastActiveBrandBug {
+export interface TilecastActiveBrandBug {
   id: string;
   corner: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   /** tcmedia:// URL of the cached logo, or null for a text-only mark. */
@@ -47,7 +47,7 @@ interface TilecastActiveBrandBug {
   priority: number;
 }
 
-interface TilecastBrandBugResolver {
+export interface TilecastBrandBugResolver {
   resolve(
     plugins: TilecastBrandBugPlugin[] | null | undefined,
     localNow: Date,
@@ -55,7 +55,7 @@ interface TilecastBrandBugResolver {
   ): TilecastActiveBrandBug[];
 }
 
-const tilecastBrandBug: TilecastBrandBugResolver = (() => {
+export const tilecastBrandBug: TilecastBrandBugResolver = (() => {
   const CORNERS = [
     "top_left",
     "top_right",
@@ -145,11 +145,3 @@ const tilecastBrandBug: TilecastBrandBugResolver = (() => {
     },
   });
 })();
-
-// Exposed for unit tests only. In the player this is a plain global shared
-// between the renderer scripts, which have no module loader.
-(
-  globalThis as typeof globalThis & {
-    tilecastBrandBug: TilecastBrandBugResolver;
-  }
-).tilecastBrandBug = tilecastBrandBug;

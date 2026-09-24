@@ -1,5 +1,5 @@
+import { tilecastBrandBug } from "./brand-bug-resolver";
 import { describe, expect, it } from "vitest";
-import "./brand-bug-resolver";
 
 interface BrandBugPlugin {
   id: string;
@@ -47,9 +47,7 @@ interface BrandBugResolver {
   ): ActiveBrandBug[];
 }
 
-const resolver = (
-  globalThis as typeof globalThis & { tilecastBrandBug: BrandBugResolver }
-).tilecastBrandBug;
+const resolver = tilecastBrandBug;
 
 function mark(overrides: Partial<BrandBugPlugin["config"]> = {}, id = "bug-1") {
   return {

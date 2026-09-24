@@ -1,0 +1,23 @@
+{
+  // Node-side entry points for hosts that run in Node (the Electron main
+  // process): the host contract types, the pure projection compatibility code
+  // and the synchronized-timeline math. Browser code is bundled by Vite.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
+    "noEmit": false,
+    "declaration": true,
+    "sourceMap": true,
+    "outDir": "dist/node",
+    "rootDir": "src",
+    "isolatedModules": false
+  },
+  "include": [
+    "src/host/contract.ts",
+    "src/compat/projection/index.ts",
+    "src/clock/synchronized.ts",
+    "src/widgets/contract.ts"
+  ],
+  "exclude": ["src/**/*.test.ts"]
+}

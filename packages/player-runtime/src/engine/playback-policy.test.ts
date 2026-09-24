@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-// The renderer scripts are plain global scripts with no module syntax, so the
-// policy exposes itself on globalThis for tests; the player calls the very same
-// functions as ordinary globals.
-import "./playback-policy";
+import { tilecastPlaybackPolicy } from "./playback-policy";
 
 interface SyncState {
   lastSeekAtMs: number | null;
@@ -55,9 +52,7 @@ interface Policy {
   }): boolean;
 }
 
-const policy = (globalThis as unknown as Record<string, Policy>)[
-  "tilecastPlaybackPolicy"
-]!;
+const policy: Policy = tilecastPlaybackPolicy;
 
 function correction(
   expectedMs: number,
