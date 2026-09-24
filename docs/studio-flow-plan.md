@@ -132,10 +132,12 @@ Two deviations from the plan as written:
   dataset references, with an unknown name falling back to the primary payload so single-source
   Widgets are unchanged.
 
-Noted while working, not fixed: the shared `Select` primitive renders its trigger as a `<button
-role="combobox">` inside a `<label>`, and a label does not name a button, so most select controls in
-Studio have no accessible name. This predates Phase 1 and affects every field in the app, so it
-wants a single pass over the `Field`/`Select` primitives rather than a local patch here.
+Select label association is verified: `FieldLabel htmlFor` names a Base UI
+`SelectTrigger` when its `id` matches, even though the trigger is a button with
+the `combobox` role. The focused public-composition assertion lives in
+`apps/dashboard/src/components/ui/select.test.tsx`; keep explicit IDs aligned
+when adding labeled Select fields. Toolbar Selects without visible labels need
+their own accessible name.
 
 ## Phase 2 — Make the dependency graph walkable — **done**
 
