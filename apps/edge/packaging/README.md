@@ -35,6 +35,34 @@ place for rollback.
 - Installation is a one-time privileged step. After it, nothing runs as root.
   `tilecastd` never replaces its own binaries.
 
+## Clean installation (no legacy player)
+
+1. Install the files, run step 1 of the migration below, and optionally write
+   `/etc/tilecast-edge/edge.toml`.
+2. Enable both units:
+
+   ```sh
+   systemctl enable --now tilecast-edge.service tilecast-renderer.service
+   ```
+
+3. Pair the screen. On a screen with a keyboard, type the server address on
+   the setup surface or choose a server that LAN discovery found. Without a
+   keyboard, as root or the `tilecast` account:
+
+   ```sh
+   /opt/tilecast-edge/current/bin/tilecastctl pair https://signs.example.org
+   /opt/tilecast-edge/current/bin/tilecastctl status   # shows the code to approve
+   ```
+
+   Approve the code in Studio. The daemon enrolls, stores the device
+   credential in `identity/device-credential` and starts playing.
+   `tilecastctl pairing-reset` abandons a pairing in progress.
+
+LAN discovery browses `_tilecast._tcp` through the Avahi daemon over the
+system D-Bus. It is advisory: without Avahi the setup surface still accepts a
+typed address, and every address passes the player URL policy and the
+installation identity check before pairing starts.
+
 ## One-time installation and migration
 
 Run these steps as root. The order is important: only one process may own the

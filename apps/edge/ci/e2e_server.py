@@ -498,6 +498,45 @@ def main():
             processes[0] = subprocess.Popen([server_bin], env=env, stdout=server_log, stderr=subprocess.STDOUT)
             wait_for(lambda: client.call("GET", "/readyz")[0] == 200, "server readiness after restart")
 
+        # M5: a clean installation with no legacy state pairs through the
+        # ordinary protocol and connects.
+        fresh_state, fresh_runtime = os.path.join(work, "fresh-state"), os.path.join(work, "fresh-run")
+        fresh_config = os.path.join(work, "fresh.toml")
+        with open(fresh_config, "w") as handle:
+            handle.write(f'[paths]\nstate_dir = "{fresh_state}"\nruntime_dir = "{fresh_runtime}"\n[log]\nformat = "text"\n')
+        fresh_log = open(os.path.join(work, "fresh.log"), "w")
+        fresh = subprocess.Popen([tilecastd, "--config", fresh_config, "run"], stdout=fresh_log, stderr=subprocess.STDOUT)
+        processes.append(fresh)
+        fresh_socket = os.path.join(fresh_runtime, "edge.sock")
+        wait_for(lambda: os.path.exists(fresh_socket), "the fresh daemon's socket")
+        refused = subprocess.run([tilecastctl, "--socket", fresh_socket, "pair", "http://signs.example.org"],
+                                 capture_output=True, text=True)
+        assert refused.returncode != 0 and "https" in refused.stderr, refused.stderr
+        run(tilecastctl, "--socket", fresh_socket, "pair", BASE)
+
+        def fresh_status():
+            return json.loads(subprocess.run([tilecastctl, "--socket", fresh_socket, "--json", "status"],
+                                             check=True, capture_output=True, text=True).stdout)
+
+        code = wait_for(lambda: (fresh_status().get("pairing") or {}).get("code"), "the pairing code")
+        _, resolved = client.call("POST", "/api/v1/screens/pairing/resolve", {"code": code}, expect=200)
+        client.call("POST", f"/api/v1/screens/pairing/{resolved['data']['id']}/approve", {"name": "Fresh lobby"},
+                    expect=200)
+        paired = wait_for(lambda: (lambda status: status if status["link"]["state"] == "connected" else None)(
+            fresh_status()), "the fresh screen to connect", timeout=120)
+        assert paired["server"]["hasDeviceCredential"], paired
+        assert paired["playerId"], paired
+        fresh_screen = paired["server"]["screenId"]
+        wait_for(lambda: (lambda response: response[0] == 200 and response[1]["data"].get("lastHeartbeatAt"))(
+            client.call("GET", f"/api/v1/screens/{fresh_screen}")), "the fresh screen's heartbeat")
+        assert not os.path.exists(os.path.join(fresh_state, "identity", "pairing-session")), "pairing secrets remain"
+        with open(os.path.join(fresh_state, "state.db"), "rb") as handle:
+            assert b"tc_device_" not in handle.read(), "the credential reached SQLite"
+        fresh.send_signal(signal.SIGTERM)
+        assert fresh.wait(timeout=20) == 0
+        processes.remove(fresh)
+        print("pairing: a clean installation paired, was approved and connected")
+
         daemon.send_signal(signal.SIGTERM)
         assert daemon.wait(timeout=20) == 0, "tilecastd did not stop cleanly"
         processes.remove(daemon)
@@ -510,11 +549,11 @@ def main():
         credential_path = os.path.join(state, "identity", "device-credential")
         wait_for(lambda: not os.path.exists(credential_path), "credential removal after revocation")
         assert tree(legacy) == before, "legacy state changed"
-        print("PASS: import, identity gate, player contact, " + ("content, offline cache, " if args.renderer else "")
-              + "revocation")
+        print("PASS: import, identity gate, player contact, configuration, commands, "
+              + ("content, offline cache, " if args.renderer else "") + "fresh pairing, revocation")
         return 0
     except Exception:
-        for name in ("server.log", "tilecastd.log"):
+        for name in ("server.log", "tilecastd.log", "fresh.log"):
             path = os.path.join(work, name)
             if os.path.exists(path):
                 print(f"==== {name}", file=sys.stderr)
