@@ -1,0 +1,30 @@
+---
+title: Coordinate a release with a Campaign
+description: Publish Playlist or Layout schedules to selected screens and Display Groups as one reviewed release.
+---
+
+A **Campaign** coordinates published content, timing, and destinations in one release. Each content block becomes a schedule for its selected screens or Display Groups. Use a Campaign when several schedule changes should go live together; use [Schedules](../schedules/) to manage a schedule on its own.
+
+## Build a Campaign draft
+
+An Owner, Administrator, or Editor can create and edit a Campaign. An Owner or Administrator can submit or publish it.
+
+1. Open **Presentations** > **Campaigns**, then select **Create campaign**.
+2. Name the Campaign. In its draft, set a timezone and optional Campaign start and end.
+3. Under **Content blocks**, select **Add block**. Choose a published Playlist or Layout, then choose **Fixed time** or **Weekly window** and set the block's dates, times, timezone, and priority.
+4. Under **Destinations**, select **Add destination** and choose the screens or Display Groups that should receive the release.
+5. Select **Save draft**, then select **Preflight** and resolve any errors it reports.
+6. Select **Submit / publish**. Follow the submission status if content review is enabled for the installation.
+
+Preflight checks the referenced content, schedule windows, and destination membership before publishing changes to schedules. For a Campaign that reaches more than 10 screens, schedule-overlap checks sample 10 screens; Preflight still validates all destinations and content references. Review any sampling warning and verify the affected screens' schedules separately.
+
+## What publication changes
+
+Each release has an immutable record of the Campaign draft, its destinations, and the published content revisions selected for its blocks. If a selected Playlist or Layout changes while the Campaign is under review, Tilecast rejects that publication; refresh the draft and submit it again. Publishing a new Campaign release replaces the schedules created by its previous release. Playlist and Layout changes are published from their own editors.
+
+Archiving a Campaign stops its schedules and can't be undone. Check the release and its destinations before selecting **Archive**.
+
+## Next steps
+
+- Prepare content with a [Playlist](../playlists/) or [Layout](../layouts/).
+- Learn how to create an individual [Schedule](../schedules/).

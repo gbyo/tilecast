@@ -1,65 +1,77 @@
 ---
 title: Installation
-description: Install Tilecast Server with Docker Compose and choose how browsers and Players reach it.
+description: Run Tilecast Server with Docker Compose and choose a safe address for Studio and Players.
 ---
 
-Tilecast Server runs with Docker Engine and Docker Compose v2. The Compose file in the Tilecast repository builds the server image and starts PostgreSQL next to it. Nothing in the default setup depends on an outside cloud service.
+Tilecast Server runs on a host you control with Docker Engine and Docker Compose v2. The repository Compose file builds the server and starts PostgreSQL beside it. Cloudflare Tunnel is optional.
 
-## Start the server
+## Before you start
 
-Run these commands from a clone of the [Tilecast repository](https://github.com/gbyo/tilecast).
+- Choose a host that can stay on while displays need Tilecast.
+- Choose the address that browsers and Players will use. Set this as `TILECAST_PUBLIC_URL`.
+- Use HTTPS before allowing access from outside a trusted local network.
 
-1. Copy the example environment file:
+## Start Tilecast Server
+
+Run these commands from the root of a clone of the [Tilecast repository](https://github.com/gbyo/tilecast).
+
+1. Copy the example environment file.
 
    ```sh
    cp deploy/docker/.env.example deploy/docker/.env
    ```
 
-2. Open `deploy/docker/.env` and replace `POSTGRES_PASSWORD` with a long random password.
-3. Set `TILECAST_PUBLIC_URL` to the address that browsers and Players will use, for example `http://192.0.2.10:8080`.
-4. Start Tilecast:
+2. Edit `deploy/docker/.env`. Replace `POSTGRES_PASSWORD` with a long, random value. Do not commit this file.
+
+3. Set the address and cookie setting for your access path.
+
+   | Access path                                      | Environment values                                                                                                                              |
+   | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Trusted LAN over HTTP                            | `TILECAST_PUBLIC_URL=http://tilecast.local:8080` and `TILECAST_COOKIE_SECURE=false`. Restrict port 8080 to the trusted network with a firewall. |
+   | HTTPS hostname through a reverse proxy or tunnel | Set `TILECAST_PUBLIC_URL=https://signage.example.org` and `TILECAST_COOKIE_SECURE=true`.                                                        |
+
+   The Player requires HTTPS for public hostnames. It accepts HTTP for local addresses such as a private IPv4 address, `localhost`, or a `.local` name. HTTP traffic is not encrypted.
+
+4. Start the services.
 
    ```sh
    docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
    ```
 
-5. Open the public URL in a browser. Tilecast asks you to name your organization and create the first Owner account.
+5. Open `TILECAST_PUBLIC_URL` in a browser. On first visit, enter the organization name and create the first Owner account.
 
-The server applies database migrations each time it starts, so there's no separate migration step.
+The server applies its database migrations before it accepts requests. There is no separate migration command.
 
 :::caution
-If the server will be reachable from the internet, set up HTTPS before you create the Owner account. Use an `https://` public URL and set `TILECAST_COOKIE_SECURE=true`.
+Set up HTTPS before creating the Owner account if the installation will be reachable from the public internet. The Owner password and dashboard session must not travel over an untrusted HTTP connection.
 :::
 
-## Choose how Tilecast is reached
+## Connect Players
 
-| Setup                     | Use it when                                                             | Settings                                                             |
-| ------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Local network over HTTP   | Every browser and Player is on a trusted local network.                 | `TILECAST_COOKIE_SECURE=false`, and limit port 8080 with a firewall. |
-| HTTPS reverse proxy       | You have a hostname and a certificate.                                  | An `https://` public URL and `TILECAST_COOKIE_SECURE=true`.          |
-| Cloudflare Tunnel profile | Players at other sites need to connect without opening an inbound port. | The optional `tunnel` Compose profile and a tunnel token.            |
+The default Compose configuration disables LAN discovery. Enter the server address on each Player if it does not appear in the nearby-server list. Discovery can also fail across VLANs, guest Wi-Fi, access-point isolation, or Docker bridge networks.
 
-Players normally connect by address. Automatic discovery on the local network is off in the default Compose setup, because multicast doesn't pass reliably through Docker bridge networking, VLANs, or guest Wi-Fi. Typing the server address on the Player always works.
+When using HTTPS behind a proxy, keep `TILECAST_PUBLIC_URL` set to the external HTTPS address. The repository includes a [reverse-proxy Compose example](https://github.com/gbyo/tilecast/blob/main/deploy/examples/compose.reverse-proxy.yml). The optional [Cloudflare Tunnel setup](https://github.com/gbyo/tilecast/blob/main/deploy/cloudflare/README.md) uses the `tunnel` Compose profile and a tunnel token.
 
-Passkeys need HTTPS and a hostname. On a plain HTTP installation, or one reached by IP address, accounts can still use an authenticator app and recovery codes.
+## Check server readiness
 
-## Check that it's running
+Use `/healthz` to check whether the server process answers. Use `/readyz` to check whether the database, media storage, FFmpeg, and FFprobe are ready. Replace the example address below with your configured `TILECAST_PUBLIC_URL`.
 
 ```sh
-curl http://192.0.2.10:8080/healthz
+curl --fail http://tilecast.local:8080/readyz
 ```
 
-`/healthz` answers when the server process is running. `/readyz` also checks the database, media storage, FFmpeg, and FFprobe, and returns HTTP 503 when one of them is unavailable.
+The Compose health check uses `/readyz`. A failed readiness check returns HTTP 503.
 
-## Keep both volumes
+## Preserve installation data
 
-Tilecast stores its state in two Docker volumes:
+Compose uses two named volumes. `postgres_data` holds the database. `tilecast_data` holds uploaded and processed media, thumbnails, backups, and cached Player releases. Preserve both when replacing containers or hosts.
 
-- `postgres_data` holds users, screens, playlists, schedules, settings, and history.
-- `tilecast_data` holds uploaded media, the processed copies Tilecast makes for playback, thumbnails, and cached Player releases.
+:::caution
+`docker compose down --volumes` removes the named volumes and their stored data. Do not use it when you only want to recreate or update the containers.
+:::
 
-A backup needs both. Restoring only one of them leaves records without files, or files without records.
+## Next steps
 
-## Go further
-
-The detailed deployment reference, including every environment setting, is in the repository: [Deployment](https://github.com/gbyo/tilecast/blob/main/docs/deployment.md) and [Cloudflare Tunnel](https://github.com/gbyo/tilecast/blob/main/deploy/cloudflare/README.md).
+- [Get started with your first display](../getting-started/).
+- [Install Tilecast Player](../players/) on an Android TV device or Linux computer.
+- See the repository [deployment reference](https://github.com/gbyo/tilecast/blob/main/docs/deployment.md) for all server environment settings.

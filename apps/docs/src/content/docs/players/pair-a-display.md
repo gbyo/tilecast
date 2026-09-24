@@ -1,0 +1,36 @@
+---
+title: Pair a display
+description: Approve a Tilecast Player and enroll it as a screen.
+---
+
+Pairing enrolls a Player as a screen in your Tilecast installation. An Owner or Administrator must approve the request in Studio.
+
+## Before you start
+
+- Confirm that the Player can reach the Tilecast Server address.
+- Sign in to Studio as an Owner or Administrator.
+
+## Pair the Player
+
+1. Open Tilecast Player on the display.
+2. Choose a nearby Tilecast Server, or enter its address. Use HTTPS for a public hostname. For a private LAN, HTTP is allowed for a private IPv4 address, `localhost`, or a `.local` name. Enter only the server address and optional port, without a path.
+3. Confirm the server identity if the Player asks. Android shows the organization name before connecting. Tilecast Player verifies the installation identity before it sends an existing device credential.
+4. Leave the six-character pairing code visible on the display.
+5. In Studio, open **Screens** > **Fleet** and select **Pair screen**.
+6. Enter the code and compare the request details with the physical display. Studio shows the platform, device model, Player version, display resolution, locale, time zone, and network address when available.
+7. Select **Create new screen**, enter a screen name, and add location or room details if useful.
+8. Select **Approve and pair**.
+
+The Player enrolls after approval. An Android Player then opens the required commissioning checklist. Complete it before normal playback; see [Install Tilecast Player on Android TV](../install-android/). A Linux Player returns to its paired screen and waits for content.
+
+## Replace or repair a Player
+
+When replacing the physical device but keeping the existing screen, select **Replace hardware for an existing screen** and choose the existing screen. Review the confirmation, then select **Replace hardware** and **Confirm pairing**. The screen identity, Display Group membership, content assignments, schedules, policies, and history remain. The old credential is retired only after the replacement Player successfully enrolls.
+
+If the same physical Player is requesting a replacement credential, select **Repair existing credential** when Studio identifies it as previously paired. The existing screen remains in place, and its previous credential is revoked after enrollment completes.
+
+:::note
+A pairing code expires after ten minutes and can be used once. If it expires, request another code from the Player. Do not approve a request unless its device details match the display you are pairing.
+:::
+
+If the Player reports that the server identity changed, stop and check that the address still points to the right installation. Do not reset the Player until you have confirmed which database and server it should use.

@@ -1,38 +1,36 @@
 ---
 title: Players
-description: Install Tilecast Player on an Android TV device or a Linux computer and pair it with your server.
+description: Install, pair, and update Tilecast Player on Android TV devices and Linux computers.
 ---
 
-Tilecast Player is the app that runs on each display. There are two builds, and both pair, play, schedule, and update the same way.
+Tilecast Player runs on each display. Choose the Android APK for Android TV, Google TV, or Fire TV, or install the Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session.
 
-| Platform                       | Devices                                                      | Install format                       |
-| ------------------------------ | ------------------------------------------------------------ | ------------------------------------ |
-| Android TV, Fire TV, Google TV | TV devices, including ones without Google Play Services      | Signed APK: `tilecast-player.apk`    |
-| Linux                          | 64-bit Intel or AMD computers with an X11 or Wayland desktop | AppImage: `tilecast-player.AppImage` |
+| Player  | Install format                    | Notes                                                                                       |
+| ------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
+| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                 |
+| Linux   | AppImage                          | The server-provided installer targets x86_64 Linux. Use a graphical X11 or Wayland session. |
 
-Download both from the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). A Linux computer can also install the Player directly from your server with the installer script that Tilecast Server publishes.
+Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/).
 
 ## Connect a display
 
-1. Install and open Tilecast Player on the display device.
-2. Select your server from the list, or enter its address. The Player checks the server's identity before it continues.
-3. Leave the six-character pairing code on the screen.
-4. In Studio, go to **Screens** > **Fleet**, select **Pair screen**, and enter the code.
-5. Check that the device details in Studio match the physical display, then select **Approve and pair**.
-6. Finish the setup steps that the Player shows on the display.
+A Player can discover nearby servers or accept a manually entered address. Discovery is optional: the default Docker Compose setup disables mDNS, and multicast may not cross VLANs, guest networks, or access-point isolation. Enter the server address if it does not appear.
 
-Don't approve a request based on the code alone. Compare the model, platform, and network address with the device in front of you. If you don't recognize a request, select **Reject**.
+Use HTTPS for a public hostname. Both Players accept HTTP for local addresses such as private IPv4, `localhost`, and `.local` names. Enter the server address and optional port, without an API path.
 
-## Server address rules
+An Owner or Administrator approves each new pairing request. Studio displays device details so you can compare the request with the display in front of you. For a step-by-step procedure, see [Pair a display](./pair-a-display/).
 
-The Player accepts plain `http://` only for private network addresses, `localhost`, and `.local` names. A public hostname needs `https://`. The Player never switches an `https://` address to `http://` on its own.
+If you replace a broken device, choose **Replace hardware for an existing screen** during approval and select the existing screen. The logical screen, its assignments, schedules, policies, and history stay in place. The old credential is retired after the replacement Player enrolls.
 
-If the Player can't find your server in the list, enter the address. Automatic discovery doesn't cross VLANs, guest Wi-Fi, or most Docker network setups.
+## Playback and connection limits
 
-## If the server identity changes
+Players store prepared content locally. A Player can continue to show cached content during a server or network interruption, but it cannot fetch a new assignment until it reconnects. Website and other remote content can also need its own network connection.
 
-A paired Player remembers which Tilecast installation it belongs to. If the same address starts answering as a different installation, the Player stops and won't send its credential. This usually means the wrong database was restored, or a hostname now points at another server. Check the server before you reset the Player: pairing it again to the wrong installation creates a new screen instead of recovering the old one.
+Pairing does not prove that a TV will launch Tilecast after a power cut or return from sleep. Android checks local readiness during commissioning. The Linux installer sets up a systemd user service, but a graphical session must still start on the host. Test the exact device model, firmware, and kiosk session before unattended use.
 
-## Before a display runs unattended
+## Player tasks
 
-Installing and pairing a Player doesn't prove it will recover after a power cut, wake the TV, or stay locked to the Tilecast app. Test each device model and firmware you deploy. The [Install Tilecast Player](https://github.com/gbyo/tilecast/blob/main/wiki/Install-Tilecast-Player.md) and [Reliability and Kiosk](https://github.com/gbyo/tilecast/blob/main/wiki/Reliability-and-Kiosk.md) guides in the repository cover each platform in detail.
+- [Install Tilecast Player on Android TV](./install-android/).
+- [Install Tilecast Player on Linux](./install-linux/).
+- [Pair a display](./pair-a-display/).
+- [Update a Player](./update-a-player/).
