@@ -13,6 +13,7 @@ import type {
   RuntimeItem,
   RuntimePresentation,
 } from "../host/contract";
+import { resolveRegionalFormatting } from "./projection/format";
 import { renderLayout } from "./projection/layout-render";
 import { renderWidget } from "./projection/widget-render";
 import type {
@@ -137,6 +138,15 @@ export function createProjector(
   const offsetMs = Number.isFinite(context.clockOffsetMs)
     ? context.clockOffsetMs
     : 0;
+  const playback =
+    context.playback && typeof context.playback === "object"
+      ? context.playback
+      : undefined;
+  // The same regional formatting the Electron main process resolves from
+  // the same configuration section.
+  const regionalFormat = resolveRegionalFormatting(
+    playback?.["regionalFormat"],
+  );
 
   return {
     offsetMs,
@@ -155,6 +165,7 @@ export function createProjector(
                 dataSources,
                 at,
                 assets: manifest.assets,
+                regionalFormat,
               })
             : null;
           // The reference player skips an item that cannot render and keeps
@@ -174,7 +185,8 @@ export function createProjector(
                 widgets,
                 dataSources,
                 at,
-                playback: undefined,
+                playback,
+                regionalFormat,
               })
             : null;
           if (payload) {

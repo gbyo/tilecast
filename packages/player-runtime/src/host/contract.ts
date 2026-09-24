@@ -258,6 +258,12 @@ export interface ProjectionContextV1 {
   clockOffsetMs: number;
   manifest: Record<string, unknown>;
   media: { assetId: string; variantId: string; uri: string }[];
+  /**
+   * The accepted player configuration's playback section: regional
+   * formatting and layout playlist-zone defaults. Optional and additive;
+   * absent means the projection defaults.
+   */
+  playback?: Record<string, unknown>;
 }
 
 export interface PresentationMessage {

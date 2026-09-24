@@ -216,3 +216,54 @@ describe("projection of widget and layout references", () => {
     expect(h.started).toEqual(["w1"]);
   });
 });
+
+describe("projection under the host's player configuration", () => {
+  const CLOCK = "7a0e6a1c-3f25-4b8e-9d11-2c4e5f6a7b8c";
+  const clockManifest = {
+    ...manifest,
+    widgets: [
+      {
+        assetId: CLOCK,
+        name: "Lobby clock",
+        provider: "clock",
+        config: {},
+      },
+    ],
+  };
+  const clockItem = item("clock", "widget", {
+    widget: { widgetAssetId: CLOCK },
+  });
+
+  function projectedClock(context: ProjectionContextV1) {
+    const projected = createProjector(context)!.project(
+      playing([clockItem]),
+      Date.UTC(2026, 8, 24, 13),
+    ) as Extract<RuntimePresentation, { state: "playing" }>;
+    return JSON.stringify(projected.items[0]!.widget);
+  }
+
+  it("uses the configured regional format, as the Electron main process does", () => {
+    const configured = projectedClock({
+      ...projection,
+      manifest: clockManifest,
+      playback: {
+        regionalFormat: {
+          locale: "es-US",
+          timezone: "America/Chicago",
+          dateFormat: "locale",
+          timeFormat: "12-hour",
+          firstDayOfWeek: "sunday",
+        },
+      },
+    });
+    expect(configured).toContain('"timezone":"America/Chicago"');
+    expect(configured).toContain('"locale":"es-US"');
+    expect(configured).toContain('"hour12":true');
+  });
+
+  it("keeps the projection defaults when the host sends no configuration", () => {
+    const defaults = projectedClock({ ...projection, manifest: clockManifest });
+    expect(defaults).not.toContain("America/Chicago");
+    expect(defaults).not.toContain("es-US");
+  });
+});
