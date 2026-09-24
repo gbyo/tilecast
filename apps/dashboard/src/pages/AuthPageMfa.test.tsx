@@ -179,21 +179,25 @@ describe("sign-in with a second factor", () => {
     expect(screen.getByLabelText("Verification code")).toBeTruthy();
   });
 
-  it("cancels passkey autofill before explicit passkey sign-in", async () => {
+  it("waits for passkey autofill to settle before explicit passkey sign-in", async () => {
     let conditionalSignal: AbortSignal | undefined;
+    let conditionalSettled = false;
     const getCredential = vi.fn(
       (options: CredentialRequestOptions): Promise<Credential | null> => {
         if (options.mediation === "conditional") {
           conditionalSignal = options.signal ?? undefined;
-          return new Promise((_, reject) => {
+          return new Promise<Credential | null>((_, reject) => {
             options.signal?.addEventListener(
               "abort",
               () => reject(new DOMException("aborted", "AbortError")),
               { once: true },
             );
+          }).finally(() => {
+            conditionalSettled = true;
           });
         }
         expect(conditionalSignal?.aborted).toBe(true);
+        expect(conditionalSettled).toBe(true);
         return Promise.reject(new DOMException("cancelled", "NotAllowedError"));
       },
     );
