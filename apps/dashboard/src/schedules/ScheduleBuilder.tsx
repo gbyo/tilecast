@@ -996,11 +996,9 @@ function TimezonePicker({
         : zones,
     [candidate, zones],
   );
-  const filtered = options
-    .filter((zone) =>
-      timezoneLabel(zone).toLowerCase().includes(search.toLowerCase()),
-    )
-    .slice(0, 80);
+  const filtered = options.filter((zone) =>
+    timezoneLabel(zone).toLowerCase().includes(search.toLowerCase()),
+  );
   return (
     <div className="schedule-timezone">
       <Field>
