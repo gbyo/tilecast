@@ -3,11 +3,14 @@ set -euo pipefail
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 files=()
+# Public pages below apps/docs/src/content/ follow apps/docs/STYLE.md, not
+# ASD-STE100. Exclude them even if one is named README.md.
 while IFS= read -r file; do
   files+=("$file")
 done < <(
   find "$repo_root" -type f -name '*.md' \( -path "$repo_root/docs/*" -o -path "$repo_root/wiki/*" -o -name 'README.md' \) \
     -not -path '*/.git/*' \
+    -not -path "$repo_root/apps/docs/src/content/*" \
     -not -path '*/node_modules/*' \
     -not -path '*/build/*' \
     -print | sort

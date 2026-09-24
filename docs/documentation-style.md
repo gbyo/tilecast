@@ -8,6 +8,12 @@ This guide applies to README files, `docs/`, the source-controlled wiki, API
 descriptions, and operator messages. Product names, API names, code, commands,
 file names, and quoted text remain exact technical terms.
 
+Engineering specifications, contracts, implementation records, and
+operator-grade technical material use this guide. The public documentation site
+has a different reader and a different style. Pages below
+`apps/docs/src/content/docs/` follow
+[`apps/docs/STYLE.md`](../apps/docs/STYLE.md), not this guide.
+
 ## Writing rules
 
 - Use one action or fact in each sentence.
@@ -59,8 +65,9 @@ for the complete rules and dictionary.
 ## Conformance check
 
 Run `make docs-check` from the repository root. The check scans the root
-README, every `README.md`, `docs/`, and `wiki/`. It reports contractions, vague
-wording, `and/or`, `etc.`, and imprecise conjunctions.
+README, every `README.md`, `docs/`, and `wiki/`. It does not scan the public
+pages below `apps/docs/src/content/`. It reports contractions, vague wording,
+`and/or`, `etc.`, and imprecise conjunctions.
 
 The check does not replace an editorial review. A qualified reviewer must still
 check sentence structure, approved dictionary terms, procedure order, and
