@@ -151,6 +151,28 @@ describe("StructuredDataSourceEditor", () => {
     expect(screen.queryByRole("checkbox", { name: "Description" })).toBeNull();
   });
 
+  it("offers explicit day-first dates and explains safe automatic parsing", async () => {
+    vi.spyOn(api, "inspectDataSource").mockResolvedValue(csvInspection);
+    editor("csv");
+
+    await userEvent.click(screen.getByText("Select records by local date"));
+    await userEvent.click(
+      screen.getByRole("combobox", { name: "Date format" }),
+    );
+
+    expect(
+      await screen.findByRole("option", {
+        name: "DD/MM/YYYY",
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole("option", { name: "D/M/YYYY" })).toBeVisible();
+    expect(
+      screen.getByRole("option", {
+        name: "Auto (ambiguous slash dates stay as text)",
+      }),
+    ).toBeVisible();
+  });
+
   // A schedule carries a start and an end, and the display slots hold one date between
   // them. Detection maps the rest as typed values, which is the only way a Widget that
   // asks for a datetime has anything to offer in its field picker.

@@ -2461,7 +2461,14 @@ export type StructuredInspection = {
 export type DateSelection = {
   enabled: boolean;
   dateFormat:
-    "auto" | "iso_date" | "us_date" | "us_short" | "day_month_name" | "rfc3339";
+    | "auto"
+    | "iso_date"
+    | "us_date"
+    | "us_short"
+    | "day_first_date"
+    | "day_first_short"
+    | "day_month_name"
+    | "rfc3339";
   timezone: string;
   mode:
     "today" | "tomorrow" | "next_available" | "current_week" | "custom_range";
