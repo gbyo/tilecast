@@ -178,6 +178,15 @@ def tree(root):
     return out
 
 
+# An idempotency key the legacy player had already executed.
+LEGACY_COMMAND_KEY = "7d4c2f9e-6a1b-4e3d-9c8f-2b1a0e9d8c7b"
+
+
+def psql(query):
+    return subprocess.run(["psql", "-d", DATABASE, "-At", "-c", query], check=True, capture_output=True,
+                          text=True).stdout.strip()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--renderer", help="tilecast-renderer-wpe binary; enables the content phase")
@@ -267,7 +276,7 @@ def main():
                                 "screenName": enrolled["data"]["screenName"],
                                 "deviceCredential": enrolled["data"]["deviceCredential"],
                                 "enrolledAt": "2026-09-22T00:00:00Z"},
-            "executed-commands.json": {"keys": ["e2e-command-1"]},
+            "executed-commands.json": {"keys": [LEGACY_COMMAND_KEY]},
             "playback-flags.json": {"playbackDisabled": False},
         }
         for name, value in files.items():
@@ -308,6 +317,62 @@ def main():
         assert daemon_status["link"]["state"] == "connected", status.stdout
         assert daemon_status["server"]["identityVerifiedAt"], status.stdout
         assert daemon_status["playerId"] == player_id, status.stdout
+
+        # M4: configuration from the ordinary endpoint (pushed by
+        # config.changed) and durable commands through the real server.
+        _, settings = client.call("GET", "/api/v1/settings", expect=200)
+        client.call("PATCH", "/api/v1/settings", {"revision": settings["data"]["revision"],
+                                                   "values": {"branding.disabled_title": "Closed for maintenance"}},
+                    expect=200)
+        wanted = psql(f"SELECT config_revision FROM screen_config_state WHERE screen_id='{screen_id}'")
+        wait_for(lambda: psql(f"SELECT active_config_revision FROM screen_player_status WHERE screen_id='{screen_id}'")
+                 == wanted, f"the player to report configuration revision {wanted}", timeout=120)
+        print("config: revision", wanted, "accepted and reported")
+
+        def command(kind, key=None):
+            body = {"type": kind, **({"idempotencyKey": key} if key else {})}
+            _, queued = client.call("POST", f"/api/v1/screens/{screen_id}/commands", body, expect=202)
+            command_id = queued["data"]["id"]
+
+            def settled():
+                _, listed = client.call("GET", f"/api/v1/screens/{screen_id}/commands", expect=200)
+                return next((c for c in listed["data"]["items"]
+                             if c["id"] == command_id and c["state"] in ("succeeded", "failed")), None)
+
+            return wait_for(settled, f"the {kind} result", timeout=90)
+
+        def playback_disabled():
+            return psql(f"SELECT playback_disabled FROM screen_player_status WHERE screen_id='{screen_id}'")
+
+        result = command("disable_playback")
+        assert (result["state"], result["resultCode"]) == ("succeeded", "playback_disabled"), result
+        wait_for(lambda: playback_disabled() == "t", "playbackDisabled in status")
+        result = command("enable_playback")
+        assert (result["state"], result["resultCode"]) == ("succeeded", "playback_enabled"), result
+        wait_for(lambda: playback_disabled() == "f", "playback enabled in status")
+        result = command("display_power_on")
+        assert (result["state"], result["resultCode"]) == ("failed", "unsupported_command"), result
+        # The legacy player already ran this key: it is answered, never run.
+        result = command("disable_playback", LEGACY_COMMAND_KEY)
+        assert (result["state"], result["resultCode"]) == ("succeeded", "already_executed"), result
+        assert playback_disabled() == "f", "an imported key must not run again"
+        # A disruptive command persists its result before the daemon exits;
+        # the restarted daemon never restarts again for it.
+        result = command("restart_player_process")
+        assert (result["state"], result["resultCode"]) == ("succeeded", "initiated"), result
+        assert daemon.wait(timeout=30) == 0, "tilecastd did not exit for its restart command"
+        processes.remove(daemon)
+        daemon = subprocess.Popen([tilecastd, "--config", config, "run"], stdout=daemon_log, stderr=subprocess.STDOUT)
+        processes.append(daemon)
+        wait_for(lambda: json.loads(subprocess.run([tilecastctl, "--socket", socket, "--json", "status"],
+                                                   capture_output=True, text=True).stdout or "{}")
+                 .get("link", {}).get("state") == "connected", "reconnection after the restart command")
+        time.sleep(15)
+        daemon_log.flush()
+        with open(os.path.join(work, "tilecastd.log")) as handle:
+            restarts = handle.read().count("restart_requested")
+        assert restarts == 1, f"the restart command ran {restarts} times"
+        print("commands: at most once through the real server, including restart and a legacy key")
 
         if args.renderer:
             daemon_log_path = os.path.join(work, "tilecastd.log")

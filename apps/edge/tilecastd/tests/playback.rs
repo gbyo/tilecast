@@ -1351,7 +1351,7 @@ async fn commands_run_at_most_once_across_redelivery_and_restart() {
     }
     assert!(harness.fake.results_for(&delivery).len() >= 2, "the stored result is resent to each redelivery");
     assert_eq!(renderer.log.lock().unwrap().identify.len(), 1, "never shown twice");
-    assert_eq!(renderer.log.lock().unwrap().identify[0], ("Lobby\nMain · Lobby".to_owned(), 30));
+    assert_eq!(renderer.log.lock().unwrap().identify[0], ("Lobby · Main · Lobby".to_owned(), 30));
     renderer.stop();
     player.stop().await;
 
