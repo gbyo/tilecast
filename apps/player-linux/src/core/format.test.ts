@@ -42,6 +42,39 @@ describe("formatValue", () => {
     expect(long).toMatch(/July 4, 2026/);
   });
 
+  it("keeps date-only values on the same calendar day across timezones", () => {
+    expect(
+      formatValue("2026-07-04", {
+        format: "date-long",
+        timezone: "America/New_York",
+      }),
+    ).toMatch(/July 4, 2026/);
+    expect(
+      formatValue("2026-07-04", {
+        format: "date-short",
+        timezone: "America/Los_Angeles",
+      }),
+    ).toMatch(/Jul\s*4/);
+  });
+
+  it("still applies the requested timezone to timestamp values", () => {
+    expect(
+      formatValue("2026-07-04T00:00:00Z", {
+        format: "date-long",
+        timezone: "America/New_York",
+      }),
+    ).toMatch(/July 3, 2026/);
+  });
+
+  it("passes through impossible date-only values", () => {
+    expect(
+      formatValue("2026-02-31", {
+        format: "date-long",
+        timezone: "America/New_York",
+      }),
+    ).toBe("2026-02-31");
+  });
+
   it("passes through invalid numbers as empty", () => {
     expect(formatValue("n/a", { format: "number" })).toBe("");
   });
