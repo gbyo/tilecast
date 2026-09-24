@@ -624,7 +624,10 @@ export const studioRoutes: RouteObject[] = [
                     `/settings/${item.path}`,
                     ["settings", ...(entry?.keywords ?? [])],
                   ),
-                  descriptionKey: entry?.descriptionKey,
+                  descriptionKey:
+                    entry?.descriptionKey ??
+                    "palette.settingsSearch.sectionFallback",
+                  descriptionValues: entry ? undefined : { label: item.label },
                 },
               },
             };

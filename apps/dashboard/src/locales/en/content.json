@@ -84,7 +84,8 @@
       "loadError": "The media library could not be loaded",
       "loading": "Loading media…",
       "title": "Media",
-      "totalAssets": "{{count}} assets.",
+      "totalAssets_one": "{{count}} asset.",
+      "totalAssets_other": "{{count}} assets.",
       "uploadAssets": "Upload assets",
       "viewArchive": "Archive",
       "viewLabel": "Library view",
@@ -291,7 +292,10 @@
       "searchLayouts": "Search layouts",
       "searchPlaylists": "Search playlists",
       "searchPresentations": "Search presentations",
-      "tagDriven": " · tag-driven"
+      "tagDriven": " · tag-driven",
+      "clearSearchPresentations": "Clear presentation search",
+      "clearSearchLayouts": "Clear layout search",
+      "clearSearchPlaylists": "Clear playlist search"
     },
     "toolbar": {
       "allCollections": "All collections",
@@ -315,7 +319,8 @@
       "sortName": "Name",
       "sortNewest": "Newest",
       "sortOldest": "Oldest",
-      "sortRecent": "Recently updated"
+      "sortRecent": "Recently updated",
+      "clearContentSearch": "Clear content search"
     },
     "tray": {
       "clearSelection": "Clear selection",

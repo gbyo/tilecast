@@ -126,6 +126,7 @@ export function ContentPickerToolbar({
         onValueChange={onSearch}
         label={t("picker.toolbar.searchContent")}
         placeholder={t("picker.toolbar.searchContent")}
+        clearLabel={t("picker.toolbar.clearContentSearch")}
       />
       <ToggleGroup
         className="max-w-full overflow-x-auto"

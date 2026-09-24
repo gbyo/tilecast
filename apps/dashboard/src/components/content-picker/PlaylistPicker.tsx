@@ -95,6 +95,11 @@ export function PlaylistPicker({
       ? t("picker.playlist.chooseLayout")
       : t("picker.playlist.choosePlaylist");
   const resolvedConfirmLabel = confirmLabel ?? t("picker.playlist.addPlaylist");
+  const clearSearchCopy = mixedKinds
+    ? t("picker.playlist.clearSearchPresentations")
+    : canChooseLayouts
+      ? t("picker.playlist.clearSearchLayouts")
+      : t("picker.playlist.clearSearchPlaylists");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState(selectedId);
   const playlists = useQuery({
@@ -149,6 +154,7 @@ export function PlaylistPicker({
           onValueChange={setSearch}
           label={searchCopy}
           placeholder={searchCopy}
+          clearLabel={clearSearchCopy}
         />
         <div className="grid gap-2">
           {loading ? (

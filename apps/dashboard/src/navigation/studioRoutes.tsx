@@ -22,7 +22,11 @@ export type StudioRouteHandle = {
     label: string;
     description: string;
     /** Translation key resolved with t() at render; description is English. */
-    descriptionKey?: "palette.settingsSearch.dependencyGraph";
+    descriptionKey?:
+      | "palette.settingsSearch.dependencyGraph"
+      | "palette.settingsSearch.sectionFallback";
+    /** Interpolation values for descriptionKey, resolved at render. */
+    descriptionValues?: { label: string };
     to: string;
     keywords?: string[];
   };
