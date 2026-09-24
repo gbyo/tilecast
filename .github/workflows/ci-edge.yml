@@ -8,6 +8,7 @@ on:
     paths:
       - "apps/edge/**"
       - "packages/edge-protocol/**"
+      - "packages/player-runtime/**"
       - "apps/player-linux/**"
       - "apps/server/**"
       - "package.json"
@@ -60,7 +61,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build --workspace @gibsonmb71/tilecast-player-linux
+      - run: npm run build --workspace @tilecast/player-runtime
       - name: Build the WPE development images
         run: |
           set -euo pipefail
@@ -80,6 +81,72 @@ jobs:
         with:
           name: edge-wpe-engine-versions
           path: edge-engine-versions.txt
+          if-no-files-found: ignore
+
+  runtime:
+    name: Player Runtime and Electron host
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck --workspace @tilecast/player-runtime
+      - run: npm test --workspace @tilecast/player-runtime
+      - run: npm run build --workspace @tilecast/player-runtime
+      - run: npm test --workspace @gibsonmb71/tilecast-player-linux
+      - run: npm run build --workspace @gibsonmb71/tilecast-player-linux
+      - name: The sandboxed preload requires only electron
+        run: |
+          set -euo pipefail
+          required=$(grep -o 'require("[^"]*")' apps/player-linux/dist/preload.js | sort -u)
+          echo "$required"
+          test "$required" = 'require("electron")'
+
+  conformance:
+    name: Electron and WPE conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @gibsonmb71/tilecast-player-linux
+      - name: Build the engine images
+        run: |
+          set -euo pipefail
+          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
+          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
+          docker build -t tilecast-conformance-electron apps/player-linux/conformance
+      - name: WPE WebKit headless
+        run: |
+          mkdir -p "$RUNNER_TEMP/conformance" "$RUNNER_TEMP/edge-target"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/conformance:/results" \
+            -v "$RUNNER_TEMP/edge-target:/target" tilecast-edge-dev \
+            /src/apps/edge/renderer-wpe/ci/run-conformance.sh
+      - name: Electron (Chromium)
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/conformance:/results" \
+            tilecast-conformance-electron \
+            node /src/packages/player-runtime/conformance/run.mjs --engine electron --out /results
+      - name: Compare the engines
+        run: |
+          node packages/player-runtime/conformance/compare.mjs \
+            --a "$RUNNER_TEMP/conformance/electron" --b "$RUNNER_TEMP/conformance/wpe" \
+            --report "$RUNNER_TEMP/conformance/report"
+      - uses: actions/upload-artifact@v6
+        if: ${{ !cancelled() }}
+        with:
+          name: player-runtime-conformance
+          path: |
+            ${{ runner.temp }}/conformance/report/**
+            ${{ runner.temp }}/conformance/wpe-engine-versions.txt
+            ${{ runner.temp }}/conformance/*/summary.json
+            ${{ runner.temp }}/conformance/*/*/result.json
           if-no-files-found: ignore
 
   server_e2e:
@@ -111,7 +178,7 @@ jobs:
   required:
     name: Required Edge validation
     if: always()
-    needs: [rust, wpe, server_e2e]
+    needs: [rust, wpe, runtime, conformance, server_e2e]
     runs-on: ubuntu-latest
     env:
       RESULTS: ${{ join(needs.*.result, ',') }}

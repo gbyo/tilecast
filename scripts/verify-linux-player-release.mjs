@@ -67,6 +67,26 @@ try {
     extractFile(asarPath, "package.json").toString("utf8"),
   );
   const packagedVersion = String(packagedMetadata.version ?? "");
+  // The display is the shared Player Runtime; a package without its built
+  // artifact would boot to a bridge error on every screen.
+  const runtimeRoot = "node_modules/@tilecast/player-runtime/dist/runtime";
+  const runtimeManifest = JSON.parse(
+    extractFile(asarPath, `${runtimeRoot}/runtime-manifest.json`).toString(
+      "utf8",
+    ),
+  );
+  for (const entry of runtimeManifest.files ?? []) {
+    const bytes = extractFile(asarPath, `${runtimeRoot}/${entry.path}`);
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    if (sha256 !== entry.sha256) {
+      throw new Error(
+        `Packaged runtime file ${entry.path} does not match its manifest.`,
+      );
+    }
+  }
+  console.log(
+    `Packaged Player Runtime:   ${runtimeManifest.version} (${runtimeManifest.files.length} files verified)`,
+  );
   const manifestVersion = String(manifest.versionName ?? "");
   const artifact = readFileSync(appImage);
   const artifactSha256 = createHash("sha256").update(artifact).digest("hex");
