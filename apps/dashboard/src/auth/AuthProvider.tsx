@@ -74,6 +74,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [challenge, setChallenge] = useState<MFAChallenge | undefined>();
   const passkeyAutofillController = useRef<AbortController | null>(null);
   const passkeyAutofillRequest = useRef<Promise<void> | null>(null);
+  const passkeyAutofillGeneration = useRef(0);
   const cancelPasskeyAutofill = () => {
     const pendingRequest = passkeyAutofillRequest.current;
     const controller = passkeyAutofillController.current;
@@ -183,8 +184,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const previousRequest = cancelPasskeyAutofill();
     const controller = new AbortController();
     passkeyAutofillController.current = controller;
-    let request: Promise<void>;
-    request = (async () => {
+    const requestGeneration = ++passkeyAutofillGeneration.current;
+    const request = (async () => {
       await previousRequest;
       if (!(await conditionalMediationAvailable())) return;
       if (controller.signal.aborted) return;
@@ -196,7 +197,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } finally {
         if (passkeyAutofillController.current === controller)
           passkeyAutofillController.current = null;
-        if (passkeyAutofillRequest.current === request)
+        if (passkeyAutofillGeneration.current === requestGeneration)
           passkeyAutofillRequest.current = null;
       }
     })();
