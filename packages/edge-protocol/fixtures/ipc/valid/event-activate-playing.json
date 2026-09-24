@@ -27,7 +27,7 @@
       },
       "content": [
         {
-        "uri": "tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "uri": "tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
           "sizeBytes": 4,
           "mimeType": "image/png"
         }
