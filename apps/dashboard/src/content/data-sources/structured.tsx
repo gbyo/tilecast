@@ -32,6 +32,7 @@ import type {
   StructuredSourceConfig,
 } from "../../api/types";
 import { CsvSourceInput } from "../CsvSourceInput";
+import { optionLabel } from "./shared";
 
 export type StructuredProvider = "rss" | "atom" | "json" | "csv";
 
@@ -812,7 +813,10 @@ export function StructuredDataSourceEditor({
                       next as StructuredSourceConfig["presentation"],
                   }))
                 }
-                items={presentationOptions}
+                items={presentationOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="structured-presentation"
@@ -1224,7 +1228,10 @@ export function StructuredDataSourceEditor({
                               },
                             }))
                           }
-                          items={dateFormatOptions}
+                          items={dateFormatOptions.map((option) => ({
+                            value: option.value,
+                            label: t(option.labelKey),
+                          }))}
                         >
                           <SelectTrigger
                             id="date-format"
@@ -1335,7 +1342,10 @@ export function StructuredDataSourceEditor({
                               },
                             }))
                           }
-                          items={noMatchOptions}
+                          items={noMatchOptions.map((option) => ({
+                            value: option.value,
+                            label: t(option.labelKey),
+                          }))}
                         >
                           <SelectTrigger
                             id="date-no-match"
@@ -1606,7 +1616,10 @@ export function StructuredDataSourceEditor({
                     refreshIntervalSeconds: Number(next),
                   }))
                 }
-                items={refreshOptions}
+                items={refreshOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="structured-refresh"
