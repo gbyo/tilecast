@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, History, RotateCcw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { api } from "../api/client";
 import type {
@@ -11,6 +12,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
+import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -82,24 +84,26 @@ function BulkError({ children }: { children: ReactNode }) {
   );
 }
 
-const actionLabels: Record<BulkAction, string> = {
-  assign_playlist: "Assign a playlist",
-  assign_layout: "Assign a Layout",
-  clear_assignment: "Remove the assignment",
-  set_enabled: "Enable or disable playback",
-  send_command: "Send a command",
-};
+const actionLabelKeys = {
+  assign_playlist: "bulk.actions.assignPlaylist",
+  assign_layout: "bulk.actions.assignLayout",
+  clear_assignment: "bulk.actions.clear",
+  set_enabled: "bulk.actions.togglePlayback",
+  send_command: "bulk.actions.sendCommand",
+} as const satisfies Record<BulkAction, string>;
 
 // The bulk command set is deliberately the safe, idempotent subset. A command
 // that takes a screen off the air is a per-screen decision.
 const bulkCommands = [
-  { value: "sync_now", label: "Sync now" },
-  { value: "reload_playback", label: "Reload playback" },
-  { value: "clear_media_cache", label: "Clear media cache" },
-  { value: "restart_player_process", label: "Restart the Player" },
-];
+  { value: "sync_now", labelKey: "bulk.commands.sync" },
+  { value: "reload_playback", labelKey: "bulk.commands.reload" },
+  { value: "clear_media_cache", labelKey: "bulk.commands.clearCache" },
+  { value: "restart_player_process", labelKey: "bulk.commands.restart" },
+] as const;
 
 export function FleetBulkPage() {
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -184,25 +188,21 @@ export function FleetBulkPage() {
 
   return (
     <div className="bulk-page">
-      <PageHeader
-        title="Bulk changes"
-        description="Apply one change to many screens. Tilecast shows exactly what will change before anything happens, including screens pulled in by a Display Group."
-      />
+      <PageHeader title={t("bulk.title")} description={t("bulk.body")} />
 
       <div className="bulk-workspace">
         <section className="bulk-panel" aria-labelledby="bulk-screens-heading">
           <header className="bulk-panel__header">
             <div className="bulk-panel__heading">
-              <h2 id="bulk-screens-heading">Screens</h2>
-              <p>
-                A screen in a Display Group shares that group&apos;s assignment,
-                so selecting one member includes the rest. The preview lists
-                them.
-              </p>
+              <h2 id="bulk-screens-heading">{t("bulk.screensTitle")}</h2>
+              <p>{t("bulk.screensBody")}</p>
             </div>
             <div className="bulk-panel__actions">
               <span className="bulk-count">
-                {selected.length} of {items.length} selected
+                {t("bulk.selectedCount", {
+                  selected: selected.length,
+                  total: items.length,
+                })}
               </span>
               <Button
                 variant="ghost"
@@ -214,7 +214,7 @@ export function FleetBulkPage() {
                   setSelected(allSelected ? [] : items.map((item) => item.id));
                 }}
               >
-                {allSelected ? "Select none" : "Select all"}
+                {allSelected ? t("bulk.selectNone") : t("bulk.selectAll")}
               </Button>
             </div>
           </header>
@@ -222,15 +222,13 @@ export function FleetBulkPage() {
           {items.length === 0 ? (
             screens.isLoading ? (
               <p className="px-4 py-6 text-sm text-muted-foreground">
-                Loading screens…
+                {t("bulk.loading")}
               </p>
             ) : (
               <Empty className="border-0 py-6">
                 <EmptyHeader>
-                  <EmptyTitle>No screens are paired yet</EmptyTitle>
-                  <EmptyDescription>
-                    Pair a player before applying bulk changes.
-                  </EmptyDescription>
+                  <EmptyTitle>{t("bulk.noScreensTitle")}</EmptyTitle>
+                  <EmptyDescription>{t("bulk.noScreensHint")}</EmptyDescription>
                 </EmptyHeader>
                 {canManage && (
                   <EmptyContent>
@@ -241,7 +239,7 @@ export function FleetBulkPage() {
                       })}
                       to="/screens/pair"
                     >
-                      Pair screen
+                      {t("page.pairScreen")}
                     </Link>
                   </EmptyContent>
                 )}
@@ -260,7 +258,7 @@ export function FleetBulkPage() {
                   >
                     <Checkbox
                       checked={isSelected}
-                      aria-label={`Select ${item.name}`}
+                      aria-label={t("bulk.selectAria", { name: item.name })}
                       onCheckedChange={(checked) => {
                         setPreview(undefined);
                         setSelected((ids) =>
@@ -274,8 +272,10 @@ export function FleetBulkPage() {
                       <span>{item.name}</span>
                       <small>
                         {item.syncGroupName
-                          ? `Display Group: ${item.syncGroupName}`
-                          : item.location || "No location"}
+                          ? t("bulk.groupAttribution", {
+                              name: item.syncGroupName,
+                            })
+                          : item.location || t("bulk.noLocation")}
                       </small>
                     </span>
                   </label>
@@ -291,28 +291,28 @@ export function FleetBulkPage() {
         >
           <header className="bulk-panel__header">
             <div className="bulk-panel__heading">
-              <h2 id="bulk-change-heading">Change</h2>
+              <h2 id="bulk-change-heading">{t("bulk.changeTitle")}</h2>
             </div>
           </header>
 
           <div className="bulk-panel__body">
             <BulkSelect
               id="bulk-action"
-              label="Action"
+              label={t("bulk.actionLabel")}
               value={action}
               onChange={(value) => {
                 setAction(value as BulkAction);
                 setPreview(undefined);
               }}
-              options={(Object.keys(actionLabels) as BulkAction[]).map(
-                (value) => ({ value, label: actionLabels[value] }),
+              options={(Object.keys(actionLabelKeys) as BulkAction[]).map(
+                (value) => ({ value, label: t(actionLabelKeys[value]) }),
               )}
             />
 
             {action === "assign_playlist" && (
               <BulkSelect
                 id="bulk-playlist"
-                label="Playlist"
+                label={t("bulk.playlistLabel")}
                 value={playlistId}
                 onChange={(value) => {
                   setPlaylistId(value);
@@ -322,14 +322,14 @@ export function FleetBulkPage() {
                   value: playlist.id,
                   label: playlist.name,
                 }))}
-                placeholder="Select a playlist"
+                placeholder={t("bulk.pickPlaylist")}
               />
             )}
 
             {action === "assign_layout" && (
               <BulkSelect
                 id="bulk-layout"
-                label="Layout"
+                label={t("bulk.layoutLabel")}
                 value={layoutId}
                 onChange={(value) => {
                   setLayoutId(value);
@@ -339,23 +339,23 @@ export function FleetBulkPage() {
                   value: layout.id,
                   label: layout.name,
                 }))}
-                placeholder="Select a Layout"
-                hint="Only published Layouts can be assigned."
+                placeholder={t("bulk.pickLayout")}
+                hint={t("bulk.layoutHint")}
               />
             )}
 
             {action === "set_enabled" && (
               <BulkSelect
                 id="bulk-enabled"
-                label="Playback"
+                label={t("bulk.playbackLabel")}
                 value={enabled ? "enabled" : "disabled"}
                 onChange={(value) => {
                   setEnabled(value === "enabled");
                   setPreview(undefined);
                 }}
                 options={[
-                  { value: "enabled", label: "Enable playback" },
-                  { value: "disabled", label: "Disable playback" },
+                  { value: "enabled", label: t("detail.enablePlayback") },
+                  { value: "disabled", label: t("detail.disableAction") },
                 ]}
               />
             )}
@@ -363,7 +363,7 @@ export function FleetBulkPage() {
             {action === "send_command" && (
               <BulkSelect
                 id="bulk-command"
-                label="Command"
+                label={t("bulk.commandLabel")}
                 value={commandType}
                 onChange={(value) => {
                   setCommandType(value);
@@ -371,9 +371,9 @@ export function FleetBulkPage() {
                 }}
                 options={bulkCommands.map((command) => ({
                   value: command.value,
-                  label: command.label,
+                  label: t(command.labelKey),
                 }))}
-                hint="A command cannot be undone once a Player collects it."
+                hint={t("bulk.commandHint")}
               />
             )}
           </div>
@@ -387,7 +387,7 @@ export function FleetBulkPage() {
                 disabled={!ready || build.isPending}
                 onClick={() => build.mutate()}
               >
-                {build.isPending ? "Checking…" : "Preview the change"}
+                {build.isPending ? t("bulk.checking") : t("bulk.preview")}
               </Button>
             </div>
           </div>
@@ -408,30 +408,30 @@ export function FleetBulkPage() {
         <section className="bulk-panel" aria-labelledby="bulk-applied-heading">
           <header className="bulk-panel__header">
             <div className="bulk-panel__heading">
-              <h2 id="bulk-applied-heading">Applied</h2>
+              <h2 id="bulk-applied-heading">{t("bulk.appliedTitle")}</h2>
             </div>
           </header>
 
           <div className="bulk-tally">
             <div>
               <strong>{result.appliedCount}</strong>
-              <span>changed</span>
+              <span>{t("bulk.changed")}</span>
             </div>
             <div>
               <strong>{result.skippedCount}</strong>
-              <span>unchanged or skipped</span>
+              <span>{t("bulk.unchanged")}</span>
             </div>
             {result.failedCount > 0 && (
               <div>
                 <strong>{result.failedCount}</strong>
-                <span>failed</span>
+                <span>{t("bulk.failed")}</span>
               </div>
             )}
           </div>
 
           {result.failedCount > 0 && (
             <BulkError>
-              Some screens did not change:
+              {t("bulk.someFailed")}
               <ul>
                 {result.results
                   .filter((row) => row.error)
@@ -448,10 +448,7 @@ export function FleetBulkPage() {
 
           {result.reversible && (
             <div className="bulk-panel__footer">
-              <p>
-                You can put this back for the next {undoWindowMinutes ?? 15}{" "}
-                minutes.
-              </p>
+              <p>{t("bulk.undoWindow", { count: undoWindowMinutes ?? 15 })}</p>
               <div className="bulk-panel__actions">
                 <Button
                   variant="secondary"
@@ -460,7 +457,7 @@ export function FleetBulkPage() {
                   onClick={() => undo.mutate(result.id)}
                 >
                   <RotateCcw size={15} aria-hidden="true" />{" "}
-                  {undo.isPending ? "Undoing…" : "Undo this change"}
+                  {undo.isPending ? t("bulk.undoing") : t("bulk.undoAction")}
                 </Button>
               </div>
             </div>
@@ -471,7 +468,7 @@ export function FleetBulkPage() {
       <section className="bulk-panel" aria-labelledby="bulk-recent-heading">
         <header className="bulk-panel__header">
           <div className="bulk-panel__heading">
-            <h2 id="bulk-recent-heading">Recent bulk changes</h2>
+            <h2 id="bulk-recent-heading">{t("bulk.recentTitle")}</h2>
           </div>
         </header>
         {!operations.data?.length ? (
@@ -480,10 +477,8 @@ export function FleetBulkPage() {
               <EmptyMedia variant="icon">
                 <History aria-hidden="true" />
               </EmptyMedia>
-              <EmptyTitle>No bulk changes yet</EmptyTitle>
-              <EmptyDescription>
-                Completed fleet changes will appear here with their undo status.
-              </EmptyDescription>
+              <EmptyTitle>{t("bulk.recentEmptyTitle")}</EmptyTitle>
+              <EmptyDescription>{t("bulk.recentEmptyHint")}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -491,11 +486,14 @@ export function FleetBulkPage() {
             {operations.data.map((operation) => (
               <div className="bulk-history__row" key={operation.id}>
                 <div className="bulk-row__copy">
-                  <strong>{actionLabels[operation.action]}</strong>
+                  <strong>{t(actionLabelKeys[operation.action])}</strong>
                   <small>
-                    {new Date(operation.createdAt).toLocaleString()} ·{" "}
-                    {operation.appliedCount} screens
-                    {operation.undoneAt ? " · undone" : ""}
+                    {new Date(operation.createdAt).toLocaleString(formatLocale)}{" "}
+                    ·{" "}
+                    {t("bulk.historyScreens", {
+                      count: operation.appliedCount,
+                    })}
+                    {operation.undoneAt ? t("bulk.historyUndone") : ""}
                   </small>
                 </div>
                 {operation.reversible ? (
@@ -508,11 +506,13 @@ export function FleetBulkPage() {
                     disabled={undo.isPending}
                     onClick={() => undo.mutate(operation.id)}
                   >
-                    Undo
+                    {t("bulk.undo")}
                   </Button>
                 ) : (
                   <span className="bulk-history__note">
-                    {operation.undoneAt ? "Undone" : "Undo window closed"}
+                    {operation.undoneAt
+                      ? t("bulk.statusUndone")
+                      : t("bulk.windowClosed")}
                   </span>
                 )}
               </div>
@@ -537,6 +537,7 @@ function PreviewSection({
   onApply: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation(["screens", "common"]);
   return (
     <section
       className="bulk-panel bulk-panel--decision"
@@ -544,24 +545,24 @@ function PreviewSection({
     >
       <header className="bulk-panel__header">
         <div className="bulk-panel__heading">
-          <h2 id="bulk-preview-heading">What will change</h2>
-          <p>Nothing has been applied yet. Review the rows, then confirm.</p>
+          <h2 id="bulk-preview-heading">{t("bulk.previewTitle")}</h2>
+          <p>{t("bulk.previewBody")}</p>
         </div>
       </header>
 
       <div className="bulk-tally">
         <div>
           <strong>{preview.changeCount}</strong>
-          <span>will change</span>
+          <span>{t("bulk.willChange")}</span>
         </div>
         <div>
           <strong>{preview.unchangedCount}</strong>
-          <span>already in that state</span>
+          <span>{t("bulk.alreadyState")}</span>
         </div>
         {preview.blockedCount > 0 && (
           <div>
             <strong>{preview.blockedCount}</strong>
-            <span>cannot be changed</span>
+            <span>{t("bulk.cannotChange")}</span>
           </div>
         )}
       </div>
@@ -577,25 +578,31 @@ function PreviewSection({
           <div className="bulk-row" key={row.screenId}>
             <div className="bulk-row__copy">
               <strong>
-                {row.name}
-                {row.fromGroup ? ` (via ${row.fromGroup})` : ""}
+                {row.fromGroup
+                  ? t("bulk.viaGroup", {
+                      name: row.name,
+                      group: row.fromGroup,
+                    })
+                  : row.name}
               </strong>
               {/* The arrow is decoration; "becomes" is what a screen reader
                   needs so the two states are not read as one run-on value. */}
               <small className="bulk-transition">
                 <span>{row.current}</span>
                 <ArrowRight size={13} aria-hidden="true" />
-                <span className="visually-hidden">becomes</span>
+                <span className="visually-hidden">{t("bulk.becomes")}</span>
                 <span className="bulk-transition__next">{row.next}</span>
               </small>
             </div>
             <span className="bulk-row__verdict">
               {row.blocked ? (
-                <Badge variant="secondary">Skipped: {row.blocked}</Badge>
+                <Badge variant="secondary">
+                  {t("bulk.skippedReason", { reason: row.blocked })}
+                </Badge>
               ) : row.changes ? (
-                <Badge>Will change</Badge>
+                <Badge>{t("bulk.willChangeBadge")}</Badge>
               ) : (
-                "No change"
+                t("bulk.noChange")
               )}
             </span>
           </div>
@@ -607,7 +614,7 @@ function PreviewSection({
       <div className="bulk-panel__footer">
         <div className="bulk-panel__actions">
           <Button variant="ghost" type="button" onClick={onCancel}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button
             type="button"
@@ -615,8 +622,8 @@ function PreviewSection({
             onClick={onApply}
           >
             {applying
-              ? "Applying…"
-              : `Change ${preview.changeCount} screen${preview.changeCount === 1 ? "" : "s"}`}
+              ? t("groups.detail.applying")
+              : t("bulk.applyAction", { count: preview.changeCount })}
           </Button>
         </div>
       </div>

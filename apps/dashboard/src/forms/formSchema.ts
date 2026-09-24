@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import type {
   FormDataSource,
   FormField,
@@ -6,13 +7,46 @@ import type {
 } from "../api/types";
 import { uniqueKey } from "./formKeys";
 
+export type FormsT = TFunction<"forms", undefined>;
+
 // ControlMeta centralizes how each field control behaves so the palette, editor, renderer, and
 // publish-lock logic stay in agreement. outputType mirrors the server's outputTypeFor mapping;
-// presentation controls (section, help_text) produce no output field.
+// presentation controls (section, help_text) produce no output field. Display text lives in the
+// forms locale under controls.<control>; render sites translate labelKey/descriptionKey.
+export type ControlLabelKey =
+  | "controls.shortText.label"
+  | "controls.longText.label"
+  | "controls.number.label"
+  | "controls.integer.label"
+  | "controls.boolean.label"
+  | "controls.select.label"
+  | "controls.multiSelect.label"
+  | "controls.date.label"
+  | "controls.datetime.label"
+  | "controls.url.label"
+  | "controls.image.label"
+  | "controls.section.label"
+  | "controls.helpText.label";
+
+export type ControlDescriptionKey =
+  | "controls.shortText.description"
+  | "controls.longText.description"
+  | "controls.number.description"
+  | "controls.integer.description"
+  | "controls.boolean.description"
+  | "controls.select.description"
+  | "controls.multiSelect.description"
+  | "controls.date.description"
+  | "controls.datetime.description"
+  | "controls.url.description"
+  | "controls.image.description"
+  | "controls.section.description"
+  | "controls.helpText.description";
+
 export type ControlMeta = {
   control: FormFieldControl;
-  label: string;
-  description: string;
+  labelKey: ControlLabelKey;
+  descriptionKey: ControlDescriptionKey;
   presentation: boolean;
   outputType: string | null;
   hasOptions: boolean;
@@ -23,8 +57,8 @@ export type ControlMeta = {
 export const CONTROLS: ControlMeta[] = [
   {
     control: "short_text",
-    label: "Short text",
-    description: "A single line of text.",
+    labelKey: "controls.shortText.label",
+    descriptionKey: "controls.shortText.description",
     presentation: false,
     outputType: "text",
     hasOptions: false,
@@ -33,8 +67,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "long_text",
-    label: "Long text",
-    description: "A multi-line paragraph.",
+    labelKey: "controls.longText.label",
+    descriptionKey: "controls.longText.description",
     presentation: false,
     outputType: "text",
     hasOptions: false,
@@ -43,8 +77,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "number",
-    label: "Number",
-    description: "A decimal number.",
+    labelKey: "controls.number.label",
+    descriptionKey: "controls.number.description",
     presentation: false,
     outputType: "number",
     hasOptions: false,
@@ -53,8 +87,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "integer",
-    label: "Integer",
-    description: "A whole number.",
+    labelKey: "controls.integer.label",
+    descriptionKey: "controls.integer.description",
     presentation: false,
     outputType: "integer",
     hasOptions: false,
@@ -63,8 +97,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "boolean",
-    label: "Yes / no",
-    description: "A checkbox toggle.",
+    labelKey: "controls.boolean.label",
+    descriptionKey: "controls.boolean.description",
     presentation: false,
     outputType: "boolean",
     hasOptions: false,
@@ -73,8 +107,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "select",
-    label: "Select",
-    description: "Choose one option.",
+    labelKey: "controls.select.label",
+    descriptionKey: "controls.select.description",
     presentation: false,
     outputType: "text",
     hasOptions: true,
@@ -83,8 +117,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "multi_select",
-    label: "Multi-select",
-    description: "Choose one or more options.",
+    labelKey: "controls.multiSelect.label",
+    descriptionKey: "controls.multiSelect.description",
     presentation: false,
     outputType: "text",
     hasOptions: true,
@@ -93,8 +127,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "date",
-    label: "Date",
-    description: "A calendar date.",
+    labelKey: "controls.date.label",
+    descriptionKey: "controls.date.description",
     presentation: false,
     outputType: "date",
     hasOptions: false,
@@ -103,8 +137,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "datetime",
-    label: "Date & time",
-    description: "A date with a time.",
+    labelKey: "controls.datetime.label",
+    descriptionKey: "controls.datetime.description",
     presentation: false,
     outputType: "datetime",
     hasOptions: false,
@@ -113,8 +147,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "url",
-    label: "URL",
-    description: "A web link.",
+    labelKey: "controls.url.label",
+    descriptionKey: "controls.url.description",
     presentation: false,
     outputType: "url",
     hasOptions: false,
@@ -123,8 +157,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "image",
-    label: "Image upload",
-    description: "An uploaded image.",
+    labelKey: "controls.image.label",
+    descriptionKey: "controls.image.description",
     presentation: false,
     outputType: "asset",
     hasOptions: false,
@@ -133,8 +167,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "section",
-    label: "Section heading",
-    description: "A heading to group fields.",
+    labelKey: "controls.section.label",
+    descriptionKey: "controls.section.description",
     presentation: true,
     outputType: null,
     hasOptions: false,
@@ -143,8 +177,8 @@ export const CONTROLS: ControlMeta[] = [
   },
   {
     control: "help_text",
-    label: "Help text",
-    description: "Guidance shown to submitters.",
+    labelKey: "controls.helpText.label",
+    descriptionKey: "controls.helpText.description",
     presentation: true,
     outputType: null,
     hasOptions: false,
@@ -168,16 +202,19 @@ export function isPresentationControl(control: FormFieldControl): boolean {
 }
 
 // newField builds a sensible default field for a control, with a unique key derived from a label.
+// Default labels are translated so a new field starts in the author's language; they are stored
+// content the author can edit afterwards.
 export function newField(
   control: FormFieldControl,
   existingKeys: Iterable<string>,
+  t: FormsT,
 ): FormField {
   const meta = controlMeta(control);
   const label = meta.presentation
     ? control === "section"
-      ? "Section"
-      : "Help text"
-    : meta.label;
+      ? t("defaults.sectionLabel")
+      : t("defaults.helpTextLabel")
+    : t(meta.labelKey);
   const field: FormField = {
     key: uniqueKey(label, existingKeys),
     label,
@@ -185,8 +222,8 @@ export function newField(
   };
   if (meta.hasOptions) {
     field.options = [
-      { value: "option_1", label: "Option 1" },
-      { value: "option_2", label: "Option 2" },
+      { value: "option_1", label: t("defaults.optionLabel", { n: 1 }) },
+      { value: "option_2", label: t("defaults.optionLabel", { n: 2 }) },
     ];
   }
   return field;
@@ -249,10 +286,15 @@ function canonicalSchema(schema: FormSchema): string {
   });
 }
 
-export const INITIAL_FORM_SCHEMA = (): FormSchema => ({
+export const INITIAL_FORM_SCHEMA = (t: FormsT): FormSchema => ({
   title: "",
   description: "",
   fields: [
-    { key: "title", label: "Title", control: "short_text", required: true },
+    {
+      key: "title",
+      label: t("defaults.titleLabel"),
+      control: "short_text",
+      required: true,
+    },
   ],
 });

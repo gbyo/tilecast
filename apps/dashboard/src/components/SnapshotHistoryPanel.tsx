@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { Button, buttonVariants } from "./ui/button";
+import { buttonVariants } from "./ui/button";
 import {
   Empty,
   EmptyContent,
@@ -14,6 +16,8 @@ import {
 import { Skeleton } from "./ui/skeleton";
 
 export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
+  const { t } = useTranslation("screens");
+  const formatLocale = useFormatLocale();
   const history = useQuery({
     queryKey: ["screen-snapshots", screenId],
     queryFn: () => api.screenSnapshots(screenId),
@@ -22,17 +26,17 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
 
   if (history.isLoading)
     return (
-      <div className="space-y-2" aria-label="Snapshot history">
+      <div className="space-y-2" aria-label={t("snapshots.label")}>
         <Skeleton className="aspect-video w-full max-w-sm" />
         <p className="text-sm text-muted-foreground">
-          Loading snapshot history…
+          {t("snapshots.loading")}
         </p>
       </div>
     );
   if (history.error)
     return (
       <Alert variant="destructive">
-        <AlertTitle>Snapshot history failed to load</AlertTitle>
+        <AlertTitle>{t("snapshots.loadError")}</AlertTitle>
         <AlertDescription>{history.error.message}</AlertDescription>
       </Alert>
     );
@@ -42,11 +46,15 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>Snapshot history is off.</EmptyTitle>
+          <EmptyTitle>{t("snapshots.disabledTitle")}</EmptyTitle>
           <EmptyDescription>
-            Tilecast is not keeping images of what this screen showed. An Owner
-            or Administrator can turn it on under{" "}
-            <Link to="/settings/snapshots">Settings, Snapshot history</Link>.
+            <Trans
+              i18nKey="snapshots.disabledBody"
+              ns="screens"
+              components={{
+                settingsLink: <Link to="/settings/snapshots" />,
+              }}
+            />
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -56,59 +64,67 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>No snapshots yet</EmptyTitle>
-          <EmptyDescription>
-            Tilecast captures a frame on a schedule from screens that are
-            reporting.
-          </EmptyDescription>
+          <EmptyTitle>{t("snapshots.emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{t("snapshots.emptyBody")}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
 
   return (
-    <div className="space-y-3" aria-label="Snapshot history">
+    <div className="space-y-3" aria-label={t("snapshots.label")}>
       <p className="text-sm text-muted-foreground">
-        Retains up to {data.maxPerScreen} per screen for {data.retentionDays}{" "}
-        days.
+        {t("snapshots.retention", {
+          max: data.maxPerScreen,
+          days: data.retentionDays,
+        })}
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {data.items.map((snapshot) => (
-          <figure key={snapshot.id} className="min-w-0 space-y-1">
-            <Button
-              type="button"
-              variant="ghost"
-              className="block h-auto w-full overflow-hidden rounded-xl border border-border p-0"
-              aria-label={`View the snapshot from ${new Date(snapshot.capturedAt).toLocaleString()}`}
-              aria-expanded={openId === snapshot.id}
-              onClick={() =>
-                setOpenId(openId === snapshot.id ? undefined : snapshot.id)
-              }
-            >
-              <img
-                src={`/api/v1/screens/${screenId}/snapshots/${snapshot.id}/image`}
-                alt={`Screen at ${new Date(snapshot.capturedAt).toLocaleString()}`}
-                loading="lazy"
-                className="aspect-video w-full object-cover"
-              />
-            </Button>
-            <figcaption className="text-xs text-muted-foreground">
-              {new Date(snapshot.capturedAt).toLocaleString()}
-              {snapshot.trigger === "manual" ? " · manual" : ""}
-            </figcaption>
-            {openId === snapshot.id && (
-              <EmptyContent className="items-start">
-                <a
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                  href={`/api/v1/screens/${screenId}/snapshots/${snapshot.id}/image`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open full size
-                </a>
-              </EmptyContent>
-            )}
-          </figure>
-        ))}
+        {data.items.map((snapshot) => {
+          const captured = new Date(snapshot.capturedAt).toLocaleString(
+            formatLocale,
+          );
+          return (
+            <figure key={snapshot.id} className="min-w-0 space-y-1">
+              <button
+                type="button"
+                className="block w-full overflow-hidden rounded-xl border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={t("snapshots.viewSnapshot", { date: captured })}
+                aria-expanded={openId === snapshot.id}
+                onClick={() =>
+                  setOpenId(openId === snapshot.id ? undefined : snapshot.id)
+                }
+              >
+                <img
+                  src={`/api/v1/screens/${screenId}/snapshots/${snapshot.id}/image`}
+                  alt={t("snapshots.snapshotAlt", { date: captured })}
+                  loading="lazy"
+                  className="aspect-video w-full object-cover"
+                />
+              </button>
+              <figcaption className="text-xs text-muted-foreground">
+                {captured}
+                {snapshot.trigger === "manual"
+                  ? t("snapshots.manualSuffix")
+                  : ""}
+              </figcaption>
+              {openId === snapshot.id && (
+                <EmptyContent className="items-start">
+                  <a
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                    })}
+                    href={`/api/v1/screens/${screenId}/snapshots/${snapshot.id}/image`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t("snapshots.openFull")}
+                  </a>
+                </EmptyContent>
+              )}
+            </figure>
+          );
+        })}
       </div>
     </div>
   );

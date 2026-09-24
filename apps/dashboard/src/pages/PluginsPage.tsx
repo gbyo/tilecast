@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CircleAlert, Plus, Puzzle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import type { PluginSummary } from "../api/types";
@@ -25,11 +26,12 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Skeleton } from "../components/ui/skeleton";
+import { apiErrorMessage } from "../i18n";
 import { PluginCatalogDialog } from "../plugins/PluginCatalogDialog";
 import {
   hasStudioRoute,
   instanceSummary,
-  pluginStatus,
+  pluginStatusKey,
   usePluginCatalog,
   usePluginLifecycle,
 } from "../plugins/pluginCatalog";
@@ -42,6 +44,7 @@ import { canManage } from "../plugins/shared";
  * on that plugin, which is how global search reaches an uninstalled one.
  */
 export function PluginsPage() {
+  const { t } = useTranslation(["plugins", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -84,16 +87,15 @@ export function PluginsPage() {
     <main className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Plugins</h1>
-          <p className="text-sm text-muted-foreground">
-            Add optional Tilecast features and integrations to this
-            installation.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("list.title")}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("list.subtitle")}</p>
         </div>
         {installed.length > 0 && (
           <Button onClick={openCatalog}>
             <Plus data-icon="inline-start" aria-hidden="true" />
-            Add plugin
+            {t("list.addAction")}
           </Button>
         )}
       </header>
@@ -101,26 +103,25 @@ export function PluginsPage() {
       {catalog.isError && (
         <Alert variant="destructive">
           <CircleAlert aria-hidden="true" />
-          <AlertDescription>Plugins could not be loaded.</AlertDescription>
+          <AlertDescription>{t("list.loadError")}</AlertDescription>
         </Alert>
       )}
 
       {unsupported.length > 0 && (
         <Alert>
           <CircleAlert aria-hidden="true" />
-          <AlertTitle>Plugins from a newer Tilecast release</AlertTitle>
+          <AlertTitle>{t("list.unsupportedTitle")}</AlertTitle>
           <AlertDescription>
-            {unsupported.map((item) => item.pluginId).join(", ")}{" "}
-            {unsupported.length === 1 ? "is" : "are"} recorded as installed but
-            not part of this release. {unsupported.length === 1 ? "It" : "They"}{" "}
-            will not run, and {unsupported.length === 1 ? "its" : "their"} data
-            is kept for when the newer release returns.
+            {t("list.unsupportedBody", {
+              count: unsupported.length,
+              ids: unsupported.map((item) => item.pluginId).join(", "),
+            })}
           </AlertDescription>
         </Alert>
       )}
 
       {catalog.isLoading ? (
-        <ItemGroup className="gap-2" aria-label="Loading plugins">
+        <ItemGroup className="gap-2" aria-label={t("list.loading")}>
           {[0, 1].map((key) => (
             <Skeleton key={key} className="h-24 rounded-xl" />
           ))}
@@ -131,20 +132,18 @@ export function PluginsPage() {
             <EmptyMedia variant="icon">
               <Puzzle aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No plugins installed</EmptyTitle>
-            <EmptyDescription>
-              Add only the optional features this Tilecast installation needs.
-            </EmptyDescription>
+            <EmptyTitle>{t("list.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("list.emptyDescription")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button onClick={openCatalog}>
               <Plus data-icon="inline-start" aria-hidden="true" />
-              {canInstall ? "Add plugin" : "Browse plugins"}
+              {canInstall ? t("list.addAction") : t("list.browseAction")}
             </Button>
           </EmptyContent>
         </Empty>
       ) : (
-        <ItemGroup className="gap-2" aria-label="Installed plugins">
+        <ItemGroup className="gap-2" aria-label={t("list.installedLabel")}>
           {installed.map((plugin) => (
             <InstalledPlugin key={plugin.id} plugin={plugin} />
           ))}
@@ -163,7 +162,9 @@ export function PluginsPage() {
         }}
         canInstall={canInstall}
         installing={install.isPending}
-        installError={install.error?.message}
+        installError={
+          install.error ? apiErrorMessage(install.error) : undefined
+        }
         onInstall={onInstall}
       />
     </main>
@@ -171,7 +172,8 @@ export function PluginsPage() {
 }
 
 function InstalledPlugin({ plugin }: { plugin: PluginSummary }) {
-  const status = pluginStatus(plugin);
+  const { t } = useTranslation("plugins");
+  const statusKey = pluginStatusKey(plugin);
   return (
     <Item variant="outline">
       <ItemMedia variant="image" className="bg-muted">
@@ -186,22 +188,26 @@ function InstalledPlugin({ plugin }: { plugin: PluginSummary }) {
           <Link
             to={plugin.managementPath}
             className={buttonVariants({ variant: "outline", size: "sm" })}
-            aria-label={`Open ${plugin.name}`}
+            aria-label={t("list.openLabel", { name: plugin.name })}
           >
-            Open
+            {t("list.openAction")}
           </Link>
         )}
       </ItemActions>
       <ItemFooter className="justify-start gap-2 text-sm text-muted-foreground">
         <span className="tabular-nums">{instanceSummary(plugin)}</span>
         <span aria-hidden="true">·</span>
-        <Badge variant={status === "Attention" ? "outline" : "secondary"}>
-          {status === "Attention" && <CircleAlert aria-hidden="true" />}
-          {status}
+        <Badge
+          variant={statusKey === "status.attention" ? "outline" : "secondary"}
+        >
+          {statusKey === "status.attention" && (
+            <CircleAlert aria-hidden="true" />
+          )}
+          {t(statusKey)}
         </Badge>
         {plugin.attention[0] && (
           <span className="flex items-center gap-1 text-xs">
-            {status !== "Attention" && (
+            {statusKey !== "status.attention" && (
               <CircleAlert className="size-3.5" aria-hidden="true" />
             )}
             {plugin.attention[0].message}

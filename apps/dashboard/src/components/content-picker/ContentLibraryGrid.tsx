@@ -1,4 +1,6 @@
 import { FileImage, FileVideo, Globe2 } from "lucide-react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import type { Asset } from "../../api/types";
 import { AssetPreview } from "../content/AssetPreview";
 import { AspectRatio } from "../ui/aspect-ratio";
@@ -24,27 +26,29 @@ export type ContentLibraryProps = {
   onToggle: (asset: Asset) => void;
 };
 
-export function contentTypeLabel(asset: Asset) {
+type PickerT = TFunction<["content", "common"]>;
+
+export function contentTypeLabel(asset: Asset, t: PickerT) {
   if (asset.type === "widget") {
     return asset.widget?.provider === "youtube"
-      ? "YouTube Widget"
-      : "Website Widget";
+      ? t("media.type.youtubeWidget")
+      : t("media.type.websiteWidget");
   }
-  return asset.type === "image" ? "Image" : "Video";
+  return asset.type === "image" ? t("media.type.image") : t("media.type.video");
 }
 
-function statusLabel(status: Asset["processingStatus"]) {
+function statusLabel(status: Asset["processingStatus"], t: PickerT) {
   return (
     {
-      ready: "Ready",
-      uploading: "Uploading",
-      uploaded: "Uploaded",
-      queued: "Waiting",
-      inspecting: "Inspecting",
-      processing: "Processing",
-      failed: "Failed",
-      deleting: "Deleting",
-      deleted: "Deleted",
+      ready: t("media.status.ready"),
+      uploading: t("media.status.uploading"),
+      uploaded: t("media.status.uploaded"),
+      queued: t("media.status.waiting"),
+      inspecting: t("media.status.inspecting"),
+      processing: t("media.status.processing"),
+      failed: t("media.status.failed"),
+      deleting: t("media.status.deleting"),
+      deleted: t("media.status.deleted"),
     } satisfies Record<Asset["processingStatus"], string>
   )[status];
 }
@@ -52,7 +56,7 @@ function statusLabel(status: Asset["processingStatus"]) {
 // Each library entry is one native checkbox with a label stretched over the
 // whole card or row, so clicking anywhere toggles it without nesting
 // interactive elements. Only exceptional state earns a Badge.
-function entryState(asset: Asset, disabledIds: Set<string>) {
+function entryState(asset: Asset, disabledIds: Set<string>, t: PickerT) {
   const alreadyAdded = disabledIds.has(asset.id);
   const status = asset.processingStatus;
   return {
@@ -60,9 +64,9 @@ function entryState(asset: Asset, disabledIds: Set<string>) {
     disabled: alreadyAdded || status !== "ready",
     badge:
       status === "failed"
-        ? { label: "Failed", variant: "destructive" as const }
+        ? { label: t("media.status.failed"), variant: "destructive" as const }
         : status !== "ready"
-          ? { label: statusLabel(status), variant: "secondary" as const }
+          ? { label: statusLabel(status, t), variant: "secondary" as const }
           : undefined,
   };
 }
@@ -105,10 +109,10 @@ function EntryLabel({ asset, disabled }: { asset: Asset; disabled: boolean }) {
   );
 }
 
-function entryMeta(asset: Asset, alreadyAdded: boolean) {
+function entryMeta(asset: Asset, alreadyAdded: boolean, t: PickerT) {
   return alreadyAdded
-    ? `${contentTypeLabel(asset)} · Already added`
-    : contentTypeLabel(asset);
+    ? t("picker.library.alreadyAdded", { type: contentTypeLabel(asset, t) })
+    : contentTypeLabel(asset, t);
 }
 
 export function ContentLibraryGrid({
@@ -118,6 +122,7 @@ export function ContentLibraryGrid({
   highlightedIds,
   onToggle,
 }: ContentLibraryProps) {
+  const { t } = useTranslation(["content", "common"]);
   return (
     <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
       {items.map((asset) => {
@@ -125,6 +130,7 @@ export function ContentLibraryGrid({
         const { alreadyAdded, disabled, badge } = entryState(
           asset,
           disabledIds,
+          t,
         );
         return (
           <li key={asset.id} className="min-w-0">
@@ -149,7 +155,9 @@ export function ContentLibraryGrid({
               />
               {(highlightedIds.has(asset.id) || badge) && (
                 <div className="pointer-events-none absolute top-2 left-2 z-10 flex gap-1">
-                  {highlightedIds.has(asset.id) && <Badge>New</Badge>}
+                  {highlightedIds.has(asset.id) && (
+                    <Badge>{t("picker.library.newBadge")}</Badge>
+                  )}
                   {badge && (
                     <Badge variant={badge.variant}>{badge.label}</Badge>
                   )}
@@ -163,7 +171,7 @@ export function ContentLibraryGrid({
                   id={`content-picker-${asset.id}-meta`}
                   className="truncate text-xs"
                 >
-                  {entryMeta(asset, alreadyAdded)}
+                  {entryMeta(asset, alreadyAdded, t)}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -181,6 +189,7 @@ export function ContentLibraryList({
   highlightedIds,
   onToggle,
 }: ContentLibraryProps) {
+  const { t } = useTranslation(["content", "common"]);
   return (
     <ItemGroup className="gap-1">
       {items.map((asset) => {
@@ -188,6 +197,7 @@ export function ContentLibraryList({
         const { alreadyAdded, disabled, badge } = entryState(
           asset,
           disabledIds,
+          t,
         );
         return (
           <Item
@@ -223,12 +233,14 @@ export function ContentLibraryList({
                 id={`content-picker-${asset.id}-meta`}
                 className="truncate text-xs"
               >
-                {entryMeta(asset, alreadyAdded)}
+                {entryMeta(asset, alreadyAdded, t)}
               </ItemDescription>
             </ItemContent>
             {(highlightedIds.has(asset.id) || badge) && (
               <ItemActions className="gap-1">
-                {highlightedIds.has(asset.id) && <Badge>New</Badge>}
+                {highlightedIds.has(asset.id) && (
+                  <Badge>{t("picker.library.newBadge")}</Badge>
+                )}
                 {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
               </ItemActions>
             )}
@@ -246,8 +258,9 @@ function TypeIcon({ type }: { type: Asset["type"] }) {
 }
 
 export function ContentLibraryLoading({ view }: { view: "grid" | "list" }) {
+  const { t } = useTranslation(["content", "common"]);
   return (
-    <div aria-busy="true" aria-label="Loading content">
+    <div aria-busy="true" aria-label={t("picker.library.loadingLabel")}>
       {view === "grid" ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
           {Array.from({ length: 8 }, (_, index) => (

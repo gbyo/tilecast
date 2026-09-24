@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Asset } from "../../api/types";
 import { Button } from "../ui/button";
 import {
@@ -22,21 +23,21 @@ export function SelectedContentTray({
   onRemove: (id: string) => void;
   onClear: () => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   return (
     <div className="flex min-w-0 flex-1 items-center gap-3">
       <p className="shrink-0 text-sm font-medium tabular-nums" role="status">
-        {items.length} selected
+        {t("picker.tray.selectedCount", { count: items.length })}
         {preparing && (
           <span className="font-normal text-muted-foreground">
-            {" "}
-            · waiting for processing
+            {t("picker.footer.waitingSuffix")}
           </span>
         )}
       </p>
       {items.length > 0 && (
         <>
           <ItemGroup
-            aria-label="Selected content"
+            aria-label={t("picker.tray.selectedContent")}
             className="min-w-0 flex-1 flex-row flex-nowrap gap-1.5 overflow-x-auto py-0.5"
           >
             {items.map((asset) => (
@@ -57,7 +58,9 @@ export function SelectedContentTray({
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    aria-label={`Remove ${asset.name} from selection`}
+                    aria-label={t("picker.tray.removeFromSelection", {
+                      name: asset.name,
+                    })}
                     onClick={() => onRemove(asset.id)}
                   >
                     <X aria-hidden="true" />
@@ -73,7 +76,7 @@ export function SelectedContentTray({
             className="shrink-0"
             onClick={onClear}
           >
-            Clear
+            {t("picker.tray.clear")}
           </Button>
         </>
       )}

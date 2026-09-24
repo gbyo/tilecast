@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trans, useTranslation } from "react-i18next";
 import { Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { IntegrationScope, IntegrationToken } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
+import type { TFunction } from "i18next";
 import { useConfirm } from "../components/ConfirmDialog";
 import { DateInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -36,16 +39,23 @@ import {
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 
-const scopeLabels: Record<IntegrationScope, string> = {
-  "data_source:write": "Write Manual Table rows",
-  "activity:read": "Read fleet health",
+type ScopeTitleKey =
+  "integrations.scopes.write.title" | "integrations.scopes.read.title";
+type ScopeDescriptionKey =
+  | "integrations.scopes.write.description"
+  | "integrations.scopes.read.description";
+
+// Scope metadata holds translation keys, never rendered text. Labels are
+// resolved with t() at render so the panel follows language changes.
+const scopeTitles: Record<IntegrationScope, ScopeTitleKey> = {
+  "data_source:write": "integrations.scopes.write.title",
+  "activity:read": "integrations.scopes.read.title",
 };
-const scopeDescriptions: Record<IntegrationScope, string> = {
-  "data_source:write": "Replace rows in selected Manual Table Data Sources.",
-  "activity:read":
-    "Read counts of screens by reporting state, unresolved incidents, and content problems, as JSON or Prometheus metrics.",
+const scopeDescriptions: Record<IntegrationScope, ScopeDescriptionKey> = {
+  "data_source:write": "integrations.scopes.write.description",
+  "activity:read": "integrations.scopes.read.description",
 };
-const allScopes = Object.keys(scopeLabels) as IntegrationScope[];
+const allScopes = Object.keys(scopeTitles) as IntegrationScope[];
 
 // An expiry is a date an operator picks, not an instant. It is read as the end of
 // that day in their own time, so a token chosen to expire today still works for
@@ -69,19 +79,32 @@ function endOfDay(date: string): string | undefined {
 // chasing a system that stopped working has to be able to tell which one it is.
 // A revoked token reads as revoked even after its expiry passes: that is the
 // decision somebody made.
-function status(token: IntegrationToken): "Revoked" | "Expired" | "Active" {
-  if (token.revokedAt) return "Revoked";
+type TokenStatusKey =
+  | "integrations.status.revoked"
+  | "integrations.status.expired"
+  | "integrations.status.active";
+
+function status(token: IntegrationToken): TokenStatusKey {
+  if (token.revokedAt) return "integrations.status.revoked";
   if (token.expiresAt && new Date(token.expiresAt).getTime() <= Date.now())
-    return "Expired";
-  return "Active";
+    return "integrations.status.expired";
+  return "integrations.status.active";
 }
 
-function expiryNote(token: IntegrationToken): string | undefined {
+function expiryNote(
+  token: IntegrationToken,
+  t: TFunction<["settings", "common"]>,
+  locale: string,
+): string | undefined {
   if (!token.expiresAt) return undefined;
-  return `Expiry ${new Date(token.expiresAt).toLocaleDateString()}`;
+  return t("integrations.expiry", {
+    date: new Date(token.expiresAt).toLocaleDateString(locale),
+  });
 }
 
 export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -143,9 +166,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
   const revoke = useMutation({
     mutationFn: async (token: IntegrationToken) => {
       const ok = await confirm({
-        title: `Revoke "${token.name}"?`,
-        body: "Anything using it stops working immediately, and a revoked token cannot be re-enabled.",
-        action: "Revoke",
+        title: t("integrations.revokeTitle", { name: token.name }),
+        body: t("integrations.revokeBody"),
+        action: t("integrations.revokeAction"),
         destructive: true,
       });
       if (!ok) throw new CancelledAction();
@@ -160,9 +183,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
   if (!owner)
     return (
       <Alert role="status">
-        <AlertDescription>
-          Only the Owner may manage integration tokens.
-        </AlertDescription>
+        <AlertDescription>{t("integrations.ownerOnly")}</AlertDescription>
       </Alert>
     );
 
@@ -172,9 +193,11 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
       <div className="grid gap-4">
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Integration tokens</h3>
+            <h3 className="text-base font-semibold">
+              {t("integrations.title")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Grant selected integrations without sharing a Studio password.
+              {t("integrations.description")}
             </p>
           </header>
 
@@ -182,7 +205,11 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
             <Alert role="status">
               <AlertDescription className="grid gap-2">
                 <span>
-                  <strong>Copy this token now.</strong> Shown once.
+                  <Trans
+                    i18nKey="integrations.secretNotice"
+                    ns="settings"
+                    components={{ strong: <strong /> }}
+                  />
                 </span>
                 <pre className="overflow-x-auto rounded-xl border border-border bg-muted p-3 font-mono text-xs break-all">
                   {secret}
@@ -196,7 +223,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                       setNotice(undefined);
                     }}
                   >
-                    I have copied it
+                    {t("integrations.copied")}
                   </Button>
                 </div>
               </AlertDescription>
@@ -206,14 +233,14 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
           {tokens.isLoading ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Spinner aria-hidden="true" />
-              Loading tokens…
+              {t("integrations.loading")}
             </p>
           ) : !tokens.data?.length ? (
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>No tokens</EmptyTitle>
+                <EmptyTitle>{t("integrations.empty")}</EmptyTitle>
                 <EmptyDescription>
-                  No integration tokens exist.
+                  {t("integrations.emptyHint")}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -225,24 +252,32 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                     <ItemTitle>{token.name}</ItemTitle>
                     <ItemDescription>
                       {token.scopes
-                        .map((scope) => scopeLabels[scope])
+                        .map((scope) => t(scopeTitles[scope]))
                         .join(" · ")}
                     </ItemDescription>
                     <ItemDescription className="flex flex-wrap items-center gap-2">
                       <Badge
                         variant={
-                          status(token) === "Active" ? "default" : "secondary"
+                          status(token) === "integrations.status.active"
+                            ? "default"
+                            : "secondary"
                         }
                       >
-                        {status(token)}
+                        {t(status(token))}
                       </Badge>
                       {" · "}
                       {token.lastUsedAt
-                        ? `Last used ${new Date(token.lastUsedAt).toLocaleString()}`
-                        : "Never used"}
-                      {expiryNote(token) ? ` · ${expiryNote(token)}` : ""}
+                        ? t("integrations.lastUsed", {
+                            date: new Date(token.lastUsedAt).toLocaleString(
+                              locale,
+                            ),
+                          })
+                        : t("integrations.neverUsed")}
+                      {expiryNote(token, t, locale)
+                        ? ` · ${expiryNote(token, t, locale)}`
+                        : ""}
                       {token.dataSourceIds.length > 0
-                        ? ` · Limited to ${token.dataSourceIds.length} Data Source${token.dataSourceIds.length === 1 ? "" : "s"}`
+                        ? ` · ${t("integrations.limited", { count: token.dataSourceIds.length })}`
                         : ""}
                     </ItemDescription>
                   </ItemContent>
@@ -251,9 +286,12 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                       <Button
                         variant="destructive"
                         onClick={() => revoke.mutate(token)}
-                        aria-label={`Revoke ${token.name}`}
+                        aria-label={t("integrations.revokeToken", {
+                          name: token.name,
+                        })}
                       >
-                        <Trash2 size={15} aria-hidden="true" /> Revoke
+                        <Trash2 size={15} aria-hidden="true" />{" "}
+                        {t("integrations.revoke")}
                       </Button>
                     )}
                   </ItemActions>
@@ -270,7 +308,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Create a token</h3>
+            <h3 className="text-base font-semibold">
+              {t("integrations.createTitle")}
+            </h3>
           </header>
           <form
             className="grid gap-4"
@@ -282,10 +322,11 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
           >
             <Field className="gap-3 sm:grid sm:grid-cols-2 sm:items-start">
               <FieldContent>
-                <FieldLabel htmlFor="token-name">Name</FieldLabel>
+                <FieldLabel htmlFor="token-name">
+                  {t("integrations.nameLabel")}
+                </FieldLabel>
                 <FieldDescription>
-                  Name the system that will use it, so the delivery record and
-                  the audit log say who did what.
+                  {t("integrations.nameHint")}
                 </FieldDescription>
               </FieldContent>
               <Input
@@ -299,7 +340,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
 
             <FieldSet className="grid gap-2">
               <FieldLegend variant="label" className="mb-0">
-                Capabilities
+                {t("integrations.capabilities")}
               </FieldLegend>
               <div className="grid content-start gap-2">
                 {allScopes.map((scope) => (
@@ -323,9 +364,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                       htmlFor={"token-scope-" + scope}
                       className="grid gap-0.5 font-normal"
                     >
-                      {scopeLabels[scope]}
+                      {t(scopeTitles[scope])}
                       <span className="text-xs text-muted-foreground">
-                        {scopeDescriptions[scope]}
+                        {t(scopeDescriptions[scope])}
                       </span>
                     </FieldLabel>
                   </Field>
@@ -335,11 +376,11 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
 
             <Field className="gap-3 sm:grid sm:grid-cols-2 sm:items-start">
               <FieldContent>
-                <FieldLabel htmlFor="token-expires">Expires on</FieldLabel>
+                <FieldLabel htmlFor="token-expires">
+                  {t("integrations.expiresLabel")}
+                </FieldLabel>
                 <FieldDescription>
-                  The token stops working at the end of this day. Leave it empty
-                  for a token that never expires, and revoke it when the system
-                  using it is retired.
+                  {t("integrations.expiresHint")}
                 </FieldDescription>
               </FieldContent>
               <DateInput
@@ -355,20 +396,19 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
             {scopes.includes("data_source:write") && (
               <FieldSet className="grid gap-2">
                 <FieldLegend variant="label" className="mb-0">
-                  Limit to Data Sources
+                  {t("integrations.limitLabel")}
                 </FieldLegend>
                 <FieldDescription>
-                  Select none to allow every Manual Table Data Source. Naming
-                  them is the safer default.
+                  {t("integrations.limitHint")}
                 </FieldDescription>
                 <div className="grid content-start gap-2">
                   {sources.isLoading ? (
                     <span className="text-xs text-muted-foreground">
-                      Loading Data Sources…
+                      {t("integrations.loadingSources")}
                     </span>
                   ) : !sources.data?.items?.length ? (
                     <span className="text-xs text-muted-foreground">
-                      No Manual Table Data Sources exist yet.
+                      {t("integrations.noSources")}
                     </span>
                   ) : (
                     sources.data.items.map((source) => (
@@ -413,7 +453,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                 type="submit"
                 disabled={create.isPending || scopes.length === 0}
               >
-                {create.isPending ? "Creating…" : "Create token"}
+                {create.isPending
+                  ? t("integrations.creating")
+                  : t("integrations.createAction")}
               </Button>
             </div>
           </form>

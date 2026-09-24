@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { ContentTag } from "../../api/types";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
@@ -47,14 +48,20 @@ import { Toggle } from "../ui/toggle";
 
 export type PlaylistDetailsTab = "general" | "source" | "usage";
 
-const sourceTypeOptions = [
-  { value: "static", label: "Manual timeline" },
-  { value: "tag", label: "Automatically from media tags" },
+const sourceTypeOptions: {
+  value: "static" | "tag";
+  labelKey: "details.sourceOptions.manual" | "details.sourceOptions.fromTags";
+}[] = [
+  { value: "static", labelKey: "details.sourceOptions.manual" },
+  { value: "tag", labelKey: "details.sourceOptions.fromTags" },
 ];
 
-const tagMatchOptions = [
-  { value: "any", label: "Any selected tag" },
-  { value: "all", label: "All selected tags" },
+const tagMatchOptions: {
+  value: "any" | "all";
+  labelKey: "details.matchOptions.any" | "details.matchOptions.all";
+}[] = [
+  { value: "any", labelKey: "details.matchOptions.any" },
+  { value: "all", labelKey: "details.matchOptions.all" },
 ];
 
 export function PlaylistDetailsDrawer({
@@ -117,6 +124,15 @@ export function PlaylistDetailsDrawer({
   onSaveMetadata: () => void;
   onSaveTagRule: () => void;
 }) {
+  const { t } = useTranslation("playlists");
+  const sourceTypeItems = sourceTypeOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const tagMatchItems = tagMatchOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
   const body = (
     <Tabs
       value={tab}
@@ -124,15 +140,17 @@ export function PlaylistDetailsDrawer({
       className="min-h-0 flex-1 gap-0"
     >
       <TabsList variant="line" className="mx-4 shrink-0">
-        <TabsTrigger value="general">General</TabsTrigger>
-        <TabsTrigger value="source">Content source</TabsTrigger>
-        <TabsTrigger value="usage">Usage</TabsTrigger>
+        <TabsTrigger value="general">{t("details.tabs.general")}</TabsTrigger>
+        <TabsTrigger value="source">{t("details.tabs.source")}</TabsTrigger>
+        <TabsTrigger value="usage">{t("details.tabs.usage")}</TabsTrigger>
       </TabsList>
       <div className="min-h-0 flex-1 overflow-y-auto border-t px-4 pt-5 pb-4">
         <TabsContent value="general">
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="playlist-details-name">Name</FieldLabel>
+              <FieldLabel htmlFor="playlist-details-name">
+                {t("details.nameLabel")}
+              </FieldLabel>
               <Input
                 id="playlist-details-name"
                 disabled={!canManage}
@@ -142,7 +160,7 @@ export function PlaylistDetailsDrawer({
             </Field>
             <Field>
               <FieldLabel htmlFor="playlist-details-description">
-                Description
+                {t("details.descriptionLabel")}
               </FieldLabel>
               <Textarea
                 id="playlist-details-description"
@@ -151,7 +169,7 @@ export function PlaylistDetailsDrawer({
                 onChange={(event) => onDescriptionChange(event.target.value)}
               />
               <FieldDescription>
-                Saved separately from timeline edits.
+                {t("details.descriptionHint")}
               </FieldDescription>
             </Field>
             {metadataError && (
@@ -166,7 +184,7 @@ export function PlaylistDetailsDrawer({
                 onClick={onSaveMetadata}
               >
                 {metadataSaving && <Spinner aria-hidden="true" />}
-                Save details
+                {t("details.saveDetails")}
               </Button>
             </div>
           </FieldGroup>
@@ -175,37 +193,39 @@ export function PlaylistDetailsDrawer({
         <TabsContent value="source">
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="playlist-details-source">Source</FieldLabel>
+              <FieldLabel htmlFor="playlist-details-source">
+                {t("details.sourceLabel")}
+              </FieldLabel>
               <Select
                 disabled={!canManage}
                 value={sourceType}
                 onValueChange={(next) =>
                   onSourceTypeChange(next as "static" | "tag")
                 }
-                items={sourceTypeOptions}
+                items={sourceTypeItems}
               >
-                <SelectTrigger id="playlist-details-source" aria-label="Source">
+                <SelectTrigger
+                  id="playlist-details-source"
+                  aria-label={t("details.sourceLabel")}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {sourceTypeOptions.map((option) => (
+                  {sourceTypeItems.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <FieldDescription>
-                Choose a manual timeline, or let matching ready media appear
-                from tags.
-              </FieldDescription>
+              <FieldDescription>{t("details.sourceHint")}</FieldDescription>
             </Field>
 
             {sourceType === "tag" && (
               <>
                 <Field>
                   <FieldLabel htmlFor="playlist-details-match">
-                    Match
+                    {t("details.matchLabel")}
                   </FieldLabel>
                   <Select
                     disabled={!canManage}
@@ -213,16 +233,16 @@ export function PlaylistDetailsDrawer({
                     onValueChange={(next) =>
                       onTagMatchChange(next as "any" | "all")
                     }
-                    items={tagMatchOptions}
+                    items={tagMatchItems}
                   >
                     <SelectTrigger
                       id="playlist-details-match"
-                      aria-label="Match"
+                      aria-label={t("details.matchLabel")}
                     >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {tagMatchOptions.map((option) => (
+                      {tagMatchItems.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
@@ -231,7 +251,9 @@ export function PlaylistDetailsDrawer({
                   </Select>
                 </Field>
                 <FieldSet>
-                  <FieldLegend variant="label">Media tags</FieldLegend>
+                  <FieldLegend variant="label">
+                    {t("details.tagsLabel")}
+                  </FieldLegend>
                   <div className="flex flex-wrap gap-2">
                     {tags.length ? (
                       tags.map((tag) => (
@@ -253,19 +275,19 @@ export function PlaylistDetailsDrawer({
                       ))
                     ) : (
                       <span className="text-sm text-muted-foreground">
-                        No tags available
+                        {t("details.noTags")}
                       </span>
                     )}
                   </div>
                   {tagIds.length === 0 && (
                     <FieldDescription>
-                      Select at least one tag before saving this source.
+                      {t("details.tagRequired")}
                     </FieldDescription>
                   )}
                 </FieldSet>
                 <Field>
                   <FieldLabel htmlFor="playlist-details-image-duration">
-                    Image duration
+                    {t("details.imageDurationLabel")}
                   </FieldLabel>
                   <InputGroup className="w-32">
                     <InputGroupInput
@@ -280,11 +302,13 @@ export function PlaylistDetailsDrawer({
                       }
                     />
                     <InputGroupAddon align="inline-end">
-                      <InputGroupText>seconds</InputGroupText>
+                      <InputGroupText>
+                        {t("details.secondsUnit")}
+                      </InputGroupText>
                     </InputGroupAddon>
                   </InputGroup>
                   <FieldDescription>
-                    Applied to matching image content.
+                    {t("details.imageDurationHint")}
                   </FieldDescription>
                 </Field>
               </>
@@ -306,7 +330,7 @@ export function PlaylistDetailsDrawer({
                 onClick={onSaveTagRule}
               >
                 {tagRuleSaving && <Spinner aria-hidden="true" />}
-                Save content source
+                {t("details.saveSource")}
               </Button>
             </div>
           </FieldGroup>
@@ -321,15 +345,15 @@ export function PlaylistDetailsDrawer({
     return (
       <Sheet
         open={open}
-        onOpenChange={(open) => {
-          if (!open) onClose();
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) onClose();
         }}
       >
         <SheetContent side="right" className="gap-0 overflow-hidden">
           <SheetHeader>
-            <SheetTitle>Playlist details</SheetTitle>
+            <SheetTitle>{t("details.title")}</SheetTitle>
             <SheetDescription>
-              Name, content source, and where this playlist plays.
+              {t("details.drawerDescription")}
             </SheetDescription>
           </SheetHeader>
           {body}
@@ -341,22 +365,22 @@ export function PlaylistDetailsDrawer({
   return (
     <Drawer
       open={open}
-      onOpenChange={(open) => {
-        if (!open) onClose();
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
       }}
       showSwipeHandle
     >
       <DrawerContent className="max-h-[calc(100dvh-2rem)]">
         <DrawerHeader>
-          <DrawerTitle>Playlist details</DrawerTitle>
+          <DrawerTitle>{t("details.title")}</DrawerTitle>
           <DrawerDescription>
-            Name, content source, and where this playlist plays.
+            {t("details.drawerDescription")}
           </DrawerDescription>
         </DrawerHeader>
         {body}
         <DrawerFooter className="border-t">
           <DrawerClose render={<Button type="button" variant="outline" />}>
-            Done
+            {t("details.done")}
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>

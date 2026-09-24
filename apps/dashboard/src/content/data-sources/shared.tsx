@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "../../components/ui/button";
+import { useTranslation } from "react-i18next";
+import { Button as Button } from "../../components/ui/button";
 
 // Providers handled by a dedicated legacy editor below. Anything not listed here is a
 // release-defined Source that routes to the generic, definition-driven editor.
@@ -17,6 +18,15 @@ export const legacyDataSourceProviders = new Set<string>([
   "csv",
 ]);
 
+export function optionLabel(
+  options: readonly { value: string | number; label: string }[],
+  value: string | number,
+): string {
+  return (
+    options.find((option) => option.value === value)?.label ?? String(value)
+  );
+}
+
 export function EditorFrame({
   title,
   description,
@@ -32,6 +42,7 @@ export function EditorFrame({
   children: ReactNode;
   footer: ReactNode;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   return (
     <div
       className={
@@ -59,7 +70,7 @@ export function EditorFrame({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Close"
+            aria-label={t("common:actions.close")}
             onClick={onClose}
           >
             <X aria-hidden="true" />

@@ -1,0 +1,114 @@
+{
+  "brand": {
+    "home": "Tilecast Overview"
+  },
+  "groups": {
+    "screens": "Screens",
+    "content": "Content",
+    "presentations": "Presentations",
+    "operations": "Operations"
+  },
+  "overview": "Overview",
+  "userMenu": {
+    "openLabel": "Open account menu for {{name}}",
+    "myForms": "My Forms",
+    "myAccount": "My Account",
+    "signOut": "Sign out"
+  },
+  "items": {
+    "fleet": "Fleet",
+    "displayGroups": "Display Groups",
+    "archive": "Archive",
+    "media": "Media",
+    "widgets": "Widgets",
+    "dataSources": "Data Sources",
+    "playlists": "Playlists",
+    "layouts": "Layouts",
+    "campaigns": "Campaigns",
+    "schedules": "Schedules",
+    "plugins": "Plugins",
+    "activity": "Activity",
+    "approvals": "Approvals",
+    "settings": "Settings"
+  },
+  "header": {
+    "toggleNavigation": "Toggle navigation",
+    "search": "Search Tilecast",
+    "notifications": "Notifications",
+    "notificationsWithCount_one": "Notifications, {{count}} active",
+    "notificationsWithCount_other": "Notifications, {{count}} active",
+    "activeCount_one": "{{count}} active",
+    "activeCount_other": "{{count}} active",
+    "noneActive": "No active",
+    "caughtUp": "You’re all caught up.",
+    "groups": {
+      "critical": "Critical",
+      "warning": "Needs attention",
+      "info": "Info"
+    }
+  },
+  "palette": {
+    "title": "Search Tilecast",
+    "description": "Find a workspace, screen, or quick action.",
+    "label": "Search Tilecast",
+    "placeholder": "Search screens, media, playlists…",
+    "resultsLabel": "Search results",
+    "noResults": "No results for “{{query}}”.",
+    "noDestinations": "No destinations available.",
+    "groups": {
+      "quickActions": "Quick actions",
+      "screens": "Screens",
+      "content": "Content",
+      "presentations": "Presentations",
+      "scheduling": "Scheduling",
+      "administration": "Administration",
+      "navigation": "Navigation"
+    },
+    "actions": {
+      "pairScreen": {
+        "label": "Pair a screen",
+        "description": "Connect a new signage player"
+      },
+      "uploadMedia": {
+        "label": "Upload media",
+        "description": "Add images, videos, or documents"
+      },
+      "createPlaylist": {
+        "label": "Create playlist",
+        "description": "Build a new fullscreen presentation"
+      },
+      "createLayout": {
+        "label": "Create layout",
+        "description": "Arrange content on a presentation canvas"
+      },
+      "createSchedule": {
+        "label": "Create schedule",
+        "description": "Plan where and when content plays"
+      }
+    },
+    "plugin": "Plugin",
+    "pluginNotInstalled": "Plugin · Not installed",
+    "hints": {
+      "move": "move",
+      "open": "open",
+      "close": "close"
+    },
+    "screenStatus": {
+      "online": "Online",
+      "recent": "Recently online",
+      "stale": "Stale",
+      "offline": "Offline",
+      "disabled": "Disabled",
+      "revoked": "Pairing revoked"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "Trace content, presentations, schedules, groups, and screens",
+      "sectionFallback": "{{label}} settings"
+    }
+  },
+  "error": {
+    "title": "This page could not be displayed.",
+    "fallback": "An unexpected error occurred while rendering this page.",
+    "retry": "Try again"
+  }
+}

@@ -5,8 +5,10 @@ import {
 } from "@tanstack/react-query";
 import { AlertCircle, LibraryBig, Plus, SearchX, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Asset, WidgetProvider } from "../../api/types";
+import { apiErrorMessage } from "../../i18n";
 import {
   ContentLibraryGrid,
   ContentLibraryList,
@@ -75,15 +77,20 @@ export function ContentPicker({
   allowedProviders,
   disabledItemIds = [],
   selectedIds = [],
-  confirmLabel = "Add content",
-  title = "Choose content",
-  description = "Select existing content or upload media. Apps are managed in their own library.",
+  confirmLabel,
+  title,
+  description,
   onConfirm,
   onClose,
   onCloseComplete,
   onCreateWidget,
 }: ContentPickerProps) {
+  const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
+  const resolvedConfirmLabel = confirmLabel ?? t("picker.dialog.addContent");
+  const resolvedTitle = title ?? t("picker.dialog.chooseContent");
+  const resolvedDescription =
+    description ?? t("picker.dialog.chooseDescription");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ContentPickerFilter>("all");
   const [folderFilter, setFolderFilter] = useState("");
@@ -270,11 +277,11 @@ export function ContentPicker({
       setFailures([
         {
           id: "picker",
-          name: "Content selection",
+          name: t("picker.errors.selectionName"),
           message:
             error instanceof Error
-              ? error.message
-              : "Content could not be added.",
+              ? apiErrorMessage(error)
+              : t("picker.errors.addError"),
         },
       ]);
     } finally {
@@ -301,8 +308,8 @@ export function ContentPicker({
       {uploads.dialog}
       <DialogContent className="flex h-[min(54rem,calc(100dvh-2rem))] w-[min(74rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
         <DialogHeader className="gap-1 px-6 pt-5 pb-3 pr-14">
-          <DialogTitle className="text-base">{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle className="text-base">{resolvedTitle}</DialogTitle>
+          <DialogDescription>{resolvedDescription}</DialogDescription>
         </DialogHeader>
         <Tabs
           value={tab}
@@ -313,12 +320,12 @@ export function ContentPicker({
             <TabsList variant="line">
               <TabsTrigger value="library">
                 <LibraryBig aria-hidden="true" />
-                Library
+                {t("picker.tabs.library")}
               </TabsTrigger>
               {canUpload && (
                 <TabsTrigger value="upload">
                   <Upload aria-hidden="true" />
-                  Upload
+                  {t("picker.tabs.upload")}
                 </TabsTrigger>
               )}
             </TabsList>
@@ -330,7 +337,7 @@ export function ContentPicker({
                 onClick={onCreateWidget}
               >
                 <Plus aria-hidden="true" />
-                Create widget
+                {t("picker.dialog.createWidget")}
               </Button>
             )}
           </div>
@@ -366,9 +373,9 @@ export function ContentPicker({
               ) : library.isError ? (
                 <Alert variant="destructive">
                   <AlertCircle aria-hidden="true" />
-                  <AlertTitle>Content could not be loaded.</AlertTitle>
+                  <AlertTitle>{t("picker.library.loadError")}</AlertTitle>
                   <AlertDescription>
-                    Check the connection to Tilecast and try again.
+                    {t("picker.library.loadErrorHint")}
                   </AlertDescription>
                   <AlertAction>
                     <Button
@@ -377,7 +384,7 @@ export function ContentPicker({
                       size="sm"
                       onClick={() => void library.refetch()}
                     >
-                      Try again
+                      {t("picker.errors.tryAgain")}
                     </Button>
                   </AlertAction>
                 </Alert>
@@ -388,14 +395,16 @@ export function ContentPicker({
                       <SearchX aria-hidden="true" />
                     </EmptyMedia>
                     <EmptyTitle>
-                      {filtered ? "No matching content" : "No content yet"}
+                      {filtered
+                        ? t("picker.library.noMatch")
+                        : t("picker.library.emptyTitle")}
                     </EmptyTitle>
                     <EmptyDescription>
                       {filtered
-                        ? "Try a different search or clear the filters."
+                        ? t("picker.library.noMatchClearHint")
                         : canUpload
-                          ? "Upload images or videos to start the library."
-                          : "Create a Widget to add it here."}
+                          ? t("picker.library.emptyUploadHint")
+                          : t("picker.library.emptyWidgetHint")}
                     </EmptyDescription>
                   </EmptyHeader>
                   {(filtered || canUpload) && (
@@ -406,13 +415,13 @@ export function ContentPicker({
                           variant="outline"
                           onClick={clearFilters}
                         >
-                          Clear filters
+                          {t("picker.library.clearFilters")}
                         </Button>
                       )}
                       {canUpload && (
                         <Button type="button" onClick={() => setTab("upload")}>
                           <Upload aria-hidden="true" />
-                          Upload media
+                          {t("picker.upload.uploadMedia")}
                         </Button>
                       )}
                     </EmptyContent>
@@ -436,7 +445,7 @@ export function ContentPicker({
                       {library.isFetchingNextPage && (
                         <Spinner aria-hidden="true" />
                       )}
-                      Load more content
+                      {t("picker.library.loadMore")}
                     </Button>
                   )}
                 </div>
@@ -461,16 +470,20 @@ export function ContentPicker({
               />
               {created.size > 0 && (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  New uploads are selected and appear first in the{" "}
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="h-auto p-0"
-                    onClick={() => setTab("library")}
-                  >
-                    library
-                  </Button>
-                  .
+                  <Trans
+                    i18nKey="picker.upload.newUploadsHint"
+                    ns="content"
+                    components={{
+                      libraryLink: (
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto p-0"
+                          onClick={() => setTab("library")}
+                        />
+                      ),
+                    }}
+                  />
                 </p>
               )}
             </TabsContent>
@@ -480,7 +493,7 @@ export function ContentPicker({
           <div className="px-6 pb-3">
             <Alert variant="destructive">
               <AlertCircle aria-hidden="true" />
-              <AlertTitle>Some content could not be added.</AlertTitle>
+              <AlertTitle>{t("picker.errors.addFailed")}</AlertTitle>
               <AlertDescription>
                 <ul className="list-disc pl-4">
                   {failures.map((failure) => (
@@ -507,7 +520,7 @@ export function ContentPicker({
           />
           <div className="flex shrink-0 items-center justify-end gap-2">
             <Button type="button" variant="outline" onClick={close}>
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -515,7 +528,12 @@ export function ContentPicker({
               onClick={() => void confirm()}
             >
               {confirming && <Spinner aria-hidden="true" />}
-              {`${confirmLabel}${chosen.length > 0 ? ` (${chosen.length})` : ""}`}
+              {chosen.length > 0
+                ? t("picker.footer.confirmWithCount", {
+                    label: resolvedConfirmLabel,
+                    count: chosen.length,
+                  })
+                : resolvedConfirmLabel}
             </Button>
           </div>
         </DialogFooter>

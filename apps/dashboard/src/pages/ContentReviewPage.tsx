@@ -5,12 +5,15 @@ import {
   useTable,
 } from "@tanstack/react-table";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trans, useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Link } from "react-router";
 import { Check, Inbox, Undo2 } from "lucide-react";
 import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -46,13 +49,12 @@ import {
 } from "../components/ui/table";
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
-const stateLabels: Record<ContentReviewState, string> = {
-  pending: "Waiting for review",
-  approved: "Approved",
-  rejected: "Sent back",
-};
+const stateLabelKeys = {
+  pending: "contentReview.state.pending",
+  approved: "contentReview.state.approved",
+  rejected: "contentReview.state.rejected",
+} as const;
 
 const features = tableFeatures({});
 const columnHelper = createColumnHelper<typeof features, ContentReviewItem>();
@@ -62,6 +64,7 @@ const columnHelper = createColumnHelper<typeof features, ContentReviewItem>();
 // itself. That is worth stating on the page: a reviewer who does not know it
 // will wonder why something they approved is here again.
 export function ContentReviewPage() {
+  const { t } = useTranslation(["review", "common"]);
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -103,10 +106,20 @@ export function ContentReviewPage() {
         setRejectNote("");
       }
       toast.add({
-        title: input.approve ? "Content approved." : "Content sent back.",
+        title: input.approve
+          ? t("contentReview.toast.approved")
+          : t("contentReview.toast.sentBack"),
         type: "success",
       });
     },
+    onError: (err) =>
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("contentReview.toast.decisionFailed"),
+        type: "error",
+      }),
   });
 
   const items = queue.data?.items ?? [];
@@ -117,7 +130,7 @@ export function ContentReviewPage() {
       columnHelper.columns([
         columnHelper.display({
           id: "content",
-          header: "Content",
+          header: t("contentReview.table.content"),
           cell: ({ row }) => {
             const item = row.original;
             return (
@@ -133,10 +146,7 @@ export function ContentReviewPage() {
                   {item.name}
                 </Link>
                 <span className="text-xs text-muted-foreground">
-                  {item.contentType === "playlist" ? "Playlist" : "Layout"} ·
-                  revision {item.revision}
-                  {item.authorName ? ` · ${item.authorName}` : ""} · updated{" "}
-                  {new Date(item.updatedAt).toLocaleString()}
+                  {itemMeta(t, item, new Date(item.updatedAt).toLocaleString())}
                 </span>
               </div>
             );
@@ -144,21 +154,22 @@ export function ContentReviewPage() {
         }),
         columnHelper.display({
           id: "state",
-          header: "State",
+          header: t("contentReview.table.state"),
           cell: ({ row }) => (
             <Badge variant={badgeVariant(row.original.state)}>
-              {stateLabels[row.original.state]}
+              {t(stateLabelKeys[row.original.state])}
             </Badge>
           ),
         }),
         columnHelper.display({
           id: "screens",
-          header: "On screens",
+          header: t("contentReview.table.screens"),
           cell: ({ row }) =>
             row.original.assignedScreens > 0 ? (
               <strong>
-                Already on {row.original.assignedScreens} screen
-                {row.original.assignedScreens === 1 ? "" : "s"}
+                {t("contentReview.assignedScreens", {
+                  count: row.original.assignedScreens,
+                })}
               </strong>
             ) : (
               <span className="text-muted-foreground">—</span>
@@ -178,14 +189,14 @@ export function ContentReviewPage() {
                       setDetailsOpen(true);
                     }}
                   >
-                    Review
+                    {t("contentReview.table.reviewAction")}
                   </Button>
                 ),
               }),
             ]
           : []),
       ]),
-    [canDecide],
+    [canDecide, t],
   );
   const table = useTable({
     features,
@@ -199,11 +210,10 @@ export function ContentReviewPage() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Content review
+            {t("contentReview.title")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            A playlist or Layout must be approved at its current revision before
-            it can go on a screen. Editing approved content sends it back here.
+            {t("contentReview.description")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -211,7 +221,7 @@ export function ContentReviewPage() {
             className={buttonVariants({ variant: "outline" })}
             to="/content-review/submissions"
           >
-            Open submission inbox
+            {t("contentReview.openInbox")}
           </Link>
         </div>
       </header>
@@ -219,45 +229,36 @@ export function ContentReviewPage() {
       {queue.data && !queue.data.required && (
         <Alert>
           <AlertDescription>
-            Approval is not required on this installation, so nothing here
-            blocks assignment. An Owner or Administrator can turn it on under{" "}
-            <Link
-              to="/settings/content-review"
-              className="font-medium text-primary hover:underline"
-            >
-              Settings, Content review
-            </Link>
-            .
+            <Trans
+              i18nKey="contentReview.notRequiredNotice"
+              ns="review"
+              components={{
+                settingsLink: (
+                  <Link
+                    to="/settings/content-review"
+                    className="font-medium text-primary hover:underline"
+                  />
+                ),
+              }}
+            />
           </AlertDescription>
         </Alert>
       )}
 
-      <ToggleGroup
-        value={[filter || "all"]}
-        onValueChange={(values) =>
-          setFilter(
-            values[0] && values[0] !== "all"
-              ? (values[0] as ContentReviewState)
-              : "",
-          )
-        }
-        variant="outline"
-        size="sm"
-        spacing={1}
-        aria-label="Review state filter"
-      >
-        <ToggleGroupItem value="pending">{stateLabels.pending}</ToggleGroupItem>
-        <ToggleGroupItem value="approved">
-          {stateLabels.approved}
-        </ToggleGroupItem>
-        <ToggleGroupItem value="rejected">
-          {stateLabels.rejected}
-        </ToggleGroupItem>
-        <ToggleGroupItem value="all">All</ToggleGroupItem>
-      </ToggleGroup>
+      <ViewTabs
+        label={t("contentReview.filterLabel")}
+        value={filter}
+        items={[
+          { value: "pending", label: t(stateLabelKeys.pending) },
+          { value: "approved", label: t(stateLabelKeys.approved) },
+          { value: "rejected", label: t(stateLabelKeys.rejected) },
+          { value: "", label: t("contentReview.filterAll") },
+        ]}
+        onValueChange={setFilter}
+      />
 
       {queue.isLoading ? (
-        <div className="grid gap-2" aria-label="Loading the review queue">
+        <div className="grid gap-2" aria-label={t("contentReview.loading")}>
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-24 w-full" />
         </div>
@@ -273,8 +274,8 @@ export function ContentReviewPage() {
             </EmptyMedia>
             <EmptyTitle>
               {filter === "pending"
-                ? "Nothing is waiting for review"
-                : "Nothing to show"}
+                ? t("contentReview.emptyPending")
+                : t("contentReview.emptyOther")}
             </EmptyTitle>
           </EmptyHeader>
         </Empty>
@@ -330,26 +331,30 @@ export function ContentReviewPage() {
             <SheetHeader>
               <SheetTitle>{selected.name}</SheetTitle>
               <SheetDescription>
-                {selected.contentType === "playlist" ? "Playlist" : "Layout"} ·
-                revision {selected.revision}
-                {selected.authorName ? ` · ${selected.authorName}` : ""} ·
-                updated {new Date(selected.updatedAt).toLocaleString()}
+                {itemMeta(
+                  t,
+                  selected,
+                  new Date(selected.updatedAt).toLocaleString(),
+                )}
               </SheetDescription>
             </SheetHeader>
             <p className="flex flex-wrap items-center gap-2 text-sm">
               <Badge variant={badgeVariant(selected.state)}>
-                {stateLabels[selected.state]}
+                {t(stateLabelKeys[selected.state])}
               </Badge>
               {selected.assignedScreens > 0 && (
                 <strong>
-                  Already on {selected.assignedScreens} screen
-                  {selected.assignedScreens === 1 ? "" : "s"}
+                  {t("contentReview.assignedScreens", {
+                    count: selected.assignedScreens,
+                  })}
                 </strong>
               )}
             </p>
             {selected.lastNote && (
               <p className="text-sm text-muted-foreground">
-                Last note: {selected.lastNote}
+                {t("contentReview.sheet.lastNote", {
+                  note: selected.lastNote,
+                })}
               </p>
             )}
             <p className="text-sm">
@@ -361,8 +366,13 @@ export function ContentReviewPage() {
                 }
                 className="font-medium text-primary hover:underline"
               >
-                Open{" "}
-                {selected.contentType === "playlist" ? "playlist" : "layout"}
+                {t("contentReview.sheet.openContent", {
+                  type: t(
+                    selected.contentType === "playlist"
+                      ? "contentReview.contentTypeName.playlist"
+                      : "contentReview.contentTypeName.layout",
+                  ),
+                })}
               </Link>
             </p>
             {canDecide && (
@@ -374,7 +384,8 @@ export function ContentReviewPage() {
                     decide.mutate({ item: selected, approve: true })
                   }
                 >
-                  <Check size={15} aria-hidden="true" /> Approve
+                  <Check size={15} aria-hidden="true" />{" "}
+                  {t("contentReview.actions.approve")}
                 </Button>
                 <Button
                   type="button"
@@ -385,7 +396,8 @@ export function ContentReviewPage() {
                     setRejectNote("");
                   }}
                 >
-                  <Undo2 size={15} aria-hidden="true" /> Send back
+                  <Undo2 size={15} aria-hidden="true" />{" "}
+                  {t("contentReview.actions.sendBack")}
                 </Button>
               </div>
             )}
@@ -404,22 +416,24 @@ export function ContentReviewPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send back for changes</DialogTitle>
+            <DialogTitle>{t("contentReview.rejectDialog.title")}</DialogTitle>
             <DialogDescription>
-              An optional note tells the author what to fix.
+              {t("contentReview.rejectDialog.description")}
             </DialogDescription>
           </DialogHeader>
           <Field>
-            <FieldLabel htmlFor="content-review-reject-note">Note</FieldLabel>
+            <FieldLabel htmlFor="content-review-reject-note">
+              {t("contentReview.rejectDialog.noteLabel")}
+            </FieldLabel>
             <Textarea
               id="content-review-reject-note"
               rows={3}
               value={rejectNote}
-              placeholder="What must change before this can be approved?"
+              placeholder={t("contentReview.rejectDialog.notePlaceholder")}
               onChange={(event) => setRejectNote(event.target.value)}
             />
             <FieldDescription>
-              Recorded with the decision and shown to the author.
+              {t("contentReview.rejectDialog.noteHint")}
             </FieldDescription>
           </Field>
           <DialogFooter>
@@ -431,7 +445,7 @@ export function ContentReviewPage() {
                 setRejectNote("");
               }}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               disabled={decide.isPending}
@@ -444,7 +458,8 @@ export function ContentReviewPage() {
                   });
               }}
             >
-              <Undo2 size={15} aria-hidden="true" /> Send back
+              <Undo2 size={15} aria-hidden="true" />{" "}
+              {t("contentReview.actions.sendBack")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -461,4 +476,29 @@ function badgeVariant(state: ContentReviewState) {
   if (state === "approved") return "default";
   if (state === "rejected") return "destructive";
   return "secondary";
+}
+
+function itemMeta(
+  t: TFunction<"review">,
+  item: ContentReviewItem,
+  updatedAt: string,
+): string {
+  const type = t(
+    item.contentType === "playlist"
+      ? "contentReview.contentType.playlist"
+      : "contentReview.contentType.layout",
+  );
+  if (item.authorName) {
+    return t("contentReview.itemMetaWithAuthor", {
+      type,
+      revision: item.revision,
+      author: item.authorName,
+      updatedAt,
+    });
+  }
+  return t("contentReview.itemMeta", {
+    type,
+    revision: item.revision,
+    updatedAt,
+  });
 }

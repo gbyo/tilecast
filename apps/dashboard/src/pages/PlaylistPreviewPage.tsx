@@ -16,6 +16,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useParams } from "react-router";
 import { api } from "../api/client";
 import type { PlaylistItem } from "../api/types";
@@ -98,6 +99,7 @@ function PreviewMedia({
   onDone: () => void;
   onError: () => void;
 }) {
+  const { t } = useTranslation("playlists");
   const videoRef = useRef<HTMLVideoElement>(null);
   const widgetItem = item.assetType === "widget";
   const widgetQuery = useQuery({
@@ -214,7 +216,7 @@ function PreviewMedia({
             onWebReady={onReady}
           />
         ) : (
-          <span>Preparing Widget…</span>
+          <span>{t("preview.preparingWidget")}</span>
         )}
       </div>
     );
@@ -237,6 +239,7 @@ function PreviewMedia({
 }
 
 export function PlaylistPreviewPage() {
+  const { t } = useTranslation("playlists");
   const { id = "" } = useParams();
   const location = useLocation();
   const auth = useAuth();
@@ -316,11 +319,11 @@ export function PlaylistPreviewPage() {
   useEffect(() => {
     if (!query.data) return;
     const previous = document.title;
-    document.title = `${query.data.name} preview · Tilecast`;
+    document.title = t("preview.documentTitle", { name: query.data.name });
     return () => {
       document.title = previous;
     };
-  }, [query.data]);
+  }, [query.data, t]);
   useEffect(() => {
     if (!current || paused || current.assetType === "video") return;
     const timer = window.setTimeout(
@@ -345,7 +348,7 @@ export function PlaylistPreviewPage() {
   if (auth.isLoading)
     return (
       <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] bg-[#05070a] text-[#f5f7fa]">
-        Loading preview…
+        {t("preview.loading")}
       </main>
     );
   if (!auth.status?.authenticated) {
@@ -364,17 +367,17 @@ export function PlaylistPreviewPage() {
   if (query.isLoading)
     return (
       <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] bg-[#05070a] text-[#f5f7fa]">
-        Loading preview…
+        {t("preview.loading")}
       </main>
     );
   if (query.isError || !query.data)
     return (
       <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] place-content-center gap-2 bg-[#05070a] text-center text-[#f5f7fa]">
-        <strong>Playlist preview unavailable</strong>
+        <strong>{t("preview.unavailableTitle")}</strong>
         <span className="text-[#aab8c5]">
           {query.error instanceof Error
             ? query.error.message
-            : "The playlist could not be loaded."}
+            : t("preview.loadError")}
         </span>
       </main>
     );
@@ -386,32 +389,35 @@ export function PlaylistPreviewPage() {
           <strong className="truncate">{query.data.name}</strong>
           <span aria-live="polite" className="truncate text-[#aab8c5]">
             {current
-              ? `${index + 1} of ${items.length} · ${current.assetName}`
-              : "No ready items"}
+              ? t("preview.position", {
+                  index: index + 1,
+                  total: items.length,
+                  name: current.assetName,
+                })
+              : t("preview.noItems")}
           </span>
         </div>
-        <PreviewControl label="Close preview" onClick={() => window.close()}>
+        <PreviewControl
+          label={t("preview.close")}
+          onClick={() => window.close()}
+        >
           <X size={20} aria-hidden="true" />
         </PreviewControl>
       </header>
 
       <section
         className="relative grid min-h-0 place-items-center overflow-hidden bg-black"
-        aria-label="Playlist preview"
+        aria-label={t("preview.regionLabel")}
       >
         {!current ? (
           <div className="grid gap-1.5 p-6 text-center">
-            <strong>No ready items</strong>
-            <span className="text-[#aab8c5]">
-              Add ready content to preview this playlist.
-            </span>
+            <strong>{t("preview.noItems")}</strong>
+            <span className="text-[#aab8c5]">{t("preview.emptyHint")}</span>
           </div>
         ) : failed ? (
           <div className="grid gap-1.5 p-6 text-center">
             <strong>{current.assetName}</strong>
-            <span className="text-[#aab8c5]">
-              This item could not be previewed in Studio.
-            </span>
+            <span className="text-[#aab8c5]">{t("preview.itemError")}</span>
           </div>
         ) : (
           <>
@@ -458,14 +464,14 @@ export function PlaylistPreviewPage() {
 
       <footer className="relative z-[2] flex items-center justify-center gap-2.5 border-t border-[#283440] bg-[#0e141be8] px-4 py-3">
         <PreviewControl
-          label="Previous item"
+          label={t("preview.previous")}
           onClick={() => move(-1)}
           disabled={!current}
         >
           <SkipBack size={20} aria-hidden="true" />
         </PreviewControl>
         <PreviewControl
-          label={paused ? "Resume preview" : "Pause preview"}
+          label={paused ? t("preview.resume") : t("preview.pause")}
           onClick={() => setPaused((value) => !value)}
           disabled={!current}
         >
@@ -476,14 +482,14 @@ export function PlaylistPreviewPage() {
           )}
         </PreviewControl>
         <PreviewControl
-          label="Next item"
+          label={t("preview.next")}
           onClick={() => move(1)}
           disabled={!current}
         >
           <SkipForward size={20} aria-hidden="true" />
         </PreviewControl>
         <PreviewControl
-          label={muted ? "Unmute preview" : "Mute preview"}
+          label={muted ? t("preview.unmute") : t("preview.mute")}
           onClick={() => setMuted((value) => !value)}
           disabled={!current}
           className="ml-4"

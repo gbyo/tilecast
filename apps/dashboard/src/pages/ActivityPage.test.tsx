@@ -441,7 +441,7 @@ describe("Activity filters", () => {
     const user = userEvent.setup();
     renderPage("/activity?tab=proof&screen=screen-1&media=asset-1");
 
-    await user.click(await screen.findByRole("tab", { name: "Audit Log" }));
+    await user.click(await screen.findByRole("button", { name: "Audit Log" }));
 
     await waitFor(() => {
       const search = screen.getByRole("status").textContent ?? "";

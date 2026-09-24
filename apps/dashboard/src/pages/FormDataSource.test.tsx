@@ -355,7 +355,7 @@ describe("Form Data Source Studio", () => {
     renderAt("/data-sources/f1?tab=form");
 
     await user.type(await screen.findByLabelText("Form title"), "X");
-    await user.click(screen.getByRole("tab", { name: "Workflow" }));
+    await user.click(screen.getByRole("button", { name: "Workflow" }));
 
     expect(
       await screen.findByText("Leave without saving?"),

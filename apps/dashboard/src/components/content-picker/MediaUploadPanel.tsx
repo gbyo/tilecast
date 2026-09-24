@@ -16,8 +16,11 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Asset, AssetStatus } from "../../api/types";
+import { apiErrorMessage } from "../../i18n";
 import { droppedFiles } from "../content/dragDrop";
 import {
   Attachment,
@@ -79,22 +82,30 @@ export function formatBytes(value: number) {
   return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unit]}`;
 }
 
-function processingLabel(asset?: Asset) {
+type UploadT = TFunction<["content", "common"]>;
+
+function processingLabel(t: UploadT, asset?: Asset) {
   const status = asset?.processingStatus;
   const stage =
     status === "inspecting"
-      ? "Inspecting"
+      ? t("media.status.inspecting")
       : status === "queued" || status === "uploaded"
-        ? "Waiting for processing"
-        : "Processing";
+        ? t("picker.upload.waitingForProcessing")
+        : t("media.status.processing");
   return asset?.processingProgress != null
-    ? `${stage} · ${Math.round(asset.processingProgress)}%`
+    ? t("picker.upload.stageProgress", {
+        stage,
+        percent: Math.round(asset.processingProgress),
+      })
     : stage;
 }
 
-function readyLabel(asset?: Asset) {
-  if (!asset) return "Ready";
-  const parts = ["Ready", asset.type === "video" ? "Video" : "Image"];
+function readyLabel(t: UploadT, asset?: Asset) {
+  if (!asset) return t("media.status.ready");
+  const parts = [
+    t("media.status.ready"),
+    asset.type === "video" ? t("media.type.video") : t("media.type.image"),
+  ];
   if (asset.width && asset.height) parts.push(`${asset.width}×${asset.height}`);
   if (asset.durationSeconds != null) {
     const seconds = Math.round(asset.durationSeconds);
@@ -124,6 +135,7 @@ export function MediaUploadPanel({
   onActiveChange?: (active: boolean) => void;
   className?: string;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const [uploads, setUploads] = useState<MediaUpload[]>([]);
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -180,13 +192,11 @@ export function MediaUploadPanel({
         update(id, {
           state: "failed",
           asset: latest,
-          error:
-            latest.errorMessage ||
-            "Processing failed. Check the file and try again.",
+          error: latest.errorMessage || t("picker.upload.processingFailed"),
         });
       }
     },
-    [update],
+    [t, update],
   );
 
   const upload = useCallback(
@@ -224,12 +234,12 @@ export function MediaUploadPanel({
           state: "failed",
           error:
             error instanceof Error
-              ? error.message
-              : "Upload failed. Check the file and try again.",
+              ? apiErrorMessage(error)
+              : t("picker.upload.uploadFailed"),
         });
       }
     },
-    [csrf, follow, update],
+    [csrf, follow, t, update],
   );
 
   const choose = (event: ChangeEvent<HTMLInputElement>) => {
@@ -263,10 +273,9 @@ export function MediaUploadPanel({
           <Upload className="size-5" aria-hidden="true" />
         </div>
         <div className="grid gap-1">
-          <p className="text-sm font-medium">Drop images or videos here</p>
+          <p className="text-sm font-medium">{t("picker.upload.dropTitle")}</p>
           <p className="text-sm text-muted-foreground">
-            JPEG, PNG, WebP, GIF, MP4, MOV, WebM, or MKV. Multiple files are
-            supported.
+            {t("picker.upload.formatsHint")}
           </p>
         </div>
         <Button
@@ -275,7 +284,7 @@ export function MediaUploadPanel({
           onClick={() => input.current?.click()}
         >
           <FileUp aria-hidden="true" />
-          Choose files
+          {t("media.empty.chooseFiles")}
         </Button>
         {/* The native file input is the browser primitive for file choice; the
             visible button above opens it. */}
@@ -286,13 +295,13 @@ export function MediaUploadPanel({
           type="file"
           multiple
           accept={accepted}
-          aria-label="Choose media files"
+          aria-label={t("media.upload.chooseFiles")}
           onChange={choose}
         />
       </div>
 
       {uploads.length > 0 && (
-        <section aria-label="Uploads" className="grid gap-2">
+        <section aria-label={t("media.upload.title")} className="grid gap-2">
           {uploads.map((item) => (
             <MediaUploadRow
               key={item.id}
@@ -316,6 +325,7 @@ function MediaUploadRow({
   onRetry: () => void;
   onDismiss: () => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const percent = item.file.size
     ? Math.round((item.uploaded / item.file.size) * 100)
     : 100;
@@ -352,19 +362,25 @@ function MediaUploadRow({
         <AttachmentTitle>{name}</AttachmentTitle>
         <AttachmentDescription role="status">
           {item.state === "waiting"
-            ? `Waiting to upload · ${formatBytes(item.file.size)}`
+            ? t("picker.upload.rowWaiting", {
+                size: formatBytes(item.file.size),
+              })
             : item.state === "uploading"
-              ? `Uploading · ${percent}% · ${formatBytes(item.uploaded)} of ${formatBytes(item.file.size)}`
+              ? t("picker.upload.rowUploading", {
+                  percent,
+                  uploaded: formatBytes(item.uploaded),
+                  total: formatBytes(item.file.size),
+                })
               : item.state === "processing"
-                ? processingLabel(item.asset)
+                ? processingLabel(t, item.asset)
                 : item.state === "failed"
                   ? item.error
-                  : readyLabel(item.asset)}
+                  : readyLabel(t, item.asset)}
         </AttachmentDescription>
         {item.state === "uploading" && (
           <Progress
             className="mt-2"
-            aria-label={`Upload progress for ${name}`}
+            aria-label={t("media.upload.progressLabel", { name })}
             value={percent}
           />
         )}
@@ -372,7 +388,9 @@ function MediaUploadRow({
           item.asset?.processingProgress != null && (
             <Progress
               className="mt-2"
-              aria-label={`Processing progress for ${name}`}
+              aria-label={t("picker.upload.processingProgressLabel", {
+                name,
+              })}
               value={Math.round(item.asset.processingProgress)}
             />
           )}
@@ -381,13 +399,16 @@ function MediaUploadRow({
         <AttachmentActions>
           {retryable && (
             <AttachmentAction
-              aria-label={`Retry uploading ${name}`}
+              aria-label={t("picker.upload.retryUpload", { name })}
               onClick={onRetry}
             >
               <RotateCcw aria-hidden="true" />
             </AttachmentAction>
           )}
-          <AttachmentAction aria-label={`Dismiss ${name}`} onClick={onDismiss}>
+          <AttachmentAction
+            aria-label={t("picker.upload.dismiss", { name })}
+            onClick={onDismiss}
+          >
             <X aria-hidden="true" />
           </AttachmentAction>
         </AttachmentActions>

@@ -1,4 +1,5 @@
 import { AlignCenter } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { LayoutDocument } from "../../api/types";
 import { Field, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
@@ -26,16 +27,27 @@ export function CanvasInspector({
   document: LayoutDocument;
   update: (change: (draft: LayoutDocument) => void) => void;
 }) {
+  const { t } = useTranslation("layouts");
   const presetValue = `${document.canvas.width}x${document.canvas.height}`;
+  const orientationName =
+    document.canvas.orientation === "landscape"
+      ? t("orientation.landscape")
+      : document.canvas.orientation === "portrait"
+        ? t("orientation.portrait")
+        : t("orientation.custom");
+  const sizeTitle = t("canvas.sizeTitle");
+  const backgroundTitle = t("canvas.backgroundTitle");
   return (
     <Accordion
       multiple
-      defaultValue={["Canvas size", "Background & safe area"]}
+      defaultValue={[sizeTitle, backgroundTitle]}
       className="grid gap-0"
     >
-      <InspectorSection title="Canvas size">
+      <InspectorSection title={sizeTitle}>
         <Field>
-          <FieldLabel htmlFor="canvas-preset">Canvas preset</FieldLabel>
+          <FieldLabel htmlFor="canvas-preset">
+            {t("canvas.presetLabel")}
+          </FieldLabel>
           <Select
             value={presetValue}
             onValueChange={(next) => {
@@ -56,7 +68,10 @@ export function CanvasInspector({
             }}
             items={canvasPresetOptions}
           >
-            <SelectTrigger id="canvas-preset" aria-label="Canvas preset">
+            <SelectTrigger
+              id="canvas-preset"
+              aria-label={t("canvas.presetLabel")}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -70,7 +85,7 @@ export function CanvasInspector({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField
-            label="Width"
+            label={t("inspector.fields.width")}
             unit="px"
             value={document.canvas.width}
             min={320}
@@ -83,7 +98,7 @@ export function CanvasInspector({
             }
           />
           <NumberField
-            label="Height"
+            label={t("inspector.fields.height")}
             unit="px"
             value={document.canvas.height}
             min={320}
@@ -97,9 +112,11 @@ export function CanvasInspector({
           />
         </div>
       </InspectorSection>
-      <InspectorSection title="Background & safe area">
+      <InspectorSection title={backgroundTitle}>
         <Field>
-          <FieldLabel htmlFor="canvas-background">Background</FieldLabel>
+          <FieldLabel htmlFor="canvas-background">
+            {t("inspector.fields.background")}
+          </FieldLabel>
           <Input
             id="canvas-background"
             type="color"
@@ -110,7 +127,7 @@ export function CanvasInspector({
           />
         </Field>
         <NumberField
-          label="Safe area"
+          label={t("canvas.safeArea")}
           unit="%"
           value={document.canvas.safeAreaPercent}
           min={0}
@@ -123,7 +140,10 @@ export function CanvasInspector({
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <AlignCenter size={17} aria-hidden="true" />
           <span>
-            {document.placements.length} layers · {document.canvas.orientation}
+            {t("canvas.summary", {
+              count: document.placements.length,
+              orientation: orientationName,
+            })}
           </span>
         </div>
       </InspectorSection>

@@ -9,15 +9,8 @@ import {
   resolveTimeRange,
   type TimeRangePreset,
 } from "../components/TimeRangePicker";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
-import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
   Popover,
@@ -27,9 +20,12 @@ import {
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Download, SlidersHorizontal } from "lucide-react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { translateKnown } from "../i18n";
+import { ViewTabs } from "../components/ViewTabs";
 import { OverviewTab } from "./ActivityOverviewPanel";
 import { AuditTab, EventsTab, ProofTab } from "./ActivityReportTabs";
 import { ContentHealthTab } from "./ContentHealthTab";
@@ -53,45 +49,63 @@ import "./ActivityPage.css";
 
 type ActivityTab = ActivityTabName;
 
-/** Exact-identifier filters, kept behind a disclosure but still chipped. */
-const advancedProofFilters: FilterDefinition[] = advancedProofFilterKeys.map(
-  (key) => {
-    const label = key.charAt(0).toUpperCase() + key.slice(1);
-    return {
-      key,
-      kind: "text",
-      label,
-      placeholder: `${label} ID`,
-      hidden: true,
-    };
-  },
-);
-
 function optionsFrom(items: { id: string; name: string }[] | undefined) {
   return (items ?? []).map((item) => ({ value: item.id, label: item.name }));
 }
 
-function plainOptions(values: string[]): FilterOption[] {
+/**
+ * Filter options show translated labels for contract values. The values stay
+ * English protocol tokens; only the labels are looked up, falling back to the
+ * previous capitalized rendering when English has no key for one.
+ */
+function plainOptions(prefix: string, values: string[]): FilterOption[] {
   return values.map((value) => ({
     value,
-    label: value.charAt(0).toUpperCase() + value.slice(1),
+    label: translateKnown(
+      `activity:page.filters.${prefix}.${value}`,
+      value.charAt(0).toUpperCase() + value.slice(1),
+    ),
   }));
 }
 
 /** Turns snake_case contract values into readable option labels. */
-function labelledOptions(values: string[]): FilterOption[] {
+function labelledOptions(prefix: string, values: string[]): FilterOption[] {
   return values.map((value) => {
     const words = value.replaceAll("_", " ");
-    return { value, label: words.charAt(0).toUpperCase() + words.slice(1) };
+    return {
+      value,
+      label: translateKnown(
+        `activity:page.filters.${prefix}.${value}`,
+        words.charAt(0).toUpperCase() + words.slice(1),
+      ),
+    };
   });
 }
 
 export function ActivityPage() {
+  const { t, i18n } = useTranslation("activity");
   const auth = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const role = auth.status?.user?.role ?? "";
   const privileged = ["owner", "administrator"].includes(role);
   const tab = normalizeTab(searchParams.get("tab"), role);
+
+  /** Exact-identifier filters, kept behind a disclosure but still chipped. */
+  const advancedProofFilters: FilterDefinition[] = advancedProofFilterKeys.map(
+    (key) => {
+      const label = translateKnown(
+        `activity:page.filters.advanced.${key}`,
+        key.charAt(0).toUpperCase() + key.slice(1),
+      );
+      return {
+        key,
+        kind: "text",
+        label,
+        placeholder: t("page.resourceId", { label }),
+        hidden: true,
+      };
+    },
+  );
 
   const preset = normalizePreset(searchParams.get("range"));
   const customFrom = searchParams.get("from") ?? "";
@@ -128,27 +142,27 @@ export function ActivityPage() {
     const search: FilterDefinition = {
       key: "search",
       kind: "search",
-      label: "Search activity",
+      label: t("page.filters.searchActivity"),
       placeholder:
         tab === "proof"
-          ? "Search proof of play…"
+          ? t("page.filters.searchProof")
           : tab === "events"
-            ? "Search screen events…"
-            : "Search audit log…",
+            ? t("page.filters.searchEvents")
+            : t("page.filters.searchAudit"),
     };
     const byScreen: FilterDefinition[] = [
       {
         key: "screen",
         kind: "select",
-        label: "Screen",
-        allLabel: "All screens",
+        label: t("page.filters.screen"),
+        allLabel: t("page.filters.allScreens"),
         options: optionsFrom(screens.data?.items),
       },
       {
         key: "group",
         kind: "select",
-        label: "Group",
-        allLabel: "All groups",
+        label: t("page.filters.group"),
+        allLabel: t("page.filters.allGroups"),
         options: optionsFrom(groups.data?.items),
       },
     ];
@@ -159,28 +173,23 @@ export function ActivityPage() {
         {
           key: "result",
           kind: "select",
-          label: "Result",
-          allLabel: "All results",
-          options: plainOptions(resultOptions),
+          label: t("page.filters.result"),
+          allLabel: t("page.filters.allResults"),
+          options: plainOptions("results", resultOptions),
         },
         {
           key: "sessionType",
           kind: "select",
-          label: "Session type",
-          allLabel: "All session types",
-          options: labelledOptions(sessionTypeOptions),
+          label: t("page.filters.sessionType"),
+          allLabel: t("page.filters.allSessionTypes"),
+          options: labelledOptions("sessionTypes", sessionTypeOptions),
         },
         {
           key: "terminalReason",
           kind: "select",
-          label: "Ended because",
-          allLabel: "Any reason",
-          options: [
-            { value: "unexpected", label: "Ended unexpectedly" },
-            ...labelledOptions(
-              terminalReasonOptions.filter((value) => value !== "unexpected"),
-            ),
-          ],
+          label: t("page.filters.endedBecause"),
+          allLabel: t("page.filters.anyReason"),
+          options: labelledOptions("terminalReasons", terminalReasonOptions),
         },
         ...advancedProofFilters,
       ];
@@ -188,59 +197,59 @@ export function ActivityPage() {
       return [
         {
           ...search,
-          label: "Search incidents",
-          placeholder: "Search incidents…",
+          label: t("page.filters.searchIncidents"),
+          placeholder: t("page.filters.searchIncidentsPlaceholder"),
         },
         {
           key: "status",
           kind: "select",
-          label: "Status",
-          allLabel: "Active",
-          options: labelledOptions(incidentStatusOptions),
+          label: t("page.filters.status"),
+          allLabel: t("page.filters.activeStatus"),
+          options: labelledOptions("incidentStatuses", incidentStatusOptions),
         },
         {
           key: "severity",
           kind: "select",
-          label: "Severity",
-          allLabel: "All severities",
-          options: plainOptions(severityOptions),
+          label: t("page.filters.severity"),
+          allLabel: t("page.filters.allSeverities"),
+          options: plainOptions("severities", severityOptions),
         },
         {
           key: "type",
           kind: "select",
-          label: "Category",
-          allLabel: "All categories",
-          options: labelledOptions(incidentTypeOptions),
+          label: t("page.filters.category"),
+          allLabel: t("page.filters.allCategories"),
+          options: labelledOptions("incidentTypes", incidentTypeOptions),
         },
         ...byScreen,
         {
           key: "location",
           kind: "select",
-          label: "Location",
-          allLabel: "All locations",
+          label: t("page.filters.location"),
+          allLabel: t("page.filters.allLocations"),
           options: optionsFrom(locations.data?.items),
         },
         {
           key: "assignee",
           kind: "select",
-          label: "Assigned to",
-          allLabel: "Anyone",
+          label: t("page.filters.assignedTo"),
+          allLabel: t("page.filters.anyone"),
           options: optionsFrom(users.data?.items),
         },
         {
           key: "failureCode",
           kind: "text",
-          label: "Failure code",
-          placeholder: "Failure code",
+          label: t("page.filters.failureCode"),
+          placeholder: t("page.filters.failureCode"),
         },
         {
           // Which timestamp the date range applies to. Without this the range
           // is not applied at all, rather than being guessed.
           key: "dateBasis",
           kind: "select",
-          label: "Date basis",
-          allLabel: "Ignore date range",
-          options: labelledOptions(incidentDateBasisOptions),
+          label: t("page.filters.dateBasis"),
+          allLabel: t("page.filters.ignoreRange"),
+          options: labelledOptions("dateBases", incidentDateBasisOptions),
         },
       ];
     if (tab === "events")
@@ -250,23 +259,23 @@ export function ActivityPage() {
         {
           key: "category",
           kind: "select",
-          label: "Category",
-          allLabel: "All categories",
-          options: plainOptions(categoryOptions),
+          label: t("page.filters.category"),
+          allLabel: t("page.filters.allCategories"),
+          options: plainOptions("categories", categoryOptions),
         },
         {
           key: "severity",
           kind: "select",
-          label: "Severity",
-          allLabel: "All severities",
-          options: plainOptions(severityOptions),
+          label: t("page.filters.severity"),
+          allLabel: t("page.filters.allSeverities"),
+          options: plainOptions("severities", severityOptions),
         },
         {
           key: "result",
           kind: "select",
-          label: "Result",
-          allLabel: "All results",
-          options: plainOptions(resultOptions),
+          label: t("page.filters.result"),
+          allLabel: t("page.filters.allResults"),
+          options: plainOptions("results", resultOptions),
         },
       ];
     return [
@@ -276,28 +285,43 @@ export function ActivityPage() {
             {
               key: "actor",
               kind: "select" as const,
-              label: "Actor",
-              allLabel: "All actors",
+              label: t("page.filters.actor"),
+              allLabel: t("page.filters.allActors"),
               options: optionsFrom(users.data.items),
             },
           ]
         : []),
-      { key: "action", kind: "text", label: "Action", placeholder: "Action" },
+      {
+        key: "action",
+        kind: "text",
+        label: t("page.filters.action"),
+        placeholder: t("page.filters.action"),
+      },
       {
         key: "resourceType",
         kind: "text",
-        label: "Resource type",
-        placeholder: "Resource type",
+        label: t("page.filters.resourceType"),
+        placeholder: t("page.filters.resourceType"),
       },
       {
         key: "result",
         kind: "select",
-        label: "Result",
-        allLabel: "All results",
-        options: plainOptions(auditResultOptions),
+        label: t("page.filters.result"),
+        allLabel: t("page.filters.allResults"),
+        options: plainOptions("auditResults", auditResultOptions),
       },
     ];
-  }, [groups.data, locations.data, screens.data, tab, users.data]);
+    // The translated labels depend on the interface language, which the linter
+    // cannot see; rebuilding when it changes keeps every label translated.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    groups.data,
+    i18n.language,
+    locations.data,
+    screens.data,
+    tab,
+    users.data,
+  ]);
 
   const { values, set, clear } = useUrlFilters(definitions);
   const activeAdvanced = advancedProofFilters.filter(
@@ -313,21 +337,21 @@ export function ActivityPage() {
         : undefined;
 
   const activityTabs = [
-    { value: "overview" as const, label: "Overview" },
-    { value: "proof" as const, label: "Proof of Play" },
+    { value: "overview" as const, label: t("page.tabs.overview") },
+    { value: "proof" as const, label: t("page.tabs.proof") },
     // Incidents is the grouped operational view; Screen Events stays the raw
     // diagnostic stream behind it, with its existing privileged access.
-    { value: "incidents" as const, label: "Incidents" },
+    { value: "incidents" as const, label: t("page.tabs.incidents") },
     // Content health sits beside Incidents because it answers the same
     // question from the other side: the screen is fine, the content is not.
-    { value: "content-health" as const, label: "Content Health" },
+    { value: "content-health" as const, label: t("page.tabs.contentHealth") },
     ...(privileged
       ? [
-          { value: "events" as const, label: "Screen Events" },
-          { value: "audit" as const, label: "Audit Log" },
+          { value: "events" as const, label: t("page.tabs.events") },
+          { value: "audit" as const, label: t("page.tabs.audit") },
         ]
       : role === "editor"
-        ? [{ value: "audit" as const, label: "Audit Log" }]
+        ? [{ value: "audit" as const, label: t("page.tabs.audit") }]
         : []),
   ];
 
@@ -356,10 +380,11 @@ export function ActivityPage() {
     <section className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("page.title")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Operational reporting, Player-confirmed proof of play, technical
-            screen events, and administrator history.
+            {t("page.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -375,134 +400,137 @@ export function ActivityPage() {
             <a
               className={buttonVariants({ variant: "outline" })}
               href={exportHref}
-              title="Export the current date range and filters"
+              title={t("page.exportTitle")}
             >
-              <Download aria-hidden="true" /> Export CSV
+              <Download aria-hidden="true" /> {t("page.exportCsv")}
             </a>
           )}
         </div>
       </header>
 
-      <Tabs
+      <ViewTabs
+        label={t("page.tabsLabel")}
         value={tab}
-        onValueChange={(value) => selectTab(value as ActivityTab)}
-        className="grid gap-4"
-      >
-        <TabsList variant="line" aria-label="Activity reports">
-          {activityTabs.map((item) => (
-            <TabsTrigger key={item.value} value={item.value}>
-              {item.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        <TabsContent value={tab} className="grid gap-4">
-          {tab !== "overview" && tab !== "content-health" && (
-            <FilterBar
-              definitions={definitions}
-              values={values}
-              onChange={set}
-              onClear={clear}
-              label={`${activityTabs.find((item) => item.value === tab)?.label} filters`}
-            >
-              {tab === "proof" && (
-                <Popover>
-                  <PopoverTrigger
-                    render={<Button variant="outline" />}
-                    aria-label={`Advanced filters${activeAdvanced.length ? `, ${activeAdvanced.length} active` : ""}`}
-                  >
-                    <SlidersHorizontal aria-hidden="true" />
-                    <span>More filters</span>
-                    {activeAdvanced.length > 0 && (
-                      <Badge variant="secondary">{activeAdvanced.length}</Badge>
-                    )}
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="end"
-                    className="grid w-80 gap-3 p-3"
-                    aria-label="Advanced filters"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="grid gap-0.5">
-                        <strong className="text-sm">Advanced filters</strong>
-                        <small className="text-xs text-muted-foreground">
-                          Filter by an exact resource ID.
-                        </small>
-                      </div>
-                      {activeAdvanced.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            for (const filter of advancedProofFilters)
-                              set(filter.key, "");
-                          }}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      {advancedProofFilters.map((filter) => (
-                        <Field key={filter.key} className="gap-1">
-                          <FieldLabel
-                            htmlFor={`proof-filter-${filter.key}`}
-                            className="text-xs font-medium"
-                          >
-                            {filter.label} ID
-                          </FieldLabel>
-                          <Input
-                            id={`proof-filter-${filter.key}`}
-                            value={values[filter.key] ?? ""}
-                            onChange={(event) =>
-                              set(filter.key, event.target.value)
-                            }
-                            placeholder={`${filter.label} ID`}
-                          />
-                        </Field>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-            </FilterBar>
-          )}
+        items={activityTabs}
+        onValueChange={selectTab}
+      />
 
-          {tab === "overview" && (
-            <OverviewTab
-              range={range}
-              canViewScreenEvents={privileged}
-              canViewAudit={privileged || role === "editor"}
-            />
-          )}
+      {tab !== "overview" && tab !== "content-health" && (
+        <FilterBar
+          definitions={definitions}
+          values={values}
+          onChange={set}
+          onClear={clear}
+          label={t("page.filtersForTab", {
+            tab: activityTabs.find((item) => item.value === tab)?.label ?? tab,
+          })}
+        >
           {tab === "proof" && (
-            <ProofTab
-              range={range}
-              filters={values}
-              dimension={summaryDimension}
-              setDimension={setSummaryDimension}
-              hasActiveFilters={hasActiveFilters}
-              canExtendRange={preset === "24h"}
-              onClearFilters={clear}
-              onExtendRange={() => setRange("range", "7d")}
-              onViewScreenEvents={
-                privileged ? () => selectTab("events") : undefined
-              }
-            />
+            <Popover>
+              <PopoverTrigger
+                render={<Button variant="outline" />}
+                aria-label={
+                  activeAdvanced.length
+                    ? t("page.advancedFiltersActive", {
+                        active: activeAdvanced.length,
+                      })
+                    : t("page.advancedFilters")
+                }
+              >
+                <SlidersHorizontal aria-hidden="true" />
+                <span>{t("page.moreFilters")}</span>
+                {activeAdvanced.length > 0 && (
+                  <Badge variant="secondary">{activeAdvanced.length}</Badge>
+                )}
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="grid w-80 gap-3 p-3"
+                aria-label={t("page.advancedFilters")}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="grid gap-0.5">
+                    <strong className="text-sm">
+                      {t("page.advancedFilters")}
+                    </strong>
+                    <small className="text-xs text-muted-foreground">
+                      {t("page.advancedHint")}
+                    </small>
+                  </div>
+                  {activeAdvanced.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        for (const filter of advancedProofFilters)
+                          set(filter.key, "");
+                      }}
+                    >
+                      {t("page.clear")}
+                    </Button>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  {advancedProofFilters.map((filter) => (
+                    <label
+                      key={filter.key}
+                      className="grid gap-1 text-xs font-medium"
+                    >
+                      <span>
+                        {t("page.resourceId", { label: filter.label })}
+                      </span>
+                      <Input
+                        value={values[filter.key] ?? ""}
+                        onChange={(event) =>
+                          set(filter.key, event.target.value)
+                        }
+                        placeholder={t("page.resourceId", {
+                          label: filter.label,
+                        })}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
-          {tab === "incidents" && (
-            <IncidentsTab
-              range={range}
-              filters={values}
-              hasActiveFilters={hasActiveFilters}
-              onClearFilters={clear}
-            />
-          )}
-          {tab === "content-health" && <ContentHealthTab />}
-          {tab === "events" && <EventsTab range={range} filters={values} />}
-          {tab === "audit" && <AuditTab range={range} filters={values} />}
-        </TabsContent>
-      </Tabs>
+        </FilterBar>
+      )}
+
+      {tab === "overview" && (
+        <OverviewTab
+          range={range}
+          canViewScreenEvents={privileged}
+          canViewAudit={privileged || role === "editor"}
+        />
+      )}
+      {tab === "proof" && (
+        <ProofTab
+          range={range}
+          filters={values}
+          dimension={summaryDimension}
+          setDimension={setSummaryDimension}
+          hasActiveFilters={hasActiveFilters}
+          canExtendRange={preset === "24h"}
+          onClearFilters={clear}
+          onExtendRange={() => setRange("range", "7d")}
+          onViewScreenEvents={
+            privileged ? () => selectTab("events") : undefined
+          }
+        />
+      )}
+      {tab === "incidents" && (
+        <IncidentsTab
+          range={range}
+          filters={values}
+          hasActiveFilters={hasActiveFilters}
+          onClearFilters={clear}
+        />
+      )}
+      {tab === "content-health" && <ContentHealthTab />}
+      {tab === "events" && <EventsTab range={range} filters={values} />}
+      {tab === "audit" && <AuditTab range={range} filters={values} />}
     </section>
   );
 }

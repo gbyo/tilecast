@@ -203,7 +203,7 @@ describe("Form tabs — capability visibility and normalization", () => {
       "Access",
     ]) {
       expect(
-        await screen.findByRole("tab", { name: label }),
+        await screen.findByRole("button", { name: label }),
       ).toBeInTheDocument();
     }
   });
@@ -217,17 +217,17 @@ describe("Form tabs — capability visibility and normalization", () => {
     const router = renderPage("/data-sources/f1?tab=workflow");
 
     expect(
-      await screen.findByRole("tab", { name: "Responses" }),
+      await screen.findByRole("button", { name: "Responses" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Outputs" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Outputs" })).toBeInTheDocument();
     expect(
-      screen.queryByRole("tab", { name: "Workflow" }),
+      screen.queryByRole("button", { name: "Workflow" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("tab", { name: "Views" }),
+      screen.queryByRole("button", { name: "Views" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("tab", { name: "Access" }),
+      screen.queryByRole("button", { name: "Access" }),
     ).not.toBeInTheDocument();
     // The Workflow editor never renders for an unauthorized deep link.
     expect(
@@ -410,7 +410,7 @@ describe("Outputs tab", () => {
     renderPage("/data-sources/f1?tab=outputs");
 
     expect(await screen.findByText("Approved one")).toBeInTheDocument();
-    expect(screen.getByText("1 records")).toBeInTheDocument();
+    expect(screen.getByText("1 record")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Rebuild outputs" }));
     await waitFor(() => expect(rebuild).toHaveBeenCalled());
   });

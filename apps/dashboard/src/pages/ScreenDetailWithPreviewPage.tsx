@@ -1,5 +1,6 @@
 import { Navigate, useParams, useSearchParams } from "react-router";
 import { ChevronDown } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { LivePreviewPanel } from "../components/LivePreviewPanel";
 import { SnapshotHistoryPanel } from "../components/SnapshotHistoryPanel";
 import {
@@ -10,6 +11,7 @@ import {
 import { ScreenDetailPage, normalizeScreenDetailTab } from "./ScreensPage";
 
 export function ScreenDetailWithPreviewPage() {
+  const { t } = useTranslation("screens");
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   if (!id) return <Navigate to="/screens" replace />;
@@ -30,12 +32,12 @@ export function ScreenDetailWithPreviewPage() {
             className="border-t border-border pt-4"
           >
             <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              Snapshot history
+              {t("preview.snapshotsTitle")}
               <ChevronDown size={16} aria-hidden="true" />
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3 space-y-2">
               <p className="text-sm text-muted-foreground">
-                Previously captured frames reported by this player.
+                {t("preview.snapshotsBody")}
               </p>
               <SnapshotHistoryPanel screenId={id} />
             </CollapsibleContent>

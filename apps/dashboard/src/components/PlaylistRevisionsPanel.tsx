@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { History } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
@@ -32,6 +34,8 @@ export function PlaylistRevisionsPanel({
   /** Render inside the shared history Drawer without repeating its title. */
   embedded?: boolean;
 }) {
+  const { t } = useTranslation("playlists");
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -48,12 +52,18 @@ export function PlaylistRevisionsPanel({
     mutationFn: (revision: number) =>
       api.restorePlaylistRevision(playlistId, revision, csrf),
     onSuccess: (data) => {
-      toast.add({ title: "Playlist revision restored.", type: "success" });
+      toast.add({ title: t("history.restoredToast"), type: "success" });
       setResult(
-        `Restored revision ${data.restoredFrom} as revision ${data.newRevision}.` +
-          (data.skippedItems > 0
-            ? ` ${data.skippedItems} item${data.skippedItems === 1 ? "" : "s"} could not be restored because the content was deleted.`
-            : ""),
+        data.skippedItems > 0
+          ? t("history.restoredWithSkipped", {
+              from: data.restoredFrom,
+              to: data.newRevision,
+              count: data.skippedItems,
+            })
+          : t("history.restored", {
+              from: data.restoredFrom,
+              to: data.newRevision,
+            }),
       );
       void client.invalidateQueries({ queryKey: ["playlist-revisions"] });
       // The editor caches under ["playlists", id]; invalidating ["playlist"]
@@ -64,7 +74,11 @@ export function PlaylistRevisionsPanel({
 
   if (revisions.isLoading)
     return (
-      <div className="grid gap-2" aria-busy="true" aria-label="Loading history">
+      <div
+        className="grid gap-2"
+        aria-busy="true"
+        aria-label={t("history.loadingLabel")}
+      >
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-12" />
         <Skeleton className="h-12" />
@@ -84,19 +98,17 @@ export function PlaylistRevisionsPanel({
   return (
     <section
       className="grid gap-4"
-      aria-label={embedded ? "Playlist revision history" : undefined}
+      aria-label={embedded ? t("history.panelLabel") : undefined}
     >
       {embedded ? (
         <p className="text-sm text-muted-foreground">
-          The last {revisions.data?.kept} revisions are kept. Restoring makes a
-          new revision, so it can be undone the same way.
+          {t("history.intro", { kept: revisions.data?.kept ?? 0 })}
         </p>
       ) : (
         <header className="grid gap-1">
-          <h3 className="text-sm font-medium">History</h3>
+          <h3 className="text-sm font-medium">{t("history.title")}</h3>
           <p className="text-sm text-muted-foreground">
-            The last {revisions.data?.kept} revisions are kept. Restoring makes
-            a new revision, so it can be undone the same way.
+            {t("history.intro", { kept: revisions.data?.kept ?? 0 })}
           </p>
         </header>
       )}
@@ -115,10 +127,8 @@ export function PlaylistRevisionsPanel({
       {revisionItems.length === 0 ? (
         <Empty className="border-0 py-6">
           <EmptyHeader>
-            <EmptyTitle>No playlist history yet</EmptyTitle>
-            <EmptyDescription>
-              Revisions will appear here after the playlist is saved.
-            </EmptyDescription>
+            <EmptyTitle>{t("history.noRevisions")}</EmptyTitle>
+            <EmptyDescription>{t("history.noRevisionsHint")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -131,16 +141,24 @@ export function PlaylistRevisionsPanel({
             >
               <ItemContent>
                 <ItemTitle>
-                  Revision {revision.revision}
-                  {revision.isCurrent ? " (current)" : ""}
+                  {revision.isCurrent
+                    ? t("history.revisionCurrent", {
+                        revision: revision.revision,
+                      })
+                    : t("history.revision", { revision: revision.revision })}
                 </ItemTitle>
                 <ItemDescription>
-                  {new Date(revision.createdAt).toLocaleString()} ·{" "}
-                  {revision.itemCount} item
-                  {revision.itemCount === 1 ? "" : "s"}
+                  {t("history.revisionMeta", {
+                    date: new Date(revision.createdAt).toLocaleString(
+                      formatLocale,
+                    ),
+                    items: t("count.items", { count: revision.itemCount }),
+                  })}
                   {revision.authorName ? ` · ${revision.authorName}` : ""}
                   {revision.missingReferences > 0
-                    ? ` · ${revision.missingReferences} deleted since`
+                    ? ` · ${t("history.deletedSince", {
+                        count: revision.missingReferences,
+                      })}`
                     : ""}
                 </ItemDescription>
               </ItemContent>
@@ -155,12 +173,12 @@ export function PlaylistRevisionsPanel({
                       restore.mutate(revision.revision);
                     }}
                   >
-                    <History aria-hidden="true" /> Restore
+                    <History aria-hidden="true" /> {t("history.restore")}
                   </Button>
                 ) : revision.isCurrent ? (
-                  "Current"
+                  t("history.currentBadge")
                 ) : (
-                  "Nothing left to restore"
+                  t("history.nothingToRestore")
                 )}
               </ItemActions>
             </Item>
@@ -182,9 +200,9 @@ export function PlaylistRevisionsPanel({
                 )
               }
             >
-              Show {Math.min(revisionPageSize, hiddenRevisionCount)} older
-              revision
-              {Math.min(revisionPageSize, hiddenRevisionCount) === 1 ? "" : "s"}
+              {t("history.showOlder", {
+                count: Math.min(revisionPageSize, hiddenRevisionCount),
+              })}
             </Button>
           )}
           {visibleRevisionCount > initialRevisionCount && (
@@ -194,7 +212,7 @@ export function PlaylistRevisionsPanel({
               size="sm"
               onClick={() => setVisibleRevisionCount(initialRevisionCount)}
             >
-              Show recent only
+              {t("history.showRecent")}
             </Button>
           )}
         </div>

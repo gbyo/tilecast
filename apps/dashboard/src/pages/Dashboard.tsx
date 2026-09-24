@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import type { User } from "@/api/types";
 import { useAuth } from "@/auth/AuthProvider";
@@ -9,6 +10,11 @@ import { ThemeProvider } from "@/components/studio/ThemeProvider";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { StudioTopbar } from "@/components/StudioTopbar";
+import {
+  LANGUAGE_PREFERENCE_KEY,
+  applyLanguagePreference,
+  isLanguagePreference,
+} from "@/i18n";
 import { OperationsDashboard } from "./OperationsDashboard";
 import { EnrollmentWizard } from "./EnrollmentWizard";
 
@@ -75,6 +81,14 @@ export function DashboardShell() {
       // Preference state remains available from the server when storage is disabled.
     }
   }, [serverAppearance]);
+  const serverLanguage = preferences.data?.values?.[LANGUAGE_PREFERENCE_KEY];
+  useEffect(() => {
+    // The cached value chose the starting language; the account's saved
+    // preference is authoritative once it arrives.
+    if (isLanguagePreference(serverLanguage)) {
+      applyLanguagePreference(serverLanguage);
+    }
+  }, [serverLanguage]);
   useEffect(() => {
     if (!auth.isLoading && !auth.status?.authenticated) {
       void navigate(
@@ -149,20 +163,20 @@ export function PlannedPage({
   feature: string;
   milestone: number;
 }) {
+  const { t } = useTranslation("common");
   return (
     <section className="mx-auto max-w-2xl py-12">
       <p className="text-xs font-medium tracking-wide text-muted-foreground">
-        MILESTONE {milestone}
+        {t("planned.eyebrow", { milestone })}
       </p>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-        {feature} are not enabled yet.
+        {t("planned.title", { feature })}
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        This installation currently includes the Milestone 1 foundation.{" "}
-        {feature} will be implemented and tested in Milestone {milestone}.
+        {t("planned.body", { feature, milestone })}
       </p>
       <NavLink className="mt-4 inline-flex text-sm underline" to="/">
-        Return to installation status
+        {t("planned.backLink")}
       </NavLink>
     </section>
   );

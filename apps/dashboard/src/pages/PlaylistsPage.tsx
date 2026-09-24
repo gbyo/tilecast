@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ListVideo, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
@@ -16,14 +17,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "../components/ui/item";
+import { Item, ItemGroup } from "../components/ui/item";
 import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
 import { PlaylistEditorPage } from "../components/playlist-editor/PlaylistEditor";
 import {
@@ -46,6 +40,7 @@ export {
 export { PlaylistEditorPage };
 
 export function PlaylistsPage() {
+  const { t } = useTranslation("playlists");
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = canManagePlaylists(auth.status?.user?.role);
@@ -72,16 +67,18 @@ export function PlaylistsPage() {
     <section className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Playlists</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("list.title")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ordered fullscreen playback for assigned screens.
+            {t("list.subtitle")}
           </p>
         </div>
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
-              Create playlist
+              {t("list.create")}
             </Button>
           </div>
         )}
@@ -90,8 +87,8 @@ export function PlaylistsPage() {
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
-          label="Search playlists"
-          placeholder="Search playlists"
+          label={t("list.searchLabel")}
+          placeholder={t("list.searchPlaceholder")}
         />
       </DashboardListToolbar>
       {query.isLoading ? (
@@ -105,11 +102,11 @@ export function PlaylistsPage() {
             <EmptyMedia variant="icon">
               <ListVideo size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No playlists yet</EmptyTitle>
+            <EmptyTitle>{t("list.emptyTitle")}</EmptyTitle>
             <EmptyDescription>
               {canManage
-                ? "Create a playlist, then add ready images and videos."
-                : "An Owner, Administrator, or Editor can create playlists."}
+                ? t("list.emptyDescriptionManage")
+                : t("list.emptyDescriptionReadonly")}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -121,16 +118,18 @@ export function PlaylistsPage() {
               variant="outline"
               render={<Link to={`/playlists/${playlist.id}`} />}
             >
-              <ItemContent className="min-w-0">
-                <ItemTitle>{playlist.name}</ItemTitle>
-                <ItemDescription className="truncate">
-                  {playlist.description || "No description"}
-                </ItemDescription>
-              </ItemContent>
-              <ItemActions className="text-xs text-muted-foreground">
-                <span>Revision {playlist.revision}</span>
-                <span>{playlist.itemCount} items</span>
-              </ItemActions>
+              <span className="grid min-w-0 gap-0.5">
+                <strong className="truncate text-sm">{playlist.name}</strong>
+                <small className="truncate text-xs text-muted-foreground">
+                  {playlist.description || t("list.noDescription")}
+                </small>
+              </span>
+              <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span>
+                  {t("list.revision", { revision: playlist.revision })}
+                </span>
+                <span>{t("count.items", { count: playlist.itemCount })}</span>
+              </span>
             </Item>
           ))}
         </ItemGroup>

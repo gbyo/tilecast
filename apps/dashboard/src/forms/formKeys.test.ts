@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { i18n } from "../i18n";
 import {
   RESERVED_FIELD_KEYS,
   slugifyKey,
   uniqueKey,
   validateKey,
 } from "./formKeys";
+
+const t = i18n.getFixedT("en", "forms");
 
 describe("formKeys", () => {
   it("slugifies labels into valid keys", () => {
@@ -33,15 +36,19 @@ describe("formKeys", () => {
 
   it("rejects reserved keys", () => {
     for (const reserved of RESERVED_FIELD_KEYS) {
-      expect(validateKey(reserved, [])).toMatch(/reserved/);
+      expect(validateKey(reserved, [], undefined, t)).toMatch(/reserved/);
     }
   });
 
   it("rejects invalid and duplicate keys", () => {
-    expect(validateKey("1bad", [])).toMatch(/start with a letter/);
-    expect(validateKey("bad key", [])).toMatch(/start with a letter/);
-    expect(validateKey("dup", ["dup"], "other")).toMatch(/already uses/);
-    expect(validateKey("ok_key", ["ok_key"], "ok_key")).toBeNull(); // same field is fine
-    expect(validateKey("fresh", ["other"])).toBeNull();
+    expect(validateKey("1bad", [], undefined, t)).toMatch(
+      /start with a letter/,
+    );
+    expect(validateKey("bad key", [], undefined, t)).toMatch(
+      /start with a letter/,
+    );
+    expect(validateKey("dup", ["dup"], "other", t)).toMatch(/already uses/);
+    expect(validateKey("ok_key", ["ok_key"], "ok_key", t)).toBeNull(); // same field is fine
+    expect(validateKey("fresh", ["other"], undefined, t)).toBeNull();
   });
 });

@@ -1,4 +1,5 @@
 import { Grid2X2, List } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type {
   ContentCollection,
   ContentFolder,
@@ -95,19 +96,33 @@ export function ContentPickerToolbar({
   // A caller that only accepts media should not be offered app types that can
   // never match, and vice versa. The type filter only appears when there is
   // more than one type to choose between.
+  const { t } = useTranslation(["content", "common"]);
   const allowed = new Set(allowedTypes);
   const filters: {
     value: ContentPickerFilter;
     label: string;
     type?: "image" | "video" | "widget";
   }[] = [
-    { value: "all", label: "All" },
-    { value: "image", label: "Images", type: "image" },
-    { value: "video", label: "Videos", type: "video" },
-    { value: "source", label: "Sources", type: "widget" },
-    { value: "website", label: "Websites", type: "widget" },
+    { value: "all", label: t("picker.toolbar.filterAll") },
+    { value: "image", label: t("picker.toolbar.filterImages"), type: "image" },
+    { value: "video", label: t("picker.toolbar.filterVideos"), type: "video" },
+    {
+      value: "source",
+      label: t("picker.toolbar.filterSources"),
+      type: "widget",
+    },
+    {
+      value: "website",
+      label: t("picker.toolbar.filterWebsites"),
+      type: "widget",
+    },
+    // i18n-ignore: brand name stays Latin in every language
     { value: "youtube", label: "YouTube", type: "widget" },
-    { value: "calendar", label: "Calendars", type: "widget" },
+    {
+      value: "calendar",
+      label: t("picker.toolbar.filterCalendars"),
+      type: "widget",
+    },
   ];
   const typeOptions = filters.filter(({ type }) => !type || allowed.has(type));
   return (
@@ -116,29 +131,30 @@ export function ContentPickerToolbar({
         autoFocus
         value={search}
         onValueChange={onSearch}
-        label="Search content"
-        placeholder="Search content"
+        label={t("picker.toolbar.searchContent")}
+        placeholder={t("picker.toolbar.searchContent")}
+        clearLabel={t("picker.toolbar.clearContentSearch")}
         className="max-w-none basis-60"
       />
       {typeOptions.length > 2 && (
         <PickerSelect
-          label="Content type"
+          label={t("picker.toolbar.contentType")}
           value={filter}
           onChange={(value) => onFilter(value as ContentPickerFilter)}
           options={typeOptions.map(({ value, label }) => ({
             value,
-            label: value === "all" ? "All types" : label,
+            label: value === "all" ? t("picker.toolbar.allTypes") : label,
           }))}
           className="w-32"
         />
       )}
       {folders.length > 0 && onFolderFilter && (
         <PickerSelect
-          label="Filter by folder"
+          label={t("picker.toolbar.filterByFolder")}
           value={folderFilter}
           onChange={onFolderFilter}
           options={[
-            { value: "", label: "All folders" },
+            { value: "", label: t("picker.toolbar.allFolders") },
             ...folders.map((folder) => ({
               value: folder.id,
               label: folder.name,
@@ -148,11 +164,11 @@ export function ContentPickerToolbar({
       )}
       {collections.length > 0 && onCollectionFilter && (
         <PickerSelect
-          label="Filter by collection"
+          label={t("picker.toolbar.filterByCollection")}
           value={collectionFilter}
           onChange={onCollectionFilter}
           options={[
-            { value: "", label: "All collections" },
+            { value: "", label: t("picker.toolbar.allCollections") },
             ...collections.map((collection) => ({
               value: collection.id,
               label: collection.name,
@@ -162,30 +178,30 @@ export function ContentPickerToolbar({
       )}
       {tags.length > 0 && onTagFilter && (
         <PickerSelect
-          label="Filter by tag"
+          label={t("picker.toolbar.filterByTag")}
           value={tagFilter}
           onChange={onTagFilter}
           options={[
-            { value: "", label: "All tags" },
+            { value: "", label: t("picker.toolbar.allTags") },
             ...tags.map((tag) => ({ value: tag.id, label: tag.name })),
           ]}
         />
       )}
       <PickerSelect
         className="w-44"
-        label="Sort content"
+        label={t("picker.toolbar.sortContent")}
         value={sort}
         onChange={onSort}
         options={[
-          { value: "updated", label: "Recently updated" },
-          { value: "newest", label: "Newest" },
-          { value: "oldest", label: "Oldest" },
-          { value: "name", label: "Name" },
+          { value: "updated", label: t("picker.toolbar.sortRecent") },
+          { value: "newest", label: t("picker.toolbar.sortNewest") },
+          { value: "oldest", label: t("picker.toolbar.sortOldest") },
+          { value: "name", label: t("picker.toolbar.sortName") },
         ]}
       />
       <ToggleGroup
         className="ml-auto"
-        aria-label="Content view"
+        aria-label={t("picker.toolbar.contentView")}
         variant="outline"
         spacing={0}
         multiple={false}
@@ -195,10 +211,10 @@ export function ContentPickerToolbar({
           if (first !== undefined) onView(first);
         }}
       >
-        <ToggleGroupItem value="grid" aria-label="Grid view">
+        <ToggleGroupItem value="grid" aria-label={t("picker.toolbar.gridView")}>
           <Grid2X2 size={16} aria-hidden="true" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="list" aria-label="List view">
+        <ToggleGroupItem value="list" aria-label={t("picker.toolbar.listView")}>
           <List size={16} aria-hidden="true" />
         </ToggleGroupItem>
       </ToggleGroup>

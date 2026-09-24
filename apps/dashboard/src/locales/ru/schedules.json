@@ -1,0 +1,254 @@
+{
+  "page": {
+    "title": "Расписания",
+    "subtitle": "Побеждает наибольший приоритет. Экраны в группе экранов всегда используют одно расписание и резервный контент.",
+    "create": "Создать расписание",
+    "timelineTitle": "Временная шкала расписаний",
+    "timelineSummary_one": "{{count}} включено · время оценивается в часовом поясе IANA каждого расписания · ночные интервалы продолжаются на следующий день",
+    "timelineSummary_few": "{{count}} включено · время оценивается в часовом поясе IANA каждого расписания · ночные интервалы продолжаются на следующий день",
+    "timelineSummary_many": "{{count}} включено · время оценивается в часовом поясе IANA каждого расписания · ночные интервалы продолжаются на следующий день",
+    "timelineSummary_other": "{{count}} включено · время оценивается в часовом поясе IANA каждого расписания · ночные интервалы продолжаются на следующий день",
+    "loading": "Загрузка расписаний",
+    "loadError": "Не удалось загрузить расписания. Попробуйте обновить страницу.",
+    "enabled": "Включено",
+    "disabled": "Отключено",
+    "priorityBadge": "Приоритет {{priority}}",
+    "emptyTitle": "Расписаний пока нет",
+    "emptyDescription": "Прямые назначения экранов продолжат воспроизводиться, пока не будет создано расписание."
+  },
+  "editor": {
+    "createTitle": "Создать расписание",
+    "editTitle": "Редактировать расписание",
+    "subtitle": "Создайте правило воспроизведения и проверьте его действие перед сохранением.",
+    "loading": "Загрузка расписания",
+    "content": "Контент",
+    "contentTypeLabel": "Тип контента расписания",
+    "displayControl": "Управление дисплеем",
+    "scheduleTypeLabel": "Тип расписания",
+    "typeWeekly": "Еженедельное",
+    "typeOneTime": "Однократное событие",
+    "nameLabel": "Название расписания",
+    "namePlaceholder": "Утренние объявления",
+    "enabledLabel": "Включено",
+    "enabledHint": "Отключённые расписания сохраняются, но не влияют на воспроизведение.",
+    "descriptionLabel": "Описание",
+    "descriptionHint": "Необязательная внутренняя заметка, видимая в Studio.",
+    "save": "Сохранить расписание",
+    "discardAction": "Отменить",
+    "deleteTitle": "Удалить «{{name}}»?",
+    "discardTitle": "Отменить несохранённые изменения расписания?",
+    "presentationLabel": "Презентация",
+    "presentationLayoutFallback": "Макет",
+    "presentationPlaylistFallback": "Плейлист",
+    "presentationLayoutMeta": "{{width}} × {{height}} · ревизия {{revision}}",
+    "presentationPlaylistMeta_one": "{{count}} элемент · {{duration}}",
+    "presentationPlaylistMeta_few": "{{count}} элемента · {{duration}}",
+    "presentationPlaylistMeta_many": "{{count}} элементов · {{duration}}",
+    "presentationPlaylistMeta_other": "{{count}} элемента · {{duration}}",
+    "choosePresentation": "Выбрать презентацию",
+    "change": "Изменить",
+    "useSelected": "Использовать эту презентацию",
+    "noSelection": "Презентация не выбрана",
+    "durationVaries": "Длительность различается",
+    "emptyPlaylist": "Пустой плейлист",
+    "sections": {
+      "content": {
+        "description": "Назовите расписание и выберите, что оно должно воспроизводить."
+      },
+      "timing": {
+        "title": "Время",
+        "description": "Выберите, когда этот контент имеет преимущество."
+      },
+      "targets": {
+        "title": "Цели",
+        "description": "Выберите отдельные экраны или синхронизированные группы. Сгруппированные экраны планируются вместе."
+      },
+      "advanced": {
+        "title": "Дополнительные параметры",
+        "description": "Управляйте доступностью, приоритетом и заметками администратора."
+      }
+    },
+    "status": {
+      "unsaved": "Несохранённые изменения",
+      "saved": "Все изменения сохранены",
+      "incomplete": "Заполните обязательные поля"
+    }
+  },
+  "displayAction": {
+    "label": "Действие экрана",
+    "actionLabel": "Действие",
+    "inputLabel": "Идентификатор входа",
+    "inputHint": "Для HDMI-CEC используйте физический адрес, например 1.0.0.0.",
+    "volumeLabel": "Громкость",
+    "brightnessLabel": "Яркость",
+    "notSet": "не задано",
+    "note": "Действие использует то же время, приоритет и цели, что и контентные расписания. Проигрыватели сообщают, подтверждено ли состояние панели.",
+    "options": {
+      "powerOn": "Включить",
+      "powerOff": "Выключить",
+      "setInput": "Выбрать вход",
+      "setVolume": "Установить громкость",
+      "mute": "Без звука",
+      "unmute": "Включить звук",
+      "setBrightness": "Установить яркость"
+    },
+    "summary": {
+      "powerOn": "Включить экран",
+      "powerOff": "Выключить экран",
+      "setInput": "Переключить вход экрана на {{value}}",
+      "setVolume": "Установить громкость экрана: {{value}}",
+      "mute": "Выключить звук экрана",
+      "unmute": "Включить звук экрана",
+      "setBrightness": "Установить яркость экрана: {{value}}"
+    }
+  },
+  "weekdays": {
+    "monday": { "short": "Пн", "long": "понедельник" },
+    "tuesday": { "short": "Вт", "long": "вторник" },
+    "wednesday": { "short": "Ср", "long": "среда" },
+    "thursday": { "short": "Чт", "long": "четверг" },
+    "friday": { "short": "Пт", "long": "пятница" },
+    "saturday": { "short": "Сб", "long": "суббота" },
+    "sunday": { "short": "Вс", "long": "воскресенье" }
+  },
+  "timing": {
+    "weekdaysLabel": "Активные дни недели",
+    "starts": "Начало",
+    "ends": "Окончание",
+    "startsTimeLabel": "Время начала",
+    "endsTimeLabel": "Время окончания",
+    "overnight24h": "24-часовое окно",
+    "overnightTitle": "Ночное расписание",
+    "overnightHint": "Воспроизведение закончится на следующий день.",
+    "addDateRange": "Добавить диапазон дат",
+    "firstDate": "Первая активная дата",
+    "lastDate": "Последняя активная дата",
+    "removeDateRange": "Удалить диапазон дат",
+    "timezoneLabel": "Часовой пояс",
+    "timezoneSearch": "Поиск города или региона",
+    "timezoneEmpty": "По этому запросу часовые пояса не найдены.",
+    "clockNotSet": "Не задано",
+    "daysSummary": {
+      "weekdays": "С понедельника по пятницу",
+      "everyDay": "каждый день",
+      "none": "дни не выбраны",
+      "single": "каждый {{day}}"
+    },
+    "summary": {
+      "weeklyRange": "{{days}} с {{start}} до {{end}}",
+      "overnightSuffix": " следующего дня",
+      "rangeStart": ", с {{start}}",
+      "rangeThrough": " по {{end}}",
+      "oneTimeRange": "с {{start}} по {{end}}",
+      "chooseOneTime": "Выберите время начала и окончания."
+    }
+  },
+  "duration": {
+    "days_one": "{{count}} день",
+    "days_few": "{{count}} дня",
+    "days_many": "{{count}} дней",
+    "days_other": "{{count}} дня",
+    "hours": "{{count}} ч",
+    "minutes": "{{count}} мин",
+    "seconds": "{{count}} с",
+    "unavailable": "Длительность недоступна",
+    "invalidOrder": "Окончание должно быть после начала"
+  },
+  "targets": {
+    "tabLabel": "Тип цели",
+    "screensTab": "Экраны",
+    "groupsTab": "Группы экранов",
+    "searchScreens": "Поиск экранов",
+    "searchGroups": "Поиск групп экранов",
+    "selectedLabel": "Выбранные цели",
+    "removeOption": "Убрать {{name}}",
+    "selectedMark": "Выбрано",
+    "addMark": "Добавить",
+    "emptyScreens": "Экраны не соответствуют этому запросу.",
+    "emptyGroups": "Группы не соответствуют этому запросу.",
+    "groupDetail": "Группа экранов: {{name}}",
+    "noLocation": "Местоположение не указано",
+    "unknownTarget": "Выбранная цель",
+    "groupCount_one": "{{count}} экран",
+    "groupCount_few": "{{count}} экрана",
+    "groupCount_many": "{{count}} экранов",
+    "groupCount_other": "{{count}} экрана"
+  },
+  "priority": {
+    "label": "Приоритет",
+    "hint": "При совпадении времени и целей побеждают расписания с более высоким приоритетом.",
+    "controlLabel": "Приоритет расписания",
+    "customLabel": "Свой приоритет",
+    "customValue": "Свой ({{priority}})",
+    "presets": {
+      "normal": "Обычный",
+      "important": "Важный",
+      "special": "Особое событие",
+      "custom": "Свой"
+    }
+  },
+  "summary": {
+    "title": "Сводка расписания",
+    "when": "Когда",
+    "showsLayout": "Показывает макет {{name}}",
+    "playsPlaylist": "Воспроизводит {{name}}",
+    "targetCount_one": "На {{count}} экране",
+    "targetCount_few": "На {{count}} экранах",
+    "targetCount_many": "На {{count}} экранах",
+    "targetCount_other": "На {{count}} экрана",
+    "noTargets": "Цели не выбраны",
+    "conflictTitle": "Предпросмотр конфликтов",
+    "conflictHint": "Выберите контент и цели для проверки конфликтов.",
+    "checking": "Проверка применимых расписаний…",
+    "unavailable": "Проверка конфликтов недоступна",
+    "noConflicts": "Конфликтов нет",
+    "noOverlap": "Другие расписания не пересекаются с этим временем предпросмотра.",
+    "overlapCount_one": "{{count}} пересекающееся расписание",
+    "overlapCount_few": "{{count}} пересекающихся расписания",
+    "overlapCount_many": "{{count}} пересекающихся расписаний",
+    "overlapCount_other": "{{count}} пересекающихся расписания",
+    "winner": "{{name}} побеждает, потому что {{reason}}.",
+    "reasonHighest": "у него наивысший приоритет",
+    "reasonDirect": "оно направлено напрямую на экран",
+    "reasonLater": "оно начинается позже согласно правилам предшествования",
+    "fallbackNote": "Прямой резервный контент воспроизводится, когда нет активного расписания.",
+    "directTarget": "Прямая цель — экран",
+    "groupTarget": "Цель — группа",
+    "note": "Прямые назначения экранов остаются резервным контентом, когда нет активного расписания."
+  },
+  "validation": {
+    "nameRequired": "Введите название расписания.",
+    "contentRequired": "Выберите контент или действие управления дисплеем.",
+    "inputRequired": "Введите идентификатор входа для действия управления дисплеем.",
+    "volumeRange": "Громкость должна быть от 0 до 100.",
+    "brightnessRange": "Яркость должна быть от 0 до 100.",
+    "timezoneRequired": "Выберите часовой пояс.",
+    "targetsRequired": "Выберите хотя бы один экран или группу.",
+    "priorityRange": "Приоритет должен быть от -999 до 999.",
+    "daysRequired": "Выберите хотя бы один день недели.",
+    "timeRequired": "Выберите время начала и окончания.",
+    "dateRangeInvalid": "Дата окончания не должна быть раньше даты начала.",
+    "oneTimeRequired": "Выберите начало и окончание события.",
+    "oneTimeOrder": "Окончание события должно быть после его начала."
+  },
+  "range": {
+    "label": "Диапазон дат",
+    "from": "С",
+    "to": "По",
+    "presets": {
+      "day": "Последние 24 часа",
+      "week": "Последние 7 дней",
+      "month": "Последние 30 дней",
+      "custom": "Произвольный диапазон"
+    }
+  },
+  "datePicker": {
+    "pickDate": "Выберите дату",
+    "clear": "Очистить дату",
+    "time": "Время",
+    "timeFor": "Время: {{label}}",
+    "previewTime": "Время предпросмотра",
+    "fromTime": "Время начала",
+    "toTime": "Время окончания"
+  }
+}

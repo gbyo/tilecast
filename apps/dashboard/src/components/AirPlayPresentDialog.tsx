@@ -1,6 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Airplay, Radio, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { AirplaySession, ReliabilityStatus } from "../api/types";
 import { airplayCapabilityBlockDetail } from "./airplayCapability";
@@ -8,7 +10,6 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { toast } from "./ui/toast";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Field, FieldDescription, FieldLabel } from "./ui/field";
 import {
   Dialog,
   DialogContent,
@@ -36,59 +37,73 @@ function countdown(expiresAt: string, now: number) {
     : `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
-function sessionStatus(session: AirplaySession) {
+function sessionStatus(session: AirplaySession, t: TFunction<"alerts">) {
   if (session.status === "ended" || session.status === "expired")
-    return session.status === "expired" ? "AirPlay expired" : "AirPlay stopped";
-  if (session.status === "stopping") return "Stopping AirPlay";
+    return session.status === "expired"
+      ? t("airplay.status.expired")
+      : t("airplay.status.stopped");
+  if (session.status === "stopping") return t("airplay.status.stopping");
   if (session.status === "failed" || session.failedCount > 0)
-    return "AirPlay could not prepare every display";
+    return t("airplay.status.unprepared");
   if (session.status === "active" || session.connectedCount > 0)
-    return `Presenting · ${session.connectedCount}/${session.screenCount} displays receiving`;
+    return t("airplay.status.presenting", {
+      connected: session.connectedCount,
+      total: session.screenCount,
+    });
   if (session.status === "waiting")
-    return `Waiting · ${session.readyCount}/${session.screenCount} displays ready`;
-  return `Preparing · ${session.readyCount}/${session.screenCount} displays ready`;
+    return t("airplay.status.waiting", {
+      ready: session.readyCount,
+      total: session.screenCount,
+    });
+  return t("airplay.status.preparing", {
+    ready: session.readyCount,
+    total: session.screenCount,
+  });
 }
 
 function presentationNetworkProgress(
   session: AirplaySession,
+  t: TFunction<"alerts">,
 ): string | undefined {
   if (!session.presentationNetworkId) return undefined;
   const gateway = session.screens.find(
     (screen) => screen.role === "gateway" || screen.role === "single",
   );
-  const networkName = session.presentationNetworkName ?? "Presentation Network";
+  const networkName =
+    session.presentationNetworkName ?? t("airplay.network.fallbackName");
   const state = gateway?.presentationNetworkState;
-  if (state === "joining") return `Joining ${networkName} Wi-Fi…`;
+  if (state === "joining")
+    return t("airplay.network.joining", { name: networkName });
   if (state === "connected" && session.status !== "active")
-    return `Connected to ${networkName}. Preparing AirPlay…`;
+    return t("airplay.network.connected", { name: networkName });
   if (state === "failed") {
     switch (gateway?.failureCode) {
       case "authentication_failed":
-        return "Presentation Network authentication failed.";
+        return t("airplay.network.authFailed");
       case "ssid_not_found":
-        return `${networkName} was not found near the gateway.`;
+        return t("airplay.network.ssidNotFound", { name: networkName });
       case "dhcp_timeout":
-        return "The gateway joined Wi-Fi but did not receive an address.";
+        return t("airplay.network.dhcpTimeout");
       case "ethernet_default_route_lost":
-        return "Ethernet stopped being the default route; Wi-Fi was disconnected.";
+        return t("airplay.network.routeLost");
       default:
-        return "The gateway could not prepare the Presentation Network.";
+        return t("airplay.network.genericFailure");
     }
   }
   if (session.status === "preparing" || session.status === "waiting")
-    return `Preparing ${networkName} for AirPlay…`;
+    return t("airplay.network.preparing", { name: networkName });
   return undefined;
 }
 
-function airplayCreateError(error: unknown): string {
+function airplayCreateError(error: unknown, t: TFunction<"alerts">): string {
   if (
     error instanceof ApiError &&
     error.code === "airplay_presentation_network_gateway_unavailable"
   )
-    return "No eligible Wi-Fi gateway is available for this AirPlay target.";
+    return t("airplay.createError.gatewayUnavailable");
   return error instanceof Error
     ? error.message
-    : "AirPlay could not be started.";
+    : t("airplay.createError.generic");
 }
 
 export function AirPlayPresentDialog({
@@ -125,6 +140,7 @@ export function AirPlayPresentDialog({
   const [audioMode, setAudioMode] = useState<"gateway_only" | "none">(
     "gateway_only",
   );
+  const { t } = useTranslation(["alerts", "common"]);
   const [session, setSession] = useState<AirplaySession | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -170,7 +186,7 @@ export function AirPlayPresentDialog({
   const current = useQuery({
     queryKey: ["airplay-session", sessionId],
     queryFn: () => {
-      if (!sessionId) throw new Error("AirPlay session is not available");
+      if (!sessionId) throw new Error(t("airplay.sessionUnavailable"));
       return api.airplaySession(sessionId);
     },
     enabled: Boolean(open && sessionId),
@@ -183,7 +199,7 @@ export function AirPlayPresentDialog({
   });
   const stop = useMutation({
     mutationFn: () => {
-      if (!sessionId) throw new Error("AirPlay session is not available");
+      if (!sessionId) throw new Error(t("airplay.sessionUnavailable"));
       return api.stopAirplaySession(sessionId, csrfToken);
     },
     onSuccess: (value) => {
@@ -206,16 +222,16 @@ export function AirPlayPresentDialog({
       ? true
       : allCapabilities.every((item) => item.airplayGroupSupported === true);
   const capabilityText = useMemo(() => {
-    if (displayCount === 0) return "Add at least one display to this target.";
+    if (displayCount === 0) return t("airplay.capability.noDisplays");
     // A failed capability read is not the same as a display that has not
     // reported yet. Reporting both as "waiting" leaves the dialog stuck with
     // no way to tell a broken request from a player that never probed.
     if (capabilityError)
-      return `Tilecast could not read display capabilities: ${capabilityError}`;
+      return t("airplay.capability.readError", { error: capabilityError });
     if (!capabilitiesComplete) {
-      if (capabilityLoading) return "Reading display capabilities…";
+      if (capabilityLoading) return t("airplay.capability.reading");
       const remaining = Math.max(1, displayCount - allCapabilities.length);
-      return `Waiting for ${remaining} display${remaining === 1 ? "" : "s"} to report AirPlay capabilities.`;
+      return t("airplay.capability.waitingReports", { count: remaining });
     }
     const blocked = allCapabilities.filter((item) =>
       targetType === "group"
@@ -227,13 +243,14 @@ export function AirPlayPresentDialog({
       // operator guessing between UxPlay, GStreamer, the H.264 decoder, and
       // Avahi. Prefer the player's own sentence, which also carries the version
       // it found, and fall back to the component flags it reported.
-      const detail = airplayCapabilityBlockDetail(blocked);
-      return blocked.length === 1
-        ? `This display is not AirPlay-ready. ${detail}`
-        : `${blocked.length} displays are not AirPlay-ready. ${detail}`;
+      const detail = airplayCapabilityBlockDetail(blocked, t);
+      return t("airplay.capability.notReady", {
+        count: blocked.length,
+        detail,
+      });
     }
     if (targetType === "group" && groupReady === false) {
-      return "One or more displays has not verified the GStreamer RTP receiver path.";
+      return t("airplay.capability.groupProbe");
     }
     if (
       targetType !== "group" &&
@@ -243,7 +260,7 @@ export function AirPlayPresentDialog({
       // probe rather than at a version number. Every player release since
       // AirPlay shipped has carried fixes that changed what "new enough" means,
       // and naming one version sends operators to check the wrong thing.
-      return "This display has not reported AirPlay capabilities yet. Run Test AirPlay support from Health & recovery; if the probe never reports, update Tilecast Player.";
+      return t("airplay.capability.noReport");
     const hardware1080 = allCapabilities.every(
       (item) =>
         item.airplayHardwareDecode && item.airplayMaxProfile === "1080p30",
@@ -254,10 +271,11 @@ export function AirPlayPresentDialog({
         item.airplayMaxProfile === "720p30",
     );
     if (hardware1080)
-      return `All ${allCapabilities.length} displays hardware-ready · common profile 1080p30 H.264`;
-    if (h264Ready)
-      return `Common profile 720p30 H.264 · at least one display is software-only`;
-    return "Capability profile is still being reported.";
+      return t("airplay.capability.hardwareReady", {
+        count: allCapabilities.length,
+      });
+    if (h264Ready) return t("airplay.capability.softwareOnly");
+    return t("airplay.capability.stillReporting");
   }, [
     allCapabilities,
     capabilitiesComplete,
@@ -265,6 +283,7 @@ export function AirPlayPresentDialog({
     capabilityLoading,
     displayCount,
     groupReady,
+    t,
     targetType,
   ]);
   const anyUnsupported = allCapabilities.some((item) =>
@@ -272,6 +291,24 @@ export function AirPlayPresentDialog({
       ? item.airplayGroupSupported === false
       : item.airplaySupported === false,
   );
+  const durationOptions = [
+    { value: "15", label: t("airplay.durations.fifteenMinutes") },
+    { value: "30", label: t("airplay.durations.thirtyMinutes") },
+    { value: "60", label: t("airplay.durations.oneHour") },
+    { value: "0", label: t("airplay.durations.untilStopped") },
+  ];
+  const transportOptions = [
+    { value: "auto", label: t("airplay.transportOptions.auto") },
+    { value: "unicast", label: t("airplay.transportOptions.unicast") },
+    { value: "multicast", label: t("airplay.transportOptions.multicast") },
+  ];
+  const audioOptions = [
+    {
+      value: "gateway_only",
+      label: t("airplay.audioOptions.gatewayOnly"),
+    },
+    { value: "none", label: t("airplay.audioOptions.none") },
+  ];
   const profileReady = allCapabilities.every(
     (item) =>
       item.airplayMaxProfile === "1080p30" ||
@@ -295,10 +332,10 @@ export function AirPlayPresentDialog({
     >
       <DialogContent className="max-h-[min(90vh,54rem)] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Present with AirPlay · {destinationName}</DialogTitle>
-          <DialogDescription>
-            Start and monitor a temporary external AirPlay session.
-          </DialogDescription>
+          <DialogTitle>
+            {t("airplay.title", { name: destinationName })}
+          </DialogTitle>
+          <DialogDescription>{t("airplay.description")}</DialogDescription>
         </DialogHeader>
         {!live && sessionId ? (
           <>
@@ -306,13 +343,13 @@ export function AirPlayPresentDialog({
               <Radio size={17} aria-hidden="true" />
               <AlertDescription>
                 {current.error
-                  ? "Tilecast could not load the active AirPlay session. Refresh and try again."
-                  : "Loading the active AirPlay session…"}
+                  ? t("airplay.loadingError")
+                  : t("airplay.loadingSession")}
               </AlertDescription>
             </Alert>
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>
-                Close
+                {t("common:actions.close")}
               </Button>
             </DialogFooter>
           </>
@@ -326,8 +363,7 @@ export function AirPlayPresentDialog({
               <div className="grid min-w-0 gap-1">
                 <strong className="text-sm">{destinationName}</strong>
                 <span className="text-sm text-muted-foreground">
-                  {displayCount} display{displayCount === 1 ? "" : "s"} ·
-                  temporary external presentation
+                  {t("airplay.targetSummary", { count: displayCount })}
                 </span>
               </div>
             </div>
@@ -339,29 +375,15 @@ export function AirPlayPresentDialog({
               capability.externalPresentationState !== "none" && (
                 <Alert variant="destructive">
                   <AlertDescription>
-                    An AirPlay presentation is already reported on this screen.
-                    Stop it before starting another.
+                    {t("airplay.alreadyReported")}
                   </AlertDescription>
                 </Alert>
               )}
             <div className="grid gap-4">
-              <Field className="gap-1.5">
-                <FieldLabel
-                  htmlFor="airplay-duration"
-                  className="text-sm font-medium"
-                >
-                  Duration
-                </FieldLabel>
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span>{t("airplay.durationLabel")}</span>
                 <Select
-                  items={[
-                    { value: "15", label: "15 minutes" },
-                    { value: "30", label: "30 minutes" },
-                    { value: "60", label: "1 hour" },
-                    {
-                      value: "0",
-                      label: "Until stopped (24-hour safety deadline)",
-                    },
-                  ]}
+                  items={durationOptions}
                   value={String(durationMinutes)}
                   onValueChange={(value) => {
                     if (value) {
@@ -369,39 +391,28 @@ export function AirPlayPresentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger id="airplay-duration" className="w-full">
+                  <SelectTrigger
+                    className="w-full"
+                    aria-label={t("airplay.durationLabel")}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="15">15 minutes</SelectItem>
-                    <SelectItem value="30">30 minutes</SelectItem>
-                    <SelectItem value="60">1 hour</SelectItem>
-                    <SelectItem value="0">
-                      Until stopped (24-hour safety deadline)
-                    </SelectItem>
+                    {durationOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </Field>
-              <Field className="gap-1.5">
-                <FieldLabel
-                  htmlFor="airplay-transport"
-                  className="text-sm font-medium"
-                >
-                  Video transport
-                </FieldLabel>
-                <FieldDescription className="text-xs">
-                  Auto uses unicast for 1–4 displays and multicast only when
-                  validated.
-                </FieldDescription>
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span>{t("airplay.transportLabel")}</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {t("airplay.transportHint")}
+                </span>
                 <Select
-                  items={[
-                    { value: "auto", label: "Auto" },
-                    { value: "unicast", label: "Unicast fan-out" },
-                    {
-                      value: "multicast",
-                      label: "Multicast (falls back to unicast)",
-                    },
-                  ]}
+                  items={transportOptions}
                   value={transport}
                   onValueChange={(value) => {
                     if (
@@ -413,38 +424,32 @@ export function AirPlayPresentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger id="airplay-transport" className="w-full">
+                  <SelectTrigger
+                    className="w-full"
+                    aria-label={t("airplay.transportLabel")}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="auto">Auto</SelectItem>
-                    <SelectItem value="unicast">Unicast fan-out</SelectItem>
-                    <SelectItem value="multicast">
-                      Multicast (falls back to unicast)
-                    </SelectItem>
+                    {transportOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </Field>
-              <Field className="gap-1.5">
-                <FieldLabel
-                  htmlFor="airplay-audio-display"
-                  className="text-sm font-medium"
-                >
-                  Audio display
-                </FieldLabel>
-                <FieldDescription className="text-xs">
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                <span>{t("airplay.audioLabel")}</span>
+                <span className="text-xs font-normal text-muted-foreground">
                   {audioDisplayName
-                    ? `Primary audio: ${audioDisplayName}`
-                    : "Primary audio uses the selected or automatically chosen gateway."}
-                </FieldDescription>
+                    ? t("airplay.audioHintWithName", {
+                        name: audioDisplayName,
+                      })
+                    : t("airplay.audioHintDefault")}
+                </span>
                 <Select
-                  items={[
-                    {
-                      value: "gateway_only",
-                      label: "Gateway / primary display only",
-                    },
-                    { value: "none", label: "No AirPlay audio" },
-                  ]}
+                  items={audioOptions}
                   value={audioMode}
                   onValueChange={(value) => {
                     if (value === "gateway_only" || value === "none") {
@@ -452,35 +457,39 @@ export function AirPlayPresentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger id="airplay-audio-display" className="w-full">
+                  <SelectTrigger
+                    className="w-full"
+                    aria-label={t("airplay.audioLabel")}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="gateway_only">
-                      Gateway / primary display only
-                    </SelectItem>
-                    <SelectItem value="none">No AirPlay audio</SelectItem>
+                    {audioOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </Field>
+              </label>
             </div>
             {create.error && (
               <Alert variant="destructive">
                 <AlertDescription>
-                  {airplayCreateError(create.error)}
+                  {airplayCreateError(create.error, t)}
                 </AlertDescription>
               </Alert>
             )}
             <DialogFooter className="border-t border-border pt-4">
               <Button variant="outline" onClick={onClose}>
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               <Button
                 variant="default"
                 disabled={!canEnable || Boolean(sessionId)}
                 onClick={() => create.mutate()}
               >
-                {create.isPending ? "Enabling…" : "Enable AirPlay"}
+                {create.isPending ? t("airplay.enabling") : t("airplay.enable")}
               </Button>
             </DialogFooter>
           </>
@@ -489,46 +498,57 @@ export function AirPlayPresentDialog({
             <div className="flex items-center gap-2">
               <Radio size={18} aria-hidden="true" />
               <strong className="text-sm">
-                {presentationNetworkProgress(live) ?? sessionStatus(live)}
+                {presentationNetworkProgress(live, t) ?? sessionStatus(live, t)}
               </strong>
             </div>
             <div className="grid gap-1 rounded-xl border border-slate-700 bg-slate-950 p-5 text-center text-slate-100">
               <span className="text-xs uppercase tracking-widest text-slate-400">
-                AirPlay receiver
+                {t("airplay.receiverLabel")}
               </span>
               <strong>{live.receiverName}</strong>
               <small className="text-xs uppercase tracking-widest text-slate-400">
-                PIN
+                {t("airplay.pinLabel")}
               </small>
               <code className="my-1 text-5xl font-extrabold tracking-[0.18em] sm:text-6xl">
                 {live.pin ?? "----"}
               </code>
               <p className="mx-auto mt-2 max-w-[390px] text-sm text-slate-300">
-                On iPhone, iPad, or Mac, open Screen Mirroring / AirPlay and
-                choose this receiver.
+                {t("airplay.instructions")}
               </p>
             </div>
             <dl className="grid gap-3 sm:grid-cols-2">
               <div>
-                <dt className="text-xs text-muted-foreground">Profile</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {t("airplay.profileLabel")}
+                </dt>
                 <dd className="mt-1 text-sm font-medium">
-                  {live.videoProfile} H.264
+                  {t("airplay.profileValue", { profile: live.videoProfile })}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Transport</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {t("airplay.transportTitle")}
+                </dt>
                 <dd className="mt-1 text-sm font-medium">{live.transport}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Audio</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {t("airplay.audioTitle")}
+                </dt>
                 <dd className="mt-1 text-sm font-medium">
                   {live.audioMode === "none"
-                    ? "None"
-                    : `${audioDisplayName ?? "Gateway / primary display"} only`}
+                    ? t("airplay.audioNone")
+                    : t("airplay.audioGatewayOnly", {
+                        name:
+                          audioDisplayName ??
+                          t("airplay.audioOptions.gatewayOnly"),
+                      })}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Expires in</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {t("airplay.expiresLabel")}
+                </dt>
                 <dd className="mt-1 text-sm font-medium">
                   {countdown(live.expiresAt, now)}
                 </dd>
@@ -547,10 +567,18 @@ export function AirPlayPresentDialog({
                   }
                   className="h-auto w-full justify-start whitespace-normal px-2.5 py-1.5 text-left"
                 >
-                  {screen.screenName}: {screen.state.replaceAll("_", " ")}
-                  {screen.presentationNetworkState
-                    ? ` · Wi-Fi ${screen.presentationNetworkState.replaceAll("_", " ")}`
-                    : ""}
+                  {t("airplay.screenState", {
+                    name: screen.screenName,
+                    state: screen.state.replaceAll("_", " "),
+                    wifi: screen.presentationNetworkState
+                      ? t("airplay.screenWifi", {
+                          state: screen.presentationNetworkState.replaceAll(
+                            "_",
+                            " ",
+                          ),
+                        })
+                      : "",
+                  })}
                 </Badge>
               ))}
             </div>
@@ -561,7 +589,7 @@ export function AirPlayPresentDialog({
             )}
             <DialogFooter className="border-t border-border pt-4">
               <Button variant="outline" onClick={onClose}>
-                Close
+                {t("common:actions.close")}
               </Button>
               <Button
                 variant="destructive"
@@ -570,7 +598,7 @@ export function AirPlayPresentDialog({
                 )}
                 onClick={() => stop.mutate()}
               >
-                {stop.isPending ? "Stopping…" : "Stop AirPlay"}
+                {stop.isPending ? t("airplay.stopping") : t("airplay.stop")}
               </Button>
             </DialogFooter>
           </>

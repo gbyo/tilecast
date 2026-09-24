@@ -29,6 +29,7 @@ export function DashboardSearch({
   onValueChange,
   label,
   placeholder,
+  clearLabel,
   autoFocus = false,
   className,
 }: {
@@ -36,6 +37,8 @@ export function DashboardSearch({
   onValueChange: (value: string) => void;
   label: string;
   placeholder: string;
+  /** Localized clear-button name; falls back to Clear <label> when omitted. */
+  clearLabel?: string;
   autoFocus?: boolean;
   className?: string;
 }) {
@@ -57,7 +60,7 @@ export function DashboardSearch({
         <InputGroupAddon align="inline-end">
           <InputGroupButton
             size="icon-xs"
-            aria-label={`Clear ${label.toLowerCase()}`}
+            aria-label={clearLabel ?? `Clear ${label.toLowerCase()}`}
             onClick={() => onValueChange("")}
           >
             <X aria-hidden="true" />

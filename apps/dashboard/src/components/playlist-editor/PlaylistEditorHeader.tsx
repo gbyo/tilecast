@@ -10,6 +10,7 @@ import {
   Settings2,
   Trash2,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Playlist } from "../../api/types";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -38,13 +39,21 @@ export function playlistPublicationState(
 }
 
 const publicationBadge = {
-  published: { label: "Published", Icon: CircleCheck, variant: "secondary" },
+  published: {
+    labelKey: "header.statusPublished",
+    Icon: CircleCheck,
+    variant: "secondary",
+  },
   "unpublished-changes": {
-    label: "Unpublished changes",
+    labelKey: "header.unpublished",
     Icon: CircleDot,
     variant: "outline",
   },
-  draft: { label: "Draft", Icon: CircleDashed, variant: "outline" },
+  draft: {
+    labelKey: "header.statusDraft",
+    Icon: CircleDashed,
+    variant: "outline",
+  },
 } as const;
 
 export function PlaylistEditorHeader({
@@ -76,6 +85,7 @@ export function PlaylistEditorHeader({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation("playlists");
   const state = playlistPublicationState(playlist);
   const badge = publicationBadge[state];
   const itemCount = playlist.items?.length ?? playlist.itemCount;
@@ -89,19 +99,19 @@ export function PlaylistEditorHeader({
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
           <Badge variant={badge.variant}>
             <badge.Icon aria-hidden="true" />
-            {badge.label}
+            {t(badge.labelKey)}
           </Badge>
           <span className="tabular-nums">
-            {itemCount} item{itemCount === 1 ? "" : "s"} ·{" "}
-            {playlistDurationLabel(playlist.items)}
-            {sourceType === "tag" && " · Tag-driven"}
+            {t("count.items", { count: itemCount })} ·{" "}
+            {playlistDurationLabel(playlist.items, t)}
+            {sourceType === "tag" && ` · ${t("header.sourceTag")}`}
           </span>
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Button type="button" variant="outline" onClick={onPreview}>
           <ExternalLink aria-hidden="true" />
-          Preview
+          {t("header.preview")}
         </Button>
         {canSubmit && (
           <Button
@@ -115,7 +125,7 @@ export function PlaylistEditorHeader({
             ) : (
               <Send aria-hidden="true" />
             )}
-            {canPublish ? "Publish" : "Submit for review"}
+            {canPublish ? t("header.publish") : t("header.submitReview")}
           </Button>
         )}
         <DropdownMenu>
@@ -125,7 +135,7 @@ export function PlaylistEditorHeader({
                 type="button"
                 variant="outline"
                 size="icon"
-                aria-label="More playlist actions"
+                aria-label={t("header.moreActions")}
               />
             }
           >
@@ -134,16 +144,16 @@ export function PlaylistEditorHeader({
           <DropdownMenuContent
             align="end"
             className="min-w-48"
-            aria-label="Playlist actions"
+            aria-label={t("header.actionsMenu")}
           >
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={onOpenDetails}>
                 <Settings2 aria-hidden="true" />
-                Playlist details
+                {t("header.details")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onOpenHistory}>
                 <History aria-hidden="true" />
-                History
+                {t("header.history")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             {canManage && (
@@ -152,12 +162,12 @@ export function PlaylistEditorHeader({
                 <DropdownMenuGroup>
                   <DropdownMenuItem onClick={onDuplicate}>
                     <Copy aria-hidden="true" />
-                    Duplicate
+                    {t("header.menu.duplicate")}
                   </DropdownMenuItem>
                   {canDelete && (
                     <DropdownMenuItem variant="destructive" onClick={onDelete}>
                       <Trash2 aria-hidden="true" />
-                      Delete
+                      {t("header.menu.delete")}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuGroup>

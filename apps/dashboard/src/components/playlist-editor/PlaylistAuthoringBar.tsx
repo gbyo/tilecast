@@ -1,5 +1,6 @@
 import { ChevronDown, Info, PanelsTopLeft, Plus, Tags } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { PlaylistItem } from "../../api/types";
 import { Button } from "../ui/button";
 import { ButtonGroup, ButtonGroupSeparator } from "../ui/button-group";
@@ -30,11 +31,11 @@ import type {
 } from "./playlistEditorModel";
 
 const transitionOptions = [
-  { value: "mixed", label: "Mixed" },
-  { value: "none", label: "None" },
-  { value: "fade", label: "Fade" },
-  { value: "crossfade", label: "Crossfade" },
-];
+  { value: "mixed", labelKey: "model.transition.mixed" },
+  { value: "none", labelKey: "model.transition.none" },
+  { value: "fade", labelKey: "model.transition.fade" },
+  { value: "crossfade", labelKey: "model.transition.crossfade" },
+] as const;
 
 // PlaylistAddButton is the one add composition for the editor: the common
 // action stays one click away and Layouts sit behind the adjacent menu. The
@@ -46,17 +47,22 @@ export function PlaylistAddButton({
   onAddContent: () => void;
   onAddLayout: () => void;
 }) {
+  const { t } = useTranslation("playlists");
   return (
-    <ButtonGroup aria-label="Add to playlist">
+    <ButtonGroup aria-label={t("authoring.addGroup")}>
       <Button type="button" onClick={onAddContent}>
         <Plus aria-hidden="true" />
-        Add content
+        {t("timeline.addContent")}
       </Button>
       <ButtonGroupSeparator />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button type="button" size="icon" aria-label="More ways to add" />
+            <Button
+              type="button"
+              size="icon"
+              aria-label={t("authoring.moreWaysToAdd")}
+            />
           }
         >
           <ChevronDown aria-hidden="true" />
@@ -64,11 +70,11 @@ export function PlaylistAddButton({
         <DropdownMenuContent align="start" className="min-w-44">
           <DropdownMenuItem onClick={onAddContent}>
             <Plus aria-hidden="true" />
-            Media or Widget
+            {t("authoring.mediaOrWidget")}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onAddLayout}>
             <PanelsTopLeft aria-hidden="true" />
-            Published Layout
+            {t("authoring.publishedLayout")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -101,6 +107,7 @@ export function PlaylistAuthoringBar({
   onAddLayout: () => void;
   onEditSource: () => void;
 }) {
+  const { t } = useTranslation("playlists");
   const tagDriven = sourceType === "tag";
   const editable = canManage && !tagDriven;
   const hasImages = items.some((item) => item.assetType === "image");
@@ -125,20 +132,20 @@ export function PlaylistAuthoringBar({
   return (
     <div
       role="toolbar"
-      aria-label="Playlist authoring"
+      aria-label={t("authoring.toolbarLabel")}
       className="flex flex-wrap items-center gap-x-6 gap-y-3"
     >
       {tagDriven ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Tags className="size-4" aria-hidden="true" />
-          Items come from media tags.
+          {t("authoring.tagSourceNote")}
           <Button
             type="button"
             variant="link"
             className="h-auto p-0"
             onClick={onEditSource}
           >
-            Edit content source
+            {t("authoring.editSource")}
           </Button>
         </p>
       ) : (
@@ -153,7 +160,7 @@ export function PlaylistAuthoringBar({
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <Field orientation="horizontal" className="w-auto gap-2">
           <FieldLabel htmlFor="playlist-transition" className="shrink-0">
-            Transition
+            {t("defaults.transitionLabel")}
           </FieldLabel>
           <Select
             disabled={!editable || pending}
@@ -163,23 +170,30 @@ export function PlaylistAuthoringBar({
                 onTransitionChange(next);
               }
             }}
-            items={transitionOptions}
+            items={transitionOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
           >
             <SelectTrigger
               id="playlist-transition"
               className="w-32"
-              aria-label="Playlist transition"
-              aria-description="Applies to every item."
+              aria-label={t("defaults.transitionAria")}
+              aria-description={t("authoring.transitionDescription")}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {transition === "mixed" && (
-                <SelectItem value="mixed">Mixed</SelectItem>
-              )}
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="fade">Fade</SelectItem>
-              <SelectItem value="crossfade">Crossfade</SelectItem>
+              {transitionOptions
+                .filter(
+                  (option) =>
+                    option.value !== "mixed" || transition === "mixed",
+                )
+                .map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(option.labelKey)}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
           {transition === "crossfade" && (
@@ -190,15 +204,14 @@ export function PlaylistAuthoringBar({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="About crossfade audio"
+                    aria-label={t("authoring.crossfadeInfo")}
                   />
                 }
               >
                 <Info aria-hidden="true" />
               </TooltipTrigger>
               <TooltipContent className="max-w-64">
-                Crossfade blends visuals. Audio still changes at the normal item
-                boundary.
+                {t("authoring.crossfadeTooltip")}
               </TooltipContent>
             </Tooltip>
           )}
@@ -207,20 +220,24 @@ export function PlaylistAuthoringBar({
         {hasImages && (
           <Field orientation="horizontal" className="w-auto gap-2">
             <FieldLabel htmlFor="playlist-image-duration" className="shrink-0">
-              Images
+              {t("authoring.imagesLabel")}
             </FieldLabel>
             <InputGroup className="w-28">
               <InputGroupInput
                 id="playlist-image-duration"
-                aria-label="Playlist image duration in seconds"
-                aria-description="Updates every fixed-duration image item."
+                aria-label={t("defaults.imageDurationAria")}
+                aria-description={t("authoring.imageDurationDescription")}
                 type="number"
                 inputMode="decimal"
                 min="1"
                 max="86400"
                 disabled={!editable || pending}
                 value={durationDraft}
-                placeholder={imageDuration.kind === "mixed" ? "Mixed" : "Auto"}
+                placeholder={
+                  imageDuration.kind === "mixed"
+                    ? t("authoring.imageDurationMixed")
+                    : t("authoring.imageDurationAuto")
+                }
                 onChange={(event) => setDurationDraft(event.target.value)}
                 onBlur={commitImageDuration}
                 onKeyDown={(event) => {
@@ -232,7 +249,9 @@ export function PlaylistAuthoringBar({
                 }}
               />
               <InputGroupAddon align="inline-end">
-                <InputGroupText aria-hidden="true">s</InputGroupText>
+                <InputGroupText aria-hidden="true">
+                  {t("units.secondsShort")}
+                </InputGroupText>
               </InputGroupAddon>
             </InputGroup>
           </Field>

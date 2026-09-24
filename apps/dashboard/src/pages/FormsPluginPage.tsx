@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ClipboardList, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
@@ -27,6 +28,7 @@ import {
 } from "../components/ui/empty";
 
 export function FormsPluginPage() {
+  const { t } = useTranslation("forms");
   const auth = useAuth();
   const canCreate = canManageContent(auth.status?.user);
   const forms = useQuery({
@@ -43,12 +45,13 @@ export function FormsPluginPage() {
             to="/plugins"
             className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft size={15} aria-hidden="true" /> Plugins
+            <ArrowLeft size={15} aria-hidden="true" /> {t("plugin.breadcrumb")}
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight">Forms</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            {t("plugin.title")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Build forms, manage responses, and make approved records available
-            to signage.
+            {t("plugin.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -57,7 +60,8 @@ export function FormsPluginPage() {
               className={buttonVariants({ variant: "default" })}
               to="/plugins/forms/new"
             >
-              <Plus data-icon="inline-start" aria-hidden="true" /> Create form
+              <Plus data-icon="inline-start" aria-hidden="true" />{" "}
+              {t("plugin.create")}
             </Link>
           )}
           <PluginActionsMenu pluginId="forms" />
@@ -65,11 +69,11 @@ export function FormsPluginPage() {
       </header>
       {forms.isError && (
         <Alert variant="destructive">
-          <AlertTitle>Could not load forms</AlertTitle>
+          <AlertTitle>{t("plugin.loadError")}</AlertTitle>
           <AlertDescription>
             {forms.error instanceof ApiError
               ? forms.error.message
-              : "Forms could not be loaded."}
+              : t("plugin.loadFallback")}
           </AlertDescription>
         </Alert>
       )}
@@ -85,11 +89,9 @@ export function FormsPluginPage() {
             <EmptyMedia variant="icon">
               <ClipboardList size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No forms yet</EmptyTitle>
+            <EmptyTitle>{t("plugin.empty")}</EmptyTitle>
             <EmptyDescription>
-              {canCreate
-                ? "Create a form to start collecting submissions."
-                : "You do not have access to any forms."}
+              {canCreate ? t("plugin.emptyCreate") : t("plugin.emptyDenied")}
             </EmptyDescription>
           </EmptyHeader>
           {canCreate && (
@@ -98,7 +100,7 @@ export function FormsPluginPage() {
                 className={buttonVariants({ variant: "default" })}
                 to="/plugins/forms/new"
               >
-                Create form
+                {t("plugin.create")}
               </Link>
             </EmptyContent>
           )}
@@ -112,12 +114,14 @@ export function FormsPluginPage() {
                   <h2 className="truncate text-sm font-medium">{form.name}</h2>
                   <Badge variant="secondary">
                     {form.publishedRevisionNumber
-                      ? `Published revision ${form.publishedRevisionNumber}`
-                      : "Draft"}
+                      ? t("plugin.publishedRevision", {
+                          number: form.publishedRevisionNumber,
+                        })
+                      : t("plugin.draft")}
                   </Badge>
                 </ItemTitle>
                 <ItemDescription>
-                  {form.description || "No description"}
+                  {form.description || t("plugin.noDescription")}
                 </ItemDescription>
               </ItemContent>
               <ItemActions>
@@ -125,7 +129,7 @@ export function FormsPluginPage() {
                   className={buttonVariants({ variant: "outline", size: "sm" })}
                   to={`/plugins/forms/${form.id}`}
                 >
-                  Manage form
+                  {t("plugin.manage")}
                 </Link>
               </ItemActions>
             </Item>

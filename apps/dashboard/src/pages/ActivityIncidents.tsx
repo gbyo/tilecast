@@ -1,19 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
+import { translateKnown } from "../i18n";
 import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { buttonVariants } from "../components/ui/button";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "../components/ui/empty";
-import {
   activityParams,
   activityRequest,
+  EmptyState,
   ErrorNotice,
   humanize,
   Loading,
@@ -60,7 +57,7 @@ type Breakdown = { key: string; label: string; count: number };
 function formatSeconds(value: number | null) {
   // Null means nothing recovered in this range. Showing 0 would read as
   // instant recovery, which is the opposite of no data.
-  if (value == null) return "No data";
+  if (value == null) return translateKnown("activity:shared.noData", "No data");
   const minutes = Math.round(value / 60);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
@@ -87,6 +84,7 @@ const PREVIEW_FAILING = 5;
  * a range-scoped report, and says so.
  */
 export function NeedsAttentionPanel() {
+  const { t } = useTranslation("activity");
   const canAct = useCanActOnIncidents();
   const act = useIncidentAction();
   const query = useQuery({
@@ -115,26 +113,25 @@ export function NeedsAttentionPanel() {
   return (
     <section
       className="grid gap-3 rounded-xl border border-border p-4"
-      aria-label="Needs attention"
+      aria-label={t("incidents.attentionLabel")}
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid gap-1">
           <h3 className="flex items-center gap-2 text-base font-semibold">
-            Needs attention
+            {t("incidents.attentionTitle")}
             {failing.length > 0 && (
               <Badge variant="destructive">{failing.length}</Badge>
             )}
           </h3>
           <p className="text-sm text-muted-foreground">
-            Open incidents right now, not over the selected range. Repeats of
-            one condition are a single incident.
+            {t("incidents.attentionDescription")}
           </p>
         </div>
         <Link
           className={buttonVariants({ variant: "outline" })}
           to={buildActivityLink("incidents")}
         >
-          All incidents
+          {t("incidents.allIncidents")}
         </Link>
       </header>
 
@@ -145,12 +142,7 @@ export function NeedsAttentionPanel() {
       )}
 
       {failing.length === 0 ? (
-        <Empty className="min-h-40 p-6">
-          <EmptyHeader>
-            <EmptyTitle>No active failures</EmptyTitle>
-            <EmptyDescription>Nothing is currently failing.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <EmptyState message={t("incidents.emptyAttention")} />
       ) : (
         <>
           <ul className="grid list-none gap-2 p-0">
@@ -162,11 +154,7 @@ export function NeedsAttentionPanel() {
               />
             ))}
           </ul>
-          <TruncationNotice
-            shown={PREVIEW_FAILING}
-            total={failing.length}
-            noun="still failing"
-          />
+          <TruncationNotice shown={PREVIEW_FAILING} total={failing.length} />
         </>
       )}
     </section>
@@ -178,15 +166,8 @@ export function NeedsAttentionPanel() {
  * as "this is all of them", which is the one thing a truncated list of open
  * problems must never imply.
  */
-function TruncationNotice({
-  shown,
-  total,
-  noun,
-}: {
-  shown: number;
-  total: number;
-  noun: string;
-}) {
+function TruncationNotice({ shown, total }: { shown: number; total: number }) {
+  const { t } = useTranslation("activity");
   const hidden = total - shown;
   if (hidden <= 0) return null;
   return (
@@ -195,7 +176,7 @@ function TruncationNotice({
         to={buildActivityLink("incidents")}
         className="font-medium text-primary hover:underline"
       >
-        {hidden} more {noun}
+        {t("incidents.moreStillFailing", { count: hidden })}
       </Link>
     </p>
   );
@@ -210,6 +191,7 @@ export function IncidentAnalyticsPanel({
 }: {
   range: ResolvedTimeRange;
 }) {
+  const { t } = useTranslation("activity");
   const query = useQuery({
     queryKey: ["activity", "incident-analytics", range.from, range.to],
     queryFn: () =>
@@ -223,58 +205,67 @@ export function IncidentAnalyticsPanel({
   // collections at all; the panel indexes into them directly.
   const recurring = data.recurring ?? [];
 
+  const duringRange = t("overview.duringRange", { range: range.label });
   return (
     <section
       className="grid gap-3 rounded-xl border border-border p-4"
-      aria-label="Incident analytics"
+      aria-label={t("incidents.analyticsLabel")}
     >
       <header className="grid gap-1">
-        <h3 className="text-base font-semibold">Incident analytics</h3>
+        <h3 className="text-base font-semibold">
+          {t("incidents.analyticsTitle")}
+        </h3>
         <p className="text-sm text-muted-foreground">
-          Measured over {range.label}, except where a tile says otherwise.
+          {t("incidents.analyticsDescription", { range: range.label })}
         </p>
       </header>
       <div className="grid gap-4">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <MetricTile
-            label="Active incidents"
+            label={t("incidents.tiles.active")}
             value={data.activeIncidents}
             // The one tile that is not range-scoped, said plainly rather than
             // left to look like part of the historical set.
-            hint="Right now, not over the range"
+            hint={t("incidents.tiles.activeHint")}
           />
           <MetricTile
-            label="Opened"
+            label={t("incidents.tiles.opened")}
             value={data.incidentsOpened}
-            hint={`During ${range.label}`}
+            hint={duringRange}
           />
           <MetricTile
-            label="Resolved"
+            label={t("incidents.tiles.resolved")}
             value={data.incidentsResolved}
-            hint={`During ${range.label}`}
+            hint={duringRange}
           />
           <MetricTile
-            label="Mean time to recover"
+            label={t("incidents.tiles.mean")}
             value={formatSeconds(data.meanTimeToRecoverSeconds)}
             // The median is shown beside the mean because one long outage
             // drags the mean away from the typical case.
-            hint={`Median ${formatSeconds(data.medianTimeToRecoverSeconds)}`}
+            hint={t("incidents.tiles.medianHint", {
+              value: formatSeconds(data.medianTimeToRecoverSeconds),
+            })}
           />
           <MetricTile
-            label="Longest incident"
+            label={t("incidents.tiles.longest")}
             value={formatSeconds(data.longestIncidentSeconds)}
-            hint={data.longestIncidentTitle || `During ${range.label}`}
+            hint={data.longestIncidentTitle || duringRange}
           />
           <MetricTile
-            label="Recovered on their own"
+            label={t("incidents.tiles.recoveredOwn")}
             value={data.automaticRecoveries}
-            hint={`${data.manualRecoveries} closed by hand`}
+            hint={t("incidents.tiles.closedByHand", {
+              count: data.manualRecoveries,
+            })}
           />
         </div>
 
         {recurring.length > 0 && (
           <div className="grid gap-2">
-            <h4 className="text-sm font-semibold">Recurring problems</h4>
+            <h4 className="text-sm font-semibold">
+              {t("incidents.recurringTitle")}
+            </h4>
             <ul className="grid gap-2">
               {recurring.map((item) => (
                 <li
@@ -290,7 +281,13 @@ export function IncidentAnalyticsPanel({
                   {/* Separate counts: five short outages and one outage
                       reported five times are different problems. */}
                   <span className="text-xs text-muted-foreground tabular-nums">
-                    {item.incidents} incidents · {item.occurrences} occurrences
+                    {t("incidents.recurringIncidents", {
+                      count: item.incidents,
+                    })}{" "}
+                    ·{" "}
+                    {t("incidents.recurringOccurrences", {
+                      count: item.occurrences,
+                    })}
                   </span>
                 </li>
               ))}
@@ -301,12 +298,15 @@ export function IncidentAnalyticsPanel({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(
             [
-              ["By screen", data.byScreen ?? []],
-              ["By location", data.byLocation ?? []],
-              ["By device model", data.byDeviceModel ?? []],
-              ["By Player version", data.byPlayerVersion ?? []],
-              ["By failure code", data.byFailureCode ?? []],
-              ["By category", data.byType ?? []],
+              [t("incidents.groups.byScreen"), data.byScreen ?? []],
+              [t("incidents.groups.byLocation"), data.byLocation ?? []],
+              [t("incidents.groups.byDeviceModel"), data.byDeviceModel ?? []],
+              [
+                t("incidents.groups.byPlayerVersion"),
+                data.byPlayerVersion ?? [],
+              ],
+              [t("incidents.groups.byFailureCode"), data.byFailureCode ?? []],
+              [t("incidents.groups.byType"), data.byType ?? []],
             ] as [string, Breakdown[]][]
           )
             .filter(([, items]) => items.length > 0)

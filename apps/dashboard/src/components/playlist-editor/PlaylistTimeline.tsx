@@ -18,6 +18,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type { PlaylistItem } from "../../api/types";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -111,6 +112,7 @@ export function PlaylistTimeline({
   onDragEnd: () => void;
   onDrop: (event: DragEvent, targetId: string) => void;
 }) {
+  const { t } = useTranslation("playlists");
   const tagDriven = sourceType === "tag";
   const runAction = (itemId: string, action: PlaylistItemActionId) => {
     if (action === "inspect") onSelect(itemId);
@@ -131,13 +133,13 @@ export function PlaylistTimeline({
           id="playlist-timeline-title"
           className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
         >
-          Content
+          {t("timeline.heading")}
         </h2>
         {items.length > 0 && (
           <p className="text-xs text-muted-foreground tabular-nums">
-            {items.length} item{items.length === 1 ? "" : "s"} ·{" "}
-            <span aria-label="Total playlist duration">
-              {playlistDurationLabel(items)}
+            {t("count.items", { count: items.length })} ·{" "}
+            <span aria-label={t("timeline.totalDuration")}>
+              {playlistDurationLabel(items, t)}
             </span>
           </p>
         )}
@@ -150,18 +152,20 @@ export function PlaylistTimeline({
               <FileImage aria-hidden="true" />
             </EmptyMedia>
             <EmptyTitle>
-              {tagDriven ? "No matching content" : "This playlist is empty"}
+              {tagDriven
+                ? t("timeline.emptyTagTitle")
+                : t("timeline.emptyPlaylistTitle")}
             </EmptyTitle>
             <EmptyDescription>
               {tagDriven
-                ? "No ready media currently matches this playlist’s tags."
-                : "Add ready images, videos, Widgets, or Layouts to begin playback."}
+                ? t("timeline.emptyTagDescription")
+                : t("timeline.emptyManualDescription")}
             </EmptyDescription>
           </EmptyHeader>
           {emptyAction && <EmptyContent>{emptyAction}</EmptyContent>}
         </Empty>
       ) : (
-        <ItemGroup aria-label="Playlist content timeline" className="gap-1">
+        <ItemGroup aria-label={t("timeline.listLabel")} className="gap-1">
           {items.map((item, index) => (
             <PlaylistTimelineItem
               key={item.id}
@@ -171,6 +175,7 @@ export function PlaylistTimeline({
                 index,
                 itemCount: items.length,
                 canManage,
+                t,
               })}
               canManage={canManage}
               selected={selectedItemId === item.id}
@@ -213,6 +218,7 @@ function PlaylistTimelineItem({
   onDragEnd: () => void;
   onDrop: (event: DragEvent, targetId: string) => void;
 }) {
+  const { t } = useTranslation("playlists");
   const override =
     !item.usePlayerDefaults &&
     itemHasTransitionOverride(item, playlistTransition);
@@ -262,8 +268,8 @@ function PlaylistTimelineItem({
               size="icon-xs"
               className="cursor-grab active:cursor-grabbing"
               draggable
-              aria-label={`Reorder ${item.assetName}`}
-              title="Drag to reorder"
+              aria-label={t("timeline.reorder", { name: item.assetName })}
+              title={t("timeline.dragHint")}
               onDragStart={(event) => {
                 event.stopPropagation();
                 event.dataTransfer.effectAllowed = "move";
@@ -292,7 +298,7 @@ function PlaylistTimelineItem({
               type="button"
               data-slot="playlist-item-inspect"
               className="truncate text-left outline-none after:absolute after:inset-0 after:rounded-md"
-              aria-label={`Inspect ${item.assetName}`}
+              aria-label={t("timeline.inspectAction", { name: item.assetName })}
               aria-pressed={selected}
               onClick={() => onAction("inspect")}
             >
@@ -300,19 +306,21 @@ function PlaylistTimelineItem({
             </button>
           </ItemTitle>
           <ItemDescription className="truncate text-xs">
-            {playlistItemSummary(item)}
+            {playlistItemSummary(item, t)}
           </ItemDescription>
         </ItemContent>
 
         <ItemActions className="relative z-10 gap-1.5">
-          {override && <Badge variant="outline">Override</Badge>}
+          {override && (
+            <Badge variant="outline">{t("timeline.overrideBadge")}</Badge>
+          )}
           {unavailable && (
             <Badge variant="destructive">
-              {assetStatusLabel(item.assetStatus)}
+              {assetStatusLabel(item.assetStatus, t)}
             </Badge>
           )}
           <span className="min-w-12 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-            {formatItemDuration(item)}
+            {formatItemDuration(item, t)}
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -321,7 +329,9 @@ function PlaylistTimelineItem({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Actions for ${item.assetName}`}
+                  aria-label={t("timeline.actionsFor", {
+                    name: item.assetName,
+                  })}
                 />
               }
             >
@@ -330,7 +340,7 @@ function PlaylistTimelineItem({
             <DropdownMenuContent
               align="end"
               className="min-w-52"
-              aria-label={`Actions for ${item.assetName}`}
+              aria-label={t("timeline.actionsFor", { name: item.assetName })}
             >
               <PlaylistItemMenuEntries
                 actions={actions}
@@ -345,7 +355,7 @@ function PlaylistTimelineItem({
       </ContextMenuTrigger>
       <ContextMenuContent
         className="min-w-52"
-        aria-label={`Actions for ${item.assetName}`}
+        aria-label={t("timeline.actionsFor", { name: item.assetName })}
       >
         <PlaylistItemMenuEntries
           actions={actions}

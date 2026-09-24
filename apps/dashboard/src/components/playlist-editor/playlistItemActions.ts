@@ -1,3 +1,5 @@
+import type { PlaylistsT } from "./playlistEditorModel";
+
 export type PlaylistItemActionId =
   "inspect" | "move-up" | "move-down" | "move-top" | "move-bottom" | "remove";
 
@@ -18,13 +20,20 @@ export function playlistItemActions({
   index,
   itemCount,
   canManage,
+  t,
 }: {
   index: number;
   itemCount: number;
   canManage: boolean;
+  t: PlaylistsT;
 }): PlaylistItemAction[] {
   const actions: PlaylistItemAction[] = [
-    { id: "inspect", label: "Inspect", disabled: false, group: "inspect" },
+    {
+      id: "inspect",
+      label: t("timeline.actions.inspect"),
+      disabled: false,
+      group: "inspect",
+    },
   ];
   if (!canManage) return actions;
   const first = index === 0;
@@ -32,35 +41,35 @@ export function playlistItemActions({
   actions.push(
     {
       id: "move-up",
-      label: "Move up",
+      label: t("timeline.moveUp"),
       shortcut: "Alt+↑",
       disabled: first,
       group: "order",
     },
     {
       id: "move-down",
-      label: "Move down",
+      label: t("timeline.moveDown"),
       shortcut: "Alt+↓",
       disabled: last,
       group: "order",
     },
     {
       id: "move-top",
-      label: "Move to top",
+      label: t("timeline.moveTop"),
       shortcut: "Alt+Home",
       disabled: first,
       group: "order",
     },
     {
       id: "move-bottom",
-      label: "Move to bottom",
+      label: t("timeline.moveBottom"),
       shortcut: "Alt+End",
       disabled: last,
       group: "order",
     },
     {
       id: "remove",
-      label: "Remove from playlist",
+      label: t("timeline.actions.remove"),
       disabled: false,
       destructive: true,
       group: "remove",

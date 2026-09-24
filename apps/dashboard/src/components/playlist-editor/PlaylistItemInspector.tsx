@@ -1,6 +1,8 @@
 import { AlertCircle, Info, Trash2, X } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { PlaylistItem, PlaylistItemInput } from "../../api/types";
+import { useFormatLocale } from "../../i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,27 +59,30 @@ import {
 } from "./playlistEditorModel";
 
 const itemTransitionOptions = [
-  { value: "none", label: "None" },
-  { value: "fade", label: "Fade" },
-  { value: "crossfade", label: "Crossfade" },
-];
+  { value: "none", labelKey: "inspector.transitionOptions.none" },
+  { value: "fade", labelKey: "inspector.transitionOptions.fade" },
+  { value: "crossfade", labelKey: "inspector.transitionOptions.crossfade" },
+] as const;
 
 const fitModeOptions = [
-  { value: "contain", label: "Contain" },
-  { value: "cover", label: "Cover" },
-  { value: "stretch", label: "Stretch" },
-];
+  { value: "contain", labelKey: "inspector.fitOptions.contain" },
+  { value: "cover", labelKey: "inspector.fitOptions.cover" },
+  { value: "stretch", labelKey: "inspector.fitOptions.stretch" },
+] as const;
 
 const deliveryOptions = [
-  { value: "download", label: "Download" },
-  { value: "stream", label: "Stream" },
-  { value: "automatic", label: "Automatic" },
-];
+  { value: "download", labelKey: "inspector.deliveryOptions.download" },
+  { value: "stream", labelKey: "inspector.deliveryOptions.stream" },
+  { value: "automatic", labelKey: "inspector.deliveryOptions.automatic" },
+] as const;
 
 const widgetBehaviorOptions = [
-  { value: "until_end", label: "Play until video ends" },
-  { value: "fixed_duration", label: "Play for a fixed duration" },
-];
+  { value: "until_end", labelKey: "inspector.widgetBehavior.untilEnd" },
+  {
+    value: "fixed_duration",
+    labelKey: "inspector.widgetBehavior.fixedDuration",
+  },
+] as const;
 
 export function PlaylistItemInspector({
   item,
@@ -95,6 +100,7 @@ export function PlaylistItemInspector({
   open: boolean;
   onOpenChangeComplete: (open: boolean) => void;
 }) {
+  const { t } = useTranslation("playlists");
   return (
     <Drawer
       open={open}
@@ -107,11 +113,14 @@ export function PlaylistItemInspector({
       <DrawerContent className="max-h-[calc(100dvh-2rem)]">
         <DrawerHeader>
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {`Item ${index + 1} · ${playlistItemTypeLabel(item)}`}
+            {t("inspector.itemHeading", {
+              index: index + 1,
+              type: playlistItemTypeLabel(item, t),
+            })}
           </p>
           <DrawerTitle className="truncate">{item.assetName}</DrawerTitle>
           <DrawerDescription className="sr-only">
-            Edit playlist item settings.
+            {t("inspector.drawerDescription")}
           </DrawerDescription>
         </DrawerHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -129,7 +138,7 @@ export function PlaylistItemInspector({
         </div>
         <DrawerFooter className="border-t">
           <DrawerClose render={<Button type="button" variant="outline" />}>
-            Done
+            {t("inspector.done")}
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>
@@ -141,12 +150,19 @@ export function PlaylistItemInspector({
 // while an item is selected, so the timeline keeps the full width otherwise.
 export function PlaylistItemInspectorPane(props: InspectorProps) {
   const { item, index, onClose } = props;
+  const { t } = useTranslation("playlists");
   return (
-    <aside aria-label="Item inspector" className="grid content-start gap-5">
+    <aside
+      aria-label={t("editor.itemInspectorLabel")}
+      className="grid content-start gap-5"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="grid min-w-0 gap-1">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {`Item ${index + 1} · ${playlistItemTypeLabel(item)}`}
+            {t("inspector.itemHeading", {
+              index: index + 1,
+              type: playlistItemTypeLabel(item, t),
+            })}
           </p>
           <h2 className="truncate text-base font-semibold tracking-tight">
             {item.assetName}
@@ -156,7 +172,7 @@ export function PlaylistItemInspectorPane(props: InspectorProps) {
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Close item inspector"
+          aria-label={t("inspector.close")}
           onClick={onClose}
         >
           <X aria-hidden="true" />
@@ -191,6 +207,8 @@ export function PlaylistItemInspectorBody({
   onChange,
   onDelete,
 }: InspectorProps) {
+  const { t } = useTranslation(["playlists", "common"]);
+  const formatLocale = useFormatLocale();
   const usesPlayerDefaults = item.usePlayerDefaults === true;
   const editable = canManage && !item.dynamic;
   const itemDeliveryOptions =
@@ -222,16 +240,13 @@ export function PlaylistItemInspectorBody({
         {item.dynamic && (
           <Alert>
             <Info aria-hidden="true" />
-            <AlertDescription>
-              This item is generated by the playlist’s tags. Edit the tag rule
-              in Playlist details to change it.
-            </AlertDescription>
+            <AlertDescription>{t("inspector.dynamicNotice")}</AlertDescription>
           </Alert>
         )}
         {error && (
           <Alert variant="destructive">
             <AlertCircle aria-hidden="true" />
-            <AlertTitle>Could not save this item</AlertTitle>
+            <AlertTitle>{t("inspector.saveErrorTitle")}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -239,16 +254,20 @@ export function PlaylistItemInspectorBody({
           <Alert variant="destructive">
             <AlertCircle aria-hidden="true" />
             <AlertTitle>
-              {assetStatusLabel(item.assetStatus)} content
+              {t("inspector.notReadyTitle", {
+                status: assetStatusLabel(item.assetStatus, t),
+              })}
             </AlertTitle>
             <AlertDescription>
-              Players skip this item until its media is ready.
+              {t("inspector.notReadyDescription")}
             </AlertDescription>
           </Alert>
         )}
 
         <FieldSet>
-          <FieldLegend variant="label">Playback</FieldLegend>
+          <FieldLegend variant="label">
+            {t("inspector.sections.playback")}
+          </FieldLegend>
           <FieldGroup className="gap-4">
             {(item.assetType === "image" || item.assetType === "video") && (
               <Field orientation="horizontal">
@@ -262,17 +281,18 @@ export function PlaylistItemInspectorBody({
                 />
                 <FieldContent>
                   <FieldLabel htmlFor="inspector-player-defaults">
-                    Use Player defaults
+                    {t("inspector.playerDefaults")}
                   </FieldLabel>
                   <FieldDescription>
-                    Let the assigned Player decide fit, transition, audio, and
-                    volume.
+                    {t("inspector.playerDefaultsHint")}
                   </FieldDescription>
                 </FieldContent>
               </Field>
             )}
             <Field>
-              <FieldLabel htmlFor="inspector-transition">Transition</FieldLabel>
+              <FieldLabel htmlFor="inspector-transition">
+                {t("inspector.transitionLabel")}
+              </FieldLabel>
               <Select
                 disabled={!editable || usesPlayerDefaults}
                 value={item.transition}
@@ -285,75 +305,93 @@ export function PlaylistItemInspectorBody({
                     set("transition", next);
                   }
                 }}
-                items={itemTransitionOptions}
+                items={itemTransitionOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="inspector-transition"
-                  aria-label="Item transition"
+                  aria-label={t("inspector.transitionAria")}
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {itemTransitionOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <FieldDescription>
                 {usesPlayerDefaults
-                  ? "Turn off Player defaults to set an item override."
+                  ? t("inspector.defaultsOffHint")
                   : playlistTransition !== "mixed" &&
                       item.transition !== playlistTransition
-                    ? `Overrides playlist: ${transitionLabel(playlistTransition)}`
+                    ? t("inspector.overridesPlaylist", {
+                        transition: transitionLabel(playlistTransition, t),
+                      })
                     : item.transition === "crossfade"
-                      ? "Visuals blend. Audio changes at the item boundary."
-                      : "This item follows the playlist transition."}
+                      ? t("inspector.crossfadeShortHint")
+                      : t("inspector.followsPlaylist")}
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="inspector-fit">Fit</FieldLabel>
+              <FieldLabel htmlFor="inspector-fit">
+                {t("inspector.fitLabel")}
+              </FieldLabel>
               <Select
                 disabled={!editable || usesPlayerDefaults}
                 value={item.fitMode}
                 onValueChange={(next) =>
                   set("fitMode", next as PlaylistItem["fitMode"])
                 }
-                items={fitModeOptions}
+                items={fitModeOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
-                <SelectTrigger id="inspector-fit" aria-label="Item fit mode">
+                <SelectTrigger
+                  id="inspector-fit"
+                  aria-label={t("inspector.fitAria")}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {fitModeOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="inspector-delivery">Delivery</FieldLabel>
+              <FieldLabel htmlFor="inspector-delivery">
+                {t("inspector.deliveryLabel")}
+              </FieldLabel>
               <Select
                 disabled={!editable}
                 value={item.deliveryPolicy}
                 onValueChange={(next) =>
                   set("deliveryPolicy", next as PlaylistItem["deliveryPolicy"])
                 }
-                items={itemDeliveryOptions}
+                items={itemDeliveryOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="inspector-delivery"
-                  aria-label="Item delivery policy"
+                  aria-label={t("inspector.deliveryAria")}
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {itemDeliveryOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -365,11 +403,14 @@ export function PlaylistItemInspectorBody({
         <FieldSeparator />
 
         <FieldSet>
-          <FieldLegend variant="label">Duration</FieldLegend>
+          <FieldLegend variant="label">
+            {t("inspector.sections.duration")}
+          </FieldLegend>
           <FieldGroup className="gap-4">
             {item.assetType === "layout" ? (
               <SecondsField
-                label="Layout duration"
+                id="layout-duration"
+                label={t("inspector.layoutDuration")}
                 value={item.durationMs ?? 30_000}
                 disabled={!editable}
                 onChange={(value) => set("durationMs", value)}
@@ -379,7 +420,7 @@ export function PlaylistItemInspectorBody({
               <>
                 <Field>
                   <FieldLabel htmlFor="inspector-widget-behavior">
-                    Playback behavior
+                    {t("inspector.widgetBehaviorLabel")}
                   </FieldLabel>
                   <Select
                     disabled={!editable}
@@ -392,18 +433,21 @@ export function PlaylistItemInspectorBody({
                         next === "until_end" ? undefined : 30_000,
                       )
                     }
-                    items={widgetBehaviorOptions}
+                    items={widgetBehaviorOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    }))}
                   >
                     <SelectTrigger
                       id="inspector-widget-behavior"
-                      aria-label="Widget playback behavior"
+                      aria-label={t("inspector.widgetBehaviorAria")}
                     >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {widgetBehaviorOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                          {t(option.labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -411,7 +455,8 @@ export function PlaylistItemInspectorBody({
                 </Field>
                 {item.durationMs != null && (
                   <SecondsField
-                    label="Fixed duration"
+                    id="fixed-duration"
+                    label={t("inspector.fixedDuration")}
                     value={item.durationMs}
                     disabled={!editable}
                     onChange={(value) => set("durationMs", value)}
@@ -420,8 +465,11 @@ export function PlaylistItemInspectorBody({
               </>
             ) : playlistItemUsesFixedDuration(item) ? (
               <SecondsField
+                id={item.assetType === "image" ? "image-duration" : "duration"}
                 label={
-                  item.assetType === "image" ? "Image duration" : "Duration"
+                  item.assetType === "image"
+                    ? t("inspector.imageDuration")
+                    : t("inspector.durationFallback")
                 }
                 value={
                   item.durationMs ??
@@ -434,13 +482,15 @@ export function PlaylistItemInspectorBody({
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <SecondsField
-                  label="Start"
+                  id="start"
+                  label={t("inspector.startLabel")}
                   value={item.videoStartOffsetMs ?? 0}
                   disabled={!editable || usesPlayerDefaults}
                   onChange={(value) => set("videoStartOffsetMs", value)}
                 />
                 <SecondsField
-                  label="End"
+                  id="end"
+                  label={t("inspector.endLabel")}
                   value={item.videoEndOffsetMs}
                   disabled={!editable || usesPlayerDefaults}
                   onChange={(value) => set("videoEndOffsetMs", value)}
@@ -455,7 +505,9 @@ export function PlaylistItemInspectorBody({
           <>
             <FieldSeparator />
             <FieldSet>
-              <FieldLegend variant="label">Audio</FieldLegend>
+              <FieldLegend variant="label">
+                {t("inspector.sections.audio")}
+              </FieldLegend>
               <FieldGroup className="gap-4">
                 <Field orientation="horizontal">
                   <Switch
@@ -467,15 +519,17 @@ export function PlaylistItemInspectorBody({
                     }
                   />
                   <FieldLabel htmlFor="inspector-audio">
-                    Audio enabled
+                    {t("inspector.audioEnabled")}
                   </FieldLabel>
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="inspector-volume">Volume</FieldLabel>
+                  <FieldLabel htmlFor="inspector-volume">
+                    {t("inspector.volumeLabel")}
+                  </FieldLabel>
                   <div className="flex items-center gap-3">
                     <Slider
                       id="inspector-volume"
-                      aria-label="Item volume"
+                      aria-label={t("inspector.volumeAria")}
                       min={0}
                       max={1}
                       step={0.05}
@@ -503,18 +557,30 @@ export function PlaylistItemInspectorBody({
           <>
             <FieldSeparator />
             <FieldSet>
-              <FieldLegend variant="label">Availability</FieldLegend>
+              <FieldLegend variant="label">
+                {t("inspector.sections.availability")}
+              </FieldLegend>
               <dl className="grid gap-1 text-sm">
                 {item.availableFrom && (
                   <>
-                    <dt className="text-muted-foreground">Available from</dt>
-                    <dd>{new Date(item.availableFrom).toLocaleString()}</dd>
+                    <dt className="text-muted-foreground">
+                      {t("inspector.availableFrom")}
+                    </dt>
+                    <dd>
+                      {new Date(item.availableFrom).toLocaleString(
+                        formatLocale,
+                      )}
+                    </dd>
                   </>
                 )}
                 {item.expiresAt && (
                   <>
-                    <dt className="text-muted-foreground">Expires</dt>
-                    <dd>{new Date(item.expiresAt).toLocaleString()}</dd>
+                    <dt className="text-muted-foreground">
+                      {t("inspector.expires")}
+                    </dt>
+                    <dd>
+                      {new Date(item.expiresAt).toLocaleString(formatLocale)}
+                    </dd>
                   </>
                 )}
               </dl>
@@ -533,7 +599,7 @@ export function PlaylistItemInspectorBody({
                   onClick={() => setConfirmingDelete(true)}
                 >
                   <Trash2 aria-hidden="true" />
-                  Remove item
+                  {t("inspector.removeItem")}
                 </Button>
               )}
               <span
@@ -543,7 +609,7 @@ export function PlaylistItemInspectorBody({
                 {saving && (
                   <>
                     <Spinner aria-hidden="true" />
-                    Saving…
+                    {t("common:actions.saving")}
                   </>
                 )}
               </span>
@@ -560,15 +626,14 @@ export function PlaylistItemInspectorBody({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Remove {item.assetName} from this playlist?
+              {t("inspector.removeTitle", { name: item.assetName })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              The item leaves the timeline but its media stays in the library.
-              This cannot be undone.
+              {t("inspector.removeDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
@@ -576,7 +641,7 @@ export function PlaylistItemInspectorBody({
                 onDelete();
               }}
             >
-              Remove item
+              {t("inspector.removeItem")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -586,6 +651,7 @@ export function PlaylistItemInspectorBody({
 }
 
 function SecondsField({
+  id,
   label,
   value,
   disabled,
@@ -593,6 +659,7 @@ function SecondsField({
   optional = false,
   onChange,
 }: {
+  id: string;
   label: string;
   value?: number;
   disabled: boolean;
@@ -600,20 +667,22 @@ function SecondsField({
   optional?: boolean;
   onChange: (value: number | undefined) => void;
 }) {
-  const fieldId = `inspector-seconds-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const { t } = useTranslation("playlists");
+  const fieldId = `inspector-seconds-${id}`;
   return (
     <Field>
       <FieldLabel htmlFor={fieldId}>
-        {label}
-        {optional ? " (optional)" : ""}
+        {optional ? t("inspector.secondsOptional", { label }) : label}
       </FieldLabel>
       {readOnly ? (
-        <span className="text-sm text-muted-foreground">Player defaults</span>
+        <span className="text-sm text-muted-foreground">
+          {t("inspector.playerDefaultsValue")}
+        </span>
       ) : (
         <InputGroup className="w-32">
           <InputGroupInput
             id={fieldId}
-            aria-label={`${label} in seconds`}
+            aria-label={t("inspector.secondsAria", { label })}
             type="number"
             inputMode="decimal"
             min="0"
@@ -632,7 +701,9 @@ function SecondsField({
             }}
           />
           <InputGroupAddon align="inline-end">
-            <InputGroupText aria-hidden="true">s</InputGroupText>
+            <InputGroupText aria-hidden="true">
+              {t("units.secondsShort")}
+            </InputGroupText>
           </InputGroupAddon>
         </InputGroup>
       )}

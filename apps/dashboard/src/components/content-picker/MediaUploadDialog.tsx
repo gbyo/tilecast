@@ -1,4 +1,5 @@
 import { useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { Asset } from "../../api/types";
 import { useConfirm } from "../ConfirmDialog";
 import { Button } from "../ui/button";
@@ -15,6 +16,7 @@ import { MediaUploadPanel } from "./MediaUploadPanel";
 // useUploadCloseGuard asks before a surface holding the upload panel closes
 // while a file is still transferring, so closing never silently abandons it.
 export function useUploadCloseGuard() {
+  const { t } = useTranslation(["content", "common"]);
   // A ref, not state: the close request must see the panel's latest report
   // even when it arrives before this component re-renders.
   const active = useRef(false);
@@ -28,9 +30,9 @@ export function useUploadCloseGuard() {
       return;
     }
     void confirm({
-      title: "Uploads are still active. Close this upload view?",
-      body: "Transfers keep running in the background, but this view stops showing their progress.",
-      action: "Close",
+      title: t("picker.upload.activeConfirm"),
+      body: t("picker.upload.activeConfirmBody"),
+      action: t("common:actions.close"),
     }).then((ok) => {
       if (ok) close();
     });
@@ -50,6 +52,7 @@ export function MediaUploadDialog({
   onAsset?: (asset: Asset) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const { setActive, guard, dialog } = useUploadCloseGuard();
   return (
     <>
@@ -62,10 +65,9 @@ export function MediaUploadDialog({
       >
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Upload media</DialogTitle>
+            <DialogTitle>{t("picker.upload.uploadMedia")}</DialogTitle>
             <DialogDescription>
-              Uploaded images and videos land in the media library once
-              processing finishes.
+              {t("picker.upload.dialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <MediaUploadPanel
@@ -79,7 +81,7 @@ export function MediaUploadDialog({
               variant="outline"
               onClick={() => guard(onClose)}
             >
-              Done
+              {t("picker.upload.done")}
             </Button>
           </DialogFooter>
         </DialogContent>

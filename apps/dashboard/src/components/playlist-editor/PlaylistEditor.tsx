@@ -7,6 +7,7 @@ import {
   useState,
   type DragEvent,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   AlertDialog,
@@ -91,6 +92,7 @@ import {
 } from "./playlistEditorModel";
 
 export function PlaylistEditorPage() {
+  const { t } = useTranslation(["playlists", "common"]);
   const { id = "" } = useParams();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
@@ -174,7 +176,7 @@ export function PlaylistEditorPage() {
   const save = useMutation({
     mutationFn: () => api.updatePlaylist(id, { name, description }, csrf),
     onSuccess: (playlist) => {
-      toast.add({ title: "Playlist details saved.", type: "success" });
+      toast.add({ title: t("editor.toasts.detailsSaved"), type: "success" });
       update(playlist);
       setMetadataDirty(false);
       setEditorError("");
@@ -195,7 +197,7 @@ export function PlaylistEditorPage() {
         csrf,
       ),
     onSuccess: (playlist) => {
-      toast.add({ title: "Playlist content source saved.", type: "success" });
+      toast.add({ title: t("editor.toasts.sourceSaved"), type: "success" });
       update(playlist);
       setTagRuleDirty(false);
       setEditorError("");
@@ -213,8 +215,8 @@ export function PlaylistEditorPage() {
     onSuccess: () => {
       toast.add({
         title: canPublish
-          ? "Playlist published."
-          : "Playlist submitted for review.",
+          ? t("editor.toasts.published")
+          : t("editor.toasts.submitted"),
         type: "success",
       });
       void client.invalidateQueries({ queryKey: ["playlists", id] });
@@ -229,14 +231,14 @@ export function PlaylistEditorPage() {
   const duplicate = useMutation({
     mutationFn: () => api.duplicatePlaylist(id, csrf),
     onSuccess: (playlist) => {
-      toast.add({ title: "Playlist duplicated.", type: "success" });
+      toast.add({ title: t("editor.toasts.duplicated"), type: "success" });
       void navigate(`/playlists/${playlist.id}`);
     },
   });
   const remove = useMutation({
     mutationFn: () => api.deletePlaylist(id, csrf),
     onSuccess: () => {
-      toast.add({ title: "Playlist deleted.", type: "success" });
+      toast.add({ title: t("editor.toasts.deleted"), type: "success" });
       void navigate("/playlists");
     },
   });
@@ -259,7 +261,7 @@ export function PlaylistEditorPage() {
   const deleteItem = useMutation({
     mutationFn: (itemId: string) => api.deletePlaylistItem(id, itemId, csrf),
     onSuccess: (playlist) => {
-      toast.add({ title: "Playlist item removed.", type: "success" });
+      toast.add({ title: t("editor.toasts.itemRemoved"), type: "success" });
       update(playlist);
       setItemInspectorOpen(false);
       setEditorError("");
@@ -284,8 +286,12 @@ export function PlaylistEditorPage() {
       setEditorError("");
       toast.add({
         title: input.transition
-          ? `Transition set to ${transitionLabel(input.transition)} for every item.`
-          : `Image durations set to ${input.durationMs / 1000} seconds.`,
+          ? t("editor.toasts.transitionSet", {
+              transition: transitionLabel(input.transition, t),
+            })
+          : t("editor.toasts.imageDurationsSet", {
+              seconds: input.durationMs / 1000,
+            }),
         type: "success",
       });
     },
@@ -325,14 +331,14 @@ export function PlaylistEditorPage() {
           id: asset.id,
           name: asset.name,
           message:
-            error instanceof Error ? error.message : "Could not add item.",
+            error instanceof Error ? error.message : t("editor.addItemError"),
         });
       }
     }
     const added = selected.length - failures.length;
     if (added > 0) {
       toast.add({
-        title: `${added} item${added === 1 ? "" : "s"} added to the playlist.`,
+        title: t("editor.toasts.itemsAdded", { count: added }),
         type: "success",
       });
     }
@@ -353,9 +359,7 @@ export function PlaylistEditorPage() {
         setAddFailure(result.failures[0]?.message ?? "");
       } catch (error) {
         setAddFailure(
-          error instanceof Error
-            ? error.message
-            : "The new Widget could not be added to this playlist.",
+          error instanceof Error ? error.message : t("editor.widgetAddError"),
         );
       }
     })();
@@ -383,10 +387,10 @@ export function PlaylistEditorPage() {
       update(next);
       setLayoutPicker(false);
       setAddFailure("");
-      toast.add({ title: "Layout added to the playlist.", type: "success" });
+      toast.add({ title: t("editor.toasts.layoutAdded"), type: "success" });
     } catch (error) {
       setAddFailure(
-        error instanceof Error ? error.message : "Could not add the Layout.",
+        error instanceof Error ? error.message : t("editor.layoutAddError"),
       );
     }
   };
@@ -415,7 +419,7 @@ export function PlaylistEditorPage() {
       <div
         className="grid gap-4"
         aria-busy="true"
-        aria-label="Loading playlist"
+        aria-label={t("editor.loadingLabel")}
       >
         <Skeleton className="h-9 w-72" />
         <Skeleton className="h-9 w-full max-w-xl" />
@@ -430,7 +434,7 @@ export function PlaylistEditorPage() {
   if (!query.data) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>Playlist could not be loaded.</AlertDescription>
+        <AlertDescription>{t("editor.loadError")}</AlertDescription>
       </Alert>
     );
   }
@@ -537,29 +541,31 @@ export function PlaylistEditorPage() {
 
   const usage = (
     <UsedByPanel
-      emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."
+      emptyMessage={t("editor.usage.empty")}
       groups={[
         {
-          label: "Layouts",
+          label: t("editor.usage.groups.layouts"),
           items: (playlist.layoutUsage ?? []).map((layout) => ({
             id: layout.id,
             name: layout.name,
-            hint: layout.published ? "Published" : "Draft",
+            hint: layout.published
+              ? t("editor.usage.publishedHint")
+              : t("editor.usage.draftHint"),
           })),
           to: (layoutId) => `/layouts/${layoutId}`,
         },
         {
-          label: "Screens",
+          label: t("editor.usage.groups.screens"),
           items: playlist.usage?.screens ?? [],
           to: (screenId) => `/screens/${screenId}`,
         },
         {
-          label: "Schedules",
+          label: t("editor.usage.groups.schedules"),
           items: playlist.usage?.schedules ?? [],
           to: (scheduleId) => `/schedules/${scheduleId}`,
         },
         {
-          label: "Campaigns",
+          label: t("editor.usage.groups.campaigns"),
           items: playlist.usage?.campaigns ?? [],
           to: (campaignId) => `/campaigns/${campaignId}`,
         },
@@ -640,7 +646,7 @@ export function PlaylistEditorPage() {
           <ResizablePanelGroup
             orientation="horizontal"
             role="group"
-            aria-label="Playlist sequence and inspector"
+            aria-label={t("editor.sequenceLabel")}
             onLayoutChanged={(layout) => {
               const size = layout["playlist-inspector"];
               if (size) inspectorSize.current = size;
@@ -649,7 +655,7 @@ export function PlaylistEditorPage() {
             <ResizablePanel
               id="playlist-sequence"
               minSize="50%"
-              aria-label="Playlist sequence"
+              aria-label={t("editor.sequencePanelLabel")}
             >
               <ScrollArea className="h-full">
                 <div className="p-1 pr-4">{timeline}</div>
@@ -659,14 +665,14 @@ export function PlaylistEditorPage() {
               <>
                 <ResizableHandle
                   withHandle
-                  aria-label="Resize sequence and inspector panes"
+                  aria-label={t("editor.resizeLabel")}
                 />
                 <ResizablePanel
                   id="playlist-inspector"
                   defaultSize={`${inspectorSize.current}%`}
                   minSize="26%"
                   maxSize="45%"
-                  aria-label="Inspector"
+                  aria-label={t("editor.inspectorPanelLabel")}
                 >
                   <ScrollArea className="h-full">
                     <div className="p-1 pl-5">
@@ -709,9 +715,9 @@ export function PlaylistEditorPage() {
         >
           <SheetContent side="right" className="overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>History</SheetTitle>
+              <SheetTitle>{t("editor.historyTitle")}</SheetTitle>
               <SheetDescription>
-                Every published revision is kept for review and restore.
+                {t("editor.historyDescription")}
               </SheetDescription>
             </SheetHeader>
             <div className="px-4 pb-4">
@@ -733,9 +739,9 @@ export function PlaylistEditorPage() {
         >
           <DrawerContent className="max-h-[calc(100dvh-2rem)]">
             <DrawerHeader>
-              <DrawerTitle>History</DrawerTitle>
+              <DrawerTitle>{t("editor.historyTitle")}</DrawerTitle>
               <DrawerDescription>
-                Every published revision is kept for review and restore.
+                {t("editor.historyDescription")}
               </DrawerDescription>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -807,7 +813,7 @@ export function PlaylistEditorPage() {
         mode="multiple"
         csrf={csrf}
         allowedTypes={["image", "video", "widget"]}
-        confirmLabel="Add to playlist"
+        confirmLabel={t("editor.pickerConfirm")}
         onConfirm={add}
         onClose={() => setPicker(false)}
         onCreateWidget={() =>
@@ -825,9 +831,9 @@ export function PlaylistEditorPage() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add published Layout</DialogTitle>
+            <DialogTitle>{t("editor.addLayoutTitle")}</DialogTitle>
             <DialogDescription>
-              A Layout plays fullscreen for 30 seconds by default.
+              {t("editor.addLayoutDescription")}
             </DialogDescription>
           </DialogHeader>
           {publishedLayouts.length > 0 ? (
@@ -858,9 +864,9 @@ export function PlaylistEditorPage() {
           ) : (
             <Empty className="border border-dashed py-8">
               <EmptyHeader>
-                <EmptyTitle>No published Layouts</EmptyTitle>
+                <EmptyTitle>{t("editor.noPublishedLayoutsTitle")}</EmptyTitle>
                 <EmptyDescription>
-                  Publish a Layout before adding it to a playlist.
+                  {t("editor.noPublishedLayouts")}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -871,7 +877,7 @@ export function PlaylistEditorPage() {
               variant="outline"
               onClick={() => setLayoutPicker(false)}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -886,15 +892,14 @@ export function PlaylistEditorPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Remove {removingItem?.assetName} from this playlist?
+              {t("inspector.removeTitle", { name: removingItem?.assetName })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              The item leaves the timeline but its media stays in the library.
-              This cannot be undone.
+              {t("inspector.removeDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
@@ -902,7 +907,7 @@ export function PlaylistEditorPage() {
                 setRemovingItemId(undefined);
               }}
             >
-              Remove item
+              {t("inspector.removeItem")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -916,14 +921,15 @@ export function PlaylistEditorPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {playlist.name}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("editor.deleteTitle", { name: playlist.name })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Screens assigned to this playlist will fall back to their default
-              content. This cannot be undone.
+              {t("editor.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={remove.isPending}
@@ -932,7 +938,7 @@ export function PlaylistEditorPage() {
                 remove.mutate();
               }}
             >
-              Delete playlist
+              {t("editor.deleteConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

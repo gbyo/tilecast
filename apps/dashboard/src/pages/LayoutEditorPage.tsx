@@ -8,13 +8,13 @@ import {
   AlertTitle,
 } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
-import { Checkbox } from "../components/ui/checkbox";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "../components/ui/tabs";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -169,6 +169,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
@@ -182,6 +183,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
+import { useFormatLocale } from "../i18n";
 import { layoutFontStack } from "../layoutFonts";
 import { captureLayoutPreview } from "../content/widgetPreviewCapture";
 
@@ -597,6 +599,9 @@ export function createPrimitivePlacement(
 export function LayoutEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation(["layouts", "common"]);
+  const { t: tContent } = useTranslation("content");
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const canPublish = ["owner", "administrator", "editor"].includes(
@@ -747,6 +752,7 @@ export function LayoutEditorPage() {
         canvas,
         document.canvas.width,
         document.canvas.height,
+        tContent,
       )
         .then((image) =>
           api.uploadLayoutPreview(
@@ -770,6 +776,7 @@ export function LayoutEditorPage() {
     id,
     layoutQuery.data,
     queryClient,
+    tContent,
   ]);
   const markUnsaved = useCallback(() => {
     changeVersionRef.current += 1;
@@ -864,6 +871,7 @@ export function LayoutEditorPage() {
           canvas,
           previewDocument.canvas.width,
           previewDocument.canvas.height,
+          tContent,
         )
           .then((previewImage) => {
             if (
@@ -895,7 +903,7 @@ export function LayoutEditorPage() {
     } finally {
       savingRef.current = false;
     }
-  }, [csrf, id, queryClient]);
+  }, [csrf, id, queryClient, tContent]);
   useEffect(() => {
     if (saveState !== "unsaved") return;
     const timer = window.setTimeout(() => void save(), 900);
@@ -934,8 +942,8 @@ export function LayoutEditorPage() {
     onSuccess: () => {
       toast.add({
         title: canPublish
-          ? "Layout published."
-          : "Layout submitted for review.",
+          ? t("editor.toastPublished")
+          : t("editor.toastSubmitted"),
         type: "success",
       });
       void queryClient.invalidateQueries({ queryKey: ["layout", id] });
@@ -954,7 +962,7 @@ export function LayoutEditorPage() {
         csrf,
       ),
     onSuccess: () => {
-      toast.add({ title: "Layout renamed.", type: "success" });
+      toast.add({ title: t("editor.toastRenamed"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["layout", id] });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
     },
@@ -963,7 +971,10 @@ export function LayoutEditorPage() {
     mutationFn: (revisionId: string) =>
       api.restoreLayoutRevision(id, revisionId, serverRevision, csrf),
     onSuccess: (saved) => {
-      toast.add({ title: "Layout revision restored.", type: "success" });
+      toast.add({
+        title: t("editor.toastRestored"),
+        type: "success",
+      });
       const next = clone(saved.draft);
       setDocument(next);
       documentRef.current = next;
@@ -1226,9 +1237,7 @@ export function LayoutEditorPage() {
       playlistResults.filter((result) => result.status === "rejected").length +
       assetResults.filter((result) => result.status === "rejected").length;
     if (failures)
-      setPreviewError(
-        `${failures} referenced item${failures === 1 ? " is" : "s are"} unavailable.`,
-      );
+      setPreviewError(t("editor.previewUnavailable", { count: failures }));
     setPreviewLoading(false);
   };
   const duplicateSelection = useCallback(() => {
@@ -1465,101 +1474,105 @@ export function LayoutEditorPage() {
     ).length;
     return [
       {
-        label: "Rename…",
+        label: t("editor.menuRename"),
         icon: <Pencil size={14} />,
         disabled: many,
         onSelect: () => renamePlacement(target),
       },
-      { label: "Copy", icon: <Copy size={14} />, onSelect: copySelection },
       {
-        label: "Paste",
+        label: t("editor.menuCopy"),
+        icon: <Copy size={14} />,
+        onSelect: copySelection,
+      },
+      {
+        label: t("editor.menuPaste"),
         icon: <ClipboardPaste size={14} />,
         disabled: !clipboard.current.length,
         onSelect: pasteClipboard,
       },
       {
-        label: "Duplicate",
+        label: t("editor.menuDuplicate"),
         icon: <CopyPlus size={14} />,
         onSelect: duplicateSelection,
       },
       {
-        label: "Arrange",
+        label: t("editor.menuArrange"),
         icon: <Layers size={14} />,
         separated: true,
         submenu: [
           {
-            label: "Bring to front",
+            label: t("editor.menuBringToFront"),
             icon: <ArrowUpToLine size={14} />,
             onSelect: () => arrangeSelection("front"),
           },
           {
-            label: "Bring forward",
+            label: t("editor.menuBringForward"),
             icon: <ArrowUp size={14} />,
             onSelect: () => arrangeSelection("forward"),
           },
           {
-            label: "Send backward",
+            label: t("editor.menuSendBackward"),
             icon: <ArrowDown size={14} />,
             onSelect: () => arrangeSelection("backward"),
           },
           {
-            label: "Send to back",
+            label: t("editor.menuSendToBack"),
             icon: <ArrowDownToLine size={14} />,
             onSelect: () => arrangeSelection("back"),
           },
         ],
       },
       {
-        label: many ? "Align" : "Align to canvas",
+        label: many ? t("editor.menuAlign") : t("editor.menuAlignToCanvas"),
         icon: <AlignCenterHorizontal size={14} />,
         disabled: !alignable,
         submenu: [
           {
-            label: "Left",
+            label: t("editor.menuAlignLeft"),
             icon: <AlignStartVertical size={14} />,
             onSelect: () => alignSelection("left"),
           },
           {
-            label: "Horizontal centres",
+            label: t("editor.menuAlignHCenter"),
             icon: <AlignCenterVertical size={14} />,
             onSelect: () => alignSelection("hcenter"),
           },
           {
-            label: "Right",
+            label: t("editor.menuAlignRight"),
             icon: <AlignEndVertical size={14} />,
             onSelect: () => alignSelection("right"),
           },
           {
-            label: "Top",
+            label: t("editor.menuAlignTop"),
             icon: <AlignStartHorizontal size={14} />,
             separated: true,
             onSelect: () => alignSelection("top"),
           },
           {
-            label: "Vertical centres",
+            label: t("editor.menuAlignVCenter"),
             icon: <AlignCenterHorizontal size={14} />,
             onSelect: () => alignSelection("vmiddle"),
           },
           {
-            label: "Bottom",
+            label: t("editor.menuAlignBottom"),
             icon: <AlignEndHorizontal size={14} />,
             onSelect: () => alignSelection("bottom"),
           },
           {
-            label: "Distribute horizontally",
+            label: t("editor.menuDistributeH"),
             icon: <AlignHorizontalDistributeCenter size={14} />,
             separated: true,
             disabled: alignable < 3,
             onSelect: () => distributeSelection("horizontal"),
           },
           {
-            label: "Distribute vertically",
+            label: t("editor.menuDistributeV"),
             icon: <AlignVerticalDistributeCenter size={14} />,
             disabled: alignable < 3,
             onSelect: () => distributeSelection("vertical"),
           },
           {
-            label: "Fill canvas",
+            label: t("editor.menuFillCanvas"),
             icon: <Maximize2 size={14} />,
             separated: true,
             onSelect: fillCanvas,
@@ -1567,35 +1580,37 @@ export function LayoutEditorPage() {
         ],
       },
       {
-        label: "Group selection",
+        label: t("editor.menuGroup"),
         icon: <Group size={14} />,
         disabled: selection.size < 2,
         onSelect: groupSelection,
       },
       {
-        label: "Ungroup",
+        label: t("editor.menuUngroup"),
         icon: <Ungroup size={14} />,
         disabled: !scope.some((item) => item.primitive?.kind === "group"),
         onSelect: ungroupSelection,
       },
       {
-        label: locked ? "Unlock" : "Lock",
+        label: locked ? t("editor.menuUnlock") : t("editor.menuLock"),
         icon: locked ? <LockOpen size={14} /> : <Lock size={14} />,
         separated: true,
         onSelect: () => toggleSelectionFlag("locked"),
       },
       {
-        label: hidden ? "Show" : "Hide",
+        label: hidden ? t("editor.menuShow") : t("editor.menuHide"),
         icon: hidden ? <Eye size={14} /> : <EyeOff size={14} />,
         onSelect: () => toggleSelectionFlag("visible"),
       },
       {
-        label: "Layer settings",
+        label: t("editor.menuLayerSettings"),
         icon: <Settings size={14} />,
         onSelect: () => setSidebarSection("layers"),
       },
       {
-        label: many ? `Delete ${scope.length} layers` : "Delete",
+        label: many
+          ? t("editor.menuDeleteCount", { count: scope.length })
+          : t("editor.menuDelete"),
         icon: <Trash2 size={14} />,
         separated: true,
         danger: true,
@@ -1605,76 +1620,78 @@ export function LayoutEditorPage() {
   };
   const canvasMenuItems = (): LayoutMenuEntry[] => [
     {
-      label: "Add element",
+      label: t("editor.menuAddElement"),
       icon: <Plus size={14} />,
       submenu: [
         {
-          label: "Text",
+          label: t("elementKinds.text"),
           icon: <Type size={14} />,
           onSelect: () => addPrimitive("text"),
         },
         {
-          label: "Rectangle",
+          label: t("elementKinds.rectangle"),
           icon: <RectangleHorizontal size={14} />,
           onSelect: () => addPrimitive("rectangle"),
         },
         {
-          label: "Circle",
+          label: t("elementKinds.circle"),
           icon: <Circle size={14} />,
           onSelect: () => addPrimitive("circle"),
         },
         {
-          label: "Line",
+          label: t("elementKinds.line"),
           icon: <Minus size={14} />,
           onSelect: () => addPrimitive("line"),
         },
       ],
     },
     {
-      label: "Paste",
+      label: t("editor.menuPaste"),
       icon: <ClipboardPaste size={14} />,
       disabled: !clipboard.current.length,
       onSelect: pasteClipboard,
     },
     {
-      label: "Select all",
+      label: t("editor.menuSelectAll"),
       icon: <BoxSelect size={14} />,
       separated: true,
       disabled: !document?.placements.length,
       onSelect: selectAll,
     },
     {
-      label: "Deselect",
+      label: t("editor.menuDeselect"),
       icon: <MousePointerClick size={14} />,
       disabled: !selection.size,
       onSelect: () => setSelection(new Set()),
     },
     {
-      label: "Undo",
+      label: t("editor.menuUndo"),
       icon: <Undo2 size={14} />,
       separated: true,
       disabled: !past.length,
       onSelect: undo,
     },
     {
-      label: "Redo",
+      label: t("editor.menuRedo"),
       icon: <Redo2 size={14} />,
       disabled: !future.length,
       onSelect: redo,
     },
     {
-      label: snap ? "Turn off snapping" : "Snap to grid",
+      label: snap ? t("editor.menuSnapOff") : t("editor.menuSnapOn"),
       icon: <Magnet size={14} />,
       separated: true,
       onSelect: () => setSnap((value) => !value),
     },
     {
-      label: safeArea ? "Hide safe area" : "Show safe area",
+      label: safeArea
+        ? t("editor.menuSafeAreaHide")
+        : t("editor.menuSafeAreaShow"),
       icon: <Scan size={14} />,
       onSelect: () => setSafeArea((value) => !value),
     },
     {
-      label: "Layout settings",
+      label: t("editor.sectionSettings"),
       icon: <Settings size={14} />,
       separated: true,
       onSelect: () => setSidebarSection("settings"),
@@ -1911,11 +1928,11 @@ export function LayoutEditorPage() {
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>Layout unavailable</EmptyTitle>
+          <EmptyTitle>{t("editor.unavailableTitle")}</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
           <Button variant="secondary" onClick={() => void navigate("/layouts")}>
-            Back to Layouts
+            {t("editor.unavailableBack")}
           </Button>
         </EmptyContent>
       </Empty>
@@ -1925,7 +1942,7 @@ export function LayoutEditorPage() {
       <div
         className="grid gap-3"
         aria-busy="true"
-        aria-label="Loading Layout editor"
+        aria-label={t("editor.loadingLabel")}
       >
         <Skeleton className="h-12" />
         <Skeleton className="h-[60vh]" />
@@ -1998,31 +2015,33 @@ export function LayoutEditorPage() {
   // On desktop the right-hand pane always shows Layout settings when nothing
   // is selected, so the Settings section only exists in the narrow layout.
   const sidebarSections = [
-    ["media", "Media", ImageIcon],
-    ["widgets", "Widgets", AppWindow],
-    ["playlists", "Playlists", ListVideo],
-    ["elements", "Elements", RectangleHorizontal],
-    ["layers", "Layers", BoxSelect],
-    ...(desktop ? [] : ([["settings", "Settings", Settings]] as const)),
+    ["media", t("editor.sectionMedia"), ImageIcon],
+    ["widgets", t("editor.sectionWidgets"), AppWindow],
+    ["playlists", t("editor.sectionPlaylists"), ListVideo],
+    ["elements", t("editor.sectionElements"), RectangleHorizontal],
+    ["layers", t("editor.sectionLayers"), BoxSelect],
+    ...(desktop
+      ? []
+      : ([["settings", t("editor.tabSettings"), Settings]] as const)),
   ] as const;
   const activeSidebarSection =
     desktop && sidebarSection === "settings" ? "media" : sidebarSection;
   const layoutUsage = layoutQuery.data && (
     <UsedByPanel
-      emptyMessage="No campaign, screen, or schedule shows this Layout yet."
+      emptyMessage={t("editor.usageEmpty")}
       groups={[
         {
-          label: "Screens",
+          label: t("editor.usageScreens"),
           items: layoutQuery.data.usage.screens,
           to: (screenId) => `/screens/${screenId}`,
         },
         {
-          label: "Schedules",
+          label: t("editor.usageSchedules"),
           items: layoutQuery.data.usage.schedules,
           to: (scheduleId) => `/schedules/${scheduleId}`,
         },
         {
-          label: "Campaigns",
+          label: t("editor.usageCampaigns"),
           items: layoutQuery.data.usage.campaigns,
           to: (campaignId) => `/campaigns/${campaignId}`,
         },
@@ -2068,9 +2087,9 @@ export function LayoutEditorPage() {
       section === "playlists"
     ) {
       const label = {
-        media: "Media",
-        widgets: "Widgets",
-        playlists: "Playlists",
+        media: t("editor.sectionMedia"),
+        widgets: t("editor.sectionWidgets"),
+        playlists: t("editor.sectionPlaylists"),
       }[section];
       return (
         <>
@@ -2079,7 +2098,7 @@ export function LayoutEditorPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="h-auto min-h-9 w-full py-2 whitespace-normal"
               onClick={() => {
                 setPicker(section);
                 setPickerOpen(true);
@@ -2088,9 +2107,9 @@ export function LayoutEditorPage() {
               <Search aria-hidden="true" />
               {
                 {
-                  media: "Browse media library",
-                  widgets: "Browse apps",
-                  playlists: "Browse playlists",
+                  media: t("editor.browseMedia"),
+                  widgets: t("editor.browseWidgets"),
+                  playlists: t("editor.browsePlaylists"),
                 }[section]
               }
             </Button>
@@ -2103,11 +2122,11 @@ export function LayoutEditorPage() {
                   id={`recent-${section}`}
                   className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
                 >
-                  Recent
+                  {t("editor.shelfRecent")}
                 </h3>
                 {recentLibraryItems.length > 0 && (
                   <span className="text-xs text-muted-foreground">
-                    Drag to canvas
+                    {t("editor.shelfDragHint")}
                   </span>
                 )}
               </div>
@@ -2129,7 +2148,7 @@ export function LayoutEditorPage() {
                           <button
                             type="button"
                             draggable
-                            title={`Add ${name}`}
+                            title={t("editor.shelfAdd", { name })}
                             onDragStart={(event) => {
                               event.dataTransfer.effectAllowed = "copy";
                               event.dataTransfer.setData(
@@ -2166,10 +2185,16 @@ export function LayoutEditorPage() {
                           <ItemTitle className="block w-full truncate">
                             {name}
                           </ItemTitle>
-                          <ItemDescription className="truncate capitalize">
+                          <ItemDescription className="truncate">
                             {playlist
-                              ? `${playlist.itemCount} items`
-                              : (asset?.widget?.provider ?? asset?.type)}
+                              ? t("common:count.items", {
+                                  count: playlist.itemCount,
+                                })
+                              : asset?.type === "widget"
+                                ? t("editor.recentWidget")
+                                : asset?.type === "video"
+                                  ? tContent("media.type.video")
+                                  : tContent("media.type.image")}
                           </ItemDescription>
                         </ItemContent>
                       </Item>
@@ -2180,7 +2205,13 @@ export function LayoutEditorPage() {
                 <Empty className="border border-dashed p-4 md:p-4">
                   <EmptyHeader>
                     <EmptyDescription className="text-xs">
-                      No recent {section}. Browse the whole library above.
+                      {
+                        {
+                          media: t("editor.shelfEmptyMedia"),
+                          widgets: t("editor.shelfEmptyWidgets"),
+                          playlists: t("editor.shelfEmptyPlaylists"),
+                        }[section]
+                      }
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -2193,14 +2224,14 @@ export function LayoutEditorPage() {
     if (section === "elements") {
       return (
         <>
-          <LayoutPaneHeading title="Elements" />
+          <LayoutPaneHeading title={t("editor.sectionElements")} />
           <div className="grid grid-cols-2 gap-2 p-3">
             {(
               [
-                ["text", "Text", Type],
-                ["rectangle", "Rectangle", RectangleHorizontal],
-                ["circle", "Circle", Circle],
-                ["line", "Line", Minus],
+                ["text", t("elementKinds.text"), Type],
+                ["rectangle", t("elementKinds.rectangle"), RectangleHorizontal],
+                ["circle", t("elementKinds.circle"), Circle],
+                ["line", t("elementKinds.line"), Minus],
               ] as const
             ).map(([kind, label, Icon]) => (
               <Button
@@ -2222,10 +2253,13 @@ export function LayoutEditorPage() {
       return (
         <>
           <LayoutPaneHeading
-            title="Layers"
+            title={t("editor.sectionLayers")}
             meta={String(document.placements.length)}
           />
-          <ItemGroup className="gap-0.5 p-2" aria-label="Layers">
+          <ItemGroup
+            className="gap-0.5 p-2"
+            aria-label={t("editor.sectionLayers")}
+          >
             {[...document.placements]
               .sort((a, b) => b.layer - a.layer)
               .map((item) => (
@@ -2276,11 +2310,15 @@ export function LayoutEditorPage() {
                         size="icon-xs"
                         aria-label={
                           item.visible
-                            ? `Hide ${item.name}`
-                            : `Show ${item.name}`
+                            ? t("editor.layerHide", { name: item.name })
+                            : t("editor.layerShow", { name: item.name })
                         }
                         aria-pressed={item.visible}
-                        title={item.visible ? "Hide" : "Show"}
+                        title={
+                          item.visible
+                            ? t("editor.menuHide")
+                            : t("editor.menuShow")
+                        }
                         onClick={(event) => {
                           event.stopPropagation();
                           update((d) => {
@@ -2303,11 +2341,15 @@ export function LayoutEditorPage() {
                         size="icon-xs"
                         aria-label={
                           item.locked
-                            ? `Unlock ${item.name}`
-                            : `Lock ${item.name}`
+                            ? t("editor.layerUnlock", { name: item.name })
+                            : t("editor.layerLock", { name: item.name })
                         }
                         aria-pressed={item.locked}
-                        title={item.locked ? "Unlock" : "Lock"}
+                        title={
+                          item.locked
+                            ? t("editor.menuUnlock")
+                            : t("editor.menuLock")
+                        }
                         onClick={(event) => {
                           event.stopPropagation();
                           update((d) => {
@@ -2326,7 +2368,9 @@ export function LayoutEditorPage() {
                       </Button>
                     </ItemActions>
                   </ContextMenuTrigger>
-                  <ContextMenuContent aria-label={`Actions for ${item.name}`}>
+                  <ContextMenuContent
+                    aria-label={t("editor.layerActions", { name: item.name })}
+                  >
                     <LayoutEditorMenuEntries items={placementMenuItems(item)} />
                   </ContextMenuContent>
                 </ContextMenu>
@@ -2336,7 +2380,7 @@ export function LayoutEditorPage() {
             <Empty className="m-3 border border-dashed p-4 md:p-4">
               <EmptyHeader>
                 <EmptyDescription className="text-xs">
-                  Add media, apps, or elements to build this Layout.
+                  {t("editor.layersEmpty")}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -2345,8 +2389,8 @@ export function LayoutEditorPage() {
             <>
               <Separator />
               <LayoutPaneHeading
-                title="Selected layer"
-                meta={`${selected.length} selected`}
+                title={t("editor.selectedLayerTitle")}
+                meta={t("editor.selectedCount", { count: selected.length })}
               />
               <div className="p-3">{placementInspector}</div>
             </>
@@ -2356,14 +2400,14 @@ export function LayoutEditorPage() {
     }
     return (
       <>
-        <LayoutPaneHeading title="Layout settings" />
+        <LayoutPaneHeading title={t("editor.sectionSettings")} />
         {layoutSettings}
       </>
     );
   };
   const librarySidebar = (
     <aside
-      aria-label="Layout library"
+      aria-label={t("editor.libraryLabel")}
       className="h-full min-h-0 overflow-hidden bg-background max-lg:max-h-[60vh] max-lg:border-b"
     >
       <Tabs
@@ -2377,7 +2421,7 @@ export function LayoutEditorPage() {
         <TabsList
           variant="line"
           className="h-full w-20 shrink-0 justify-start gap-1 rounded-none border-r px-1.5 py-2"
-          aria-label="Layout builder"
+          aria-label={t("editor.builderLabel")}
         >
           {sidebarSections.map(([section, label, Icon]) => (
             <TabsTrigger
@@ -2406,13 +2450,13 @@ export function LayoutEditorPage() {
   const stage = (
     <main className="layout-stage">
       <div className="layout-stage-controls">
-        <ButtonGroup aria-label="Canvas zoom">
+        <ButtonGroup aria-label={t("editor.zoomLabel")}>
           <Button
             variant="outline"
             size="sm"
             onClick={zoomOut}
-            title="Zoom out"
-            aria-label="Zoom out"
+            title={t("editor.zoomOut")}
+            aria-label={t("editor.zoomOut")}
           >
             <ZoomOut size={16} aria-hidden="true" />
           </Button>
@@ -2423,8 +2467,8 @@ export function LayoutEditorPage() {
             variant="outline"
             size="sm"
             onClick={zoomIn}
-            title="Zoom in"
-            aria-label="Zoom in"
+            title={t("editor.zoomIn")}
+            aria-label={t("editor.zoomIn")}
           >
             <ZoomIn size={16} aria-hidden="true" />
           </Button>
@@ -2432,8 +2476,8 @@ export function LayoutEditorPage() {
             variant="outline"
             size="sm"
             onClick={fitZoom}
-            title="Fit canvas to view"
-            aria-label="Fit canvas to view"
+            title={t("editor.zoomFit")}
+            aria-label={t("editor.zoomFit")}
           >
             <Maximize2 size={16} aria-hidden="true" />
           </Button>
@@ -2444,14 +2488,14 @@ export function LayoutEditorPage() {
             checked={snap}
             onCheckedChange={(checked) => setSnap(checked === true)}
           />
-          Snap
+          {t("editor.snapLabel")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={safeArea}
             onCheckedChange={(checked) => setSafeArea(checked === true)}
           />
-          Safe area
+          {t("editor.safeAreaLabel")}
         </label>
         <Popover>
           <PopoverTrigger
@@ -2459,8 +2503,8 @@ export function LayoutEditorPage() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                title="Keyboard shortcuts"
-                aria-label="Keyboard shortcuts"
+                title={t("editor.shortcutsTitle")}
+                aria-label={t("editor.shortcutsTitle")}
               >
                 <Keyboard size={16} aria-hidden="true" />
               </Button>
@@ -2469,70 +2513,70 @@ export function LayoutEditorPage() {
           <PopoverContent
             side="bottom"
             align="center"
-            aria-label="Canvas keyboard shortcuts"
+            aria-label={t("editor.shortcutsDialogLabel")}
           >
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Keyboard shortcuts
+              {t("editor.shortcutsTitle")}
             </p>
             <ul className="grid gap-2 text-sm">
               <li className="flex items-center justify-between gap-3">
-                <span>Save</span>
+                <span>{t("editor.shortcutSave")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>S</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}S</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Undo / redo</span>
+                <span>{t("editor.shortcutUndoRedo")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>Z</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Z</Kbd>
                   <Kbd>⇧</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Duplicate</span>
+                <span>{t("editor.menuDuplicate")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>D</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}D</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Copy / paste</span>
+                <span>{t("editor.shortcutCopyPaste")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>C</Kbd>
-                  <Kbd>V</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}C</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}V</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Select all</span>
+                <span>{t("editor.menuSelectAll")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>A</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}A</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Group / ungroup</span>
+                <span>{t("editor.shortcutGroup")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
-                  <Kbd>G</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}G</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Arrange (Shift: front/back)</span>
+                <span>{t("editor.shortcutArrange")}</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>{/* i18n-ignore: key name */}Ctrl/⌘</Kbd>
                   <Kbd>[</Kbd>
                   <Kbd>]</Kbd>
                 </span>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Delete selection</span>
-                <Kbd>Del</Kbd>
+                <span>{t("editor.shortcutDelete")}</span>
+                <Kbd>{/* i18n-ignore: key name */}Del</Kbd>
               </li>
               <li className="flex items-center justify-between gap-3">
-                <span>Nudge (Shift: 10px)</span>
+                <span>{t("editor.shortcutNudge")}</span>
                 <Kbd>← ↑ ↓ →</Kbd>
               </li>
             </ul>
@@ -2634,8 +2678,8 @@ export function LayoutEditorPage() {
         <ContextMenuContent
           aria-label={
             menuTarget?.kind === "placement"
-              ? `Actions for ${menuTarget.item.name}`
-              : "Canvas actions"
+              ? t("editor.layerActions", { name: menuTarget.item.name })
+              : t("editor.menuCanvasActions")
           }
         >
           <LayoutEditorMenuEntries
@@ -2668,8 +2712,8 @@ export function LayoutEditorPage() {
             <DialogHeader>
               <DialogTitle>
                 {renameTarget?.kind === "layout"
-                  ? "Rename Layout"
-                  : "Rename layer"}
+                  ? t("editor.renameLayoutTitle")
+                  : t("editor.renameLayerTitle")}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-2">
@@ -2678,7 +2722,7 @@ export function LayoutEditorPage() {
                   htmlFor="rename-target-name"
                   className="text-sm font-medium"
                 >
-                  Name
+                  {t("editor.renameNameLabel")}
                 </FieldLabel>
                 <Input
                   id="rename-target-name"
@@ -2695,15 +2739,15 @@ export function LayoutEditorPage() {
                 type="button"
                 onClick={() => setRenameTarget(null)}
               >
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={!renameValue.trim() || rename.isPending}
               >
                 {renameTarget?.kind === "layout" && rename.isPending
-                  ? "Renaming…"
-                  : "Rename"}
+                  ? t("editor.renameSubmitting")
+                  : t("editor.renameSubmit")}
               </Button>
             </DialogFooter>
           </form>
@@ -2719,11 +2763,13 @@ export function LayoutEditorPage() {
           </h1>
           {desktop ? (
             <Menubar
-              aria-label="Layout editor commands"
+              aria-label={t("editor.menubar.label")}
               className="shrink-0 border-0 p-0 shadow-none"
             >
               <MenubarMenu>
-                <MenubarTrigger ref={fileMenuTrigger}>File</MenubarTrigger>
+                <MenubarTrigger ref={fileMenuTrigger}>
+                  {t("editor.menubar.file")}
+                </MenubarTrigger>
                 <MenubarContent className="min-w-52">
                   <MenubarItem
                     disabled={rename.isPending}
@@ -2735,7 +2781,7 @@ export function LayoutEditorPage() {
                     }
                   >
                     <Pencil aria-hidden="true" />
-                    Rename Layout…
+                    {t("editor.menubar.renameLayout")}
                   </MenubarItem>
                   <MenubarItem
                     disabled={
@@ -2746,17 +2792,19 @@ export function LayoutEditorPage() {
                     onClick={() => void save()}
                   >
                     <Save aria-hidden="true" />
-                    Save now
-                    <MenubarShortcut>Ctrl/⌘ S</MenubarShortcut>
+                    {t("editor.saveNow")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ S
+                    </MenubarShortcut>
                   </MenubarItem>
                   <MenubarSeparator />
                   <MenubarItem onClick={openPreview}>
                     <Scan aria-hidden="true" />
-                    Preview
+                    {t("editor.toolbarPreview")}
                   </MenubarItem>
                   <MenubarItem onClick={openHistory}>
                     <History aria-hidden="true" />
-                    History…
+                    {t("editor.menubar.history")}
                   </MenubarItem>
                   {canSubmit && (
                     <>
@@ -2765,78 +2813,96 @@ export function LayoutEditorPage() {
                         disabled={saveState !== "saved" || publish.isPending}
                         onClick={() => publish.mutate()}
                       >
-                        {canPublish ? "Publish" : "Submit for review"}
+                        {canPublish
+                          ? t("editor.publishAction")
+                          : t("editor.submitAction")}
                       </MenubarItem>
                     </>
                   )}
                 </MenubarContent>
               </MenubarMenu>
               <MenubarMenu>
-                <MenubarTrigger>Edit</MenubarTrigger>
+                <MenubarTrigger>{t("editor.menubar.edit")}</MenubarTrigger>
                 <MenubarContent className="min-w-52">
                   <MenubarItem disabled={!past.length} onClick={undo}>
-                    Undo
-                    <MenubarShortcut>Ctrl/⌘ Z</MenubarShortcut>
+                    {t("editor.menuUndo")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ Z
+                    </MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem disabled={!future.length} onClick={redo}>
-                    Redo
-                    <MenubarShortcut>Ctrl/⌘ ⇧ Z</MenubarShortcut>
+                    {t("editor.menuRedo")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ ⇧ Z
+                    </MenubarShortcut>
                   </MenubarItem>
                   <MenubarSeparator />
                   <MenubarItem
                     disabled={!selection.size}
                     onClick={copySelection}
                   >
-                    Copy
-                    <MenubarShortcut>Ctrl/⌘ C</MenubarShortcut>
+                    {t("editor.menuCopy")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ C
+                    </MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem
                     disabled={!clipboard.current.length}
                     onClick={pasteClipboard}
                   >
-                    Paste
-                    <MenubarShortcut>Ctrl/⌘ V</MenubarShortcut>
+                    {t("editor.menuPaste")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ V
+                    </MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem
                     disabled={!selection.size}
                     onClick={duplicateSelection}
                   >
-                    Duplicate
-                    <MenubarShortcut>Ctrl/⌘ D</MenubarShortcut>
+                    {t("editor.menuDuplicate")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ D
+                    </MenubarShortcut>
                   </MenubarItem>
                   <MenubarSeparator />
                   <MenubarItem
                     disabled={!document.placements.length}
                     onClick={selectAll}
                   >
-                    Select all
-                    <MenubarShortcut>Ctrl/⌘ A</MenubarShortcut>
+                    {t("editor.menuSelectAll")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ A
+                    </MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem
                     disabled={!selection.size}
                     onClick={() => setSelection(new Set())}
                   >
-                    Deselect
+                    {t("editor.menuDeselect")}
                   </MenubarItem>
                   <MenubarItem
                     disabled={!selection.size}
                     variant="destructive"
                     onClick={deleteSelection}
                   >
-                    Delete selection
-                    <MenubarShortcut>Del</MenubarShortcut>
+                    {t("editor.shortcutDelete")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Del
+                    </MenubarShortcut>
                   </MenubarItem>
                 </MenubarContent>
               </MenubarMenu>
               <MenubarMenu>
-                <MenubarTrigger>Arrange</MenubarTrigger>
+                <MenubarTrigger>{t("editor.menuArrange")}</MenubarTrigger>
                 <MenubarContent className="min-w-52">
                   <MenubarItem
                     disabled={selection.size < 2}
                     onClick={groupSelection}
                   >
-                    Group selection
-                    <MenubarShortcut>Ctrl/⌘ G</MenubarShortcut>
+                    {t("editor.menuGroup")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ G
+                    </MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem
                     disabled={
@@ -2844,99 +2910,99 @@ export function LayoutEditorPage() {
                     }
                     onClick={ungroupSelection}
                   >
-                    Ungroup
+                    {t("editor.menuUngroup")}
                   </MenubarItem>
                   <MenubarSub>
                     <MenubarSubTrigger disabled={!selected.length}>
-                      Layer order
+                      {t("editor.menubar.layerOrder")}
                     </MenubarSubTrigger>
                     <MenubarSubContent>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => arrangeSelection("front")}
                       >
-                        Bring to front
+                        {t("editor.menuBringToFront")}
                       </MenubarItem>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => arrangeSelection("forward")}
                       >
-                        Bring forward
+                        {t("editor.menuBringForward")}
                       </MenubarItem>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => arrangeSelection("backward")}
                       >
-                        Send backward
+                        {t("editor.menuSendBackward")}
                       </MenubarItem>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => arrangeSelection("back")}
                       >
-                        Send to back
+                        {t("editor.menuSendToBack")}
                       </MenubarItem>
                     </MenubarSubContent>
                   </MenubarSub>
                   <MenubarSub>
                     <MenubarSubTrigger disabled={!selected.length}>
-                      Align selection
+                      {t("editor.menubar.alignSelection")}
                     </MenubarSubTrigger>
                     <MenubarSubContent>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => alignSelection("left")}
                       >
-                        Align left
+                        {t("editor.menubar.alignLeft")}
                       </MenubarItem>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => alignSelection("hcenter")}
                       >
-                        Horizontal centres
+                        {t("editor.menuAlignHCenter")}
                       </MenubarItem>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => alignSelection("right")}
                       >
-                        Align right
+                        {t("editor.menubar.alignRight")}
                       </MenubarItem>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => alignSelection("top")}
                       >
-                        Align top
+                        {t("editor.menubar.alignTop")}
                       </MenubarItem>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => alignSelection("vmiddle")}
                       >
-                        Vertical centres
+                        {t("editor.menuAlignVCenter")}
                       </MenubarItem>
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={() => alignSelection("bottom")}
                       >
-                        Align bottom
+                        {t("editor.menubar.alignBottom")}
                       </MenubarItem>
                       <MenubarSeparator />
                       <MenubarItem
                         disabled={selected.length < 3}
                         onClick={() => distributeSelection("horizontal")}
                       >
-                        Distribute horizontally
+                        {t("editor.menuDistributeH")}
                       </MenubarItem>
                       <MenubarItem
                         disabled={selected.length < 3}
                         onClick={() => distributeSelection("vertical")}
                       >
-                        Distribute vertically
+                        {t("editor.menuDistributeV")}
                       </MenubarItem>
                       <MenubarSeparator />
                       <MenubarItem
                         disabled={!selected.length}
                         onClick={fillCanvas}
                       >
-                        Fill canvas
+                        {t("editor.menuFillCanvas")}
                       </MenubarItem>
                     </MenubarSubContent>
                   </MenubarSub>
@@ -2945,39 +3011,44 @@ export function LayoutEditorPage() {
                     disabled={!selected.length}
                     onClick={() => toggleSelectionFlag("locked")}
                   >
-                    {selected.some((item) => item.locked) ? "Unlock" : "Lock"}{" "}
-                    selection
+                    {selected.some((item) => item.locked)
+                      ? t("editor.menubar.unlockSelection")
+                      : t("editor.menubar.lockSelection")}
                   </MenubarItem>
                   <MenubarItem
                     disabled={!selected.length}
                     onClick={() => toggleSelectionFlag("visible")}
                   >
                     {selected.some((item) => !item.visible)
-                      ? "Show selection"
-                      : "Hide selection"}
+                      ? t("editor.menubar.showSelection")
+                      : t("editor.menubar.hideSelection")}
                   </MenubarItem>
                 </MenubarContent>
               </MenubarMenu>
               <MenubarMenu>
-                <MenubarTrigger>View</MenubarTrigger>
+                <MenubarTrigger>{t("editor.menubar.view")}</MenubarTrigger>
                 <MenubarContent className="min-w-52">
                   <MenubarCheckboxItem
                     checked={snap}
                     onCheckedChange={(checked) => setSnap(checked)}
                   >
-                    Snap to grid
+                    {t("editor.menuSnapOn")}
                   </MenubarCheckboxItem>
                   <MenubarCheckboxItem
                     checked={safeArea}
                     onCheckedChange={(checked) => setSafeArea(checked)}
                   >
-                    Show safe area
+                    {t("editor.menuSafeAreaShow")}
                   </MenubarCheckboxItem>
                   <MenubarSeparator />
-                  <MenubarItem onClick={zoomOut}>Zoom out</MenubarItem>
-                  <MenubarItem onClick={zoomIn}>Zoom in</MenubarItem>
+                  <MenubarItem onClick={zoomOut}>
+                    {t("editor.zoomOut")}
+                  </MenubarItem>
+                  <MenubarItem onClick={zoomIn}>
+                    {t("editor.zoomIn")}
+                  </MenubarItem>
                   <MenubarItem onClick={fitZoom}>
-                    Fit canvas to view
+                    {t("editor.zoomFit")}
                   </MenubarItem>
                 </MenubarContent>
               </MenubarMenu>
@@ -2991,7 +3062,7 @@ export function LayoutEditorPage() {
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Layout file actions"
+                    aria-label={t("editor.menubar.fileActions")}
                   />
                 }
               >
@@ -3008,7 +3079,7 @@ export function LayoutEditorPage() {
                   }
                 >
                   <Pencil aria-hidden="true" />
-                  Rename Layout…
+                  {t("editor.menubar.renameLayout")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={
@@ -3019,17 +3090,17 @@ export function LayoutEditorPage() {
                   onClick={() => void save()}
                 >
                   <Save aria-hidden="true" />
-                  Save now
+                  {t("editor.saveNow")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={openHistory}>
                   <History aria-hidden="true" />
-                  History…
+                  {t("editor.menubar.history")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
         </div>
-        <ButtonGroup aria-label="Undo and redo">
+        <ButtonGroup aria-label={t("editor.undoRedoLabel")}>
           <Tooltip>
             <TooltipTrigger
               render={
@@ -3037,7 +3108,7 @@ export function LayoutEditorPage() {
                   type="button"
                   variant="outline"
                   size="icon-sm"
-                  aria-label="Undo"
+                  aria-label={t("editor.menuUndo")}
                   onClick={undo}
                   disabled={!past.length}
                 />
@@ -3046,7 +3117,8 @@ export function LayoutEditorPage() {
               <Undo2 aria-hidden="true" />
             </TooltipTrigger>
             <TooltipContent>
-              Undo <Kbd>Ctrl+Z</Kbd>
+              {t("editor.menuUndo")}{" "}
+              <Kbd>{/* i18n-ignore: key name */}Ctrl+Z</Kbd>
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -3056,7 +3128,7 @@ export function LayoutEditorPage() {
                   type="button"
                   variant="outline"
                   size="icon-sm"
-                  aria-label="Redo"
+                  aria-label={t("editor.menuRedo")}
                   onClick={redo}
                   disabled={!future.length}
                 />
@@ -3065,7 +3137,8 @@ export function LayoutEditorPage() {
               <Redo2 aria-hidden="true" />
             </TooltipTrigger>
             <TooltipContent>
-              Redo <Kbd>Ctrl+Shift+Z</Kbd>
+              {t("editor.menuRedo")}{" "}
+              <Kbd>{/* i18n-ignore: key name */}Ctrl+Shift+Z</Kbd>
             </TooltipContent>
           </Tooltip>
         </ButtonGroup>
@@ -3079,7 +3152,7 @@ export function LayoutEditorPage() {
             onClick={openPreview}
           >
             <Scan aria-hidden="true" />
-            Preview
+            {t("editor.toolbarPreview")}
           </Button>
           {canSubmit && (
             <Button
@@ -3090,7 +3163,9 @@ export function LayoutEditorPage() {
               onClick={() => publish.mutate()}
             >
               {publish.isPending && <Spinner aria-hidden="true" />}
-              {canPublish ? "Publish" : "Submit for review"}
+              {canPublish
+                ? t("editor.publishAction")
+                : t("editor.submitAction")}
             </Button>
           )}
         </div>
@@ -3101,11 +3176,8 @@ export function LayoutEditorPage() {
           className="shrink-0 rounded-none border-x-0 border-t-0"
         >
           <TriangleAlert aria-hidden="true" />
-          <AlertTitle>This Layout changed somewhere else</AlertTitle>
-          <AlertDescription>
-            Reload to continue from the latest draft. Edits made here since the
-            last save cannot be saved over it.
-          </AlertDescription>
+          <AlertTitle>{t("editor.conflictTitle")}</AlertTitle>
+          <AlertDescription>{t("editor.conflictDescription")}</AlertDescription>
           <AlertAction>
             <Button
               type="button"
@@ -3113,7 +3185,7 @@ export function LayoutEditorPage() {
               size="sm"
               onClick={() => window.location.reload()}
             >
-              Reload
+              {t("editor.conflictReload")}
             </Button>
           </AlertAction>
         </Alert>
@@ -3126,7 +3198,7 @@ export function LayoutEditorPage() {
           orientation="horizontal"
           className="min-h-0 flex-1"
           role="group"
-          aria-label="Layout library, canvas, and inspector"
+          aria-label={t("editor.panesGroup")}
         >
           <ResizablePanel
             id="layout-library-pane"
@@ -3139,7 +3211,7 @@ export function LayoutEditorPage() {
           </ResizablePanel>
           <ResizableHandle
             withHandle
-            aria-label="Resize library and canvas panes"
+            aria-label={t("editor.panesResizeLibrary")}
           />
           <ResizablePanel
             id="layout-stage-pane"
@@ -3151,7 +3223,7 @@ export function LayoutEditorPage() {
           </ResizablePanel>
           <ResizableHandle
             withHandle
-            aria-label="Resize canvas and inspector panes"
+            aria-label={t("editor.panesResizeInspector")}
           />
           <ResizablePanel
             id="layout-inspector-pane"
@@ -3161,20 +3233,24 @@ export function LayoutEditorPage() {
             className="min-h-0 min-w-0"
           >
             <aside
-              aria-label={primary ? "Layer inspector" : "Layout settings"}
+              aria-label={
+                primary
+                  ? t("editor.panesInspector")
+                  : t("editor.sectionSettings")
+              }
               className="h-full overflow-y-auto bg-background"
             >
               {primary ? (
                 <>
                   <LayoutPaneHeading
-                    title="Inspector"
-                    meta={`${selected.length} selected`}
+                    title={t("editor.panesInspectorTitle")}
+                    meta={t("editor.selectedCount", { count: selected.length })}
                   />
                   <div className="p-3">{placementInspector}</div>
                 </>
               ) : (
                 <>
-                  <LayoutPaneHeading title="Layout settings" />
+                  <LayoutPaneHeading title={t("editor.sectionSettings")} />
                   {layoutSettings}
                 </>
               )}
@@ -3194,13 +3270,17 @@ export function LayoutEditorPage() {
           mode="multiple"
           csrf={csrf}
           allowedTypes={picker === "widgets" ? ["widget"] : ["image", "video"]}
-          title={picker === "widgets" ? "Choose apps" : "Choose media"}
+          title={
+            picker === "widgets"
+              ? t("editor.pickerAppsTitle")
+              : t("editor.pickerMediaTitle")
+          }
           description={
             picker === "widgets"
-              ? "Add an app to the canvas. Apps keep rendering live once the Layout is published."
-              : "Add images or video to the canvas. Anything you upload here lands in your library too."
+              ? t("editor.pickerAppsDescription")
+              : t("editor.pickerMediaDescription")
           }
-          confirmLabel="Add to canvas"
+          confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(assets) => {
             addContentBatch(assets);
             setPickerOpen(false);
@@ -3219,8 +3299,8 @@ export function LayoutEditorPage() {
       {picker === "playlists" && (
         <PlaylistPicker
           open={pickerOpen}
-          description="Add a playlist zone that loops independently inside this Layout."
-          confirmLabel="Add to canvas"
+          description={t("editor.pickerPlaylistDescription")}
+          confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(choice) => {
             if (choice.kind === "playlist") addPlaylistZone(choice.playlist);
             setPickerOpen(false);
@@ -3238,10 +3318,12 @@ export function LayoutEditorPage() {
         >
           <DialogHeader className="sr-only">
             <DialogTitle>
-              Preview {layoutQuery.data?.name ?? "Layout"}
+              {t("editor.previewTitle", {
+                name: layoutQuery.data?.name ?? t("editor.toolbarDefaultName"),
+              })}
             </DialogTitle>
             <DialogDescription>
-              Playback preview of the current Layout.
+              {t("editor.previewDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="layout-preview-toolbar">
@@ -3251,7 +3333,7 @@ export function LayoutEditorPage() {
             </span>
             <DateInput
               id="layout-preview-date"
-              aria-label="Preview date"
+              aria-label={t("editor.previewDateLabel")}
               value={previewDate}
               onChange={(date) => {
                 setPreviewDate(date);
@@ -3259,7 +3341,9 @@ export function LayoutEditorPage() {
               }}
             />
             {previewLoading && (
-              <span className="layout-preview-status">Loading content…</span>
+              <span className="layout-preview-status">
+                {t("editor.previewLoading")}
+              </span>
             )}
             {!previewLoading && previewError && (
               <span className="layout-preview-status layout-preview-status--warning">
@@ -3267,7 +3351,7 @@ export function LayoutEditorPage() {
               </span>
             )}
             <Button variant="secondary" onClick={() => setPreview(false)}>
-              Close preview
+              {t("editor.previewClose")}
             </Button>
           </div>
           <div
@@ -3323,9 +3407,9 @@ export function LayoutEditorPage() {
           className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
         >
           <DialogHeader>
-            <DialogTitle>Published revisions</DialogTitle>
+            <DialogTitle>{t("editor.historyTitle")}</DialogTitle>
             <DialogDescription>
-              Restoring creates a new editable draft.
+              {t("editor.historyDescription")}
             </DialogDescription>
           </DialogHeader>
           <div>
@@ -3343,10 +3427,19 @@ export function LayoutEditorPage() {
                     className="rounded-none px-0"
                   >
                     <ItemContent>
-                      <ItemTitle>Revision {revision.revision}</ItemTitle>
+                      <ItemTitle>
+                        {t("editor.historyRevision", {
+                          revision: revision.revision,
+                        })}
+                      </ItemTitle>
                       <ItemDescription>
-                        {new Date(revision.publishedAt).toLocaleString()}·
-                        digest {revision.documentSha256.slice(0, 12)}
+                        {new Date(revision.publishedAt).toLocaleString(
+                          formatLocale,
+                        )}
+                        {" · "}
+                        {t("editor.historyDigest", {
+                          digest: revision.documentSha256.slice(0, 12),
+                        })}
                       </ItemDescription>
                     </ItemContent>
                     <ItemActions>
@@ -3355,7 +3448,7 @@ export function LayoutEditorPage() {
                         size="sm"
                         onClick={() => restore.mutate(revision.id)}
                       >
-                        Restore as draft
+                        {t("editor.historyRestore")}
                       </Button>
                     </ItemActions>
                   </Item>
@@ -3364,9 +3457,9 @@ export function LayoutEditorPage() {
             ) : (
               <Empty className="border-0 py-6">
                 <EmptyHeader>
-                  <EmptyTitle>No published revisions yet</EmptyTitle>
+                  <EmptyTitle>{t("editor.historyEmpty")}</EmptyTitle>
                   <EmptyDescription>
-                    Publish this Layout to start a revision history.
+                    {t("editor.historyEmptyDescription")}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -3374,7 +3467,7 @@ export function LayoutEditorPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setHistoryOpen(false)}>
-              Close
+              {t("common:actions.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3412,6 +3505,7 @@ function PlacementView({
   onResize?: (event: ReactPointerEvent) => void;
   onContextMenu?: (event: ReactMouseEvent<HTMLElement>) => void;
 }) {
+  const { t } = useTranslation("layouts");
   if (!item.visible) return null;
   const primitive = item.primitive;
   const style: React.CSSProperties = {
@@ -3454,7 +3548,11 @@ function PlacementView({
           <div className="layout-playlist-zone">
             <ListVideo size={22} />
             <strong>{playlist?.name ?? item.name}</strong>
-            <span>{playlist?.itemCount ?? 0} items · independent loop</span>
+            <span>
+              {t("editor.zoneBadge", {
+                count: playlist?.itemCount ?? 0,
+              })}
+            </span>
           </div>
         )
       ) : item.type === "asset" ? (
@@ -3562,7 +3660,7 @@ function PlacementView({
           variant="outline"
           size="icon-xs"
           className="layout-resize-handle"
-          aria-label="Resize"
+          aria-label={t("editor.resizeLabel")}
           onPointerDown={onResize}
         />
       )}
@@ -3588,6 +3686,7 @@ function LayoutSaveStatus({
   state: SaveState;
   onRetry: () => void;
 }) {
+  const { t } = useTranslation(["layouts", "common"]);
   return (
     <div className="flex items-center gap-2">
       <span
@@ -3600,33 +3699,33 @@ function LayoutSaveStatus({
         {state === "saving" ? (
           <>
             <Spinner aria-hidden="true" />
-            Saving…
+            {t("common:actions.saving")}
           </>
         ) : state === "unsaved" ? (
           <>
             <CircleDot aria-hidden="true" />
-            Unsaved
+            {t("editor.saveUnsaved")}
           </>
         ) : state === "error" ? (
           <>
             <CircleAlert aria-hidden="true" />
-            Not saved
+            {t("editor.saveFailed")}
           </>
         ) : state === "conflict" ? (
           <>
             <TriangleAlert aria-hidden="true" />
-            Reload required
+            {t("editor.saveConflict")}
           </>
         ) : (
           <>
             <CloudCheck aria-hidden="true" />
-            Saved
+            {t("editor.saveSaved")}
           </>
         )}
       </span>
       {state === "error" && (
         <Button type="button" variant="outline" size="xs" onClick={onRetry}>
-          Retry
+          {t("common:actions.retry")}
         </Button>
       )}
     </div>
