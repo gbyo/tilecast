@@ -23,6 +23,8 @@
   },
   "catalog": {
     "back": "All plugins",
+    "emergencyAlertsName": "US Weather Alerts",
+    "emergencyAlertsDescription": "Watch official U.S. National Weather Service (NWS) alerts and respond automatically while one is active, with a fullscreen takeover or a ticker bar.",
     "reviewDescription": "Review {{name}} before installing it.",
     "installed": "Installed",
     "install": "Install",

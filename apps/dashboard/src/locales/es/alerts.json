@@ -1,8 +1,8 @@
 {
   "emergency": {
     "backToPlugins": "Complementos",
-    "title": "Alertas de emergencia",
-    "description": "Vigila las alertas meteorológicas oficiales del NWS y toma el control de las pantallas correspondientes de forma automática; luego restaura la reproducción normal cuando la alerta termina.",
+    "title": "Alertas meteorológicas de EE. UU.",
+    "description": "Vigila las alertas oficiales del Servicio Meteorológico Nacional de EE. UU. (NWS) y toma el control de las pantallas correspondientes de forma automática; luego restaura la reproducción normal cuando la alerta termina.",
     "readOnlyNotice": "Se requiere acceso de propietario o administrador para hacer cambios.",
     "prepare": {
       "title": "Prepara el contenido automático de emergencia",

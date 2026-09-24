@@ -31,6 +31,8 @@ import { PluginCatalogDialog } from "../plugins/PluginCatalogDialog";
 import {
   hasStudioRoute,
   instanceSummary,
+  pluginDisplayDescription,
+  pluginDisplayName,
   pluginStatusKey,
   usePluginCatalog,
   usePluginLifecycle,
@@ -173,6 +175,7 @@ export function PluginsPage() {
 
 function InstalledPlugin({ plugin }: { plugin: PluginSummary }) {
   const { t } = useTranslation("plugins");
+  const name = pluginDisplayName(plugin, t);
   const statusKey = pluginStatusKey(plugin);
   return (
     <Item variant="outline">
@@ -180,15 +183,15 @@ function InstalledPlugin({ plugin }: { plugin: PluginSummary }) {
         <PluginIcon icon={plugin.icon} />
       </ItemMedia>
       <ItemContent>
-        <ItemTitle>{plugin.name}</ItemTitle>
-        <ItemDescription>{plugin.description}</ItemDescription>
+        <ItemTitle>{name}</ItemTitle>
+        <ItemDescription>{pluginDisplayDescription(plugin, t)}</ItemDescription>
       </ItemContent>
       <ItemActions>
         {hasStudioRoute(plugin.managementPath) && (
           <Link
             to={plugin.managementPath}
             className={buttonVariants({ variant: "outline", size: "sm" })}
-            aria-label={t("list.openLabel", { name: plugin.name })}
+            aria-label={t("list.openLabel", { name })}
           >
             {t("list.openAction")}
           </Link>

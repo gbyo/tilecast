@@ -38,9 +38,9 @@ const catalogDefaults: Record<string, Partial<PluginSummary>> = {
     managementPath: "/plugins/countdown-bar",
   },
   emergency_alerts: {
-    name: "Emergency Alerts",
+    name: "US Weather Alerts",
     // i18n-ignore: development fixture label, not Studio copy
-    description: "Watch official NWS weather alerts.",
+    description: "Watch official U.S. National Weather Service alerts.",
     category: "Automation",
     icon: "siren",
     managementPath: "/plugins/emergency-alerts",

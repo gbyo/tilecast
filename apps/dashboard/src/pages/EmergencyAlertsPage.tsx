@@ -184,8 +184,8 @@ const nwsAreas = [
 ] as const;
 
 /**
- * The Emergency Alerts plugin: watch official NWS alerts and take screens over
- * while one is active.
+ * The US Weather Alerts plugin: watch official NWS alerts and take screens
+ * over while one is active.
  *
  * It lives under Plugins rather than in Settings because it is not a default
  * anything — it is a feature an installation opts into and configures, in the

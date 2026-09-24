@@ -27,6 +27,7 @@ import type { PluginInUseResource } from "../api/types";
 import { apiErrorMessage } from "../i18n";
 import {
   inUseResources,
+  pluginDisplayName,
   usePluginCatalog,
   usePluginLifecycle,
   type PluginsT,
@@ -40,6 +41,7 @@ import { canManage } from "./shared";
  */
 export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
   const { t } = useTranslation(["plugins", "common"]);
+  const { t: pluginT } = useTranslation("plugins");
   const auth = useAuth();
   const navigate = useNavigate();
   const catalog = usePluginCatalog();
@@ -47,6 +49,8 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
   const [open, setOpen] = useState(false);
   const plugin = catalog.data?.items.find((item) => item.id === pluginId);
   if (!plugin?.installed || !canManage(auth.status?.user?.role)) return null;
+
+  const name = pluginDisplayName(plugin, pluginT);
 
   const blockers = inUseResources(remove.error);
   const failure =
@@ -57,7 +61,7 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
       <DropdownMenu>
         <DropdownMenuTrigger
           render={<Button variant="outline" size="icon" />}
-          aria-label={t("actionsMenu.menuLabel", { name: plugin.name })}
+          aria-label={t("actionsMenu.menuLabel", { name })}
         >
           <MoreHorizontal aria-hidden="true" />
         </DropdownMenuTrigger>
@@ -79,7 +83,7 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  {t("actionsMenu.blockedTitle", { name: plugin.name })}
+                  {t("actionsMenu.blockedTitle", { name })}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {blockerSentence(t, blockers)}{" "}
@@ -101,10 +105,10 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
                   <PackageMinus aria-hidden="true" />
                 </AlertDialogMedia>
                 <AlertDialogTitle>
-                  {t("actionsMenu.removeTitle", { name: plugin.name })}
+                  {t("actionsMenu.removeTitle", { name })}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {t("actionsMenu.removeDescription", { name: plugin.name })}
+                  {t("actionsMenu.removeDescription", { name })}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               {failure && (

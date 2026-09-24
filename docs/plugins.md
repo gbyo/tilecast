@@ -8,7 +8,7 @@ Plugins add bounded workflows or affect Player behavior outside normal playlist 
 
 The plugin registry (`apps/server/internal/plugins/registry.go`) is compiled Go data. Each definition carries a stable identifier, a definition version, name, description, category (Display, Automation, Workflow, or Hardware), a bounded icon identifier, the Studio route that manages it, instance nouns, and declarative requirements and capabilities. Requirements are advice shown before installation; they are never evaluated, and a plugin may be installed before any compatible Player is paired.
 
-Installation state is one row per plugin in `plugin_installations`. The row records only that the organization installed the plugin, who installed it, and when. Each plugin keeps its real configuration in its own tables — Countdown Bar in `countdown_bar_instances`, Emergency Alerts in `alert_monitor` and `alert_rules`, and so on. There is deliberately no generic configuration column and no separate enabled flag: installed is the lifecycle, and enabling or disabling individual instances stays inside each plugin.
+Installation state is one row per plugin in `plugin_installations`. The row records only that the organization installed the plugin, who installed it, and when. Each plugin keeps its real configuration in its own tables — Countdown Bar in `countdown_bar_instances`, US Weather Alerts (`emergency_alerts`) in `alert_monitor` and `alert_rules`, and so on. There is deliberately no generic configuration column and no separate enabled flag: installed is the lifecycle, and enabling or disabling individual instances stays inside each plugin.
 
 The catalog reports three separate questions for every plugin:
 
@@ -18,23 +18,23 @@ The catalog reports three separate questions for every plugin:
 | Brand Bug / Watermark | at least one mark                  | at least one enabled mark     | marks       |
 | Noise Meter           | at least one meter                 | at least one enabled meter    | meters      |
 | Forms                 | at least one form                  | at least one form             | forms       |
-| Emergency Alerts      | areas or zones chosen, or any rule | monitoring switched on        | alert rules |
+| US Weather Alerts     | areas or zones chosen, or any rule | NWS monitoring switched on    | alert rules |
 
-An installed Emergency Alerts plugin with monitoring off is a valid state. `attention` carries bounded advisory notes, such as a Noise Meter installed before any Linux Player is paired, monitoring switched on with no alert rule, or a failing NWS poll. Feature data that exists without an installation — after a restore or a manual database edit — is reported as `data_without_installation` and has no runtime effect.
+An installed US Weather Alerts plugin with NWS monitoring off is a valid state. `attention` carries bounded advisory notes, such as a Noise Meter installed before any Linux Player is paired, monitoring switched on with no alert rule, or a failing NWS poll. Feature data that exists without an installation — after a restore or a manual database edit — is reported as `data_without_installation` and has no runtime effect.
 
 **Install** (`POST /api/v1/plugins/{pluginId}/install`) requires Owner or Administrator and the session CSRF token. It answers `201 Created` the first time and `200 OK` with the same representation when repeated, records a `plugin.installed` audit event with the definition version, and revises every screen manifest for a Player-facing plugin. An identifier the release does not know answers `404 plugin_not_found`.
 
 **Remove** (`DELETE /api/v1/plugins/{pluginId}/installation`) has the same authorization and is idempotent. It never deletes plugin data. While plugin-owned resources remain it answers `409 plugin_in_use` with the resources in `error.details`:
 
-| Plugin                | Removal is blocked while                                                        |
-| --------------------- | ------------------------------------------------------------------------------- |
-| Countdown Bar         | any instance exists                                                             |
-| Brand Bug / Watermark | any mark exists                                                                 |
-| Noise Meter           | any meter exists (history belongs to its meters and does not block on its own)  |
-| Forms                 | any form that has not been deleted exists                                       |
-| Emergency Alerts      | monitoring is on, any alert rule exists, or an alert activation has not cleared |
+| Plugin                | Removal is blocked while                                                            |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| Countdown Bar         | any instance exists                                                                 |
+| Brand Bug / Watermark | any mark exists                                                                     |
+| Noise Meter           | any meter exists (history belongs to its meters and does not block on its own)      |
+| Forms                 | any form that has not been deleted exists                                           |
+| US Weather Alerts     | NWS monitoring is on, any alert rule exists, or an alert activation has not cleared |
 
-To remove Emergency Alerts, switch monitoring off and delete the rules through its page; deleting a rule already clears its live activations. A successful removal records `plugin.removed` and revises every screen manifest for a Player-facing plugin.
+To remove US Weather Alerts, switch NWS monitoring off and delete the rules through its page; deleting a rule already clears its live activations. A successful removal records `plugin.removed` and revises every screen manifest for a Player-facing plugin.
 
 Configuration routes refuse a plugin that is not installed with `409 plugin_not_installed` rather than installing it implicitly. That covers creating or updating Countdown Bar, Brand Bug, and Noise Meter instances, creating a form, changing the NWS monitor, saving an alert rule, and polling NWS by hand. Deleting leftover instances stays possible so inconsistent data can be cleaned up.
 
@@ -43,7 +43,7 @@ Configuration routes refuse a plugin that is not installed with `409 plugin_not_
 Installation is the top-level runtime gate: a plugin must be known to the running release **and** installed.
 
 - **Manifests.** An uninstalled plugin contributes no manifest entries, whatever its own tables contain. Install and remove use the existing manifest revision and Player notification path; no parallel revision system exists.
-- **Emergency Alerts.** The NWS poller makes no upstream request while the plugin is uninstalled, even if the monitor row says monitoring is on.
+- **US Weather Alerts.** The NWS poller makes no upstream request while the plugin is uninstalled, even if the monitor row says monitoring is on.
 - **Noise Meter.** Heartbeat noise history for an uninstalled Noise Meter is consumed and dropped, not rejected, so a Player never retries the same batch forever.
 - **Forms.** The time-window worker skips forms while Forms is uninstalled. Normal operation cannot reach that state because removal is refused while forms exist; the check protects restored or edited databases.
 
@@ -114,9 +114,13 @@ Urgency stages are opt-in per instance. For the default fifteen-minute lead wind
 
 Changing an instance increments the manifest revision for every screen. The next authenticated manifest contains only enabled instances that apply to that screen.
 
-## Emergency Alerts
+<a id="emergency-alerts"></a>
 
-Emergency Alerts watches official National Weather Service alerts and takes matching screens over automatically while one is active. It is a plugin rather than an organization default: an installation opts into monitoring, and the alert rules are its instances. Settings keeps only the defaults for a Takeover a person starts by hand and for player commands.
+## US Weather Alerts
+
+US Weather Alerts watches the official U.S. National Weather Service (NWS) feed and automatically responds to matching alerts. Its stable plugin ID remains `emergency_alerts`, and its Studio route remains Plugins → US Weather Alerts. It is a plugin rather than an organization default: an installation opts into monitoring, and the alert rules are its instances. Settings keeps only the defaults for a Takeover a person starts by hand and for player commands.
+
+This is a U.S.-specific automated provider. Tilecast's generic CAP Alerts Data Source can display active records from a configured public CAP feed, but it is not connected to the automated alert-rule and activation lifecycle. CAP availability depends on the feed an organization can access; Tilecast does not promise that every country's warning service exposes CAP.
 
 The catalog reports the plugin as active when monitoring is on — a monitor switched on with no rule yet is a half-finished setup, and the catalog flags it — and its instance count is the number of alert rules.
 

@@ -178,11 +178,11 @@ describe("Add plugin", () => {
     await user.click(await screen.findByRole("button", { name: "Add plugin" }));
     const dialog = await screen.findByRole("dialog", { name: "Add a plugin" });
     expect(dialog).toHaveTextContent("Countdown Bar");
-    expect(dialog).toHaveTextContent("Emergency Alerts");
+    expect(dialog).toHaveTextContent("US Weather Alerts");
     expect(dialog).not.toHaveTextContent("Noise Meter");
 
     await user.click(screen.getByRole("button", { name: "Automation" }));
-    expect(dialog).toHaveTextContent("Emergency Alerts");
+    expect(dialog).toHaveTextContent("US Weather Alerts");
     expect(dialog).not.toHaveTextContent("Countdown Bar");
 
     await user.click(screen.getByRole("button", { name: "All" }));

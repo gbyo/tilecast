@@ -34,6 +34,10 @@
     "items_one": "{{count}} item",
     "items_other": "{{count}} items"
   },
+  "toasts": {
+    "pluginInstalled": "Plugin installed.",
+    "pluginRemoved": "Plugin removed."
+  },
   "filters": {
     "active": "Active filters",
     "remove": "Remove filter {{label}}: {{value}}",

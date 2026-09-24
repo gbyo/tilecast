@@ -1,10 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { PluginInUseResource, PluginSummary } from "../api/types";
 import { toast } from "../components/ui/toast";
 
 export type PluginsT = TFunction<"plugins", undefined>;
+
+export function pluginDisplayName(
+  plugin: Pick<PluginSummary, "id" | "name">,
+  t: PluginsT,
+) {
+  return plugin.id === "emergency_alerts"
+    ? t("catalog.emergencyAlertsName")
+    : plugin.name;
+}
+
+export function pluginDisplayDescription(
+  plugin: Pick<PluginSummary, "id" | "description">,
+  t: PluginsT,
+) {
+  return plugin.id === "emergency_alerts"
+    ? t("catalog.emergencyAlertsDescription")
+    : plugin.description;
+}
 
 export const pluginCategories = [
   "Display",
@@ -71,20 +90,21 @@ export function usePluginCatalog() {
 }
 
 export function usePluginLifecycle(csrfToken: string) {
+  const { t } = useTranslation("common");
   const queryClient = useQueryClient();
   const settle = () =>
     queryClient.invalidateQueries({ queryKey: pluginsQueryKey });
   const install = useMutation({
     mutationFn: (id: string) => api.installPlugin(id, csrfToken),
     onSuccess: () => {
-      toast.add({ title: "Plugin installed.", type: "success" });
+      toast.add({ title: t("toasts.pluginInstalled"), type: "success" });
       return settle();
     },
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.removePlugin(id, csrfToken),
     onSuccess: () => {
-      toast.add({ title: "Plugin removed.", type: "success" });
+      toast.add({ title: t("toasts.pluginRemoved"), type: "success" });
       return settle();
     },
   });

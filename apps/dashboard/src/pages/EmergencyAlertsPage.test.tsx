@@ -97,7 +97,7 @@ describe("Emergency Alerts plugin", () => {
       screen.getByRole("link", { name: /Plugins/ }).getAttribute("href"),
     ).toBe("/plugins");
     expect(
-      screen.getByRole("heading", { level: 1, name: "Emergency Alerts" }),
+      screen.getByRole("heading", { level: 1, name: "US Weather Alerts" }),
     ).toBeTruthy();
   });
 
