@@ -72,6 +72,46 @@ export function previewRecordMaps(value: unknown): Record<string, string>[] {
 // map keyed the same way rather than against one flat record list. Without this, a two-source
 // Widget rendered every binding from whichever source happened to be declared first.
 export type PreviewDatasets = Record<string, Record<string, string>[]>;
+export type PreviewDatasetCurrencies = Record<string, Record<string, string>>;
+
+function fieldCurrencies(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object") return {};
+  const root = value as Record<string, unknown>;
+  const fields = Array.isArray(root.fields) ? root.fields : [];
+  return Object.fromEntries(
+    fields.flatMap((field) => {
+      if (!field || typeof field !== "object") return [];
+      const item = field as Record<string, unknown>;
+      return typeof item.key === "string" &&
+        typeof item.currency === "string" &&
+        item.currency
+        ? [[item.key, item.currency]]
+        : [];
+    }),
+  );
+}
+
+export function previewFieldCurrencies(value: unknown): Record<string, string> {
+  return fieldCurrencies(value);
+}
+
+export function previewDatasetCurrencies(
+  dataSourceId: string,
+  value: unknown,
+): PreviewDatasetCurrencies {
+  if (!value || typeof value !== "object") return {};
+  const root = value as Record<string, unknown>;
+  const datasets = Array.isArray(root.datasets) ? root.datasets : undefined;
+  if (!datasets) return { [`${dataSourceId}:records`]: fieldCurrencies(value) };
+  const result: PreviewDatasetCurrencies = {};
+  for (const entry of datasets) {
+    if (!entry || typeof entry !== "object") continue;
+    const dataset = entry as Record<string, unknown>;
+    const id = typeof dataset.id === "string" ? dataset.id : "records";
+    result[`${dataSourceId}:${id}`] = fieldCurrencies(dataset);
+  }
+  return result;
+}
 
 export function previewDatasetMaps(
   dataSourceId: string,

@@ -38,7 +38,15 @@ import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import QRCode from "qrcode";
 import { api } from "../api/client";
-import { apiErrorMessage, useFormatLocale } from "../i18n";
+import { apiErrorMessage } from "../i18n";
+import {
+  useOrganizationRegionalProfile,
+  type OrganizationRegionalProfile,
+} from "../settings/regionalProfile";
+import {
+  formatRegionalDateTimeValue,
+  parseISODateTime,
+} from "../settings/regionalFormatting";
 import type {
   Asset,
   DataSource,
@@ -69,7 +77,12 @@ import type {
 } from "../api/types";
 import { DataSourcePicker } from "./DataSourcePicker";
 import { WidgetThumbnail } from "./WidgetThumbnail";
-import { previewRecordMaps, type PreviewDatasets } from "./previewRecords";
+import {
+  previewFieldCurrencies,
+  previewRecordMaps,
+  type PreviewDatasetCurrencies,
+  type PreviewDatasets,
+} from "./previewRecords";
 import { PreviewTimeControl } from "./PreviewTimeControl";
 import { initialPreviewTime, resolvePreviewNow } from "./previewTime";
 import { captureWidgetPreview } from "./widgetPreviewCapture";
@@ -406,7 +419,7 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
   if (provider === "countdown")
     return {
       target: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      timezone: "UTC",
       mode: "countdown",
       recurrence: "none",
       layout: "stacked",
@@ -618,13 +631,29 @@ export function NativeAppEditor({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
+  const regional = useOrganizationRegionalProfile();
   const previewRef = useRef<HTMLDivElement>(null);
+  const touchedCountdownTimezone = useRef(Boolean(asset));
   const [name, setName] = useState(asset?.name ?? "");
   const [description, setDescription] = useState(asset?.description ?? "");
   const [configuration, setConfiguration] = useState<NativeConfig>(
     (asset?.widget?.configuration as NativeConfig | undefined) ??
       nativeDefault(provider, t),
   );
+  useEffect(() => {
+    if (
+      asset ||
+      provider !== "countdown" ||
+      !regional.ready ||
+      touchedCountdownTimezone.current
+    ) {
+      return;
+    }
+    setConfiguration((current) => ({
+      ...current,
+      timezone: regional.timezone,
+    }));
+  }, [asset, provider, regional.ready, regional.timezone]);
   const [previewTime, setPreviewTime] = useState(initialPreviewTime);
   const dataSources = useQuery({
     queryKey: ["widget-data-sources"],
@@ -1083,12 +1112,13 @@ export function NativeAppEditor({
                           (configuration as CountdownWidgetConfig).timezone
                         }
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          touchedCountdownTimezone.current = true;
                           setConfiguration((current) => ({
                             ...current,
                             timezone: event.target.value,
-                          }))
-                        }
+                          }));
+                        }}
                       />
                     </Field>
                     <Field>
@@ -3843,6 +3873,7 @@ export function NativeAppEditor({
                 <DeclarativePresentationPreview
                   presentation={compiledPreview.data}
                   source={sourcePreview.data}
+                  regional={regional}
                   now={resolvePreviewNow(previewTime)}
                   assetImageUrl={
                     previewImageAssetId
@@ -3891,6 +3922,8 @@ export function DeclarativePresentationPreview({
   presentation,
   source,
   datasets,
+  datasetCurrencies,
+  regional,
   now,
   assetImageUrl,
   onWebReady,
@@ -3901,6 +3934,8 @@ export function DeclarativePresentationPreview({
   source: unknown;
   // Records keyed "<dataSourceId>:<datasetId>", for Widgets that reference several sources.
   datasets?: PreviewDatasets;
+  datasetCurrencies?: PreviewDatasetCurrencies;
+  regional?: OrganizationRegionalProfile;
   now?: Date;
   assetImageUrl?: string;
   onWebReady?: () => void;
@@ -3934,11 +3969,20 @@ export function DeclarativePresentationPreview({
   }
   const records = previewRecordMaps(source);
   const root = presentation.native?.root;
+  const formatting = regional ?? {
+    locale: "en-US",
+    timezone: "UTC",
+    dateFormat: "locale",
+    timeFormat: "locale",
+  };
   return root ? (
     <PreviewNode
       node={root}
       records={records}
       datasets={datasets}
+      sourceCurrencies={previewFieldCurrencies(source)}
+      datasetCurrencies={datasetCurrencies}
+      regional={formatting}
       now={now ?? liveNow}
       assetImageUrl={assetImageUrl}
     />
@@ -4147,6 +4191,10 @@ function PreviewNode({
   node,
   records,
   datasets,
+  sourceCurrencies,
+  datasetCurrencies,
+  regional,
+  recordCurrencies,
   record,
   recordIndex,
   now,
@@ -4155,13 +4203,17 @@ function PreviewNode({
   node: PresentationNode;
   records: Record<string, string>[];
   datasets?: PreviewDatasets;
+  sourceCurrencies: Record<string, string>;
+  datasetCurrencies?: PreviewDatasetCurrencies;
+  regional: OrganizationRegionalProfile;
+  recordCurrencies?: Record<string, string>;
   record?: Record<string, string>;
   recordIndex?: number;
   now: Date;
   assetImageUrl?: string;
 }) {
   const { t } = useTranslation(["content", "common"]);
-  const formatLocale = useFormatLocale();
+  const formatLocale = regional.locale ?? "en-US";
   const props = node.props ?? {};
   const binding = node.binding;
   // A node reads the dataset it names. An unknown name falls back to the primary records so a
@@ -4169,23 +4221,34 @@ function PreviewNode({
   const datasetRecords = (name?: string) =>
     (name && datasets?.[name]) || records;
   const resolveBinding = (candidate: PresentationBinding) => {
+    const currency = candidate.path
+      ? candidate.source === "dataset"
+        ? (datasetCurrencies?.[candidate.dataset ?? ""]?.[candidate.path] ??
+          sourceCurrencies[candidate.path])
+        : candidate.source === "repeat"
+          ? (recordCurrencies?.[candidate.path] ??
+            sourceCurrencies[candidate.path])
+          : undefined
+      : undefined;
     if (candidate.source === "literal")
       return formatPresentationValue(
         candidate.value ?? "",
         candidate,
         now,
-        undefined,
+        currency,
         formatLocale,
         t,
+        regional,
       );
     if (candidate.source === "repeat")
       return formatPresentationValue(
         record?.[candidate.path ?? ""] ?? candidate.fallback ?? "",
         candidate,
         now,
-        undefined,
+        currency,
         formatLocale,
         t,
+        regional,
       );
     if (candidate.source === "repeat_index")
       return formatPresentationValue(
@@ -4195,6 +4258,7 @@ function PreviewNode({
         undefined,
         formatLocale,
         t,
+        regional,
       );
     if (candidate.source === "dataset") {
       const scoped = selectTemporalRecords(
@@ -4209,9 +4273,10 @@ function PreviewNode({
           scoped[0]?.[candidate.path] ?? candidate.fallback ?? "",
           candidate,
           now,
-          undefined,
+          currency,
           formatLocale,
           t,
+          regional,
         );
       const joined =
         scoped
@@ -4229,26 +4294,42 @@ function PreviewNode({
         joined,
         candidate,
         now,
-        undefined,
+        currency,
         formatLocale,
         t,
+        regional,
       );
     }
     if (candidate.source === "environment") {
       const format = candidate.format?.split(":") ?? [];
-      const timezone = format.at(-1) || "UTC";
+      const timezone = format.at(-1) || regional.timezone;
       if (format[0] === "date")
-        return new Intl.DateTimeFormat(formatLocale, {
-          dateStyle:
-            (format[1] as "full" | "long" | "medium" | "short") ?? "full",
-          timeZone: timezone,
-        }).format(now);
-      if (format[0] === "time")
+        return format[1] && format[1] !== "locale"
+          ? new Intl.DateTimeFormat(formatLocale, {
+              dateStyle: format[1] as "full" | "long" | "medium" | "short",
+              timeZone: timezone,
+            }).format(now)
+          : formatRegionalDateTimeValue(now.toISOString(), "date", {
+              ...regional,
+              timezone,
+            });
+      if (format[0] === "time") {
+        const hour12 =
+          format[1] === "12"
+            ? true
+            : format[1] === "24"
+              ? false
+              : regional.timeFormat === "12-hour"
+                ? true
+                : regional.timeFormat === "24-hour"
+                  ? false
+                  : undefined;
         return new Intl.DateTimeFormat(formatLocale, {
           timeStyle: format[2] === "true" ? "medium" : "short",
-          hour12: format[1] !== "24",
+          ...(hour12 === undefined ? {} : { hour12 }),
           timeZone: timezone,
         }).format(now);
+      }
       if (format[0] === "countdown") {
         if (format[1] === "v2") {
           const decode = (value: string | undefined) =>
@@ -4259,7 +4340,7 @@ function PreviewNode({
             decode(format[8]) || "Complete",
             now,
             format[5] || "none",
-            decode(format[3]) || "UTC",
+            decode(format[3]) || timezone,
             format[6] || "completed_text",
             format[7] || "1111",
           );
@@ -4277,6 +4358,8 @@ function PreviewNode({
   if (node.condition) {
     const actual = resolveBinding(node.condition.binding);
     const expected = node.condition.value ?? "";
+    const actualDate = parseISODateTime(actual)?.date;
+    const expectedDate = parseISODateTime(expected)?.date;
     const actualNumber = Number(actual);
     const expectedNumber = Number(expected);
     const matches = {
@@ -4288,8 +4371,16 @@ function PreviewNode({
       greater_or_equal: actualNumber >= expectedNumber,
       less_than: actualNumber < expectedNumber,
       less_or_equal: actualNumber <= expectedNumber,
-      before: new Date(actual).getTime() < new Date(expected).getTime(),
-      after: new Date(actual).getTime() > new Date(expected).getTime(),
+      before: Boolean(
+        actualDate &&
+        expectedDate &&
+        actualDate.getTime() < expectedDate.getTime(),
+      ),
+      after: Boolean(
+        actualDate &&
+        expectedDate &&
+        actualDate.getTime() > expectedDate.getTime(),
+      ),
     }[node.condition.op];
     if (!matches) return null;
   }
@@ -4311,8 +4402,14 @@ function PreviewNode({
                 node={child}
                 records={records}
                 datasets={datasets}
+                sourceCurrencies={sourceCurrencies}
                 record={item}
                 recordIndex={index}
+                recordCurrencies={
+                  datasetCurrencies?.[node.repeat?.dataset ?? ""] ??
+                  sourceCurrencies
+                }
+                regional={regional}
                 now={now}
                 assetImageUrl={assetImageUrl}
               />
@@ -4425,8 +4522,11 @@ function PreviewNode({
             node={child}
             records={records}
             datasets={datasets}
+            sourceCurrencies={sourceCurrencies}
             record={record}
             recordIndex={recordIndex}
+            recordCurrencies={recordCurrencies}
+            regional={regional}
             now={now}
             assetImageUrl={assetImageUrl}
           />
@@ -4460,8 +4560,11 @@ function PreviewNode({
           node={child}
           records={records}
           datasets={datasets}
+          sourceCurrencies={sourceCurrencies}
           record={record}
           recordIndex={recordIndex}
+          recordCurrencies={recordCurrencies}
+          regional={regional}
           now={now}
           assetImageUrl={assetImageUrl}
         />
@@ -4547,10 +4650,18 @@ export function formatPresentationValue(
   currency?: string,
   locale?: string,
   t?: WidgetsT,
+  regional?: OrganizationRegionalProfile,
 ) {
   let result = value;
+  const profile = regional ?? {
+    locale: locale ?? "en-US",
+    timezone: "UTC",
+    dateFormat: "locale",
+    timeFormat: "locale",
+  };
   if (value && binding.format === "relative-countdown") {
-    const remaining = new Date(value).getTime() - now.getTime();
+    const target = parseISODateTime(value)?.date;
+    const remaining = target ? target.getTime() - now.getTime() : Number.NaN;
     if (Number.isFinite(remaining)) {
       const seconds = Math.max(0, Math.floor(remaining / 1000));
       const days = Math.floor(seconds / 86_400);
@@ -4568,12 +4679,18 @@ export function formatPresentationValue(
                 ? `${minutes}m ${trailingSeconds}s`
                 : `${trailingSeconds}s`;
     }
-  } else if (value && binding.format === "time") {
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime()))
-      result = new Intl.DateTimeFormat(locale, {
-        timeStyle: "short",
-      }).format(parsed);
+  } else if (
+    value &&
+    ["date", "date-short", "date-long", "datetime", "time"].includes(
+      binding.format ?? "",
+    )
+  ) {
+    result = formatRegionalDateTimeValue(
+      value,
+      binding.format as
+        "date" | "date-short" | "date-long" | "datetime" | "time",
+      profile,
+    );
   } else {
     const numeric = Number(value);
     if (value && Number.isFinite(numeric)) {
@@ -4594,20 +4711,22 @@ export function formatPresentationValue(
             : binding.format === "currency" && currency
               ? "currency"
               : "decimal";
-        result = new Intl.NumberFormat(locale, {
+        const numberOptions: Intl.NumberFormatOptions = {
           style,
           currency: style === "currency" ? currency : undefined,
-          maximumFractionDigits: precision,
-          minimumFractionDigits:
-            binding.precision ?? (binding.format === "integer" ? 0 : undefined),
-        }).format(binding.format === "percent" ? numeric / 100 : numeric);
+        };
+        // Let Intl use the ISO currency's standard fraction digits (JPY 0,
+        // EUR 2, KWD 3). A locale is for presentation and cannot supply the
+        // semantic currency or its minor-unit precision.
+        if (!(binding.format === "currency" && binding.precision == null)) {
+          numberOptions.maximumFractionDigits = precision;
+          numberOptions.minimumFractionDigits =
+            binding.precision ?? (binding.format === "integer" ? 0 : undefined);
+        }
+        result = new Intl.NumberFormat(profile.locale, numberOptions).format(
+          binding.format === "percent" ? numeric / 100 : numeric,
+        );
       }
-    } else if (value && binding.format?.startsWith("date")) {
-      const parsed = new Date(value);
-      if (!Number.isNaN(parsed.getTime()))
-        result = new Intl.DateTimeFormat(locale, {
-          dateStyle: binding.format === "date-long" ? "long" : "short",
-        }).format(parsed);
     }
   }
   return `${binding.prefix ?? ""}${result}${binding.suffix ?? ""}`;
@@ -4625,10 +4744,14 @@ export function selectTemporalRecords(
   const timed = records
     .map((record) => ({
       record,
-      start: new Date(record[startField] ?? ""),
-      end: endField ? new Date(record[endField] ?? "") : undefined,
+      start: parseISODateTime(record[startField] ?? "")?.date,
+      end: endField
+        ? parseISODateTime(record[endField] ?? "")?.date
+        : undefined,
     }))
-    .filter(({ start }) => !Number.isNaN(start.getTime()))
+    .filter(
+      (item): item is typeof item & { start: Date } => item.start !== undefined,
+    )
     .sort((left, right) => left.start.getTime() - right.start.getTime());
   const current = timed
     .filter(

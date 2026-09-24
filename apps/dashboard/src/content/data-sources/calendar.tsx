@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
@@ -22,6 +22,8 @@ import type {
   CalendarPreview,
   DataSourceDetail,
 } from "../../api/types";
+import { formatRegionalDateTimeValue } from "../../settings/regionalFormatting";
+import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
 import { EditorFrame, optionLabel } from "./shared";
 
 // Option arrays hold label keys and translate at render so the editor follows
@@ -69,7 +71,7 @@ const defaultCalendar: CalendarConfig = {
     location: true,
     descriptionExcerpt: false,
   },
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  timezone: "UTC",
   refreshIntervalSeconds: 900,
   stalenessLimitHours: 168,
   // i18n-ignore: default stored content the author edits, rendered on screens
@@ -93,6 +95,8 @@ export function CalendarDataSourceEditor({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
+  const regional = useOrganizationRegionalProfile();
+  const touchedTimezone = useRef(false);
   const queryClient = useQueryClient();
   const configured = dataSource?.configuration as CalendarConfig | undefined;
   const [name, setName] = useState(dataSource?.name ?? "");
@@ -100,6 +104,13 @@ export function CalendarDataSourceEditor({
   const [configuration, setConfiguration] = useState<CalendarConfig>(
     configured ?? defaultCalendar,
   );
+  useEffect(() => {
+    if (dataSource || !regional.ready || touchedTimezone.current) return;
+    setConfiguration((current) => ({
+      ...current,
+      timezone: regional.timezone,
+    }));
+  }, [dataSource, regional.ready, regional.timezone]);
   const [preview, setPreview] = useState<CalendarPreview>();
   const diagnostics = useQuery({
     queryKey: ["data-source-diagnostics", dataSource?.id],
@@ -362,12 +373,13 @@ export function CalendarDataSourceEditor({
             id="calendar-timezone"
             disabled={readOnly}
             value={configuration.timezone}
-            onChange={(event) =>
+            onChange={(event) => {
+              touchedTimezone.current = true;
               setConfiguration({
                 ...configuration,
                 timezone: event.target.value,
-              })
-            }
+              });
+            }}
           />
         </Field>
       </div>
@@ -605,8 +617,14 @@ export function CalendarDataSourceEditor({
                 </strong>
                 <span className="text-sm text-muted-foreground">
                   {event.allDay
-                    ? new Date(event.start).toLocaleDateString(locale)
-                    : new Date(event.start).toLocaleString(locale)}
+                    ? formatRegionalDateTimeValue(event.start, "date", {
+                        ...regional,
+                        timezone: configuration.timezone,
+                      })
+                    : formatRegionalDateTimeValue(event.start, "datetime", {
+                        ...regional,
+                        timezone: configuration.timezone,
+                      })}
                 </span>
                 {event.location && (
                   <small className="text-xs text-muted-foreground">
