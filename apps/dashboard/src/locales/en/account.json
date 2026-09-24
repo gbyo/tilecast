@@ -1,0 +1,170 @@
+{
+  "myAccount": {
+    "title": "My Account",
+    "subtitle": "Settings that belong to you rather than to the organization.",
+    "navLabel": "Account sections",
+    "signedInAs": "Signed in as",
+    "sections": {
+      "preferences": {
+        "title": "Preferences",
+        "description": "Appearance and workflow settings, stored with your account rather than this browser."
+      },
+      "security": {
+        "title": "Sign-in security",
+        "description": "Whether a second factor is required is an organization setting. What you use to satisfy it is your choice."
+      }
+    }
+  },
+  "roles": {
+    "owner": "Owner",
+    "administrator": "Administrator",
+    "editor": "Editor",
+    "contributor": "Contributor",
+    "viewer": "Viewer",
+    "descriptions": {
+      "owner": "Everything, including backups and integration tokens.",
+      "administrator": "Everything except Owner-only system operations.",
+      "editor": "Creates content, publishes it, and manages screens and playback.",
+      "contributor": "Creates and edits content, but cannot publish a Layout, delete anything, or put content on a screen.",
+      "viewer": "Reads only."
+    }
+  },
+  "users": {
+    "accessDenied": "Owner or Administrator access is required to manage Studio users.",
+    "addForm": {
+      "title": "Add a user",
+      "passwordHint": "Passwords must contain at least 12 characters.",
+      "nameLabel": "Name",
+      "usernameLabel": "Username",
+      "passwordLabel": "Temporary password",
+      "roleLabel": "Role",
+      "submit": "Add user",
+      "submitting": "Adding…"
+    },
+    "list": {
+      "loading": "Loading users…",
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "lastSignedIn": "Last signed in {{date}}",
+      "neverSignedIn": "Never signed in",
+      "mfa": {
+        "on": "Two-step verification on",
+        "required": "Two-step verification required, not yet enrolled",
+        "off": "No two-step verification"
+      }
+    },
+    "editDialog": {
+      "title": "Edit {{name}}",
+      "nameLabel": "Name",
+      "usernameLabel": "Username",
+      "roleLabel": "Role",
+      "passwordLabel": "New password",
+      "passwordPlaceholder": "Leave unchanged",
+      "passwordHint": "At least 12 characters.",
+      "activeLabel": "Account active",
+      "mfaTitle": "Two-step verification",
+      "mfaEnrolled": "This account has an authenticator app or a passkey enrolled.",
+      "mfaNotEnrolled": "This account has no second factor enrolled.",
+      "resetConfirmTitle": "Clear every authenticator, passkey, and recovery code for {{name}}?",
+      "resetConfirmBody": "They will be signed out everywhere and must enroll again.",
+      "resetAction": "Reset",
+      "resetting": "Resetting…",
+      "scopeTitle": "Screen scope",
+      "deactivateTitle": "Deactivate {{name}}?",
+      "deactivateAction": "Deactivate",
+      "deactivating": "Deactivating…",
+      "deleteTitle": "Permanently delete {{name}}?",
+      "deleteBody": "This removes their login, preferences, and security credentials. This cannot be undone.",
+      "deleteAction": "Delete permanently",
+      "deleting": "Deleting…"
+    },
+    "toasts": {
+      "created": "User created.",
+      "updated": "User updated.",
+      "disabled": "User disabled.",
+      "deleted": "User permanently deleted.",
+      "securityReset": "User sign-in factors reset."
+    },
+    "errors": {
+      "requestFailed": "Tilecast could not update this account."
+    }
+  },
+  "security": {
+    "loading": "Loading sign-in security…",
+    "loadError": "Sign-in security could not be loaded.",
+    "authenticator": {
+      "title": "Authenticator app",
+      "description": "A six-digit code from an app such as Aegis, Google Authenticator, or 1Password.",
+      "setup": "Set up",
+      "enrolled": "Enrolled",
+      "notEnrolled": "Not enrolled",
+      "addedOn": "Added {{date}}",
+      "enrollInstruction": "Scan the code with your authenticator app, then enter the six-digit code it shows.",
+      "manualKeyLabel": "Cannot scan? Enter this key by hand:",
+      "codeLabel": "Six-digit code",
+      "removeTitle": "Remove authenticator",
+      "removeDescription": "Confirm your password to remove the authenticator from this account."
+    },
+    "passkeys": {
+      "title": "Passkeys",
+      "description": "Sign in with a fingerprint, face, screen lock, or security key. A passkey signs you in on its own and counts as two-step verification.",
+      "add": "Add a passkey",
+      "unavailableTitle": "Passkeys are unavailable on this installation.",
+      "browserUnsupported": "This browser does not support passkeys.",
+      "empty": "No passkeys",
+      "addedOn": "Added {{date}}",
+      "lastUsed": "Last used {{date}}",
+      "neverUsed": "Never used",
+      "rename": "Rename",
+      "renameTitle": "Rename “{{name}}”",
+      "renameHint": "Tilecast named this from the authenticator that created it.",
+      "removeTitle": "Remove “{{name}}”",
+      "removeFallbackTitle": "Remove passkey",
+      "removeDescription": "Confirm your password to remove this passkey from this account.",
+      "notCreated": "No passkey was created.",
+      "selectToRename": "Select a passkey to rename.",
+      "selectToRemove": "Select a passkey to remove."
+    },
+    "recovery": {
+      "title": "Recovery codes",
+      "description": "Single-use codes that let you sign in when you cannot reach your authenticator or passkey.",
+      "regenerate": "Regenerate",
+      "generate": "Generate",
+      "remaining_one": "{{count}} unused code remaining",
+      "remaining_other": "{{count}} unused codes remaining",
+      "empty": "No recovery codes",
+      "dialogTitle": "Generate recovery codes",
+      "dialogDescription": "Confirm your password to generate new codes. Any existing recovery codes stop working.",
+      "shownOnceTitle": "These codes are shown once.",
+      "shownOnceDescription": "Save them somewhere safe now. Tilecast stores only their hashes and cannot show them again.",
+      "copyAll": "Copy all",
+      "savedConfirm": "I have saved them"
+    },
+    "passwordDialog": {
+      "passwordLabel": "Account password"
+    },
+    "errors": {
+      "requestFailed": "Tilecast could not complete the request."
+    }
+  },
+  "preferences": {
+    "loading": "Loading preferences…",
+    "saved": "Preferences saved.",
+    "leaveWarning": "Leave My Account with unsaved preference changes?",
+    "conflict": "These preferences changed elsewhere. Reload the latest preferences before saving.",
+    "appearance": {
+      "title": "Appearance",
+      "description": "Follow this browser, or force Studio light or dark.",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "language": {
+      "title": "Language",
+      "description": "The language Studio uses for you. Names, content, and messages from Players are not translated.",
+      "system": "Browser default ({{language}})"
+    }
+  }
+}

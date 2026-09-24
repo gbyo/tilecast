@@ -1,0 +1,176 @@
+{
+  "approvals": {
+    "eyebrow": "Formularios",
+    "title": "Aprobaciones",
+    "description": "Envíos en espera de una decisión de revisión en tus formularios.",
+    "table": {
+      "form": "Formulario",
+      "submission": "Envío",
+      "submitter": "Remitente",
+      "state": "Estado",
+      "submitted": "Enviado",
+      "displayWindow": "Ventana de visualización",
+      "reviewAction": "Revisar"
+    },
+    "untitledSubmission": "Envío sin título",
+    "untitledSubmissionInline": "envío sin título",
+    "unknownSubmitter": "Desconocido",
+    "reviewActionLabel": "Revisar {{title}} de {{formName}}",
+    "loadErrorTitle": "No se pudieron cargar las aprobaciones",
+    "loadErrorFallback": "Inténtalo de nuevo.",
+    "loading": "Cargando aprobaciones",
+    "emptyTitle": "Nada que revisar",
+    "emptyDescription": "No hay envíos en espera de tu decisión en este momento.",
+    "paginationLabel": "Páginas de aprobaciones",
+    "paginationStatus": "Página {{page}} de {{totalPages}} · {{total}} por revisar",
+    "displayWindow": {
+      "now": "ahora",
+      "range": "{{start}} → {{end}}"
+    }
+  },
+  "contentReview": {
+    "title": "Revisión de contenido",
+    "description": "Una lista de reproducción o un diseño debe aprobarse en su revisión actual antes de poder mostrarse en una pantalla. Editar contenido aprobado lo devuelve aquí.",
+    "openInbox": "Abrir bandeja de envíos",
+    "notRequiredNotice": "La aprobación no es obligatoria en esta instalación, así que nada aquí bloquea la asignación. Una persona propietaria o administradora puede activarla en <settingsLink>Ajustes, Revisión de contenido</settingsLink>.",
+    "filterLabel": "Estado de revisión",
+    "filterAll": "Todo",
+    "loading": "Cargando la cola de revisión",
+    "emptyPending": "Nada en espera de revisión",
+    "emptyOther": "Nada que mostrar",
+    "table": {
+      "content": "Contenido",
+      "state": "Estado",
+      "screens": "En pantallas",
+      "reviewAction": "Revisar"
+    },
+    "state": {
+      "pending": "En espera de revisión",
+      "approved": "Aprobado",
+      "rejected": "Devuelto"
+    },
+    "contentType": {
+      "playlist": "Lista de reproducción",
+      "layout": "Diseño"
+    },
+    "contentTypeName": {
+      "playlist": "lista de reproducción",
+      "layout": "diseño"
+    },
+    "itemMeta": "{{type}} · revisión {{revision}} · actualizado {{updatedAt}}",
+    "itemMetaWithAuthor": "{{type}} · revisión {{revision}} · {{author}} · actualizado {{updatedAt}}",
+    "assignedScreens_one": "Ya en {{count}} pantalla",
+    "assignedScreens_many": "Ya en {{count}} de pantallas",
+    "assignedScreens_other": "Ya en {{count}} pantallas",
+    "sheet": {
+      "lastNote": "Última nota: {{note}}",
+      "openContent": "Abrir {{type}}"
+    },
+    "actions": {
+      "approve": "Aprobar",
+      "sendBack": "Devolver"
+    },
+    "rejectDialog": {
+      "title": "Devolver para corregir",
+      "description": "Una nota opcional indica a la persona autora qué corregir.",
+      "noteLabel": "Nota",
+      "notePlaceholder": "¿Qué debe cambiar antes de poder aprobarse?",
+      "noteHint": "Se registra con la decisión y se muestra a la persona autora."
+    },
+    "toast": {
+      "approved": "Contenido aprobado.",
+      "sentBack": "Contenido devuelto.",
+      "decisionFailed": "No se pudo registrar la decisión."
+    }
+  },
+  "submissions": {
+    "title": "Revisión de contenido",
+    "description": "Cada envío congela el borrador exacto que vio la persona revisora. Publicar crea una nueva revisión de ejecución inmutable; los cambios posteriores permanecen privados hasta el próximo envío.",
+    "openLegacyQueue": "Abrir cola de revisiones anterior",
+    "policyNotice": "Política: <strong>{{policy}}</strong>. La autoaprobación está {{selfApproval}}; los envíos aprobados {{behavior}}.",
+    "policy": {
+      "selfApprovalAllowed": "permitida",
+      "selfApprovalDisabled": "desactivada",
+      "behaviorAuto": "se publican automáticamente",
+      "behaviorManual": "esperan una acción explícita de publicación o programación"
+    },
+    "filterLabel": "Estado del envío",
+    "filters": {
+      "needsReview": "Necesita revisión",
+      "changesRequested": "Cambios solicitados",
+      "approved": "Aprobado",
+      "scheduled": "Programado",
+      "publicationFailed": "Error de publicación",
+      "published": "Publicado",
+      "allHistory": "Todo el historial"
+    },
+    "status": {
+      "inReview": "Necesita revisión",
+      "changesRequested": "Cambios solicitados",
+      "approved": "Aprobado",
+      "scheduled": "Programado",
+      "published": "Publicado",
+      "superseded": "Reemplazado",
+      "cancelled": "Cancelado",
+      "publicationFailed": "Error de publicación"
+    },
+    "table": {
+      "submission": "Envío",
+      "status": "Estado",
+      "impact": "Impacto",
+      "reviewAction": "Revisar"
+    },
+    "loading": "Cargando envíos…",
+    "loadErrorTitle": "No se pudieron cargar los envíos",
+    "emptyTitle": "Ningún envío coincide con esta vista",
+    "emptyDescription": "Los envíos aparecen aquí una vez que el contenido se envía a revisión.",
+    "itemMeta": "Borrador de revisión {{revision}} · enviado {{submittedAt}}",
+    "itemMetaWithSubmitter": "Borrador de revisión {{revision}} · enviado {{submittedAt}} por {{submitter}}",
+    "itemImpact": "Revisión publicada {{published}} · pantallas: {{screens}} · ubicaciones: {{locations}}",
+    "detail": {
+      "status": "Estado",
+      "publishedRevision": "Revisión publicada",
+      "impact": "Impacto",
+      "snapshotHash": "Instantánea SHA-256",
+      "noRevision": "ninguna",
+      "coverage": "pantallas: {{screens}} · ubicaciones: {{locations}}",
+      "newerDraft": "Existe un borrador privado más reciente.",
+      "reviewNote": "Nota de revisión: {{note}}",
+      "viewSnapshot": "Ver la instantánea enviada exacta",
+      "cancelSchedule": "Cancelar programación",
+      "openContent": "Abrir contenido"
+    },
+    "reviewForm": {
+      "noteLabel": "Nota de revisión",
+      "notePlaceholder": "Nota opcional registrada con la aprobación",
+      "approve": "Aprobar",
+      "requestChanges": "Solicitar cambios"
+    },
+    "rejectDialog": {
+      "title": "Solicitar cambios",
+      "description": "Se requiere un motivo para que la persona autora sepa qué corregir.",
+      "reasonLabel": "Motivo de la devolución",
+      "reasonPlaceholder": "¿Qué debe cambiar antes de poder aprobarse?",
+      "reasonHint": "Se registra con la decisión y se muestra a la persona autora.",
+      "confirm": "Devolver"
+    },
+    "publish": {
+      "publishNow": "Publicar ahora",
+      "publishAtLabel": "Publicar el",
+      "publishAtHint": "Programa la publicación para una fecha y hora futuras.",
+      "schedule": "Programar"
+    },
+    "toast": {
+      "approved": "Envío aprobado.",
+      "changesRequested": "Cambios solicitados.",
+      "published": "Envío publicado.",
+      "scheduled": "Publicación programada.",
+      "scheduleCancelled": "Programación cancelada.",
+      "approveFailed": "No se pudo aprobar.",
+      "requestChangesFailed": "No se pudieron solicitar cambios.",
+      "publishFailed": "No se pudo publicar.",
+      "scheduleFailed": "No se pudo programar.",
+      "cancelScheduleFailed": "No se pudo cancelar la programación."
+    }
+  }
+}

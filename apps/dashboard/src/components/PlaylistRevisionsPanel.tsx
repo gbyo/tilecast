@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { History } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { toast } from "./ui/toast";
@@ -22,6 +24,8 @@ export function PlaylistRevisionsPanel({
   /** Render inside the shared history Drawer without repeating its title. */
   embedded?: boolean;
 }) {
+  const { t } = useTranslation("playlists");
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -40,10 +44,16 @@ export function PlaylistRevisionsPanel({
     onSuccess: (data) => {
       toast.add({ title: "Playlist revision restored.", type: "success" });
       setResult(
-        `Restored revision ${data.restoredFrom} as revision ${data.newRevision}.` +
-          (data.skippedItems > 0
-            ? ` ${data.skippedItems} item${data.skippedItems === 1 ? "" : "s"} could not be restored because the content was deleted.`
-            : ""),
+        data.skippedItems > 0
+          ? t("history.restoredWithSkipped", {
+              from: data.restoredFrom,
+              to: data.newRevision,
+              count: data.skippedItems,
+            })
+          : t("history.restored", {
+              from: data.restoredFrom,
+              to: data.newRevision,
+            }),
       );
       void client.invalidateQueries({ queryKey: ["playlist-revisions"] });
       // The editor caches under ["playlists", id]; invalidating ["playlist"]
@@ -53,7 +63,7 @@ export function PlaylistRevisionsPanel({
   });
 
   if (revisions.isLoading)
-    return <div className="table-loading">Loading history…</div>;
+    return <div className="table-loading">{t("history.loading")}</div>;
   if (revisions.error)
     return (
       <Alert variant="destructive">
@@ -68,20 +78,16 @@ export function PlaylistRevisionsPanel({
   return (
     <section
       className={`settings-subsection${embedded ? " playlist-history-panel" : ""}`}
-      aria-label={embedded ? "Playlist revision history" : undefined}
+      aria-label={embedded ? t("history.panelLabel") : undefined}
     >
       {embedded ? (
         <p className="playlist-history-panel__intro">
-          The last {revisions.data?.kept} revisions are kept. Restoring makes a
-          new revision, so it can be undone the same way.
+          {t("history.intro", { kept: revisions.data?.kept ?? 0 })}
         </p>
       ) : (
         <header>
-          <h3>History</h3>
-          <p>
-            The last {revisions.data?.kept} revisions are kept. Restoring makes
-            a new revision, so it can be undone the same way.
-          </p>
+          <h3>{t("history.title")}</h3>
+          <p>{t("history.intro", { kept: revisions.data?.kept ?? 0 })}</p>
         </header>
       )}
 
@@ -101,17 +107,31 @@ export function PlaylistRevisionsPanel({
           <div key={revision.revision}>
             <span>
               <strong>
-                Revision {revision.revision}
-                {revision.isCurrent ? " (current)" : ""}
+                {revision.isCurrent
+                  ? t("history.revisionCurrent", {
+                      revision: revision.revision,
+                    })
+                  : t("history.revision", { revision: revision.revision })}
               </strong>
               <small>
-                {new Date(revision.createdAt).toLocaleString()} ·{" "}
-                {revision.itemCount} item
-                {revision.itemCount === 1 ? "" : "s"}
-                {revision.authorName ? ` · ${revision.authorName}` : ""}
-                {revision.missingReferences > 0
-                  ? ` · ${revision.missingReferences} deleted since`
-                  : ""}
+                {t("history.revisionMeta", {
+                  date: new Date(revision.createdAt).toLocaleString(
+                    formatLocale,
+                  ),
+                  items: t("count.items", { count: revision.itemCount }),
+                })}
+                {revision.authorName ? <> · {revision.authorName}</> : ""}
+                {revision.missingReferences > 0 ? (
+                  <>
+                    {" "}
+                    ·{" "}
+                    {t("history.deletedSince", {
+                      count: revision.missingReferences,
+                    })}
+                  </>
+                ) : (
+                  ""
+                )}
               </small>
             </span>
             <span className="backup-job-status">
@@ -125,12 +145,12 @@ export function PlaylistRevisionsPanel({
                     restore.mutate(revision.revision);
                   }}
                 >
-                  <History size={14} /> Restore
+                  <History size={14} /> {t("history.restore")}
                 </Button>
               ) : revision.isCurrent ? (
-                "Current"
+                t("history.currentBadge")
               ) : (
-                "Nothing left to restore"
+                t("history.nothingToRestore")
               )}
             </span>
           </div>
@@ -151,9 +171,9 @@ export function PlaylistRevisionsPanel({
                 )
               }
             >
-              Show {Math.min(revisionPageSize, hiddenRevisionCount)} older
-              revision
-              {Math.min(revisionPageSize, hiddenRevisionCount) === 1 ? "" : "s"}
+              {t("history.showOlder", {
+                count: Math.min(revisionPageSize, hiddenRevisionCount),
+              })}
             </Button>
           )}
           {visibleRevisionCount > initialRevisionCount && (
@@ -163,7 +183,7 @@ export function PlaylistRevisionsPanel({
               size="sm"
               onClick={() => setVisibleRevisionCount(initialRevisionCount)}
             >
-              Show recent only
+              {t("history.showRecent")}
             </Button>
           )}
         </div>

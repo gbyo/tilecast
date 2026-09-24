@@ -32,9 +32,12 @@ import {
   type ReactNode,
 } from "react";
 import { useForm } from "react-hook-form";
+import type { TFunction } from "i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { z } from "zod";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import type {
   Location,
   PairingRequest,
@@ -139,6 +142,8 @@ const GRID_PREVIEW_LEASE_RENEWAL_MILLIS = 30_000;
 const GRID_PREVIEW_METADATA_REFRESH_MILLIS = 10_000;
 const GRID_PREVIEW_AGE_REFRESH_MILLIS = 10_000;
 
+export type ScreensT = TFunction<"screens", undefined>;
+
 export const canManageScreens = (user?: User) =>
   user?.role === "owner" || user?.role === "administrator";
 
@@ -239,11 +244,12 @@ const formatBytes = (value: number) => {
 };
 export const formatReportedStatus = (
   value: unknown,
-  fallback = "Not reported",
+  t: ScreensT,
+  fallback?: string,
 ) =>
   typeof value === "string" && value.trim()
     ? value.replaceAll("_", " ")
-    : fallback;
+    : (fallback ?? t("shared.notReported"));
 const formatReportedCount = (value: unknown, fallback = 0) =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 /**
@@ -259,25 +265,28 @@ export const reportsAutostart = (status?: ReliabilityStatus) =>
  * separate on purpose: an enabled unit is a promise about the next boot, while
  * a cold-boot launch is evidence that the promise held.
  */
-export const autostartSummary = (status?: ReliabilityStatus): string => {
+export const autostartSummary = (
+  status: ReliabilityStatus | undefined,
+  t: ScreensT,
+): string => {
   const target = status?.autostartTarget ? ` · ${status.autostartTarget}` : "";
   switch (status?.autostartState) {
     case "installed":
       return status?.bootLaunchVerified
-        ? `Installed${target} · verified at boot`
-        : `Installed${target} · not yet seen at boot`;
+        ? t("detail.autostart.installedVerified", { target })
+        : t("detail.autostart.installedUnverified", { target });
     case "not_installed":
-      return "Not installed";
+      return t("detail.autostart.notInstalled");
     case "needs_attention":
-      return `Needs attention${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
+      return `${t("detail.autostart.needsAttention")}${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
     case "unsupported":
-      return `Unsupported${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
+      return `${t("detail.autostart.unsupported")}${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
     case "unknown":
       // The probe itself failed. Distinct from a device that reports nothing:
       // there is a device, it tried, and it carries the reason.
-      return `Could not determine${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
+      return `${t("detail.autostart.unknown")}${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
     default:
-      return "Not reported";
+      return t("shared.notReported");
   }
 };
 
@@ -286,41 +295,54 @@ export const autostartSummary = (status?: ReliabilityStatus): string => {
  * owns its own service; it cannot create the graphical session that service
  * renders into, so those gaps are named rather than implied.
  */
-export const autostartWarning = (status?: ReliabilityStatus) => {
+export const autostartWarning = (
+  status: ReliabilityStatus | undefined,
+  t: ScreensT,
+) => {
   if (!reportsAutostart(status)) return undefined;
   if (status?.autostartState === "not_installed")
-    return "Autostart is not installed; this screen will not return on its own after a reboot or a player update.";
+    return t("detail.autostart.warnNotInstalled");
   if (status?.autostartState === "needs_attention")
-    return "A service unit is present but systemd does not report it as enabled.";
+    return t("detail.autostart.warnNeedsAttention");
   if (status?.autostartState === "unknown")
-    return `Autostart state could not be determined on the device${status.autostartError ? `: ${status.autostartError}` : ""}. Treat this screen as not set up until it reports again.`;
+    return status.autostartError
+      ? t("detail.autostart.warnUnknownWithError", {
+          error: status.autostartError,
+        })
+      : t("detail.autostart.warnUnknown");
   if (
     status?.autostartState === "installed" &&
     status.autostartTarget === "default.target" &&
     status.autostartLingerEnabled === false
   )
-    return "Autostart is enabled against default.target without lingering; run `loginctl enable-linger` on the device as root so the service survives logout.";
+    return t("detail.autostart.warnNoLinger");
   return undefined;
 };
 
-export const reliabilityCapabilityWarning = (status?: ReliabilityStatus) => {
+export const reliabilityCapabilityWarning = (
+  status: ReliabilityStatus | undefined,
+  t: ScreensT,
+) => {
   if (
     status?.configuredMode === "managed_kiosk" &&
     status.effectiveMode !== "managed_kiosk"
   )
-    return "Managed Kiosk was requested but Android has not confirmed active lock-task capability.";
+    return t("detail.warnManagedKiosk");
   if (status?.accessibilityServiceState === "policy_enabled_service_disabled")
-    return "Accessibility Control is requested but must be enabled locally.";
+    return t("detail.warnAccessibility");
   if (status?.sleepCapability === "black_screen_only")
-    return "Device sleep is unavailable; the player will use black-screen fallback.";
+    return t("detail.warnSleepFallback");
   return undefined;
 };
 export const zeroTouchReadiness = (
-  status?: ReliabilityStatus,
-): "Ready" | "Partially ready" | "Needs setup" | "Unsupported" => {
-  if (!status || !status.commissioningState) return "Needs setup";
-  if (status.bootRecoveryResult === "unsupported") return "Unsupported";
-  if (status.commissioningState !== "complete") return "Needs setup";
+  status: ReliabilityStatus | undefined,
+  t: ScreensT,
+): string => {
+  if (!status || !status.commissioningState) return t("detail.readiness.setup");
+  if (status.bootRecoveryResult === "unsupported")
+    return t("detail.readiness.unsupported");
+  if (status.commissioningState !== "complete")
+    return t("detail.readiness.setup");
   if (
     status.accessibilityServiceState === "enabled" &&
     status.bootLaunchVerified &&
@@ -329,21 +351,23 @@ export const zeroTouchReadiness = (
     status.updateReadiness === "ready" &&
     !status.safeMode
   )
-    return "Ready";
-  return "Partially ready";
+    return t("detail.readiness.ready");
+  return t("detail.readiness.partial");
 };
-const codeSchema = z.object({
-  code: z.string().trim().min(6, "Enter the six-character code").max(9),
-});
-const approvalSchema = z.object({
-  name: z.string().trim().min(2, "Enter a screen name").max(120),
-  locationId: z.string().optional(),
-  roomName: z.string().max(120),
-  roomNumber: z.string().max(80),
-  description: z.string().max(1000),
-});
-type CodeForm = z.infer<typeof codeSchema>;
-type ApprovalForm = z.infer<typeof approvalSchema>;
+const makeCodeSchema = (t: ScreensT) =>
+  z.object({
+    code: z.string().trim().min(6, t("pair.codeRequired")).max(9),
+  });
+const makeApprovalSchema = (t: ScreensT) =>
+  z.object({
+    name: z.string().trim().min(2, t("approval.nameRequired")).max(120),
+    locationId: z.string().optional(),
+    roomName: z.string().max(120),
+    roomNumber: z.string().max(80),
+    description: z.string().max(1000),
+  });
+type CodeForm = z.infer<ReturnType<typeof makeCodeSchema>>;
+type ApprovalForm = z.infer<ReturnType<typeof makeApprovalSchema>>;
 export const pairingApprovalPayload = (
   request: PairingRequest,
   values: ApprovalForm,
@@ -364,16 +388,17 @@ type PairingDestination =
   "automatic" | "new_screen" | "credential_repair" | "replace_hardware";
 export const pairingApprovalLabel = (
   request: PairingRequest,
+  t: ScreensT,
   destination: PairingDestination = "automatic",
 ) =>
   destination === "replace_hardware"
-    ? "Replace hardware"
+    ? t("approval.actionReplace")
     : destination === "credential_repair" ||
         (destination === "automatic" &&
           request.previouslyPaired &&
           request.hasActiveCredential)
-      ? "Repair and replace credential"
-      : "Approve and pair";
+      ? t("approval.actionRepair")
+      : t("approval.actionApprove");
 
 function LocationPicker({
   locations,
@@ -384,9 +409,10 @@ function LocationPicker({
   value?: string;
   onChange: (value?: string) => void;
 }) {
+  const { t } = useTranslation("screens");
   const selected = locations.find((location) => location.id === value);
   const items = [
-    { value: "__unassigned__", label: "Unassigned" },
+    { value: "__unassigned__", label: t("shared.unassigned") },
     ...locations.map((location) => {
       const address = formatLocationAddress(location);
       return {
@@ -397,7 +423,7 @@ function LocationPicker({
   ];
   return (
     <label className="grid gap-2 text-sm font-medium">
-      <span>Location (optional)</span>
+      <span>{t("picker.locationLabel")}</span>
       <Select
         items={items}
         value={value ?? "__unassigned__"}
@@ -406,7 +432,7 @@ function LocationPicker({
         }
       >
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Unassigned" />
+          <SelectValue placeholder={t("shared.unassigned")} />
         </SelectTrigger>
         <SelectContent>
           {items.map((item) => (
@@ -425,7 +451,7 @@ function LocationPicker({
         className="w-fit text-xs underline underline-offset-4"
         to="/settings/locations"
       >
-        Create new location
+        {t("picker.createLocation")}
       </Link>
     </label>
   );
@@ -442,17 +468,27 @@ export function resolveScreenDetail(
 
 const statusContent: Record<
   ScreenStatus,
-  { label: string; Icon: typeof Wifi }
+  {
+    labelKey:
+      | "status.online"
+      | "status.recent"
+      | "status.stale"
+      | "status.offline"
+      | "status.disabled"
+      | "status.revoked";
+    Icon: typeof Wifi;
+  }
 > = {
-  online: { label: "Online", Icon: Wifi },
-  recent: { label: "Recently online", Icon: Wifi },
-  stale: { label: "Stale", Icon: CircleAlert },
-  offline: { label: "Offline", Icon: WifiOff },
-  disabled: { label: "Disabled", Icon: ShieldOff },
-  revoked: { label: "Pairing revoked", Icon: ShieldOff },
+  online: { labelKey: "status.online", Icon: Wifi },
+  recent: { labelKey: "status.recent", Icon: Wifi },
+  stale: { labelKey: "status.stale", Icon: CircleAlert },
+  offline: { labelKey: "status.offline", Icon: WifiOff },
+  disabled: { labelKey: "status.disabled", Icon: ShieldOff },
+  revoked: { labelKey: "status.revoked", Icon: ShieldOff },
 };
 
 export function ScreensPage() {
+  const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
   const manageable = canManageScreens(auth.status?.user);
   const screens = useQuery({
@@ -474,11 +510,13 @@ export function ScreensPage() {
     <div className="w-full min-w-0 space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Screens</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("page.title")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {screens.isLoading
-              ? "Loading screen inventory…"
-              : screenInventorySummary(screens.data?.items ?? [])}
+              ? t("page.loadingInventory")
+              : screenInventorySummary(screens.data?.items ?? [], t)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -487,7 +525,7 @@ export function ScreensPage() {
               className={buttonVariants({ variant: "default", size: "sm" })}
               to="/screens/pair"
             >
-              <Plus aria-hidden="true" /> Pair screen
+              <Plus aria-hidden="true" /> {t("page.pairScreen")}
             </Link>
           )}
           {manageable && <TakeoverAction screens={screens.data?.items ?? []} />}
@@ -530,6 +568,8 @@ const useTakeovers = () =>
    While a takeover is active the banner below becomes the loudest thing on the
    page, which is the only time the danger treatment is truthful. */
 function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const takeovers = useTakeovers();
@@ -566,16 +606,32 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
               aria-hidden="true"
             />
             <div className="min-w-0 flex-1 space-y-1">
-              <AlertTitle>Takeover active — {item.name}</AlertTitle>
+              <AlertTitle>
+                {t("takeover.activeBanner", { name: item.name })}
+              </AlertTitle>
               <AlertDescription>
-                {item.playlistName} is overriding scheduled and fallback content
-                until {new Date(item.expiresAt).toLocaleString()}.
+                {t("takeover.bannerBody", {
+                  playlist: item.playlistName,
+                  expires: new Date(item.expiresAt).toLocaleString(
+                    formatLocale,
+                  ),
+                })}
               </AlertDescription>
               <ul className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
-                <li>{item.activeCount} playing</li>
-                <li>{item.preparingCount} preparing</li>
-                <li>{item.failedCount} failed</li>
-                <li>{item.affectedCount} targeted</li>
+                <li>
+                  {t("takeover.stats.playing", { count: item.activeCount })}
+                </li>
+                <li>
+                  {t("takeover.stats.preparing", {
+                    count: item.preparingCount,
+                  })}
+                </li>
+                <li>
+                  {t("takeover.stats.failed", { count: item.failedCount })}
+                </li>
+                <li>
+                  {t("takeover.stats.targeted", { count: item.affectedCount })}
+                </li>
               </ul>
             </div>
             {canManage && (
@@ -588,7 +644,7 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
                   setCanceling({ id: item.id, name: item.name });
                 }}
               >
-                End takeover
+                {t("takeover.end")}
               </Button>
             )}
           </Alert>
@@ -614,14 +670,13 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
             }}
           >
             <DialogHeader>
-              <DialogTitle>End takeover for {canceling?.name}?</DialogTitle>
-              <DialogDescription>
-                Scheduled or fallback playback will resume. Add an optional
-                reason to the cancellation record.
-              </DialogDescription>
+              <DialogTitle>
+                {t("takeover.endTitle", { name: canceling?.name ?? "" })}
+              </DialogTitle>
+              <DialogDescription>{t("takeover.endBody")}</DialogDescription>
             </DialogHeader>
             <label className="grid gap-2 text-sm font-medium">
-              <span>Cancellation reason (optional)</span>
+              <span>{t("takeover.reasonLabel")}</span>
               <Input
                 value={cancelReason}
                 maxLength={500}
@@ -634,14 +689,14 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
                 type="button"
                 onClick={() => setCanceling(null)}
               >
-                Keep takeover active
+                {t("takeover.keepActive")}
               </Button>
               <Button
                 variant="destructive"
                 type="submit"
                 disabled={!canceling || cancel.isPending}
               >
-                {cancel.isPending ? "Ending…" : "End takeover"}
+                {cancel.isPending ? t("takeover.ending") : t("takeover.end")}
               </Button>
             </DialogFooter>
           </form>
@@ -738,7 +793,15 @@ function FleetHoldButton({
   );
 }
 
+const takeoverExpiryOptions = [
+  { value: "15", labelKey: "takeover.expiry.minutes15" },
+  { value: "60", labelKey: "takeover.expiry.hour1" },
+  { value: "240", labelKey: "takeover.expiry.hours4" },
+  { value: "1440", labelKey: "takeover.expiry.hours24" },
+] as const;
+
 function TakeoverAction({ screens }: { screens: Screen[] }) {
+  const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -833,23 +896,22 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
         onClick={() => setOpen(true)}
       >
         <ShieldAlert size={16} aria-hidden="true" />
-        Takeover
+        {t("takeover.title")}
         {activeCount > 0 && (
-          <Badge variant="secondary">{activeCount} active</Badge>
+          <Badge variant="secondary">
+            {t("takeover.activeBadge", { count: activeCount })}
+          </Badge>
         )}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[min(90vh,54rem)] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Takeover</DialogTitle>
-            <DialogDescription>
-              Temporarily override schedules and fallback content on the
-              selected screens. Existing overlapping takeovers are replaced.
-            </DialogDescription>
+            <DialogTitle>{t("takeover.title")}</DialogTitle>
+            <DialogDescription>{t("takeover.dialogBody")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <label className="grid gap-2 text-sm font-medium">
-              <span>Takeover name</span>
+              <span>{t("takeover.nameLabel")}</span>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -857,7 +919,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
               />
             </label>
             <label className="grid gap-2 text-sm font-medium">
-              <span>Playlist</span>
+              <span>{t("takeover.playlistLabel")}</span>
               <Select
                 items={(playlists.data?.items ?? []).map((playlist) => ({
                   value: playlist.id,
@@ -866,8 +928,13 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                 value={playlistId || null}
                 onValueChange={(value) => setPlaylistId(value ?? "")}
               >
-                <SelectTrigger className="w-full" aria-label="Playlist">
-                  <SelectValue placeholder="Select playlist" />
+                <SelectTrigger
+                  className="w-full"
+                  aria-label={t("takeover.playlistLabel")}
+                >
+                  <SelectValue
+                    placeholder={t("takeover.playlistPlaceholder")}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {playlists.data?.items?.map((playlist) => (
@@ -879,32 +946,36 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
               </Select>
             </label>
             <label className="grid gap-2 text-sm font-medium">
-              <span>Expires in</span>
+              <span>{t("takeover.expiresLabel")}</span>
               <Select
-                items={[
-                  { value: "15", label: "15 minutes" },
-                  { value: "60", label: "1 hour" },
-                  { value: "240", label: "4 hours" },
-                  { value: "1440", label: "24 hours" },
-                ]}
+                items={takeoverExpiryOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 value={String(minutes)}
                 onValueChange={(value) => {
                   if (value) setMinutes(Number(value));
                 }}
               >
-                <SelectTrigger className="w-full" aria-label="Expires in">
+                <SelectTrigger
+                  className="w-full"
+                  aria-label={t("takeover.expiresLabel")}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="15">15 minutes</SelectItem>
-                  <SelectItem value="60">1 hour</SelectItem>
-                  <SelectItem value="240">4 hours</SelectItem>
-                  <SelectItem value="1440">24 hours</SelectItem>
+                  {takeoverExpiryOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </label>
             <fieldset className="grid gap-3 border-t border-border pt-4">
-              <legend className="text-sm font-semibold">Target screens</legend>
+              <legend className="text-sm font-semibold">
+                {t("takeover.targetScreens")}
+              </legend>
               <div className="flex flex-wrap items-center gap-3">
                 <Button
                   variant="outline"
@@ -918,11 +989,10 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                     )
                   }
                 >
-                  All screens
+                  {t("takeover.allScreens")}
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  {screens.length} screen{screens.length === 1 ? "" : "s"} in
-                  the fleet
+                  {t("takeover.fleetCount", { count: screens.length })}
                 </span>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -945,7 +1015,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                     <span className="grid min-w-0 gap-0.5">
                       {item.name}
                       <small className="text-xs text-muted-foreground">
-                        {statusLabel(item.status)}
+                        {statusLabel(item.status, t)}
                       </small>
                     </span>
                   </label>
@@ -954,7 +1024,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             </fieldset>
             <fieldset className="grid gap-3 border-t border-border pt-4">
               <legend className="text-sm font-semibold">
-                Target Display Groups
+                {t("takeover.targetGroups")}
               </legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {groups.data?.items?.map((group) => (
@@ -976,7 +1046,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                     <span className="grid min-w-0 gap-0.5">
                       {group.name}
                       <small className="text-xs text-muted-foreground">
-                        {group.membershipCount} screens
+                        {t("takeover.groupMemberCount", {
+                          count: group.membershipCount,
+                        })}
                       </small>
                     </span>
                   </label>
@@ -987,7 +1059,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
           {activate.error && !passwordOpen && (
             <Alert variant="destructive">
               <CircleAlert aria-hidden="true" />
-              <AlertTitle>Takeover could not be activated</AlertTitle>
+              <AlertTitle>{t("takeover.activateError")}</AlertTitle>
               <AlertDescription>{activate.error.message}</AlertDescription>
             </Alert>
           )}
@@ -995,15 +1067,14 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             <p className="text-sm text-muted-foreground sm:mr-auto">
               {everyScreenSelected ? (
                 <strong>
-                  Every screen in the fleet ({screens.length}) is selected
+                  {t("takeover.summaryAll", { count: screens.length })}
                 </strong>
               ) : (
-                `${screenIds.length} screen${screenIds.length === 1 ? "" : "s"} selected`
+                t("takeover.summarySelected", { count: screenIds.length })
               )}{" "}
-              and {groupIds.length} Display Group
-              {groupIds.length === 1 ? "" : "s"} selected
+              {t("takeover.summaryGroups", { count: groupIds.length })}
               {offlineSelected > 0
-                ? ` · ${offlineSelected} selected screen${offlineSelected === 1 ? " is" : "s are"} not online`
+                ? ` ${t("takeover.summaryOffline", { count: offlineSelected })}`
                 : ""}
               .
             </p>
@@ -1013,19 +1084,19 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                 type="button"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               {everyScreenSelected ? (
                 <FleetHoldButton
                   holdMs={3000}
                   disabled={!ready || activate.isPending}
-                  holdingLabel="Keep holding…"
-                  hint="Hold for 3 seconds to take over every screen."
+                  holdingLabel={t("takeover.keepHolding")}
+                  hint={t("takeover.holdHint")}
                   onHoldComplete={() => beginActivation(true)}
                 >
                   {activate.isPending
-                    ? "Activating…"
-                    : "Hold to activate takeover"}
+                    ? t("takeover.activating")
+                    : t("takeover.holdToActivate")}
                 </FleetHoldButton>
               ) : (
                 <Button
@@ -1034,7 +1105,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                   disabled={!ready || activate.isPending}
                   onClick={() => beginActivation(false)}
                 >
-                  {activate.isPending ? "Activating…" : "Activate takeover"}
+                  {activate.isPending
+                    ? t("takeover.activating")
+                    : t("takeover.activate")}
                 </Button>
               )}
             </div>
@@ -1044,14 +1117,13 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
       <AlertDialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Activate this takeover?</AlertDialogTitle>
+            <AlertDialogTitle>{t("takeover.confirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              The selected playlist will replace overlapping schedules and
-              fallback content for the selected screens and groups.
+              {t("takeover.confirmBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Review targets</AlertDialogCancel>
+            <AlertDialogCancel>{t("takeover.reviewTargets")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
@@ -1059,7 +1131,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                 continueActivation();
               }}
             >
-              Activate takeover
+              {t("takeover.activate")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1075,14 +1147,13 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             }}
           >
             <DialogHeader>
-              <DialogTitle>Confirm your password</DialogTitle>
+              <DialogTitle>{t("takeover.passwordTitle")}</DialogTitle>
               <DialogDescription>
-                This installation requires your current password before a
-                takeover can start.
+                {t("takeover.passwordBody")}
               </DialogDescription>
             </DialogHeader>
             <label className="grid gap-2 text-sm font-medium">
-              <span>Current password</span>
+              <span>{t("takeover.currentPassword")}</span>
               <Input
                 type="password"
                 autoComplete="current-password"
@@ -1094,7 +1165,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             {activate.error && (
               <Alert variant="destructive">
                 <CircleAlert aria-hidden="true" />
-                <AlertTitle>Takeover could not be activated</AlertTitle>
+                <AlertTitle>{t("takeover.activateError")}</AlertTitle>
                 <AlertDescription>{activate.error.message}</AlertDescription>
               </Alert>
             )}
@@ -1104,13 +1175,15 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                 type="button"
                 onClick={() => setPasswordOpen(false)}
               >
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={!activationPassword || activate.isPending}
               >
-                {activate.isPending ? "Activating…" : "Confirm takeover"}
+                {activate.isPending
+                  ? t("takeover.activating")
+                  : t("takeover.confirmAction")}
               </Button>
             </DialogFooter>
           </form>
@@ -1137,6 +1210,8 @@ export function ScreenListContent({
   csrfToken?: string;
   onRefresh?: () => Promise<unknown>;
 }) {
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const [search, setSearch] = useStoredState<string>(
     "tilecast.screens.search",
     "",
@@ -1253,8 +1328,8 @@ export function ScreenListContent({
     update,
   ]);
   const visibleGroups = useMemo(
-    () => buildScreenGroups(filtered, groupBy, sort),
-    [filtered, groupBy, sort],
+    () => buildScreenGroups(filtered, groupBy, sort, t, formatLocale),
+    [filtered, formatLocale, groupBy, sort, t],
   );
   // Only the filters put away inside "More filters" are chipped. Search, status,
   // location, platform, and now playing each show their own value in the toolbar
@@ -1263,20 +1338,23 @@ export function ScreenListContent({
     [];
   if (syncGroup)
     chippedFilters.push({
-      facet: "Display Group",
-      value: syncGroupFilterLabel(syncGroup, screens),
+      facet: t("list.groupFilter"),
+      value: syncGroupFilterLabel(syncGroup, screens, t),
       remove: () => setSyncGroup(""),
     });
   if (orientation)
     chippedFilters.push({
-      facet: "Orientation",
-      value: orientation === "portrait" ? "Portrait" : "Landscape",
+      facet: t("list.orientationFilter"),
+      value:
+        orientation === "portrait"
+          ? t("list.orientationOptions.portrait")
+          : t("list.orientationOptions.landscape"),
       remove: () => setOrientation(""),
     });
   if (update)
     chippedFilters.push({
-      facet: "Software update",
-      value: updateLabel(update),
+      facet: t("list.updateFilter"),
+      value: updateLabel(update, t),
       remove: () => setUpdate(""),
     });
   const advancedFilterCount = chippedFilters.length;
@@ -1360,7 +1438,7 @@ export function ScreenListContent({
   };
   if (loading)
     return (
-      <div className="space-y-2" aria-label="Loading screens">
+      <div className="space-y-2" aria-label={t("list.loading")}>
         {Array.from({ length: 5 }, (_, index) => (
           <Skeleton key={index} className="h-14 w-full" />
         ))}
@@ -1374,12 +1452,9 @@ export function ScreenListContent({
             <Monitor aria-hidden="true" />
           </EmptyMedia>
           <EmptyTitle role="heading" aria-level={2}>
-            No screens paired
+            {t("list.emptyTitle")}
           </EmptyTitle>
-          <EmptyDescription>
-            Install Tilecast Player on a TV device and enter the pairing code
-            shown on the player.
-          </EmptyDescription>
+          <EmptyDescription>{t("list.emptyBody")}</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           {canManage ? (
@@ -1387,50 +1462,50 @@ export function ScreenListContent({
               className={buttonVariants({ variant: "default", size: "sm" })}
               to="/screens/pair"
             >
-              Pair screen
+              {t("page.pairScreen")}
             </Link>
           ) : (
             <p className="text-sm text-muted-foreground">
-              An Owner or Administrator can approve new screens.
+              {t("list.emptyManageNote")}
             </p>
           )}
         </EmptyContent>
       </Empty>
     );
   return (
-    <section className="min-w-0 space-y-4" aria-label="Paired screens">
+    <section className="min-w-0 space-y-4" aria-label={t("list.sectionLabel")}>
       <ScreenSummary screens={screens} status={status} onStatus={setStatus} />
       <div className="space-y-3">
         <div
           className="flex flex-wrap items-center gap-2"
           role="group"
-          aria-label="Filter screens"
+          aria-label={t("list.filterGroup")}
         >
           <DashboardSearch
             value={search}
             onValueChange={setSearch}
-            label="Search screens"
-            placeholder="Search screens…"
+            label={t("list.searchLabel")}
+            placeholder={t("list.searchPlaceholder")}
           />
           <FleetFilterSelect
-            label="Status"
+            label={t("list.statusFilter")}
             value={status}
             onChange={setStatus}
             options={[
-              { value: "", label: "All statuses" },
-              { value: "online", label: "Online" },
-              { value: "offline", label: "Offline" },
-              { value: "attention", label: "Needs attention" },
-              { value: "updating", label: "Updating" },
-              { value: "syncing", label: "Syncing" },
+              { value: "", label: t("list.statusOptions.all") },
+              { value: "online", label: t("status.online") },
+              { value: "offline", label: t("status.offline") },
+              { value: "attention", label: t("status.attention") },
+              { value: "updating", label: t("status.updating") },
+              { value: "syncing", label: t("status.syncing") },
             ]}
           />
           <FleetFilterSelect
-            label="Location"
+            label={t("list.locationFilter")}
             value={location}
             onChange={setLocation}
             options={[
-              { value: "", label: "All locations" },
+              { value: "", label: t("list.allLocations") },
               ...locationItems.map((item) => ({
                 value: item.id,
                 label: item.name,
@@ -1438,48 +1513,60 @@ export function ScreenListContent({
             ]}
           />
           <FleetFilterSelect
-            label="Platform"
+            label={t("list.platformFilter")}
             value={platform}
             onChange={setPlatform}
             options={[
-              { value: "", label: "All platforms" },
+              { value: "", label: t("list.allPlatforms") },
               ...[...new Set(screens.map((item) => item.platform))]
                 .sort()
-                .map((item) => ({ value: item, label: platformLabel(item) })),
+                .map((item) => ({
+                  value: item,
+                  label: platformLabel(item, t),
+                })),
             ]}
           />
           <FleetFilterSelect
-            label="Now playing"
+            label={t("list.playingFilter")}
             value={playing}
             onChange={setPlaying}
             options={[
-              { value: "", label: "Any content" },
-              { value: "presentation", label: "Presentation" },
-              { value: "playlist", label: "Playlist" },
-              { value: "nothing", label: "Nothing assigned" },
+              { value: "", label: t("list.playingOptions.any") },
+              {
+                value: "presentation",
+                label: t("list.playingOptions.presentation"),
+              },
+              { value: "playlist", label: t("list.playingOptions.playlist") },
+              { value: "nothing", label: t("shared.nothingAssigned") },
             ]}
           />
           <Popover>
             <PopoverTrigger
               render={<Button variant="outline" />}
-              aria-label={`More screen filters${advancedFilterCount ? `, ${advancedFilterCount} active` : ""}`}
+              aria-label={
+                advancedFilterCount > 0
+                  ? t("list.moreFiltersActive", {
+                      count: advancedFilterCount,
+                    })
+                  : t("list.moreFiltersLabel")
+              }
             >
-              <SlidersHorizontal aria-hidden="true" /> More filters
+              <SlidersHorizontal aria-hidden="true" /> {t("list.moreFilters")}
               {advancedFilterCount > 0 && (
                 <Badge variant="secondary">{advancedFilterCount}</Badge>
               )}
             </PopoverTrigger>
             <PopoverContent align="end" className="w-72 gap-3">
-              <h3 className="text-sm font-medium">More filters</h3>
+              <h3 className="text-sm font-medium">{t("list.moreFilters")}</h3>
               <FleetFilterSelect
-                label="Display Group"
+                label={t("list.groupFilter")}
                 value={syncGroup}
                 onChange={setSyncGroup}
                 className="w-full"
                 options={[
-                  { value: "", label: "All screens" },
-                  { value: "any", label: "In any Display Group" },
-                  { value: "none", label: "Not in a Display Group" },
+                  { value: "", label: t("list.syncOptions.all") },
+                  { value: "any", label: t("list.syncOptions.any") },
+                  { value: "none", label: t("list.syncOptions.none") },
                   ...[
                     ...new Map(
                       screens
@@ -1488,7 +1575,8 @@ export function ScreenListContent({
                           (item) =>
                             [
                               item.syncGroupId ?? "",
-                              item.syncGroupName ?? "Display Group",
+                              item.syncGroupName ??
+                                t("list.syncOptions.fallback"),
                             ] as const,
                         ),
                     ).entries(),
@@ -1496,26 +1584,35 @@ export function ScreenListContent({
                 ]}
               />
               <FleetFilterSelect
-                label="Orientation"
+                label={t("list.orientationFilter")}
                 value={orientation}
                 onChange={setOrientation}
                 className="w-full"
                 options={[
-                  { value: "", label: "Any orientation" },
-                  { value: "landscape", label: "Landscape" },
-                  { value: "portrait", label: "Portrait" },
+                  { value: "", label: t("list.orientationOptions.any") },
+                  {
+                    value: "landscape",
+                    label: t("list.orientationOptions.landscape"),
+                  },
+                  {
+                    value: "portrait",
+                    label: t("list.orientationOptions.portrait"),
+                  },
                 ]}
               />
               <FleetFilterSelect
-                label="Software update"
+                label={t("list.updateFilter")}
                 value={update}
                 onChange={setUpdate}
                 className="w-full"
                 options={[
-                  { value: "", label: "Any update status" },
-                  { value: "current", label: "Current" },
-                  { value: "downloading", label: "Downloading" },
-                  { value: "attention", label: "Needs attention" },
+                  { value: "", label: t("list.updateOptions.any") },
+                  { value: "current", label: t("list.updateOptions.current") },
+                  {
+                    value: "downloading",
+                    label: t("list.updateOptions.downloading"),
+                  },
+                  { value: "attention", label: t("status.attention") },
                 ]}
               />
             </PopoverContent>
@@ -1526,7 +1623,10 @@ export function ScreenListContent({
           {anyFilterActive ? (
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="mr-1 text-xs text-muted-foreground">
-                {filtered.length} of {screens.length} screens
+                {t("list.resultCount", {
+                  filtered: filtered.length,
+                  total: screens.length,
+                })}
               </span>
               {chippedFilters.map((filter) => (
                 <Badge
@@ -1539,7 +1639,10 @@ export function ScreenListContent({
                   </span>
                   <button
                     type="button"
-                    aria-label={`Remove filter ${filter.facet}: ${filter.value}`}
+                    aria-label={t("list.removeFilter", {
+                      facet: filter.facet,
+                      value: filter.value,
+                    })}
                     onClick={filter.remove}
                     className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
@@ -1548,7 +1651,7 @@ export function ScreenListContent({
                 </Badge>
               ))}
               <Button variant="ghost" size="xs" onClick={clearFilters}>
-                Clear filters
+                {t("list.clearFilters")}
               </Button>
             </div>
           ) : (
@@ -1557,30 +1660,42 @@ export function ScreenListContent({
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <FleetFilterSelect
-              label="Group by"
+              label={t("list.groupBy")}
               value={groupBy}
               onChange={setGroupBy}
               options={[
-                { value: "location", label: "Location" },
-                { value: "status", label: "Status" },
-                { value: "sync", label: "Display Group" },
-                { value: "none", label: "No grouping" },
+                { value: "location", label: t("list.groupOptions.location") },
+                { value: "status", label: t("list.groupOptions.status") },
+                { value: "sync", label: t("list.groupOptions.sync") },
+                { value: "none", label: t("list.groupOptions.none") },
               ]}
             />
             <FleetFilterSelect
-              label="Sort screens"
+              label={t("list.sortLabel")}
               className="w-52 max-sm:flex-1"
               value={sort}
               onChange={setSort}
               options={[
-                { value: "name-asc", label: "Name · A–Z" },
-                { value: "name-desc", label: "Name · Z–A" },
-                { value: "location-asc", label: "Location · A–Z" },
-                { value: "status-asc", label: "Status" },
-                { value: "contact-desc", label: "Last contact · newest" },
-                { value: "contact-asc", label: "Last contact · oldest" },
-                { value: "added-desc", label: "Date added · newest" },
-                { value: "platform-asc", label: "Platform" },
+                { value: "name-asc", label: t("list.sortOptions.nameAsc") },
+                { value: "name-desc", label: t("list.sortOptions.nameDesc") },
+                {
+                  value: "location-asc",
+                  label: t("list.sortOptions.locationAsc"),
+                },
+                { value: "status-asc", label: t("list.sortOptions.status") },
+                {
+                  value: "contact-desc",
+                  label: t("list.sortOptions.contactDesc"),
+                },
+                {
+                  value: "contact-asc",
+                  label: t("list.sortOptions.contactAsc"),
+                },
+                { value: "added-desc", label: t("list.sortOptions.addedDesc") },
+                {
+                  value: "platform-asc",
+                  label: t("list.sortOptions.platform"),
+                },
               ]}
             />
             <ToggleGroup
@@ -1592,14 +1707,14 @@ export function ScreenListContent({
                   setView(selectedView);
                 }
               }}
-              aria-label="Screen view"
+              aria-label={t("list.viewLabel")}
               variant="outline"
               spacing={0}
             >
-              <ToggleGroupItem value="table" aria-label="Table view">
+              <ToggleGroupItem value="table" aria-label={t("list.tableView")}>
                 <List aria-hidden="true" />
               </ToggleGroupItem>
-              <ToggleGroupItem value="grid" aria-label="Preview grid view">
+              <ToggleGroupItem value="grid" aria-label={t("list.gridView")}>
                 <Grid2X2 aria-hidden="true" />
               </ToggleGroupItem>
             </ToggleGroup>
@@ -1607,27 +1722,26 @@ export function ScreenListContent({
         </div>
       </div>
       {view === "grid" && (
-        <p className="text-xs text-muted-foreground">
-          Previews show the latest snapshot reported by each player and refresh
-          about every 30 seconds.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("list.gridHint")}</p>
       )}
       {selected.size > 0 && canManage && (
         <div className="flex flex-wrap items-center gap-2 border-l-2 border-primary bg-muted/50 px-3 py-2">
-          <strong className="mr-2 text-sm">{selected.size} selected</strong>
+          <strong className="mr-2 text-sm">
+            {t("list.selectedCount", { count: selected.size })}
+          </strong>
           <Button
             variant="outline"
             size="sm"
             onClick={() => void restartSelected()}
           >
-            <RefreshCw aria-hidden="true" /> Restart
+            <RefreshCw aria-hidden="true" /> {t("list.restart")}
           </Button>
           <FleetFilterSelect
-            label="Move selected screens to location"
+            label={t("list.moveToLocation")}
             value={bulkLocation}
             onChange={setBulkLocation}
             options={[
-              { value: "", label: "Unassigned" },
+              { value: "", label: t("shared.unassigned") },
               ...locationItems.map((item) => ({
                 value: item.id,
                 label: item.name,
@@ -1639,24 +1753,22 @@ export function ScreenListContent({
             size="sm"
             onClick={() => void changeSelectedLocation()}
           >
-            Move to location
+            {t("list.moveAction")}
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setSelected(new Set())}
           >
-            Clear selection
+            {t("list.clearSelection")}
           </Button>
         </div>
       )}
       {locationsError && (
         <Alert variant="destructive">
           <CircleAlert aria-hidden="true" />
-          <AlertTitle>Locations could not be loaded</AlertTitle>
-          <AlertDescription>
-            Screen names and player details remain available.
-          </AlertDescription>
+          <AlertTitle>{t("list.locationsError")}</AlertTitle>
+          <AlertDescription>{t("list.locationsErrorBody")}</AlertDescription>
         </Alert>
       )}
       {filtered.length === 0 ? (
@@ -1665,21 +1777,19 @@ export function ScreenListContent({
             <EmptyMedia variant="icon">
               <Search aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No screens match these filters</EmptyTitle>
-            <EmptyDescription>
-              Clear one or more filters to see the fleet again.
-            </EmptyDescription>
+            <EmptyTitle>{t("list.noMatchTitle")}</EmptyTitle>
+            <EmptyDescription>{t("list.noMatchBody")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button variant="outline" size="sm" onClick={clearFilters}>
-              Clear filters
+              {t("list.clearFilters")}
             </Button>
           </EmptyContent>
         </Empty>
       ) : visibleGroups.every((group) => collapsed.has(group.key)) ? (
         <Empty className="min-h-40 border-y border-dashed py-6">
           <EmptyHeader>
-            <EmptyTitle>All groups are collapsed</EmptyTitle>
+            <EmptyTitle>{t("list.allCollapsed")}</EmptyTitle>
           </EmptyHeader>
           <EmptyContent>
             <Button
@@ -1690,7 +1800,7 @@ export function ScreenListContent({
                 storageSet("session", "tilecast.screens.collapsed", "[]");
               }}
             >
-              Expand all groups
+              {t("list.expandAll")}
             </Button>
           </EmptyContent>
         </Empty>
@@ -1709,7 +1819,11 @@ export function ScreenListContent({
                       variant="ghost"
                       size="icon-sm"
                       aria-expanded={!isCollapsed}
-                      aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${group.label}`}
+                      aria-label={
+                        isCollapsed
+                          ? t("list.expandGroup", { label: group.label })
+                          : t("list.collapseGroup", { label: group.label })
+                      }
                       onClick={() => toggleCollapsed(group.key)}
                     >
                       {isCollapsed ? (
@@ -1720,7 +1834,9 @@ export function ScreenListContent({
                     </Button>
                     {canManage && (
                       <Checkbox
-                        aria-label={`Select all screens in ${group.label}`}
+                        aria-label={t("list.selectGroup", {
+                          label: group.label,
+                        })}
                         checked={groupSelected}
                         onCheckedChange={(checked) => {
                           const next = new Set(selected);
@@ -1877,6 +1993,7 @@ function ScreenSummary({
   status: string;
   onStatus: (value: string) => void;
 }) {
+  const { t } = useTranslation("screens");
   const online = screens.filter((item) => item.status === "online").length;
   const attention = screens.filter(needsAttention).length;
   const locations = new Set(
@@ -1886,11 +2003,13 @@ function ScreenSummary({
     <div
       className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-border py-2"
       role="group"
-      aria-label="Fleet summary"
+      aria-label={t("list.summaryGroup")}
     >
       <span className="mr-2 text-sm text-muted-foreground">
-        {screens.length} screen{screens.length === 1 ? "" : "s"} · {locations}{" "}
-        location{locations === 1 ? "" : "s"}
+        {t("list.summaryLine", {
+          screens: t("list.screenCount", { count: screens.length }),
+          locations: t("list.locationCount", { count: locations }),
+        })}
       </span>
       <Button
         variant={status === "online" ? "secondary" : "ghost"}
@@ -1898,7 +2017,7 @@ function ScreenSummary({
         aria-pressed={status === "online"}
         onClick={() => onStatus(status === "online" ? "" : "online")}
       >
-        <strong className="tabular-nums">{online}</strong> Online
+        <strong className="tabular-nums">{online}</strong> {t("status.online")}
       </Button>
       <Button
         variant={status === "attention" ? "secondary" : "ghost"}
@@ -1906,13 +2025,15 @@ function ScreenSummary({
         aria-pressed={status === "attention"}
         onClick={() => onStatus(status === "attention" ? "" : "attention")}
       >
-        <strong className="tabular-nums">{attention}</strong> Needs attention
+        <strong className="tabular-nums">{attention}</strong>{" "}
+        {t("status.attention")}
       </Button>
     </div>
   );
 }
 
 function GroupHealth({ screens }: { screens: Screen[] }) {
+  const { t } = useTranslation("screens");
   const online = screens.filter((item) => item.status === "online").length;
   const attention = screens.filter(needsAttention).length;
   const syncGroups = new Set(
@@ -1921,12 +2042,12 @@ function GroupHealth({ screens }: { screens: Screen[] }) {
   return (
     <span className="flex flex-wrap items-center justify-end gap-1.5">
       <Badge variant={online === screens.length ? "outline" : "secondary"}>
-        {online} of {screens.length} online
+        {t("list.healthFraction", { online, total: screens.length })}
       </Badge>
       {attention > 0 && (
         <Badge variant="destructive">
           <CircleAlert aria-hidden="true" />
-          {attention} {attention === 1 ? "needs" : "need"} attention
+          {t("list.healthAttention", { count: attention })}
         </Badge>
       )}
       {syncGroups.size === 1 && (
@@ -1939,44 +2060,48 @@ function GroupHealth({ screens }: { screens: Screen[] }) {
   );
 }
 
-function syncGroupFilterLabel(value: string, screens: Screen[]) {
-  if (value === "any") return "In any Display Group";
-  if (value === "none") return "Not in a Display Group";
+function syncGroupFilterLabel(value: string, screens: Screen[], t: ScreensT) {
+  if (value === "any") return t("list.syncOptions.any");
+  if (value === "none") return t("list.syncOptions.none");
   return (
     screens.find((item) => item.syncGroupId === value)?.syncGroupName ??
-    "Selected"
+    t("list.syncOptions.selected")
   );
 }
 
-function screenInventorySummary(screens: Screen[]) {
+function screenInventorySummary(screens: Screen[], t: ScreensT) {
   const locationCount = new Set(
     screens
       .map((screen) => screen.locationId || screen.location)
       .filter(Boolean),
   ).size;
-  return `${screens.length} player${screens.length === 1 ? "" : "s"} across ${locationCount} location${locationCount === 1 ? "" : "s"}`;
+  return t("page.inventorySummary", {
+    count: screens.length,
+    locationPart: t("page.locationPart", { count: locationCount }),
+  });
 }
 
-function updateLabel(value: string) {
-  if (value === "current") return "Current";
-  if (value === "attention") return "Needs attention";
+function updateLabel(value: string, t: ScreensT) {
+  if (value === "current") return t("list.updateOptions.current");
+  if (value === "attention") return t("status.attention");
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function platformLabel(value: string) {
+export function platformLabel(value: string, t: ScreensT) {
   const normalized = value.toLowerCase();
-  if (normalized === "linux") return "Linux";
-  if (normalized.includes("fire")) return "Fire TV";
-  if (normalized.includes("google")) return "Google TV";
-  if (normalized.includes("android")) return "Android TV";
-  return value || "Unknown platform";
+  if (normalized === "linux") return t("platform.linux");
+  if (normalized.includes("fire")) return t("platform.fireTv");
+  if (normalized.includes("google")) return t("platform.googleTv");
+  if (normalized.includes("android")) return t("platform.androidTv");
+  return value || t("platform.unknown");
 }
 
-function statusLabel(value: string) {
-  if (value === "attention") return "Needs attention";
-  if (value === "updating") return "Updating";
-  if (value === "syncing") return "Syncing";
-  return statusContent[value as ScreenStatus]?.label ?? value;
+function statusLabel(value: string, t: ScreensT) {
+  if (value === "attention") return t("status.attention");
+  if (value === "updating") return t("status.updating");
+  if (value === "syncing") return t("status.syncing");
+  const entry = statusContent[value as ScreenStatus];
+  return entry ? t(entry.labelKey) : value;
 }
 
 function needsAttention(screen: Screen) {
@@ -1986,12 +2111,39 @@ function needsAttention(screen: Screen) {
   );
 }
 
-function roomLabel(screen: Screen) {
+function roomLabel(screen: Screen, t: ScreensT) {
   if (screen.roomName && screen.roomNumber)
-    return `${screen.roomName} · Room ${screen.roomNumber}`;
+    return t("room.combined", {
+      name: screen.roomName,
+      number: screen.roomNumber,
+    });
   if (screen.roomName) return screen.roomName;
-  if (screen.roomNumber) return `Room ${screen.roomNumber}`;
+  if (screen.roomNumber) return t("room.number", { number: screen.roomNumber });
   return "";
+}
+
+function selectionSummary(
+  assignment:
+    | {
+        selectionSource?: string;
+        currentScheduleId?: string | null;
+        relevantSchedules?: { id: string; name: string }[];
+      }
+    | undefined,
+  t: ScreensT,
+) {
+  if (assignment?.selectionSource === "takeover") return t("takeover.title");
+  if (assignment?.selectionSource === "schedule") {
+    if (!assignment.currentScheduleId) return t("detail.selectionScheduled");
+    const name =
+      assignment.relevantSchedules?.find(
+        (schedule) => schedule.id === assignment.currentScheduleId,
+      )?.name ?? t("detail.selectionScheduleFallback");
+    return t("detail.selectionScheduledNamed", { name });
+  }
+  if (assignment?.selectionSource === "direct_fallback")
+    return t("detail.selectionDirect");
+  return t("detail.selectionNone");
 }
 
 type ScreenGroupView = {
@@ -2005,6 +2157,8 @@ function buildScreenGroups(
   screens: Screen[],
   groupBy: string,
   sort: string,
+  t: ScreensT,
+  locale: string,
 ): ScreenGroupView[] {
   const sorted = [...screens].sort((left, right) => {
     const descending = sort.endsWith("-desc") ? -1 : 1;
@@ -2027,7 +2181,7 @@ function buildScreenGroups(
         : field === "status"
           ? left.status
           : field === "platform"
-            ? platformLabel(left.platform)
+            ? platformLabel(left.platform, t)
             : left.name;
     const b =
       field === "location"
@@ -2035,12 +2189,12 @@ function buildScreenGroups(
         : field === "status"
           ? right.status
           : field === "platform"
-            ? platformLabel(right.platform)
+            ? platformLabel(right.platform, t)
             : right.name;
-    return a.localeCompare(b, undefined, { sensitivity: "base" }) * descending;
+    return a.localeCompare(b, locale, { sensitivity: "base" }) * descending;
   });
   if (groupBy === "none")
-    return [{ key: "all", label: "All screens", screens: sorted }];
+    return [{ key: "all", label: t("list.allLabel"), screens: sorted }];
   const map = new Map<string, ScreenGroupView>();
   for (const screen of sorted) {
     const key =
@@ -2051,10 +2205,10 @@ function buildScreenGroups(
           : `location:${screen.locationId ?? "unassigned"}`;
     const label =
       groupBy === "status"
-        ? statusContent[screen.status].label
+        ? statusLabel(screen.status, t)
         : groupBy === "sync"
-          ? (screen.syncGroupName ?? "Not in a Display Group")
-          : screen.location || "Unassigned";
+          ? (screen.syncGroupName ?? t("list.syncOptions.none"))
+          : screen.location || t("shared.unassigned");
     const description =
       groupBy === "location"
         ? formatLocationAddress(screen.locationDetails)
@@ -2064,7 +2218,7 @@ function buildScreenGroups(
     else map.set(key, { key, label, description, screens: [screen] });
   }
   return [...map.values()].sort((a, b) =>
-    a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+    a.label.localeCompare(b.label, locale, { sensitivity: "base" }),
   );
 }
 
@@ -2083,6 +2237,8 @@ export function ScreenGridCard({
   showLocation: boolean;
   onSelect: (checked: boolean) => void;
 }) {
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const detailHref = `/screens/${screen.id}`;
   const ref = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
@@ -2153,7 +2309,7 @@ export function ScreenGridCard({
     >
       <Link
         to={detailHref}
-        aria-label={`Open ${screen.name}`}
+        aria-label={t("grid.openScreen", { name: screen.name })}
         className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
       >
         <div
@@ -2165,23 +2321,25 @@ export function ScreenGridCard({
           {preview.isLoading && visible ? (
             <Skeleton
               className="absolute inset-0 min-h-32"
-              aria-label="Loading preview"
+              aria-label={t("grid.loadingPreview")}
             />
           ) : image ? (
             <>
               <img
                 className="h-full w-full object-contain"
                 src={image}
-                alt={`Latest preview from ${screen.name}`}
+                alt={t("grid.previewAlt", { name: screen.name })}
               />
               {age && (
                 <Badge
                   variant="secondary"
                   className="pointer-events-none absolute right-2 bottom-2 border-white/10 bg-black/60 text-white"
-                  aria-label={`Snapshot captured ${age.label}`}
-                  title={`Captured ${new Date(
-                    preview.data?.capturedAt ?? "",
-                  ).toLocaleString()}`}
+                  aria-label={t("grid.snapshotCaptured", { age: age.label })}
+                  title={t("grid.snapshotTitle", {
+                    date: new Date(
+                      preview.data?.capturedAt ?? "",
+                    ).toLocaleString(formatLocale),
+                  })}
                 >
                   {age.label}
                 </Badge>
@@ -2191,8 +2349,8 @@ export function ScreenGridCard({
             <span className="grid min-h-32 place-items-center gap-1 text-center text-xs text-slate-300">
               <Monitor className="size-6" aria-hidden="true" />
               {screen.status === "offline"
-                ? "Screen offline"
-                : "Preview unavailable"}
+                ? t("grid.offline")
+                : t("grid.unavailable")}
             </span>
           )}
         </div>
@@ -2201,7 +2359,7 @@ export function ScreenGridCard({
         <header className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
           {canManage && (
             <Checkbox
-              aria-label={`Select ${screen.name}`}
+              aria-label={t("grid.selectScreen", { name: screen.name })}
               checked={selected}
               onCheckedChange={(checked) => onSelect(checked === true)}
             />
@@ -2214,16 +2372,16 @@ export function ScreenGridCard({
               {screen.name}
             </Link>
             <small className="truncate text-xs text-muted-foreground">
-              {[showLocation ? screen.location : "", roomLabel(screen)]
+              {[showLocation ? screen.location : "", roomLabel(screen, t)]
                 .filter(Boolean)
-                .join(" · ") || "Unassigned"}
+                .join(" · ") || t("shared.unassigned")}
             </small>
           </span>
           <div className="shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon-sm" />}
-                aria-label={`Actions for ${screen.name}`}
+                aria-label={t("grid.rowActions", { name: screen.name })}
               >
                 <MoreHorizontal aria-hidden="true" />
               </DropdownMenuTrigger>
@@ -2231,7 +2389,7 @@ export function ScreenGridCard({
                 <DropdownMenuItem
                   render={<Link to={`/screens/${screen.id}`} />}
                 >
-                  <Monitor aria-hidden="true" /> Open screen
+                  <Monitor aria-hidden="true" /> {t("grid.openItem")}
                 </DropdownMenuItem>
                 {canManage && (
                   <>
@@ -2245,24 +2403,24 @@ export function ScreenGridCard({
                         )
                       }
                     >
-                      <RefreshCw aria-hidden="true" /> Restart player
+                      <RefreshCw aria-hidden="true" /> {t("grid.restartPlayer")}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       render={
                         <Link to={`/screens/${screen.id}?edit=details`} />
                       }
                     >
-                      <Pencil aria-hidden="true" /> Edit details
+                      <Pencil aria-hidden="true" /> {t("grid.editDetails")}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       render={<Link to={`/screens/${screen.id}?tab=content`} />}
                     >
-                      Assign content
+                      {t("grid.assignContent")}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       render={<Link to={`/screens/${screen.id}?present=1`} />}
                     >
-                      <Play aria-hidden="true" /> Show now
+                      <Play aria-hidden="true" /> {t("grid.showNow")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -2277,8 +2435,8 @@ export function ScreenGridCard({
                       }
                     >
                       {screen.syncGroupId
-                        ? "Open Display Group"
-                        : "Add to Display Group"}
+                        ? t("grid.openGroup")
+                        : t("grid.addToGroup")}
                     </DropdownMenuItem>
                   </>
                 )}
@@ -2289,13 +2447,13 @@ export function ScreenGridCard({
         <div className="flex flex-wrap items-center gap-2">
           <StatusLabel status={screen.status} />
           <span className="text-xs text-muted-foreground">
-            {formatContact(screen.lastContactAt)}
+            {formatContact(screen.lastContactAt, t, formatLocale)}
           </span>
         </div>
         <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs">
-          <dt className="text-muted-foreground">Now playing</dt>
+          <dt className="text-muted-foreground">{t("grid.nowPlaying")}</dt>
           <dd className="truncate font-medium">
-            {screen.nowPlayingName || "Nothing assigned"}
+            {screen.nowPlayingName || t("shared.nothingAssigned")}
           </dd>
         </dl>
         {screen.syncGroupName && (
@@ -2316,18 +2474,19 @@ function PendingPairings({
   requests: PairingRequest[];
   canManage: boolean;
 }) {
+  const { t } = useTranslation("screens");
+  const formatLocale = useFormatLocale();
   if (requests.length === 0) return null;
   return (
-    <section className="space-y-2" aria-label="Pending pairing requests">
+    <section className="space-y-2" aria-label={t("pending.section")}>
       <Alert>
         <RefreshCw aria-hidden="true" />
         <AlertTitle className="flex items-center gap-2">
-          Waiting for approval{" "}
+          {t("pending.title")}{" "}
           <Badge variant="secondary">{requests.length}</Badge>
         </AlertTitle>
         <AlertDescription>
-          {requests.length} player{requests.length === 1 ? "" : "s"} requested
-          pairing.
+          {t("pending.body", { count: requests.length })}
         </AlertDescription>
       </Alert>
       <ItemGroup className="gap-1.5">
@@ -2343,12 +2502,16 @@ function PendingPairings({
                 {request.metadata.manufacturer} {request.metadata.model}
               </ItemTitle>
               <ItemDescription>
-                {platformLabel(request.metadata.platform)} ·{" "}
-                {request.metadata.screenWidth}×{request.metadata.screenHeight} ·
-                Expires{" "}
-                {new Date(request.expiresAt).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
+                {platformLabel(request.metadata.platform, t)} ·{" "}
+                {request.metadata.screenWidth}×{request.metadata.screenHeight} ·{" "}
+                {t("pending.expires", {
+                  time: new Date(request.expiresAt).toLocaleTimeString(
+                    formatLocale,
+                    {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    },
+                  ),
                 })}
               </ItemDescription>
             </ItemContent>
@@ -2358,7 +2521,7 @@ function PendingPairings({
                   className={buttonVariants({ variant: "outline", size: "sm" })}
                   to={`/screens/pair/request/${request.id}`}
                 >
-                  Review
+                  {t("pending.review")}
                 </Link>
               </ItemActions>
             )}
@@ -2371,12 +2534,13 @@ function PendingPairings({
 
 export function PairScreenPage() {
   const { code, requestId } = useParams();
+  const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const [request, setRequest] = useState<PairingRequest>();
   const [error, setError] = useState<string>();
   const form = useForm<CodeForm>({
-    resolver: zodResolver(codeSchema),
+    resolver: zodResolver(useMemo(() => makeCodeSchema(t), [t])),
     defaultValues: { code: code ?? "" },
   });
   const lookup = async (value: CodeForm) => {
@@ -2385,9 +2549,7 @@ export function PairScreenPage() {
       setRequest(await api.resolvePairing(value.code));
     } catch (reason) {
       setError(
-        reason instanceof Error
-          ? reason.message
-          : "Pairing code could not be resolved.",
+        reason instanceof Error ? reason.message : t("pair.resolveError"),
       );
     }
   };
@@ -2407,20 +2569,15 @@ export function PairScreenPage() {
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>
-            Screen approval requires administrator access.
-          </EmptyTitle>
-          <EmptyDescription>
-            Editors and Viewers can monitor screens but cannot approve or reject
-            pairing requests.
-          </EmptyDescription>
+          <EmptyTitle>{t("pair.gateTitle")}</EmptyTitle>
+          <EmptyDescription>{t("pair.gateBody")}</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <Link
             className={buttonVariants({ variant: "outline", size: "sm" })}
             to="/screens"
           >
-            Return to screens
+            {t("pair.backToScreens")}
           </Link>
         </EmptyContent>
       </Empty>
@@ -2441,8 +2598,8 @@ export function PairScreenPage() {
           <Link2 className="size-5" aria-hidden="true" />
         </span>
         <div>
-          <h2>Pair a screen</h2>
-          <p>Enter the six-character code displayed by Tilecast Player.</p>
+          <h2>{t("pair.title")}</h2>
+          <p>{t("pair.body")}</p>
         </div>
       </header>
       {error && (
@@ -2453,25 +2610,23 @@ export function PairScreenPage() {
       <form onSubmit={(event) => void form.handleSubmit(lookup)(event)}>
         <FormField
           id="pairingCode"
-          label="Pairing code"
+          label={t("pair.codeLabel")}
           autoComplete="off"
           autoFocus
           className="pair-code-input"
+          // i18n-ignore: example pairing-code format, not prose
           placeholder="ABC234"
           error={form.formState.errors.code?.message}
           {...form.register("code")}
         />
-        <Button type="submit">Find player</Button>
+        <Button type="submit">{t("pair.findPlayer")}</Button>
         <Link className={buttonVariants({ variant: "ghost" })} to="/screens">
-          Cancel
+          {t("common:actions.cancel")}
         </Link>
       </form>
       <div className="pair-help">
-        <strong>On the TV</strong>
-        <p>
-          Open Tilecast Player, connect to this server, and leave the pairing
-          code visible while you approve it.
-        </p>
+        <strong>{t("pair.onTvTitle")}</strong>
+        <p>{t("pair.onTvBody")}</p>
       </div>
     </section>
   );
@@ -2484,6 +2639,8 @@ function ApprovalPanel({
   request: PairingRequest;
   onDone: (screenId?: string) => void;
 }) {
+  const { t } = useTranslation("screens");
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const defaultDestination: PairingDestination =
@@ -2500,7 +2657,7 @@ function ApprovalPanel({
     description: string;
   } | null>(null);
   const form = useForm<ApprovalForm>({
-    resolver: zodResolver(approvalSchema),
+    resolver: zodResolver(useMemo(() => makeApprovalSchema(t), [t])),
     defaultValues: {
       name:
         request.existingScreenName ??
@@ -2523,15 +2680,12 @@ function ApprovalPanel({
   const approve = useMutation({
     mutationFn: (values: ApprovalForm) => {
       if (destination === "replace_hardware" && !replacementScreenId)
-        throw new Error(
-          "Choose the existing screen whose hardware is being replaced.",
-        );
+        throw new Error(t("approval.chooseScreenError"));
       if (destination === "replace_hardware") {
         const target = screens.data?.items.find(
           (screen) => screen.id === replacementScreenId,
         );
-        if (!target)
-          throw new Error("The replacement screen could not be found.");
+        if (!target) throw new Error(t("approval.screenNotFound"));
       }
       return api.approvePairing(
         request.id,
@@ -2570,9 +2724,10 @@ function ApprovalPanel({
     if (destination === "credential_repair") {
       setApprovalConfirmation({
         values,
-        title: `Repair pairing for “${request.existingScreenName}”?`,
-        description:
-          "This preserves the existing screen. Its previous device credential is replaced after the new player completes enrollment.",
+        title: t("approval.repairTitle", {
+          name: request.existingScreenName ?? "",
+        }),
+        description: t("approval.repairBody"),
       });
       return;
     }
@@ -2581,16 +2736,13 @@ function ApprovalPanel({
         (screen) => screen.id === replacementScreenId,
       );
       if (!target) {
-        setApprovalError(
-          "Choose the existing screen whose hardware is being replaced.",
-        );
+        setApprovalError(t("approval.chooseScreenError"));
         return;
       }
       setApprovalConfirmation({
         values,
-        title: `Replace hardware for “${target.name}”?`,
-        description:
-          "The logical screen, Display Group membership, content assignments, schedules, policies, and history will stay in place. The old credential is retired only after enrollment succeeds.",
+        title: t("approval.replaceTitle", { name: target.name }),
+        description: t("approval.replaceBody"),
       });
       return;
     }
@@ -2601,61 +2753,59 @@ function ApprovalPanel({
     <section className="approval-card">
       <header>
         <div>
-          <p className="step-label">Pairing request</p>
-          <h2>Review this player</h2>
-          <p>
-            Confirm the device details before granting it an individual Tilecast
-            credential.
-          </p>
+          <p className="step-label">{t("approval.step")}</p>
+          <h2>{t("approval.title")}</h2>
+          <p>{t("approval.body")}</p>
         </div>
         <span className="expiry-label">
-          Expires{" "}
-          {new Date(request.expiresAt).toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit",
+          {t("approval.expires", {
+            time: new Date(request.expiresAt).toLocaleTimeString(formatLocale, {
+              hour: "numeric",
+              minute: "2-digit",
+            }),
           })}
         </span>
       </header>
       <dl className="device-facts">
         <div>
-          <dt>Device</dt>
+          <dt>{t("approval.device")}</dt>
           <dd>
             {metadata.manufacturer} {metadata.model}
           </dd>
         </div>
         <div>
-          <dt>Platform</dt>
+          <dt>{t("approval.platform")}</dt>
           <dd>{metadata.platform}</dd>
         </div>
         <div>
-          <dt>Android</dt>
+          <dt>{t("approval.android")}</dt>
           <dd>{metadata.androidVersion}</dd>
         </div>
         <div>
-          <dt>Player</dt>
+          <dt>{t("approval.player")}</dt>
           <dd>{metadata.playerVersion}</dd>
         </div>
         <div>
-          <dt>Resolution</dt>
+          <dt>{t("approval.resolution")}</dt>
           <dd>
             {metadata.screenWidth} × {metadata.screenHeight}
           </dd>
         </div>
         <div>
-          <dt>Locale / timezone</dt>
+          <dt>{t("approval.locale")}</dt>
           <dd>
             {metadata.locale} · {metadata.timezone}
           </dd>
         </div>
         {metadata.approximateAddress && (
           <div>
-            <dt>Network address</dt>
+            <dt>{t("approval.network")}</dt>
             <dd>{metadata.approximateAddress}</dd>
           </div>
         )}
       </dl>
       <fieldset className="pairing-destination">
-        <legend>Pairing destination</legend>
+        <legend>{t("approval.destination")}</legend>
         <label className="radio-control">
           <input
             type="radio"
@@ -2665,8 +2815,8 @@ function ApprovalPanel({
             onChange={() => setDestination("new_screen")}
           />
           <span>
-            <strong>Create new screen</strong>
-            <small>Create a new logical screen from this player.</small>
+            <strong>{t("approval.newScreen")}</strong>
+            <small>{t("approval.newScreenHint")}</small>
           </span>
         </label>
         {request.previouslyPaired && request.hasActiveCredential && (
@@ -2679,9 +2829,11 @@ function ApprovalPanel({
               onChange={() => setDestination("credential_repair")}
             />
             <span>
-              <strong>Repair existing credential</strong>
+              <strong>{t("approval.repair")}</strong>
               <small>
-                Keep this player installation on “{request.existingScreenName}”.
+                {t("approval.repairHint", {
+                  name: request.existingScreenName ?? "",
+                })}
               </small>
             </span>
           </label>
@@ -2695,16 +2847,13 @@ function ApprovalPanel({
             onChange={() => setDestination("replace_hardware")}
           />
           <span>
-            <strong>Replace hardware for an existing screen</strong>
-            <small>
-              Keep the logical screen, Display Group, content, schedules,
-              policies, and history.
-            </small>
+            <strong>{t("approval.replace")}</strong>
+            <small>{t("approval.replaceHint")}</small>
           </span>
         </label>
         {destination === "replace_hardware" && (
           <label className="grid gap-2 text-sm font-medium">
-            <span>Existing screen</span>
+            <span>{t("approval.existingScreen")}</span>
             <Select
               items={(screens.data?.items ?? []).map((screen) => ({
                 value: screen.id,
@@ -2715,8 +2864,11 @@ function ApprovalPanel({
               value={replacementScreenId || null}
               onValueChange={(value) => setReplacementScreenId(value ?? "")}
             >
-              <SelectTrigger className="w-full" aria-label="Existing screen">
-                <SelectValue placeholder="Choose a screen" />
+              <SelectTrigger
+                className="w-full"
+                aria-label={t("approval.existingScreen")}
+              >
+                <SelectValue placeholder={t("approval.chooseScreen")} />
               </SelectTrigger>
               <SelectContent>
                 {(screens.data?.items ?? [])
@@ -2730,8 +2882,7 @@ function ApprovalPanel({
               </SelectContent>
             </Select>
             <small className="text-xs text-muted-foreground">
-              The old credential is retired only after this player successfully
-              enrolls.
+              {t("approval.selectHint")}
             </small>
           </label>
         )}
@@ -2739,12 +2890,14 @@ function ApprovalPanel({
       {request.previouslyPaired && (
         <Alert role="status">
           <AlertTitle>
-            This device was previously paired as “{request.existingScreenName}.”
+            {t("approval.pairedBefore", {
+              name: request.existingScreenName ?? "",
+            })}
           </AlertTitle>
           <AlertDescription>
             {destination === "replace_hardware"
-              ? "Choose the logical screen above; its identity and configuration are preserved."
-              : "Repairing the pairing will preserve this screen and its content assignments. The previous device credential will be revoked only after this player completes enrollment."}
+              ? t("approval.pairedReplaceBody")
+              : t("approval.pairedRepairBody")}
           </AlertDescription>
         </Alert>
       )}
@@ -2760,7 +2913,7 @@ function ApprovalPanel({
       >
         <FormField
           id="screenName"
-          label="Screen name"
+          label={t("approval.nameLabel")}
           error={form.formState.errors.name?.message}
           {...form.register("name")}
         />
@@ -2774,20 +2927,20 @@ function ApprovalPanel({
         <div className="screen-room-fields">
           <FormField
             id="screenRoomName"
-            label="Room name (optional)"
-            placeholder="Library"
+            label={t("approval.roomName")}
+            placeholder={t("approval.roomNamePlaceholder")}
             {...form.register("roomName")}
           />
           <FormField
             id="screenRoomNumber"
-            label="Room number (optional)"
-            placeholder="204"
+            label={t("approval.roomNumber")}
+            placeholder={t("approval.roomNumberPlaceholder")}
             {...form.register("roomNumber")}
           />
         </div>
         <Field>
           <FieldLabel htmlFor="screenDescription">
-            Description (optional)
+            {t("approval.description")}
           </FieldLabel>
           <Textarea id="screenDescription" {...form.register("description")} />
         </Field>
@@ -2799,15 +2952,15 @@ function ApprovalPanel({
             onClick={() => reject.mutate()}
             disabled={reject.isPending || approve.isPending}
           >
-            Reject
+            {t("approval.reject")}
           </Button>
           <Button
             type="submit"
             disabled={approve.isPending || reject.isPending}
           >
             {approve.isPending
-              ? "Approving…"
-              : pairingApprovalLabel(request, destination)}
+              ? t("approval.approving")
+              : pairingApprovalLabel(request, t, destination)}
           </Button>
         </div>
       </form>
@@ -2820,16 +2973,16 @@ function ApprovalPanel({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {approvalConfirmation?.title ?? "Confirm pairing change"}
+              {approvalConfirmation?.title ?? t("approval.confirmFallback")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {approvalConfirmation?.description ??
-                "Review this pairing change before continuing."}
+                t("approval.confirmFallbackBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={approve.isPending}>
-              Go back
+              {t("approval.goBack")}
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={!approvalConfirmation || approve.isPending}
@@ -2839,7 +2992,7 @@ function ApprovalPanel({
                 setApprovalConfirmation(null);
               }}
             >
-              Confirm pairing
+              {t("approval.confirmPairing")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2851,6 +3004,8 @@ function ApprovalPanel({
 export function ScreenDetailPage() {
   const { id = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const [confirmRevoke, setConfirmRevoke] = useState(false);
@@ -2881,7 +3036,7 @@ export function ScreenDetailPage() {
     refetchInterval: 10_000,
   });
   const detailsForm = useForm<ApprovalForm>({
-    resolver: zodResolver(approvalSchema),
+    resolver: zodResolver(useMemo(() => makeApprovalSchema(t), [t])),
     defaultValues: {
       name: "",
       locationId: undefined,
@@ -3038,7 +3193,7 @@ export function ScreenDetailPage() {
     if (screenCommandAction.kind === "input") {
       const value = screenCommandInput.trim();
       if (!value) {
-        setScreenCommandError("Enter a value before continuing.");
+        setScreenCommandError(t("detail.commandInputRequired"));
         return;
       }
       if (screenCommandAction.input.type === "number") {
@@ -3051,7 +3206,10 @@ export function ScreenDetailPage() {
             numberValue > screenCommandAction.input.max)
         ) {
           setScreenCommandError(
-            `Enter a whole number from ${screenCommandAction.input.min ?? "−∞"} to ${screenCommandAction.input.max ?? "∞"}.`,
+            t("detail.commandRangeError", {
+              min: screenCommandAction.input.min ?? "−∞",
+              max: screenCommandAction.input.max ?? "∞",
+            }),
           );
           return;
         }
@@ -3071,13 +3229,13 @@ export function ScreenDetailPage() {
     return (
       <div className="space-y-2">
         <Skeleton className="h-4 w-56" />
-        <p className="text-sm text-muted-foreground">Loading screen…</p>
+        <p className="text-sm text-muted-foreground">{t("detail.loading")}</p>
       </div>
     );
   if (!screen)
     return (
       <Alert variant="destructive">
-        <AlertDescription>Screen could not be loaded.</AlertDescription>
+        <AlertDescription>{t("detail.loadError")}</AlertDescription>
       </Alert>
     );
   const displayCapabilities =
@@ -3130,16 +3288,18 @@ export function ScreenDetailPage() {
           </div>
           <p className="text-sm text-muted-foreground">
             {[
-              platformLabel(screen.platform),
+              platformLabel(screen.platform, t),
               [screen.deviceManufacturer, screen.deviceModel]
                 .filter(Boolean)
                 .join(" "),
               screen.playerVersion
-                ? `Player ${screen.playerVersion}`
-                : "Player version not reported",
-              [screen.location, roomLabel(screen)]
+                ? t("detail.playerVersion", {
+                    version: screen.playerVersion,
+                  })
+                : t("detail.playerVersionMissing"),
+              [screen.location, roomLabel(screen, t)]
                 .filter(Boolean)
-                .join(" · ") || "No location set",
+                .join(" · ") || t("detail.noLocation"),
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -3148,7 +3308,7 @@ export function ScreenDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           {canManageScreens(auth.status?.user) && (
             <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
-              <Play aria-hidden="true" /> Present
+              <Play aria-hidden="true" /> {t("detail.present")}
             </Button>
           )}
           {canManageScreens(auth.status?.user) && (
@@ -3159,30 +3319,30 @@ export function ScreenDetailPage() {
                 command.mutate({ type: "restart_player_process", payload: {} })
               }
             >
-              <RefreshCw aria-hidden="true" /> Restart
+              <RefreshCw aria-hidden="true" /> {t("list.restart")}
             </Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="outline" size="icon-sm" />}
-              aria-label="More screen actions"
+              aria-label={t("detail.moreActions")}
             >
               <MoreHorizontal aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {canManageScreens(auth.status?.user) && (
                 <DropdownMenuItem onClick={() => setEditingDetails(true)}>
-                  <Pencil aria-hidden="true" /> Edit screen details
+                  <Pencil aria-hidden="true" /> {t("grid.editDetails")}
                 </DropdownMenuItem>
               )}
               {canManageScreens(auth.status?.user) &&
                 screen.platform.toLowerCase() === "linux" && (
                   <DropdownMenuItem onClick={() => setAirplayOpen(true)}>
-                    <Airplay aria-hidden="true" /> AirPlay
+                    <Airplay aria-hidden="true" /> {t("detail.airplay")}
                   </DropdownMenuItem>
                 )}
               <DropdownMenuItem onClick={() => selectTab("content")}>
-                <Monitor aria-hidden="true" /> View content
+                <Monitor aria-hidden="true" /> {t("detail.viewContent")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -3220,15 +3380,13 @@ export function ScreenDetailPage() {
             }
           >
             <DialogHeader>
-              <DialogTitle>Edit screen details</DialogTitle>
-              <DialogDescription>
-                Update the name and location shown throughout Tilecast Studio.
-              </DialogDescription>
+              <DialogTitle>{t("detail.editTitle")}</DialogTitle>
+              <DialogDescription>{t("detail.editBody")}</DialogDescription>
             </DialogHeader>
             {updateDetails.error && (
               <Alert variant="destructive">
                 <CircleAlert aria-hidden="true" />
-                <AlertTitle>Screen details could not be saved</AlertTitle>
+                <AlertTitle>{t("detail.saveError")}</AlertTitle>
                 <AlertDescription>
                   {updateDetails.error.message}
                 </AlertDescription>
@@ -3238,7 +3396,7 @@ export function ScreenDetailPage() {
               className="grid gap-2 text-sm font-medium"
               htmlFor="editScreenName"
             >
-              <span>Screen name</span>
+              <span>{t("approval.nameLabel")}</span>
               <Input
                 id="editScreenName"
                 autoFocus
@@ -3265,7 +3423,7 @@ export function ScreenDetailPage() {
                 className="grid gap-2 text-sm font-medium"
                 htmlFor="editScreenRoomName"
               >
-                <span>Room name (optional)</span>
+                <span>{t("approval.roomName")}</span>
                 <Input
                   id="editScreenRoomName"
                   {...detailsForm.register("roomName")}
@@ -3275,7 +3433,7 @@ export function ScreenDetailPage() {
                 className="grid gap-2 text-sm font-medium"
                 htmlFor="editScreenRoomNumber"
               >
-                <span>Room number (optional)</span>
+                <span>{t("approval.roomNumber")}</span>
                 <Input
                   id="editScreenRoomNumber"
                   {...detailsForm.register("roomNumber")}
@@ -3286,7 +3444,7 @@ export function ScreenDetailPage() {
               className="grid gap-2 text-sm font-medium"
               htmlFor="editScreenDescription"
             >
-              <span>Description (optional)</span>
+              <span>{t("approval.description")}</span>
               <Textarea
                 id="editScreenDescription"
                 {...detailsForm.register("description")}
@@ -3303,10 +3461,12 @@ export function ScreenDetailPage() {
                 type="button"
                 onClick={() => setEditingDetails(false)}
               >
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               <Button type="submit" disabled={updateDetails.isPending}>
-                {updateDetails.isPending ? "Saving…" : "Save details"}
+                {updateDetails.isPending
+                  ? t("common:actions.saving")
+                  : t("detail.saveDetails")}
               </Button>
             </DialogFooter>
           </form>
@@ -3318,24 +3478,27 @@ export function ScreenDetailPage() {
         className="w-full min-w-0 gap-4"
       >
         <TabsList
-          aria-label="Screen details"
+          aria-label={t("detail.tabsLabel")}
           variant="line"
           className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
         >
           <TabsTrigger value="overview" className="flex-none px-2">
-            Overview
+            {t("detail.tabOverview")}
           </TabsTrigger>
           <TabsTrigger value="content" className="flex-none px-2">
-            Content
+            {t("detail.tabContent")}
           </TabsTrigger>
           <TabsTrigger value="activity" className="flex-none px-2">
-            Activity
+            {t("detail.tabActivity")}
           </TabsTrigger>
           <TabsTrigger value="device" className="flex-none px-2">
-            Device
+            {t("detail.tabDevice")}
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex-none px-2">
-            Settings {policyDirty && <Badge variant="secondary">Unsaved</Badge>}
+            {t("detail.tabSettings")}{" "}
+            {policyDirty && (
+              <Badge variant="secondary">{t("detail.unsavedBadge")}</Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -3353,85 +3516,87 @@ export function ScreenDetailPage() {
                   id="screen-overview-title"
                   className="text-base font-semibold"
                 >
-                  Overview
+                  {t("detail.tabOverview")}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Current playback, connection, and player reliability.
+                  {t("detail.overviewBody")}
                 </p>
               </header>
               {reliability.data?.externalPresentationState &&
                 reliability.data.externalPresentationState !== "none" && (
                   <Alert>
                     <Airplay aria-hidden="true" />
-                    <AlertTitle>External presentation active</AlertTitle>
+                    <AlertTitle>{t("detail.externalTitle")}</AlertTitle>
                     <AlertDescription>
                       {reliability.data.airplayConnected
-                        ? "This screen is receiving mirrored video."
-                        : "This screen is waiting for a sender."}{" "}
-                      Preview capture is disabled while AirPlay is active.
+                        ? t("detail.externalMirroring")
+                        : t("detail.externalWaiting")}{" "}
+                      {t("detail.externalNote")}
                     </AlertDescription>
                   </Alert>
                 )}
               <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-4">
                 <OverviewFact
-                  label="Connection"
+                  label={t("detail.factConnection")}
                   value={<StatusLabel status={screen.status} />}
                 />
                 <OverviewFact
-                  label="Now playing"
+                  label={t("grid.nowPlaying")}
                   value={
                     assignment.data?.layoutName ??
                     assignment.data?.playlistName ??
-                    "No content assigned"
+                    t("detail.factNoContent")
                   }
                 />
                 <OverviewFact
-                  label="Location"
+                  label={t("detail.factLocation")}
                   value={
-                    [screen.location, roomLabel(screen)]
+                    [screen.location, roomLabel(screen, t)]
                       .filter(Boolean)
-                      .join(" · ") || "Not set"
+                      .join(" · ") || t("shared.notSet")
                   }
                 />
                 <OverviewFact
-                  label="Last contact"
-                  value={formatContact(screen.lastContactAt)}
+                  label={t("detail.factLastContact")}
+                  value={formatContact(screen.lastContactAt, t, formatLocale)}
                 />
                 <OverviewFact
-                  label="Player update"
+                  label={t("detail.factPlayerUpdate")}
                   value={
                     screen.updateError
-                      ? "Update failed"
+                      ? t("shared.updateFailed")
                       : (screen.updateState?.replaceAll("_", " ") ??
-                        "No active deployment")
+                        t("detail.noDeployment"))
                   }
                 />
                 <OverviewFact
-                  label="Reliability"
+                  label={t("detail.factReliability")}
                   value={
                     reliability.data?.effectiveMode?.replaceAll("_", " ") ??
-                    "Not reported"
+                    t("shared.notReported")
                   }
                 />
                 <OverviewFact
-                  label="Next schedule change"
+                  label={t("detail.factNextChange")}
                   value={
                     assignment.data?.nextTransitionAt
                       ? new Date(
                           assignment.data.nextTransitionAt,
-                        ).toLocaleString()
-                      : "None scheduled"
+                        ).toLocaleString(formatLocale)
+                      : t("detail.noneScheduled")
                   }
                 />
                 <OverviewFact
-                  label="Player settings"
+                  label={t("detail.factPlayerSettings")}
                   value={
                     <Link
                       to="?tab=settings"
                       className="underline underline-offset-4"
                     >
-                      {Object.keys(screenPolicy.data?.values ?? {}).length}{" "}
-                      overrides · Settings
+                      {t("detail.policyOverrides", {
+                        count: Object.keys(screenPolicy.data?.values ?? {})
+                          .length,
+                      })}
                     </Link>
                   }
                 />
@@ -3442,14 +3607,14 @@ export function ScreenDetailPage() {
                   size="sm"
                   onClick={() => selectTab("content")}
                 >
-                  View content
+                  {t("detail.viewContent")}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => selectTab("activity")}
                 >
-                  View activity
+                  {t("detail.viewActivity")}
                 </Button>
               </div>
               <section
@@ -3461,10 +3626,10 @@ export function ScreenDetailPage() {
                     id="screen-hardware-history-title"
                     className="text-sm font-semibold"
                   >
-                    Hardware history
+                    {t("detail.hwTitle")}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    The logical screen stays stable when hardware is replaced.
+                    {t("detail.hwBody")}
                   </p>
                 </header>
                 {playerHistory.data?.items.length ? (
@@ -3482,12 +3647,19 @@ export function ScreenDetailPage() {
                           </ItemTitle>
                           <ItemDescription>
                             {hardware.platform} · {hardware.playerVersion} ·{" "}
-                            {hardware.screenWidth}×{hardware.screenHeight} ·
-                            Paired{" "}
-                            {new Date(hardware.pairedAt).toLocaleDateString()}
+                            {hardware.screenWidth}×{hardware.screenHeight} ·{" "}
+                            {t("detail.hwPaired", {
+                              date: new Date(
+                                hardware.pairedAt,
+                              ).toLocaleDateString(formatLocale),
+                            })}
                             {hardware.retiredAt
-                              ? ` · Retired ${new Date(hardware.retiredAt).toLocaleDateString()}`
-                              : " · Current hardware"}
+                              ? t("detail.hwRetired", {
+                                  date: new Date(
+                                    hardware.retiredAt,
+                                  ).toLocaleDateString(formatLocale),
+                                })
+                              : t("detail.hwCurrent")}
                             {hardware.retirementReason
                               ? ` · ${hardware.retirementReason}`
                               : ""}
@@ -3500,7 +3672,7 @@ export function ScreenDetailPage() {
                   <Skeleton className="h-12 w-full" />
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No hardware history recorded.
+                    {t("detail.hwEmpty")}
                   </p>
                 )}
               </section>
@@ -3519,23 +3691,29 @@ export function ScreenDetailPage() {
                   id="screen-playback-title"
                   className="text-base font-semibold"
                 >
-                  Playback and scheduling
+                  {t("detail.playbackTitle")}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Review the content assigned to this screen and the schedule
-                  that currently selects it.
+                  {t("detail.playbackBody")}
                 </p>
               </header>
               {assignment.data?.groups?.[0] && (
                 <Alert>
                   <Monitor aria-hidden="true" />
-                  <AlertTitle>Managed by a Display Group</AlertTitle>
+                  <AlertTitle>{t("detail.managedTitle")}</AlertTitle>
                   <AlertDescription>
-                    This player belongs to the{" "}
-                    <Link to={`/groups/${assignment.data.groups[0].id}`}>
-                      {assignment.data.groups[0].name}
-                    </Link>{" "}
-                    Display Group. Content and schedules apply to every member.
+                    <Trans
+                      i18nKey="detail.managedBody"
+                      ns="screens"
+                      values={{ name: assignment.data.groups[0].name }}
+                      components={{
+                        groupLink: (
+                          <Link
+                            to={`/groups/${assignment.data.groups[0].id}`}
+                          />
+                        ),
+                      }}
+                    />
                   </AlertDescription>
                 </Alert>
               )}
@@ -3546,7 +3724,7 @@ export function ScreenDetailPage() {
                       items={[
                         {
                           value: "__none__",
-                          label: "No presentation assigned",
+                          label: t("detail.noPresentation"),
                         },
                         ...(playlists.data?.items ?? []).map((playlist) => ({
                           value: `playlist:${playlist.id}`,
@@ -3565,17 +3743,19 @@ export function ScreenDetailPage() {
                       }
                     >
                       <SelectTrigger
-                        aria-label="Assigned presentation"
+                        aria-label={t("detail.assignedLabel")}
                         className="w-full"
                       >
-                        <SelectValue placeholder="No presentation assigned" />
+                        <SelectValue placeholder={t("detail.noPresentation")} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">
-                          No presentation assigned
+                          {t("detail.noPresentation")}
                         </SelectItem>
                         <SelectGroup>
-                          <SelectLabel>Playlists</SelectLabel>
+                          <SelectLabel>
+                            {t("detail.playlistsGroup")}
+                          </SelectLabel>
                           {playlists.data?.items?.map((playlist) => (
                             <SelectItem
                               key={playlist.id}
@@ -3586,7 +3766,7 @@ export function ScreenDetailPage() {
                           ))}
                         </SelectGroup>
                         <SelectGroup>
-                          <SelectLabel>Published layouts</SelectLabel>
+                          <SelectLabel>{t("detail.layoutsGroup")}</SelectLabel>
                           {layouts.data?.items
                             .filter((layout) => layout.publishedRevision)
                             .map((layout) => (
@@ -3614,155 +3794,173 @@ export function ScreenDetailPage() {
                     onClick={() => assign.mutate()}
                   >
                     {assign.isPending
-                      ? "Applying…"
+                      ? t("groups.detail.applying")
                       : assignment.data?.groups?.[0]
-                        ? "Apply to Display Group"
-                        : "Apply assignment"}
+                        ? t("groups.detail.apply")
+                        : t("detail.applyAssignment")}
                   </Button>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   {assignment.data?.layoutName ??
                     assignment.data?.playlistName ??
-                    "No presentation assigned"}
+                    t("detail.noPresentation")}
                 </p>
               )}
               <ScreenContentChain assignment={assignment.data} />
               <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-3">
                 <OverviewFact
-                  label="Direct fallback"
+                  label={t("detail.directFallback")}
                   value={
                     assignment.data?.layoutName ??
                     assignment.data?.playlistName ??
-                    "No fallback assigned"
+                    t("detail.noFallbackAssigned")
                   }
                 />
                 <OverviewFact
-                  label="Current selection"
-                  value={
-                    assignment.data?.selectionSource === "takeover"
-                      ? "Takeover"
-                      : assignment.data?.selectionSource === "schedule"
-                        ? `Scheduled${assignment.data.currentScheduleId ? ` · ${(assignment.data.relevantSchedules ?? []).find((s) => s.id === assignment.data?.currentScheduleId)?.name ?? "schedule"}` : ""}`
-                        : assignment.data?.selectionSource === "direct_fallback"
-                          ? "Direct fallback"
-                          : "No content"
-                  }
+                  label={t("detail.currentSelection")}
+                  value={selectionSummary(assignment.data, t)}
                 />
                 <OverviewFact
-                  label="Next scheduled change"
+                  label={t("detail.nextScheduledChange")}
                   value={
                     assignment.data?.nextTransitionAt
                       ? new Date(
                           assignment.data.nextTransitionAt,
-                        ).toLocaleString()
-                      : "None reported"
+                        ).toLocaleString(formatLocale)
+                      : t("shared.noneReported")
                   }
                 />
                 <OverviewFact
-                  label="Display Group"
+                  label={t("list.groupFilter")}
                   value={
                     (assignment.data?.groups ?? [])
                       .map((group) => group.name)
-                      .join(", ") || "Not grouped"
+                      .join(", ") || t("detail.notGrouped")
                   }
                 />
                 <OverviewFact
-                  label="Relevant schedules"
+                  label={t("detail.relevantSchedules")}
                   value={
                     (assignment.data?.relevantSchedules ?? [])
                       .map(
                         (schedule) => `${schedule.name} (${schedule.priority})`,
                       )
-                      .join(", ") || "No schedules"
+                      .join(", ") || t("detail.noSchedules")
                   }
                 />
               </dl>
               <Collapsible className="border-t border-border pt-3">
                 <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  Playback diagnostics
+                  {t("detail.diagnostics")}
                   <ChevronDown size={16} aria-hidden="true" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
                     <OverviewFact
-                      label="Server manifest"
-                      value={`Version ${assignment.data?.manifestVersion ?? 1}`}
+                      label={t("detail.factServerManifest")}
+                      value={t("detail.manifestVersion", {
+                        version: assignment.data?.manifestVersion ?? 1,
+                      })}
                     />
                     <OverviewFact
-                      label="Player configuration"
+                      label={t("detail.factPlayerConfig")}
                       value={
                         assignment.data?.activeConfigRevision != null
-                          ? `Revision ${assignment.data.activeConfigRevision}`
-                          : "Not reported"
+                          ? t("detail.configRevision", {
+                              revision: assignment.data.activeConfigRevision,
+                            })
+                          : t("shared.notReported")
                       }
                     />
                     <OverviewFact
-                      label="Player manifest"
+                      label={t("detail.factPlayerManifest")}
                       value={
                         assignment.data?.playerActiveManifestVersion != null
-                          ? `Version ${assignment.data.playerActiveManifestVersion}`
-                          : "Not reported"
+                          ? t("detail.manifestVersion", {
+                              version:
+                                assignment.data.playerActiveManifestVersion,
+                            })
+                          : t("shared.notReported")
                       }
                     />
                     <OverviewFact
-                      label="Synchronization"
+                      label={t("detail.factSynchronization")}
                       value={
                         assignment.data?.synchronizationStatus?.replaceAll(
                           "_",
                           " ",
-                        ) ?? "Not reported"
+                        ) ?? t("shared.notReported")
                       }
                     />
                     <OverviewFact
-                      label="Device clock difference"
+                      label={t("detail.factClockDifference")}
                       value={
                         assignment.data?.deviceClockOffsetSeconds != null
-                          ? `${Math.abs(assignment.data.deviceClockOffsetSeconds)} seconds`
-                          : "Not reported"
+                          ? t("detail.clockOffset", {
+                              count: Math.abs(
+                                assignment.data.deviceClockOffsetSeconds,
+                              ),
+                            })
+                          : t("shared.notReported")
                       }
                     />
                     <OverviewFact
-                      label="Downloads"
+                      label={t("detail.factDownloads")}
                       value={
                         assignment.data?.downloadQueueCount != null
-                          ? `${assignment.data.downloadQueueCount} queued · ${assignment.data.downloadedBytes ?? 0} of ${assignment.data.requiredBytes ?? 0} bytes`
-                          : "Not reported"
+                          ? t("detail.downloads", {
+                              queued: assignment.data.downloadQueueCount,
+                              downloaded: assignment.data.downloadedBytes ?? 0,
+                              required: assignment.data.requiredBytes ?? 0,
+                            })
+                          : t("shared.notReported")
                       }
                     />
                     <OverviewFact
-                      label="Website playback"
+                      label={t("detail.factWebsite")}
                       value={
                         assignment.data?.websiteState
-                          ? `${assignment.data.websiteState?.replaceAll("_", " ") ?? "Not reported"}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
-                          : "Not active"
+                          ? `${assignment.data.websiteState?.replaceAll("_", " ") ?? t("shared.notReported")}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
+                          : t("detail.websiteInactive")
                       }
                     />
                     <OverviewFact
-                      label="Blocked website navigation"
+                      label={t("detail.factBlockedNavigation")}
                       value={
                         assignment.data?.websiteBlockedNavigationCount ??
-                        "Not reported"
+                        t("shared.notReported")
                       }
                     />
                     <OverviewFact
-                      label="Playback"
-                      value={assignment.data?.playbackState ?? "Not reported"}
+                      label={t("detail.factPlayback")}
+                      value={
+                        assignment.data?.playbackState ??
+                        t("shared.notReported")
+                      }
                     />
                     <OverviewFact
-                      label="Takeover"
+                      label={t("takeover.title")}
                       value={
                         assignment.data?.activeTakeoverId
-                          ? `${assignment.data.takeoverState ?? "pending"} · ${assignment.data.takeoverPreparationProgress ?? 0}% prepared`
-                          : "No active takeover"
+                          ? t("detail.takeoverProgress", {
+                              state: assignment.data.takeoverState ?? "pending",
+                              progress:
+                                assignment.data.takeoverPreparationProgress ??
+                                0,
+                            })
+                          : t("detail.noTakeover")
                       }
                     />
                     <OverviewFact
-                      label="Cache"
+                      label={t("detail.factCache")}
                       value={
                         assignment.data?.cacheUsedBytes != null
-                          ? `${assignment.data.cacheUsedBytes} of ${assignment.data.cacheLimitBytes ?? 0} bytes`
-                          : "Not reported"
+                          ? t("detail.cacheUsage", {
+                              used: assignment.data.cacheUsedBytes,
+                              limit: assignment.data.cacheLimitBytes ?? 0,
+                            })
+                          : t("shared.notReported")
                       }
                     />
                   </dl>
@@ -3771,24 +3969,28 @@ export function ScreenDetailPage() {
               {assignment.error && (
                 <Alert variant="destructive">
                   <CircleAlert aria-hidden="true" />
-                  <AlertTitle>
-                    Playback assignment could not be loaded
-                  </AlertTitle>
+                  <AlertTitle>{t("detail.assignLoadError")}</AlertTitle>
                   <AlertDescription>
                     {assignment.error.message}
                   </AlertDescription>
                 </Alert>
               )}
-              {[
-                ["Synchronization", assignment.data?.lastSynchronizationError],
-                ["Playback", assignment.data?.lastPlaybackError],
-                ["Configuration", assignment.data?.configurationError],
-              ].map(
-                ([label, message]) =>
+              {(
+                [
+                  ["sync", assignment.data?.lastSynchronizationError],
+                  ["playback", assignment.data?.lastPlaybackError],
+                  ["config", assignment.data?.configurationError],
+                ] as const
+              ).map(
+                ([kind, message]) =>
                   message && (
-                    <Alert key={label} variant="destructive">
+                    <Alert key={kind} variant="destructive">
                       <CircleAlert aria-hidden="true" />
-                      <AlertTitle>{label} error</AlertTitle>
+                      <AlertTitle>
+                        {t("detail.categorizedError", {
+                          kind: t(`detail.errorKind.${kind}`),
+                        })}
+                      </AlertTitle>
                       <AlertDescription>{message}</AlertDescription>
                     </Alert>
                   ),
@@ -3797,20 +3999,14 @@ export function ScreenDetailPage() {
                 (assignment.data?.clockSkewWarningSeconds ?? 300) && (
                 <Alert>
                   <CircleAlert aria-hidden="true" />
-                  <AlertTitle>
-                    Player clock is outside the warning threshold
-                  </AlertTitle>
-                  <AlertDescription>
-                    The player clock differs from server time by more than five
-                    minutes. Offline schedule changes may occur at the wrong
-                    time.
-                  </AlertDescription>
+                  <AlertTitle>{t("detail.clockTitle")}</AlertTitle>
+                  <AlertDescription>{t("detail.clockBody")}</AlertDescription>
                 </Alert>
               )}
               {assignment.data?.scheduleEvaluationError && (
                 <Alert variant="destructive">
                   <CircleAlert aria-hidden="true" />
-                  <AlertTitle>Schedule evaluation failed</AlertTitle>
+                  <AlertTitle>{t("detail.scheduleEvalTitle")}</AlertTitle>
                   <AlertDescription>
                     {assignment.data.scheduleEvaluationError}
                   </AlertDescription>
@@ -3822,12 +4018,12 @@ export function ScreenDetailPage() {
                 ) && (
                   <Alert variant="destructive">
                     <CircleAlert aria-hidden="true" />
-                    <AlertTitle>Website playback issue</AlertTitle>
+                    <AlertTitle>{t("detail.websiteTitle")}</AlertTitle>
                     <AlertDescription>
                       {assignment.data.websiteFailureCategory?.replaceAll(
                         "_",
                         " ",
-                      ) ?? "Unknown website failure"}
+                      ) ?? t("detail.websiteUnknown")}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -3849,21 +4045,21 @@ export function ScreenDetailPage() {
             <section className="space-y-3" aria-labelledby="device-heading">
               <header>
                 <h2 id="device-heading" className="text-base font-semibold">
-                  Device
+                  {t("detail.tabDevice")}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Player health, device details, and operational controls.
+                  {t("detail.deviceBody")}
                 </p>
               </header>
               <nav
-                aria-label="Device sections"
+                aria-label={t("detail.deviceNav")}
                 className="flex flex-wrap gap-1 border-b border-border"
               >
                 {(
                   [
-                    ["device", "Device details"],
-                    ["health", "Health"],
-                    ["maintenance", "Maintenance"],
+                    ["device", t("detail.sectionDevice")],
+                    ["health", t("detail.sectionHealth")],
+                    ["maintenance", t("detail.sectionMaintenance")],
                   ] as const
                 ).map(([section, label]) => (
                   <Link
@@ -3890,162 +4086,182 @@ export function ScreenDetailPage() {
                 aria-labelledby="reliability-heading"
               >
                 <h3 id="reliability-heading" className="text-sm font-semibold">
-                  Health &amp; recovery
+                  {t("detail.healthTitle")}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Configured behavior is reported separately from capabilities
-                  confirmed by this device. Platform-specific controls appear
-                  only when the player reports support.
+                  {t("detail.healthBody")}
                 </p>
                 <section className="min-w-0 space-y-3 rounded-xl border border-border border-l-4 border-l-primary bg-muted/20">
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4">
                     <div className="min-w-0 space-y-1">
                       <h4 className="text-sm font-semibold">
-                        Zero-Touch Readiness
+                        {t("detail.zeroTouch")}
                       </h4>
                       <p className="text-sm text-muted-foreground">
-                        Commissioning and current device capabilities required
-                        for unattended recovery.
+                        {t("detail.zeroTouchBody")}
                       </p>
                     </div>
                     <Badge variant="outline">
-                      {zeroTouchReadiness(reliability.data)}
+                      {zeroTouchReadiness(reliability.data, t)}
                     </Badge>
                   </div>
                   <dl className="grid gap-3 px-4 pb-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:break-words [&_dd]:text-sm [&_dt]:text-xs [&_dt]:text-muted-foreground">
                     <div>
-                      <dt>Commissioning</dt>
+                      <dt>{t("detail.factCommissioning")}</dt>
                       <dd>
                         {formatReportedStatus(
                           reliability.data?.commissioningState,
-                          "Not started",
+                          t,
+                          t("detail.notStarted"),
                         )}
                         {typeof reliability.data?.commissioningStep ===
                           "string" && reliability.data.commissioningStep.trim()
-                          ? ` · ${formatReportedStatus(reliability.data.commissioningStep, "")}`
+                          ? ` · ${formatReportedStatus(reliability.data.commissioningStep, t, "")}`
                           : ""}
                       </dd>
                     </div>
                     <div>
-                      <dt>Accessibility return</dt>
+                      <dt>{t("detail.factAccessibilityReturn")}</dt>
                       <dd>
                         {formatReportedStatus(
                           reliability.data?.accessibilityServiceState,
+                          t,
                         )}
                       </dd>
                     </div>
                     <div>
-                      <dt>Launch after boot</dt>
+                      <dt>{t("detail.factLaunchAfterBoot")}</dt>
                       <dd>
                         {reliability.data?.bootLaunchVerified
-                          ? "Verified"
+                          ? t("detail.bootVerified")
                           : reportsAutostart(reliability.data)
                             ? // Linux has no boot-attempt counter; the autostart row
                               // below carries the detail.
-                              "Not yet verified"
-                            : `${formatReportedCount(reliability.data?.bootAttemptCount)} attempts · not verified`}
+                              t("detail.bootUnverified")
+                            : t("detail.bootAttempts", {
+                                count: formatReportedCount(
+                                  reliability.data?.bootAttemptCount,
+                                ),
+                              })}
                       </dd>
                     </div>
                     {reportsAutostart(reliability.data) && (
                       <div>
-                        <dt>Autostart (systemd)</dt>
-                        <dd>{autostartSummary(reliability.data)}</dd>
+                        <dt>{t("detail.factAutostart")}</dt>
+                        <dd>{autostartSummary(reliability.data, t)}</dd>
                       </div>
                     )}
                     <div>
-                      <dt>Cached fallback</dt>
+                      <dt>{t("detail.factCachedFallback")}</dt>
                       <dd>
                         {reliability.data?.cachedFallbackAvailable
-                          ? "Available"
-                          : "Not confirmed"}
+                          ? t("detail.available")
+                          : t("detail.notConfirmed")}
                       </dd>
                     </div>
                     {isAndroidScreen(screen.platform) && (
                       <div>
-                        <dt>Install permission</dt>
+                        <dt>{t("detail.factInstallPermission")}</dt>
                         <dd>
-                          {formatReportedStatus(screen.installPermissionStatus)}
+                          {formatReportedStatus(
+                            screen.installPermissionStatus,
+                            t,
+                          )}
                         </dd>
                       </div>
                     )}
                     <div>
-                      <dt>Free storage</dt>
+                      <dt>{t("detail.factFreeStorage")}</dt>
                       <dd>
                         {screen.availableStorageBytes == null
-                          ? "Not reported"
+                          ? t("shared.notReported")
                           : formatBytes(screen.availableStorageBytes)}
                       </dd>
                     </div>
                     <div>
-                      <dt>Last healthy playback</dt>
+                      <dt>{t("detail.factLastHealthy")}</dt>
                       <dd>
                         {reliability.data?.lastHealthyPlaybackAt
                           ? new Date(
                               reliability.data.lastHealthyPlaybackAt,
-                            ).toLocaleString()
-                          : "Not reported"}
+                            ).toLocaleString(formatLocale)
+                          : t("shared.notReported")}
                       </dd>
                     </div>
                     <div>
-                      <dt>Update readiness</dt>
+                      <dt>{t("detail.factUpdateReadiness")}</dt>
                       <dd>
                         {formatReportedStatus(
                           reliability.data?.updateReadiness,
+                          t,
                         )}
                       </dd>
                     </div>
                     {screen.platform.toLowerCase() === "linux" && (
                       <>
                         <div>
-                          <dt>Display Control</dt>
+                          <dt>{t("detail.factDisplayControl")}</dt>
                           <dd>
                             {reliability.data?.displayControlProvider
-                              ? `${reliability.data.displayControlProvider} · ${Object.keys(reliability.data.displayControlCapabilities ?? {}).length} capabilities`
-                              : "Not reported"}
+                              ? t("detail.providerCapabilities", {
+                                  provider:
+                                    reliability.data.displayControlProvider,
+                                  count: Object.keys(
+                                    reliability.data
+                                      .displayControlCapabilities ?? {},
+                                  ).length,
+                                })
+                              : t("shared.notReported")}
                           </dd>
                         </div>
                         <div>
-                          <dt>Display state</dt>
+                          <dt>{t("detail.factDisplayState")}</dt>
                           <dd>
                             {formatReportedStatus(
                               reliability.data?.displayPowerState,
+                              t,
                             )}
                             {reliability.data
                               ?.displayControlLastCommandResult ===
                               "display_command_sent" &&
                             reliability.data?.displayPowerStateConfirmed ===
                               false
-                              ? " · command sent, not confirmed"
+                              ? t("detail.displayNotConfirmed")
                               : ""}
                             {reliability.data?.displayControlPolicyState ===
                             "powered_off_by_policy"
-                              ? " · powered off by policy"
+                              ? t("detail.displayPolicyOff")
                               : ""}
                           </dd>
                         </div>
                         <div>
-                          <dt>Last display command</dt>
+                          <dt>{t("detail.factLastDisplayCommand")}</dt>
                           <dd>
                             {reliability.data?.displayControlLastCommandState
-                              ? `${formatReportedStatus(reliability.data.displayControlLastCommandState)}${reliability.data.displayControlLastCommandResult ? ` · ${reliability.data.displayControlLastCommandResult}` : ""}`
-                              : "Not reported"}
+                              ? `${formatReportedStatus(reliability.data.displayControlLastCommandState, t)}${reliability.data.displayControlLastCommandResult ? ` · ${reliability.data.displayControlLastCommandResult}` : ""}`
+                              : t("shared.notReported")}
                           </dd>
                         </div>
                         <div>
-                          <dt>AirPlay Present</dt>
+                          <dt>{t("detail.factAirplayPresent")}</dt>
                           <dd>
                             {reliability.data?.airplaySupported
-                              ? `Ready · ${reliability.data.airplayMaxProfile ?? "profile pending"}`
-                              : "Not ready"}
+                              ? t("detail.airplayReady", {
+                                  profile:
+                                    reliability.data.airplayMaxProfile ??
+                                    t("detail.profilePending"),
+                                })
+                              : t("detail.airplayNotReady")}
                           </dd>
                         </div>
                         <div>
-                          <dt>AirPlay decoder</dt>
+                          <dt>{t("detail.factAirplayDecoder")}</dt>
                           <dd>
-                            {reliability.data?.airplayDecoder ?? "Not reported"}
+                            {reliability.data?.airplayDecoder ??
+                              t("shared.notReported")}
                             {reliability.data?.airplayHardwareDecode
-                              ? " · hardware"
-                              : " · software-limited"}
+                              ? t("detail.decoderHardware")
+                              : t("detail.decoderSoftware")}
                           </dd>
                         </div>
                       </>
@@ -4061,107 +4277,137 @@ export function ScreenDetailPage() {
                 )}
                 <dl className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:break-words [&_dd]:text-sm [&_dt]:text-xs [&_dt]:text-muted-foreground">
                   <div>
-                    <dt>Reliability mode</dt>
+                    <dt>{t("detail.factReliabilityMode")}</dt>
                     <dd>
-                      {formatReportedStatus(reliability.data?.configuredMode)}{" "}
-                      configured ·{" "}
-                      {formatReportedStatus(reliability.data?.effectiveMode)}{" "}
-                      effective
+                      {t("detail.reliabilityModeValue", {
+                        configured: formatReportedStatus(
+                          reliability.data?.configuredMode,
+                          t,
+                        ),
+                        effective: formatReportedStatus(
+                          reliability.data?.effectiveMode,
+                          t,
+                        ),
+                      })}
                     </dd>
                   </div>
                   <div>
-                    <dt>Foreground</dt>
-                    <dd>
-                      {formatReportedStatus(reliability.data?.foregroundState)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Boot recovery</dt>
+                    <dt>{t("detail.factForeground")}</dt>
                     <dd>
                       {formatReportedStatus(
-                        reliability.data?.bootRecoveryResult,
+                        reliability.data?.foregroundState,
+                        t,
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt>Immersive / keep awake</dt>
+                    <dt>{t("detail.factBootRecovery")}</dt>
+                    <dd>
+                      {formatReportedStatus(
+                        reliability.data?.bootRecoveryResult,
+                        t,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("detail.factImmersive")}</dt>
                     <dd>
                       {reliability.data?.immersiveModeActive
-                        ? "Immersive"
-                        : "Not immersive"}{" "}
+                        ? t("detail.immersive")
+                        : t("detail.notImmersive")}{" "}
                       ·{" "}
                       {reliability.data?.keepScreenOn
-                        ? "Kept awake"
-                        : "Wake lock released"}
+                        ? t("detail.keptAwake")
+                        : t("detail.wakeReleased")}
                     </dd>
                   </div>
                   {isAndroidScreen(screen.platform) && (
                     <>
                       <div>
-                        <dt>Managed Kiosk</dt>
+                        <dt>{t("detail.factManagedKiosk")}</dt>
                         <dd>
-                          {formatReportedStatus(
-                            reliability.data?.managedKioskCapability,
-                          )}{" "}
-                          · lock task{" "}
-                          {formatReportedStatus(
-                            reliability.data?.lockTaskState,
-                            "unknown",
-                          )}
+                          {t("detail.lockTaskValue", {
+                            mode: formatReportedStatus(
+                              reliability.data?.managedKioskCapability,
+                              t,
+                            ),
+                            state: formatReportedStatus(
+                              reliability.data?.lockTaskState,
+                              t,
+                              t("detail.lockStateUnknown"),
+                            ),
+                          })}
                         </dd>
                       </div>
                       <div>
-                        <dt>Accessibility Control</dt>
+                        <dt>{t("detail.factAccessibilityControl")}</dt>
                         <dd>
                           {formatReportedStatus(
                             reliability.data?.accessibilityServiceState,
+                            t,
                           )}
                         </dd>
                       </div>
                     </>
                   )}
                   <div>
-                    <dt>Active hours</dt>
+                    <dt>{t("detail.factActiveHours")}</dt>
                     <dd>
-                      {formatReportedStatus(reliability.data?.activeHoursState)}
+                      {formatReportedStatus(
+                        reliability.data?.activeHoursState,
+                        t,
+                      )}
                     </dd>
                   </div>
                   <div>
-                    <dt>Sleep support</dt>
+                    <dt>{t("detail.factSleepSupport")}</dt>
                     <dd>
-                      {formatReportedStatus(reliability.data?.sleepCapability)}
+                      {formatReportedStatus(
+                        reliability.data?.sleepCapability,
+                        t,
+                      )}
                     </dd>
                   </div>
                   <div>
-                    <dt>Recovery</dt>
+                    <dt>{t("detail.factRecovery")}</dt>
                     <dd>
-                      Level{" "}
-                      {formatReportedCount(reliability.data?.recoveryLevel)} ·{" "}
-                      {formatReportedCount(reliability.data?.recoveryCount)}{" "}
-                      recent · safe mode{" "}
-                      {reliability.data?.safeMode ? "active" : "inactive"}
+                      {t("detail.recoveryValue", {
+                        level: formatReportedCount(
+                          reliability.data?.recoveryLevel,
+                        ),
+                        count: formatReportedCount(
+                          reliability.data?.recoveryCount,
+                        ),
+                        state: reliability.data?.safeMode
+                          ? t("detail.safeActive")
+                          : t("detail.safeInactive"),
+                      })}
                     </dd>
                   </div>
                   <div>
-                    <dt>Maintenance session</dt>
+                    <dt>{t("detail.factMaintenance")}</dt>
                     <dd>
                       {reliability.data?.maintenanceSessionExpiresAt
-                        ? `Until ${new Date(reliability.data.maintenanceSessionExpiresAt).toLocaleString()}`
-                        : "Inactive"}
+                        ? t("detail.maintenanceUntil", {
+                            date: new Date(
+                              reliability.data.maintenanceSessionExpiresAt,
+                            ).toLocaleString(formatLocale),
+                          })
+                        : t("detail.maintenanceInactive")}
                     </dd>
                   </div>
                 </dl>
-                {reliabilityCapabilityWarning(reliability.data) && (
+                {reliabilityCapabilityWarning(reliability.data, t) && (
                   <Alert>
                     <AlertDescription>
-                      {reliabilityCapabilityWarning(reliability.data)}
+                      {reliabilityCapabilityWarning(reliability.data, t)}
                     </AlertDescription>
                   </Alert>
                 )}
-                {autostartWarning(reliability.data) && (
+                {autostartWarning(reliability.data, t) && (
                   <Alert>
                     <AlertDescription>
-                      {autostartWarning(reliability.data)}
+                      {autostartWarning(reliability.data, t)}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -4177,24 +4423,25 @@ export function ScreenDetailPage() {
                             id="reliability-controls-title"
                             className="text-sm font-medium"
                           >
-                            Player controls
+                            {t("detail.controlsTitle")}
                           </h4>
                           <p className="text-sm text-muted-foreground">
-                            Run a focused recovery action without leaving this
-                            screen.
+                            {t("detail.controlsBody")}
                           </p>
                         </div>
-                        {command.isPending && <Badge>Sending…</Badge>}
+                        {command.isPending && (
+                          <Badge>{t("detail.sending")}</Badge>
+                        )}
                       </header>
                       <div className="grid gap-3 p-4 md:grid-cols-2">
                         {isAndroidScreen(screen.platform) && (
                           <div className="space-y-3 rounded-xl border border-border p-4">
                             <div className="space-y-0.5">
                               <h5 className="text-sm font-medium">
-                                Power Assist
+                                {t("detail.powerTitle")}
                               </h5>
                               <p className="text-sm text-muted-foreground">
-                                Test Android sleep and wake behavior.
+                                {t("detail.powerBody")}
                               </p>
                             </div>
                             <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
@@ -4208,7 +4455,7 @@ export function ScreenDetailPage() {
                                   })
                                 }
                               >
-                                Test sleep
+                                {t("detail.testSleep")}
                               </Button>
                               <Button
                                 variant="outline"
@@ -4220,17 +4467,18 @@ export function ScreenDetailPage() {
                                   })
                                 }
                               >
-                                Test wake
+                                {t("detail.testWake")}
                               </Button>
                             </div>
                           </div>
                         )}
                         <div className="space-y-3 rounded-xl border border-border p-4">
                           <div className="space-y-0.5">
-                            <h5 className="text-sm font-medium">Recovery</h5>
+                            <h5 className="text-sm font-medium">
+                              {t("detail.recoveryTitle")}
+                            </h5>
                             <p className="text-sm text-muted-foreground">
-                              Retry recovery or leave safe mode after resolving
-                              a fault.
+                              {t("detail.recoveryBody")}
                             </p>
                           </div>
                           <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
@@ -4244,7 +4492,7 @@ export function ScreenDetailPage() {
                                 })
                               }
                             >
-                              Retry recovery
+                              {t("detail.retryRecovery")}
                             </Button>
                             <Button
                               variant="outline"
@@ -4258,7 +4506,7 @@ export function ScreenDetailPage() {
                                 })
                               }
                             >
-                              Exit safe mode
+                              {t("detail.exitSafe")}
                             </Button>
                           </div>
                         </div>
@@ -4266,23 +4514,10 @@ export function ScreenDetailPage() {
                           <div className="space-y-3 rounded-xl border border-border p-4">
                             <div className="space-y-0.5">
                               <h5 className="text-sm font-medium">
-                                Linux autostart
+                                {t("detail.autostartTitle")}
                               </h5>
                               <p className="text-sm text-muted-foreground">
-                                Installs the player's own systemd user service
-                                so it starts with the graphical session and
-                                restarts after any exit. Setting up is safe
-                                while the player is running: Tilecast captures
-                                this AppImage's display, data directory, and
-                                server address, writes and enables the service,
-                                and does not start a duplicate process. The
-                                current manual process keeps running until the
-                                next controlled restart, session restart, or
-                                reboot, when systemd takes ownership. A service
-                                file you wrote yourself is never overwritten. A
-                                graphical session that begins at boot
-                                (auto-login or a kiosk compositor) remains
-                                operating-system setup.
+                                {t("detail.autostartBody")}
                               </p>
                             </div>
                             <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
@@ -4296,7 +4531,7 @@ export function ScreenDetailPage() {
                                   })
                                 }
                               >
-                                Set up autostart
+                                {t("detail.setupAutostart")}
                               </Button>
                               <Button
                                 variant="outline"
@@ -4304,17 +4539,20 @@ export function ScreenDetailPage() {
                                 onClick={() =>
                                   requestScreenCommand({
                                     kind: "confirm",
-                                    title: "Remove player autostart?",
-                                    description:
-                                      "This screen will keep playing now, but will not return on its own after a reboot or a player update.",
-                                    confirmLabel: "Remove autostart",
+                                    title: t("detail.removeAutostartTitle"),
+                                    description: t(
+                                      "detail.removeAutostartBody",
+                                    ),
+                                    confirmLabel: t(
+                                      "detail.removeAutostartAction",
+                                    ),
                                     destructive: true,
                                     commandType: "remove_autostart",
                                     payload: {},
                                   })
                                 }
                               >
-                                Remove autostart
+                                {t("detail.removeAutostart")}
                               </Button>
                             </div>
                           </div>
@@ -4323,14 +4561,10 @@ export function ScreenDetailPage() {
                           <div className="space-y-3 rounded-xl border border-border p-4 md:col-span-2">
                             <div className="space-y-0.5">
                               <h5 className="text-sm font-medium">
-                                Display Control
+                                {t("detail.displayTitle")}
                               </h5>
                               <p className="text-sm text-muted-foreground">
-                                Player connectivity and display power are
-                                separate states. Controls appear only for
-                                capabilities reported by this player; provider
-                                commands have a bounded timeout and may report
-                                sent without a confirmed panel state.
+                                {t("detail.displayBody")}
                               </p>
                             </div>
                             <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 lg:grid-cols-4 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
@@ -4346,7 +4580,7 @@ export function ScreenDetailPage() {
                                       })
                                     }
                                   >
-                                    Power on display
+                                    {t("detail.powerOn")}
                                   </Button>
                                   <Button
                                     variant="outline"
@@ -4358,7 +4592,7 @@ export function ScreenDetailPage() {
                                       })
                                     }
                                   >
-                                    Power off display
+                                    {t("detail.powerOff")}
                                   </Button>
                                 </>
                               )}
@@ -4369,13 +4603,13 @@ export function ScreenDetailPage() {
                                   onClick={() =>
                                     requestScreenCommand({
                                       kind: "input",
-                                      title: "Set display input",
-                                      description:
-                                        "Enter the CEC physical address reported by the display, for example 1.0.0.0.",
-                                      confirmLabel: "Set input",
+                                      title: t("detail.inputTitle"),
+                                      description: t("detail.inputBody"),
+                                      confirmLabel: t("detail.inputConfirm"),
                                       input: {
-                                        label: "CEC physical address",
+                                        label: t("detail.inputLabel"),
                                         type: "text",
+                                        // i18n-ignore: example CEC address format, not prose
                                         placeholder: "1.0.0.0",
                                       },
                                       commandType: "display_set_input",
@@ -4383,7 +4617,7 @@ export function ScreenDetailPage() {
                                     })
                                   }
                                 >
-                                  Set display input
+                                  {t("detail.inputTitle")}
                                 </Button>
                               )}
                               {displayCapabilities.volume && (
@@ -4393,12 +4627,11 @@ export function ScreenDetailPage() {
                                   onClick={() =>
                                     requestScreenCommand({
                                       kind: "input",
-                                      title: "Set display volume",
-                                      description:
-                                        "Choose a whole-number volume from 0 to 100.",
-                                      confirmLabel: "Set volume",
+                                      title: t("detail.volumeTitle"),
+                                      description: t("detail.volumeBody"),
+                                      confirmLabel: t("detail.volumeConfirm"),
                                       input: {
-                                        label: "Volume",
+                                        label: t("detail.volumeLabel"),
                                         type: "number",
                                         min: 0,
                                         max: 100,
@@ -4408,7 +4641,7 @@ export function ScreenDetailPage() {
                                     })
                                   }
                                 >
-                                  Set display volume
+                                  {t("detail.volumeTitle")}
                                 </Button>
                               )}
                               {displayCapabilities.mute && (
@@ -4423,7 +4656,7 @@ export function ScreenDetailPage() {
                                       })
                                     }
                                   >
-                                    Mute display
+                                    {t("detail.mute")}
                                   </Button>
                                   <Button
                                     variant="outline"
@@ -4435,7 +4668,7 @@ export function ScreenDetailPage() {
                                       })
                                     }
                                   >
-                                    Unmute display
+                                    {t("detail.unmute")}
                                   </Button>
                                 </>
                               )}
@@ -4446,12 +4679,13 @@ export function ScreenDetailPage() {
                                   onClick={() =>
                                     requestScreenCommand({
                                       kind: "input",
-                                      title: "Set display brightness",
-                                      description:
-                                        "Choose a whole-number brightness from 0 to 100.",
-                                      confirmLabel: "Set brightness",
+                                      title: t("detail.brightnessTitle"),
+                                      description: t("detail.brightnessBody"),
+                                      confirmLabel: t(
+                                        "detail.brightnessConfirm",
+                                      ),
                                       input: {
-                                        label: "Brightness",
+                                        label: t("detail.brightnessLabel"),
                                         type: "number",
                                         min: 0,
                                         max: 100,
@@ -4463,7 +4697,7 @@ export function ScreenDetailPage() {
                                     })
                                   }
                                 >
-                                  Set display brightness
+                                  {t("detail.brightnessTitle")}
                                 </Button>
                               )}
                               <Button
@@ -4476,12 +4710,11 @@ export function ScreenDetailPage() {
                                   })
                                 }
                               >
-                                Probe display capabilities
+                                {t("detail.probe")}
                               </Button>
                               {!hasDisplayControl && (
                                 <span className="text-sm text-muted-foreground">
-                                  No HDMI-CEC or DDC/CI capability is currently
-                                  reported.
+                                  {t("detail.noCapability")}
                                 </span>
                               )}
                             </div>
@@ -4491,12 +4724,10 @@ export function ScreenDetailPage() {
                           <div className="space-y-3 rounded-xl border border-border p-4">
                             <div className="space-y-0.5">
                               <h5 className="text-sm font-medium">
-                                AirPlay diagnostics
+                                {t("detail.airplayDiagTitle")}
                               </h5>
                               <p className="text-sm text-muted-foreground">
-                                Probe UxPlay, GStreamer, VA-API, audio, and
-                                local Avahi support without advertising a
-                                receiver.
+                                {t("detail.airplayDiagBody")}
                               </p>
                             </div>
                             <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
@@ -4510,7 +4741,7 @@ export function ScreenDetailPage() {
                                   })
                                 }
                               >
-                                Test AirPlay support
+                                {t("detail.testAirplay")}
                               </Button>
                             </div>
                           </div>
@@ -4518,29 +4749,28 @@ export function ScreenDetailPage() {
                         <div className="space-y-3 rounded-xl border border-border p-4 md:col-span-2">
                           <div className="space-y-0.5">
                             <h5 className="text-sm font-medium">
-                              Playback and player
+                              {t("detail.playbackActionsTitle")}
                             </h5>
                             <p className="text-sm text-muted-foreground">
-                              Use the least disruptive action that matches the
-                              problem.
+                              {t("detail.playbackActionsBody")}
                             </p>
                           </div>
                           <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 lg:grid-cols-4 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
                             {(
                               [
-                                ["retry_current_item", "Retry item"],
-                                ["skip_current_item", "Skip item"],
-                                ["recreate_renderer", "Recreate renderer"],
+                                ["retry_current_item", "detail.cmdRetry"],
+                                ["skip_current_item", "detail.cmdSkip"],
+                                ["recreate_renderer", "detail.cmdRenderer"],
                                 [
                                   "recreate_playback_session",
-                                  "Recreate session",
+                                  "detail.cmdSession",
                                 ],
-                                ["restart_activity", "Restart activity"],
-                                ["restart_player_process", "Restart player"],
-                                ["resynchronize_player", "Resynchronize"],
-                                ["run_player_self_test", "Run self-test"],
+                                ["restart_activity", "detail.cmdActivity"],
+                                ["restart_player_process", "detail.cmdRestart"],
+                                ["resynchronize_player", "detail.cmdResync"],
+                                ["run_player_self_test", "detail.cmdSelfTest"],
                               ] as const
-                            ).map(([type, label]) => (
+                            ).map(([type, labelKey]) => (
                               <Button
                                 variant="outline"
                                 key={type}
@@ -4549,7 +4779,7 @@ export function ScreenDetailPage() {
                                   command.mutate({ type, payload: {} })
                                 }
                               >
-                                {label}
+                                {t(labelKey)}
                               </Button>
                             ))}
                           </div>
@@ -4565,10 +4795,11 @@ export function ScreenDetailPage() {
             {manageSection === "maintenance" &&
               canManageScreens(auth.status?.user) && (
                 <section className="space-y-3">
-                  <h3 className="text-sm font-semibold">Maintenance</h3>
+                  <h3 className="text-sm font-semibold">
+                    {t("detail.sectionMaintenance")}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    Commands remain pending during brief disconnections and
-                    expire automatically.
+                    {t("detail.maintBody")}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
@@ -4577,7 +4808,7 @@ export function ScreenDetailPage() {
                         command.mutate({ type: "sync_now", payload: {} })
                       }
                     >
-                      Sync now
+                      {t("detail.syncNow")}
                     </Button>
                     <Button
                       variant="outline"
@@ -4585,7 +4816,7 @@ export function ScreenDetailPage() {
                         command.mutate({ type: "reload_playback", payload: {} })
                       }
                     >
-                      Reload playback
+                      {t("detail.reload")}
                     </Button>
                     <Button
                       variant="outline"
@@ -4596,41 +4827,39 @@ export function ScreenDetailPage() {
                         })
                       }
                     >
-                      Identify screen
+                      {t("detail.identify")}
                     </Button>
                     <Button
                       variant="destructive"
                       onClick={() =>
                         requestScreenCommand({
                           kind: "confirm",
-                          title: "Clear unprotected media?",
-                          description:
-                            "Tilecast will remove cached media that active or pending playback does not protect.",
-                          confirmLabel: "Clear media cache",
+                          title: t("detail.clearCacheTitle"),
+                          description: t("detail.clearCacheBody"),
+                          confirmLabel: t("detail.clearCacheAction"),
                           destructive: true,
                           commandType: "clear_media_cache",
                           payload: {},
                         })
                       }
                     >
-                      Clear media cache
+                      {t("detail.clearCacheAction")}
                     </Button>
                     <Button
                       variant="destructive"
                       onClick={() =>
                         requestScreenCommand({
                           kind: "confirm",
-                          title: "Clear website data?",
-                          description:
-                            "This clears cookies, cache, DOM storage, and WebView state for this player.",
-                          confirmLabel: "Clear website data",
+                          title: t("detail.clearSiteTitle"),
+                          description: t("detail.clearSiteBody"),
+                          confirmLabel: t("detail.clearSiteAction"),
                           destructive: true,
                           commandType: "clear_website_data",
                           payload: {},
                         })
                       }
                     >
-                      Clear website data
+                      {t("detail.clearSiteAction")}
                     </Button>
                     <Button
                       variant="destructive"
@@ -4644,10 +4873,9 @@ export function ScreenDetailPage() {
                         } else {
                           requestScreenCommand({
                             kind: "confirm",
-                            title: "Disable ordinary playback?",
-                            description:
-                              "The player will remain paired and connected, but ordinary scheduled playback will stop.",
-                            confirmLabel: "Disable playback",
+                            title: t("detail.disableTitle"),
+                            description: t("detail.disableBody"),
+                            confirmLabel: t("detail.disableAction"),
                             destructive: true,
                             commandType: "disable_playback",
                             payload: {},
@@ -4656,13 +4884,13 @@ export function ScreenDetailPage() {
                       }}
                     >
                       {assignment.data?.playbackDisabled
-                        ? "Enable playback"
-                        : "Disable playback"}
+                        ? t("detail.enablePlayback")
+                        : t("detail.disableAction")}
                     </Button>
                   </div>
                   {command.isSuccess && (
                     <p className="text-sm text-muted-foreground">
-                      Command queued; this does not mean it has completed.
+                      {t("detail.commandQueued")}
                     </p>
                   )}
                   <div className="grid gap-2">
@@ -4672,14 +4900,16 @@ export function ScreenDetailPage() {
                         className="space-y-0.5 rounded-lg border border-border px-3 py-2"
                       >
                         <p className="text-sm font-medium">
-                          {c.type?.replaceAll("_", " ") ?? "Unknown command"}
+                          {c.type?.replaceAll("_", " ") ??
+                            t("detail.unknownCommand")}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {c.state} · {new Date(c.createdAt).toLocaleString()}
+                          {c.state} ·{" "}
+                          {new Date(c.createdAt).toLocaleString(formatLocale)}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {c.resultCode?.replaceAll("_", " ") ??
-                            "No result yet"}
+                            t("detail.noResult")}
                         </p>
                       </div>
                     ))}
@@ -4689,19 +4919,18 @@ export function ScreenDetailPage() {
             {manageSection === "maintenance" &&
               !canManageScreens(auth.status?.user) && (
                 <section className="space-y-3">
-                  <h3 className="text-sm font-semibold">Recent operations</h3>
+                  <h3 className="text-sm font-semibold">
+                    {t("detail.recentOps")}
+                  </h3>
                   {commands.isLoading ? (
                     <div className="space-y-2">
                       <Skeleton className="h-4 w-56" />
                       <p className="text-sm text-muted-foreground">
-                        Loading operations…
+                        {t("detail.loadingOps")}
                       </p>
                     </div>
                   ) : (commands.data?.items?.length ?? 0) === 0 ? (
-                    <p>
-                      No maintenance commands have been sent to this screen. An
-                      Owner or Administrator can send them.
-                    </p>
+                    <p>{t("detail.noOps")}</p>
                   ) : (
                     <div className="grid gap-2">
                       {commands.data?.items?.map((c) => (
@@ -4710,14 +4939,16 @@ export function ScreenDetailPage() {
                           className="space-y-0.5 rounded-lg border border-border px-3 py-2"
                         >
                           <p className="text-sm font-medium">
-                            {c.type?.replaceAll("_", " ") ?? "Unknown command"}
+                            {c.type?.replaceAll("_", " ") ??
+                              t("detail.unknownCommand")}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {c.state} · {new Date(c.createdAt).toLocaleString()}
+                            {c.state} ·{" "}
+                            {new Date(c.createdAt).toLocaleString(formatLocale)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {c.resultCode?.replaceAll("_", " ") ??
-                              "No result yet"}
+                              t("detail.noResult")}
                           </p>
                         </div>
                       ))}
@@ -4736,64 +4967,79 @@ export function ScreenDetailPage() {
                       id="device-facts-title"
                       className="text-sm font-semibold"
                     >
-                      Device details
+                      {t("detail.sectionDevice")}
                     </h3>
                     <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
                       <OverviewFact
-                        label="Hardware"
+                        label={t("detail.factHardware")}
                         value={
                           `${screen.deviceManufacturer ?? ""} ${screen.deviceModel ?? ""}`.trim() ||
-                          "Not reported"
+                          t("shared.notReported")
                         }
                       />
                       <OverviewFact
-                        label="Platform"
+                        label={t("detail.factPlatform")}
                         value={
                           screen.platform === "linux"
-                            ? "Linux"
-                            : `${formatReportedStatus(screen.platform)} ${screen.androidVersion ?? ""}`.trim()
+                            ? t("platform.linux")
+                            : `${formatReportedStatus(screen.platform, t)} ${screen.androidVersion ?? ""}`.trim()
                         }
                       />
                       <OverviewFact
-                        label="Player version"
-                        value={`${screen.playerVersion ?? "Not reported"}${screen.playerVersionCode ? ` (code ${screen.playerVersionCode})` : ""}`}
+                        label={t("detail.factPlayerVersion")}
+                        value={
+                          screen.playerVersionCode
+                            ? t("detail.versionWithCode", {
+                                version:
+                                  screen.playerVersion ??
+                                  t("shared.notReported"),
+                                code: screen.playerVersionCode,
+                              })
+                            : (screen.playerVersion ?? t("shared.notReported"))
+                        }
                       />
                       {isAndroidScreen(screen.platform) && (
                         <>
                           <OverviewFact
-                            label="Android SDK"
-                            value={screen.androidSdk ?? "Not reported"}
+                            label={t("detail.factAndroidSdk")}
+                            value={screen.androidSdk ?? t("shared.notReported")}
                           />
                           <OverviewFact
-                            label="Installer source"
-                            value={screen.installerSource ?? "Not reported"}
+                            label={t("detail.factInstallerSource")}
+                            value={
+                              screen.installerSource ?? t("shared.notReported")
+                            }
                           />
                           <OverviewFact
-                            label="Install permission"
+                            label={t("detail.factInstallPermission")}
                             value={
                               screen.installPermissionStatus?.replaceAll(
                                 "_",
                                 " ",
-                              ) ?? "Unknown"
+                              ) ?? t("shared.unknown")
                             }
                           />
                         </>
                       )}
                       <OverviewFact
-                        label="Player update"
-                        value={`${screen.updateState?.replaceAll("_", " ") ?? "No active deployment"}${screen.updateExpectedBytes ? ` · ${Math.round(((screen.updateDownloadedBytes ?? 0) / screen.updateExpectedBytes) * 100)}%` : ""}${screen.updateError ? ` · ${screen.updateError}` : ""}`}
+                        label={t("detail.factPlayerUpdate")}
+                        value={`${screen.updateState?.replaceAll("_", " ") ?? t("detail.noDeployment")}${screen.updateExpectedBytes ? ` · ${Math.round(((screen.updateDownloadedBytes ?? 0) / screen.updateExpectedBytes) * 100)}%` : ""}${screen.updateError ? ` · ${screen.updateError}` : ""}`}
                       />
                       <OverviewFact
-                        label="Resolution"
-                        value={`${screen.screenWidth ?? "Not reported"} × ${screen.screenHeight ?? "Not reported"}`}
+                        label={t("detail.factResolution")}
+                        value={t("detail.resolutionValue", {
+                          width: screen.screenWidth ?? t("shared.notReported"),
+                          height:
+                            screen.screenHeight ?? t("shared.notReported"),
+                        })}
                       />
                       <OverviewFact
-                        label="Locale"
-                        value={screen.locale || "Not reported"}
+                        label={t("detail.factLocale")}
+                        value={screen.locale || t("shared.notReported")}
                       />
                       <OverviewFact
-                        label="Timezone"
-                        value={screen.timezone || "Not reported"}
+                        label={t("detail.factTimezone")}
+                        value={screen.timezone || t("shared.notReported")}
                       />
                     </dl>
                   </section>
@@ -4805,25 +5051,31 @@ export function ScreenDetailPage() {
                       id="connection-facts-title"
                       className="text-sm font-semibold"
                     >
-                      Connection
+                      {t("detail.factConnectionTitle")}
                     </h3>
                     <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
                       <OverviewFact
-                        label="Status"
+                        label={t("detail.factStatus")}
                         value={<StatusLabel status={screen.status} />}
                       />
                       <OverviewFact
-                        label="Last contact"
-                        value={formatContact(screen.lastContactAt)}
+                        label={t("detail.factLastContact")}
+                        value={formatContact(
+                          screen.lastContactAt,
+                          t,
+                          formatLocale,
+                        )}
                       />
                       <OverviewFact
-                        label="Network address"
-                        value={screen.lastKnownIp || "Not reported"}
+                        label={t("detail.factNetworkAddress")}
+                        value={screen.lastKnownIp || t("shared.notReported")}
                       />
                       <OverviewFact
-                        label="Credential"
+                        label={t("detail.factCredential")}
                         value={
-                          screen.hasActiveCredential ? "Active" : "Revoked"
+                          screen.hasActiveCredential
+                            ? t("detail.credentialActive")
+                            : t("detail.credentialRevoked")
                         }
                       />
                     </dl>
@@ -4839,24 +5091,23 @@ export function ScreenDetailPage() {
                         id="player-access-title"
                         className="text-sm font-semibold"
                       >
-                        Player access
+                        {t("detail.accessTitle")}
                       </h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Control whether this player may operate and whether its
-                        credential remains valid.
+                        {t("detail.accessBody")}
                       </p>
                     </header>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium">
                           {screen.enabled
-                            ? "Screen enabled"
-                            : "Screen disabled"}
+                            ? t("detail.enabledTitle")
+                            : t("detail.disabledTitle")}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {screen.enabled
-                            ? "Disabling temporarily blocks operation and keeps the pairing."
-                            : "Enabling allows the paired player to reconnect."}
+                            ? t("detail.enabledBody")
+                            : t("detail.disabledBody")}
                         </p>
                       </div>
                       <Button
@@ -4865,18 +5116,19 @@ export function ScreenDetailPage() {
                         disabled={stateMutation.isPending}
                       >
                         {stateMutation.isPending
-                          ? "Saving…"
+                          ? t("common:actions.saving")
                           : screen.enabled
-                            ? "Disable"
-                            : "Enable"}
+                            ? t("detail.disableButton")
+                            : t("detail.enableButton")}
                       </Button>
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
                       <div>
-                        <p className="text-sm font-medium">Revoke pairing</p>
+                        <p className="text-sm font-medium">
+                          {t("detail.revokeTitle")}
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          Permanently invalidates the device credential. The
-                          player must pair again.
+                          {t("detail.revokeBody")}
                         </p>
                       </div>
                       <Button
@@ -4884,7 +5136,7 @@ export function ScreenDetailPage() {
                         onClick={() => setConfirmRevoke(true)}
                         disabled={!screen.hasActiveCredential}
                       >
-                        Revoke pairing
+                        {t("detail.revokeAction")}
                       </Button>
                     </div>
                   </section>
@@ -4912,18 +5164,15 @@ export function ScreenDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Discard unsaved screen settings?</DialogTitle>
-            <DialogDescription>
-              Your screen policy edits have not been saved. Discard them and
-              continue?
-            </DialogDescription>
+            <DialogTitle>{t("detail.discardTitle")}</DialogTitle>
+            <DialogDescription>{t("detail.discardBody")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setPendingDestination(null)}
             >
-              Keep editing
+              {t("detail.keepEditing")}
             </Button>
             <Button
               variant="destructive"
@@ -4931,7 +5180,7 @@ export function ScreenDetailPage() {
                 if (pendingDestination) commitDestination(pendingDestination);
               }}
             >
-              Discard changes
+              {t("detail.discardAction")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -4940,23 +5189,22 @@ export function ScreenDetailPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Revoke pairing for {screen.name}?
+              {t("detail.revokeConfirmTitle", { name: screen.name })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              The player will disconnect immediately and cannot reconnect
-              without a new pairing approval.
+              {t("detail.revokeConfirmBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={revoke.isPending}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={revoke.isPending}
               onClick={() => revoke.mutate()}
             >
-              Revoke pairing
+              {t("detail.revokeAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -4974,17 +5222,17 @@ export function ScreenDetailPage() {
             <AlertDialogTitle>
               {screenCommandAction?.kind === "confirm"
                 ? screenCommandAction.title
-                : "Confirm action"}
+                : t("detail.confirmFallback")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {screenCommandAction?.kind === "confirm"
                 ? screenCommandAction.description
-                : "Review this action before continuing."}
+                : t("detail.reviewFallback")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={command.isPending}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               variant={
@@ -4998,7 +5246,7 @@ export function ScreenDetailPage() {
             >
               {screenCommandAction?.kind === "confirm"
                 ? screenCommandAction.confirmLabel
-                : "Continue"}
+                : t("detail.continueAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -5054,7 +5302,7 @@ export function ScreenDetailPage() {
                   type="button"
                   onClick={() => setScreenCommandAction(null)}
                 >
-                  Cancel
+                  {t("common:actions.cancel")}
                 </Button>
                 <Button type="submit" disabled={command.isPending}>
                   {screenCommandAction.confirmLabel}
@@ -5069,10 +5317,9 @@ export function ScreenDetailPage() {
 }
 
 export function StatusLabel({ status }: { status: ScreenStatus }) {
-  const { label, Icon } = statusContent[status] ?? {
-    label: "Unknown",
-    Icon: CircleAlert,
-  };
+  const { t } = useTranslation("screens");
+  const entry = statusContent[status];
+  const Icon = entry?.Icon ?? CircleAlert;
   const variant =
     status === "offline" || status === "stale"
       ? "destructive"
@@ -5082,7 +5329,7 @@ export function StatusLabel({ status }: { status: ScreenStatus }) {
   return (
     <Badge variant={variant} className="gap-1.5">
       <Icon aria-hidden="true" />
-      {label}
+      {entry ? t(entry.labelKey) : t("status.unknown")}
     </Badge>
   );
 }
@@ -5096,14 +5343,16 @@ function OverviewFact({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function formatContact(value?: string) {
-  if (!value) return "Never";
+function formatContact(value: string | undefined, t: ScreensT, locale: string) {
+  if (!value) return t("contact.never");
   const seconds = Math.max(
     0,
     Math.round((Date.now() - new Date(value).getTime()) / 1000),
   );
-  if (seconds < 60) return "Just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hr ago`;
-  return new Date(value).toLocaleDateString();
+  if (seconds < 60) return t("contact.justNow");
+  if (seconds < 3600)
+    return t("contact.minutesAgo", { count: Math.floor(seconds / 60) });
+  if (seconds < 86400)
+    return t("contact.hoursAgo", { count: Math.floor(seconds / 3600) });
+  return new Date(value).toLocaleDateString(locale);
 }

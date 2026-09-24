@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MoreHorizontal, PackageMinus } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
@@ -23,10 +24,12 @@ import {
 } from "../components/ui/dropdown-menu";
 import { Spinner } from "../components/ui/spinner";
 import type { PluginInUseResource } from "../api/types";
+import { apiErrorMessage } from "../i18n";
 import {
   inUseResources,
   usePluginCatalog,
   usePluginLifecycle,
+  type PluginsT,
 } from "./pluginCatalog";
 import { canManage } from "./shared";
 
@@ -36,6 +39,7 @@ import { canManage } from "./shared";
  * owns resources the server refuses, and this explains what to delete first.
  */
 export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
+  const { t } = useTranslation(["plugins", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const catalog = usePluginCatalog();
@@ -45,14 +49,15 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
   if (!plugin?.installed || !canManage(auth.status?.user?.role)) return null;
 
   const blockers = inUseResources(remove.error);
-  const failure = remove.error && !blockers ? remove.error.message : undefined;
+  const failure =
+    remove.error && !blockers ? apiErrorMessage(remove.error) : undefined;
 
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={<Button variant="outline" size="icon" />}
-          aria-label={`${plugin.name} plugin actions`}
+          aria-label={t("actionsMenu.menuLabel", { name: plugin.name })}
         >
           <MoreHorizontal aria-hidden="true" />
         </DropdownMenuTrigger>
@@ -64,7 +69,7 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
               setOpen(true);
             }}
           >
-            <PackageMinus aria-hidden="true" /> Remove plugin
+            <PackageMinus aria-hidden="true" /> {t("actionsMenu.remove")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -74,15 +79,18 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  {plugin.name} can&apos;t be removed
+                  {t("actionsMenu.blockedTitle", { name: plugin.name })}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {blockerSentence(blockers)} {blockerInstruction(blockers)}
+                  {blockerSentence(t, blockers)}{" "}
+                  {blockerInstruction(t, blockers)}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>
-                  View {blockers[0]?.label ?? plugin.instanceNounPlural}
+                  {t("actionsMenu.viewLabel", {
+                    label: blockers[0]?.label ?? plugin.instanceNounPlural,
+                  })}
                 </AlertDialogCancel>
               </AlertDialogFooter>
             </>
@@ -92,10 +100,11 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
                 <AlertDialogMedia>
                   <PackageMinus aria-hidden="true" />
                 </AlertDialogMedia>
-                <AlertDialogTitle>Remove {plugin.name}?</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {t("actionsMenu.removeTitle", { name: plugin.name })}
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {plugin.name} leaves this installation&apos;s Plugins list and
-                  stops affecting screens. You can add it again at any time.
+                  {t("actionsMenu.removeDescription", { name: plugin.name })}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               {failure && (
@@ -104,7 +113,9 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
                 </Alert>
               )}
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel>
+                  {t("common:actions.cancel")}
+                </AlertDialogCancel>
                 <AlertDialogAction
                   variant="destructive"
                   disabled={remove.isPending}
@@ -120,7 +131,7 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
                   {remove.isPending && (
                     <Spinner data-icon="inline-start" aria-hidden="true" />
                   )}
-                  Remove plugin
+                  {t("actionsMenu.remove")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </>
@@ -131,8 +142,8 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
   );
 }
 
-export function blockerSentence(resources: PluginInUseResource[]) {
-  if (resources.length === 0) return "This plugin is still in use.";
+export function blockerSentence(t: PluginsT, resources: PluginInUseResource[]) {
+  if (resources.length === 0) return t("actionsMenu.blockedEmpty");
   const parts = resources.map(
     (resource) => `${resource.count} ${resource.label}`,
   );
@@ -141,27 +152,29 @@ export function blockerSentence(resources: PluginInUseResource[]) {
       ? parts[0]
       : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
   const total = resources.reduce((sum, resource) => sum + resource.count, 0);
-  return `${list} still ${total === 1 ? "uses" : "use"} this plugin.`;
+  return t("actionsMenu.blockedSentence", { count: total, list });
 }
 
 /**
  * What to do about each blocker. Monitoring is switched off rather than
  * deleted, and live alerts clear themselves once their rules are gone.
  */
-export function blockerInstruction(resources: PluginInUseResource[]) {
-  const steps: string[] = [];
-  if (resources.some((resource) => resource.kind === "alert_monitor"))
-    steps.push("turn monitoring off");
+export function blockerInstruction(
+  t: PluginsT,
+  resources: PluginInUseResource[],
+) {
+  const needsMonitor = resources.some(
+    (resource) => resource.kind === "alert_monitor",
+  );
   const deletable = resources.filter(
     (resource) =>
       resource.kind !== "alert_monitor" && resource.kind !== "alert_activation",
   );
-  if (deletable.length > 0)
-    steps.push(
-      `delete the remaining ${deletable.map((resource) => resource.label).join(" and ")}`,
-    );
-  if (steps.length === 0)
-    return "Wait for active alerts to clear, then remove the plugin.";
-  const joined = steps.join(" and ");
-  return `${joined.charAt(0).toUpperCase()}${joined.slice(1)} on this page, then remove the plugin.`;
+  if (!needsMonitor && deletable.length === 0)
+    return t("actionsMenu.blockedWait");
+  if (needsMonitor && deletable.length === 0)
+    return t("actionsMenu.blockedMonitor");
+  const labels = deletable.map((resource) => resource.label).join(" and ");
+  if (!needsMonitor) return t("actionsMenu.blockedDelete", { labels });
+  return t("actionsMenu.blockedMonitorDelete", { labels });
 }

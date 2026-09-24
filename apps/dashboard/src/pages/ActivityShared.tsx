@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2 } from "lucide-react";
+import { translateKnown } from "../i18n";
 import { Pagination } from "../components/Pagination";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -175,7 +177,11 @@ export async function activityRequest<T>(path: string): Promise<T> {
   };
   if (!response.ok || !body.data)
     throw new Error(
-      body.error?.message ?? "Activity data could not be loaded.",
+      body.error?.message ??
+        translateKnown(
+          "activity:shared.loadFailed",
+          "Activity data could not be loaded.",
+        ),
     );
   return body.data;
 }
@@ -219,11 +225,12 @@ export function ActivityPagination({
   pagination: CursorPagination;
   nextCursor?: string;
 }) {
+  const { t } = useTranslation("activity");
   if (!pagination.canGoBack && !nextCursor) return null;
   return (
     <Pagination
       className="activity-pagination"
-      label="Activity pages"
+      label={t("shared.paginationLabel")}
       previous={pagination.previous}
       previousDisabled={!pagination.canGoBack}
       next={() => nextCursor && pagination.next(nextCursor)}
@@ -267,11 +274,12 @@ export function TechnicalDetails({
   const entries = Object.entries(value).filter(
     ([, item]) => item != null && item !== "",
   );
+  const { t } = useTranslation("activity");
   if (!entries.length) return <span>—</span>;
   return (
     <Collapsible className="grid gap-1 text-xs">
       <CollapsibleTrigger className="w-fit cursor-pointer text-left font-medium text-primary hover:underline">
-        View
+        {t("shared.viewDetails")}
       </CollapsibleTrigger>
       <CollapsibleContent>
         <dl className="grid gap-1 rounded-lg border border-border bg-muted/50 p-2">
@@ -281,7 +289,7 @@ export function TechnicalDetails({
                 {humanize(key)}
               </dt>
               <dd className="min-w-0 flex-1 break-words">
-                {formatTechnicalValue(item)}
+                {formatTechnicalValue(item, t("shared.detailsUnavailable"))}
               </dd>
             </div>
           ))}
@@ -291,7 +299,7 @@ export function TechnicalDetails({
   );
 }
 
-function formatTechnicalValue(value: unknown): string {
+function formatTechnicalValue(value: unknown, unavailable: string): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
@@ -300,7 +308,7 @@ function formatTechnicalValue(value: unknown): string {
   try {
     return JSON.stringify(value);
   } catch {
-    return "Details unavailable";
+    return unavailable;
   }
 }
 
@@ -318,8 +326,9 @@ export function ResultBadge({ value }: { value: string }) {
 }
 
 export function Loading() {
+  const { t } = useTranslation("activity");
   return (
-    <div className="grid gap-2" aria-label="Loading Activity">
+    <div className="grid gap-2" aria-label={t("shared.loadingActivity")}>
       <Skeleton className="h-12 w-full" />
       <Skeleton className="h-12 w-full" />
       <Skeleton className="h-12 w-full" />
@@ -334,13 +343,14 @@ export function ErrorNotice({ error }: { error: Error }) {
   );
 }
 export function EmptyState({ message }: { message: string }) {
+  const { t } = useTranslation("activity");
   return (
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <CheckCircle2 size={22} aria-hidden="true" />
         </EmptyMedia>
-        <EmptyTitle>No results</EmptyTitle>
+        <EmptyTitle>{t("shared.noResults")}</EmptyTitle>
         <EmptyDescription>{message}</EmptyDescription>
       </EmptyHeader>
     </Empty>

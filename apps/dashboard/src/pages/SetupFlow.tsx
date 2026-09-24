@@ -1,6 +1,8 @@
+import type { TFunction } from "i18next";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
-import { setupSchema } from "../auth/schemas";
+import { makeSetupSchema } from "../auth/schemas";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Field, FieldDescription, FieldGroup } from "../components/ui/field";
@@ -18,70 +20,59 @@ import {
   QuestionnaireTitle,
 } from "../components/ui/questionnaire";
 
-type SetupQuestion = {
-  name:
-    | "organizationName"
-    | "ownerName"
-    | "username"
-    | "password"
-    | "confirmPassword";
-  phase: "Organization" | "Owner account";
-  title: string;
-  description: string;
-  label: string;
-  type: "text" | "password";
-  autoComplete: string;
-  hint?: string;
-};
-
-const QUESTIONS: SetupQuestion[] = [
+// Questions store locale keys, translated at render, so the guided text
+// follows the interface language. The sign-in field labels are shared with
+// the login form; every other string belongs to the setup flow.
+const QUESTIONS = [
   {
     name: "organizationName",
-    phase: "Organization",
-    title: "What is this installation for?",
-    description: "The organization name shown across Tilecast Studio.",
-    label: "Organization name",
+    phaseKey: "setup.phases.organization",
+    titleKey: "setup.questions.organizationName.title",
+    descriptionKey: "setup.questions.organizationName.description",
+    labelKey: "setup.questions.organizationName.label",
     type: "text",
     autoComplete: "organization",
   },
   {
     name: "ownerName",
-    phase: "Owner account",
-    title: "Who owns this installation?",
-    description: "The first account is the Owner. This is your display name.",
-    label: "Your name",
+    phaseKey: "setup.phases.ownerAccount",
+    titleKey: "setup.questions.ownerName.title",
+    descriptionKey: "setup.questions.ownerName.description",
+    labelKey: "setup.questions.ownerName.label",
     type: "text",
     autoComplete: "name",
   },
   {
     name: "username",
-    phase: "Owner account",
-    title: "Choose a sign-in name",
-    description: "You will type this every time you sign in to Studio.",
-    label: "Email or username",
+    phaseKey: "setup.phases.ownerAccount",
+    titleKey: "setup.questions.username.title",
+    descriptionKey: "setup.questions.username.description",
+    labelKey: "fields.username",
     type: "text",
     autoComplete: "username",
   },
   {
     name: "password",
-    phase: "Owner account",
-    title: "Set the owner password",
-    description: "Local accounts never leave this server.",
-    label: "Password",
+    phaseKey: "setup.phases.ownerAccount",
+    titleKey: "setup.questions.password.title",
+    descriptionKey: "setup.questions.password.description",
+    labelKey: "fields.password",
     type: "password",
     autoComplete: "new-password",
-    hint: "At least 12 characters",
+    hintKey: "setup.questions.password.hint",
   },
   {
     name: "confirmPassword",
-    phase: "Owner account",
-    title: "Confirm the password",
-    description: "Type it once more to catch typos before they lock you out.",
-    label: "Confirm password",
+    phaseKey: "setup.phases.ownerAccount",
+    titleKey: "setup.questions.confirmPassword.title",
+    descriptionKey: "setup.questions.confirmPassword.description",
+    labelKey: "setup.questions.confirmPassword.label",
     type: "password",
     autoComplete: "new-password",
   },
-];
+] as const;
+
+type SetupQuestion = (typeof QUESTIONS)[number];
 
 const EMPTY = {
   organizationName: "",
@@ -93,8 +84,9 @@ const EMPTY = {
 
 function issuesFor(
   values: typeof EMPTY,
+  t: TFunction<"auth">,
 ): Partial<Record<keyof typeof EMPTY, string>> {
-  const parsed = setupSchema.safeParse(values);
+  const parsed = makeSetupSchema(t).safeParse(values);
   if (parsed.success) return {};
   const messages: Partial<Record<keyof typeof EMPTY, string>> = {};
   for (const issue of parsed.error.issues) {
@@ -112,7 +104,8 @@ function issuesFor(
  */
 export function SetupFlow() {
   const { setup, error, isSubmitting } = useAuth();
-  const [item, setItem] = useState<SetupQuestion["name"]>(QUESTIONS[0]!.name);
+  const { t } = useTranslation(["auth", "common"]);
+  const [item, setItem] = useState<SetupQuestion["name"]>(QUESTIONS[0].name);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [review, setReview] = useState<typeof EMPTY | null>(null);
@@ -121,14 +114,14 @@ export function SetupFlow() {
     0,
     QUESTIONS.findIndex((question) => question.name === item),
   );
-  const current: SetupQuestion = QUESTIONS[index] ?? QUESTIONS[0]!;
+  const current: SetupQuestion = QUESTIONS[index] ?? QUESTIONS[0];
 
   const changeItem = (next: string) => {
     const target = QUESTIONS.find((question) => question.name === next);
     if (!target) return;
     const nextIndex = QUESTIONS.indexOf(target);
     if (nextIndex > index) {
-      const message = issuesFor({ ...EMPTY, ...answers })[current.name];
+      const message = issuesFor({ ...EMPTY, ...answers }, t)[current.name];
       if (message) {
         setErrors((previous) => ({ ...previous, [current.name]: message }));
         return;
@@ -143,7 +136,7 @@ export function SetupFlow() {
     // The inputs are controlled, so host state is the source of truth rather
     // than form data; the primitive names its own inputs after each item.
     const values: typeof EMPTY = { ...EMPTY, ...answers };
-    const problems = issuesFor(values);
+    const problems = issuesFor(values, t);
     const firstBad = QUESTIONS.find((question) => problems[question.name]);
     if (firstBad) {
       setAnswers({
@@ -165,16 +158,16 @@ export function SetupFlow() {
       <div aria-labelledby="setup-review-title">
         <header className="mb-6 text-center">
           <p className="text-xs font-medium text-muted-foreground">
-            Step 3 of 3 · Review
+            {t("setup.review.eyebrow")}
           </p>
           <h1
             id="setup-review-title"
             className="mt-1 text-xl font-semibold tracking-tight"
           >
-            Review and create
+            {t("setup.review.title")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Check the details before creating this installation.
+            {t("setup.review.description")}
           </p>
         </header>
         {error && (
@@ -184,15 +177,21 @@ export function SetupFlow() {
         )}
         <dl className="mb-6 grid gap-3 text-sm">
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-muted-foreground">Organization</dt>
+            <dt className="text-muted-foreground">
+              {t("setup.review.organizationLabel")}
+            </dt>
             <dd className="font-medium">{review.organizationName}</dd>
           </div>
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-muted-foreground">Owner</dt>
+            <dt className="text-muted-foreground">
+              {t("setup.review.ownerLabel")}
+            </dt>
             <dd className="font-medium">{review.ownerName}</dd>
           </div>
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-muted-foreground">Sign-in name</dt>
+            <dt className="text-muted-foreground">
+              {t("setup.review.usernameLabel")}
+            </dt>
             <dd className="font-medium">{review.username}</dd>
           </div>
         </dl>
@@ -210,10 +209,12 @@ export function SetupFlow() {
                 })
               }
             >
-              {isSubmitting ? "Creating installation…" : "Create installation"}
+              {isSubmitting
+                ? t("setup.review.submitting")
+                : t("setup.review.submit")}
             </Button>
             <FieldDescription className="text-center">
-              The password is never shown again after this step.
+              {t("setup.review.passwordNote")}
             </FieldDescription>
           </Field>
           <Field>
@@ -223,7 +224,7 @@ export function SetupFlow() {
               disabled={isSubmitting}
               onClick={() => setReview(null)}
             >
-              Back to questions
+              {t("setup.review.back")}
             </Button>
           </Field>
         </FieldGroup>
@@ -235,16 +236,19 @@ export function SetupFlow() {
     <div aria-labelledby="setup-title">
       <header className="mb-6 text-center">
         <p className="text-xs font-medium text-muted-foreground">
-          Step {index < 1 ? 1 : 2} of 3 · {current.phase}
+          {t("setup.stepOf", {
+            step: index < 1 ? 1 : 2,
+            phase: t(current.phaseKey),
+          })}
         </p>
         <h1
           id="setup-title"
           className="mt-1 text-xl font-semibold tracking-tight"
         >
-          Set up Tilecast
+          {t("setup.title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Create the first owner account for this installation.
+          {t("setup.subtitle")}
         </p>
       </header>
       {error && (
@@ -263,7 +267,10 @@ export function SetupFlow() {
         noValidate
       >
         <QuestionnaireProgress>
-          Question {index + 1} of {QUESTIONS.length}
+          {t("setup.progress", {
+            current: index + 1,
+            total: QUESTIONS.length,
+          })}
         </QuestionnaireProgress>
         {QUESTIONS.map((question) => (
           <QuestionnaireItem
@@ -272,13 +279,15 @@ export function SetupFlow() {
             required
             invalid={Boolean(errors[question.name])}
           >
-            <QuestionnaireTitle>{question.title}</QuestionnaireTitle>
+            <QuestionnaireTitle>{t(question.titleKey)}</QuestionnaireTitle>
             <QuestionnaireDescription>
-              {question.description}
-              {question.hint ? ` ${question.hint}.` : ""}
+              {t(question.descriptionKey)}
+              {"hintKey" in question && question.hintKey
+                ? ` ${t(question.hintKey)}`
+                : ""}
             </QuestionnaireDescription>
             <QuestionnaireInput
-              aria-label={question.label}
+              aria-label={t(question.labelKey)}
               type={question.type}
               autoComplete={question.autoComplete}
               value={answers[question.name] ?? ""}
@@ -296,11 +305,13 @@ export function SetupFlow() {
         ))}
         <QuestionnaireActions>
           <QuestionnairePrevious disabled={isSubmitting}>
-            Previous
+            {t("setup.previous")}
           </QuestionnairePrevious>
-          <QuestionnaireNext disabled={isSubmitting}>Next</QuestionnaireNext>
+          <QuestionnaireNext disabled={isSubmitting}>
+            {t("common:actions.next")}
+          </QuestionnaireNext>
           <QuestionnaireSubmit disabled={isSubmitting}>
-            Review
+            {t("setup.reviewAction")}
           </QuestionnaireSubmit>
         </QuestionnaireActions>
       </Questionnaire>

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PanelsTopLeft } from "lucide-react";
 import { useEffect, useState, type DragEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   AlertDialog as RheaAlertDialog,
@@ -70,6 +71,7 @@ import {
 } from "./playlistEditorModel";
 
 export function PlaylistEditorPage() {
+  const { t } = useTranslation(["playlists", "common"]);
   const { id = "" } = useParams();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
@@ -258,8 +260,10 @@ export function PlaylistEditorPage() {
       setEditorError("");
       setPlaybackMessage(
         input.transition
-          ? `Set ${transitionLabel(input.transition)} for all playlist items.`
-          : `Updated fixed image durations to ${input.durationMs / 1000} seconds.`,
+          ? t("editor.bulkTransition", {
+              transition: transitionLabel(input.transition, t),
+            })
+          : t("editor.bulkDuration", { seconds: input.durationMs / 1000 }),
       );
     },
     onError: (error) => setEditorError(error.message),
@@ -298,7 +302,7 @@ export function PlaylistEditorPage() {
           id: asset.id,
           name: asset.name,
           message:
-            error instanceof Error ? error.message : "Could not add item.",
+            error instanceof Error ? error.message : t("editor.addItemError"),
         });
       }
     }
@@ -319,9 +323,7 @@ export function PlaylistEditorPage() {
         setAddFailure(result.failures[0]?.message ?? "");
       } catch (error) {
         setAddFailure(
-          error instanceof Error
-            ? error.message
-            : "The new Widget could not be added to this playlist.",
+          error instanceof Error ? error.message : t("editor.widgetAddError"),
         );
       }
     })();
@@ -351,7 +353,7 @@ export function PlaylistEditorPage() {
       setAddFailure("");
     } catch (error) {
       setAddFailure(
-        error instanceof Error ? error.message : "Could not add the Layout.",
+        error instanceof Error ? error.message : t("editor.layoutAddError"),
       );
     }
   };
@@ -386,7 +388,7 @@ export function PlaylistEditorPage() {
   if (!query.data) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>Playlist could not be loaded.</AlertDescription>
+        <AlertDescription>{t("editor.loadError")}</AlertDescription>
       </Alert>
     );
   }
@@ -467,29 +469,31 @@ export function PlaylistEditorPage() {
       <div className="grid min-w-0 gap-4">
         <UsedByPanel
           compact
-          emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."
+          emptyMessage={t("editor.usage.empty")}
           groups={[
             {
-              label: "Layouts",
+              label: t("editor.usage.groups.layouts"),
               items: (playlist.layoutUsage ?? []).map((layout) => ({
                 id: layout.id,
                 name: layout.name,
-                hint: layout.published ? "Published" : "Draft",
+                hint: layout.published
+                  ? t("editor.usage.publishedHint")
+                  : t("editor.usage.draftHint"),
               })),
               to: (layoutId) => `/layouts/${layoutId}`,
             },
             {
-              label: "Screens",
+              label: t("editor.usage.groups.screens"),
               items: playlist.usage?.screens ?? [],
               to: (screenId) => `/screens/${screenId}`,
             },
             {
-              label: "Schedules",
+              label: t("editor.usage.groups.schedules"),
               items: playlist.usage?.schedules ?? [],
               to: (scheduleId) => `/schedules/${scheduleId}`,
             },
             {
-              label: "Campaigns",
+              label: t("editor.usage.groups.campaigns"),
               items: playlist.usage?.campaigns ?? [],
               to: (campaignId) => `/campaigns/${campaignId}`,
             },
@@ -530,10 +534,7 @@ export function PlaylistEditorPage() {
         )}
         {publish.isSuccess && (
           <Alert>
-            <AlertDescription>
-              The playlist was submitted or published. Check Content review for
-              its immutable submission.
-            </AlertDescription>
+            <AlertDescription>{t("editor.publishNotice")}</AlertDescription>
           </Alert>
         )}
         {editorError && (
@@ -557,34 +558,40 @@ export function PlaylistEditorPage() {
         <ResizablePanelGroup
           orientation="horizontal"
           role="group"
-          aria-label="Playlist sequence and inspector"
+          aria-label={t("editor.sequenceLabel")}
         >
           <ResizablePanel
             defaultSize="62%"
             minSize="35%"
             id="playlist-sequence"
-            aria-label="Playlist sequence"
+            aria-label={t("editor.sequencePanelLabel")}
           >
             <div className="grid min-w-0 content-start gap-6 pr-4">
               {sequence}
             </div>
           </ResizablePanel>
-          <ResizableHandle
-            withHandle
-            aria-label="Resize sequence and inspector panes"
-          />
+          <ResizableHandle withHandle aria-label={t("editor.resizeLabel")} />
           <ResizablePanel
             defaultSize="38%"
             minSize="25%"
             id="playlist-inspector"
-            aria-label="Inspector"
+            aria-label={t("editor.inspectorPanelLabel")}
           >
             <div className="grid min-w-0 content-start gap-4 pl-4">
               {selectedItem ? (
-                <aside aria-label="Item inspector" className="grid gap-4">
+                <aside
+                  aria-label={t("editor.itemInspectorLabel")}
+                  className="grid gap-4"
+                >
                   <div className="grid gap-1">
                     <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      {`Item ${items.findIndex((item) => item.id === selectedItem.id) + 1} · ${selectedItem.assetType}`}
+                      {t("inspector.itemHeading", {
+                        index:
+                          items.findIndex(
+                            (item) => item.id === selectedItem.id,
+                          ) + 1,
+                        type: selectedItem.assetType,
+                      })}
                     </p>
                     <h2 className="text-lg font-semibold tracking-tight">
                       {selectedItem.assetName}
@@ -611,41 +618,53 @@ export function PlaylistEditorPage() {
                   />
                 </aside>
               ) : (
-                <aside aria-label="Inspector" className="grid gap-4">
+                <aside
+                  aria-label={t("editor.inspectorPanelLabel")}
+                  className="grid gap-4"
+                >
                   <div className="grid gap-1">
                     <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      Inspector
+                      {t("editor.inspectorTitle")}
                     </p>
                     <h2 className="text-lg font-semibold tracking-tight">
-                      Playlist settings
+                      {t("editor.inspectorSubtitle")}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      Select a timeline row to edit that item. Nothing is
-                      selected.
+                      {t("editor.inspectorHint")}
                     </p>
                   </div>
                   <Separator />
                   <dl className="grid gap-2 text-sm">
                     <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-muted-foreground">Name</dt>
+                      <dt className="text-muted-foreground">
+                        {t("editor.summaryName")}
+                      </dt>
                       <dd className="min-w-0 truncate font-medium">{name}</dd>
                     </div>
                     <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-muted-foreground">Source</dt>
+                      <dt className="text-muted-foreground">
+                        {t("editor.summarySource")}
+                      </dt>
                       <dd className="font-medium">
-                        {sourceType === "tag" ? "Tag-driven" : "Static"}
+                        {sourceType === "tag"
+                          ? t("editor.sourceTag")
+                          : t("editor.sourceStatic")}
                       </dd>
                     </div>
                     <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-muted-foreground">Items</dt>
+                      <dt className="text-muted-foreground">
+                        {t("editor.summaryItems")}
+                      </dt>
                       <dd className="font-medium tabular-nums">
                         {items.length}
                       </dd>
                     </div>
                     <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-muted-foreground">Transition</dt>
+                      <dt className="text-muted-foreground">
+                        {t("editor.summaryTransition")}
+                      </dt>
                       <dd className="font-medium">
-                        {transitionLabel(commonTransition)}
+                        {transitionLabel(commonTransition, t)}
                       </dd>
                     </div>
                   </dl>
@@ -656,7 +675,7 @@ export function PlaylistEditorPage() {
                       size="sm"
                       onClick={openDetails}
                     >
-                      Playlist details
+                      {t("editor.detailsButton")}
                     </RheaButton>
                     <RheaButton
                       type="button"
@@ -664,7 +683,7 @@ export function PlaylistEditorPage() {
                       size="sm"
                       onClick={openHistory}
                     >
-                      History
+                      {t("editor.historyButton")}
                     </RheaButton>
                   </div>
                 </aside>
@@ -711,11 +730,11 @@ export function PlaylistEditorPage() {
           <SheetContent side="right" className="overflow-y-auto">
             <SheetHeader>
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Playlist revisions
+                {t("editor.historyEyebrow")}
               </p>
-              <SheetTitle>History</SheetTitle>
+              <SheetTitle>{t("editor.historyTitle")}</SheetTitle>
               <SheetDescription>
-                Every published revision is kept for review and restore.
+                {t("editor.historyDescription")}
               </SheetDescription>
             </SheetHeader>
             <div className="px-4">
@@ -786,7 +805,7 @@ export function PlaylistEditorPage() {
           mode="multiple"
           csrf={csrf}
           allowedTypes={["image", "video", "widget"]}
-          confirmLabel="Add to playlist"
+          confirmLabel={t("editor.pickerConfirm")}
           onConfirm={add}
           onClose={() => setPicker(false)}
           onCreateWidget={() =>
@@ -805,9 +824,9 @@ export function PlaylistEditorPage() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add published Layout</DialogTitle>
+            <DialogTitle>{t("editor.addLayoutTitle")}</DialogTitle>
             <DialogDescription>
-              A Layout plays fullscreen for 30 seconds by default.
+              {t("editor.addLayoutDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
@@ -829,7 +848,7 @@ export function PlaylistEditorPage() {
               (layout) => layout.publishedRevision,
             ).length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Publish a Layout before adding it to a playlist.
+                {t("editor.noPublishedLayouts")}
               </p>
             )}
           </div>
@@ -839,7 +858,7 @@ export function PlaylistEditorPage() {
               variant="outline"
               onClick={() => setLayoutPicker(false)}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </RheaButton>
           </DialogFooter>
         </DialogContent>
@@ -852,14 +871,15 @@ export function PlaylistEditorPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {playlist.name}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("editor.deleteTitle", { name: playlist.name })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Screens assigned to this playlist will fall back to their default
-              content. This cannot be undone.
+              {t("editor.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={remove.isPending}
               onClick={() => {
@@ -867,7 +887,7 @@ export function PlaylistEditorPage() {
                 remove.mutate();
               }}
             >
-              Delete playlist
+              {t("editor.deleteConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

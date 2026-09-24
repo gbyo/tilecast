@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Separator } from "../components/ui/separator";
 import { Button as RheaButton } from "../components/ui/button";
 import type { FormFieldControl } from "../api/types";
@@ -12,10 +13,11 @@ export function FormFieldPalette({
   onAdd: (control: FormFieldControl) => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation("forms");
   return (
     <div className="grid gap-2 border-t border-border pt-3">
       <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        Add a field
+        {t("palette.title")}
       </h3>
       <Separator />
       <div className="grid grid-cols-2 gap-1">
@@ -28,11 +30,11 @@ export function FormFieldPalette({
             className="h-auto flex-col items-start gap-0.5 px-2.5 py-2"
             disabled={disabled}
             onClick={() => onAdd(meta.control)}
-            title={meta.description}
+            title={t(meta.descriptionKey)}
           >
-            <span className="text-xs font-medium">{meta.label}</span>
+            <span className="text-xs font-medium">{t(meta.labelKey)}</span>
             <span className="text-left text-[0.7rem] font-normal text-muted-foreground">
-              {meta.description}
+              {t(meta.descriptionKey)}
             </span>
           </RheaButton>
         ))}

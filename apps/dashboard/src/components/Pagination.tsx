@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 
 /** Previous/next pager with a text status. */
@@ -19,6 +20,7 @@ export function Pagination({
   status?: ReactNode;
   className?: string;
 }) {
+  const { t } = useTranslation("common");
   return (
     <nav
       className={`flex flex-wrap items-center gap-2 ${className}`.trim()}
@@ -31,7 +33,7 @@ export function Pagination({
         disabled={previousDisabled}
         onClick={previous}
       >
-        Previous
+        {t("actions.previous")}
       </Button>
       {status && (
         <span className="text-sm text-muted-foreground">{status}</span>
@@ -43,7 +45,7 @@ export function Pagination({
         disabled={nextDisabled}
         onClick={next}
       >
-        Next
+        {t("actions.next")}
       </Button>
     </nav>
   );

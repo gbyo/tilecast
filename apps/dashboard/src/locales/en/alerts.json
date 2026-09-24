@@ -1,0 +1,403 @@
+{
+  "emergency": {
+    "backToPlugins": "Plugins",
+    "title": "Emergency Alerts",
+    "description": "Watch official NWS weather alerts and take matching screens over automatically, then restore normal playback when the alert clears.",
+    "readOnlyNotice": "Owner or Administrator access is required to make changes.",
+    "prepare": {
+      "title": "Prepare automatic emergency content",
+      "description": "Tilecast can generate a fullscreen alert directly from live NWS data. A custom playlist remains optional for organizations with their own response content. This plugin configures automatic responses; a manual Takeover is the separate “show this now” action on Screens, and its defaults live in Settings.",
+      "managePlaylists": "Optional: manage custom playlists",
+      "takeoverNow": "Start a Takeover now",
+      "takeoverDefaults": "Takeover and command defaults"
+    },
+    "monitor": {
+      "title": "Automated weather alerts",
+      "description": "Monitor official active alerts for US states, territories, counties, and forecast zones. Matching rules display live alert details or an optional custom playlist, then restore normal playback when the alert clears.",
+      "safetyTitle": "Alert delivery is best-effort, not a life-safety system.",
+      "safetyBody": "Keep local emergency procedures and Wireless Emergency Alerts in place. Studio shows poll health so upstream or network failures are visible.",
+      "enabledLabel": "Automated NWS monitoring",
+      "enabledHint": "Disabled by default. A configured rule is required to act.",
+      "coverageLegend": "Alert coverage",
+      "coverageHint": "Choose a state or territory by name, then monitor the whole state or add specific counties and NWS forecast zones.",
+      "stateLabel": "State or territory",
+      "statePlaceholder": "Select a state",
+      "monitorState": "Monitor entire state",
+      "zoneLabel": "County or forecast zone",
+      "loadingLocations": "Loading locations…",
+      "locationPlaceholder": "Select a location",
+      "county": "County",
+      "forecastZone": "Forecast zone",
+      "addLocation": "Add location",
+      "zonesError": "Counties and forecast zones could not be loaded from NWS.",
+      "monitoredLocations": "Monitored locations",
+      "entireState": "Entire {{name}}",
+      "removeState": "Remove entire {{name}}",
+      "removeZone": "Remove {{name}}",
+      "zoneWithType": "{{name}} ({{type}})",
+      "noLocations": "No locations selected.",
+      "pollLabel": "Poll interval",
+      "pollHint": "A one- to two-minute interval is recommended for most sites.",
+      "intervals": {
+        "oneMinute": "1 minute",
+        "twoMinutes": "2 minutes",
+        "fiveMinutes": "5 minutes",
+        "fifteenMinutes": "15 minutes"
+      },
+      "lastSuccess": "Last success",
+      "lastAttempt": "Last attempt",
+      "matchedRules": "Matched rules",
+      "health": "Health",
+      "healthy": "Healthy",
+      "never": "Never",
+      "saveMonitor": "Save NWS monitor",
+      "checking": "Checking…",
+      "checkNow": "Check now"
+    },
+    "rules": {
+      "title": "Weather event rules",
+      "description": "Event names match NWS wording exactly. Leave the field empty to match every event at or above the selected severity and urgency. Tilecast's live fullscreen alert is the default; a ticker bar is the alternative for alerts that should inform without interrupting what is playing.",
+      "enabledBadge": "Enabled",
+      "disabledBadge": "Disabled",
+      "allEventTypes": "All event types",
+      "deleteTitle": "Delete “{{name}}”?",
+      "formTitleAdd": "Add rule",
+      "formTitleEdit": "Edit rule",
+      "nameLabel": "Rule name",
+      "eventsLabel": "NWS event names",
+      "severityLabel": "Minimum severity",
+      "severity": {
+        "minor": "Minor",
+        "moderate": "Moderate",
+        "severe": "Severe",
+        "extreme": "Extreme"
+      },
+      "urgencyLabel": "Minimum urgency",
+      "urgency": {
+        "unknown": "Unknown",
+        "future": "Future",
+        "expected": "Expected",
+        "immediate": "Immediate"
+      },
+      "displayLabel": "Emergency display",
+      "displayOptions": {
+        "builtin": "Tilecast live NWS alert — fullscreen",
+        "ticker": "Tilecast live NWS alert — ticker bar",
+        "playlist": "Use a custom playlist — fullscreen"
+      },
+      "displayHint": "The built-in display automatically shows the exact NWS event, headline, severity, affected area, instructions, sender, and expiration. A ticker bar shows the same alert text along the bottom and leaves whatever is playing on screen.",
+      "tickerPlacement": "Ticker placement",
+      "placementOptions": {
+        "push": "Push content up — nothing is covered",
+        "overlay": "Overlay — the bar covers the bottom edge"
+      },
+      "tickerHeight": "Ticker height",
+      "heightOptions": {
+        "compact": "Compact — 64px",
+        "standard": "Standard — 96px",
+        "large": "Large — 140px",
+        "extraLarge": "Extra large — 200px"
+      },
+      "tickerSpeed": "Ticker speed",
+      "speedOptions": {
+        "slow": "Slow",
+        "medium": "Medium",
+        "fast": "Fast"
+      },
+      "playlistLabel": "Custom emergency playlist",
+      "playlistPlaceholder": "Select a playlist",
+      "playlistHint": "Only non-empty playlists can be activated.",
+      "playlistHintLink": "Create or edit playlists",
+      "durationLabel": "Maximum duration",
+      "durationOptions": {
+        "oneHour": "1 hour",
+        "sixHours": "6 hours",
+        "twelveHours": "12 hours",
+        "day": "24 hours"
+      },
+      "targetScreens": "Target screens",
+      "targetGroups": "Target groups",
+      "targetsEmpty": "None available.",
+      "enableRule": "Enable this rule",
+      "saveRule": "Save rule",
+      "addRuleButton": "Add rule",
+      "validation": {
+        "nameRequired": "Enter a rule name.",
+        "playlistRequired": "Select a pre-made emergency playlist.",
+        "targetsRequired": "Select at least one screen or group."
+      }
+    },
+    "displaySummary": {
+      "ticker": "Tilecast live NWS ticker bar",
+      "builtin": "Tilecast live NWS alert",
+      "noPlaylist": "No playlist"
+    },
+    "playlist": {
+      "empty": "{{name}} — empty, add content first",
+      "count_one": "{{name}} — {{count}} item",
+      "count_other": "{{name}} — {{count}} items"
+    },
+    "active": {
+      "title": "Active weather emergencies",
+      "description": "Alerts currently matched to a rule and displaying content.",
+      "emptyTitle": "No active alerts",
+      "emptyBody": "No NWS alerts are currently active."
+    }
+  },
+  "campaigns": {
+    "library": {
+      "title": "Campaigns",
+      "description": "Coordinate immutable content releases across screens and groups. A release reuses the scheduler and never changes what is live until it is published.",
+      "createButton": "Create campaign",
+      "emptyTitle": "No campaigns yet",
+      "emptyBody": "Create a campaign to coordinate content and destinations in one reviewed release.",
+      "noDescription": "No description",
+      "blockCount_one": "{{count}} block",
+      "blockCount_other": "{{count}} blocks",
+      "destinationCount_one": "{{count}} destination",
+      "destinationCount_other": "{{count}} destinations",
+      "listMeta": "{{blocks}} · {{destinations}}",
+      "createTitle": "Create campaign",
+      "createDescription": "Name the campaign; blocks and destinations come next.",
+      "nameLabel": "Name",
+      "creating": "Creating…",
+      "createSubmit": "Create campaign"
+    },
+    "editor": {
+      "notFound": "Campaign not found.",
+      "subtitle": "{{status}} · draft {{revision}}. Changes remain private until this draft is submitted and published.",
+      "preflightButton": "Preflight",
+      "saveDraft": "Save draft",
+      "submitPublish": "Submit / publish",
+      "archiveButton": "Archive",
+      "archiveTitle": "Archive {{name}}?",
+      "archiveBody": "Archiving stops its schedules. This cannot be undone.",
+      "archiveConfirm": "Archive campaign",
+      "publishedNotice": "The campaign was submitted or published. Review the submission status in Content review.",
+      "draftTitle": "Draft definition",
+      "draftHint": "Every field below is part of the next immutable campaign release.",
+      "nameLabel": "Name",
+      "timezoneLabel": "Timezone",
+      "startLabel": "Campaign start",
+      "endLabel": "Campaign end",
+      "descriptionLabel": "Description",
+      "blocksTitle": "Content blocks",
+      "blocksHint": "Blocks become ordinary schedules when their release is published.",
+      "scheduleTypes": {
+        "oneTime": "Fixed time",
+        "weekly": "Weekly window"
+      },
+      "contentTypes": {
+        "playlist": "Playlist",
+        "layout": "Layout"
+      },
+      "destinationTypes": {
+        "screen": "Screen",
+        "group": "Group"
+      },
+      "defaultBlockName": "Campaign block",
+      "blockNameLabel": "Block {{index}} name",
+      "scheduleTypeLabel": "Schedule type",
+      "scheduleTypeAria": "Block {{index}} schedule type",
+      "blockTimezoneLabel": "Timezone",
+      "priorityLabel": "Priority",
+      "enabledLabel": "Enabled",
+      "startsLabel": "Starts",
+      "endsLabel": "Ends",
+      "rangeStartLabel": "Date range start",
+      "rangeEndLabel": "Date range end",
+      "dailyStartLabel": "Daily start",
+      "dailyEndLabel": "Daily end",
+      "weekdaysLabel": "Weekdays",
+      "removeButton": "Remove",
+      "contentTypeLabel": "Content type",
+      "contentLabel": "Content",
+      "selectContent": "Select content",
+      "addBlock": "Add block",
+      "destinationsTitle": "Destinations",
+      "destinationsHint": "Choose the screens or groups that receive this release.",
+      "destinationTypeLabel": "Destination type",
+      "destinationLabel": "Destination",
+      "selectDestination": "Select destination",
+      "addDestination": "Add destination",
+      "preflightTitle": "Preflight",
+      "preflightHint": "Publication checks referenced content, schedule windows, and destination membership before any schedule changes are committed.",
+      "blockCount_one": "{{count}} block",
+      "blockCount_other": "{{count}} blocks",
+      "destinationCount_one": "{{count}} destination",
+      "destinationCount_other": "{{count}} destinations",
+      "readySummary": "Ready: {{blocks}} can reach {{destinations}}.",
+      "notReady": "The campaign cannot be published yet.",
+      "releasesTitle": "Release history",
+      "releasesHint": "Releases are immutable. Restoring one returns it to the draft for review; it never rewrites history.",
+      "releaseTitle": "Release {{number}}",
+      "releaseMeta": "{{status}} · {{date}}",
+      "notPublished": "not published",
+      "screenCount_one": "{{count}} screen",
+      "screenCount_other": "{{count}} screens",
+      "restoreDraft": "Restore to draft",
+      "publicationsTitle": "Publication history",
+      "publicationsHint": "Deployment history is separate from the security audit log. Restore creates a draft; rollback creates a new release.",
+      "publicationMeta": "{{method}} · {{date}} · {{screens}}",
+      "restoreAsDraft": "Restore as draft",
+      "rollbackToRelease": "Roll back to this release"
+    }
+  },
+  "quickPresent": {
+    "title": "Show now",
+    "description": "Temporarily show content on <destination>{{name}}</destination>. Normal content resumes when this session ends. Emergency Takeovers and AirPlay remain higher priority.",
+    "contentLabel": "Content",
+    "contentTypeAria": "Content type",
+    "contentTypes": {
+      "playlist": "Playlist",
+      "layout": "Layout",
+      "asset": "Media / web"
+    },
+    "change": "Change",
+    "choosePlaylist": "Choose playlist",
+    "chooseLayout": "Choose layout",
+    "chooseAsset": "Choose media or web",
+    "durationLabel": "Duration",
+    "durations": {
+      "fiveMinutes": "5 minutes",
+      "fifteenMinutes": "15 minutes",
+      "thirtyMinutes": "30 minutes",
+      "oneHour": "1 hour",
+      "untilStopped": "Until stopped"
+    },
+    "wakeDisplay": "Wake display if needed",
+    "showing": "Showing…",
+    "showNow": "Show now",
+    "playlistPicker": {
+      "title": "Choose playlist",
+      "description": "Select a playlist from your library to show now.",
+      "confirm": "Use playlist"
+    },
+    "layoutPicker": {
+      "title": "Choose layout",
+      "description": "Select a published layout from your library to show now.",
+      "confirm": "Use layout"
+    },
+    "assetPicker": {
+      "title": "Choose media or web",
+      "description": "Select ready media or a website or app from your content library.",
+      "confirm": "Use content"
+    },
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items",
+    "layoutDetail": "{{width}} × {{height}} · revision {{revision}}",
+    "assetTypes": {
+      "image": "Image",
+      "video": "Video",
+      "youtube": "YouTube widget",
+      "website": "Website widget"
+    }
+  },
+  "airplay": {
+    "title": "Present with AirPlay · {{name}}",
+    "description": "Start and monitor a temporary external AirPlay session.",
+    "loadingError": "Tilecast could not load the active AirPlay session. Refresh and try again.",
+    "loadingSession": "Loading the active AirPlay session…",
+    "targetSummary_one": "{{count}} display · temporary external presentation",
+    "targetSummary_other": "{{count}} displays · temporary external presentation",
+    "alreadyReported": "An AirPlay presentation is already reported on this screen. Stop it before starting another.",
+    "durationLabel": "Duration",
+    "durations": {
+      "fifteenMinutes": "15 minutes",
+      "thirtyMinutes": "30 minutes",
+      "oneHour": "1 hour",
+      "untilStopped": "Until stopped (24-hour safety deadline)"
+    },
+    "transportLabel": "Video transport",
+    "transportHint": "Auto uses unicast for 1–4 displays and multicast only when validated.",
+    "transportOptions": {
+      "auto": "Auto",
+      "unicast": "Unicast fan-out",
+      "multicast": "Multicast (falls back to unicast)"
+    },
+    "audioLabel": "Audio display",
+    "audioHintWithName": "Primary audio: {{name}}",
+    "audioHintDefault": "Primary audio uses the selected or automatically chosen gateway.",
+    "audioOptions": {
+      "gatewayOnly": "Gateway / primary display only",
+      "none": "No AirPlay audio"
+    },
+    "enabling": "Enabling…",
+    "enable": "Enable AirPlay",
+    "sessionUnavailable": "AirPlay session is not available",
+    "receiverLabel": "AirPlay receiver",
+    "pinLabel": "PIN",
+    "instructions": "On iPhone, iPad, or Mac, open Screen Mirroring / AirPlay and choose this receiver.",
+    "profileLabel": "Profile",
+    "profileValue": "{{profile}} H.264",
+    "transportTitle": "Transport",
+    "audioTitle": "Audio",
+    "audioNone": "None",
+    "audioGatewayOnly": "{{name}} only",
+    "expiresLabel": "Expires in",
+    "screenState": "{{name}}: {{state}}{{wifi}}",
+    "screenWifi": " · Wi-Fi {{state}}",
+    "stopping": "Stopping…",
+    "stop": "Stop AirPlay",
+    "status": {
+      "expired": "AirPlay expired",
+      "stopped": "AirPlay stopped",
+      "stopping": "Stopping AirPlay",
+      "unprepared": "AirPlay could not prepare every display",
+      "presenting": "Presenting · {{connected}}/{{total}} displays receiving",
+      "waiting": "Waiting · {{ready}}/{{total}} displays ready",
+      "preparing": "Preparing · {{ready}}/{{total}} displays ready"
+    },
+    "network": {
+      "fallbackName": "Presentation Network",
+      "joining": "Joining {{name}} Wi-Fi…",
+      "connected": "Connected to {{name}}. Preparing AirPlay…",
+      "authFailed": "Presentation Network authentication failed.",
+      "ssidNotFound": "{{name}} was not found near the gateway.",
+      "dhcpTimeout": "The gateway joined Wi-Fi but did not receive an address.",
+      "routeLost": "Ethernet stopped being the default route; Wi-Fi was disconnected.",
+      "genericFailure": "The gateway could not prepare the Presentation Network.",
+      "preparing": "Preparing {{name}} for AirPlay…"
+    },
+    "createError": {
+      "gatewayUnavailable": "No eligible Wi-Fi gateway is available for this AirPlay target.",
+      "generic": "AirPlay could not be started."
+    },
+    "capability": {
+      "noDisplays": "Add at least one display to this target.",
+      "readError": "Tilecast could not read display capabilities: {{error}}",
+      "reading": "Reading display capabilities…",
+      "waitingReports_one": "Waiting for {{count}} display to report AirPlay capabilities.",
+      "waitingReports_other": "Waiting for {{count}} displays to report AirPlay capabilities.",
+      "notReady_one": "This display is not AirPlay-ready. {{detail}}",
+      "notReady_other": "{{count}} displays are not AirPlay-ready. {{detail}}",
+      "groupProbe": "One or more displays has not verified the GStreamer RTP receiver path.",
+      "noReport": "This display has not reported AirPlay capabilities yet. Run Test AirPlay support from Health & recovery; if the probe never reports, update Tilecast Player.",
+      "hardwareReady": "All {{count}} displays hardware-ready · common profile 1080p30 H.264",
+      "softwareOnly": "Common profile 720p30 H.264 · at least one display is software-only",
+      "stillReporting": "Capability profile is still being reported."
+    },
+    "missing": {
+      "installerAll": "Run the server's /install-airplay.sh installer as root to provision UxPlay, GStreamer, an H.264 decoder, and Avahi.",
+      "list": "Missing {{list}}. Run the server's /install-airplay.sh installer as root.",
+      "h264Decoder": "an H.264 decoder",
+      "and": "and"
+    }
+  },
+  "liveStream": {
+    "title": "Live stream · {{name}}",
+    "description": "Ephemeral player output, relayed only while this window is open.",
+    "leaseRenewError": "The live stream lease could not be renewed.",
+    "startError": "The live stream could not be started.",
+    "connectionEnded": "The live stream connection ended unexpectedly.",
+    "imageAlt": "Live Tilecast output from {{name}}",
+    "unavailable": "Stream unavailable",
+    "connecting": "Connecting to player…",
+    "waitingFrame": "Waiting for the first frame.",
+    "liveBadge": "Live",
+    "targetLine": "Targeting <strong>{{target}}</strong>. Actual refresh depends on the player and network.",
+    "targetValue": "{{fps}} FPS · {{width}}×{{height}}",
+    "privacyNote": "This stream is relayed only while this window is open. Frames are never saved to snapshots, live preview, Activity, or backups.",
+    "stopWatching": "Stop watching"
+  }
+}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { Location, LocationInput } from "../api/types";
@@ -51,6 +52,7 @@ export function formatLocationAddress(location?: Partial<Location>) {
 }
 
 export function LocationsPanel({ canManage }: { canManage: boolean }) {
+  const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const client = useQueryClient();
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -78,11 +80,10 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
           ),
     onSuccess: async () => {
       toast.add({
-        title: editing === "new" ? "Location created." : "Location updated.",
+        title: t("locations.saved"),
         type: "success",
       });
       setEditing(undefined);
-      setNotice("Location saved.");
       await client.invalidateQueries({ queryKey: ["locations"] });
       await client.invalidateQueries({ queryKey: ["screens"] });
     },
@@ -91,17 +92,16 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
     mutationFn: (location: Location) =>
       api.deleteLocation(location.id, auth.status?.csrfToken ?? ""),
     onSuccess: async () => {
-      toast.add({ title: "Location deleted.", type: "success" });
-      setNotice("Location deleted.");
+      toast.add({ title: t("locations.deleted"), type: "success" });
       await client.invalidateQueries({ queryKey: ["locations"] });
     },
     onError: (error) =>
       setNotice(
         error instanceof ApiError && error.status === 409
-          ? "This location still has screens assigned. Reassign or unassign them before deleting it."
+          ? t("locations.deleteConflict")
           : error instanceof Error
             ? error.message
-            : "The location could not be deleted.",
+            : t("locations.deleteFailed"),
       ),
   });
   const open = (location: Location | "new") => {
@@ -131,12 +131,12 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
           <DashboardSearch
             value={search}
             onValueChange={setSearch}
-            label="Search locations"
-            placeholder="Search by name or address"
+            label={t("locations.searchLabel")}
+            placeholder={t("locations.searchPlaceholder")}
           />
           {canManage && (
             <Button variant="default" onClick={() => open("new")}>
-              <Plus size={16} aria-hidden="true" /> Add location
+              <Plus size={16} aria-hidden="true" /> {t("locations.add")}
             </Button>
           )}
         </div>
@@ -148,14 +148,14 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
         {query.isError && (
           <Alert variant="destructive">
             <AlertDescription>
-              Location data failed to load. {query.error.message}
+              {t("locations.loadError")} {query.error.message}
             </AlertDescription>
           </Alert>
         )}
         {query.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner aria-hidden="true" />
-            Loading locations…
+            {t("locations.loading")}
           </p>
         ) : (
           <div className="grid gap-2">
@@ -172,12 +172,12 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                     {location.name}
                   </strong>
                   <small className="text-xs text-muted-foreground">
-                    {formatLocationAddress(location) || "No address set"}
+                    {formatLocationAddress(location) ||
+                      t("locations.noAddress")}
                   </small>
                 </span>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {location.screenCount} screen
-                  {location.screenCount === 1 ? "" : "s"}
+                  {t("locations.screens", { count: location.screenCount })}
                 </span>
                 {canManage && (
                   <span className="flex items-center gap-1">
@@ -185,7 +185,9 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      aria-label={`Edit ${location.name}`}
+                      aria-label={t("locations.editLocation", {
+                        name: location.name,
+                      })}
                       onClick={() => open(location)}
                     >
                       <Pencil size={16} aria-hidden="true" />
@@ -194,19 +196,25 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      aria-label={`Delete ${location.name}`}
+                      aria-label={t("locations.deleteLocation", {
+                        name: location.name,
+                      })}
                       disabled={remove.isPending}
                       onClick={() => {
                         if (location.screenCount > 0) {
                           void confirm({
-                            title: `${location.name} still has screens assigned and cannot be deleted.`,
-                            action: "OK",
+                            title: t("locations.blockedTitle", {
+                              name: location.name,
+                            }),
+                            action: t("locations.confirmOk"),
                           });
                           return;
                         }
                         void confirm({
-                          title: `Delete ${location.name}?`,
-                          action: "Delete",
+                          title: t("locations.deleteTitle", {
+                            name: location.name,
+                          }),
+                          action: t("common:actions.delete"),
                           destructive: true,
                         }).then((ok) => {
                           if (ok) remove.mutate(location);
@@ -226,12 +234,12 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                     <MapPin size={24} aria-hidden="true" />
                   </EmptyMedia>
                   <EmptyTitle>
-                    {search ? "No locations match" : "No locations yet"}
+                    {search ? t("locations.emptySearch") : t("locations.empty")}
                   </EmptyTitle>
                   <EmptyDescription>
                     {search
-                      ? "Try a different name or address."
-                      : "Add a building or campus to assign it to screens."}
+                      ? t("locations.emptySearchHint")
+                      : t("locations.emptyHint")}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -247,7 +255,9 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>
-                {editing === "new" ? "Add location" : "Edit location"}
+                {editing === "new"
+                  ? t("locations.addTitle")
+                  : t("locations.editTitle")}
               </DialogTitle>
             </DialogHeader>
             <form
@@ -259,53 +269,53 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
             >
               <LocationField
                 id="location-name"
-                label="Location name"
+                labelKey="locations.fields.name"
                 required
                 value={form.name}
                 onChange={(name) => setForm({ ...form, name })}
               />
               <LocationField
                 id="location-address-1"
-                label="Address line 1"
+                labelKey="locations.fields.address1"
                 value={form.addressLine1}
                 onChange={(addressLine1) => setForm({ ...form, addressLine1 })}
               />
               <LocationField
                 id="location-address-2"
-                label="Address line 2"
+                labelKey="locations.fields.address2"
                 value={form.addressLine2}
                 onChange={(addressLine2) => setForm({ ...form, addressLine2 })}
               />
               <div className="grid gap-4 sm:grid-cols-3">
                 <LocationField
                   id="location-city"
-                  label="City"
+                  labelKey="locations.fields.city"
                   value={form.city}
                   onChange={(city) => setForm({ ...form, city })}
                 />
                 <LocationField
                   id="location-state"
-                  label="State"
+                  labelKey="locations.fields.state"
                   value={form.state}
                   onChange={(state) => setForm({ ...form, state })}
                 />
                 <LocationField
                   id="location-postal-code"
-                  label="ZIP / postal code"
+                  labelKey="locations.fields.postal"
                   value={form.postalCode}
                   onChange={(postalCode) => setForm({ ...form, postalCode })}
                 />
               </div>
               <LocationField
                 id="location-country"
-                label="Country"
+                labelKey="locations.fields.country"
                 value={form.country}
                 onChange={(country) => setForm({ ...form, country })}
               />
               <div className="grid gap-4 sm:grid-cols-2">
                 <LocationField
                   id="location-latitude"
-                  label="Latitude"
+                  labelKey="locations.fields.latitude"
                   type="number"
                   value={form.latitude ?? ""}
                   onChange={(value) =>
@@ -317,7 +327,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                 />
                 <LocationField
                   id="location-longitude"
-                  label="Longitude"
+                  labelKey="locations.fields.longitude"
                   type="number"
                   value={form.longitude ?? ""}
                   onChange={(value) =>
@@ -339,14 +349,16 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                   type="button"
                   onClick={() => setEditing(undefined)}
                 >
-                  Cancel
+                  {t("common:actions.cancel")}
                 </Button>
                 <Button
                   variant="default"
                   type="submit"
                   disabled={!form.name.trim() || save.isPending}
                 >
-                  {save.isPending ? "Saving…" : "Save location"}
+                  {save.isPending
+                    ? t("common:actions.saving")
+                    : t("locations.save")}
                 </Button>
               </DialogFooter>
             </form>
@@ -357,24 +369,36 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
   );
 }
 
+type LocationFieldLabelKey =
+  | "locations.fields.name"
+  | "locations.fields.address1"
+  | "locations.fields.address2"
+  | "locations.fields.city"
+  | "locations.fields.state"
+  | "locations.fields.postal"
+  | "locations.fields.country"
+  | "locations.fields.latitude"
+  | "locations.fields.longitude";
+
 function LocationField({
   id,
-  label,
+  labelKey,
   value,
   onChange,
   required,
   type = "text",
 }: {
   id: string;
-  label: string;
+  labelKey: LocationFieldLabelKey;
   value: string | number;
   onChange: (value: string) => void;
   required?: boolean;
   type?: "text" | "number";
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   return (
     <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldLabel htmlFor={id}>{t(labelKey)}</FieldLabel>
       <Input
         id={id}
         type={type}

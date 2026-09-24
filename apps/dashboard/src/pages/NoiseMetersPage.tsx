@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, AudioLines, Plus, Trash2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { z } from "zod";
 import { api } from "../api/client";
@@ -42,12 +43,15 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { ResourceTabs } from "../components/ResourceTabs";
+import { apiErrorMessage } from "../i18n";
 import {
   RegisterCheckbox,
   TargetFields,
   canManage,
   useTargetSource,
+  weekdayShortLabel,
 } from "../plugins/shared";
+import type { PluginsT } from "../plugins/pluginCatalog";
 
 /**
  * Studio talks in seconds and in a 0-100 scale; the wire talks in milliseconds.
@@ -55,184 +59,191 @@ import {
  * relative to whatever microphone is plugged into the player, and presenting it
  * as a calibrated measurement would be a claim Tilecast cannot make.
  */
-const noiseMeterSchema = z
-  .object({
-    name: z.string().trim().min(1).max(180),
-    message: z
-      .string()
-      .trim()
-      .max(120, "Message is limited to 120 characters."),
-    warningLevel: z.coerce
-      .number({ error: "Enter a level between 1 and 99." })
-      .int("Enter a level between 1 and 99.")
-      .min(1, "Enter a level between 1 and 99.")
-      .max(99, "Enter a level between 1 and 99."),
-    loudLevel: z.coerce
-      .number({ error: "Enter a level between 2 and 100." })
-      .int("Enter a level between 2 and 100.")
-      .min(2, "Enter a level between 2 and 100.")
-      .max(100, "Enter a level between 2 and 100."),
-    sensitivity: z.coerce
-      .number({ error: "Enter a sensitivity between 25 and 300 percent." })
-      .int("Enter a sensitivity between 25 and 300 percent.")
-      .min(25, "Enter a sensitivity between 25 and 300 percent.")
-      .max(300, "Enter a sensitivity between 25 and 300 percent."),
-    showAfterSeconds: z.coerce
-      .number({ error: "Enter between 0.1 and 10 seconds." })
-      .min(0.1, "Enter between 0.1 and 10 seconds.")
-      .max(10, "Enter between 0.1 and 10 seconds."),
-    hideAfterSeconds: z.coerce
-      .number({ error: "Enter between 0.5 and 30 seconds." })
-      .min(0.5, "Enter between 0.5 and 30 seconds.")
-      .max(30, "Enter between 0.5 and 30 seconds."),
-    displayMode: z.enum(["overlay", "push"]),
-    heightPx: z.coerce
-      .number({ error: "Enter a height between 40 and 320 pixels." })
-      .int("Enter a height between 40 and 320 pixels.")
-      .min(40, "Enter a height between 40 and 320 pixels.")
-      .max(320, "Enter a height between 40 and 320 pixels."),
-    historyEnabled: z.boolean(),
-    // A closed set, because the Player prunes its own queue with the same
-    // window and a free number would let the two disagree.
-    historyRetentionDays: z.coerce
-      .number()
-      .refine(
-        (value) => [1, 3, 7, 14, 30].includes(value),
-        "Choose 1, 3, 7, 14, or 30 days.",
-      ),
-    historyActiveHoursOnly: z.boolean(),
-    scheduleEnabled: z.boolean(),
-    scheduleDaysOfWeek: z.array(z.coerce.number().int().min(0).max(6)),
-    scheduleStartTime: z.string(),
-    scheduleEndTime: z.string(),
-    scheduleTimezone: z
-      .string({ error: "Enter an IANA timezone such as America/Chicago." })
-      .trim()
-      .min(1, "Enter an IANA timezone such as America/Chicago.")
-      .max(100, "Enter an IANA timezone such as America/Chicago."),
-    enabled: z.boolean(),
-    targetScope: z.enum(["all", "screens", "sync_groups", "locations"]),
-    targetIds: z.array(z.string()),
-  })
-  .superRefine((value, context) => {
-    if (value.scheduleEnabled) {
-      // A window that can never open would hide the bar permanently, which is
-      // never what setting one meant.
-      if (!/^\d{2}:\d{2}$/.test(value.scheduleStartTime)) {
+// Schemas are built at render time from `t` so validation messages follow
+// the interface language. Callers pass the `t` they already use.
+export function makeNoiseMeterSchema(t: PluginsT) {
+  return z
+    .object({
+      name: z.string().trim().min(1).max(180),
+      message: z
+        .string()
+        .trim()
+        .max(120, t("noiseMeter.validation.messageMax")),
+      warningLevel: z.coerce
+        .number({ error: t("noiseMeter.validation.warningRange") })
+        .int(t("noiseMeter.validation.warningRange"))
+        .min(1, t("noiseMeter.validation.warningRange"))
+        .max(99, t("noiseMeter.validation.warningRange")),
+      loudLevel: z.coerce
+        .number({ error: t("noiseMeter.validation.loudRange") })
+        .int(t("noiseMeter.validation.loudRange"))
+        .min(2, t("noiseMeter.validation.loudRange"))
+        .max(100, t("noiseMeter.validation.loudRange")),
+      sensitivity: z.coerce
+        .number({ error: t("noiseMeter.validation.sensitivityRange") })
+        .int(t("noiseMeter.validation.sensitivityRange"))
+        .min(25, t("noiseMeter.validation.sensitivityRange"))
+        .max(300, t("noiseMeter.validation.sensitivityRange")),
+      showAfterSeconds: z.coerce
+        .number({ error: t("noiseMeter.validation.showRange") })
+        .min(0.1, t("noiseMeter.validation.showRange"))
+        .max(10, t("noiseMeter.validation.showRange")),
+      hideAfterSeconds: z.coerce
+        .number({ error: t("noiseMeter.validation.hideRange") })
+        .min(0.5, t("noiseMeter.validation.hideRange"))
+        .max(30, t("noiseMeter.validation.hideRange")),
+      displayMode: z.enum(["overlay", "push"]),
+      heightPx: z.coerce
+        .number({ error: t("noiseMeter.validation.heightRange") })
+        .int(t("noiseMeter.validation.heightRange"))
+        .min(40, t("noiseMeter.validation.heightRange"))
+        .max(320, t("noiseMeter.validation.heightRange")),
+      historyEnabled: z.boolean(),
+      // A closed set, because the Player prunes its own queue with the same
+      // window and a free number would let the two disagree.
+      historyRetentionDays: z.coerce
+        .number()
+        .refine(
+          (value) => [1, 3, 7, 14, 30].includes(value),
+          t("noiseMeter.validation.retentionOptions"),
+        ),
+      historyActiveHoursOnly: z.boolean(),
+      scheduleEnabled: z.boolean(),
+      scheduleDaysOfWeek: z.array(z.coerce.number().int().min(0).max(6)),
+      scheduleStartTime: z.string(),
+      scheduleEndTime: z.string(),
+      scheduleTimezone: z
+        .string({ error: t("noiseMeter.validation.timezone") })
+        .trim()
+        .min(1, t("noiseMeter.validation.timezone"))
+        .max(100, t("noiseMeter.validation.timezone")),
+      enabled: z.boolean(),
+      targetScope: z.enum(["all", "screens", "sync_groups", "locations"]),
+      targetIds: z.array(z.string()),
+    })
+    .superRefine((value, context) => {
+      if (value.scheduleEnabled) {
+        // A window that can never open would hide the bar permanently, which is
+        // never what setting one meant.
+        if (!/^\d{2}:\d{2}$/.test(value.scheduleStartTime)) {
+          context.addIssue({
+            code: "custom",
+            path: ["scheduleStartTime"],
+            message: t("noiseMeter.validation.windowStart"),
+          });
+        }
+        if (!/^\d{2}:\d{2}$/.test(value.scheduleEndTime)) {
+          context.addIssue({
+            code: "custom",
+            path: ["scheduleEndTime"],
+            message: t("noiseMeter.validation.windowEnd"),
+          });
+        }
+        if (
+          value.scheduleStartTime &&
+          value.scheduleStartTime === value.scheduleEndTime
+        ) {
+          context.addIssue({
+            code: "custom",
+            path: ["scheduleEndTime"],
+            message: t("noiseMeter.validation.windowDifferent"),
+          });
+        }
+        if (value.scheduleDaysOfWeek.length === 0) {
+          context.addIssue({
+            code: "custom",
+            path: ["scheduleDaysOfWeek"],
+            message: t("noiseMeter.validation.daysRequired"),
+          });
+        }
+      }
+      if (value.warningLevel >= value.loudLevel) {
         context.addIssue({
           code: "custom",
-          path: ["scheduleStartTime"],
-          message: "Choose a start time.",
+          path: ["warningLevel"],
+          message: t("noiseMeter.validation.levelOrder"),
         });
       }
-      if (!/^\d{2}:\d{2}$/.test(value.scheduleEndTime)) {
+      if (value.targetScope !== "all" && value.targetIds.length === 0) {
         context.addIssue({
           code: "custom",
-          path: ["scheduleEndTime"],
-          message: "Choose an end time.",
+          path: ["targetIds"],
+          message: t("noiseMeter.validation.targetRequired"),
         });
       }
-      if (
-        value.scheduleStartTime &&
-        value.scheduleStartTime === value.scheduleEndTime
-      ) {
-        context.addIssue({
-          code: "custom",
-          path: ["scheduleEndTime"],
-          message: "The window must start and end at different times.",
-        });
-      }
-      if (value.scheduleDaysOfWeek.length === 0) {
-        context.addIssue({
-          code: "custom",
-          path: ["scheduleDaysOfWeek"],
-          message: "Choose at least one day.",
-        });
-      }
-    }
-    if (value.warningLevel >= value.loudLevel) {
-      context.addIssue({
-        code: "custom",
-        path: ["warningLevel"],
-        message: "The warning level must be below the too loud level.",
-      });
-    }
-    if (value.targetScope !== "all" && value.targetIds.length === 0) {
-      context.addIssue({
-        code: "custom",
-        path: ["targetIds"],
-        message: "Choose at least one target.",
-      });
-    }
-  });
+    });
+}
 
-type NoiseMeterFormValues = z.infer<typeof noiseMeterSchema>;
-type NoiseMeterFormInput = z.input<typeof noiseMeterSchema>;
+type NoiseMeterFormValues = z.infer<ReturnType<typeof makeNoiseMeterSchema>>;
+type NoiseMeterFormInput = z.input<ReturnType<typeof makeNoiseMeterSchema>>;
 
-const noiseMeterDefaults: NoiseMeterFormValues = {
-  name: "Noise Meter",
-  message: "Please lower the volume",
-  warningLevel: 60,
-  loudLevel: 80,
-  sensitivity: 100,
-  showAfterSeconds: 1,
-  hideAfterSeconds: 3,
-  displayMode: "overlay",
-  heightPx: 96,
-  historyEnabled: true,
-  historyRetentionDays: 7,
-  historyActiveHoursOnly: true,
-  // No window by default: the bar shows whenever the room is too loud.
-  scheduleEnabled: false,
-  scheduleDaysOfWeek: [1, 2, 3, 4, 5],
-  scheduleStartTime: "08:00",
-  scheduleEndTime: "15:30",
-  scheduleTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-  enabled: true,
-  targetScope: "all",
-  targetIds: [],
-};
-
-const noiseMeterScaleHint =
-  "Noise levels are relative to this player's microphone and are not calibrated decibel measurements.";
+// New-instance defaults, including the suggested message callers see
+// prefilled in the form. Built from `t` like the schema above.
+function makeNoiseMeterDefaults(t: PluginsT): NoiseMeterFormValues {
+  return {
+    name: "Noise Meter",
+    message: t("noiseMeter.editor.messagePlaceholder"),
+    warningLevel: 60,
+    loudLevel: 80,
+    sensitivity: 100,
+    showAfterSeconds: 1,
+    hideAfterSeconds: 3,
+    displayMode: "overlay",
+    heightPx: 96,
+    historyEnabled: true,
+    historyRetentionDays: 7,
+    historyActiveHoursOnly: true,
+    // No window by default: the bar shows whenever the room is too loud.
+    scheduleEnabled: false,
+    scheduleDaysOfWeek: [1, 2, 3, 4, 5],
+    scheduleStartTime: "08:00",
+    scheduleEndTime: "15:30",
+    scheduleTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    enabled: true,
+    targetScope: "all",
+    targetIds: [],
+  };
+}
 
 /** One line describing what a configured meter actually does. */
-function noiseMeterSummary(instance: NoiseMeter) {
+function noiseMeterSummary(instance: NoiseMeter, t: PluginsT) {
   return [
-    `Shows above ${instance.loudLevel}`,
-    `hides below ${instance.warningLevel}`,
-    `after ${instance.clearHoldMs / 1000}s`,
+    t("noiseMeter.summary.showsAbove", { level: instance.loudLevel }),
+    t("noiseMeter.summary.hidesBelow", { level: instance.warningLevel }),
+    t("noiseMeter.summary.afterSeconds", {
+      seconds: instance.clearHoldMs / 1000,
+    }),
     instance.displayMode === "push" ? "push" : "overlay",
     ...(instance.scheduleEnabled && instance.scheduleStartTime
-      ? [`${instance.scheduleStartTime}–${instance.scheduleEndTime}`]
+      ? [
+          t("noiseMeter.summary.window", {
+            start: instance.scheduleStartTime,
+            end: instance.scheduleEndTime,
+          }),
+        ]
       : []),
   ].join(" · ");
 }
 
 const noiseDisplayModeOptions = [
-  { value: "overlay", label: "Overlay the content" },
-  { value: "push", label: "Push the content up" },
-];
+  { value: "overlay", labelKey: "noiseMeter.editor.displayMode.overlay" },
+  { value: "push", labelKey: "noiseMeter.editor.displayMode.push" },
+] as const;
 
-const retentionOptions = [1, 3, 7, 14, 30].map((days) => ({
-  value: String(days),
-  label: `${days} day${days === 1 ? "" : "s"}`,
-}));
+const retentionDays = [1, 3, 7, 14, 30] as const;
 
 /** Linux Player measures the room; other platforms ignore the plugin. */
 function NoiseMeterPlatformNotice() {
+  const { t } = useTranslation("plugins");
   return (
     <Alert>
-      <AlertDescription>
-        Noise Meter runs on Linux Player only, using that player&apos;s default
-        microphone. Audio is measured on the device and never sent to Tilecast,
-        and nothing is recorded. Android Players ignore it.
-      </AlertDescription>
+      <AlertDescription>{t("noiseMeter.platformNotice")}</AlertDescription>
     </Alert>
   );
 }
 
 export function NoiseMetersPage() {
+  const { t } = useTranslation(["plugins", "common"]);
   const auth = useAuth();
   const queryClient = useQueryClient();
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -266,14 +277,14 @@ export function NoiseMetersPage() {
               className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
               to="/plugins"
             >
-              <ArrowLeft size={15} aria-hidden="true" /> Plugins
+              <ArrowLeft size={15} aria-hidden="true" />{" "}
+              {t("shared.backToPlugins")}
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">
-              Noise Meter
+              {t("noiseMeter.title")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              A bottom bar that appears only while the room stays too loud, and
-              hides itself when it settles.
+              {t("noiseMeter.subtitle")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -282,8 +293,8 @@ export function NoiseMetersPage() {
                 className={buttonVariants({ size: "lg" })}
                 to="/plugins/noise-meter/new"
               >
-                <Plus data-icon="inline-start" aria-hidden="true" /> New
-                instance
+                <Plus data-icon="inline-start" aria-hidden="true" />{" "}
+                {t("shared.newInstance")}
               </Link>
             )}
             <PluginActionsMenu pluginId="noise_meter" />
@@ -292,21 +303,17 @@ export function NoiseMetersPage() {
         <NoiseMeterPlatformNotice />
         {!manageable && (
           <Alert>
-            <AlertDescription>
-              Owner or Administrator access is required to make changes.
-            </AlertDescription>
+            <AlertDescription>{t("shared.manageNote")}</AlertDescription>
           </Alert>
         )}
         {instances.isError && (
           <Alert variant="destructive">
-            <AlertDescription>
-              Noise meters could not be loaded.
-            </AlertDescription>
+            <AlertDescription>{t("noiseMeter.loadError")}</AlertDescription>
           </Alert>
         )}
         {remove.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{remove.error.message}</AlertDescription>
+            <AlertDescription>{apiErrorMessage(remove.error)}</AlertDescription>
           </Alert>
         )}
         {showEmptyState ? (
@@ -315,10 +322,9 @@ export function NoiseMetersPage() {
               <EmptyMedia variant="icon">
                 <AudioLines size={24} aria-hidden="true" />
               </EmptyMedia>
-              <EmptyTitle>No noise meters configured</EmptyTitle>
+              <EmptyTitle>{t("noiseMeter.emptyTitle")}</EmptyTitle>
               <EmptyDescription>
-                Create an instance to watch room noise on selected Linux
-                players.
+                {t("noiseMeter.emptyDescription")}
               </EmptyDescription>
             </EmptyHeader>
             {manageable && (
@@ -327,7 +333,7 @@ export function NoiseMetersPage() {
                   className={buttonVariants()}
                   to="/plugins/noise-meter/new"
                 >
-                  Create instance
+                  {t("shared.createInstance")}
                 </Link>
               </EmptyContent>
             )}
@@ -340,11 +346,13 @@ export function NoiseMetersPage() {
                   <ItemTitle>
                     <h2 className="text-sm font-medium">{instance.name}</h2>
                     <Badge variant={instance.enabled ? "default" : "secondary"}>
-                      {instance.enabled ? "Enabled" : "Disabled"}
+                      {instance.enabled
+                        ? t("shared.enabledBadge")
+                        : t("shared.disabledBadge")}
                     </Badge>
                   </ItemTitle>
                   <ItemDescription>
-                    {noiseMeterSummary(instance)}
+                    {noiseMeterSummary(instance, t)}
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions className="flex-wrap">
@@ -355,7 +363,7 @@ export function NoiseMetersPage() {
                     })}
                     to={`/plugins/noise-meter/${instance.id}/history`}
                   >
-                    History
+                    {t("noiseMeter.list.history")}
                   </Link>
                   <Link
                     className={buttonVariants({
@@ -364,19 +372,23 @@ export function NoiseMetersPage() {
                     })}
                     to={`/plugins/noise-meter/${instance.id}`}
                   >
-                    Manage
+                    {t("shared.manage")}
                   </Link>
                   {manageable && (
                     <RheaButton
                       type="button"
                       size="icon"
                       variant="destructive"
-                      aria-label={`Delete ${instance.name}`}
+                      aria-label={t("shared.deleteAction", {
+                        name: instance.name,
+                      })}
                       onClick={() => {
                         void confirm({
-                          title: `Delete “${instance.name}”?`,
-                          body: "Targeted players will stop measuring room noise.",
-                          action: "Delete",
+                          title: t("shared.deleteTitle", {
+                            name: instance.name,
+                          }),
+                          body: t("noiseMeter.deleteBody"),
+                          action: t("common:actions.delete"),
                           destructive: true,
                         }).then((ok) => {
                           if (ok) remove.mutate(instance.id);
@@ -397,11 +409,14 @@ export function NoiseMetersPage() {
 }
 
 export function NoiseMeterEditorPage() {
+  const { t } = useTranslation(["plugins", "common"]);
   const { id } = useParams();
   const editing = Boolean(id);
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const schema = useMemo(() => makeNoiseMeterSchema(t), [t]);
+  const defaults = useMemo(() => makeNoiseMeterDefaults(t), [t]);
   const instance = useQuery({
     queryKey: ["noise-meter", id],
     queryFn: () => api.noiseMeter(id ?? ""),
@@ -415,8 +430,8 @@ export function NoiseMeterEditorPage() {
     watch,
     formState: { errors },
   } = useForm<NoiseMeterFormInput, unknown, NoiseMeterFormValues>({
-    resolver: zodResolver(noiseMeterSchema),
-    defaultValues: noiseMeterDefaults,
+    resolver: zodResolver(schema),
+    defaultValues: defaults,
   });
   useEffect(() => {
     if (!instance.data) return;
@@ -515,22 +530,29 @@ export function NoiseMeterEditorPage() {
           className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
           to="/plugins/noise-meter"
         >
-          <ArrowLeft size={15} aria-hidden="true" /> Noise Meter
+          <ArrowLeft size={15} aria-hidden="true" /> {t("noiseMeter.title")}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {editing ? "Manage noise meter" : "New noise meter"}
+          {editing
+            ? t("noiseMeter.editor.manageTitle")
+            : t("noiseMeter.editor.createTitle")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          The bar appears only after the room stays loud, and an emergency alert
-          always replaces it.
+          {t("noiseMeter.editor.subtitle")}
         </p>
       </header>
       {editing && (
         <ResourceTabs
-          label="Noise Meter"
+          label={t("noiseMeter.tabs.label")}
           tabs={[
-            { label: "Settings", to: `/plugins/noise-meter/${id}` },
-            { label: "History", to: `/plugins/noise-meter/${id}/history` },
+            {
+              label: t("noiseMeter.tabs.settings"),
+              to: `/plugins/noise-meter/${id}`,
+            },
+            {
+              label: t("noiseMeter.tabs.history"),
+              to: `/plugins/noise-meter/${id}/history`,
+            },
           ]}
         />
       )}
@@ -540,55 +562,61 @@ export function NoiseMeterEditorPage() {
         onSubmit={(event) => void handleSubmit(submit)(event)}
       >
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Meter</h2>
+          <h2 className="text-base font-semibold">
+            {t("noiseMeter.editor.sections.meter")}
+          </h2>
           <FormField
             id="noise-meter-name"
-            label="Name"
+            label={t("shared.nameLabel")}
             aria-required="true"
             error={errors.name?.message}
             {...register("name")}
           />
           <FormField
             id="noise-meter-message"
-            label="Message"
-            placeholder="Please lower the volume"
-            hint="Shown on the right of the bar. Leave blank to show “Too loud”."
+            label={t("noiseMeter.editor.messageLabel")}
+            placeholder={t("noiseMeter.editor.messagePlaceholder")}
+            hint={t("noiseMeter.editor.messageHint")}
             error={errors.message?.message}
             {...register("message")}
           />
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Levels</h2>
-          <p className="text-sm text-muted-foreground">{noiseMeterScaleHint}</p>
+          <h2 className="text-base font-semibold">
+            {t("noiseMeter.editor.sections.levels")}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {t("noiseMeter.editor.scaleHint")}
+          </p>
           <div className="grid gap-4 sm:grid-cols-3">
             <FormField
               id="noise-meter-warning"
-              label="Warning level"
+              label={t("noiseMeter.editor.warningLabel")}
               type="number"
               min={1}
               max={99}
-              hint="Where the yellow zone begins. The bar also hides below this level."
+              hint={t("noiseMeter.editor.warningHint")}
               error={errors.warningLevel?.message}
               {...register("warningLevel", { valueAsNumber: true })}
             />
             <FormField
               id="noise-meter-loud"
-              label="Too loud level"
+              label={t("noiseMeter.editor.loudLabel")}
               type="number"
               min={2}
               max={100}
-              hint="Where the red zone begins and the bar can appear."
+              hint={t("noiseMeter.editor.loudHint")}
               error={errors.loudLevel?.message}
               {...register("loudLevel", { valueAsNumber: true })}
             />
             <FormField
               id="noise-meter-sensitivity"
-              label="Sensitivity (%)"
+              label={t("noiseMeter.editor.sensitivityLabel")}
               type="number"
               min={25}
               max={300}
-              hint="Raise it for a quiet microphone, lower it for a hot one."
+              hint={t("noiseMeter.editor.sensitivityHint")}
               error={errors.sensitivity?.message}
               {...register("sensitivity", { valueAsNumber: true })}
             />
@@ -597,32 +625,33 @@ export function NoiseMeterEditorPage() {
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h2 className="text-base font-semibold">Timing</h2>
+            <h2 className="text-base font-semibold">
+              {t("noiseMeter.editor.sections.timing")}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              Separate delays keep a single shout from raising the bar and a
-              brief pause from dropping it.
+              {t("noiseMeter.editor.timingDescription")}
             </p>
           </header>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               id="noise-meter-show-after"
-              label="Show after (seconds)"
+              label={t("noiseMeter.editor.showAfterLabel")}
               type="number"
               min={0.1}
               max={10}
               step={0.1}
-              hint="How long the room must stay too loud before the bar appears."
+              hint={t("noiseMeter.editor.showAfterHint")}
               error={errors.showAfterSeconds?.message}
               {...register("showAfterSeconds", { valueAsNumber: true })}
             />
             <FormField
               id="noise-meter-hide-after"
-              label="Hide after normal for (seconds)"
+              label={t("noiseMeter.editor.hideAfterLabel")}
               type="number"
               min={0.5}
               max={30}
               step={0.5}
-              hint="How long the room must stay below the warning level before the bar hides."
+              hint={t("noiseMeter.editor.hideAfterHint")}
               error={errors.hideAfterSeconds?.message}
               {...register("hideAfterSeconds", { valueAsNumber: true })}
             />
@@ -630,11 +659,13 @@ export function NoiseMeterEditorPage() {
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Appearance</h2>
+          <h2 className="text-base font-semibold">
+            {t("noiseMeter.editor.sections.appearance")}
+          </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="noise-meter-display-mode">
-                Display mode
+                {t("noiseMeter.editor.displayLabel")}
               </FieldLabel>
               <RheaSelect
                 items={noiseDisplayModeOptions}
@@ -647,14 +678,20 @@ export function NoiseMeterEditorPage() {
               >
                 <SelectTrigger
                   id="noise-meter-display-mode"
-                  aria-label="Display mode"
+                  aria-label={t("noiseMeter.editor.displayLabel")}
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    {t(
+                      noiseDisplayModeOptions.find(
+                        (option) => option.value === displayMode,
+                      )?.labelKey ?? "noiseMeter.editor.displayMode.overlay",
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {noiseDisplayModeOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -662,7 +699,7 @@ export function NoiseMeterEditorPage() {
             </Field>
             <FormField
               id="noise-meter-height"
-              label="Bar height (px)"
+              label={t("noiseMeter.editor.heightLabel")}
               type="number"
               min={40}
               max={320}
@@ -670,19 +707,23 @@ export function NoiseMeterEditorPage() {
               {...register("heightPx", { valueAsNumber: true })}
             />
           </div>
-          <RegisterCheckbox label="Enabled" {...register("enabled")} />
+          <RegisterCheckbox
+            label={t("shared.enabledLabel")}
+            {...register("enabled")}
+          />
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h2 className="text-base font-semibold">When the bar can show</h2>
+            <h2 className="text-base font-semibold">
+              {t("noiseMeter.editor.sections.window")}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              The room is measured either way. This decides only when a too-loud
-              room may put the bar on screen.
+              {t("noiseMeter.editor.windowDescription")}
             </p>
           </header>
           <RegisterCheckbox
-            label="Only show during a set time window"
+            label={t("noiseMeter.editor.windowEnabledLabel")}
             {...register("scheduleEnabled")}
           />
           {scheduleEnabled && (
@@ -690,22 +731,23 @@ export function NoiseMeterEditorPage() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <FormField
                   id="noise-meter-window-start"
-                  label="From"
+                  label={t("noiseMeter.editor.fromLabel")}
                   type="time"
                   error={errors.scheduleStartTime?.message}
                   {...register("scheduleStartTime")}
                 />
                 <FormField
                   id="noise-meter-window-end"
-                  label="Until"
+                  label={t("noiseMeter.editor.untilLabel")}
                   type="time"
-                  hint="An end before the start runs the window overnight."
+                  hint={t("noiseMeter.editor.untilHint")}
                   error={errors.scheduleEndTime?.message}
                   {...register("scheduleEndTime")}
                 />
                 <FormField
                   id="noise-meter-window-timezone"
-                  label="Timezone"
+                  label={t("noiseMeter.editor.timezoneLabel")}
+                  // i18n-ignore: IANA timezone example, not translatable text
                   placeholder="America/Chicago"
                   error={errors.scheduleTimezone?.message}
                   {...register("scheduleTimezone")}
@@ -716,7 +758,7 @@ export function NoiseMeterEditorPage() {
                   className="text-sm font-medium"
                   id="noise-meter-days-label"
                 >
-                  Days of the week
+                  {t("noiseMeter.editor.daysLabel")}
                 </span>
                 <ToggleGroup
                   multiple
@@ -741,7 +783,7 @@ export function NoiseMeterEditorPage() {
                       value={String(day.value)}
                       className="min-w-10 aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                     >
-                      {day.short}
+                      {weekdayShortLabel(day.value, t)}
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
@@ -752,8 +794,7 @@ export function NoiseMeterEditorPage() {
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Outside the window the player keeps measuring and the bar stays
-                down. An emergency alert is never affected by this window.
+                {t("noiseMeter.editor.windowNote")}
               </p>
             </>
           )}
@@ -761,19 +802,22 @@ export function NoiseMeterEditorPage() {
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h2 className="text-base font-semibold">History</h2>
+            <h2 className="text-base font-semibold">
+              {t("noiseMeter.editor.sections.history")}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              Saves only relative noise-level measurements. Microphone audio is
-              never recorded or uploaded.
+              {t("noiseMeter.editor.historyDescription")}
             </p>
           </header>
           <RegisterCheckbox
-            label="Save noise history"
+            label={t("noiseMeter.editor.historyEnabledLabel")}
             {...register("historyEnabled")}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="noise-meter-retention">Retention</FieldLabel>
+              <FieldLabel htmlFor="noise-meter-retention">
+                {t("noiseMeter.editor.retentionLabel")}
+              </FieldLabel>
               <RheaSelect
                 items={retentionOptions}
                 name="historyRetentionDays"
@@ -787,37 +831,40 @@ export function NoiseMeterEditorPage() {
               >
                 <SelectTrigger
                   id="noise-meter-retention"
-                  aria-label="Retention"
+                  aria-label={t("noiseMeter.editor.retentionLabel")}
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    {t("noiseMeter.editor.retention", {
+                      count: historyRetentionDays,
+                    })}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {retentionOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {retentionDays.map((days) => (
+                    <SelectItem key={days} value={String(days)}>
+                      {t("noiseMeter.editor.retention", { count: days })}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </RheaSelect>
               <FieldDescription>
-                How long measurements are kept before they are removed
-                automatically.
+                {t("noiseMeter.editor.retentionHint")}
               </FieldDescription>
             </Field>
           </div>
           <RegisterCheckbox
-            label="Collect only during active hours"
+            label={t("noiseMeter.editor.activeHoursLabel")}
             {...register("historyActiveHoursOnly")}
           />
           <p className="text-sm text-muted-foreground">
-            Outside active hours the player stops listening entirely rather than
-            measuring and discarding: the microphone is released until the next
-            active window.
+            {t("noiseMeter.editor.activeHoursNote")}
           </p>
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Targets</h2>
+          <h2 className="text-base font-semibold">
+            {t("shared.targetsSection")}
+          </h2>
           <TargetFields
             idPrefix="noise-meter"
             scope={targetScope}
@@ -834,7 +881,7 @@ export function NoiseMeterEditorPage() {
 
         {save.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{save.error.message}</AlertDescription>
+            <AlertDescription>{apiErrorMessage(save.error)}</AlertDescription>
           </Alert>
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -842,14 +889,14 @@ export function NoiseMeterEditorPage() {
             className={buttonVariants({ variant: "outline", size: "lg" })}
             to="/plugins/noise-meter"
           >
-            Cancel
+            {t("common:actions.cancel")}
           </Link>
           <RheaButton type="submit" disabled={save.isPending}>
             {save.isPending
-              ? "Saving…"
+              ? t("common:actions.saving")
               : editing
-                ? "Save changes"
-                : "Create instance"}
+                ? t("common:actions.saveChanges")
+                : t("shared.createInstance")}
           </RheaButton>
         </div>
       </form>

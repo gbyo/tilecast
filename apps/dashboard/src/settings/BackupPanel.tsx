@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Download, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import type { BackupArchive, BackupJob } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -17,6 +19,8 @@ import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 
 export function BackupPanel({ owner }: { owner: boolean }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -40,13 +44,12 @@ export function BackupPanel({ owner }: { owner: boolean }) {
   const restore = useMutation({
     mutationFn: async (archive: BackupArchive) => {
       const plan = await api.backupRestorePlan(archive.id);
-      const identityWarning = plan.identityMismatch
-        ? " WARNING: This backup belongs to a different installation. Enrolled players will need to be reset and paired again."
-        : "";
       const ok = await confirm({
-        title: `Restore ${archive.fileName}?`,
-        body: `Tilecast will become temporarily unavailable and current database and media state will be replaced. A pre-restore backup will be created first.${identityWarning}`,
-        action: "Restore",
+        title: t("backups.restoreTitle", { fileName: archive.fileName }),
+        body: plan.identityMismatch
+          ? t("backups.restoreBodyMismatch")
+          : t("backups.restoreBody"),
+        action: t("backups.restoreAction"),
         destructive: true,
       });
       if (!ok) throw new CancelledAction();
@@ -57,8 +60,8 @@ export function BackupPanel({ owner }: { owner: boolean }) {
   const remove = useMutation({
     mutationFn: async (archive: BackupArchive) => {
       const ok = await confirm({
-        title: `Delete ${archive.fileName}? This cannot be undone.`,
-        action: "Delete",
+        title: t("backups.deleteTitle", { fileName: archive.fileName }),
+        action: t("common:actions.delete"),
         destructive: true,
       });
       if (!ok) throw new CancelledAction();
@@ -70,9 +73,9 @@ export function BackupPanel({ owner }: { owner: boolean }) {
           error.code === "last_backup_protected"
         ) {
           const force = await confirm({
-            title: "This is the last complete backup. Delete it anyway?",
-            body: "You will have no known-good backup to restore.",
-            action: "Delete",
+            title: t("backups.deleteLastTitle"),
+            body: t("backups.deleteLastBody"),
+            action: t("common:actions.delete"),
             destructive: true,
           });
           if (force) return api.deleteBackup(archive.id, true, csrf);
@@ -85,21 +88,21 @@ export function BackupPanel({ owner }: { owner: boolean }) {
   if (!owner)
     return (
       <Alert role="status">
-        <AlertDescription>Only the Owner may manage backups.</AlertDescription>
+        <AlertDescription>{t("backups.ownerOnly")}</AlertDescription>
       </Alert>
     );
   if (query.isLoading)
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Spinner aria-hidden="true" />
-        Loading backups…
+        {t("backups.loading")}
       </p>
     );
   if (query.error)
     return (
       <Alert variant="destructive">
         <AlertDescription>
-          Backups could not be loaded. {query.error.message}
+          {t("backups.loadError")} {query.error.message}
         </AlertDescription>
       </Alert>
     );
@@ -118,10 +121,9 @@ export function BackupPanel({ owner }: { owner: boolean }) {
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-1">
-              <h3 className="text-base font-semibold">Installation backups</h3>
+              <h3 className="text-base font-semibold">{t("backups.title")}</h3>
               <p className="text-sm text-muted-foreground">
-                Full backups include the database, media files, thumbnails,
-                variants, and cached player updates.
+                {t("backups.description")}
               </p>
             </div>
             <RheaButton
@@ -137,15 +139,17 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                   .catch(() => {});
               }}
             >
-              {create.isPending ? "Queuing…" : "Create backup"}
+              {create.isPending ? t("backups.queuing") : t("backups.create")}
             </RheaButton>
           </div>
           {data?.lastSuccessful && (
             <p className="text-sm text-muted-foreground">
-              Last successful backup:{" "}
-              {formatDate(data.lastSuccessful.createdAt)}
+              {t("backups.lastSuccessful")}{" "}
+              {formatDate(data.lastSuccessful.createdAt, locale)}
               {data.schedule.nextRunAt
-                ? ` · Next scheduled: ${formatDate(data.schedule.nextRunAt)}`
+                ? t("backups.nextScheduled", {
+                    date: formatDate(data.schedule.nextRunAt, locale),
+                  })
                 : ""}
             </p>
           )}
@@ -158,18 +162,18 @@ export function BackupPanel({ owner }: { owner: boolean }) {
         </section>
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">Available backups</h3>
+            <h3 className="text-base font-semibold">
+              {t("backups.available")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Verify an archive before relying on it or starting a restore.
+              {t("backups.availableHint")}
             </p>
           </header>
           {!data?.backups.length ? (
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>No backups</EmptyTitle>
-                <EmptyDescription>
-                  No backups have been created yet.
-                </EmptyDescription>
+                <EmptyTitle>{t("backups.empty")}</EmptyTitle>
+                <EmptyDescription>{t("backups.emptyHint")}</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
@@ -184,7 +188,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       {archive.fileName}
                     </strong>
                     <span className="text-sm text-muted-foreground">
-                      {formatDate(archive.createdAt)} ·{" "}
+                      {formatDate(archive.createdAt, locale)} ·{" "}
                       {formatBytes(archive.sizeBytes)} · {archive.kind}
                     </span>
                     <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -196,11 +200,13 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                         }
                       >
                         {archive.verification === "verified"
-                          ? "Verified"
+                          ? t("backups.verified")
                           : archive.verification}
                       </Badge>
-                      {" · "}Tilecast {archive.tilecastVersion} · schema{" "}
-                      {archive.schemaVersion}
+                      {t("backups.versionMeta", {
+                        tilecastVersion: archive.tilecastVersion,
+                        schemaVersion: archive.schemaVersion,
+                      })}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -209,13 +215,15 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       disabled={busy}
                       onClick={() => verify.mutate(archive.id)}
                     >
-                      <ShieldCheck size={15} aria-hidden="true" /> Verify
+                      <ShieldCheck size={15} aria-hidden="true" />{" "}
+                      {t("backups.verify")}
                     </RheaButton>
                     <a
                       className={buttonVariants({ variant: "ghost" })}
                       href={`/api/v1/system/backups/${archive.id}/download`}
                     >
-                      <Download size={15} aria-hidden="true" /> Download
+                      <Download size={15} aria-hidden="true" />{" "}
+                      {t("backups.download")}
                     </a>
                     <RheaButton
                       variant="ghost"
@@ -233,15 +241,19 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                           .catch(() => {});
                       }}
                     >
-                      <RotateCcw size={15} aria-hidden="true" /> Restore
+                      <RotateCcw size={15} aria-hidden="true" />{" "}
+                      {t("backups.restore")}
                     </RheaButton>
                     <RheaButton
                       variant="destructive"
                       disabled={busy}
                       onClick={() => remove.mutate(archive)}
-                      aria-label={`Delete ${archive.fileName}`}
+                      aria-label={t("backups.deleteArchive", {
+                        fileName: archive.fileName,
+                      })}
                     >
-                      <Trash2 size={15} aria-hidden="true" /> Delete
+                      <Trash2 size={15} aria-hidden="true" />{" "}
+                      {t("common:actions.delete")}
                     </RheaButton>
                   </div>
                 </article>
@@ -252,9 +264,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
         {!!data?.recentJobs.length && (
           <section className="grid gap-3 rounded-xl border border-border p-4">
             <header>
-              <h3 className="text-base font-semibold">
-                Recent backup activity
-              </h3>
+              <h3 className="text-base font-semibold">{t("backups.recent")}</h3>
             </header>
             <div className="grid gap-2">
               {data.recentJobs.slice(0, 5).map((job) => (
@@ -267,7 +277,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       {title(job.kind)}
                     </strong>
                     <small className="text-xs text-muted-foreground">
-                      {formatDate(job.createdAt)} · {job.trigger}
+                      {formatDate(job.createdAt, locale)} · {job.trigger}
                     </small>
                   </span>
                   <span className="text-sm text-muted-foreground">
@@ -285,6 +295,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
 }
 
 function JobProgress({ job }: { job: BackupJob }) {
+  const { t } = useTranslation(["settings", "common"]);
   return (
     <div
       className="grid gap-2 rounded-xl border border-border p-3"
@@ -292,7 +303,7 @@ function JobProgress({ job }: { job: BackupJob }) {
     >
       <div className="grid gap-0.5">
         <strong className="text-sm font-semibold">
-          {title(job.kind)} in progress
+          {t("backups.jobInProgress", { kind: title(job.kind) })}
         </strong>
         <span className="text-sm text-muted-foreground">
           {job.phase || job.status} · {job.progressPercent}%
@@ -306,8 +317,8 @@ class CancelledAction extends Error {}
 function title(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+function formatDate(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));

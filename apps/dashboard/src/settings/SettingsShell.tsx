@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Field, FieldLabel } from "../components/ui/field";
 import {
   Select as RheaSelect,
@@ -24,18 +25,20 @@ export function SettingsShell({
   onNavigate: (next: SettingsSectionId) => boolean;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const navigate = useNavigate();
   const details = sectionDetails[active];
   const items = settingsNavigation.flatMap((group) => group.items);
+  const activeItem = items.find((item) => item.id === active);
   return (
     <div className="mx-auto grid max-w-[1240px] grid-cols-[208px_minmax(0,1fr)] items-start gap-8 max-[1050px]:grid-cols-[190px_minmax(0,1fr)] max-[1050px]:gap-[22px] max-[850px]:grid-cols-1">
       <aside
         className="sticky top-[72px] grid max-h-[calc(100vh-90px)] gap-[17px] overflow-y-auto py-0.5 pr-1 max-[850px]:static max-[850px]:max-h-none max-[850px]:p-0"
-        aria-label="Settings sections"
+        aria-label={t("shell.sectionsLabel")}
       >
         <Field className="hidden max-[850px]:grid max-[850px]:gap-1">
           <FieldLabel htmlFor="settings-mobile-section">
-            Settings section
+            {t("shell.sectionLabel")}
           </FieldLabel>
           <RheaSelect
             items={items.map((item) => ({
@@ -50,22 +53,24 @@ export function SettingsShell({
             }}
           >
             <SelectTrigger id="settings-mobile-section" className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {activeItem ? t(activeItem.labelKey) : ""}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {items.map((item) => (
                 <SelectItem key={item.id} value={item.id}>
-                  {item.label}
-                  {dirty.has(item.id) ? " • Unsaved" : ""}
+                  {t(item.labelKey)}
+                  {dirty.has(item.id) ? t("shell.unsavedSuffix") : ""}
                 </SelectItem>
               ))}
             </SelectContent>
           </RheaSelect>
         </Field>
         {settingsNavigation.map((group) => (
-          <div className="grid gap-0.5 max-[850px]:hidden" key={group.label}>
+          <div className="grid gap-0.5 max-[850px]:hidden" key={group.labelKey}>
             <h2 className="mb-1 px-2.5 text-[11px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
-              {group.label}
+              {t(group.labelKey)}
             </h2>
             {group.items.map((item) => {
               const Icon = sectionDetails[item.id].icon;
@@ -81,10 +86,10 @@ export function SettingsShell({
                   className="flex min-h-9 items-center gap-2 border-l-[3px] border-transparent px-2.5 py-[7px] text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-primary/10 aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
                 >
                   <Icon size={16} aria-hidden="true" className="shrink-0" />
-                  <span className="mr-auto">{item.label}</span>
+                  <span className="mr-auto">{t(item.labelKey)}</span>
                   {dirty.has(item.id) && (
                     <small className="text-[10px] text-amber-600">
-                      Unsaved
+                      {t("shell.unsavedBadge")}
                     </small>
                   )}
                 </Link>
@@ -99,10 +104,10 @@ export function SettingsShell({
             <details.icon size={20} aria-hidden="true" />
           </span>
           <h1 className="col-start-2 text-[25px] leading-[1.2] max-[600px]:text-[22px]">
-            {details.title}
+            {t(details.titleKey)}
           </h1>
           <p className="col-start-2 mt-1.5 max-w-[760px] text-sm text-muted-foreground">
-            {details.description}
+            {t(details.descriptionKey)}
           </p>
         </header>
         {children}

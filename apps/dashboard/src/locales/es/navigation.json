@@ -1,0 +1,108 @@
+{
+  "brand": {
+    "home": "Resumen de Tilecast"
+  },
+  "groups": {
+    "screens": "Pantallas",
+    "content": "Contenido",
+    "presentations": "Presentaciones",
+    "operations": "Operaciones"
+  },
+  "overview": "Resumen",
+  "userMenu": {
+    "openLabel": "Abrir el menú de cuenta de {{name}}",
+    "myForms": "Mis formularios",
+    "myAccount": "Mi cuenta",
+    "signOut": "Cerrar sesión"
+  },
+  "items": {
+    "fleet": "Flota",
+    "displayGroups": "Grupos de pantallas",
+    "archive": "Archivo",
+    "media": "Multimedia",
+    "widgets": "Widgets",
+    "dataSources": "Fuentes de datos",
+    "playlists": "Listas de reproducción",
+    "layouts": "Diseños",
+    "campaigns": "Campañas",
+    "schedules": "Programaciones",
+    "plugins": "Complementos",
+    "activity": "Actividad",
+    "approvals": "Aprobaciones",
+    "settings": "Ajustes"
+  },
+  "header": {
+    "toggleNavigation": "Alternar navegación",
+    "search": "Buscar en Tilecast",
+    "notifications": "Notificaciones",
+    "notificationsWithCount": "Notificaciones, {{count}} activas",
+    "activeCount": "{{count}} activas",
+    "noneActive": "Ninguna activa",
+    "caughtUp": "Estás al día.",
+    "groups": {
+      "critical": "Críticas",
+      "warning": "Requieren atención",
+      "info": "Información"
+    }
+  },
+  "palette": {
+    "title": "Buscar en Tilecast",
+    "description": "Encuentra un espacio de trabajo, una pantalla o una acción rápida.",
+    "label": "Buscar en Tilecast",
+    "placeholder": "Busca pantallas, multimedia, listas…",
+    "resultsLabel": "Resultados de búsqueda",
+    "noResults": "Sin resultados para «{{query}}».",
+    "noDestinations": "No hay destinos disponibles.",
+    "groups": {
+      "quickActions": "Acciones rápidas",
+      "screens": "Pantallas",
+      "content": "Contenido",
+      "presentations": "Presentaciones",
+      "scheduling": "Programación",
+      "administration": "Administración",
+      "navigation": "Navegación"
+    },
+    "actions": {
+      "pairScreen": {
+        "label": "Vincular una pantalla",
+        "description": "Conecta un nuevo reproductor de señalización"
+      },
+      "uploadMedia": {
+        "label": "Subir multimedia",
+        "description": "Agrega imágenes, videos o documentos"
+      },
+      "createPlaylist": {
+        "label": "Crear lista de reproducción",
+        "description": "Crea una nueva presentación de pantalla completa"
+      },
+      "createLayout": {
+        "label": "Crear diseño",
+        "description": "Organiza el contenido en un lienzo de presentación"
+      },
+      "createSchedule": {
+        "label": "Crear programación",
+        "description": "Planifica dónde y cuándo se reproduce el contenido"
+      }
+    },
+    "plugin": "Complemento",
+    "pluginNotInstalled": "Complemento · No instalado",
+    "hints": {
+      "move": "mover",
+      "open": "abrir",
+      "close": "cerrar"
+    },
+    "screenStatus": {
+      "online": "En línea",
+      "recent": "En línea recientemente",
+      "stale": "Desactualizado",
+      "offline": "Sin conexión",
+      "disabled": "Deshabilitado",
+      "revoked": "Vinculación revocada"
+    }
+  },
+  "error": {
+    "title": "No se pudo mostrar esta página.",
+    "fallback": "Ocurrió un error inesperado al mostrar esta página.",
+    "retry": "Intentar de nuevo"
+  }
+}
