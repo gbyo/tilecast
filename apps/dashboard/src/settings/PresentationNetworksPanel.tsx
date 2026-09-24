@@ -606,7 +606,8 @@ export function PresentationNetworksPanel({
                             htmlFor={"presentation-network-screen-" + screen.id}
                             className="font-normal"
                           >
-                            {screen.name} · {screen.location || t("networks.noLocation")}
+                            {screen.name} ·{" "}
+                            {screen.location || t("networks.noLocation")}
                           </FieldLabel>
                         </Field>
                       ))}

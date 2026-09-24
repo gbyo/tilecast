@@ -504,7 +504,9 @@ function WebhookSection({
             <FieldLabel htmlFor="webhook-name">
               {t("notifications.form.name")}
             </FieldLabel>
-            <FieldDescription>{t("notifications.form.nameHint")}</FieldDescription>
+            <FieldDescription>
+              {t("notifications.form.nameHint")}
+            </FieldDescription>
           </FieldContent>
           <Input
             id="webhook-name"
@@ -519,7 +521,9 @@ function WebhookSection({
             <FieldLabel htmlFor="webhook-url">
               {t("notifications.form.url")}
             </FieldLabel>
-            <FieldDescription>{t("notifications.form.urlHint")}</FieldDescription>
+            <FieldDescription>
+              {t("notifications.form.urlHint")}
+            </FieldDescription>
           </FieldContent>
           <Input
             id="webhook-url"
@@ -533,7 +537,9 @@ function WebhookSection({
           <FieldLegend variant="label" className="mb-0">
             {t("notifications.form.categories")}
           </FieldLegend>
-          <FieldDescription>{t("notifications.form.categoriesHint")}</FieldDescription>
+          <FieldDescription>
+            {t("notifications.form.categoriesHint")}
+          </FieldDescription>
           <div className="grid content-start gap-2">
             {allCategories.map((category) => (
               <Field

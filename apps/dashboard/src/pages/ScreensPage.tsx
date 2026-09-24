@@ -2726,6 +2726,7 @@ function ApprovalPanel({
   onDone: (screenId?: string) => void;
 }) {
   const { t } = useTranslation("screens");
+  const { t: commonT } = useTranslation("common");
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const queryClient = useQueryClient();
@@ -2951,9 +2952,7 @@ function ApprovalPanel({
               >
                 {t("approval.replace")}
               </FieldLabel>
-              <FieldDescription>
-                {t("approval.replaceHint")}
-              </FieldDescription>
+              <FieldDescription>{t("approval.replaceHint")}</FieldDescription>
             </FieldContent>
           </Field>
         </RadioGroup>
@@ -2982,7 +2981,7 @@ function ApprovalPanel({
               <ComboboxContent>
                 <ComboboxEmpty>
                   {screens.isLoading
-                    ? t("common:status.loading")
+                    ? commonT("status.loading")
                     : screens.isError
                       ? t("approval.screensLoadError")
                       : t("approval.noMatchingScreens")}
@@ -2997,9 +2996,7 @@ function ApprovalPanel({
                 </ComboboxList>
               </ComboboxContent>
             </Combobox>
-            <FieldDescription>
-              {t("approval.selectHint")}
-            </FieldDescription>
+            <FieldDescription>{t("approval.selectHint")}</FieldDescription>
           </Field>
         )}
       </FieldSet>

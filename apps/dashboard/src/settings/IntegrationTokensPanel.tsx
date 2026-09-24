@@ -325,7 +325,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                 <FieldLabel htmlFor="token-name">
                   {t("integrations.nameLabel")}
                 </FieldLabel>
-                <FieldDescription>{t("integrations.nameHint")}</FieldDescription>
+                <FieldDescription>
+                  {t("integrations.nameHint")}
+                </FieldDescription>
               </FieldContent>
               <Input
                 id="token-name"
@@ -377,7 +379,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                 <FieldLabel htmlFor="token-expires">
                   {t("integrations.expiresLabel")}
                 </FieldLabel>
-                <FieldDescription>{t("integrations.expiresHint")}</FieldDescription>
+                <FieldDescription>
+                  {t("integrations.expiresHint")}
+                </FieldDescription>
               </FieldContent>
               <DateInput
                 id="token-expires"
@@ -394,7 +398,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                 <FieldLegend variant="label" className="mb-0">
                   {t("integrations.limitLabel")}
                 </FieldLegend>
-                <FieldDescription>{t("integrations.limitHint")}</FieldDescription>
+                <FieldDescription>
+                  {t("integrations.limitHint")}
+                </FieldDescription>
                 <div className="grid content-start gap-2">
                   {sources.isLoading ? (
                     <span className="text-xs text-muted-foreground">

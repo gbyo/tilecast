@@ -312,7 +312,9 @@ export function WorkflowEditor({
                       }
                     />
                     <FieldDescription>
-                      {locked ? t("workflow.lockedHint") : t("workflow.keyHint")}
+                      {locked
+                        ? t("workflow.lockedHint")
+                        : t("workflow.keyHint")}
                     </FieldDescription>
                   </Field>
                   <span className="sm:pb-1">
