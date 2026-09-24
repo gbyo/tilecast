@@ -347,7 +347,8 @@
     "reasonLabel": "Cancellation reason (optional)",
     "keepActive": "Keep takeover active",
     "ending": "Ending…",
-    "activeBadge": "{{count}} active",
+    "activeBadge_one": "{{count}} active",
+    "activeBadge_other": "{{count}} active",
     "dialogBody": "Temporarily override schedules and fallback content on the selected screens. Existing overlapping takeovers are replaced.",
     "nameLabel": "Takeover name",
     "playlistLabel": "Playlist",
@@ -688,7 +689,10 @@
   },
   "preview": {
     "snapshotsTitle": "Snapshot history",
-    "snapshotsBody": "Previously captured frames reported by this player."
+    "snapshotsBody": "Previously captured frames reported by this player.",
+    "noContent": "No content yet",
+    "unavailable": "Preview unavailable",
+    "openLayoutHint": "Open the layout to continue editing."
   },
   "scope": {
     "ownerNote": "Owner access applies to the entire fleet.",
@@ -857,5 +861,79 @@
     "queued_one": "{{count}} command queued{{failed}}.",
     "queued_other": "{{count}} commands queued{{failed}}.",
     "queuedFailed": " · {{count}} failed"
+  },
+  "livePreview": {
+    "title": "Live preview",
+    "onDemand": "On demand",
+    "watchLive": "Watch live",
+    "imageAlt": "Current Tilecast output for {{name}}",
+    "unknownScreen": "screen",
+    "unnamedScreen": "Screen",
+    "capturedTitle": "Captured {{date}}",
+    "sessionFailed": "Preview session failed.",
+    "lastCapture": "Last capture",
+    "notCaptured": "Not captured",
+    "player": "Player",
+    "image": "Image",
+    "noImage": "No image",
+    "protectedNote": "Protected screens are not captured.",
+    "states": {
+      "loading": {
+        "label": "Loading",
+        "description": "Waiting for the paired player to respond."
+      },
+      "live": {
+        "label": "Live",
+        "description": "Refreshes about every 20 seconds while this page is open."
+      },
+      "offline": {
+        "label": "Offline",
+        "description": "The session will resume when the player reconnects."
+      },
+      "stale": {
+        "label": "Stale",
+        "description": "The player has not delivered a recent capture."
+      },
+      "unavailable": {
+        "label": "Unavailable",
+        "description": "The current player screen cannot be previewed."
+      },
+      "captureError": {
+        "label": "Capture error",
+        "description": "Use Refresh to request another capture."
+      }
+    },
+    "overlay": {
+      "loading": "Requesting a fresh capture…",
+      "live": "Live preview is ready.",
+      "offline": "The player is offline.",
+      "stale": "The latest preview is stale.",
+      "captureError": "The player could not capture its window.",
+      "unknown": "Preview unavailable."
+    },
+    "unavailable": {
+      "protected": "Preview is paused while a protected player screen is open.",
+      "notYet": "A preview is not available from this player yet."
+    },
+    "age": {
+      "seconds": "{{value}}s ago",
+      "minutes": "{{value}}m ago",
+      "hours": "{{value}}h ago",
+      "days": "{{value}}d ago"
+    }
+  },
+  "snapshots": {
+    "label": "Snapshot history",
+    "loading": "Loading snapshot history…",
+    "loadError": "Snapshot history failed to load",
+    "disabledTitle": "Snapshot history is off.",
+    "disabledBody": "Tilecast is not keeping images of what this screen showed. An Owner or Administrator can turn it on under <settingsLink>Settings, Snapshot history</settingsLink>.",
+    "emptyTitle": "No snapshots yet",
+    "emptyBody": "Tilecast captures a frame on a schedule from screens that are reporting.",
+    "retention": "Retains up to {{max}} per screen for {{days}} days.",
+    "viewSnapshot": "View the snapshot from {{date}}",
+    "snapshotAlt": "Screen at {{date}}",
+    "manualSuffix": " · manual",
+    "openFull": "Open full size"
   }
 }
