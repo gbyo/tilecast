@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import {
   availableOutputFields,
   isTimeField,
@@ -147,6 +148,7 @@ function ViewList({
   const remove = useMutation({
     mutationFn: (viewId: string) => api.deleteFormView(form.id, viewId, csrf),
     onSuccess: () => {
+      toast.add({ title: "Form view saved.", type: "success" });
       void queryClient.invalidateQueries({
         queryKey: ["form-data-source", form.id],
       });
@@ -461,13 +463,19 @@ function ViewForm({
         <div>
           {/* No wrapping label: the control sits alone under the section legend. */}
           <RheaSelect
+            items={[
+              { value: NONE_VALUE, label: t("views.addFieldPlaceholder") },
+              ...fields
+                .filter((field) => !draft.outputFields.includes(field.key))
+                .map((field) => ({ value: field.key, label: field.label })),
+            ]}
             value={NONE_VALUE}
             onValueChange={(value) => {
               if (value && value !== NONE_VALUE) addOutputField(value);
             }}
           >
             <SelectTrigger aria-label={t("views.addFieldLabel")}>
-              <SelectValue>{t("views.addFieldPlaceholder")}</SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NONE_VALUE}>
@@ -547,6 +555,13 @@ function ViewForm({
           return (
             <div key={index} className="flex flex-wrap items-center gap-2">
               <RheaSelect
+                items={[
+                  { value: NONE_VALUE, label: t("views.fieldPlaceholder") },
+                  ...fields.map((field) => ({
+                    value: field.key,
+                    label: field.label,
+                  })),
+                ]}
                 value={filter.field || NONE_VALUE}
                 onValueChange={(value) => {
                   const nextField = !value || value === NONE_VALUE ? "" : value;
@@ -566,10 +581,7 @@ function ViewForm({
                 }}
               >
                 <SelectTrigger aria-label={t("views.filterFieldLabel")}>
-                  <SelectValue>
-                    {fields.find((f) => f.key === filter.field)?.label ??
-                      t("views.fieldPlaceholder")}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>
@@ -583,6 +595,7 @@ function ViewForm({
                 </SelectContent>
               </RheaSelect>
               <RheaSelect
+                items={operators}
                 value={filter.operator}
                 onValueChange={(value) => {
                   const filters = [...draft.fieldFilters];
@@ -594,10 +607,7 @@ function ViewForm({
                 }}
               >
                 <SelectTrigger aria-label={t("views.operatorLabel")}>
-                  <SelectValue>
-                    {operators.find((op) => op.value === filter.operator)
-                      ?.label ?? filter.operator}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {operators.map((op) => (
@@ -662,6 +672,13 @@ function ViewForm({
         {draft.sort.map((rule, index) => (
           <div key={index} className="flex flex-wrap items-center gap-2">
             <RheaSelect
+              items={[
+                { value: NONE_VALUE, label: t("views.fieldPlaceholder") },
+                ...fields.map((field) => ({
+                  value: field.key,
+                  label: field.label,
+                })),
+              ]}
               value={rule.field || NONE_VALUE}
               onValueChange={(value) => {
                 const sort = [...draft.sort];
@@ -673,10 +690,7 @@ function ViewForm({
               }}
             >
               <SelectTrigger aria-label={t("views.sortFieldLabel")}>
-                <SelectValue>
-                  {fields.find((f) => f.key === rule.field)?.label ??
-                    t("views.fieldPlaceholder")}
-                </SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NONE_VALUE}>
@@ -690,6 +704,10 @@ function ViewForm({
               </SelectContent>
             </RheaSelect>
             <RheaSelect
+              items={[
+                { value: "asc", label: t("views.ascending") },
+                { value: "desc", label: t("views.descending") },
+              ]}
               value={rule.direction}
               onValueChange={(value) => {
                 const sort = [...draft.sort];
@@ -701,11 +719,7 @@ function ViewForm({
               }}
             >
               <SelectTrigger aria-label={t("views.sortDirectionLabel")}>
-                <SelectValue>
-                  {rule.direction === "asc"
-                    ? t("views.ascending")
-                    : t("views.descending")}
-                </SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="asc">{t("views.ascending")}</SelectItem>
@@ -762,6 +776,13 @@ function ViewForm({
                 {t("views.startField")}
               </FieldLabel>
               <RheaSelect
+                items={[
+                  { value: NONE_VALUE, label: t("views.noneOption") },
+                  ...timeFields.map((field) => ({
+                    value: field.key,
+                    label: field.label,
+                  })),
+                ]}
                 value={draft.timeFilter.startField ?? NONE_VALUE}
                 onValueChange={(value) =>
                   update({
@@ -773,11 +794,7 @@ function ViewForm({
                 }
               >
                 <SelectTrigger id="form-view-start-field">
-                  <SelectValue>
-                    {timeFields.find(
-                      (f) => f.key === draft.timeFilter.startField,
-                    )?.label ?? t("views.noneOption")}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>
@@ -796,6 +813,13 @@ function ViewForm({
                 {t("views.endField")}
               </FieldLabel>
               <RheaSelect
+                items={[
+                  { value: NONE_VALUE, label: t("views.noneOption") },
+                  ...timeFields.map((field) => ({
+                    value: field.key,
+                    label: field.label,
+                  })),
+                ]}
                 value={draft.timeFilter.endField ?? NONE_VALUE}
                 onValueChange={(value) =>
                   update({
@@ -807,10 +831,7 @@ function ViewForm({
                 }
               >
                 <SelectTrigger id="form-view-end-field">
-                  <SelectValue>
-                    {timeFields.find((f) => f.key === draft.timeFilter.endField)
-                      ?.label ?? t("views.noneOption")}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>

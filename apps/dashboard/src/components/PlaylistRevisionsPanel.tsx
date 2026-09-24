@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
+import { toast } from "./ui/toast";
 
 const initialRevisionCount = 5;
 const revisionPageSize = 10;
@@ -41,6 +42,7 @@ export function PlaylistRevisionsPanel({
     mutationFn: (revision: number) =>
       api.restorePlaylistRevision(playlistId, revision, csrf),
     onSuccess: (data) => {
+      toast.add({ title: "Playlist revision restored.", type: "success" });
       setResult(
         data.skippedItems > 0
           ? t("history.restoredWithSkipped", {

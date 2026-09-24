@@ -28,6 +28,13 @@ import {
 import { MetricTile } from "../components/MetricTile";
 import { Button } from "../components/ui/button";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -48,6 +55,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   Collapsible,
   CollapsibleContent,
@@ -86,6 +94,7 @@ export function ProofTab({
   const [selectedRecord, setSelectedRecord] = useState<ProofRecord | null>(
     null,
   );
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const params = activityParams(range, filters);
   const paramsKey = params.toString();
   const pagination = useActivityCursor(paramsKey);
@@ -145,11 +154,14 @@ export function ProofTab({
     };
   }, [screenSummary.data]);
 
-  useEffect(() => setSelectedRecord(null), [paramsKey]);
+  useEffect(() => {
+    setSelectedRecord(null);
+    setDetailsOpen(false);
+  }, [paramsKey]);
   useEffect(() => {
     if (!selectedRecord) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedRecord(null);
+      if (event.key === "Escape") setDetailsOpen(false);
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
@@ -398,7 +410,10 @@ export function ProofTab({
                           screen: item.screenName,
                         })}
                         className="rounded-md p-1 hover:bg-muted hover:text-foreground"
-                        onClick={() => setSelectedRecord(item)}
+                        onClick={() => {
+                          setSelectedRecord(item);
+                          setDetailsOpen(true);
+                        }}
                       >
                         <ChevronRight size={17} aria-hidden="true" />
                       </button>
@@ -469,7 +484,12 @@ export function ProofTab({
       {selectedRecord && (
         <ProofDetailsDrawer
           record={selectedRecord}
-          onClose={() => setSelectedRecord(null)}
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          onOpenChangeComplete={(open) => {
+            if (!open) setSelectedRecord(null);
+          }}
+          onClose={() => setDetailsOpen(false)}
         />
       )}
     </>
@@ -478,12 +498,19 @@ export function ProofTab({
 
 function ProofDetailsDrawer({
   record,
+  open,
+  onOpenChange,
+  onOpenChangeComplete,
   onClose,
 }: {
   record: ProofRecord;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete: (open: boolean) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation("activity");
+  const desktop = useDesktopLayout();
   const technicalDetails = {
     recordId: record.id,
     manifestVersion: record.manifestVersion,
@@ -504,138 +531,174 @@ function ProofDetailsDrawer({
     return typeof value !== "boolean" || value;
   });
 
-  return (
+  const header = desktop ? (
+    <SheetHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("proof.drawer.eyebrow")}
+      </p>
+      <SheetTitle>
+        {record.contentName || record.presentationName || record.screenName}
+      </SheetTitle>
+      <SheetDescription>{t("proof.drawer.description")}</SheetDescription>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("proof.drawer.eyebrow")}
+      </p>
+      <DrawerTitle>
+        {record.contentName || record.presentationName || record.screenName}
+      </DrawerTitle>
+      <DrawerDescription>{t("proof.drawer.description")}</DrawerDescription>
+    </DrawerHeader>
+  );
+  const content = (
+    <div
+      className={
+        desktop
+          ? "grid gap-6 px-4 pb-6"
+          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
+      }
+    >
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <ResultBadge value={record.result} />
+        <span>
+          {record.actualDurationMs == null
+            ? t("proof.drawer.inProgress")
+            : t("proof.drawer.confirmedDuration", {
+                duration: formatDuration(record.actualDurationMs),
+              })}
+        </span>
+      </p>
+
+      <section className="grid gap-2">
+        <h3 className="text-sm font-semibold">
+          {t("proof.drawer.sections.playback")}
+        </h3>
+        <dl className="grid gap-1.5 text-sm">
+          <DetailRow
+            label={t("proof.drawer.rows.started")}
+            value={formatFullWhen(record.startedAt)}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.ended")}
+            value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.screen")}
+            value={
+              <Link
+                to={`/screens/${record.screenId}?tab=activity`}
+                className="font-medium text-primary hover:underline"
+              >
+                {record.screenName}
+              </Link>
+            }
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.group")}
+            value={record.groupName || "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.trigger")}
+            value={record.trigger || "—"}
+          />
+        </dl>
+      </section>
+
+      <section className="grid gap-2">
+        <h3 className="text-sm font-semibold">
+          {t("proof.drawer.sections.content")}
+        </h3>
+        <dl className="grid gap-1.5 text-sm">
+          <DetailRow
+            label={t("proof.drawer.rows.presentation")}
+            value={
+              <ResourceLink
+                type={record.presentationType}
+                id={record.presentationId}
+                label={record.presentationName || record.presentationId || "—"}
+              />
+            }
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.revision")}
+            value={record.presentationRevision || "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.content")}
+            value={
+              <ResourceLink
+                type={record.contentType}
+                id={record.contentId}
+                label={
+                  record.contentName ||
+                  record.contentId ||
+                  t("shared.rootPresentation")
+                }
+              />
+            }
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.scheduleId")}
+            value={record.scheduleId || "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.takeoverId")}
+            value={record.takeoverId || "—"}
+          />
+        </dl>
+      </section>
+
+      {entries.length > 0 && (
+        <section className="grid gap-2">
+          <h3 className="text-sm font-semibold">
+            {t("proof.drawer.sections.metadata")}
+          </h3>
+          <dl className="grid gap-1.5 text-sm">
+            {entries.map(([key, value]) => (
+              <DetailRow
+                key={key}
+                label={humanize(key)}
+                value={formatTechnicalValue(
+                  value,
+                  t("shared.detailsUnavailable"),
+                )}
+              />
+            ))}
+          </dl>
+        </section>
+      )}
+    </div>
+  );
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+    if (!nextOpen) onClose();
+  };
+
+  return desktop ? (
     <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
     >
       <SheetContent side="right" className="overflow-y-auto">
-        <SheetHeader>
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {t("proof.drawer.eyebrow")}
-          </p>
-          <SheetTitle>
-            {record.contentName || record.presentationName || record.screenName}
-          </SheetTitle>
-          <SheetDescription>{t("proof.drawer.description")}</SheetDescription>
-        </SheetHeader>
-        <div className="grid gap-6 px-4 pb-6">
-          <p className="flex flex-wrap items-center gap-2 text-sm">
-            <ResultBadge value={record.result} />
-            <span>
-              {record.actualDurationMs == null
-                ? t("proof.drawer.inProgress")
-                : t("proof.drawer.confirmedDuration", {
-                    duration: formatDuration(record.actualDurationMs),
-                  })}
-            </span>
-          </p>
-
-          <section className="grid gap-2">
-            <h3 className="text-sm font-semibold">
-              {t("proof.drawer.sections.playback")}
-            </h3>
-            <dl className="grid gap-1.5 text-sm">
-              <DetailRow
-                label={t("proof.drawer.rows.started")}
-                value={formatFullWhen(record.startedAt)}
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.ended")}
-                value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.screen")}
-                value={
-                  <Link
-                    to={`/screens/${record.screenId}?tab=activity`}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    {record.screenName}
-                  </Link>
-                }
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.group")}
-                value={record.groupName || "—"}
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.trigger")}
-                value={record.trigger || "—"}
-              />
-            </dl>
-          </section>
-
-          <section className="grid gap-2">
-            <h3 className="text-sm font-semibold">
-              {t("proof.drawer.sections.content")}
-            </h3>
-            <dl className="grid gap-1.5 text-sm">
-              <DetailRow
-                label={t("proof.drawer.rows.presentation")}
-                value={
-                  <ResourceLink
-                    type={record.presentationType}
-                    id={record.presentationId}
-                    label={
-                      record.presentationName || record.presentationId || "—"
-                    }
-                  />
-                }
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.revision")}
-                value={record.presentationRevision || "—"}
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.content")}
-                value={
-                  <ResourceLink
-                    type={record.contentType}
-                    id={record.contentId}
-                    label={
-                      record.contentName ||
-                      record.contentId ||
-                      t("shared.rootPresentation")
-                    }
-                  />
-                }
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.scheduleId")}
-                value={record.scheduleId || "—"}
-              />
-              <DetailRow
-                label={t("proof.drawer.rows.takeoverId")}
-                value={record.takeoverId || "—"}
-              />
-            </dl>
-          </section>
-
-          {entries.length > 0 && (
-            <section className="grid gap-2">
-              <h3 className="text-sm font-semibold">
-                {t("proof.drawer.sections.metadata")}
-              </h3>
-              <dl className="grid gap-1.5 text-sm">
-                {entries.map(([key, value]) => (
-                  <DetailRow
-                    key={key}
-                    label={humanize(key)}
-                    value={formatTechnicalValue(
-                      value,
-                      t("shared.detailsUnavailable"),
-                    )}
-                  />
-                ))}
-              </dl>
-            </section>
-          )}
-        </div>
+        {header}
+        {content}
       </SheetContent>
     </Sheet>
+  ) : (
+    <Drawer
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+      showSwipeHandle
+    >
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        {header}
+        {content}
+      </DrawerContent>
+    </Drawer>
   );
 }
 

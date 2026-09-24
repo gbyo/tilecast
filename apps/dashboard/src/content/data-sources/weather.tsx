@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { toast } from "../../components/ui/toast";
 import { apiErrorMessage } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
@@ -81,6 +82,10 @@ export function WeatherDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },
@@ -196,6 +201,10 @@ export function WeatherDataSourceEditor({
             onValueChange={(next) =>
               set("units", next as WeatherSourceConfig["units"])
             }
+            items={weatherUnitOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
           >
             <SelectTrigger
               id="weather-units"

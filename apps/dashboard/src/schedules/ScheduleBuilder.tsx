@@ -56,6 +56,7 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
+import { toast } from "../components/ui/toast";
 import {
   conflictWinnerReason,
   countTargetScreens,
@@ -239,6 +240,10 @@ export function ScheduleEditorPage() {
         ? api.updateSchedule(id, input, csrf)
         : api.createSchedule(input, csrf),
     onSuccess: (schedule) => {
+      toast.add({
+        title: id ? "Schedule updated." : "Schedule created.",
+        type: "success",
+      });
       const next = scheduleToInput(schedule);
       setBaseline(next);
       setInput(next);
@@ -248,7 +253,10 @@ export function ScheduleEditorPage() {
   });
   const remove = useMutation({
     mutationFn: () => api.deleteSchedule(id!, csrf),
-    onSuccess: () => void navigate("/schedules"),
+    onSuccess: () => {
+      toast.add({ title: "Schedule deleted.", type: "success" });
+      void navigate("/schedules");
+    },
   });
 
   if (id && existing.isLoading)
@@ -682,6 +690,10 @@ function DisplayControlSelection({
             {t("displayAction.actionLabel")}
           </FieldLabel>
           <Select
+            items={displayActionOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
             value={action.type}
             onValueChange={(next) => {
               if (next) setType(next);

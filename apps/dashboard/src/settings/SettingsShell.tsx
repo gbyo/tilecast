@@ -41,6 +41,10 @@ export function SettingsShell({
             {t("shell.sectionLabel")}
           </FieldLabel>
           <RheaSelect
+            items={items.map((item) => ({
+              value: item.id,
+              label: `${item.label}${dirty.has(item.id) ? " • Unsaved" : ""}`,
+            }))}
             value={active}
             onValueChange={(value) => {
               const item = items.find((candidate) => candidate.id === value);

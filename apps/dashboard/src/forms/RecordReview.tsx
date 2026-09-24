@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { toast } from "../components/ui/toast";
 import type {
   FormAvailableTransition,
   FormDataSource,
@@ -216,6 +216,7 @@ function RecordReviewBody({
     setBusy(true);
     try {
       await saveEdits();
+      toast.add({ title: "Submission updated.", type: "success" });
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         await recover();
@@ -255,7 +256,10 @@ function RecordReviewBody({
       setVersion(record.version);
       setNote("");
       setPendingTransition(null);
-      toast.success(t("review.decisionRecorded"));
+      toast.add({
+        title: t("review.decisionRecorded"),
+        type: "success",
+      });
       onChanged();
     } catch (err) {
       // On a conflict, fully refresh from the server (values, metadata, images, state, version) and
@@ -281,6 +285,7 @@ function RecordReviewBody({
     try {
       await api.addFormRecordComment(form.id, detail.id, comment.trim(), csrf);
       setComment("");
+      toast.add({ title: "Comment added.", type: "success" });
       onChanged();
     } catch (err) {
       setError(
@@ -308,6 +313,7 @@ function RecordReviewBody({
         [fieldKey]: coerceScalar(updated.values[fieldKey]),
       }));
       setVersion(updated.version);
+      toast.add({ title: "Attachment uploaded.", type: "success" });
       onChanged();
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) await recover();
@@ -332,6 +338,7 @@ function RecordReviewBody({
       setImages(imagesFromDetail(form.id, updated));
       setValues((current) => ({ ...current, [fieldKey]: "" }));
       setVersion(updated.version);
+      toast.add({ title: "Attachment removed.", type: "success" });
       onChanged();
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) await recover();

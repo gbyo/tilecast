@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
+import { toast } from "../components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
@@ -79,6 +80,7 @@ export function WidgetsPage() {
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateWidget(id, csrf),
     onSuccess: (widget) => {
+      toast.add({ title: "Widget duplicated.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       void navigate(`/widgets/${widget.id}`);
     },

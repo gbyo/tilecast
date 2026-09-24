@@ -9,7 +9,7 @@ import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Link } from "react-router";
 import { Check, Clock3, Inbox, Send, Undo2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentSubmission, SubmissionStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -95,6 +95,8 @@ export function ContentSubmissionInboxPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState<Record<string, string>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<ContentSubmission | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const query = useQuery({
@@ -111,15 +113,17 @@ export function ContentSubmissionInboxPage() {
     onSuccess: (_data, item) => {
       invalidate();
       setNotes((current) => ({ ...current, [item.id]: "" }));
-      if (selectedId === item.id) setSelectedId(null);
-      toast.success(t("submissions.toast.approved"));
+      if (selectedId === item.id) setDetailsOpen(false);
+      toast.add({ title: t("submissions.toast.approved"), type: "success" });
     },
     onError: (err) =>
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : t("submissions.toast.approveFailed"),
-      ),
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.approveFailed"),
+        type: "error",
+      }),
   });
   const requestChanges = useMutation({
     mutationFn: (item: ContentSubmission) =>
@@ -129,30 +133,37 @@ export function ContentSubmissionInboxPage() {
       setNotes((current) => ({ ...current, [item.id]: "" }));
       setRejectId(null);
       setRejectNote("");
-      if (selectedId === item.id) setSelectedId(null);
-      toast.success(t("submissions.toast.changesRequested"));
+      if (selectedId === item.id) setDetailsOpen(false);
+      toast.add({
+        title: t("submissions.toast.changesRequested"),
+        type: "success",
+      });
     },
     onError: (err) =>
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : t("submissions.toast.requestChangesFailed"),
-      ),
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.requestChangesFailed"),
+        type: "error",
+      }),
   });
   const publish = useMutation({
     mutationFn: (item: ContentSubmission) =>
       api.publishContentSubmission(item.id, csrf),
     onSuccess: (_data, item) => {
       invalidate();
-      if (selectedId === item.id) setSelectedId(null);
-      toast.success(t("submissions.toast.published"));
+      if (selectedId === item.id) setDetailsOpen(false);
+      toast.add({ title: t("submissions.toast.published"), type: "success" });
     },
     onError: (err) =>
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : t("submissions.toast.publishFailed"),
-      ),
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.publishFailed"),
+        type: "error",
+      }),
   });
   const schedulePublication = useMutation({
     mutationFn: (item: ContentSubmission) =>
@@ -164,29 +175,36 @@ export function ContentSubmissionInboxPage() {
     onSuccess: (_data, item) => {
       invalidate();
       setSchedule((current) => ({ ...current, [item.id]: "" }));
-      if (selectedId === item.id) setSelectedId(null);
-      toast.success(t("submissions.toast.scheduled"));
+      if (selectedId === item.id) setDetailsOpen(false);
+      toast.add({ title: t("submissions.toast.scheduled"), type: "success" });
     },
     onError: (err) =>
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : t("submissions.toast.scheduleFailed"),
-      ),
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.scheduleFailed"),
+        type: "error",
+      }),
   });
   const cancelSchedule = useMutation({
     mutationFn: (item: ContentSubmission) =>
       api.cancelContentSchedule(item.id, csrf),
     onSuccess: () => {
       invalidate();
-      toast.success(t("submissions.toast.scheduleCancelled"));
+      toast.add({
+        title: t("submissions.toast.scheduleCancelled"),
+        type: "success",
+      });
     },
     onError: (err) =>
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : t("submissions.toast.cancelScheduleFailed"),
-      ),
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.cancelScheduleFailed"),
+        type: "error",
+      }),
   });
   const error =
     approve.error ||
@@ -195,7 +213,6 @@ export function ContentSubmissionInboxPage() {
     schedulePublication.error ||
     cancelSchedule.error;
   const items = query.data?.items ?? [];
-  const selected = items.find((item) => item.id === selectedId) ?? null;
   const rejectItem = items.find((item) => item.id === rejectId) ?? null;
   const busy =
     approve.isPending ||
@@ -262,7 +279,11 @@ export function ContentSubmissionInboxPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setSelectedId(row.original.id)}
+              onClick={() => {
+                setSelectedId(row.original.id);
+                setSelected(row.original);
+                setDetailsOpen(true);
+              }}
             >
               {t("submissions.table.reviewAction")}
             </Button>
@@ -385,9 +406,13 @@ export function ContentSubmissionInboxPage() {
         </Alert>
       )}
       <Sheet
-        open={selected !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelectedId(null);
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        onOpenChangeComplete={(open) => {
+          if (!open) {
+            setSelectedId(null);
+            setSelected(null);
+          }
         }}
       >
         {selected && (

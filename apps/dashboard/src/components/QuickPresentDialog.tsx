@@ -28,6 +28,7 @@ import {
 } from "./ui/select";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 import { Alert, AlertDescription } from "./ui/alert";
+import { toast } from "./ui/toast";
 
 type QuickPresentContentType = "playlist" | "layout" | "asset";
 
@@ -116,6 +117,7 @@ export function QuickPresentDialog({
         csrfToken,
       ),
     onSuccess: async () => {
+      toast.add({ title: "Show Now started.", type: "success" });
       await queryClient.invalidateQueries({
         queryKey: ["presentation-overrides"],
       });

@@ -98,6 +98,7 @@ import {
 } from "../components/ui/empty";
 import { Field, FieldError, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import { toast } from "../components/ui/toast";
 import {
   Item,
   ItemActions,
@@ -114,6 +115,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
 import {
   Sheet,
   SheetContent,
@@ -141,6 +150,7 @@ import { NativeAppEditor, YouTubeSourceEditor } from "../content/SourceEditors";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
 import { UsedByPanel } from "../content/UsedByPanel";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 
 type QueueItem = {
   localId: string;
@@ -365,6 +375,10 @@ export function ContentPage() {
   const deleteCheckedAssets = async () => {
     const ids = [...checkedAssetIds];
     await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
+    toast.add({
+      title: `${ids.length} archived item${ids.length === 1 ? "" : "s"} permanently deleted.`,
+      type: "success",
+    });
     setCheckedAssetIds(new Set());
     refreshOrganization();
   };
@@ -385,6 +399,7 @@ export function ContentPage() {
     }
   });
   const [selected, setSelected] = useState<Asset>();
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const controllers = useRef(new Map<string, AbortController>());
   const fileInput = useRef<HTMLInputElement>(null);
   const params = new URLSearchParams({ page: "1", pageSize: "48", sort });
@@ -429,7 +444,7 @@ export function ContentPage() {
   }, [assets.data?.items, queryClient]);
   useEffect(() => {
     setCheckedAssetIds(new Set());
-    setSelected(undefined);
+    setDetailsOpen(false);
   }, [
     libraryView,
     search,
@@ -526,6 +541,10 @@ export function ContentPage() {
       }
       updateQueue(localId, { state: "finalizing" });
       await api.completeUpload(sessionId, csrf);
+      toast.add({
+        title: `${file.name} uploaded; processing started.`,
+        type: "success",
+      });
       updateQueue(localId, { state: "processing", uploadedBytes: file.size });
       await queryClient.invalidateQueries({ queryKey: ["assets"] });
       window.setTimeout(
@@ -884,11 +903,19 @@ export function ContentPage() {
           archiveMode={libraryView === "archive"}
           onArchive={async () => {
             await api.archiveAssets([...checkedAssetIds], csrf);
+            toast.add({
+              title: `${checkedAssetIds.size} item${checkedAssetIds.size === 1 ? "" : "s"} archived.`,
+              type: "success",
+            });
             setCheckedAssetIds(new Set());
             refreshOrganization();
           }}
           onRestore={async () => {
             await api.restoreAssets([...checkedAssetIds], csrf);
+            toast.add({
+              title: `${checkedAssetIds.size} item${checkedAssetIds.size === 1 ? "" : "s"} restored.`,
+              type: "success",
+            });
             setCheckedAssetIds(new Set());
             refreshOrganization();
           }}
@@ -949,21 +976,28 @@ export function ContentPage() {
           }
           onSelect={(asset) =>
             libraryView === "archive"
-              ? setSelected(asset)
-              : void api.asset(asset.id).then(setSelected)
+              ? (setSelected(asset), setDetailsOpen(true))
+              : void api.asset(asset.id).then((latest) => {
+                  setSelected(latest);
+                  setDetailsOpen(true);
+                })
           }
           canManage={canManage}
           archived={libraryView === "archive"}
           onDuplicate={(asset) =>
-            void api
-              .duplicateWidget(asset.id, csrf)
-              .then(() =>
-                queryClient.invalidateQueries({ queryKey: ["assets"] }),
-              )
+            void api.duplicateWidget(asset.id, csrf).then(() => {
+              toast.add({ title: "Widget duplicated.", type: "success" });
+              return queryClient.invalidateQueries({
+                queryKey: ["assets"],
+              });
+            })
           }
           onArchive={(asset) => setConfirmArchiveAsset(asset)}
           onRestore={(asset) => {
-            void api.restoreAssets([asset.id], csrf).then(refreshOrganization);
+            void api.restoreAssets([asset.id], csrf).then(() => {
+              toast.add({ title: "Asset restored.", type: "success" });
+              refreshOrganization();
+            });
           }}
           onDelete={(asset) => setConfirmDeleteAsset(asset)}
           selectedIds={checkedAssetIds}
@@ -982,7 +1016,16 @@ export function ContentPage() {
           asset={selected}
           canManage={canManage && libraryView === "active"}
           csrf={csrf}
-          onClose={() => setSelected(undefined)}
+          open={detailsOpen}
+          onClose={() => setDetailsOpen(false)}
+          onDismiss={() => {
+            setDetailsOpen(false);
+            setSelected(undefined);
+          }}
+          onRequestClose={() => setDetailsOpen(false)}
+          onOpenChangeComplete={(open) => {
+            if (!open) setSelected(undefined);
+          }}
           onChanged={(asset) => {
             setSelected(asset);
             void queryClient.invalidateQueries({ queryKey: ["assets"] });
@@ -1015,9 +1058,10 @@ export function ContentPage() {
                 const asset = confirmArchiveAsset;
                 setConfirmArchiveAsset(null);
                 if (asset)
-                  void api
-                    .archiveAssets([asset.id], csrf)
-                    .then(refreshOrganization);
+                  void api.archiveAssets([asset.id], csrf).then(() => {
+                    toast.add({ title: "Asset archived.", type: "success" });
+                    refreshOrganization();
+                  });
               }}
             >
               {t("media.archiveDialog.moveToArchive")}
@@ -1051,9 +1095,13 @@ export function ContentPage() {
                 const asset = confirmDeleteAsset;
                 setConfirmDeleteAsset(null);
                 if (asset)
-                  void api
-                    .deleteAsset(asset.id, csrf)
-                    .then(refreshOrganization);
+                  void api.deleteAsset(asset.id, csrf).then(() => {
+                    toast.add({
+                      title: "Asset permanently deleted.",
+                      type: "success",
+                    });
+                    refreshOrganization();
+                  });
               }}
             >
               {t("media.action.deletePermanently")}
@@ -1615,17 +1663,22 @@ const organizerCopy = {
 export function CreateOrganizerDialog({
   kind,
   csrf,
+  open = true,
   onClose,
+  onOpenChangeComplete,
   onCreated,
 }: {
   kind: OrganizerKind;
   csrf: string;
+  open?: boolean;
   onClose: () => void;
+  onOpenChangeComplete?: (open: boolean) => void;
   onCreated: () => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
   const [name, setName] = useState("");
   const [color, setColor] = useState("#64748b");
+  const copy = organizerCopy[kind];
   const create = useMutation({
     mutationFn: (): Promise<unknown> =>
       kind === "folder"
@@ -1634,17 +1687,21 @@ export function CreateOrganizerDialog({
           ? api.createContentCollection({ name, description: "" }, csrf)
           : api.createContentTag({ name, color }, csrf),
     onSuccess: () => {
+      toast.add({
+        title: t(copy.createdKey),
+        type: "success",
+      });
       onCreated();
       onClose();
     },
   });
-  const copy = organizerCopy[kind];
   return (
     <Dialog
-      open
+      open={open}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
+      onOpenChangeComplete={onOpenChangeComplete}
     >
       <DialogContent>
         <DialogHeader>
@@ -1835,6 +1892,7 @@ function ManageOrganizationDialog({
   collections,
   tags,
   csrf,
+  open,
   onChanged,
   onClose,
 }: {
@@ -1842,6 +1900,7 @@ function ManageOrganizationDialog({
   collections: ContentCollection[];
   tags: ContentTag[];
   csrf: string;
+  open: boolean;
   onChanged: () => void;
   onClose: () => void;
 }) {
@@ -1918,7 +1977,7 @@ function ManageOrganizationDialog({
   ];
   return (
     <Dialog
-      open
+      open={open}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
@@ -1944,10 +2003,18 @@ function ManageOrganizationDialog({
                       confirmDescription={row.confirmText}
                       onRename={async (name) => {
                         await row.rename(name);
+                        toast.add({
+                          title: "Organization name updated.",
+                          type: "success",
+                        });
                         onChanged();
                       }}
                       onDelete={async () => {
                         await row.remove();
+                        toast.add({
+                          title: "Organization item deleted.",
+                          type: "success",
+                        });
                         onChanged();
                       }}
                     />
@@ -1996,6 +2063,7 @@ function ContentOrganizer({
   const [collectionId, setCollectionId] = useState("");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState<OrganizerKind>();
+  const [createOpen, setCreateOpen] = useState(false);
   const [managing, setManaging] = useState(false);
   const { t } = useTranslation(["content", "common"]);
   const [organizing, setOrganizing] = useState(false);
@@ -2042,6 +2110,7 @@ function ContentOrganizer({
       setFolderId("");
       setTagId("");
       setCollectionId("");
+      toast.add({ title: "Selected content organized.", type: "success" });
       setOrganizing(false);
       onApplied();
     } catch (cause) {
@@ -2059,7 +2128,10 @@ function ContentOrganizer({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setCreating("folder")}
+            onClick={() => {
+              setCreating("folder");
+              setCreateOpen(true);
+            }}
           >
             <FolderPlus size={15} aria-hidden="true" />{" "}
             {t("media.organizer.folderTitle")}
@@ -2068,7 +2140,10 @@ function ContentOrganizer({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setCreating("collection")}
+            onClick={() => {
+              setCreating("collection");
+              setCreateOpen(true);
+            }}
           >
             <Library size={15} aria-hidden="true" />{" "}
             {t("media.organizer.collectionTitle")}
@@ -2077,7 +2152,10 @@ function ContentOrganizer({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setCreating("tag")}
+            onClick={() => {
+              setCreating("tag");
+              setCreateOpen(true);
+            }}
           >
             <Tags size={15} aria-hidden="true" />{" "}
             {t("media.organizer.tagTitle")}
@@ -2167,140 +2245,141 @@ function ContentOrganizer({
         <CreateOrganizerDialog
           kind={creating}
           csrf={csrf}
-          onClose={() => setCreating(undefined)}
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onOpenChangeComplete={(open) => {
+            if (!open) setCreating(undefined);
+          }}
           onCreated={onCatalogChanged}
         />
       )}
-      {managing && (
-        <ManageOrganizationDialog
-          folders={folders}
-          collections={collections}
-          tags={tags}
-          csrf={csrf}
-          onChanged={onCatalogChanged}
-          onClose={() => setManaging(false)}
-        />
-      )}
-      {organizing && (
-        <Dialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setOrganizing(false);
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {t("media.organize.dialogTitle", {
-                  count: assetIds.length,
-                })}
-              </DialogTitle>
-              <DialogDescription>
-                {t("media.organize.dialogDescription")}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4">
-              <Field>
-                <FieldLabel htmlFor="bulk-folder">
-                  {t("media.organize.moveToFolder")}
-                </FieldLabel>
-                <FilterSelect
-                  id="bulk-folder"
-                  label={t("media.organize.moveToFolder")}
-                  value={folderId}
-                  onChange={setFolderId}
-                  options={[
-                    { value: "", label: t("media.organize.leaveFolder") },
+      <ManageOrganizationDialog
+        folders={folders}
+        collections={collections}
+        tags={tags}
+        csrf={csrf}
+        open={managing}
+        onChanged={onCatalogChanged}
+        onClose={() => setManaging(false)}
+      />
+      <Dialog
+        open={organizing}
+        onOpenChange={(open) => {
+          if (!open) setOrganizing(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("media.organize.dialogTitle", {
+                count: assetIds.length,
+              })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("media.organize.dialogDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="bulk-folder">
+                {t("media.organize.moveToFolder")}
+              </FieldLabel>
+              <FilterSelect
+                id="bulk-folder"
+                label={t("media.organize.moveToFolder")}
+                value={folderId}
+                onChange={setFolderId}
+                options={[
+                  { value: "", label: t("media.organize.leaveFolder") },
+                  {
+                    value: "unfiled",
+                    label: t("media.organize.moveToUnfiled"),
+                  },
+                  ...folders.map((folder) => ({
+                    value: folder.id,
+                    label: folder.name,
+                  })),
+                ]}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="bulk-tag">
+                {t("media.organize.tagChange")}
+              </FieldLabel>
+              <FilterSelect
+                id="bulk-tag"
+                label={t("media.organize.tagChange")}
+                value={tagId}
+                onChange={setTagId}
+                options={[
+                  { value: "", label: t("media.organize.leaveTags") },
+                  ...tags.flatMap((tag) => [
                     {
-                      value: "unfiled",
-                      label: t("media.organize.moveToUnfiled"),
+                      value: `add:${tag.id}`,
+                      label: t("media.organize.addTag", {
+                        name: tag.name,
+                      }),
                     },
-                    ...folders.map((folder) => ({
-                      value: folder.id,
-                      label: folder.name,
-                    })),
-                  ]}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="bulk-tag">
-                  {t("media.organize.tagChange")}
-                </FieldLabel>
-                <FilterSelect
-                  id="bulk-tag"
-                  label={t("media.organize.tagChange")}
-                  value={tagId}
-                  onChange={setTagId}
-                  options={[
-                    { value: "", label: t("media.organize.leaveTags") },
-                    ...tags.flatMap((tag) => [
-                      {
-                        value: `add:${tag.id}`,
-                        label: t("media.organize.addTag", {
-                          name: tag.name,
-                        }),
-                      },
-                      {
-                        value: `remove:${tag.id}`,
-                        label: t("media.organize.removeTag", {
-                          name: tag.name,
-                        }),
-                      },
-                    ]),
-                  ]}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="bulk-collection">
-                  {t("media.organize.collectionChange")}
-                </FieldLabel>
-                <FilterSelect
-                  id="bulk-collection"
-                  label={t("media.organize.collectionChange")}
-                  value={collectionId}
-                  onChange={setCollectionId}
-                  options={[
                     {
-                      value: "",
-                      label: t("media.organize.leaveCollections"),
+                      value: `remove:${tag.id}`,
+                      label: t("media.organize.removeTag", {
+                        name: tag.name,
+                      }),
                     },
-                    ...collections.flatMap((collection) => [
-                      {
-                        value: `add:${collection.id}`,
-                        label: t("media.organize.addToCollection", {
-                          name: collection.name,
-                        }),
-                      },
-                      {
-                        value: `remove:${collection.id}`,
-                        label: t("media.organize.removeFromCollection", {
-                          name: collection.name,
-                        }),
-                      },
-                    ]),
-                  ]}
-                />
-              </Field>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setOrganizing(false)}
-              >
-                {t("common:actions.cancel")}
-              </Button>
-              <Button
-                type="button"
-                disabled={!folderId && !tagId && !collectionId}
-                onClick={() => void apply()}
-              >
-                {t("media.organize.apply")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+                  ]),
+                ]}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="bulk-collection">
+                {t("media.organize.collectionChange")}
+              </FieldLabel>
+              <FilterSelect
+                id="bulk-collection"
+                label={t("media.organize.collectionChange")}
+                value={collectionId}
+                onChange={setCollectionId}
+                options={[
+                  {
+                    value: "",
+                    label: t("media.organize.leaveCollections"),
+                  },
+                  ...collections.flatMap((collection) => [
+                    {
+                      value: `add:${collection.id}`,
+                      label: t("media.organize.addToCollection", {
+                        name: collection.name,
+                      }),
+                    },
+                    {
+                      value: `remove:${collection.id}`,
+                      label: t("media.organize.removeFromCollection", {
+                        name: collection.name,
+                      }),
+                    },
+                  ]),
+                ]}
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setOrganizing(false)}
+            >
+              {t("common:actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              disabled={!folderId && !tagId && !collectionId}
+              onClick={() => void apply()}
+            >
+              {t("media.organize.apply")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2309,7 +2388,11 @@ function AssetDetails(props: {
   asset: Asset;
   canManage: boolean;
   csrf: string;
+  open: boolean;
   onClose: () => void;
+  onDismiss: () => void;
+  onRequestClose: () => void;
+  onOpenChangeComplete: (open: boolean) => void;
   onChanged: (asset: Asset) => void;
 }) {
   return props.asset.type === "widget" &&
@@ -2318,7 +2401,7 @@ function AssetDetails(props: {
       asset={props.asset}
       csrf={props.csrf}
       readOnly={!props.canManage}
-      onClose={props.onClose}
+      onClose={props.onDismiss}
       onSaved={props.onChanged}
     />
   ) : props.asset.type === "widget" &&
@@ -2327,7 +2410,7 @@ function AssetDetails(props: {
       asset={props.asset}
       csrf={props.csrf}
       readOnly={!props.canManage}
-      onClose={props.onClose}
+      onClose={props.onDismiss}
       onSaved={props.onChanged}
     />
   ) : props.asset.type === "widget" &&
@@ -2357,7 +2440,7 @@ function AssetDetails(props: {
       asset={props.asset}
       csrf={props.csrf}
       readOnly={!props.canManage}
-      onClose={props.onClose}
+      onClose={props.onDismiss}
       onSaved={props.onChanged}
     />
   ) : (
@@ -2395,6 +2478,7 @@ export function AssetOrganization({
       return api.asset(asset.id);
     },
     onSuccess: (latest) => {
+      toast.add({ title: "Asset organization updated.", type: "success" });
       onChanged(latest);
       void queryClient.invalidateQueries({ queryKey: ["content-folders"] });
       void queryClient.invalidateQueries({
@@ -2540,13 +2624,17 @@ function MediaAssetDetails({
   asset,
   canManage,
   csrf,
-  onClose,
+  open,
+  onRequestClose,
+  onOpenChangeComplete,
   onChanged,
 }: {
   asset: Asset;
   canManage: boolean;
   csrf: string;
-  onClose: () => void;
+  open: boolean;
+  onRequestClose: () => void;
+  onOpenChangeComplete: (open: boolean) => void;
   onChanged: (asset: Asset) => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
@@ -2576,206 +2664,264 @@ function MediaAssetDetails({
         },
         csrf,
       ),
-    onSuccess: onChanged,
+    onSuccess: (saved) => {
+      toast.add({ title: "Media details saved.", type: "success" });
+      onChanged(saved);
+    },
   });
   const [confirmArchive, setConfirmArchive] = useState(false);
-  return (
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("media.details.eyebrow")}
+      </p>
+      <SheetTitle>{asset.name}</SheetTitle>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("media.details.eyebrow")}
+      </p>
+      <DrawerTitle>{asset.name}</DrawerTitle>
+      <DrawerDescription className="sr-only">
+        {t("media.details.detailsFor", { name: asset.name })}
+      </DrawerDescription>
+    </DrawerHeader>
+  );
+  const details = (
+    <div className="grid gap-4">
+      {asset.thumbnailUrl && (
+        <img
+          className="aspect-video w-full rounded-xl border border-border object-cover"
+          src={asset.thumbnailUrl}
+          alt=""
+          draggable={false}
+        />
+      )}
+      <Field>
+        <FieldLabel htmlFor="asset-name">
+          {t("media.details.nameField")}
+        </FieldLabel>
+        <Input
+          id="asset-name"
+          value={name}
+          disabled={!canManage}
+          onChange={(event) => setName(event.target.value)}
+        />
+      </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor="asset-available-from">
+            {t("media.details.availableFrom")}
+          </FieldLabel>
+          <Input
+            id="asset-available-from"
+            type="datetime-local"
+            value={availableFrom}
+            disabled={!canManage}
+            onChange={(event) => setAvailableFrom(event.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            {t("media.details.availableHint")}
+          </p>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="asset-expires-at">
+            {t("media.details.expiresAt")}
+          </FieldLabel>
+          <Input
+            id="asset-expires-at"
+            type="datetime-local"
+            value={expiresAt}
+            disabled={!canManage}
+            onChange={(event) => setExpiresAt(event.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            {t("media.details.expiresHint")}
+          </p>
+        </Field>
+      </div>
+      <Field>
+        <FieldLabel htmlFor="asset-description">
+          {t("media.details.descriptionField")}
+        </FieldLabel>
+        <Textarea
+          id="asset-description"
+          value={description}
+          disabled={!canManage}
+          onChange={(event) => setDescription(event.target.value)}
+        />
+      </Field>
+      <AssetOrganization
+        asset={asset}
+        canManage={canManage}
+        csrf={csrf}
+        onChanged={onChanged}
+      />
+      <dl className="grid gap-2 text-sm">
+        <div className="flex flex-wrap justify-between gap-2">
+          <dt className="text-muted-foreground">
+            {t("media.details.statusField")}
+          </dt>
+          <dd className="font-medium">
+            {statusLabel(asset.processingStatus, t)}
+          </dd>
+        </div>
+        <div className="flex flex-wrap justify-between gap-2">
+          <dt className="text-muted-foreground">
+            {t("media.details.originalFile")}
+          </dt>
+          <dd className="font-medium">{asset.originalFilename}</dd>
+        </div>
+        <div className="flex flex-wrap justify-between gap-2">
+          <dt className="text-muted-foreground">
+            {t("media.details.detectedType")}
+          </dt>
+          <dd className="font-medium">{asset.detectedMimeType}</dd>
+        </div>
+        <div className="flex flex-wrap justify-between gap-2">
+          {/* i18n-ignore: hash algorithm name stays English */}
+          <dt className="text-muted-foreground">SHA-256</dt>
+          <dd className="font-mono text-xs break-all">{asset.sha256}</dd>
+        </div>
+      </dl>
+      <UsedByPanel
+        emptyMessage={t("media.details.noUsage")}
+        groups={[
+          {
+            label: t("media.details.playlistsGroup"),
+            items: asset.playlistsUsing ?? [],
+            to: (playlistId) => `/playlists/${playlistId}`,
+          },
+          {
+            label: t("media.details.layoutsGroup"),
+            items: (asset.layoutUsage ?? []).map((usage) => ({
+              id: usage.id,
+              name: usage.name,
+              hint: usage.published
+                ? t("media.details.publishedHint")
+                : t("media.details.draftHint"),
+            })),
+            to: (layoutId) => `/layouts/${layoutId}`,
+          },
+        ]}
+      />
+      {asset.errorMessage && (
+        <Alert variant="destructive">
+          <AlertDescription>{asset.errorMessage}</AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+  const actions = canManage && (
+    <>
+      <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+        {mutation.isPending && <Spinner aria-hidden="true" />}
+        {t("common:actions.saveChanges")}
+      </Button>
+      {asset.processingStatus === "failed" && (
+        <Button
+          variant="outline"
+          onClick={() =>
+            void api.retryAsset(asset.id, csrf).then((next) => {
+              toast.add({
+                title: "Processing retry started.",
+                type: "success",
+              });
+              onChanged(next);
+            })
+          }
+        >
+          {t("media.details.retryProcessing")}
+        </Button>
+      )}
+      <Button variant="outline" onClick={() => setConfirmArchive(true)}>
+        <Archive size={15} aria-hidden="true" />{" "}
+        {t("media.details.archiveAsset")}
+      </Button>
+    </>
+  );
+  const archiveConfirmation = (
+    <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("media.archiveDialog.title", { name: asset.name })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("media.archiveDialog.description")}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>
+            {t("media.archiveDialog.keepInLibrary")}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() =>
+              void api.archiveAssets([asset.id], csrf).then(() => {
+                toast.add({ title: "Asset archived.", type: "success" });
+                void queryClient.invalidateQueries({
+                  queryKey: ["assets"],
+                });
+                onRequestClose();
+              })
+            }
+          >
+            {t("media.archiveDialog.moveToArchive")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+  const onOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) onRequestClose();
+  };
+
+  return desktop ? (
     <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+      open={open}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
     >
       <SheetContent
         side="right"
         aria-label={t("media.details.detailsFor", { name: asset.name })}
         className="overflow-y-auto"
       >
-        <SheetHeader>
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {t("media.details.eyebrow")}
-          </p>
-          <SheetTitle>{asset.name}</SheetTitle>
-        </SheetHeader>
-        <div className="grid gap-4 px-4">
-          {asset.thumbnailUrl && (
-            <img
-              className="aspect-video w-full rounded-xl border border-border object-cover"
-              src={asset.thumbnailUrl}
-              alt=""
-              draggable={false}
-            />
-          )}
-          <Field>
-            <FieldLabel htmlFor="asset-name">
-              {t("media.details.nameField")}
-            </FieldLabel>
-            <Input
-              id="asset-name"
-              value={name}
-              disabled={!canManage}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="asset-available-from">
-                {t("media.details.availableFrom")}
-              </FieldLabel>
-              <Input
-                id="asset-available-from"
-                type="datetime-local"
-                value={availableFrom}
-                disabled={!canManage}
-                onChange={(event) => setAvailableFrom(event.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                {t("media.details.availableHint")}
-              </p>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="asset-expires-at">
-                {t("media.details.expiresAt")}
-              </FieldLabel>
-              <Input
-                id="asset-expires-at"
-                type="datetime-local"
-                value={expiresAt}
-                disabled={!canManage}
-                onChange={(event) => setExpiresAt(event.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                {t("media.details.expiresHint")}
-              </p>
-            </Field>
-          </div>
-          <Field>
-            <FieldLabel htmlFor="asset-description">
-              {t("media.details.descriptionField")}
-            </FieldLabel>
-            <Textarea
-              id="asset-description"
-              value={description}
-              disabled={!canManage}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </Field>
-          <AssetOrganization
-            asset={asset}
-            canManage={canManage}
-            csrf={csrf}
-            onChanged={onChanged}
-          />
-          <dl className="grid gap-2 text-sm">
-            <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">
-                {t("media.details.statusField")}
-              </dt>
-              <dd className="font-medium">
-                {statusLabel(asset.processingStatus, t)}
-              </dd>
-            </div>
-            <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">
-                {t("media.details.originalFile")}
-              </dt>
-              <dd className="font-medium">{asset.originalFilename}</dd>
-            </div>
-            <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">
-                {t("media.details.detectedType")}
-              </dt>
-              <dd className="font-medium">{asset.detectedMimeType}</dd>
-            </div>
-            <div className="flex flex-wrap justify-between gap-2">
-              {/* i18n-ignore: hash algorithm name stays English */}
-              <dt className="text-muted-foreground">SHA-256</dt>
-              <dd className="font-mono text-xs break-all">{asset.sha256}</dd>
-            </div>
-          </dl>
-          <UsedByPanel
-            emptyMessage={t("media.details.noUsage")}
-            groups={[
-              {
-                label: t("media.details.playlistsGroup"),
-                items: asset.playlistsUsing ?? [],
-                to: (playlistId) => `/playlists/${playlistId}`,
-              },
-              {
-                label: t("media.details.layoutsGroup"),
-                items: (asset.layoutUsage ?? []).map((usage) => ({
-                  id: usage.id,
-                  name: usage.name,
-                  hint: usage.published
-                    ? t("media.details.publishedHint")
-                    : t("media.details.draftHint"),
-                })),
-                to: (layoutId) => `/layouts/${layoutId}`,
-              },
-            ]}
-          />
-          {asset.errorMessage && (
-            <Alert variant="destructive">
-              <AlertDescription>{asset.errorMessage}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-        {canManage && (
+        {header}
+        <div className="grid gap-4 px-4">{details}</div>
+        {actions && (
           <SheetFooter className="flex-col items-stretch gap-2">
-            <Button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending && <Spinner aria-hidden="true" />}
-              {t("common:actions.saveChanges")}
-            </Button>
-            {asset.processingStatus === "failed" && (
-              <Button
-                variant="outline"
-                onClick={() =>
-                  void api.retryAsset(asset.id, csrf).then(onChanged)
-                }
-              >
-                {t("media.details.retryProcessing")}
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => setConfirmArchive(true)}>
-              <Archive size={15} aria-hidden="true" />{" "}
-              {t("media.details.archiveAsset")}
-            </Button>
+            {actions}
           </SheetFooter>
         )}
-        <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("media.archiveDialog.title", { name: asset.name })}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("media.archiveDialog.description")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>
-                {t("media.archiveDialog.keepInLibrary")}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() =>
-                  void api.archiveAssets([asset.id], csrf).then(() => {
-                    void queryClient.invalidateQueries({
-                      queryKey: ["assets"],
-                    });
-                    onClose();
-                  })
-                }
-              >
-                {t("media.archiveDialog.moveToArchive")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {archiveConfirmation}
       </SheetContent>
     </Sheet>
+  ) : (
+    <Drawer
+      open={open}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+      showSwipeHandle
+    >
+      <DrawerContent
+        aria-label={t("media.details.detailsFor", { name: asset.name })}
+        className="max-h-[calc(100dvh-2rem)]"
+      >
+        {header}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+          {details}
+        </div>
+        {actions && (
+          <DrawerFooter className="border-t border-border">
+            {actions}
+          </DrawerFooter>
+        )}
+        {archiveConfirmation}
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -2888,6 +3034,10 @@ export function WebsiteEditor({
         : api.createWidget(sourceInput, csrf);
     },
     onSuccess: (value) => {
+      toast.add({
+        title: asset ? "Website App updated." : "Website App created.",
+        type: "success",
+      });
       setDirty(false);
       onSaved(value);
     },
@@ -3283,7 +3433,14 @@ export function WebsiteEditor({
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (asset) void api.deleteAsset(asset.id, csrf).then(onClose);
+                if (asset)
+                  void api.deleteAsset(asset.id, csrf).then(() => {
+                    toast.add({
+                      title: "Website App deleted.",
+                      type: "success",
+                    });
+                    onClose();
+                  });
               }}
             >
               {t("media.website.deleteWebsite")}

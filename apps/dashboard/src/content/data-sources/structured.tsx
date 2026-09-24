@@ -9,6 +9,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiErrorMessage, useFormatLocale } from "../../i18n";
 import { api } from "../../api/client";
+import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
@@ -403,6 +404,19 @@ function MappingSelect({
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <RheaSelect
+        items={[
+          { value: "", label: "Not used" },
+          ...fields.map((field) => ({
+            value: field.key,
+            label:
+              field.samples.length > 0
+                ? `${field.label} — ${field.samples[0]}`
+                : field.label,
+          })),
+          ...(value && !known
+            ? [{ value, label: selectedText ?? `${value} (not found)` }]
+            : []),
+        ]}
         value={value}
         disabled={disabled}
         onValueChange={(next) => {
@@ -485,6 +499,10 @@ export function StructuredDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },
@@ -795,6 +813,10 @@ export function StructuredDataSourceEditor({
                       next as StructuredSourceConfig["presentation"],
                   }))
                 }
+                items={presentationOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="structured-presentation"
@@ -922,6 +944,10 @@ export function StructuredDataSourceEditor({
                     sort: next as StructuredSourceConfig["sort"],
                   }))
                 }
+                items={sortOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="structured-sort"
@@ -1005,6 +1031,10 @@ export function StructuredDataSourceEditor({
                             next as StructuredSourceConfig["delimiter"],
                         }))
                       }
+                      items={delimiterOptions.map((option) => ({
+                        value: option.value,
+                        label: t(option.labelKey),
+                      }))}
                     >
                       <SelectTrigger
                         id="csv-delimiter"
@@ -1068,6 +1098,10 @@ export function StructuredDataSourceEditor({
                               next as StructuredValueType,
                             )
                           }
+                          items={valueTypeOptions.map((option) => ({
+                            value: option.value,
+                            label: t(option.labelKey),
+                          }))}
                         >
                           <SelectTrigger
                             aria-label={t("dataSources.structured.valueType", {
@@ -1194,6 +1228,10 @@ export function StructuredDataSourceEditor({
                               },
                             }))
                           }
+                          items={dateFormatOptions.map((option) => ({
+                            value: option.value,
+                            label: t(option.labelKey),
+                          }))}
                         >
                           <SelectTrigger
                             id="date-format"
@@ -1256,6 +1294,10 @@ export function StructuredDataSourceEditor({
                               },
                             }))
                           }
+                          items={dateModeOptions.map((option) => ({
+                            value: option.value,
+                            label: t(option.labelKey),
+                          }))}
                         >
                           <SelectTrigger
                             id="date-mode"
@@ -1300,6 +1342,10 @@ export function StructuredDataSourceEditor({
                               },
                             }))
                           }
+                          items={noMatchOptions.map((option) => ({
+                            value: option.value,
+                            label: t(option.labelKey),
+                          }))}
                         >
                           <SelectTrigger
                             id="date-no-match"
@@ -1475,6 +1521,10 @@ export function StructuredDataSourceEditor({
                         ),
                       }))
                     }
+                    items={filterOperatorOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    }))}
                   >
                     <SelectTrigger
                       aria-label={t("dataSources.structured.filterOperator")}
@@ -1566,6 +1616,10 @@ export function StructuredDataSourceEditor({
                     refreshIntervalSeconds: Number(next),
                   }))
                 }
+                items={refreshOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="structured-refresh"

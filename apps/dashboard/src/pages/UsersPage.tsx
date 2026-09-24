@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import { useFormatLocale } from "../i18n";
 
 type UserRole = User["role"];
@@ -137,6 +138,7 @@ export function UsersPage() {
         t("users.errors.requestFailed"),
       ),
     onSuccess: async () => {
+      toast.add({ title: t("users.toasts.created"), type: "success" });
       setName("");
       setUsername("");
       setPassword("");
@@ -211,6 +213,10 @@ export function UsersPage() {
               {t("users.addForm.roleLabel")}
             </FieldLabel>
             <RheaSelect
+              items={allowedRoles.map((value) => ({
+                value,
+                label: t(roleKeys[value]),
+              }))}
               value={role}
               onValueChange={(value) => setRole(value ?? "viewer")}
             >
@@ -420,7 +426,10 @@ function UserEditorDialog({
         },
         t("users.errors.requestFailed"),
       ),
-    onSuccess: onChanged,
+    onSuccess: async () => {
+      toast.add({ title: t("users.toasts.updated"), type: "success" });
+      await onChanged();
+    },
   });
   const deactivate = useMutation({
     mutationFn: () =>
@@ -430,7 +439,10 @@ function UserEditorDialog({
         { method: "DELETE" },
         t("users.errors.requestFailed"),
       ),
-    onSuccess: onChanged,
+    onSuccess: async () => {
+      toast.add({ title: t("users.toasts.disabled"), type: "success" });
+      await onChanged();
+    },
   });
   const permanentlyDelete = useMutation({
     mutationFn: () =>
@@ -442,7 +454,10 @@ function UserEditorDialog({
         },
         t("users.errors.requestFailed"),
       ),
-    onSuccess: onChanged,
+    onSuccess: async () => {
+      toast.add({ title: t("users.toasts.deleted"), type: "success" });
+      await onChanged();
+    },
   });
   // Tilecast has no email delivery, so there is no self-service factor reset.
   // An administrator clearing the factors is the ordinary recovery path.
@@ -456,7 +471,10 @@ function UserEditorDialog({
         },
         t("users.errors.requestFailed"),
       ),
-    onSuccess: onChanged,
+    onSuccess: async () => {
+      toast.add({ title: t("users.toasts.securityReset"), type: "success" });
+      await onChanged();
+    },
   });
   const isSelf = user.id === currentUser.id;
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -510,6 +528,10 @@ function UserEditorDialog({
                 {t("users.editDialog.roleLabel")}
               </FieldLabel>
               <RheaSelect
+                items={allowedRoles.map((value) => ({
+                  value,
+                  label: t(roleKeys[value]),
+                }))}
                 value={role}
                 onValueChange={(value) => setRole(value ?? user.role)}
               >

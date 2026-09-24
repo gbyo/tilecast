@@ -16,6 +16,7 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 
 export function BackupPanel({ owner }: { owner: boolean }) {
   const { t } = useTranslation(["settings", "common"]);
@@ -128,7 +129,15 @@ export function BackupPanel({ owner }: { owner: boolean }) {
             <RheaButton
               variant="default"
               disabled={busy || create.isPending}
-              onClick={() => create.mutate()}
+              onClick={() => {
+                void toast
+                  .promise(create.mutateAsync(), {
+                    loading: "Creating backup…",
+                    success: "Backup queued.",
+                    error: "Backup could not be created.",
+                  })
+                  .catch(() => {});
+              }}
             >
               {create.isPending ? t("backups.queuing") : t("backups.create")}
             </RheaButton>
@@ -219,7 +228,18 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                     <RheaButton
                       variant="ghost"
                       disabled={busy}
-                      onClick={() => restore.mutate(archive)}
+                      onClick={() => {
+                        void toast
+                          .promise(restore.mutateAsync(archive), {
+                            loading: "Restoring backup…",
+                            success: "Backup restored. Tilecast is restarting.",
+                            error: (error) =>
+                              error instanceof CancelledAction
+                                ? "Restore cancelled."
+                                : "Backup could not be restored.",
+                          })
+                          .catch(() => {});
+                      }}
                     >
                       <RotateCcw size={15} aria-hidden="true" />{" "}
                       {t("backups.restore")}

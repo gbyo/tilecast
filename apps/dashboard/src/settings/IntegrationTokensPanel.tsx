@@ -20,6 +20,7 @@ import {
 } from "../components/ui/empty";
 import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 
 type ScopeTitleKey =
   "integrations.scopes.write.title" | "integrations.scopes.read.title";
@@ -135,6 +136,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
         csrf,
       ),
     onSuccess: (data) => {
+      toast.add({ title: "Integration token created.", type: "success" });
       setSecret(data.secret);
       setNotice(data.notice);
       setName("");
@@ -155,7 +157,10 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
       if (!ok) throw new CancelledAction();
       return api.revokeIntegrationToken(token.id, csrf);
     },
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.add({ title: "Integration token revoked.", type: "success" });
+      return refresh();
+    },
   });
 
   if (!owner)

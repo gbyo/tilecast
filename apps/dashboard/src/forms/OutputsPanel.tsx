@@ -13,6 +13,7 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import { formToneBadgeProps } from "./formBadge";
 
 // OutputsPanel shows the generated dataset for each saved view plus projection status, and lets a
@@ -38,6 +39,7 @@ export function OutputsPanel({
   const rebuild = useMutation({
     mutationFn: () => api.rebuildFormOutputs(form.id, csrf),
     onSuccess: (data) => {
+      toast.add({ title: "Form outputs rebuilt.", type: "success" });
       queryClient.setQueryData(["form-outputs", form.id], data);
       void queryClient.invalidateQueries({
         queryKey: ["data-source", form.id],

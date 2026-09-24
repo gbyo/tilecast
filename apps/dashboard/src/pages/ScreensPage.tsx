@@ -62,6 +62,7 @@ import { previewAge } from "../components/livePreviewState";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { toast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
@@ -583,6 +584,7 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
     onSuccess: async () => {
       setCanceling(null);
       setCancelReason("");
+      toast.add({ title: "Takeover ended.", type: "success" });
       await queryClient.invalidateQueries({ queryKey: ["takeovers"] });
     },
   });
@@ -845,6 +847,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
         auth.status?.csrfToken ?? "",
       ),
     onSuccess: async () => {
+      toast.add({ title: "Takeover started.", type: "success" });
       setOpen(false);
       setPasswordOpen(false);
       setConfirmationOpen(false);
@@ -1387,11 +1390,28 @@ export function ScreenListContent({
     );
   };
   const restartSelected = async () => {
-    await Promise.all(
-      [...selected].map((id) =>
-        api.createScreenCommand(id, "restart_player_process", {}, csrfToken),
-      ),
-    );
+    const ids = [...selected];
+    try {
+      await toast.promise(
+        Promise.all(
+          ids.map((id) =>
+            api.createScreenCommand(
+              id,
+              "restart_player_process",
+              {},
+              csrfToken,
+            ),
+          ),
+        ),
+        {
+          loading: `Requesting restart for ${ids.length} screens…`,
+          success: `Restart requested for ${ids.length} screens.`,
+          error: "The restart request could not be sent.",
+        },
+      );
+    } catch {
+      return;
+    }
     setSelected(new Set());
   };
   const changeSelectedLocation = async () => {
@@ -2679,6 +2699,7 @@ function ApprovalPanel({
       );
     },
     onSuccess: async (screen) => {
+      toast.add({ title: "Screen pairing approved.", type: "success" });
       await queryClient.invalidateQueries({ queryKey: ["screens"] });
       await queryClient.invalidateQueries({
         queryKey: ["screens", "pairing", "pending"],
@@ -2693,7 +2714,10 @@ function ApprovalPanel({
         "Rejected by administrator",
         auth.status?.csrfToken ?? "",
       ),
-    onSuccess: () => onDone(),
+    onSuccess: () => {
+      toast.add({ title: "Pairing request rejected.", type: "success" });
+      onDone();
+    },
   });
   const requestApproval = (values: ApprovalForm) => {
     setApprovalError("");
@@ -3039,6 +3063,7 @@ export function ScreenDetailPage() {
     mutationFn: (values: ApprovalForm) =>
       api.updateScreen(id, values, auth.status?.csrfToken ?? ""),
     onSuccess: async (updated) => {
+      toast.add({ title: "Screen details saved.", type: "success" });
       queryClient.setQueryData(["screens", id], updated);
       setEditingDetails(false);
       await queryClient.invalidateQueries({ queryKey: ["screens"] });
@@ -3086,6 +3111,7 @@ export function ScreenDetailPage() {
       return api.unassignPlaylist(id, auth.status?.csrfToken ?? "");
     },
     onSuccess: async () => {
+      toast.add({ title: "Presentation assignment updated.", type: "success" });
       await queryClient.invalidateQueries({
         queryKey: ["screens", id, "playlist-assignment"],
       });
@@ -3094,7 +3120,11 @@ export function ScreenDetailPage() {
   const stateMutation = useMutation({
     mutationFn: (enabled: boolean) =>
       api.setScreenEnabled(id, enabled, auth.status?.csrfToken ?? ""),
-    onSuccess: async () => {
+    onSuccess: async (_result, enabled) => {
+      toast.add({
+        title: enabled ? "Screen enabled." : "Screen disabled.",
+        type: "success",
+      });
       await queryClient.invalidateQueries({ queryKey: ["screens"] });
     },
   });
@@ -3106,6 +3136,7 @@ export function ScreenDetailPage() {
         auth.status?.csrfToken ?? "",
       ),
     onSuccess: async () => {
+      toast.add({ title: "Player credential revoked.", type: "success" });
       setConfirmRevoke(false);
       await queryClient.invalidateQueries({ queryKey: ["screens"] });
     },
@@ -3138,7 +3169,11 @@ export function ScreenDetailPage() {
       payload: Record<string, unknown>;
     }) =>
       api.createScreenCommand(id, type, payload, auth.status?.csrfToken ?? ""),
-    onSuccess: () => {
+    onSuccess: (_result, action) => {
+      toast.add({
+        title: `Player command queued: ${action.type.replaceAll("_", " ")}.`,
+        type: "success",
+      });
       void queryClient.invalidateQueries({
         queryKey: ["screens", id, "commands"],
       });

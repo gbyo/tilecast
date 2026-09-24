@@ -121,23 +121,16 @@ export function PlaylistPlaybackDefaults({
                 onTransitionChange(next);
               }
             }}
+            items={transitionOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
           >
             <SelectTrigger
               id="playlist-transition"
               aria-label={t("defaults.transitionAria")}
             >
-              <SelectValue>
-                {(() => {
-                  const options = transitionOptions.filter(
-                    (option) =>
-                      option.value !== "mixed" || transition === "mixed",
-                  );
-                  const option = options.find(
-                    (candidate) => candidate.value === transitionValue,
-                  );
-                  return option ? t(option.labelKey) : transitionValue;
-                })()}
-              </SelectValue>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {transition === "mixed" && (

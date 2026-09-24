@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { toast } from "../../components/ui/toast";
 import { apiErrorMessage } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
@@ -145,6 +146,10 @@ export function LiveDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },
@@ -327,6 +332,10 @@ export function LiveDataSourceEditor({
                     feedMode: next as CAPAlertsSourceConfig["feedMode"],
                   })
                 }
+                items={feedModeOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="cap-feed-mode"
@@ -381,6 +390,10 @@ export function LiveDataSourceEditor({
                       next as CAPAlertsSourceConfig["minimumSeverity"],
                   })
                 }
+                items={severityOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="cap-severity"
@@ -503,6 +516,10 @@ export function LiveDataSourceEditor({
                     aqiStandard: next as AirQualitySourceConfig["aqiStandard"],
                   })
                 }
+                items={aqiStandardOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="air-quality-standard"

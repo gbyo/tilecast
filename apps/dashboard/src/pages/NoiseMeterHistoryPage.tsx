@@ -509,6 +509,13 @@ export function NoiseMeterHistoryPage() {
               {t("history.screenLabel")}
             </FieldLabel>
             <RheaSelect
+              items={[
+                { value: "all", label: "All screens (combined)" },
+                ...available.map((screen) => ({
+                  value: screen.screenId,
+                  label: screen.name,
+                })),
+              ]}
               value={screenId || "all"}
               onValueChange={(value) =>
                 setScreenId(!value || value === "all" ? "" : value)
@@ -539,6 +546,10 @@ export function NoiseMeterHistoryPage() {
             {t("history.exportLabel")}
           </FieldLabel>
           <RheaSelect
+            items={granularityOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
             value={granularity}
             onValueChange={(value) => setGranularity(value ?? "raw")}
           >

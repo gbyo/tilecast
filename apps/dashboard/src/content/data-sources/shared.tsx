@@ -18,11 +18,8 @@ export const legacyDataSourceProviders = new Set<string>([
   "csv",
 ]);
 
-// A closed Base UI trigger can only show an item's label while that item is
-// mounted; the dropdown items unmount with the closed popup, so triggers name
-// their own label explicitly instead of showing the raw stored value.
 export function optionLabel(
-  options: { value: string | number; label: string }[],
+  options: readonly { value: string | number; label: string }[],
   value: string | number,
 ): string {
   return (

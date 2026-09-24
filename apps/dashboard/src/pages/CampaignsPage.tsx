@@ -60,7 +60,7 @@ import {
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
-import { optionLabel } from "../content/data-sources/shared";
+import { toast } from "../components/ui/toast";
 
 function nextHour() {
   const date = new Date(Date.now() + 60 * 60 * 1000);
@@ -112,6 +112,13 @@ const destinationTypeOptions = [
   { value: "group", labelKey: "campaigns.editor.destinationTypes.group" },
 ] as const;
 
+function optionLabel<T extends { value: string; label: string }>(
+  options: readonly T[],
+  value: string,
+) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
 function dateTimeInput(value?: string) {
   if (!value) return "";
   const date = new Date(value);
@@ -146,7 +153,10 @@ function CampaignLibrary() {
   const create = useMutation({
     mutationFn: () =>
       api.createCampaign({ name: name.trim(), timezone: "UTC" }, csrf),
-    onSuccess: (campaign) => void navigate(`/campaigns/${campaign.id}`),
+    onSuccess: (campaign) => {
+      toast.add({ title: "Campaign created.", type: "success" });
+      void navigate(`/campaigns/${campaign.id}`);
+    },
   });
   const closeCreate = () => {
     setCreating(false);
@@ -340,6 +350,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         csrf,
       ),
     onSuccess: (campaign) => {
+      toast.add({ title: "Campaign draft saved.", type: "success" });
       setDraft(snapshotForEdit(campaign));
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
@@ -363,6 +374,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         csrf,
       ),
     onSuccess: () => {
+      toast.add({ title: "Campaign published.", type: "success" });
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
       });
@@ -379,6 +391,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     mutationFn: (releaseId: string) =>
       api.restoreCampaignRelease(campaignId, releaseId, csrf),
     onSuccess: (campaign) => {
+      toast.add({
+        title: "Campaign release restored to draft.",
+        type: "success",
+      });
       setDraft(snapshotForEdit(campaign));
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
@@ -397,6 +413,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         csrf,
       ),
     onSuccess: async () => {
+      toast.add({ title: "Publication restored to draft.", type: "success" });
       setDraft(undefined);
       await queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
@@ -415,6 +432,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     mutationFn: (publicationId: string) =>
       api.rollbackPublication("campaign", campaignId, publicationId, csrf),
     onSuccess: () => {
+      toast.add({ title: "Publication rolled back.", type: "success" });
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
       });
@@ -430,6 +448,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   const archive = useMutation({
     mutationFn: () => api.archiveCampaign(campaignId, csrf),
     onSuccess: () => {
+      toast.add({ title: "Campaign archived.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       void navigate("/campaigns");
     },
@@ -799,6 +818,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             type: next as CampaignBlock["type"],
                           })
                         }
+                        items={scheduleTypeOptions}
                       >
                         <SelectTrigger
                           id={`block-type-${block.id}`}
@@ -1025,6 +1045,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     setSelectedType(next as CampaignBlock["contentType"]);
                     setSelectedContent("");
                   }}
+                  items={contentTypeOptions}
                 >
                   <SelectTrigger
                     id="campaign-content-type"
@@ -1050,6 +1071,13 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 <RheaSelect
                   value={selectedContent}
                   onValueChange={(next) => setSelectedContent(next as string)}
+                  items={[
+                    { value: "", label: "Select content" },
+                    ...contentOptions.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    })),
+                  ]}
                 >
                   <SelectTrigger
                     id="campaign-content"
@@ -1151,6 +1179,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     setDestinationType(next as CampaignDestination["type"]);
                     setDestination("");
                   }}
+                  items={destinationTypeSelectOptions}
                 >
                   <SelectTrigger
                     id="campaign-destination-type"
@@ -1179,6 +1208,13 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 <RheaSelect
                   value={destination}
                   onValueChange={(next) => setDestination(next as string)}
+                  items={[
+                    { value: "", label: "Select destination" },
+                    ...destinationOptions.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    })),
+                  ]}
                 >
                   <SelectTrigger
                     id="campaign-destination"

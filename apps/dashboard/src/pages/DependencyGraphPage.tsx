@@ -593,6 +593,13 @@ export function DependencyGraphPage() {
                 )}
               </InputGroup>
               <Select
+                items={[
+                  { value: "all", label: t("graph.toolbar.allTypes") },
+                  ...typeOrder.map((nodeType) => ({
+                    value: nodeType,
+                    label: t(typePresentation[nodeType].pluralKey),
+                  })),
+                ]}
                 value={type}
                 onValueChange={(value) =>
                   setType((value as DependencyNodeType | "all") ?? "all")

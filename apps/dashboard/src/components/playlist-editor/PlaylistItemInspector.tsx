@@ -29,11 +29,12 @@ import {
   SelectValue,
 } from "../ui/select";
 import {
-  Sheet as RheaSheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "../ui/sheet";
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../ui/drawer";
 import { Slider as RheaSlider } from "../ui/slider";
 import { Switch as RheaSwitch } from "../ui/switch";
 import {
@@ -94,33 +95,43 @@ const widgetBehaviorOptions: {
 export function PlaylistItemInspector({
   item,
   index,
+  open,
   canManage,
   playlistTransition,
   saving,
   error,
   onClose,
+  onOpenChangeComplete,
   onChange,
   onDelete,
-}: InspectorProps) {
+}: InspectorProps & {
+  open: boolean;
+  onOpenChangeComplete: (open: boolean) => void;
+}) {
   const { t } = useTranslation("playlists");
   return (
-    <RheaSheet
-      open
+    <Drawer
+      open={open}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
+      onOpenChangeComplete={onOpenChangeComplete}
+      showSwipeHandle
     >
-      <SheetContent side="right" className="overflow-y-auto">
-        <SheetHeader>
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        <DrawerHeader>
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {t("inspector.itemHeading", {
               index: index + 1,
               type: item.assetType,
             })}
           </p>
-          <SheetTitle>{item.assetName}</SheetTitle>
-        </SheetHeader>
-        <div className="px-4">
+          <DrawerTitle>{item.assetName}</DrawerTitle>
+          <DrawerDescription className="sr-only">
+            Edit playlist item settings.
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           <PlaylistItemInspectorBody
             item={item}
             index={index}
@@ -133,8 +144,8 @@ export function PlaylistItemInspector({
             onDelete={onDelete}
           />
         </div>
-      </SheetContent>
-    </RheaSheet>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -167,6 +178,10 @@ export function PlaylistItemInspectorBody({
   const formatLocale = useFormatLocale();
   const usesPlayerDefaults = item.usePlayerDefaults === true;
   const editable = canManage && !item.dynamic;
+  const itemDeliveryOptions =
+    item.assetType === "widget" || item.assetType === "layout"
+      ? deliveryOptions.filter((option) => option.value === "stream")
+      : deliveryOptions;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const set = <K extends keyof PlaylistItemInput>(
     key: K,
@@ -250,19 +265,16 @@ export function PlaylistItemInspectorBody({
                   set("transition", next);
                 }
               }}
+              items={itemTransitionOptions.map((option) => ({
+                value: option.value,
+                label: t(option.labelKey),
+              }))}
             >
               <SelectTrigger
                 id="inspector-transition"
                 aria-label={t("inspector.transitionAria")}
               >
-                <SelectValue>
-                  {(() => {
-                    const option = itemTransitionOptions.find(
-                      (candidate) => candidate.value === item.transition,
-                    );
-                    return option ? t(option.labelKey) : item.transition;
-                  })()}
-                </SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {itemTransitionOptions.map((option) => (
@@ -298,19 +310,16 @@ export function PlaylistItemInspectorBody({
               onValueChange={(next) =>
                 set("fitMode", next as PlaylistItem["fitMode"])
               }
+              items={fitModeOptions.map((option) => ({
+                value: option.value,
+                label: t(option.labelKey),
+              }))}
             >
               <SelectTrigger
                 id="inspector-fit"
                 aria-label={t("inspector.fitAria")}
               >
-                <SelectValue>
-                  {(() => {
-                    const option = fitModeOptions.find(
-                      (candidate) => candidate.value === item.fitMode,
-                    );
-                    return option ? t(option.labelKey) : item.fitMode;
-                  })()}
-                </SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {fitModeOptions.map((option) => (
@@ -331,38 +340,23 @@ export function PlaylistItemInspectorBody({
               onValueChange={(next) =>
                 set("deliveryPolicy", next as PlaylistItem["deliveryPolicy"])
               }
+              items={itemDeliveryOptions.map((option) => ({
+                value: option.value,
+                label: t(option.labelKey),
+              }))}
             >
               <SelectTrigger
                 id="inspector-delivery"
                 aria-label={t("inspector.deliveryAria")}
               >
-                <SelectValue>
-                  {(() => {
-                    const options =
-                      item.assetType === "widget" || item.assetType === "layout"
-                        ? deliveryOptions.filter(
-                            (option) => option.value === "stream",
-                          )
-                        : deliveryOptions;
-                    const option = options.find(
-                      (candidate) => candidate.value === item.deliveryPolicy,
-                    );
-                    return option ? t(option.labelKey) : item.deliveryPolicy;
-                  })()}
-                </SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {item.assetType === "widget" || item.assetType === "layout" ? (
-                  <SelectItem value="stream">
-                    {t("inspector.deliveryStreamOnly")}
+                {itemDeliveryOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(option.labelKey)}
                   </SelectItem>
-                ) : (
-                  deliveryOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.labelKey)}
-                    </SelectItem>
-                  ))
-                )}
+                ))}
               </SelectContent>
             </RheaSelect>
           </Field>
@@ -392,23 +386,16 @@ export function PlaylistItemInspectorBody({
                   onValueChange={(next) =>
                     set("durationMs", next === "until_end" ? undefined : 30_000)
                   }
+                  items={widgetBehaviorOptions.map((option) => ({
+                    value: option.value,
+                    label: t(option.labelKey),
+                  }))}
                 >
                   <SelectTrigger
                     id="inspector-widget-behavior"
                     aria-label={t("inspector.widgetBehaviorAria")}
                   >
-                    <SelectValue>
-                      {(() => {
-                        const behavior =
-                          item.durationMs == null
-                            ? "until_end"
-                            : "fixed_duration";
-                        const option = widgetBehaviorOptions.find(
-                          (candidate) => candidate.value === behavior,
-                        );
-                        return option ? t(option.labelKey) : behavior;
-                      })()}
-                    </SelectValue>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {widgetBehaviorOptions.map((option) => (

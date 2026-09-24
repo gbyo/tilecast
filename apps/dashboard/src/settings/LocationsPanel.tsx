@@ -26,6 +26,7 @@ import {
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 
 const emptyLocation: LocationInput = {
   name: "",
@@ -78,8 +79,11 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
             auth.status?.csrfToken ?? "",
           ),
     onSuccess: async () => {
+      toast.add({
+        title: t("locations.saved"),
+        type: "success",
+      });
       setEditing(undefined);
-      setNotice(t("locations.saved"));
       await client.invalidateQueries({ queryKey: ["locations"] });
       await client.invalidateQueries({ queryKey: ["screens"] });
     },
@@ -88,7 +92,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
     mutationFn: (location: Location) =>
       api.deleteLocation(location.id, auth.status?.csrfToken ?? ""),
     onSuccess: async () => {
-      setNotice(t("locations.deleted"));
+      toast.add({ title: t("locations.deleted"), type: "success" });
       await client.invalidateQueries({ queryKey: ["locations"] });
     },
     onError: (error) =>

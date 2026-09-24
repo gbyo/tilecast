@@ -1304,6 +1304,8 @@
       "rolling": "Rolling out. Nothing needs attention."
     },
     "requestFailed": "The request failed.",
+    "retryRequested": "Retry requested for this screen.",
+    "cancelledSuccess": "Player update deployment cancelled.",
     "deploymentTitle": "Deployment",
     "deploymentFallback": "Player deployment",
     "loading": "Loading screen statuses",
@@ -1484,6 +1486,7 @@
       "readinessVerifyingDetail": "Artifact cached. Full verification has not finished.",
       "readinessReady": "Ready to deploy",
       "uploadTitle": "Upload signed {{platform}} release",
+      "releaseUploaded": "Signed player release uploaded.",
       "uploadHint": "All three files are verified before the {{artifact}} enters Tilecast's private update cache.",
       "dropTitle": "Drop the release files here",
       "dropHint": "or choose all three files",
@@ -1680,6 +1683,12 @@
       "update": "Player updates"
     },
     "testSent": "Test message sent to {{sentTo}}.",
+    "toasts": {
+      "webhookCreated": "Notification webhook created.",
+      "webhookUpdated": "Notification webhook updated.",
+      "webhookTestSent": "Webhook test sent.",
+      "webhookRemoved": "Notification webhook removed."
+    },
     "removeTitle": "Remove the webhook \"{{name}}\"?",
     "removeBody": "Its signing secret cannot be recovered, so the receiver will need a new one.",
     "remove": "Remove",
@@ -1792,7 +1801,8 @@
       "policiesPresent": "{{group}} group policies and {{screen}} screen policies are present.",
       "applyTitle": "Apply this validated settings document?",
       "apply": "Apply",
-      "applyAction": "Apply imported settings"
+      "applyAction": "Apply imported settings",
+      "imported": "Settings imported."
     }
   }
 }

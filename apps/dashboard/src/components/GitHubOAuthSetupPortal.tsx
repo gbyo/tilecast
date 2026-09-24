@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Input } from "./ui/input";
+import { toast } from "./ui/toast";
 
 type ActiveFlow = GitHubDeviceStart & { retryAfterSeconds: number };
 
@@ -199,9 +200,14 @@ export function GitHubOAuthSetupPortal() {
   }, [csrfToken, flow, queryClient, t]);
 
   const copy = async (label: string, value: string) => {
-    await navigator.clipboard.writeText(value);
-    setCopied(label);
-    window.setTimeout(() => setCopied(""), 1500);
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
+      toast.add({ title: `${label} copied.`, type: "success" });
+      window.setTimeout(() => setCopied(""), 1500);
+    } catch {
+      toast.add({ title: `${label} could not be copied.`, type: "error" });
+    }
   };
 
   return (

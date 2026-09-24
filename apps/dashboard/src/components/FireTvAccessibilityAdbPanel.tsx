@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Button } from "./ui/button";
+import { toast } from "./ui/toast";
 
 const ACCESSIBILITY_COMPONENT =
   "org.tilecast.player/org.tilecast.player.reliability.TilecastAccessibilityService";
@@ -60,9 +61,14 @@ export function FireTvAccessibilityAdbPanel({
     try {
       await navigator.clipboard.writeText(commands.combined);
       setCopyState("copied");
+      toast.add({ title: "ADB commands copied.", type: "success" });
       window.setTimeout(() => setCopyState("idle"), 2_000);
     } catch {
       setCopyState("error");
+      toast.add({
+        title: "ADB commands could not be copied.",
+        type: "error",
+      });
     }
   };
 

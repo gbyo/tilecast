@@ -23,6 +23,7 @@ import { Input } from "../components/ui/input";
 import { Slider } from "../components/ui/slider";
 import { Switch as RheaSwitch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
+import { toast } from "../components/ui/toast";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -771,6 +772,10 @@ export function NativeAppEditor({
       };
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: asset ? "Widget updated." : "Widget created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       onSaved(saved);
     },
@@ -2798,6 +2803,16 @@ export function NativeAppEditor({
                         {t("widgets.editors.spotlight.image")}
                       </FieldLabel>
                       <RheaSelect
+                        items={[
+                          {
+                            value: "",
+                            label: t("widgets.editors.spotlight.noImage"),
+                          },
+                          ...(imageAssets.data?.items ?? []).map((item) => ({
+                            value: item.id,
+                            label: item.name,
+                          })),
+                        ]}
                         value={
                           (configuration as SpotlightWidgetConfig)
                             .imageAssetId ?? ""
@@ -4684,6 +4699,13 @@ function FieldSelect({
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <RheaSelect
+        items={[
+          { value: "", label: emptyLabel },
+          ...fields.map((field) => ({
+            value: field.key,
+            label: field.label,
+          })),
+        ]}
         value={value}
         disabled={disabled || fields.length === 0}
         onValueChange={(next) => {
@@ -4691,9 +4713,7 @@ function FieldSelect({
         }}
       >
         <SelectTrigger id={id} aria-label={label}>
-          <SelectValue>
-            {fields.find((field) => field.key === value)?.label ?? emptyLabel}
-          </SelectValue>
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="">{emptyLabel}</SelectItem>
@@ -4787,6 +4807,10 @@ export function YouTubeSourceEditor({
         : api.createWidget(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: asset ? "Widget updated." : "Widget created.",
+        type: "success",
+      });
       setDirty(false);
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       onSaved(saved);
@@ -5083,6 +5107,13 @@ export function YouTubeSourceEditor({
             {t("widgets.editors.youtube.fallback")}
           </FieldLabel>
           <RheaSelect
+            items={[
+              { value: "", label: t("widgets.editors.shared.none") },
+              ...(images.data?.items ?? []).map((image) => ({
+                value: image.id,
+                label: image.name,
+              })),
+            ]}
             disabled={readOnly}
             value={configuration.fallbackImageAssetId ?? ""}
             onValueChange={(next) =>

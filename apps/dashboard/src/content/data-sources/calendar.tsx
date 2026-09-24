@@ -3,6 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { toast } from "../../components/ui/toast";
 import { apiErrorMessage, useFormatLocale } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
@@ -118,6 +119,10 @@ export function CalendarDataSourceEditor({
         : api.createDataSource(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: dataSource ? "Data Source updated." : "Data Source created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onSaved(saved);
     },
@@ -302,6 +307,10 @@ export function CalendarDataSourceEditor({
                 displayMode: next as CalendarConfig["displayMode"],
               })
             }
+            items={displayModeOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
           >
             <SelectTrigger
               id="calendar-display"
@@ -477,6 +486,10 @@ export function CalendarDataSourceEditor({
                 refreshIntervalSeconds: Number(next),
               })
             }
+            items={calendarRefreshOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
           >
             <SelectTrigger
               id="calendar-refresh"
@@ -514,6 +527,10 @@ export function CalendarDataSourceEditor({
                 stalenessLimitHours: Number(next),
               })
             }
+            items={stalenessOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
           >
             <SelectTrigger
               id="calendar-staleness"

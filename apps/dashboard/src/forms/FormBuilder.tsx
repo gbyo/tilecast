@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { Field, FieldLabel } from "../components/ui/field";
+import { toast } from "../components/ui/toast";
 import { Input } from "../components/ui/input";
 import {
   Item as RheaItem,
@@ -145,6 +146,7 @@ export function FormBuilder({
     mutationFn: () => api.updateFormDraft(form.id, draft, csrf),
     onMutate: () => setSaveError(""),
     onSuccess: (updated) => {
+      toast.add({ title: "Form draft saved.", type: "success" });
       setBaseline(JSON.stringify(updated.draftSchema));
       setDraft(cloneSchema(updated.draftSchema));
       void queryClient.invalidateQueries({
@@ -176,6 +178,7 @@ export function FormBuilder({
     },
     onMutate: () => setPublishError(""),
     onSuccess: ({ snapshot }) => {
+      toast.add({ title: "Form published.", type: "success" });
       setBaseline(snapshot);
       setShowPublish(false);
       void queryClient.invalidateQueries({

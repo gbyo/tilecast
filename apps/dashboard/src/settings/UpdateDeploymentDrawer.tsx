@@ -7,6 +7,14 @@ import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton } from "../components/ui/button";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
 import { Input } from "../components/ui/input";
 import {
   Sheet as RheaSheet,
@@ -17,6 +25,8 @@ import {
   SheetTitle,
 } from "../components/ui/sheet";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { api } from "../api/client";
 import type { Screen, UpdateDeploymentScreen } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -39,13 +49,17 @@ export function UpdateDeploymentDrawer({
   deploymentId,
   screens,
   manageable,
-  onClose,
+  open,
+  onOpenChange,
+  onOpenChangeComplete,
 }: {
   deploymentId: string;
   /** The fleet list the panel already holds, for live reachability per target. */
   screens: Screen[];
   manageable: boolean;
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete: (open: boolean) => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const locale = useFormatLocale();
@@ -78,7 +92,10 @@ export function UpdateDeploymentDrawer({
         auth.status?.csrfToken ?? "",
       ),
     onMutate: () => setActionError(""),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      toast.add({ title: t("updates.retryRequested"), type: "success" });
+      return invalidate();
+    },
     onError: (error: unknown) =>
       setActionError(
         error instanceof Error ? error.message : t("updates.requestFailed"),
@@ -88,7 +105,13 @@ export function UpdateDeploymentDrawer({
     mutationFn: () =>
       api.cancelUpdateDeployment(deploymentId, auth.status?.csrfToken ?? ""),
     onMutate: () => setActionError(""),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      toast.add({
+        title: t("updates.cancelledSuccess"),
+        type: "success",
+      });
+      return invalidate();
+    },
     onError: (error: unknown) =>
       setActionError(
         error instanceof Error ? error.message : t("updates.requestFailed"),
@@ -105,207 +128,241 @@ export function UpdateDeploymentDrawer({
   const reachability = new Map(screens.map((item) => [item.id, item.status]));
   const active =
     deployment?.status === "active" || deployment?.status === "paused";
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <SheetDescription>
+        {deployment
+          ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
+          : t("updates.deploymentFallback")}
+      </SheetDescription>
+      <SheetTitle>
+        {deployment?.name ?? t("updates.deploymentTitle")}
+      </SheetTitle>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <DrawerDescription>
+        {deployment
+          ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
+          : t("updates.deploymentFallback")}
+      </DrawerDescription>
+      <DrawerTitle>
+        {deployment?.name ?? t("updates.deploymentTitle")}
+      </DrawerTitle>
+    </DrawerHeader>
+  );
 
-  return (
-    <RheaSheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+  const content = (
+    <div
+      className={
+        desktop
+          ? "grid gap-4 px-6 pb-6"
+          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-4"
+      }
     >
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
-          <SheetDescription>
-            {deployment
-              ? // i18n-ignore: Linux/Android are platform names, not language text
-                `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
-              : t("updates.deploymentFallback")}
-          </SheetDescription>
-          <SheetTitle>
-            {deployment?.name ?? t("updates.deploymentTitle")}
-          </SheetTitle>
-        </SheetHeader>
-        <div className="grid gap-4 px-6 pb-6">
-          {detail.isLoading && (
-            <span className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Spinner />
-              {t("updates.loading")}
-            </span>
-          )}
-          {detail.error && (
-            <Alert variant="destructive">
-              <AlertTitle>{t("updates.statusesLoadError")}</AlertTitle>
+      {detail.isLoading && (
+        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner />
+          {t("updates.loading")}
+        </span>
+      )}
+      {detail.error && (
+        <Alert variant="destructive">
+          <AlertTitle>{t("updates.statusesLoadError")}</AlertTitle>
+          <AlertDescription>
+            {detail.error instanceof Error
+              ? detail.error.message
+              : t("updates.requestFailed")}
+          </AlertDescription>
+        </Alert>
+      )}
+      {actionError && (
+        <Alert variant="destructive">
+          <AlertDescription>{actionError}</AlertDescription>
+        </Alert>
+      )}
+      {deployment && (
+        <>
+          <dl className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
+            <div className="grid gap-0.5">
+              <dt className="text-xs text-muted-foreground">
+                {t("updates.detail.status")}
+              </dt>
+              <dd>
+                <StatusDot
+                  tone={
+                    deployment.status === "completed"
+                      ? "success"
+                      : deployment.status === "cancelled"
+                        ? "neutral"
+                        : deployment.status === "paused"
+                          ? "warning"
+                          : "info"
+                  }
+                  label={humanize(deployment.status)}
+                />
+              </dd>
+            </div>
+            <div className="grid gap-0.5">
+              <dt className="text-xs text-muted-foreground">
+                {t("updates.detail.mode")}
+              </dt>
+              <dd className="text-sm font-medium">
+                {humanize(deployment.mode)}
+              </dd>
+            </div>
+            <div className="grid gap-0.5">
+              <dt className="text-xs text-muted-foreground">
+                {t("updates.detail.rollout")}
+              </dt>
+              <dd className="text-sm font-medium">
+                {deployment.rolloutMode === "canary"
+                  ? t("updates.rolloutCanary", {
+                      size: deployment.canarySize,
+                      phase: humanize(deployment.rolloutPhase),
+                    })
+                  : t("updates.rolloutAll")}
+              </dd>
+            </div>
+            <div className="grid gap-0.5">
+              <dt className="text-xs text-muted-foreground">
+                {t("updates.detail.started")}
+              </dt>
+              <dd className="text-sm font-medium">
+                {new Date(deployment.createdAt).toLocaleString(locale)}
+              </dd>
+            </div>
+          </dl>
+          {deployment.pauseReason && (
+            <Alert role="status">
+              <AlertTitle>{t("updates.pausedTitle")}</AlertTitle>
               <AlertDescription>
-                {detail.error instanceof Error
-                  ? detail.error.message
-                  : t("updates.requestFailed")}
+                {t("updates.pausedDetail", {
+                  reason: deployment.pauseReason,
+                })}
               </AlertDescription>
             </Alert>
           )}
-          {actionError && (
-            <Alert variant="destructive">
-              <AlertDescription>{actionError}</AlertDescription>
-            </Alert>
+          <DeploymentMeter {...screenStateCounts(allScreens)} />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <ViewTabs
+              label={t("updates.filterLabel")}
+              value={filter}
+              items={[
+                {
+                  value: "all",
+                  label: t("updates.filter.all", { count: allScreens.length }),
+                },
+                {
+                  value: "attention",
+                  label: t("updates.filter.attention", {
+                    count: counts.attention,
+                  }),
+                },
+                {
+                  value: "progress",
+                  label: t("updates.filter.progress", {
+                    count: counts.progress,
+                  }),
+                },
+                {
+                  value: "done",
+                  label: t("updates.filter.done", { count: counts.done }),
+                },
+              ]}
+              onValueChange={(value) => setFilter(value)}
+            />
+            <label className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2">
+              <span className="sr-only">{t("updates.searchScreens")}</span>
+              <Search
+                size={16}
+                aria-hidden="true"
+                className="shrink-0 text-muted-foreground"
+              />
+              <Input
+                type="search"
+                value={search}
+                placeholder={t("updates.searchScreens")}
+                onChange={(event) => setSearch(event.target.value)}
+                className="w-40 border-0 bg-transparent px-0 py-[5px]"
+              />
+            </label>
+          </div>
+          <ul className="grid gap-0 divide-y divide-border rounded-xl border border-border">
+            {visible.map((item) => (
+              <DeploymentScreenRow
+                key={item.screenId}
+                screen={item}
+                artifactSizeBytes={deployment.artifactSizeBytes}
+                reachability={reachability.get(item.screenId)}
+                manageable={manageable}
+                retrying={retry.isPending && retry.variables === item.screenId}
+                onRetry={() => retry.mutate(item.screenId)}
+              />
+            ))}
+          </ul>
+          {!visible.length && (
+            <p className="rounded-xl border border-border bg-muted p-5 text-center text-sm text-muted-foreground">
+              {allScreens.length
+                ? t("updates.emptyFilter")
+                : t("updates.emptyNone")}
+            </p>
           )}
-          {deployment && (
-            <>
-              <dl className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
-                <div className="grid gap-0.5">
-                  <dt className="text-xs text-muted-foreground">
-                    {t("updates.detail.status")}
-                  </dt>
-                  <dd>
-                    <StatusDot
-                      tone={
-                        deployment.status === "completed"
-                          ? "success"
-                          : deployment.status === "cancelled"
-                            ? "neutral"
-                            : deployment.status === "paused"
-                              ? "warning"
-                              : "info"
-                      }
-                      label={humanize(deployment.status)}
-                    />
-                  </dd>
-                </div>
-                <div className="grid gap-0.5">
-                  <dt className="text-xs text-muted-foreground">
-                    {t("updates.detail.mode")}
-                  </dt>
-                  <dd className="text-sm font-medium">
-                    {humanize(deployment.mode)}
-                  </dd>
-                </div>
-                <div className="grid gap-0.5">
-                  <dt className="text-xs text-muted-foreground">
-                    {t("updates.detail.rollout")}
-                  </dt>
-                  <dd className="text-sm font-medium">
-                    {deployment.rolloutMode === "canary"
-                      ? t("updates.rolloutCanary", {
-                          size: deployment.canarySize,
-                          phase: humanize(deployment.rolloutPhase),
-                        })
-                      : t("updates.rolloutAll")}
-                  </dd>
-                </div>
-                <div className="grid gap-0.5">
-                  <dt className="text-xs text-muted-foreground">
-                    {t("updates.detail.started")}
-                  </dt>
-                  <dd className="text-sm font-medium">
-                    {new Date(deployment.createdAt).toLocaleString(locale)}
-                  </dd>
-                </div>
-              </dl>
-              {deployment.pauseReason && (
-                <Alert role="status">
-                  <AlertTitle>{t("updates.pausedTitle")}</AlertTitle>
-                  <AlertDescription>
-                    {t("updates.pausedDetail", {
-                      reason: deployment.pauseReason,
-                    })}
-                  </AlertDescription>
-                </Alert>
-              )}
-              <DeploymentMeter {...screenStateCounts(allScreens)} />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <ViewTabs
-                  label={t("updates.filterLabel")}
-                  value={filter}
-                  items={[
-                    {
-                      value: "all",
-                      label: t("updates.filter.all", {
-                        count: allScreens.length,
-                      }),
-                    },
-                    {
-                      value: "attention",
-                      label: t("updates.filter.attention", {
-                        count: counts.attention,
-                      }),
-                    },
-                    {
-                      value: "progress",
-                      label: t("updates.filter.progress", {
-                        count: counts.progress,
-                      }),
-                    },
-                    {
-                      value: "done",
-                      label: t("updates.filter.done", {
-                        count: counts.done,
-                      }),
-                    },
-                  ]}
-                  onValueChange={(value) => setFilter(value)}
-                />
-                <label className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2">
-                  <span className="sr-only">{t("updates.searchScreens")}</span>
-                  <Search
-                    size={16}
-                    aria-hidden="true"
-                    className="shrink-0 text-muted-foreground"
-                  />
-                  <Input
-                    type="search"
-                    value={search}
-                    placeholder={t("updates.searchScreens")}
-                    onChange={(event) => setSearch(event.target.value)}
-                    className="w-40 border-0 bg-transparent px-0 py-[5px]"
-                  />
-                </label>
-              </div>
-              <ul className="grid gap-0 divide-y divide-border rounded-xl border border-border">
-                {visible.map((item) => (
-                  <DeploymentScreenRow
-                    key={item.screenId}
-                    screen={item}
-                    artifactSizeBytes={deployment.artifactSizeBytes}
-                    reachability={reachability.get(item.screenId)}
-                    manageable={manageable}
-                    retrying={
-                      retry.isPending && retry.variables === item.screenId
-                    }
-                    onRetry={() => retry.mutate(item.screenId)}
-                  />
-                ))}
-              </ul>
-              {!visible.length && (
-                <p className="rounded-xl border border-border bg-muted p-5 text-center text-sm text-muted-foreground">
-                  {allScreens.length
-                    ? t("updates.emptyFilter")
-                    : t("updates.emptyNone")}
-                </p>
-              )}
-            </>
-          )}
-        </div>
-        {manageable && active && (
-          <SheetFooter className="border-t border-border">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="flex-1 basis-60 text-sm text-muted-foreground">
-                {t("updates.cancelHint")}
-              </span>
-              <RheaButton
-                variant="destructive"
-                disabled={cancel.isPending}
-                onClick={() => cancel.mutate()}
-              >
-                {cancel.isPending ? (
-                  <Spinner />
-                ) : (
-                  <XCircle size={16} aria-hidden="true" />
-                )}{" "}
-                {t("updates.cancel")}
-              </RheaButton>
-            </div>
-          </SheetFooter>
+        </>
+      )}
+    </div>
+  );
+  const footer = manageable && active && (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <span className="flex-1 basis-60 text-sm text-muted-foreground">
+        {t("updates.cancelHint")}
+      </span>
+      <RheaButton
+        variant="destructive"
+        disabled={cancel.isPending}
+        onClick={() => cancel.mutate()}
+      >
+        {cancel.isPending ? (
+          <Spinner />
+        ) : (
+          <XCircle size={16} aria-hidden="true" />
+        )}
+        {t("updates.cancel")}
+      </RheaButton>
+    </div>
+  );
+  return desktop ? (
+    <RheaSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+    >
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+        {header}
+        {content}
+        {footer && (
+          <SheetFooter className="border-t border-border">{footer}</SheetFooter>
         )}
       </SheetContent>
     </RheaSheet>
+  ) : (
+    <Drawer
+      open={open}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+      showSwipeHandle
+    >
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        {header}
+        {content}
+        {footer && (
+          <DrawerFooter className="border-t border-border">
+            {footer}
+          </DrawerFooter>
+        )}
+      </DrawerContent>
+    </Drawer>
   );
 }
 

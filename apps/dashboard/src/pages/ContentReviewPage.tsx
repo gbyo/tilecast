@@ -9,7 +9,7 @@ import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Link } from "react-router";
 import { Check, Inbox, Undo2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -72,7 +72,8 @@ export function ContentReviewPage() {
   const canDecide = ["owner", "administrator", "editor"].includes(role);
 
   const [filter, setFilter] = useState<ContentReviewState | "">("pending");
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selected, setSelected] = useState<ContentReviewItem | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [rejectKey, setRejectKey] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
 
@@ -99,27 +100,29 @@ export function ContentReviewPage() {
       ),
     onSuccess: (_data, input) => {
       void client.invalidateQueries({ queryKey: ["content-reviews"] });
-      if (selectedKey === key(input.item)) setSelectedKey(null);
+      if (selected && key(selected) === key(input.item)) setDetailsOpen(false);
       if (rejectKey === key(input.item)) {
         setRejectKey(null);
         setRejectNote("");
       }
-      toast.success(
-        input.approve
+      toast.add({
+        title: input.approve
           ? t("contentReview.toast.approved")
           : t("contentReview.toast.sentBack"),
-      );
+        type: "success",
+      });
     },
     onError: (err) =>
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : t("contentReview.toast.decisionFailed"),
-      ),
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("contentReview.toast.decisionFailed"),
+        type: "error",
+      }),
   });
 
   const items = queue.data?.items ?? [];
-  const selected = items.find((item) => key(item) === selectedKey) ?? null;
   const rejectItem = items.find((item) => key(item) === rejectKey) ?? null;
 
   const columns = useMemo(
@@ -181,7 +184,10 @@ export function ContentReviewPage() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setSelectedKey(key(row.original))}
+                    onClick={() => {
+                      setSelected(row.original);
+                      setDetailsOpen(true);
+                    }}
                   >
                     {t("contentReview.table.reviewAction")}
                   </Button>
@@ -314,9 +320,10 @@ export function ContentReviewPage() {
       )}
 
       <Sheet
-        open={selected !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelectedKey(null);
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        onOpenChangeComplete={(open) => {
+          if (!open) setSelected(null);
         }}
       >
         {selected && (

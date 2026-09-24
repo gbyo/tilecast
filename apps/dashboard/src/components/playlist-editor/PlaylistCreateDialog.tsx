@@ -14,6 +14,7 @@ import {
 } from "../../components/ui/dialog";
 import { Field, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
+import { toast } from "../../components/ui/toast";
 
 // PlaylistCreateDialog is the single creation dialog shared by the Playlists
 // page and the playlist library: name the playlist and choose how its items
@@ -35,7 +36,10 @@ export function PlaylistCreateDialog({
   const create = useMutation({
     mutationFn: () =>
       api.createPlaylist({ name, description: "", sourceType }, csrf),
-    onSuccess: (playlist) => onCreated(playlist.id),
+    onSuccess: (playlist) => {
+      toast.add({ title: "Playlist created.", type: "success" });
+      onCreated(playlist.id);
+    },
   });
   return (
     <RheaDialog

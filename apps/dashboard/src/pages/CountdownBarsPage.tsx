@@ -25,6 +25,7 @@ import {
 } from "../components/ui/item";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
+import { toast } from "../components/ui/toast";
 import {
   Empty,
   EmptyDescription,
@@ -237,6 +238,7 @@ export function CountdownBarsPage() {
     mutationFn: (id: string) =>
       api.deleteCountdownBar(id, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({ title: "Countdown Bar removed.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["countdown-bars"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
     },
@@ -471,6 +473,10 @@ export function CountdownBarEditorPage() {
         ? api.updateCountdownBar(id ?? "", input, auth.status?.csrfToken ?? "")
         : api.createCountdownBar(input, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({
+        title: editing ? "Countdown Bar updated." : "Countdown Bar created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["countdown-bars"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
       void navigate("/plugins/countdown-bar");
@@ -630,6 +636,10 @@ export function CountdownBarEditorPage() {
               {t("countdown.editor.scheduleLabel")}
             </FieldLabel>
             <RheaSelect
+              items={scheduleTypeOptions.map((option) => ({
+                value: option.value,
+                label: t(option.labelKey),
+              }))}
               name="scheduleType"
               value={scheduleType}
               onValueChange={(next) => {
@@ -744,6 +754,10 @@ export function CountdownBarEditorPage() {
                 {t("countdown.editor.modeLabel")}
               </FieldLabel>
               <RheaSelect
+                items={displayModeOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 name="displayMode"
                 value={displayMode}
                 onValueChange={(next) => {
@@ -776,6 +790,10 @@ export function CountdownBarEditorPage() {
                 {t("countdown.editor.progressLabel")}
               </FieldLabel>
               <RheaSelect
+                items={progressFillOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 name="progressFill"
                 value={progressFill}
                 onValueChange={(next) => {

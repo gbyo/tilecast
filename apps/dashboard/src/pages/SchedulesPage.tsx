@@ -48,6 +48,7 @@ import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { SpanWallEditor } from "../components/SpanWallEditor";
 import { DisplayControlGroupActions } from "../components/DisplayControlGroupActions";
+import { toast } from "../components/ui/toast";
 
 const canManage = (role?: string) =>
   role === "owner" || role === "administrator";
@@ -109,7 +110,10 @@ export function GroupsPage() {
   const create = useMutation({
     mutationFn: (value: { name: string; description: string }) =>
       api.createScreenGroup(value, csrf),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["screen-groups"] }),
+    onSuccess: () => {
+      toast.add({ title: "Display Group created.", type: "success" });
+      return client.invalidateQueries({ queryKey: ["screen-groups"] });
+    },
   });
 
   return (
@@ -277,12 +281,21 @@ export function GroupDetailPage() {
   const add = useMutation({
       mutationFn: (screenId: string) =>
         api.addScreenToGroup(id, screenId, csrf),
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({ title: "Screen added to Display Group.", type: "success" });
+        return refresh();
+      },
     }),
     remove = useMutation({
       mutationFn: (screenId: string) =>
         api.removeScreenFromGroup(id, screenId, csrf),
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({
+          title: "Screen removed from Display Group.",
+          type: "success",
+        });
+        return refresh();
+      },
     }),
     update = useMutation({
       mutationFn: (value: {
@@ -291,11 +304,17 @@ export function GroupDetailPage() {
         presentationGatewayScreenId?: string;
         clearPresentationGateway?: boolean;
       }) => api.updateScreenGroup(id, value, csrf),
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({ title: "Display Group updated.", type: "success" });
+        return refresh();
+      },
     }),
     deleteGroup = useMutation({
       mutationFn: () => api.deleteScreenGroup(id, csrf),
-      onSuccess: () => navigate("/groups"),
+      onSuccess: () => {
+        toast.add({ title: "Display Group deleted.", type: "success" });
+        void navigate("/groups");
+      },
     }),
     assignContent = useMutation({
       mutationFn: (value: string) => {
@@ -306,7 +325,13 @@ export function GroupDetailPage() {
           return api.assignSyncGroupPlaylist(id, presentationId, csrf);
         return api.unassignSyncGroupPlaylist(id, csrf);
       },
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({
+          title: "Display Group assignment updated.",
+          type: "success",
+        });
+        return refresh();
+      },
     });
   useEffect(() => {
     setSelectedPresentation(
@@ -526,6 +551,13 @@ export function GroupDetailPage() {
               {t("groups.detail.gatewayLabel")}
             </FieldLabel>
             <Select
+              items={[
+                { value: "automatic", label: "Automatic" },
+                ...groupData.screens.map((screen) => ({
+                  value: screen.id,
+                  label: screen.name,
+                })),
+              ]}
               value={groupData.presentationGatewayScreenId || "automatic"}
               onValueChange={(next) => {
                 if (!next || next === "automatic") {
@@ -588,6 +620,19 @@ export function GroupDetailPage() {
                 {t("groups.detail.fallbackFieldLabel")}
               </FieldLabel>
               <Select
+                items={[
+                  { value: "none", label: "No fallback presentation" },
+                  ...(playlists.data?.items ?? []).map((playlist) => ({
+                    value: `playlist:${playlist.id}`,
+                    label: `Playlist · ${playlist.name}`,
+                  })),
+                  ...(layouts.data?.items ?? [])
+                    .filter((layout) => layout.publishedRevision)
+                    .map((layout) => ({
+                      value: `layout:${layout.id}`,
+                      label: `Layout · ${layout.name}`,
+                    })),
+                ]}
                 value={selectedPresentation || "none"}
                 onValueChange={(next) =>
                   setSelectedPresentation(!next || next === "none" ? "" : next)
@@ -685,6 +730,10 @@ export function GroupDetailPage() {
                 {t("groups.detail.addLabel")}
               </FieldLabel>
               <Select
+                items={available.map((screen) => ({
+                  value: screen.id,
+                  label: `${screen.name}${screen.location ? ` — ${screen.location}` : ""}`,
+                }))}
                 value=""
                 disabled={available.length === 0 || add.isPending}
                 onValueChange={(next) => {

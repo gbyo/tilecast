@@ -162,6 +162,10 @@ export function TargetFields({
           {t("shared.targetType")}
         </FieldLabel>
         <RheaSelect
+          items={targetScopeOptions.map((option) => ({
+            value: option.value,
+            label: t(option.labelKey),
+          }))}
           name="targetScope"
           value={scope}
           onValueChange={(next) => {

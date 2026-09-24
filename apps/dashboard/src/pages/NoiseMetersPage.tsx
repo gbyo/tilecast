@@ -24,6 +24,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { toast } from "../components/ui/toast";
 import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
 import {
   Empty,
@@ -254,6 +255,7 @@ export function NoiseMetersPage() {
     mutationFn: (id: string) =>
       api.deleteNoiseMeter(id, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({ title: "Noise Meter removed.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["noise-meters"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
     },
@@ -463,6 +465,10 @@ export function NoiseMeterEditorPage() {
         ? api.updateNoiseMeter(id ?? "", input, auth.status?.csrfToken ?? "")
         : api.createNoiseMeter(input, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({
+        title: editing ? "Noise Meter updated." : "Noise Meter created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["noise-meters"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
       void navigate("/plugins/noise-meter");
@@ -662,6 +668,10 @@ export function NoiseMeterEditorPage() {
                 {t("noiseMeter.editor.displayLabel")}
               </FieldLabel>
               <RheaSelect
+                items={noiseDisplayModeOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 name="displayMode"
                 value={displayMode}
                 onValueChange={(next) => {
@@ -812,6 +822,10 @@ export function NoiseMeterEditorPage() {
                 {t("noiseMeter.editor.retentionLabel")}
               </FieldLabel>
               <RheaSelect
+                items={retentionDays.map((days) => ({
+                  value: String(days),
+                  label: t("noiseMeter.editor.retention", { count: days }),
+                }))}
                 name="historyRetentionDays"
                 value={String(historyRetentionDays)}
                 onValueChange={(next) => {

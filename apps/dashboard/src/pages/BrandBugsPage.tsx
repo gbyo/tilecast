@@ -23,6 +23,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
+import { toast } from "../components/ui/toast";
 import {
   Empty,
   EmptyDescription,
@@ -179,6 +180,7 @@ export function BrandBugsPage() {
     mutationFn: (id: string) =>
       api.deleteBrandBug(id, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({ title: "Brand Bug removed.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["brand-bugs"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
     },
@@ -385,6 +387,7 @@ export function BrandBugEditorPage() {
         ? api.updateBrandBug(id ?? "", input, auth.status?.csrfToken ?? "")
         : api.createBrandBug(input, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
+      toast.add({ title: "Brand Bug saved.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["brand-bugs"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
       void navigate("/plugins/brand-bug");
@@ -463,6 +466,13 @@ export function BrandBugEditorPage() {
               {t("brandBug.editor.logoLabel")}
             </FieldLabel>
             <RheaSelect
+              items={[
+                { value: "none", label: "No image" },
+                ...(images.data?.items ?? []).map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                })),
+              ]}
               name="imageAssetId"
               value={imageAssetId || "none"}
               onValueChange={(next) =>
@@ -516,6 +526,12 @@ export function BrandBugEditorPage() {
                 {t("brandBug.editor.cornerLabel")}
               </FieldLabel>
               <RheaSelect
+                items={(
+                  Object.keys(cornerLabelKeys) as BrandBugInput["corner"][]
+                ).map((value) => ({
+                  value,
+                  label: t(cornerLabelKeys[value]),
+                }))}
                 name="corner"
                 value={corner}
                 onValueChange={(next) => {
@@ -589,6 +605,10 @@ export function BrandBugEditorPage() {
                 {t("brandBug.editor.backingLabel")}
               </FieldLabel>
               <RheaSelect
+                items={backingOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 name="backgroundStyle"
                 value={backgroundStyle}
                 onValueChange={(next) => {

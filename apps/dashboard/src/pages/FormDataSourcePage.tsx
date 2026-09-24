@@ -15,6 +15,13 @@ import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
+import {
   Sheet as RheaSheet,
   SheetContent,
   SheetDescription,
@@ -58,6 +65,7 @@ import { canManageForm, canViewResponses } from "../forms/capabilities";
 import { stateLabel, stateTone } from "../forms/formStatus";
 import { useFormatLocale } from "../i18n";
 import type { FormsT } from "../forms/formSchema";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 
 type TabValue =
   "responses" | "form" | "workflow" | "views" | "outputs" | "access";
@@ -261,6 +269,8 @@ function ResponsesTab({
 }) {
   const { t } = useTranslation("forms");
   const locale = useFormatLocale();
+  const desktop = useDesktopLayout();
+  const [detailsOpen, setDetailsOpen] = useState(Boolean(selectedRecordId));
   const [stateFilter, setStateFilter] = useState<string>("needs_review");
   const [search, setSearch] = useState("");
   const [sort, setSort] =
@@ -331,6 +341,10 @@ function ResponsesTab({
     { value: "oldest", label: t("detail.sort.oldest") },
     { value: "priority", label: t("detail.sort.priority") },
   ];
+
+  useEffect(() => {
+    if (selectedRecordId) setDetailsOpen(true);
+  }, [selectedRecordId]);
 
   return (
     <div className="grid content-start gap-4">
@@ -511,45 +525,84 @@ function ResponsesTab({
           />
         </>
       )}
-      {selectedRecordId && (
-        <RheaSheet
-          open
-          onOpenChange={(open) => {
-            if (!open) onSelectRecord(null);
-          }}
-        >
-          <SheetContent
-            side="right"
-            className="overflow-y-auto sm:max-w-xl"
-            aria-label={t("detail.sheetLabel")}
+      {selectedRecordId &&
+        (desktop ? (
+          <RheaSheet
+            open={detailsOpen}
+            onOpenChange={setDetailsOpen}
+            onOpenChangeComplete={(open) => {
+              if (!open) onSelectRecord(null);
+            }}
           >
-            <SheetHeader>
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {t("detail.sheetEyebrow")}
-              </p>
-              <SheetTitle>{t("detail.sheetTitle")}</SheetTitle>
-              <SheetDescription>{t("detail.sheetBody")}</SheetDescription>
-            </SheetHeader>
-            <div className="grid content-start gap-4 px-4 pb-4">
-              <div>
+            <SheetContent
+              side="right"
+              className="overflow-y-auto sm:max-w-xl"
+              aria-label={t("detail.sheetLabel")}
+            >
+              <SheetHeader>
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  {t("detail.sheetEyebrow")}
+                </p>
+                <SheetTitle>{t("detail.sheetTitle")}</SheetTitle>
+                <SheetDescription>{t("detail.sheetBody")}</SheetDescription>
+              </SheetHeader>
+              <div className="grid content-start gap-4 px-4 pb-4">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onSelectRecord(null)}
+                  onClick={() => setDetailsOpen(false)}
                 >
                   {t("detail.backToResponses")}
                 </Button>
+                <RecordReview
+                  form={form}
+                  recordId={selectedRecordId}
+                  csrf={csrf}
+                  onAfterTransition={() => void records.refetch()}
+                />
               </div>
-              <RecordReview
-                form={form}
-                recordId={selectedRecordId}
-                csrf={csrf}
-                onAfterTransition={() => void records.refetch()}
-              />
-            </div>
-          </SheetContent>
-        </RheaSheet>
-      )}
+            </SheetContent>
+          </RheaSheet>
+        ) : (
+          <Drawer
+            open={detailsOpen}
+            onOpenChange={setDetailsOpen}
+            onOpenChangeComplete={(open) => {
+              if (!open) onSelectRecord(null);
+            }}
+            showSwipeHandle
+          >
+            <DrawerContent
+              aria-label={t("detail.sheetLabel")}
+              className="max-h-[calc(100dvh-2rem)]"
+            >
+              <DrawerHeader>
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  {t("detail.sheetEyebrow")}
+                </p>
+                <DrawerTitle>{t("detail.sheetTitle")}</DrawerTitle>
+                <DrawerDescription>{t("detail.sheetBody")}</DrawerDescription>
+              </DrawerHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                <div className="grid content-start gap-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDetailsOpen(false)}
+                  >
+                    {t("detail.backToResponses")}
+                  </Button>
+                  <RecordReview
+                    form={form}
+                    recordId={selectedRecordId}
+                    csrf={csrf}
+                    onAfterTransition={() => void records.refetch()}
+                  />
+                </div>
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ))}
     </div>
   );
 }

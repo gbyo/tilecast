@@ -80,6 +80,13 @@
       "deleteAction": "Delete permanently",
       "deleting": "Deleting…"
     },
+    "toasts": {
+      "created": "User created.",
+      "updated": "User updated.",
+      "disabled": "User disabled.",
+      "deleted": "User permanently deleted.",
+      "securityReset": "User sign-in factors reset."
+    },
     "errors": {
       "requestFailed": "Tilecast could not update this account."
     }

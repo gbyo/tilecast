@@ -1,4 +1,4 @@
-import { Save, Tag } from "lucide-react";
+import { Save, Tag, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ContentTag } from "../../api/types";
 import { Alert, AlertDescription } from "../ui/alert";
@@ -13,12 +13,12 @@ import {
   SelectValue,
 } from "../ui/select";
 import {
-  Sheet as RheaSheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "../ui/sheet";
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../ui/drawer";
 import { Textarea } from "../ui/textarea";
 
 const sourceTypeOptions: {
@@ -38,6 +38,7 @@ const tagMatchOptions: {
 ];
 
 export function PlaylistDetailsDrawer({
+  open,
   canManage,
   sourceType,
   name,
@@ -62,6 +63,7 @@ export function PlaylistDetailsDrawer({
   onSaveMetadata,
   onSaveTagRule,
 }: {
+  open: boolean;
   canManage: boolean;
   sourceType: "static" | "tag";
   name: string;
@@ -87,36 +89,35 @@ export function PlaylistDetailsDrawer({
   onSaveTagRule: () => void;
 }) {
   const { t } = useTranslation(["playlists", "common"]);
-  const sourceTypeLabel = (() => {
-    const option = sourceTypeOptions.find(
-      (candidate) => candidate.value === sourceType,
-    );
-    return option ? t(option.labelKey) : sourceType;
-  })();
-  const tagMatchLabel = (() => {
-    const option = tagMatchOptions.find(
-      (candidate) => candidate.value === tagMatch,
-    );
-    return option ? t(option.labelKey) : tagMatch;
-  })();
   return (
-    <RheaSheet
-      open
+    <Drawer
+      open={open}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
+      showSwipeHandle
     >
-      <SheetContent side="right" className="overflow-y-auto">
-        <SheetHeader>
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        <DrawerHeader className="relative">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {sourceType === "tag"
               ? t("details.kindTag")
               : t("details.kindSettings")}
           </p>
-          <SheetTitle>{t("details.title")}</SheetTitle>
-          <SheetDescription>{t("details.description")}</SheetDescription>
-        </SheetHeader>
-        <div className="grid gap-6 px-4">
+          <DrawerTitle>{t("details.title")}</DrawerTitle>
+          <DrawerDescription>{t("details.description")}</DrawerDescription>
+          <RheaButton
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="absolute top-2 right-3"
+            aria-label="Close playlist details"
+            onClick={onClose}
+          >
+            <X aria-hidden="true" />
+          </RheaButton>
+        </DrawerHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           <section className="grid gap-3">
             <h3 className="text-sm font-medium">
               {t("details.sectionDetails")}
@@ -178,12 +179,16 @@ export function PlaylistDetailsDrawer({
                 onValueChange={(next) =>
                   onSourceTypeChange(next as "static" | "tag")
                 }
+                items={sourceTypeOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
                 <SelectTrigger
                   id="playlist-details-source"
                   aria-label={t("details.sourceLabel")}
                 >
-                  <SelectValue>{sourceTypeLabel}</SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {sourceTypeOptions.map((option) => (
@@ -207,12 +212,16 @@ export function PlaylistDetailsDrawer({
                     onValueChange={(next) =>
                       onTagMatchChange(next as "any" | "all")
                     }
+                    items={tagMatchOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    }))}
                   >
                     <SelectTrigger
                       id="playlist-details-match"
                       aria-label={t("details.matchLabel")}
                     >
-                      <SelectValue>{tagMatchLabel}</SelectValue>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {tagMatchOptions.map((option) => (
@@ -314,7 +323,7 @@ export function PlaylistDetailsDrawer({
             </div>
           </section>
         </div>
-      </SheetContent>
-    </RheaSheet>
+      </DrawerContent>
+    </Drawer>
   );
 }

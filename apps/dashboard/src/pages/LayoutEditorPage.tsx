@@ -46,6 +46,7 @@ import {
 } from "../components/ui/dialog";
 import { CanvasInspector } from "../components/layout-editor/CanvasInspector";
 import { PlacementInspector } from "../components/layout-editor/PlacementInspector";
+import { toast } from "../components/ui/toast";
 import {
   AppPlacementPreview,
   AssetPlaybackPreview,
@@ -881,6 +882,12 @@ export function LayoutEditorPage() {
         ? api.publishLayout(id, serverRevision, csrf)
         : api.submitContent("layout", id, csrf, undefined, serverRevision),
     onSuccess: () => {
+      toast.add({
+        title: canPublish
+          ? "Layout published."
+          : "Layout submitted for review.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["layout", id] });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
       void queryClient.invalidateQueries({ queryKey: ["content-submissions"] });
@@ -897,6 +904,7 @@ export function LayoutEditorPage() {
         csrf,
       ),
     onSuccess: () => {
+      toast.add({ title: "Layout renamed.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["layout", id] });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
     },
@@ -905,6 +913,7 @@ export function LayoutEditorPage() {
     mutationFn: (revisionId: string) =>
       api.restoreLayoutRevision(id, revisionId, serverRevision, csrf),
     onSuccess: (saved) => {
+      toast.add({ title: "Layout revision restored.", type: "success" });
       const next = clone(saved.draft);
       setDocument(next);
       documentRef.current = next;

@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
+import { toast } from "./ui/toast";
 import {
   Select,
   SelectContent,
@@ -75,7 +76,6 @@ export function ScreenPresentationNetworkPanel({
     enabled: linux && canManage,
   });
   const [selected, setSelected] = useState("");
-  const [notice, setNotice] = useState<string>();
 
   useEffect(() => {
     setSelected(readiness.data?.presentationNetworkId ?? "");
@@ -87,9 +87,12 @@ export function ScreenPresentationNetworkPanel({
         ? api.assignScreenPresentationNetwork(screen.id, selected, csrfToken)
         : api.unassignScreenPresentationNetwork(screen.id, csrfToken),
     onSuccess: async () => {
-      setNotice(
-        selected ? t("network.savedAssigned") : t("network.savedUnassigned"),
-      );
+      toast.add({
+        title: selected
+          ? t("network.savedAssigned")
+          : t("network.savedUnassigned"),
+        type: "success",
+      });
       await client.invalidateQueries({
         queryKey: ["screens", screen.id, "presentation-network"],
       });
@@ -104,7 +107,10 @@ export function ScreenPresentationNetworkPanel({
       return api.testPresentationNetwork(networkId, screen.id, csrfToken);
     },
     onSuccess: (result) => {
-      setNotice(t("network.testRequested", { seconds: result.timeoutSeconds }));
+      toast.add({
+        title: t("network.testRequested", { seconds: result.timeoutSeconds }),
+        type: "success",
+      });
       void client.invalidateQueries({
         queryKey: ["screens", screen.id, "commands"],
       });
@@ -263,7 +269,6 @@ export function ScreenPresentationNetworkPanel({
                 disabled || selected === (data?.presentationNetworkId ?? "")
               }
               onClick={() => {
-                setNotice(undefined);
                 assignment.mutate();
               }}
             >
@@ -277,7 +282,6 @@ export function ScreenPresentationNetworkPanel({
                 size="sm"
                 disabled={test.isPending || data.status === "connected"}
                 onClick={() => {
-                  setNotice(undefined);
                   test.mutate();
                 }}
               >
@@ -286,11 +290,6 @@ export function ScreenPresentationNetworkPanel({
             )}
           </div>
         </div>
-      )}
-      {notice && (
-        <Alert>
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
       )}
       {(assignment.error || test.error) && (
         <Alert variant="destructive">

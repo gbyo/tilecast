@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import { formToneBadgeProps } from "./formBadge";
 import { slugifyKey } from "./formKeys";
 import type { FormsT } from "./formSchema";
@@ -125,6 +126,7 @@ export function WorkflowEditor({
         csrf,
       ),
     onSuccess: (updated) => {
+      toast.add({ title: "Form workflow saved.", type: "success" });
       queryClient.setQueryData(["form-data-source", form.id], updated);
       void queryClient.invalidateQueries({
         queryKey: ["form-records", form.id],
@@ -418,16 +420,17 @@ export function WorkflowEditor({
                 >
                   <td className="px-3 py-2">
                     <RheaSelect
+                      items={states.map((state) => ({
+                        value: state.key,
+                        label: state.label || state.key,
+                      }))}
                       value={transition.from}
                       onValueChange={(value) =>
                         updateTransition(index, { from: value ?? "" })
                       }
                     >
                       <SelectTrigger aria-label={t("workflow.fromStateLabel")}>
-                        <SelectValue>
-                          {states.find((s) => s.key === transition.from)
-                            ?.label ?? transition.from}
-                        </SelectValue>
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {states.map((s) => (
@@ -440,16 +443,17 @@ export function WorkflowEditor({
                   </td>
                   <td className="px-3 py-2">
                     <RheaSelect
+                      items={states.map((state) => ({
+                        value: state.key,
+                        label: state.label || state.key,
+                      }))}
                       value={transition.to}
                       onValueChange={(value) =>
                         updateTransition(index, { to: value ?? "" })
                       }
                     >
                       <SelectTrigger aria-label={t("workflow.toStateLabel")}>
-                        <SelectValue>
-                          {states.find((s) => s.key === transition.to)?.label ??
-                            transition.to}
-                        </SelectValue>
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {states.map((s) => (
@@ -470,6 +474,10 @@ export function WorkflowEditor({
                   </td>
                   <td className="px-3 py-2">
                     <RheaSelect
+                      items={CAPABILITY_OPTIONS.map((option) => ({
+                        value: option.value,
+                        label: t(option.labelKey),
+                      }))}
                       value={transition.requiredCapability}
                       onValueChange={(value) =>
                         updateTransition(index, {
@@ -478,12 +486,7 @@ export function WorkflowEditor({
                       }
                     >
                       <SelectTrigger aria-label={t("workflow.capabilityLabel")}>
-                        <SelectValue>
-                          {capabilityOptionLabel(
-                            transition.requiredCapability,
-                            t,
-                          )}
-                        </SelectValue>
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {CAPABILITY_OPTIONS.map((option) => (
@@ -573,11 +576,6 @@ export function WorkflowEditor({
       </div>
     </div>
   );
-}
-
-function capabilityOptionLabel(value: FormCapability, t: FormsT): string {
-  const found = CAPABILITY_OPTIONS.find((option) => option.value === value);
-  return found ? t(found.labelKey) : value;
 }
 
 function reorder<T>(items: T[], index: number, delta: number): T[] {

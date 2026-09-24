@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -128,7 +129,13 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
   const maintenance = useMutation({
     mutationFn: (action: string) =>
       api.runMaintenance(action, auth.status?.csrfToken ?? ""),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["system-status"] }),
+    onSuccess: () => {
+      toast.add({
+        title: t("operations.system.completed"),
+        type: "success",
+      });
+      return client.invalidateQueries({ queryKey: ["system-status"] });
+    },
   });
   if (!canManage)
     return (
@@ -257,13 +264,6 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
               </div>
             ))}
           </div>
-          {maintenance.isSuccess && (
-            <Alert role="status">
-              <AlertDescription>
-                {t("operations.system.completed")}
-              </AlertDescription>
-            </Alert>
-          )}
           {maintenance.error && (
             <Alert variant="destructive">
               <AlertDescription>{maintenance.error.message}</AlertDescription>
@@ -301,6 +301,12 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
   const apply = useMutation({
     mutationFn: () =>
       api.applySettingsImport(document, auth.status?.csrfToken ?? ""),
+    onSuccess: () => {
+      toast.add({
+        title: t("operations.importExport.imported"),
+        type: "success",
+      });
+    },
   });
   if (!owner)
     return (
@@ -481,6 +487,7 @@ export function PlayerUpdatesPanel({
   const [confirmDeploy, setConfirmDeploy] = useState(false);
   const [purging, setPurging] = useState<PlayerRelease>();
   const [openDeployment, setOpenDeployment] = useState<string>();
+  const [deploymentDrawerOpen, setDeploymentDrawerOpen] = useState(false);
   const [purgeNotice, setPurgeNotice] = useState("");
   const [deploySuccess, setDeploySuccess] = useState("");
   const [githubFlow, setGitHubFlow] = useState<
@@ -504,6 +511,12 @@ export function PlayerUpdatesPanel({
     onMutate: () => setPurgeNotice(""),
     onSuccess: async (result) => {
       setPurging(undefined);
+      toast.add({
+        title: result.deleted
+          ? t("updates.panel.purgeDeleted")
+          : t("updates.panel.purgeFreed"),
+        type: "success",
+      });
       setPurgeNotice(
         result.deleted
           ? t("updates.panel.purgeDeleted")
@@ -529,6 +542,10 @@ export function PlayerUpdatesPanel({
     onSuccess: async () => {
       setGitHubFlow(null);
       setGitHubAuthMessage(t("updates.panel.githubDisconnected"));
+      toast.add({
+        title: t("updates.panel.githubDisconnected"),
+        type: "success",
+      });
       await client.invalidateQueries({ queryKey: ["player-releases"] });
     },
     onError: (error) => setGitHubAuthMessage(error.message),
@@ -624,6 +641,17 @@ export function PlayerUpdatesPanel({
               count: created.targetCount,
             }),
       );
+      toast.add({
+        title:
+          created.targetCount === 1
+            ? t("updates.panel.deployCreatedOne", {
+                count: created.targetCount,
+              })
+            : t("updates.panel.deployCreatedOther", {
+                count: created.targetCount,
+              }),
+        type: "success",
+      });
     },
   });
   const targetSet = new Set(screenIds);
@@ -702,6 +730,7 @@ export function PlayerUpdatesPanel({
           setGroupIds([]);
           setShowUpload(false);
           setShowAllReleases(false);
+          setDeploymentDrawerOpen(false);
           setOpenDeployment(undefined);
         }}
       />
@@ -1203,6 +1232,18 @@ export function PlayerUpdatesPanel({
                 {t("updates.panel.releaseLabel")}
               </FieldLabel>
               <Select
+                items={[
+                  {
+                    value: "none",
+                    label: deployableReleases.length
+                      ? t("updates.panel.selectRelease")
+                      : t("updates.panel.noRelease"),
+                  },
+                  ...deployableReleases.map((item) => ({
+                    value: item.id,
+                    label: `${item.versionName} · ${item.channel}`,
+                  })),
+                ]}
                 name="release"
                 value={releaseId || "none"}
                 onValueChange={(next) =>
@@ -1255,6 +1296,20 @@ export function PlayerUpdatesPanel({
                 {t("updates.panel.modeLabel")}
               </FieldLabel>
               <Select
+                items={[
+                  {
+                    value: "download_only",
+                    label: t("updates.panel.modeDownloadOnly"),
+                  },
+                  {
+                    value: "install_now",
+                    label: t("updates.panel.modeInstallNow"),
+                  },
+                  {
+                    value: "maintenance_window",
+                    label: t("updates.panel.modeMaintenanceWindow"),
+                  },
+                ]}
                 name="mode"
                 value={mode}
                 onValueChange={(next) => {
@@ -1643,7 +1698,10 @@ export function PlayerUpdatesPanel({
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => setOpenDeployment(item.id)}
+                        onClick={() => {
+                          setOpenDeployment(item.id);
+                          setDeploymentDrawerOpen(true);
+                        }}
                       >
                         <ListChecks size={15} aria-hidden="true" />
                         {item.targetCount}{" "}
@@ -1676,7 +1734,11 @@ export function PlayerUpdatesPanel({
           deploymentId={openDeployment}
           screens={screens.data?.items ?? []}
           manageable={manageable}
-          onClose={() => setOpenDeployment(undefined)}
+          open={deploymentDrawerOpen}
+          onOpenChange={setDeploymentDrawerOpen}
+          onOpenChangeComplete={(open) => {
+            if (!open) setOpenDeployment(undefined);
+          }}
         />
       )}
     </div>
@@ -1861,6 +1923,10 @@ function PlayerReleaseUpload({
     },
     onSuccess: () => {
       setPhase("complete");
+      toast.add({
+        title: t("updates.panel.releaseUploaded"),
+        type: "success",
+      });
       onImported();
     },
     onError: () => setPhase("selecting"),

@@ -22,7 +22,6 @@ import {
 import { Switch as RheaSwitch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
 import { DataSourcePicker, type DataFormatGuide } from "./DataSourcePicker";
-import { optionLabel } from "./data-sources/shared";
 
 type Values = Record<string, unknown>;
 
@@ -435,11 +434,10 @@ function DefinitionControl({
           disabled={readOnly}
           required={field.required}
           onValueChange={(next) => setValue(next)}
+          items={labeledOptions}
         >
           <SelectTrigger id={`definition-${field.key}`} aria-label={labelText}>
-            <SelectValue>
-              {optionLabel(labeledOptions, fieldText(value))}
-            </SelectValue>
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {labeledOptions.map((option) => (

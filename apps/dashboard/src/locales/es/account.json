@@ -80,6 +80,13 @@
       "deleteAction": "Eliminar permanentemente",
       "deleting": "Eliminando…"
     },
+    "toasts": {
+      "created": "Usuario creado.",
+      "updated": "Usuario actualizado.",
+      "disabled": "Usuario desactivado.",
+      "deleted": "Usuario eliminado permanentemente.",
+      "securityReset": "Se restablecieron los factores de inicio de sesión del usuario."
+    },
     "errors": {
       "requestFailed": "Tilecast no pudo actualizar esta cuenta."
     }

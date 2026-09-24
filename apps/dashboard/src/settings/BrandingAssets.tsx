@@ -12,6 +12,7 @@ import {
 } from "../api/loginBackground";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { toast } from "../components/ui/toast";
 
 const chunkSize = 5 * 1024 * 1024;
 
@@ -34,15 +35,19 @@ export function BrandingAssets({
   const saveBackground = useMutation({
     mutationFn: (assetId: string) =>
       setLoginBackground(assetId, auth.status?.csrfToken ?? ""),
-    onSuccess: (result) =>
-      queryClient.setQueryData(["login-background"], result),
+    onSuccess: (result) => {
+      queryClient.setQueryData(["login-background"], result);
+      toast.add({ title: "Login background saved.", type: "success" });
+    },
   });
   const removeBackground = useMutation({
     mutationFn: () => clearLoginBackground(auth.status?.csrfToken ?? ""),
-    onSuccess: () =>
+    onSuccess: () => {
+      toast.add({ title: "Login background removed.", type: "success" });
       queryClient.setQueryData(["login-background"], {
         imageUrl: "/api/v1/auth/background",
-      } satisfies LoginBackground),
+      } satisfies LoginBackground);
+    },
   });
 
   return (

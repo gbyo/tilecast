@@ -1308,6 +1308,8 @@
       "rolling": "Implementando. Nada requiere atención."
     },
     "requestFailed": "La solicitud falló.",
+    "retryRequested": "Se solicitó un reintento para esta pantalla.",
+    "cancelledSuccess": "Se canceló la implementación de actualización del reproductor.",
     "deploymentTitle": "Implementación",
     "deploymentFallback": "Implementación del reproductor",
     "loading": "Cargando estados de pantalla",
@@ -1488,6 +1490,7 @@
       "readinessVerifyingDetail": "Artefacto almacenado. La verificación completa no ha terminado.",
       "readinessReady": "Lista para desplegar",
       "uploadTitle": "Subir versión firmada de {{platform}}",
+      "releaseUploaded": "Se cargó la versión firmada del reproductor.",
       "uploadHint": "Los tres archivos se verifican antes de que {{artifact}} entre en la caché privada de actualizaciones de Tilecast.",
       "dropTitle": "Suelta aquí los archivos de la versión",
       "dropHint": "o elige los tres archivos",
@@ -1691,6 +1694,12 @@
       "update": "Actualizaciones del reproductor"
     },
     "testSent": "Mensaje de prueba enviado a {{sentTo}}.",
+    "toasts": {
+      "webhookCreated": "Webhook de notificación creado.",
+      "webhookUpdated": "Webhook de notificación actualizado.",
+      "webhookTestSent": "Prueba del webhook enviada.",
+      "webhookRemoved": "Webhook de notificación eliminado."
+    },
     "removeTitle": "¿Quitar el webhook «{{name}}»?",
     "removeBody": "Su secreto de firma no se puede recuperar, así que el receptor necesitará uno nuevo.",
     "remove": "Quitar",
@@ -1803,7 +1812,8 @@
       "policiesPresent": "{{group}} políticas de grupo y {{screen}} políticas de pantalla presentes.",
       "applyTitle": "¿Aplicar este documento de ajustes validado?",
       "apply": "Aplicar",
-      "applyAction": "Aplicar ajustes importados"
+      "applyAction": "Aplicar ajustes importados",
+      "imported": "Ajustes importados."
     }
   }
 }

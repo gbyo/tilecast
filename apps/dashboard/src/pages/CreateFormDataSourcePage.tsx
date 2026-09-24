@@ -23,6 +23,7 @@ import {
   QuestionnaireTitle,
 } from "../components/ui/questionnaire";
 import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 
 type CreateQuestionName =
   "name" | "description" | "formTitle" | "formDescription";
@@ -121,6 +122,7 @@ export function CreateFormDataSourcePage() {
       ),
     onMutate: () => setError(""),
     onSuccess: (form) => {
+      toast.add({ title: "Form created.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["forms"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });

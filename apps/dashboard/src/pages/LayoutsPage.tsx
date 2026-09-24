@@ -79,6 +79,7 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { toast } from "../components/ui/toast";
 
 export type LayoutsT = TFunction<"layouts", undefined>;
 
@@ -372,6 +373,7 @@ export function LayoutsPage() {
       );
     },
     onSuccess: (layout) => {
+      toast.add({ title: "Layout created.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
       void navigate(`/layouts/${layout.id}`);
     },
@@ -380,6 +382,7 @@ export function LayoutsPage() {
     mutationFn: (id: string) => api.duplicateLayout(id, csrf),
     onMutate: () => setActionError(""),
     onSuccess: (layout) => {
+      toast.add({ title: "Layout duplicated.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
       void navigate(`/layouts/${layout.id}`);
     },
@@ -405,6 +408,7 @@ export function LayoutsPage() {
       ),
     onMutate: () => setActionError(""),
     onSuccess: () => {
+      toast.add({ title: "Layout renamed.", type: "success" });
       setRenaming(undefined);
       setRenameName("");
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
@@ -419,8 +423,10 @@ export function LayoutsPage() {
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteLayout(id, csrf),
     onMutate: () => setActionError(""),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] }),
+    onSuccess: () => {
+      toast.add({ title: "Layout deleted.", type: "success" });
+      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+    },
     onError: (error) =>
       setActionError(
         error instanceof Error

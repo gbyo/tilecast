@@ -7,12 +7,20 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton } from "../components/ui/button";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
+import {
   Sheet as RheaSheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   activityParams,
   activityRequest,
@@ -74,6 +82,7 @@ export function IncidentsTab({
 }) {
   const { t } = useTranslation("activity");
   const [selected, setSelected] = useState<Incident | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const canAct = useCanActOnIncidents();
   const act = useIncidentAction();
 
@@ -124,7 +133,10 @@ export function IncidentsTab({
               <IncidentRow
                 key={incident.id}
                 incident={incident}
-                onOpenDetail={setSelected}
+                onOpenDetail={(incident) => {
+                  setSelected(incident);
+                  setDetailsOpen(true);
+                }}
               />
             ))}
           </ul>
@@ -145,12 +157,17 @@ export function IncidentsTab({
       {selected && (
         <IncidentDrawer
           incident={selected}
-          onClose={() => setSelected(null)}
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          onOpenChangeComplete={(open) => {
+            if (!open) setSelected(null);
+          }}
+          onClose={() => setDetailsOpen(false)}
           canAct={canAct}
           onAct={(action) =>
             act.mutate(
               { id: selected.id, action },
-              { onSuccess: () => setSelected(null) },
+              { onSuccess: () => setDetailsOpen(false) },
             )
           }
           pending={act.isPending}
@@ -163,6 +180,9 @@ export function IncidentsTab({
 
 function IncidentDrawer({
   incident,
+  open,
+  onOpenChange,
+  onOpenChangeComplete,
   onClose,
   canAct,
   onAct,
@@ -170,6 +190,9 @@ function IncidentDrawer({
   error,
 }: {
   incident: Incident;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete: (open: boolean) => void;
   onClose: () => void;
   canAct: boolean;
   onAct: (action: string) => void;
@@ -182,190 +205,223 @@ function IncidentDrawer({
     queryFn: () => activityRequest<IncidentDetail>(`/incidents/${incident.id}`),
   });
   const detail = query.data;
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <SheetTitle>{incident.title}</SheetTitle>
+      <SheetDescription>{incident.description}</SheetDescription>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <DrawerTitle>{incident.title}</DrawerTitle>
+      <DrawerDescription>{incident.description}</DrawerDescription>
+    </DrawerHeader>
+  );
 
-  return (
-    <RheaSheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+  const content = (
+    <div
+      className={
+        desktop
+          ? "grid gap-6 px-4 pb-6"
+          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
+      }
     >
-      <SheetContent side="right" className="overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{incident.title}</SheetTitle>
-          <SheetDescription>{incident.description}</SheetDescription>
-        </SheetHeader>
-        <div className="grid gap-6 px-4 pb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <ResultBadge value={incident.severity} />
-            <IncidentStatusBadge incident={incident} />
-            <IncidentScope incident={incident} />
-            {incident.primaryScreenId && (
-              <Link
-                to={screenActivityLink(incident.primaryScreenId)}
-                className="text-sm font-medium text-primary hover:underline"
+      <div className="flex flex-wrap items-center gap-2">
+        <ResultBadge value={incident.severity} />
+        <IncidentStatusBadge incident={incident} />
+        <IncidentScope incident={incident} />
+        {incident.primaryScreenId && (
+          <Link
+            to={screenActivityLink(incident.primaryScreenId)}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            {t("incidents.drawer.openScreenActivity")}
+          </Link>
+        )}
+      </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {canAct && (
+        <div className="flex flex-wrap gap-2">
+          <IncidentActionButtons
+            incident={incident}
+            onAct={onAct}
+            pending={pending}
+          />
+        </div>
+      )}
+
+      <IncidentFacts incident={incident} />
+
+      <section className="grid gap-1">
+        <h4 className="text-sm font-semibold">
+          {t("incidents.drawer.recoveryPath")}
+        </h4>
+        {/* Stated from what was recorded, including when nothing has. */}
+        <p className="text-sm text-muted-foreground">
+          {detail?.recoveryPath ?? t("common:status.loading")}
+        </p>
+      </section>
+
+      {query.isLoading && <Loading />}
+
+      {detail && (
+        <>
+          <DrawerSection
+            title={t("incidents.drawer.sections.timeline")}
+            empty={t("incidents.drawer.sections.timelineEmpty")}
+          >
+            {detail.timeline.map((entry) => (
+              <TimelineEntry
+                key={entry.id}
+                when={entry.occurredAt}
+                tag={humanize(entry.role)}
               >
-                {t("incidents.drawer.openScreenActivity")}
-              </Link>
-            )}
-          </div>
+                {entry.summary}
+                {entry.actorName ? ` — ${entry.actorName}` : ""}
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {canAct && (
-            <div className="flex flex-wrap gap-2">
-              <IncidentActionButtons
-                incident={incident}
-                onAct={onAct}
-                pending={pending}
-              />
-            </div>
-          )}
-
-          <IncidentFacts incident={incident} />
-
-          <section className="grid gap-1">
-            <h4 className="text-sm font-semibold">
-              {t("incidents.drawer.recoveryPath")}
-            </h4>
-            {/* Stated from what was recorded, including when nothing has. */}
-            <p className="text-sm text-muted-foreground">
-              {detail?.recoveryPath ?? t("common:status.loading")}
-            </p>
-          </section>
-
-          {query.isLoading && <Loading />}
-
-          {detail && (
-            <>
-              <DrawerSection
-                title={t("incidents.drawer.sections.timeline")}
-                empty={t("incidents.drawer.sections.timelineEmpty")}
+          <DrawerSection
+            title={t("incidents.drawer.sections.events")}
+            empty={t("incidents.drawer.sections.eventsEmpty")}
+          >
+            {detail.relatedEvents.map((event) => (
+              <TimelineEntry
+                key={event.id}
+                when={event.timestamp}
+                tag={event.category}
               >
-                {detail.timeline.map((entry) => (
-                  <TimelineEntry
-                    key={entry.id}
-                    when={entry.occurredAt}
-                    tag={humanize(entry.role)}
-                  >
-                    {entry.summary}
-                    {entry.actorName ? ` — ${entry.actorName}` : ""}
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
+                {humanize(event.eventType)}
+                {event.failureMessage ? ` — ${event.failureMessage}` : ""}
+                <TechnicalDetails value={event.details} />
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
 
-              <DrawerSection
-                title={t("incidents.drawer.sections.events")}
-                empty={t("incidents.drawer.sections.eventsEmpty")}
+          <DrawerSection
+            title={t("incidents.drawer.sections.playback")}
+            empty={t("incidents.drawer.sections.playbackEmpty")}
+          >
+            {detail.proofSessions.map((session) => (
+              <TimelineEntry
+                key={session.id}
+                when={session.startedAt}
+                tag={session.sessionType}
               >
-                {detail.relatedEvents.map((event) => (
-                  <TimelineEntry
-                    key={event.id}
-                    when={event.timestamp}
-                    tag={event.category}
-                  >
-                    {humanize(event.eventType)}
-                    {event.failureMessage ? ` — ${event.failureMessage}` : ""}
-                    <TechnicalDetails value={event.details} />
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
+                <ResourceLink
+                  type={session.contentType ?? session.presentationType}
+                  id={session.contentId ?? session.presentationId}
+                  label={
+                    session.contentName ||
+                    session.presentationName ||
+                    session.contentId ||
+                    t("shared.unnamedPresentation")
+                  }
+                />
+                {session.actualDurationMs != null &&
+                  ` · ${formatDuration(session.actualDurationMs)}`}
+                {session.terminalReason &&
+                  ` · ${t("incidents.drawer.sessionEnded", {
+                    reason: humanize(session.terminalReason).toLowerCase(),
+                  })}`}{" "}
+                <ResultBadge value={session.result} />
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
 
-              <DrawerSection
-                title={t("incidents.drawer.sections.playback")}
-                empty={t("incidents.drawer.sections.playbackEmpty")}
-              >
-                {detail.proofSessions.map((session) => (
-                  <TimelineEntry
-                    key={session.id}
-                    when={session.startedAt}
-                    tag={session.sessionType}
-                  >
-                    <ResourceLink
-                      type={session.contentType ?? session.presentationType}
-                      id={session.contentId ?? session.presentationId}
-                      label={
-                        session.contentName ||
-                        session.presentationName ||
-                        session.contentId ||
-                        t("shared.unnamedPresentation")
-                      }
-                    />
-                    {session.actualDurationMs != null &&
-                      ` · ${formatDuration(session.actualDurationMs)}`}
-                    {session.terminalReason &&
-                      ` · ${t("incidents.drawer.sessionEnded", {
-                        reason: humanize(session.terminalReason).toLowerCase(),
-                      })}`}{" "}
-                    <ResultBadge value={session.result} />
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
-
-              {/* Commands and updates are activity events with their own
+          {/* Commands and updates are activity events with their own
                   categories, so they arrive in the related-events stream above and
                   are surfaced here as their own view of it. */}
-              <DrawerSection
-                title={t("incidents.drawer.sections.commands")}
-                empty={t("incidents.drawer.sections.commandsEmpty")}
-              >
-                {detail.relatedEvents
-                  .filter((event) =>
-                    ["commands", "updates"].includes(event.category),
-                  )
-                  .map((event) => (
-                    <TimelineEntry
-                      key={`command-${event.id}`}
-                      when={event.timestamp}
-                      tag={event.category}
-                    >
-                      {humanize(event.eventType)}{" "}
-                      <ResultBadge value={event.result} />
-                    </TimelineEntry>
-                  ))}
-              </DrawerSection>
-
-              <DrawerSection
-                title={t("incidents.drawer.sections.audit")}
-                empty={t("incidents.drawer.sections.auditEmpty")}
-              >
-                {detail.auditChanges.map((record) => (
-                  <TimelineEntry
-                    key={record.id}
-                    when={record.timestamp}
-                    tag="audit"
-                  >
-                    {record.summary || humanize(record.action)} —{" "}
-                    {record.actorName}
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
-
-              {detail.screens.length > 0 && (
-                <DrawerSection
-                  title={t("incidents.drawer.sections.screens")}
-                  empty=""
+          <DrawerSection
+            title={t("incidents.drawer.sections.commands")}
+            empty={t("incidents.drawer.sections.commandsEmpty")}
+          >
+            {detail.relatedEvents
+              .filter((event) =>
+                ["commands", "updates"].includes(event.category),
+              )
+              .map((event) => (
+                <TimelineEntry
+                  key={`command-${event.id}`}
+                  when={event.timestamp}
+                  tag={event.category}
                 >
-                  {detail.screens.map((screen) => (
-                    <div key={screen.screenId} className="text-sm">
-                      <Link
-                        to={screenActivityLink(screen.screenId)}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {screen.screenName}
-                      </Link>
-                    </div>
-                  ))}
-                </DrawerSection>
-              )}
-            </>
+                  {humanize(event.eventType)}{" "}
+                  <ResultBadge value={event.result} />
+                </TimelineEntry>
+              ))}
+          </DrawerSection>
+
+          <DrawerSection
+            title={t("incidents.drawer.sections.audit")}
+            empty={t("incidents.drawer.sections.auditEmpty")}
+          >
+            {detail.auditChanges.map((record) => (
+              <TimelineEntry
+                key={record.id}
+                when={record.timestamp}
+                tag="audit"
+              >
+                {record.summary || humanize(record.action)} — {record.actorName}
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
+
+          {detail.screens.length > 0 && (
+            <DrawerSection
+              title={t("incidents.drawer.sections.screens")}
+              empty=""
+            >
+              {detail.screens.map((screen) => (
+                <div key={screen.screenId} className="text-sm">
+                  <Link
+                    to={screenActivityLink(screen.screenId)}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {screen.screenName}
+                  </Link>
+                </div>
+              ))}
+            </DrawerSection>
           )}
-        </div>
+        </>
+      )}
+    </div>
+  );
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+    if (!nextOpen) onClose();
+  };
+
+  return desktop ? (
+    <RheaSheet
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+    >
+      <SheetContent side="right" className="overflow-y-auto">
+        {header}
+        {content}
       </SheetContent>
     </RheaSheet>
+  ) : (
+    <Drawer
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+      showSwipeHandle
+    >
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        {header}
+        {content}
+      </DrawerContent>
+    </Drawer>
   );
 }
 
