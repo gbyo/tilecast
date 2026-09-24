@@ -25,8 +25,8 @@ import type {
 } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
-import { Button as RheaButton } from "../ui/button";
-import { Checkbox as RheaCheckbox } from "../ui/checkbox";
+import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
 import {
   Accordion,
   AccordionContent,
@@ -49,19 +49,16 @@ import {
   InputGroupInput,
 } from "../ui/input-group";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Slider as RheaSlider } from "../ui/slider";
-import { Switch as RheaSwitch } from "../ui/switch";
+import { Slider } from "../ui/slider";
+import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
-import {
-  ToggleGroup as RheaToggleGroup,
-  ToggleGroupItem as RheaToggleGroupItem,
-} from "../ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import {
   ConnectDataNotice,
   DataSourcePicker,
@@ -201,7 +198,7 @@ function AlignmentToggle({
   return (
     <Field>
       <FieldLabel id={`${id}-label`}>{label}</FieldLabel>
-      <RheaToggleGroup
+      <ToggleGroup
         aria-labelledby={`${id}-label`}
         value={[value]}
         onValueChange={(values) => {
@@ -213,16 +210,16 @@ function AlignmentToggle({
         size="sm"
         spacing={1}
       >
-        <RheaToggleGroupItem value="left" aria-label={`${label}: left`}>
+        <ToggleGroupItem value="left" aria-label={`${label}: left`}>
           <AlignLeft size={15} aria-hidden="true" />
-        </RheaToggleGroupItem>
-        <RheaToggleGroupItem value="center" aria-label={`${label}: center`}>
+        </ToggleGroupItem>
+        <ToggleGroupItem value="center" aria-label={`${label}: center`}>
           <AlignCenter size={15} aria-hidden="true" />
-        </RheaToggleGroupItem>
-        <RheaToggleGroupItem value="right" aria-label={`${label}: right`}>
+        </ToggleGroupItem>
+        <ToggleGroupItem value="right" aria-label={`${label}: right`}>
           <AlignRight size={15} aria-hidden="true" />
-        </RheaToggleGroupItem>
-      </RheaToggleGroup>
+        </ToggleGroupItem>
+      </ToggleGroup>
     </Field>
   );
 }
@@ -245,7 +242,7 @@ function InspectorSelect({
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <RheaSelect
+      <Select
         value={value}
         onValueChange={(next) => onChange(next ?? value)}
         items={options}
@@ -260,7 +257,7 @@ function InspectorSelect({
             </SelectItem>
           ))}
         </SelectContent>
-      </RheaSelect>
+      </Select>
       {description ? <FieldDescription>{description}</FieldDescription> : null}
     </Field>
   );
@@ -364,7 +361,7 @@ export function PlacementInspector({
           />
         </Field>
         <div className="flex flex-wrap gap-1">
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -377,8 +374,8 @@ export function PlacementInspector({
             }
           >
             <ArrowUp size={16} aria-hidden="true" />
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -389,8 +386,8 @@ export function PlacementInspector({
             }
           >
             <ArrowDown size={16} aria-hidden="true" />
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -399,8 +396,8 @@ export function PlacementInspector({
             onClick={duplicate}
           >
             <Copy size={16} aria-hidden="true" />
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -413,8 +410,8 @@ export function PlacementInspector({
             ) : (
               <LockOpen size={16} aria-hidden="true" />
             )}
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -429,13 +426,13 @@ export function PlacementInspector({
             ) : (
               <EyeOff size={16} aria-hidden="true" />
             )}
-          </RheaButton>
+          </Button>
         </div>
         {canGroup && (
-          <RheaButton type="button" variant="secondary" onClick={group}>
+          <Button type="button" variant="secondary" onClick={group}>
             <Group size={16} aria-hidden="true" />
             Group selection
-          </RheaButton>
+          </Button>
         )}
       </InspectorSection>
       <InspectorSection title="Position & size">
@@ -472,7 +469,7 @@ export function PlacementInspector({
         <Field>
           <FieldLabel htmlFor="placement-opacity">Opacity</FieldLabel>
           <div className="flex items-center gap-3">
-            <RheaSlider
+            <Slider
               id="placement-opacity"
               aria-label="Layer opacity"
               min={0}
@@ -575,7 +572,7 @@ export function PlacementInspector({
             content?.widget?.provider === "youtube") && (
             // The wrapping label names the checkbox; no extra aria-label.
             <label className="flex items-center gap-2 text-sm">
-              <RheaCheckbox
+              <Checkbox
                 checked={(item.overrides?.muted as boolean | undefined) ?? true}
                 onCheckedChange={(checked) =>
                   update((target) => {
@@ -593,7 +590,7 @@ export function PlacementInspector({
               and then abandoning the author at the Widget list. The Widget editor reports its own
               consumers, so the warning this dialog used to guess at is shown where it is
               actionable. */}
-          <RheaButton
+          <Button
             type="button"
             variant="secondary"
             disabled={!content}
@@ -606,7 +603,7 @@ export function PlacementInspector({
           >
             <AppWindow size={16} aria-hidden="true" />
             Edit shared Widget
-          </RheaButton>
+          </Button>
         </InspectorSection>
       )}
       {item.type === "playlistZone" && (
@@ -648,7 +645,7 @@ export function PlacementInspector({
             />
           </div>
           <label className="flex items-center gap-2 text-sm">
-            <RheaCheckbox
+            <Checkbox
               checked={item.playback?.loop ?? true}
               onCheckedChange={(checked) =>
                 update((target) => {
@@ -662,7 +659,7 @@ export function PlacementInspector({
             Loop independently
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <RheaCheckbox
+            <Checkbox
               checked={item.playback?.muted ?? true}
               onCheckedChange={(checked) =>
                 update((target) => {
@@ -686,13 +683,13 @@ export function PlacementInspector({
               })
             }
           />
-          <RheaButton
+          <Button
             type="button"
             variant="secondary"
             onClick={() => void navigate(`/playlists/${item.playlistId}`)}
           >
             Edit playlist
-          </RheaButton>
+          </Button>
         </InspectorSection>
       )}
       {item.type === "asset" && (
@@ -744,7 +741,7 @@ export function PlacementInspector({
           {content?.type === "video" && (
             <>
               <label className="flex items-start gap-2 text-sm">
-                <RheaSwitch
+                <Switch
                   checked={item.playback?.muted ?? true}
                   onCheckedChange={(checked) =>
                     update((target) => {
@@ -759,7 +756,7 @@ export function PlacementInspector({
                 <span>Muted</span>
               </label>
               <label className="flex items-start gap-2 text-sm">
-                <RheaSwitch
+                <Switch
                   checked={item.playback?.loop ?? true}
                   onCheckedChange={(checked) =>
                     update((target) => {
@@ -779,10 +776,10 @@ export function PlacementInspector({
       )}
       {primitive?.kind === "group" && (
         <InspectorSection title="Group">
-          <RheaButton type="button" variant="secondary" onClick={ungroup}>
+          <Button type="button" variant="secondary" onClick={ungroup}>
             <Ungroup size={16} aria-hidden="true" />
             Ungroup
-          </RheaButton>
+          </Button>
           {!primitive.binding && dataSources.length === 0 ? (
             <ConnectDataNotice
               message="Connect data to hide this group when a field is empty."
@@ -984,7 +981,7 @@ export function PlacementInspector({
                 }
               />
               <label className="flex items-start gap-2 text-sm">
-                <RheaSwitch
+                <Switch
                   checked={primitive.binding.hideWhenEmpty ?? false}
                   onCheckedChange={(checked) =>
                     update(
@@ -1138,7 +1135,7 @@ export function PlacementInspector({
             />
           </div>
           <label className="flex items-start gap-2 text-sm">
-            <RheaSwitch
+            <Switch
               checked={primitive.autoFit ?? false}
               onCheckedChange={(checked) =>
                 update(

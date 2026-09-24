@@ -4,6 +4,12 @@ import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Field, FieldLabel } from "../components/ui/field";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,7 +27,6 @@ import {
 import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDuration,
   humanize,
@@ -233,7 +238,14 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
       </div>
 
       {breakdown.length === 0 ? (
-        <EmptyState message="No expected playback was recorded in this range." />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>No expected playback</EmptyTitle>
+            <EmptyDescription>
+              No expected playback was recorded in this range.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
           <Table className="w-full min-w-[42rem] text-sm">

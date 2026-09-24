@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { LayoutOrientation, LayoutSummary } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -701,11 +701,10 @@ export function LayoutsPage() {
                     />
                   }
                 >
-                  <button
-                    type="button"
+                  <Link
+                    to={`/layouts/${layout.id}`}
                     className="grid w-full gap-3 rounded-xl border border-border p-3 text-left hover:bg-muted"
                     aria-label={`${canManage ? "Edit" : "Open"} ${layout.name}`}
-                    onClick={() => void navigate(`/layouts/${layout.id}`)}
                   >
                     <span className="relative block">
                       <LayoutPreview layout={layout} />
@@ -744,7 +743,7 @@ export function LayoutsPage() {
                         {formatLayoutUpdatedAt(layout.updatedAt)}
                       </small>
                     </span>
-                  </button>
+                  </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-xl bg-background/90 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"

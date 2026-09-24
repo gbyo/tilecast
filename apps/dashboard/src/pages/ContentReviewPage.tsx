@@ -11,7 +11,6 @@ import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -47,6 +46,7 @@ import {
 } from "../components/ui/table";
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 const stateLabels: Record<ContentReviewState, string> = {
   pending: "Waiting for review",
@@ -232,17 +232,29 @@ export function ContentReviewPage() {
         </Alert>
       )}
 
-      <ViewTabs
-        label="Review state"
-        value={filter}
-        items={[
-          { value: "pending", label: stateLabels.pending },
-          { value: "approved", label: stateLabels.approved },
-          { value: "rejected", label: stateLabels.rejected },
-          { value: "", label: "All" },
-        ]}
-        onValueChange={setFilter}
-      />
+      <ToggleGroup
+        value={[filter || "all"]}
+        onValueChange={(values) =>
+          setFilter(
+            values[0] && values[0] !== "all"
+              ? (values[0] as ContentReviewState)
+              : "",
+          )
+        }
+        variant="outline"
+        size="sm"
+        spacing={1}
+        aria-label="Review state filter"
+      >
+        <ToggleGroupItem value="pending">{stateLabels.pending}</ToggleGroupItem>
+        <ToggleGroupItem value="approved">
+          {stateLabels.approved}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="rejected">
+          {stateLabels.rejected}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="all">All</ToggleGroupItem>
+      </ToggleGroup>
 
       {queue.isLoading ? (
         <div className="grid gap-2" aria-label="Loading the review queue">

@@ -137,7 +137,7 @@ describe("QuickPresentDialog", () => {
       ).toBeInTheDocument(),
     );
     await user.click(screen.getByRole("combobox", { name: "Duration" }));
-    await user.click(screen.getByRole("option", { name: "30 minutes" }));
+    await user.click(await screen.findByRole("option", { name: "30 minutes" }));
     await user.click(screen.getByRole("button", { name: "Show now" }));
 
     await waitFor(() =>

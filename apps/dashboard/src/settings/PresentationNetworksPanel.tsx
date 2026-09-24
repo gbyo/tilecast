@@ -10,10 +10,10 @@ import type {
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -35,7 +35,7 @@ import {
 } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -253,13 +253,13 @@ export function PresentationNetworksPanel({
               new credential keeps the saved one.
             </p>
           </div>
-          <RheaButton
+          <Button
             variant="default"
             onClick={() => open("new")}
             disabled={unavailable}
           >
             <Plus size={16} aria-hidden="true" /> Add network
-          </RheaButton>
+          </Button>
         </div>
 
         {networks.isLoading ? (
@@ -279,13 +279,13 @@ export function PresentationNetworksPanel({
                 cannot reach a player over Ethernet alone.
               </EmptyDescription>
             </EmptyHeader>
-            <RheaButton
+            <Button
               variant="secondary"
               onClick={() => open("new")}
               disabled={unavailable}
             >
               Add the first network
-            </RheaButton>
+            </Button>
           </Empty>
         ) : (
           <div className="grid gap-2">
@@ -317,14 +317,14 @@ export function PresentationNetworksPanel({
                   </small>
                 </span>
                 <span className="flex flex-wrap items-center gap-2">
-                  <RheaButton
+                  <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => open(network)}
                   >
                     <Pencil size={14} aria-hidden="true" /> Edit
-                  </RheaButton>
-                  <RheaButton
+                  </Button>
+                  <Button
                     variant="destructive"
                     size="sm"
                     disabled={remove.isPending}
@@ -342,7 +342,7 @@ export function PresentationNetworksPanel({
                     }}
                   >
                     <Trash2 size={14} aria-hidden="true" /> Delete
-                  </RheaButton>
+                  </Button>
                 </span>
               </article>
             ))}
@@ -360,7 +360,7 @@ export function PresentationNetworksPanel({
           </Alert>
         )}
 
-        <RheaDialog
+        <Dialog
           open={Boolean(editing)}
           onOpenChange={(open) => {
             if (!open && !save.isPending) setEditing(undefined);
@@ -430,7 +430,7 @@ export function PresentationNetworksPanel({
                     <FieldLabel htmlFor="presentation-network-security">
                       Authentication
                     </FieldLabel>
-                    <RheaSelect
+                    <Select
                       items={networks.data?.supportedSecurity ?? []}
                       name="security"
                       value={draft.security}
@@ -457,11 +457,11 @@ export function PresentationNetworksPanel({
                           ),
                         )}
                       </SelectContent>
-                    </RheaSelect>
+                    </Select>
                   </Field>
                   <div className="flex items-end pb-2">
                     <Field orientation="horizontal" className="items-center">
-                      <RheaCheckbox
+                      <Checkbox
                         id="presentation-network-hidden"
                         checked={draft.hidden}
                         onCheckedChange={(checked) =>
@@ -601,7 +601,7 @@ export function PresentationNetworksPanel({
                           orientation="horizontal"
                           className="items-center"
                         >
-                          <RheaCheckbox
+                          <Checkbox
                             id={"presentation-network-screen-" + screen.id}
                             checked={assignmentIds.includes(screen.id)}
                             onCheckedChange={(checked) =>
@@ -642,15 +642,15 @@ export function PresentationNetworksPanel({
                   </Alert>
                 )}
                 <DialogFooter>
-                  <RheaButton
+                  <Button
                     variant="ghost"
                     type="button"
                     onClick={() => setEditing(undefined)}
                     disabled={save.isPending}
                   >
                     Cancel
-                  </RheaButton>
-                  <RheaButton
+                  </Button>
+                  <Button
                     variant="default"
                     type="submit"
                     disabled={
@@ -665,12 +665,12 @@ export function PresentationNetworksPanel({
                   >
                     {save.isPending && <Spinner />}
                     Save network
-                  </RheaButton>
+                  </Button>
                 </DialogFooter>
               </form>
             )}
           </DialogContent>
-        </RheaDialog>
+        </Dialog>
       </section>
     </>
   );

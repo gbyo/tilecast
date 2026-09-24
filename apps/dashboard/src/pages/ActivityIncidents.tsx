@@ -6,9 +6,14 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { buttonVariants } from "../components/ui/button";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   humanize,
   Loading,
@@ -140,7 +145,12 @@ export function NeedsAttentionPanel() {
       )}
 
       {failing.length === 0 ? (
-        <EmptyState message="Nothing is currently failing." />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>No active failures</EmptyTitle>
+            <EmptyDescription>Nothing is currently failing.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
           <ul className="grid list-none gap-2 p-0">

@@ -2,6 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceArea,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { api } from "../api/client";
 import type {
   NoiseHistoryDay,
@@ -11,6 +20,14 @@ import type {
 } from "../api/types";
 import { ResourceTabs } from "../components/ResourceTabs";
 import { MetricTile } from "../components/MetricTile";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "../components/ui/chart";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { buttonVariants } from "../components/ui/button";
@@ -22,7 +39,7 @@ import {
 } from "../components/ui/empty";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -48,6 +65,13 @@ const resolutionMs: Record<string, number> = {
   fifteenMinutes: 900_000,
   hour: 3_600_000,
 };
+
+const noiseChartConfig = {
+  averageLevel: { label: "Average", color: "var(--chart-1)" },
+  peakLevel: { label: "Peak", color: "var(--chart-2)" },
+  warning: { label: "Warning threshold", color: "#d97706" },
+  loud: { label: "Too-loud threshold", color: "#dc2626" },
+} satisfies ChartConfig;
 
 type DailyMeasure = "average" | "loud" | "events";
 
@@ -107,6 +131,44 @@ export function splitSeries(
   return segments;
 }
 
+type NoiseChartDatum = {
+  at: number;
+  averageLevel: number | null;
+  peakLevel: number | null;
+};
+
+/** Add null samples where monitoring gaps must remain visible in a Recharts line. */
+export function buildNoiseChartData(
+  points: NoiseHistoryPoint[],
+  widthMs: number,
+): NoiseChartDatum[] {
+  const segments = splitSeries(points, widthMs);
+  const data: NoiseChartDatum[] = [];
+  for (const [index, segment] of segments.entries()) {
+    if (index > 0) {
+      const previous = segments[index - 1]?.at(-1);
+      const next = segment[0];
+      if (previous && next) {
+        const previousAt = Date.parse(previous.at);
+        const nextAt = Date.parse(next.at);
+        data.push({
+          at: previousAt + (nextAt - previousAt) / 2,
+          averageLevel: null,
+          peakLevel: null,
+        });
+      }
+    }
+    data.push(
+      ...segment.map((point) => ({
+        at: Date.parse(point.at),
+        averageLevel: point.averageLevel,
+        peakLevel: point.peakLevel,
+      })),
+    );
+  }
+  return data;
+}
+
 function NoiseHistoryTabs({ id }: { id: string }) {
   return (
     <ResourceTabs
@@ -119,14 +181,7 @@ function NoiseHistoryTabs({ id }: { id: string }) {
   );
 }
 
-/**
- * The timeline graph: average and peak Noise Level over the selected range,
- * against the instance's own two thresholds.
- *
- * Deliberately plain SVG in the application's own visual language rather than a
- * charting dependency and a dashboard aesthetic Tilecast does not use anywhere
- * else.
- */
+/** Average and peak levels over time, with the meter's own thresholds. */
 function NoiseTimeline({
   points,
   resolution,
@@ -142,122 +197,145 @@ function NoiseTimeline({
   from: string;
   to: string;
 }) {
-  const width = 1000;
-  const height = 240;
   const start = Date.parse(from);
   const span = Math.max(1, Date.parse(to) - start);
-  const x = (at: string) => ((Date.parse(at) - start) / span) * width;
-  const y = (level: number) =>
-    height - (Math.min(100, Math.max(0, level)) / 100) * height;
-  const segments = splitSeries(points, resolutionMs[resolution] ?? 60_000);
-  const line = (
-    segment: NoiseHistoryPoint[],
-    pick: (p: NoiseHistoryPoint) => number,
-  ) =>
-    segment
-      .map(
-        (point, index) =>
-          `${index === 0 ? "M" : "L"}${x(point.at).toFixed(1)} ${y(pick(point)).toFixed(1)}`,
-      )
-      .join(" ");
-  const ticks = Math.min(6, Math.max(2, Math.round(span / 3_600_000)));
-  const labels = Array.from({ length: ticks + 1 }, (_, index) => {
-    const at = new Date(start + (span / ticks) * index);
-    return {
-      x: (width / ticks) * index,
-      label:
-        span > 36 * 3_600_000
-          ? at.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-          : at.toLocaleTimeString(undefined, {
-              hour: "numeric",
-              minute: "2-digit",
-            }),
-    };
-  });
+  const tickCount = Math.min(6, Math.max(2, Math.round(span / 3_600_000)));
+  const ticks = Array.from(
+    { length: tickCount + 1 },
+    (_, index) => start + (span / tickCount) * index,
+  );
+  const tickLabel = (value: number) => {
+    const at = new Date(value);
+    return span > 36 * 3_600_000
+      ? at.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+      : at.toLocaleTimeString(undefined, {
+          hour: "numeric",
+          minute: "2-digit",
+        });
+  };
+  const chartData = buildNoiseChartData(
+    points,
+    resolutionMs[resolution] ?? 60_000,
+  );
+  const descriptionId = "noise-timeline-description";
   return (
     <figure className="grid gap-2">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`Noise Level over time. Warning level ${warningLevel}, too loud level ${loudLevel}.`}
-        className="h-60 w-full rounded-xl border border-border bg-muted/30"
+      <ChartContainer
+        config={noiseChartConfig}
+        className="h-[300px] min-h-[280px] w-full"
+        role="group"
+        aria-label="Noise level history chart"
+        aria-describedby={descriptionId}
       >
-        <rect
-          x="0"
-          y="0"
-          width={width}
-          height={y(warningLevel)}
-          className="fill-red-500/10"
-        />
-        <rect
-          x="0"
-          y={y(loudLevel)}
-          width={width}
-          height={Math.max(0, y(warningLevel) - y(loudLevel))}
-          className="fill-amber-500/10"
-        />
-        <line
-          x1="0"
-          x2={width}
-          y1={y(loudLevel)}
-          y2={y(loudLevel)}
-          className="stroke-red-500 [stroke-dasharray:6_4] [stroke-width:1] [vector-effect:non-scaling-stroke]"
-        />
-        <line
-          x1="0"
-          x2={width}
-          y1={y(warningLevel)}
-          y2={y(warningLevel)}
-          className="stroke-amber-500 [stroke-dasharray:6_4] [stroke-width:1] [vector-effect:non-scaling-stroke]"
-        />
-        {segments.map((segment, index) => (
-          <path
-            key={`peak-${index}`}
-            d={line(segment, (point) => point.peakLevel)}
-            className="noise-chart__peak fill-none stroke-muted-foreground opacity-55 [stroke-width:1] [vector-effect:non-scaling-stroke]"
+        <LineChart
+          accessibilityLayer
+          data={chartData}
+          margin={{ top: 12, right: 12, bottom: 0, left: 0 }}
+        >
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="at"
+            type="number"
+            domain={[start, start + span]}
+            ticks={ticks}
+            tickFormatter={tickLabel}
+            tickLine={false}
+            axisLine={false}
+            minTickGap={24}
           />
-        ))}
-        {segments.map((segment, index) => (
-          <path
-            key={`avg-${index}`}
-            d={line(segment, (point) => point.averageLevel)}
-            className="noise-chart__average fill-none stroke-primary [stroke-width:2] [vector-effect:non-scaling-stroke]"
+          <YAxis
+            type="number"
+            domain={[0, 100]}
+            ticks={[0, 20, 40, 60, 80, 100]}
+            tickLine={false}
+            axisLine={false}
+            width={32}
           />
-        ))}
-      </svg>
-      <div
-        className="relative h-5 text-xs text-muted-foreground"
-        aria-hidden="true"
-      >
-        {labels.map((tick) => (
-          <span
-            key={tick.x}
-            style={{ left: `${(tick.x / width) * 100}%` }}
-            className="absolute -translate-x-1/2 whitespace-nowrap"
-          >
-            {tick.label}
-          </span>
-        ))}
-      </div>
-      <figcaption className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-[3px] w-3 bg-primary" />
-          Average
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-3 bg-muted-foreground" />
-          Peak
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-3 bg-amber-500" />
-          Warning {warningLevel}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-3 bg-red-500" />
-          Too loud {loudLevel}
-        </span>
+          <ReferenceArea
+            y1={warningLevel}
+            y2={100}
+            fill="var(--color-loud)"
+            fillOpacity={0.08}
+          />
+          <ReferenceArea
+            y1={loudLevel}
+            y2={warningLevel}
+            fill="var(--color-warning)"
+            fillOpacity={0.1}
+          />
+          <ReferenceLine
+            y={warningLevel}
+            stroke="var(--color-warning)"
+            strokeDasharray="6 4"
+          />
+          <ReferenceLine
+            y={loudLevel}
+            stroke="var(--color-loud)"
+            strokeDasharray="6 4"
+          />
+          <ChartTooltip
+            cursor={false}
+            content={
+              <ChartTooltipContent
+                indicator="line"
+                labelFormatter={(value) =>
+                  new Date(Number(value)).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })
+                }
+                formatter={(value, name) => (
+                  <div className="flex min-w-32 items-center justify-between gap-4">
+                    <span>{name}</span>
+                    <span className="font-mono tabular-nums">
+                      {formatLevel(Number(value))}
+                    </span>
+                  </div>
+                )}
+              />
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Line
+            dataKey="averageLevel"
+            name="Average"
+            type="linear"
+            stroke="var(--color-averageLevel)"
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 3 }}
+            connectNulls={false}
+          />
+          <Line
+            dataKey="peakLevel"
+            name="Peak"
+            type="linear"
+            stroke="var(--color-peakLevel)"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            dot={false}
+            activeDot={{ r: 3 }}
+            connectNulls={false}
+          />
+        </LineChart>
+      </ChartContainer>
+      <figcaption id={descriptionId} className="sr-only">
+        Average and peak Noise Level are shown over time. Gaps indicate periods
+        with no monitoring. The warning threshold is {warningLevel}; the
+        too-loud threshold is {loudLevel}.
       </figcaption>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <li className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3 border-t border-dashed border-amber-600" />
+          Warning {warningLevel}
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3 border-t border-dashed border-red-600" />
+          Too loud {loudLevel}
+        </li>
+      </ul>
     </figure>
   );
 }
@@ -488,7 +566,7 @@ export function NoiseMeterHistoryPage() {
         {multipleScreens && (
           <Field>
             <FieldLabel htmlFor="noise-history-screen">Screen</FieldLabel>
-            <RheaSelect
+            <Select
               items={[
                 { value: "all", label: "All screens (combined)" },
                 ...available.map((screen) => ({
@@ -512,7 +590,7 @@ export function NoiseMeterHistoryPage() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
             <FieldDescription>
               Levels are relative to each player&apos;s own microphone, so
               screens are compared with care.
@@ -521,7 +599,7 @@ export function NoiseMeterHistoryPage() {
         )}
         <Field>
           <FieldLabel htmlFor="noise-history-granularity">Export</FieldLabel>
-          <RheaSelect
+          <Select
             items={granularityOptions}
             value={granularity}
             onValueChange={(value) => setGranularity(value ?? "raw")}
@@ -536,7 +614,7 @@ export function NoiseMeterHistoryPage() {
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         <a
           href={exportHref}

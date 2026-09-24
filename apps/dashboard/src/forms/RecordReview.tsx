@@ -9,8 +9,10 @@ import type {
 import { api, ApiError } from "../api/client";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Bubble, BubbleContent } from "../components/ui/bubble";
+import { Button } from "../components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -438,7 +440,7 @@ function RecordReviewBody({
           </Field>
         </div>
         {canEdit && (
-          <RheaButton
+          <Button
             variant="secondary"
             disabled={busy || !dirty}
             aria-busy={busy || undefined}
@@ -446,7 +448,7 @@ function RecordReviewBody({
           >
             {busy && <Spinner aria-hidden="true" />}
             Save changes
-          </RheaButton>
+          </Button>
         )}
       </section>
 
@@ -458,7 +460,7 @@ function RecordReviewBody({
           <h3 className="text-base font-semibold">Decision</h3>
           <div className="flex flex-wrap gap-2">
             {detail.availableTransitions.map((transition) => (
-              <RheaButton
+              <Button
                 key={`${transition.to}`}
                 variant={transition.requiresNote ? "secondary" : "default"}
                 disabled={busy}
@@ -471,7 +473,7 @@ function RecordReviewBody({
                 }}
               >
                 {transition.label}
-              </RheaButton>
+              </Button>
             ))}
           </div>
         </section>
@@ -514,7 +516,7 @@ function RecordReviewBody({
             </FieldDescription>
           </Field>
           <DialogFooter>
-            <RheaButton
+            <Button
               variant="ghost"
               disabled={busy}
               onClick={() => {
@@ -523,8 +525,8 @@ function RecordReviewBody({
               }}
             >
               Cancel
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               disabled={busy || note.trim() === ""}
               onClick={() => {
                 if (pendingTransition)
@@ -532,7 +534,7 @@ function RecordReviewBody({
               }}
             >
               {pendingTransition?.label ?? "Confirm"}
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -545,17 +547,28 @@ function RecordReviewBody({
         {detail.comments.length === 0 ? (
           <p className="text-sm text-muted-foreground">No comments yet.</p>
         ) : (
-          <ul className="grid gap-2">
+          <ul className="grid gap-3">
             {detail.comments.map((entry) => (
-              <li
-                key={entry.id}
-                className="grid gap-1 rounded-xl border border-border p-3 text-sm"
-              >
-                <strong>{entry.authorName}</strong>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(entry.createdAt).toLocaleString()}
-                </span>
-                <p>{entry.body}</p>
+              <li key={entry.id} className="grid gap-2">
+                <div className="flex items-center gap-2">
+                  <Avatar size="sm" aria-hidden="true">
+                    <AvatarFallback>
+                      {nameInitials(entry.authorName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <strong className="text-sm">{entry.authorName}</strong>
+                  <time
+                    dateTime={entry.createdAt}
+                    className="text-xs text-muted-foreground"
+                  >
+                    {new Date(entry.createdAt).toLocaleString()}
+                  </time>
+                </div>
+                <Bubble variant="secondary">
+                  <BubbleContent className="whitespace-pre-wrap">
+                    {entry.body}
+                  </BubbleContent>
+                </Bubble>
               </li>
             ))}
           </ul>
@@ -569,13 +582,13 @@ function RecordReviewBody({
               aria-label="Add a comment"
               onChange={(event) => setComment(event.target.value)}
             />
-            <RheaButton
+            <Button
               variant="secondary"
               disabled={busy || comment.trim() === ""}
               onClick={() => void addComment()}
             >
               Comment
-            </RheaButton>
+            </Button>
           </div>
         )}
       </section>
@@ -601,6 +614,17 @@ function RecordReviewBody({
       </section>
     </div>
   );
+}
+
+function nameInitials(name: string) {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => Array.from(part)[0]?.toLocaleUpperCase() ?? "")
+    .join("");
+  return initials || "?";
 }
 
 function describeEvent(event: FormRecordDetail["events"][number]): string {

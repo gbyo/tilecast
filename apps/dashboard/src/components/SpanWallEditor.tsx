@@ -3,11 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { ScreenGroup, SpanPanel, SpanStatus } from "../api/types";
 import { Alert, AlertDescription } from "./ui/alert";
-import { Button as RheaButton } from "./ui/button";
+import { Button } from "./ui/button";
 import { Field, FieldLabel } from "./ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -121,7 +121,7 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
         </header>
         {manageable && (
           <div>
-            <RheaButton
+            <Button
               type="button"
               variant="secondary"
               disabled={group.screens.length === 0 || update.isPending}
@@ -136,7 +136,7 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
               }}
             >
               {update.isPending ? "Switching…" : "Switch to Span"}
-            </RheaButton>
+            </Button>
           </div>
         )}
       </section>
@@ -196,7 +196,7 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
             { label: "1 × 2", columns: 1 },
             { label: "2 × 2", columns: 2 },
           ].map((item, index) => (
-            <RheaButton
+            <Button
               key={item.label}
               type="button"
               variant="ghost"
@@ -221,12 +221,12 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
               }}
             >
               {item.label}
-            </RheaButton>
+            </Button>
           ))}
         </div>
         {manageable && (
           <div className="flex items-center gap-2">
-            <RheaButton
+            <Button
               type="button"
               disabled={!dirty || update.isPending}
               onClick={() =>
@@ -234,15 +234,15 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
               }
             >
               {update.isPending ? "Saving…" : "Save wall"}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               variant="ghost"
               disabled={update.isPending}
               onClick={() => update.mutate({ displayMode: "mirror" })}
             >
               Return to Mirror
-            </RheaButton>
+            </Button>
           </div>
         )}
       </div>
@@ -321,7 +321,7 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
                   <FieldLabel htmlFor={`span-${panel.screenId}-rotation`}>
                     Rotation
                   </FieldLabel>
-                  <RheaSelect
+                  <Select
                     items={rotationOptions}
                     value={String(panel.rotation)}
                     disabled={!manageable}
@@ -346,7 +346,7 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
                         </SelectItem>
                       ))}
                     </SelectContent>
-                  </RheaSelect>
+                  </Select>
                 </Field>
               </div>
             </fieldset>

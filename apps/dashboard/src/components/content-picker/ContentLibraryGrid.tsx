@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import type { Asset } from "../../api/types";
+import { Button } from "../ui/button";
 import { AssetPreview } from "../content/AssetPreview";
 
 function statusLabel(status: Asset["processingStatus"]) {
@@ -40,10 +41,11 @@ export function ContentLibraryGrid({
         const disabled =
           disabledIds.has(asset.id) || asset.processingStatus !== "ready";
         return (
-          <button
+          <Button
             type="button"
             key={asset.id}
-            className={`picker-content-card${selected ? " is-selected" : ""}${highlightedIds.has(asset.id) ? " is-new" : ""}`}
+            variant="ghost"
+            className={`picker-content-card h-auto w-full grid-cols-1 whitespace-normal${selected ? " is-selected" : ""}${highlightedIds.has(asset.id) ? " is-new" : ""}`}
             aria-pressed={selected}
             disabled={disabled}
             onClick={() => onToggle(asset)}
@@ -73,7 +75,7 @@ export function ContentLibraryGrid({
             >
               {statusLabel(asset.processingStatus)}
             </span>
-          </button>
+          </Button>
         );
       })}
     </div>

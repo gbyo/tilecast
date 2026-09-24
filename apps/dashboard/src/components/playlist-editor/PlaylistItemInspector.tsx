@@ -2,7 +2,7 @@ import { AlertCircle, Check, Info, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { PlaylistItem, PlaylistItemInput } from "../../api/types";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
-import { Button as RheaButton } from "../ui/button";
+import { Button } from "../ui/button";
 import { Field, FieldDescription, FieldLabel } from "../ui/field";
 import {
   InputGroup,
@@ -20,7 +20,7 @@ import {
   InputGroupInput,
 } from "../ui/input-group";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -33,8 +33,8 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "../ui/drawer";
-import { Slider as RheaSlider } from "../ui/slider";
-import { Switch as RheaSwitch } from "../ui/switch";
+import { Slider } from "../ui/slider";
+import { Switch } from "../ui/switch";
 import {
   itemInput,
   playlistItemUsesFixedDuration,
@@ -200,7 +200,7 @@ export function PlaylistItemInspectorBody({
           {(item.assetType === "image" || item.assetType === "video") && (
             // The wrapping label names the switch; no extra aria-label.
             <label className="flex items-start gap-2 text-sm">
-              <RheaSwitch
+              <Switch
                 checked={usesPlayerDefaults}
                 disabled={!editable}
                 onCheckedChange={(checked) =>
@@ -219,7 +219,7 @@ export function PlaylistItemInspectorBody({
           )}
           <Field>
             <FieldLabel htmlFor="inspector-transition">Transition</FieldLabel>
-            <RheaSelect
+            <Select
               disabled={!editable || usesPlayerDefaults}
               value={item.transition}
               onValueChange={(next) => {
@@ -246,7 +246,7 @@ export function PlaylistItemInspectorBody({
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
             <FieldDescription>
               {usesPlayerDefaults
                 ? "Turn off Player defaults to set an item override."
@@ -264,7 +264,7 @@ export function PlaylistItemInspectorBody({
           )}
           <Field>
             <FieldLabel htmlFor="inspector-fit">Fit</FieldLabel>
-            <RheaSelect
+            <Select
               disabled={!editable || usesPlayerDefaults}
               value={item.fitMode}
               onValueChange={(next) =>
@@ -282,11 +282,11 @@ export function PlaylistItemInspectorBody({
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
           </Field>
           <Field>
             <FieldLabel htmlFor="inspector-delivery">Delivery</FieldLabel>
-            <RheaSelect
+            <Select
               disabled={!editable}
               value={item.deliveryPolicy}
               onValueChange={(next) =>
@@ -307,7 +307,7 @@ export function PlaylistItemInspectorBody({
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
           </Field>
         </InspectorSection>
 
@@ -326,7 +326,7 @@ export function PlaylistItemInspectorBody({
                 <FieldLabel htmlFor="inspector-widget-behavior">
                   Playback behavior
                 </FieldLabel>
-                <RheaSelect
+                <Select
                   disabled={!editable}
                   value={
                     item.durationMs == null ? "until_end" : "fixed_duration"
@@ -349,7 +349,7 @@ export function PlaylistItemInspectorBody({
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </RheaSelect>
+                </Select>
               </Field>
               {item.durationMs != null && (
                 <SecondsField
@@ -394,7 +394,7 @@ export function PlaylistItemInspectorBody({
           <InspectorSection title="Audio">
             {/* The wrapping label names the switch; no extra aria-label. */}
             <label className="flex items-center gap-2 text-sm">
-              <RheaSwitch
+              <Switch
                 checked={item.audioEnabled}
                 disabled={!editable || usesPlayerDefaults}
                 onCheckedChange={(checked) =>
@@ -406,7 +406,7 @@ export function PlaylistItemInspectorBody({
             <Field>
               <FieldLabel htmlFor="inspector-volume">Volume</FieldLabel>
               <div className="flex items-center gap-3">
-                <RheaSlider
+                <Slider
                   id="inspector-volume"
                   aria-label="Item volume"
                   min={0}
@@ -451,20 +451,20 @@ export function PlaylistItemInspectorBody({
       </div>
       <div className="flex flex-wrap gap-2">
         {editable && (
-          <RheaButton
+          <Button
             type="button"
             variant="destructive"
             onClick={() => setConfirmingDelete(true)}
           >
             <Trash2 size={15} aria-hidden="true" />
             Remove item
-          </RheaButton>
+          </Button>
         )}
-        <RheaButton type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={onClose}>
           Done
-        </RheaButton>
+        </Button>
       </div>
-      <RheaAlertDialog
+      <AlertDialog
         open={confirmingDelete}
         onOpenChange={(open) => {
           if (!open) setConfirmingDelete(false);
@@ -492,7 +492,7 @@ export function PlaylistItemInspectorBody({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
     </>
   );
 }

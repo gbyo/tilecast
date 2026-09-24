@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -12,8 +12,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Field,
   FieldDescription,
@@ -22,11 +22,11 @@ import {
 } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Slider } from "../components/ui/slider";
-import { Switch as RheaSwitch } from "../components/ui/switch";
+import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "../components/ui/toast";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -144,15 +144,16 @@ export function WidgetProviderGallery({
   const card = (definition: (typeof catalog)[number]) => {
     const disabled = definition.availability?.enabled === false;
     return (
-      <button
+      <Button
         type="button"
+        variant="outline"
         key={definition.id}
         disabled={disabled}
         aria-describedby={
           disabled ? `widget-availability-${definition.id}` : undefined
         }
         onClick={() => onChoose(definition.id)}
-        className="grid min-w-0 gap-2 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-foreground/20 disabled:opacity-60"
+        className="grid h-auto min-w-0 w-full grid-cols-1 justify-items-stretch gap-2 p-3 text-left whitespace-normal transition-colors hover:border-foreground/20 disabled:opacity-60"
       >
         <span className="grid aspect-video w-full place-items-center overflow-hidden rounded-xl bg-muted">
           <WidgetThumbnail
@@ -176,7 +177,7 @@ export function WidgetProviderGallery({
             </small>
           )}
         </span>
-      </button>
+      </Button>
     );
   };
 
@@ -213,7 +214,7 @@ export function WidgetProviderGallery({
               Choose an App or building block for your signage.
             </p>
           </div>
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -221,7 +222,7 @@ export function WidgetProviderGallery({
             onClick={onClose}
           >
             <X aria-hidden="true" />
-          </RheaButton>
+          </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -237,7 +238,7 @@ export function WidgetProviderGallery({
             aria-label="Widget categories"
           >
             {["All", ...categories].map((name) => (
-              <RheaButton
+              <Button
                 type="button"
                 key={name}
                 variant={category === name ? "secondary" : "ghost"}
@@ -246,7 +247,7 @@ export function WidgetProviderGallery({
                 onClick={() => setCategory(name)}
               >
                 {name}
-              </RheaButton>
+              </Button>
             ))}
           </div>
         </div>
@@ -754,7 +755,7 @@ export function NativeAppEditor({
               {nativeWidgetGuidance(provider)}
             </p>
           </div>
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -762,7 +763,7 @@ export function NativeAppEditor({
             onClick={onClose}
           >
             <X aria-hidden="true" />
-          </RheaButton>
+          </Button>
         </div>
         <div className="grid min-w-0 gap-5">
           {presetId && (
@@ -841,7 +842,7 @@ export function NativeAppEditor({
                     <FieldLabel htmlFor="widget-time-format">
                       Time format
                     </FieldLabel>
-                    <RheaSelect
+                    <Select
                       items={[
                         { value: "12", label: "12-hour" },
                         { value: "24", label: "24-hour" },
@@ -865,10 +866,10 @@ export function NativeAppEditor({
                         <SelectItem value="12">12-hour</SelectItem>
                         <SelectItem value="24">24-hour</SelectItem>
                       </SelectContent>
-                    </RheaSelect>
+                    </Select>
                   </Field>
                   <label className="flex items-center gap-2 self-end pb-2 text-sm">
-                    <RheaSwitch
+                    <Switch
                       checked={(configuration as ClockWidgetConfig).showSeconds}
                       disabled={readOnly}
                       onCheckedChange={(checked) =>
@@ -888,7 +889,7 @@ export function NativeAppEditor({
                   <FieldLabel htmlFor="widget-date-format">
                     Date format
                   </FieldLabel>
-                  <RheaSelect
+                  <Select
                     items={[
                       { value: "full", label: "Full" },
                       { value: "long", label: "Long" },
@@ -916,7 +917,7 @@ export function NativeAppEditor({
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="short">Short</SelectItem>
                     </SelectContent>
-                  </RheaSelect>
+                  </Select>
                 </Field>
               )}
               {provider === "countdown" && (
@@ -960,7 +961,7 @@ export function NativeAppEditor({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="countdown-mode">Mode</FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "countdown", label: "Count down" },
                           { value: "count_up", label: "Count up" },
@@ -986,11 +987,11 @@ export function NativeAppEditor({
                           <SelectItem value="countdown">Count down</SelectItem>
                           <SelectItem value="count_up">Count up</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="countdown-repeat">Repeat</FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "none", label: "Does not repeat" },
                           { value: "daily", label: "Daily" },
@@ -1028,11 +1029,11 @@ export function NativeAppEditor({
                           <SelectItem value="monthly">Monthly</SelectItem>
                           <SelectItem value="yearly">Yearly</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="countdown-layout">Layout</FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "stacked", label: "Title above countdown" },
                           {
@@ -1070,13 +1071,13 @@ export function NativeAppEditor({
                             Countdown only
                           </SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="countdown-completion">
                         Completion behavior
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           {
                             value: "completed_text",
@@ -1117,7 +1118,7 @@ export function NativeAppEditor({
                             Continue counting up
                           </SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -1179,7 +1180,7 @@ export function NativeAppEditor({
                               key={unit}
                               className="flex items-center gap-2 text-sm"
                             >
-                              <RheaCheckbox
+                              <Checkbox
                                 checked={Boolean(
                                   (configuration as CountdownWidgetConfig)[key],
                                 )}
@@ -1239,7 +1240,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="qrcode-error-correction">
                         Error correction
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "low", label: "Low" },
                           { value: "medium", label: "Medium" },
@@ -1270,7 +1271,7 @@ export function NativeAppEditor({
                           <SelectItem value="quartile">Quartile</SelectItem>
                           <SelectItem value="high">High</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                       <FieldDescription>
                         Higher correction is easier to scan if the code is
                         damaged, but makes the pattern denser.
@@ -1280,7 +1281,7 @@ export function NativeAppEditor({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="qrcode-speed">Speed</FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "slow", label: "Slow" },
                           { value: "normal", label: "Normal" },
@@ -1303,13 +1304,13 @@ export function NativeAppEditor({
                           <SelectItem value="normal">Normal</SelectItem>
                           <SelectItem value="fast">Fast</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="qrcode-direction">
                         Direction
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "left", label: "Left" },
                           { value: "right", label: "Right" },
@@ -1333,7 +1334,7 @@ export function NativeAppEditor({
                           <SelectItem value="left">Left</SelectItem>
                           <SelectItem value="right">Right</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                   </div>
                   {(configuration as QRCodeWidgetConfig).value.length > 500 && (
@@ -1377,7 +1378,7 @@ export function NativeAppEditor({
                               key={field.key}
                               className="flex items-center gap-2 text-sm"
                             >
-                              <RheaCheckbox
+                              <Checkbox
                                 checked={selected}
                                 disabled={
                                   readOnly ||
@@ -1486,7 +1487,7 @@ export function NativeAppEditor({
                               key={field.key}
                               className="flex items-center gap-2 text-sm"
                             >
-                              <RheaCheckbox
+                              <Checkbox
                                 checked={selected}
                                 disabled={readOnly}
                                 onCheckedChange={(checked) =>
@@ -1544,7 +1545,7 @@ export function NativeAppEditor({
                         />
                       ))}
                       <label className="flex items-center gap-2 text-sm">
-                        <RheaSwitch
+                        <Switch
                           checked={
                             (configuration as DisplayWidgetConfig)
                               .showDividers ?? false
@@ -1568,7 +1569,7 @@ export function NativeAppEditor({
                         <FieldLabel htmlFor="menu-presentation">
                           Presentation
                         </FieldLabel>
-                        <RheaSelect
+                        <Select
                           items={[
                             {
                               value: "single_record",
@@ -1602,7 +1603,7 @@ export function NativeAppEditor({
                               Label and value rows
                             </SelectItem>
                           </SelectContent>
-                        </RheaSelect>
+                        </Select>
                       </Field>
                       {(configuration as DisplayWidgetConfig).mode ===
                         "records" && (
@@ -1645,7 +1646,7 @@ export function NativeAppEditor({
                     <>
                       <div className="flex flex-wrap gap-x-4 gap-y-2">
                         <label className="flex items-center gap-2 text-sm">
-                          <RheaCheckbox
+                          <Checkbox
                             checked={
                               (configuration as DisplayWidgetConfig)
                                 .showHeader ?? false
@@ -1662,7 +1663,7 @@ export function NativeAppEditor({
                           <span>Show column headers</span>
                         </label>
                         <label className="flex items-center gap-2 text-sm">
-                          <RheaCheckbox
+                          <Checkbox
                             checked={
                               (configuration as DisplayWidgetConfig)
                                 .alternatingRows ?? false
@@ -1741,7 +1742,7 @@ export function NativeAppEditor({
                                   >
                                     Format
                                   </FieldLabel>
-                                  <RheaSelect
+                                  <Select
                                     items={[
                                       { value: "text", label: "Text" },
                                       { value: "number", label: "Number" },
@@ -1792,7 +1793,7 @@ export function NativeAppEditor({
                                         Long date
                                       </SelectItem>
                                     </SelectContent>
-                                  </RheaSelect>
+                                  </Select>
                                 </Field>
                                 <Field>
                                   <FieldLabel
@@ -1800,7 +1801,7 @@ export function NativeAppEditor({
                                   >
                                     Alignment
                                   </FieldLabel>
-                                  <RheaSelect
+                                  <Select
                                     items={[
                                       { value: "left", label: "Left" },
                                       { value: "center", label: "Center" },
@@ -1830,7 +1831,7 @@ export function NativeAppEditor({
                                         Right
                                       </SelectItem>
                                     </SelectContent>
-                                  </RheaSelect>
+                                  </Select>
                                 </Field>
                                 <Field>
                                   <FieldLabel
@@ -2019,7 +2020,7 @@ export function NativeAppEditor({
                     />
                     <Field>
                       <FieldLabel htmlFor="metric-format">Format</FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "number", label: "Number" },
                           { value: "integer", label: "Integer" },
@@ -2044,7 +2045,7 @@ export function NativeAppEditor({
                           <SelectItem value="percent">Percent</SelectItem>
                           <SelectItem value="currency">Currency</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="metric-precision">
@@ -2101,7 +2102,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="metric-alignment">
                         Alignment
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "left", label: "Left" },
                           { value: "center", label: "Center" },
@@ -2127,7 +2128,7 @@ export function NativeAppEditor({
                           <SelectItem value="center">Center</SelectItem>
                           <SelectItem value="right">Right</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                   </div>
                   <Field>
@@ -2236,7 +2237,7 @@ export function NativeAppEditor({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="cards-density">Density</FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "comfortable", label: "Comfortable" },
                           { value: "compact", label: "Compact" },
@@ -2259,7 +2260,7 @@ export function NativeAppEditor({
                           </SelectItem>
                           <SelectItem value="compact">Compact</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                   </div>
                 </>
@@ -2291,7 +2292,7 @@ export function NativeAppEditor({
                         key={key}
                         className="flex items-center gap-2 text-sm"
                       >
-                        <RheaCheckbox
+                        <Checkbox
                           checked={Boolean(
                             (
                               configuration as unknown as Record<
@@ -2384,7 +2385,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="spotlight-image">
                         Uploaded image
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "", label: "No image" },
                           ...(imageAssets.data?.items ?? []).map((item) => ({
@@ -2418,7 +2419,7 @@ export function NativeAppEditor({
                             </SelectItem>
                           ))}
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                   </div>
                 </>
@@ -2522,7 +2523,7 @@ export function NativeAppEditor({
                             <FieldLabel htmlFor={`stat-grid-format-${index}`}>
                               Format
                             </FieldLabel>
-                            <RheaSelect
+                            <Select
                               items={[
                                 { value: "number", label: "Number" },
                                 { value: "integer", label: "Integer" },
@@ -2565,9 +2566,9 @@ export function NativeAppEditor({
                                   Currency
                                 </SelectItem>
                               </SelectContent>
-                            </RheaSelect>
+                            </Select>
                           </Field>
-                          <RheaButton
+                          <Button
                             type="button"
                             variant="secondary"
                             disabled={
@@ -2587,11 +2588,11 @@ export function NativeAppEditor({
                             }
                           >
                             Remove
-                          </RheaButton>
+                          </Button>
                         </div>
                       ),
                     )}
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="secondary"
                       disabled={
@@ -2614,7 +2615,7 @@ export function NativeAppEditor({
                       }
                     >
                       Add metric
-                    </RheaButton>
+                    </Button>
                   </fieldset>
                 </>
               )}
@@ -2636,7 +2637,7 @@ export function NativeAppEditor({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="chart-type">Chart type</FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "line", label: "Line" },
                           { value: "bar", label: "Bar" },
@@ -2659,7 +2660,7 @@ export function NativeAppEditor({
                           <SelectItem value="bar">Bar</SelectItem>
                           <SelectItem value="donut">Donut</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="chart-dataset">Dataset</FieldLabel>
@@ -2768,7 +2769,7 @@ export function NativeAppEditor({
                               }
                             />
                           </Field>
-                          <RheaButton
+                          <Button
                             type="button"
                             variant="secondary"
                             disabled={
@@ -2788,11 +2789,11 @@ export function NativeAppEditor({
                             }
                           >
                             Remove
-                          </RheaButton>
+                          </Button>
                         </div>
                       ),
                     )}
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="secondary"
                       disabled={
@@ -2814,7 +2815,7 @@ export function NativeAppEditor({
                       }
                     >
                       Add series
-                    </RheaButton>
+                    </Button>
                   </fieldset>
                 </>
               )}
@@ -2959,7 +2960,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="timeline-orientation">
                         Orientation
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "vertical", label: "Vertical" },
                           { value: "horizontal", label: "Horizontal" },
@@ -2986,7 +2987,7 @@ export function NativeAppEditor({
                           <SelectItem value="vertical">Vertical</SelectItem>
                           <SelectItem value="horizontal">Horizontal</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                   </div>
                 </>
@@ -2998,7 +2999,7 @@ export function NativeAppEditor({
                       <FieldLabel htmlFor="world-clock-format">
                         Time format
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         items={[
                           { value: "12", label: "12-hour" },
                           { value: "24", label: "24-hour" },
@@ -3022,7 +3023,7 @@ export function NativeAppEditor({
                           <SelectItem value="12">12-hour</SelectItem>
                           <SelectItem value="24">24-hour</SelectItem>
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="world-clock-columns">
@@ -3112,7 +3113,7 @@ export function NativeAppEditor({
                         </div>
                       ),
                     )}
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="secondary"
                       disabled={
@@ -3131,7 +3132,7 @@ export function NativeAppEditor({
                       }
                     >
                       Add location
-                    </RheaButton>
+                    </Button>
                   </fieldset>
                 </>
               )}
@@ -3151,7 +3152,7 @@ export function NativeAppEditor({
                   <p>Control how much of the Widget the content occupies.</p>
                 </header>
                 <label className="flex items-center gap-2 text-sm">
-                  <RheaSwitch
+                  <Switch
                     checked={configuration.textScale !== undefined}
                     disabled={readOnly}
                     onCheckedChange={(checked) =>
@@ -3291,7 +3292,7 @@ export function NativeAppEditor({
         </div>
         <footer>
           {!readOnly && (
-            <RheaButton
+            <Button
               disabled={
                 save.isPending ||
                 !name.trim() ||
@@ -3301,7 +3302,7 @@ export function NativeAppEditor({
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save Widget"}
-            </RheaButton>
+            </Button>
           )}
         </footer>
       </section>
@@ -4126,7 +4127,7 @@ function FieldSelect({
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <RheaSelect
+      <Select
         items={[
           { value: "", label: emptyLabel },
           ...fields.map((field) => ({
@@ -4151,7 +4152,7 @@ function FieldSelect({
             </SelectItem>
           ))}
         </SelectContent>
-      </RheaSelect>
+      </Select>
       <FieldDescription>
         Choose which field from the connected data supplies this value.
       </FieldDescription>
@@ -4289,7 +4290,7 @@ export function YouTubeSourceEditor({
               player.
             </p>
           </div>
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -4297,7 +4298,7 @@ export function YouTubeSourceEditor({
             onClick={close}
           >
             <X aria-hidden="true" />
-          </RheaButton>
+          </Button>
         </div>
         <Field>
           <FieldLabel htmlFor="name">Name</FieldLabel>
@@ -4407,7 +4408,7 @@ export function YouTubeSourceEditor({
             ] as const
           ).map(([key, label]) => (
             <label key={key} className="flex items-center gap-2 text-sm">
-              <RheaSwitch
+              <Switch
                 disabled={readOnly}
                 checked={configuration[key]}
                 onCheckedChange={(checked) => set(key, checked === true)}
@@ -4421,7 +4422,7 @@ export function YouTubeSourceEditor({
           <FieldLabel htmlFor="youtube-playback-mode">
             Playlist item behavior
           </FieldLabel>
-          <RheaSelect
+          <Select
             items={[
               { value: "until_end", label: "Play until video ends" },
               { value: "fixed_duration", label: "Play for a fixed duration" },
@@ -4447,7 +4448,7 @@ export function YouTubeSourceEditor({
                 Play for a fixed duration
               </SelectItem>
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         {configuration.playlistPlaybackMode === "fixed_duration" && (
           <Field>
@@ -4469,7 +4470,7 @@ export function YouTubeSourceEditor({
         )}
         <Field>
           <FieldLabel htmlFor="youtube-failure">Failure behavior</FieldLabel>
-          <RheaSelect
+          <Select
             items={[
               { value: "placeholder", label: "Show Tilecast placeholder" },
               { value: "fallback_image", label: "Show fallback image" },
@@ -4493,11 +4494,11 @@ export function YouTubeSourceEditor({
               </SelectItem>
               <SelectItem value="skip">Skip playlist item</SelectItem>
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor="youtube-fallback">Fallback image</FieldLabel>
-          <RheaSelect
+          <Select
             items={[
               { value: "", label: "None" },
               ...(images.data?.items ?? []).map((image) => ({
@@ -4522,7 +4523,7 @@ export function YouTubeSourceEditor({
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         {save.error && (
           <Alert variant="destructive">
@@ -4531,18 +4532,18 @@ export function YouTubeSourceEditor({
         )}
         <footer className="flex flex-wrap items-center gap-2">
           {!readOnly && (
-            <RheaButton
+            <Button
               disabled={save.isPending || !name.trim()}
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save Widget"}
-            </RheaButton>
+            </Button>
           )}
-          <RheaButton type="button" variant="outline" onClick={requestClose}>
+          <Button type="button" variant="outline" onClick={requestClose}>
             Cancel
-          </RheaButton>
+          </Button>
         </footer>
-        <RheaAlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+        <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
@@ -4559,7 +4560,7 @@ export function YouTubeSourceEditor({
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
-        </RheaAlertDialog>
+        </AlertDialog>
       </section>
     </div>
   );

@@ -3,7 +3,7 @@ import { Image as ImageIcon } from "lucide-react";
 import type { FormField, FormSchema } from "../api/types";
 import { Button } from "../components/ui/button";
 import { DateInput, DateTimeInput } from "../components/date-picker";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Attachment,
   AttachmentAction,
@@ -14,27 +14,24 @@ import {
   AttachmentTitle,
 } from "../components/ui/attachment";
 import {
-  Field as RheaField,
-  FieldDescription as RheaFieldDescription,
-  FieldError as RheaFieldError,
-  FieldLegend as RheaFieldLegend,
-  FieldLabel as RheaFieldLabel,
-  FieldSet as RheaFieldSet,
-  FieldTitle as RheaFieldTitle,
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLegend,
+  FieldLabel,
+  FieldSet,
+  FieldTitle,
 } from "../components/ui/field";
-import { Input as RheaInput } from "../components/ui/input";
+import { Input } from "../components/ui/input";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import {
-  RadioGroup as RheaRadioGroup,
-  RadioGroupItem as RheaRadioGroupItem,
-} from "../components/ui/radio-group";
-import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { Textarea as RheaTextarea } from "../components/ui/textarea";
+import { Textarea } from "../components/ui/textarea";
 import { isPresentationControl } from "./formSchema";
 
 // A single-select with this many options or fewer renders as a radio group so
@@ -184,9 +181,9 @@ function FieldRow({
   }
 
   const hint = hintId ? (
-    <RheaFieldDescription id={hintId} className="form-renderer__hint">
+    <FieldDescription id={hintId} className="form-renderer__hint">
       {field.description}
-    </RheaFieldDescription>
+    </FieldDescription>
   ) : null;
 
   const support = (
@@ -199,9 +196,9 @@ function FieldRow({
         />
       )}
       {errorId && (
-        <RheaFieldError id={errorId} className="form-renderer__error">
+        <FieldError id={errorId} className="form-renderer__error">
           {error}
-        </RheaFieldError>
+        </FieldError>
       )}
     </>
   );
@@ -214,8 +211,8 @@ function FieldRow({
   if (field.control === "boolean") {
     return (
       <div className="form-renderer__field form-renderer__field--inline">
-        <RheaField orientation="horizontal">
-          <RheaCheckbox
+        <Field orientation="horizontal">
+          <Checkbox
             id={controlId}
             aria-describedby={describedBy}
             aria-invalid={error ? true : undefined}
@@ -226,11 +223,11 @@ function FieldRow({
               onChange?.(field.key, checked === true)
             }
           />
-          <RheaFieldLabel htmlFor={controlId}>
+          <FieldLabel htmlFor={controlId}>
             {field.label}
             <RequiredMark required={field.required} />
-          </RheaFieldLabel>
-        </RheaField>
+          </FieldLabel>
+        </Field>
         {hint}
         {support}
       </div>
@@ -242,7 +239,7 @@ function FieldRow({
   // announces when focus enters any option.
   if (field.control === "multi_select") {
     return (
-      <RheaFieldSet
+      <FieldSet
         id={controlId}
         tabIndex={-1}
         className="form-renderer__field form-renderer__group gap-3"
@@ -250,10 +247,10 @@ function FieldRow({
         aria-invalid={error ? true : undefined}
         aria-required={field.required ? true : undefined}
       >
-        <RheaFieldLegend variant="label" className="mb-0 form-renderer__label">
+        <FieldLegend variant="label" className="mb-0 form-renderer__label">
           {field.label}
           <RequiredMark required={field.required} />
-        </RheaFieldLegend>
+        </FieldLegend>
         {hint}
         <div className="form-renderer__multi">
           {(field.options ?? []).map((option) => {
@@ -261,8 +258,8 @@ function FieldRow({
               Array.isArray(value) && value.includes(option.value);
             const optionId = `${controlId}-${option.value}`;
             return (
-              <RheaField key={option.value} orientation="horizontal">
-                <RheaCheckbox
+              <Field key={option.value} orientation="horizontal">
+                <Checkbox
                   id={optionId}
                   disabled={disabled}
                   checked={selected}
@@ -277,15 +274,15 @@ function FieldRow({
                     onChange?.(field.key, current);
                   }}
                 />
-                <RheaFieldLabel htmlFor={optionId} className="font-normal">
+                <FieldLabel htmlFor={optionId} className="font-normal">
                   {option.label}
-                </RheaFieldLabel>
-              </RheaField>
+                </FieldLabel>
+              </Field>
             );
           })}
         </div>
         {support}
-      </RheaFieldSet>
+      </FieldSet>
     );
   }
 
@@ -296,15 +293,15 @@ function FieldRow({
   const options = field.control === "select" ? (field.options ?? []) : [];
   if (field.control === "select" && options.length <= RADIO_OPTION_LIMIT) {
     return (
-      <RheaField className="form-renderer__field">
-        <RheaFieldTitle>
+      <Field className="form-renderer__field">
+        <FieldTitle>
           <span className="form-renderer__label">
             {field.label}
             <RequiredMark required={field.required} />
           </span>
-        </RheaFieldTitle>
+        </FieldTitle>
         {hint}
-        <RheaRadioGroup
+        <RadioGroup
           aria-label={field.label}
           aria-describedby={describedBy}
           aria-invalid={error ? true : undefined}
@@ -320,33 +317,33 @@ function FieldRow({
             {options.map((option) => {
               const radioId = `${controlId}-${option.value}`;
               return (
-                <RheaField key={option.value} orientation="horizontal">
-                  <RheaRadioGroupItem
+                <Field key={option.value} orientation="horizontal">
+                  <RadioGroupItem
                     value={option.value}
                     id={radioId}
                     disabled={disabled}
                   />
-                  <RheaFieldLabel htmlFor={radioId} className="font-normal">
+                  <FieldLabel htmlFor={radioId} className="font-normal">
                     {option.label}
-                  </RheaFieldLabel>
-                </RheaField>
+                  </FieldLabel>
+                </Field>
               );
             })}
           </div>
-        </RheaRadioGroup>
+        </RadioGroup>
         {support}
-      </RheaField>
+      </Field>
     );
   }
 
   return (
-    <RheaField className="form-renderer__field">
-      <RheaFieldLabel htmlFor={controlId}>
+    <Field className="form-renderer__field">
+      <FieldLabel htmlFor={controlId}>
         <span className="form-renderer__label">
           {field.label}
           <RequiredMark required={field.required} />
         </span>
-      </RheaFieldLabel>
+      </FieldLabel>
       {hint}
       <FieldControl
         field={field}
@@ -359,7 +356,7 @@ function FieldRow({
         imageHandlers={imageHandlers}
       />
       {support}
-    </RheaField>
+    </Field>
   );
 }
 
@@ -431,7 +428,7 @@ function FieldControl({
   switch (field.control) {
     case "long_text":
       return (
-        <RheaTextarea
+        <Textarea
           {...common}
           rows={3}
           value={stringValue}
@@ -441,7 +438,7 @@ function FieldControl({
       );
     case "select":
       return (
-        <RheaSelect
+        <Select
           items={field.options ?? []}
           value={stringValue}
           onValueChange={(next) => {
@@ -464,7 +461,7 @@ function FieldControl({
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
+        </Select>
       );
     case "image":
       if (imageHandlers) {
@@ -484,7 +481,7 @@ function FieldControl({
       }
       return (
         <div className="form-renderer__image">
-          <RheaInput
+          <Input
             id={id}
             type="file"
             accept="image/*"
@@ -499,7 +496,7 @@ function FieldControl({
     case "number":
     case "integer":
       return (
-        <RheaInput
+        <Input
           {...common}
           type="number"
           inputMode={field.control === "integer" ? "numeric" : "decimal"}
@@ -524,7 +521,7 @@ function FieldControl({
       );
     case "url":
       return (
-        <RheaInput
+        <Input
           {...common}
           type="url"
           inputMode="url"
@@ -535,7 +532,7 @@ function FieldControl({
       );
     default:
       return (
-        <RheaInput
+        <Input
           {...common}
           type="text"
           maxLength={field.maxLength || undefined}

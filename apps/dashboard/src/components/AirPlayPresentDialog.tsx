@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { toast } from "./ui/toast";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldLabel } from "./ui/field";
 import {
   Dialog,
   DialogContent,
@@ -344,8 +345,13 @@ export function AirPlayPresentDialog({
                 </Alert>
               )}
             <div className="grid gap-4">
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>Duration</span>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="airplay-duration"
+                  className="text-sm font-medium"
+                >
+                  Duration
+                </FieldLabel>
                 <Select
                   items={[
                     { value: "15", label: "15 minutes" },
@@ -363,7 +369,7 @@ export function AirPlayPresentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full" aria-label="Duration">
+                  <SelectTrigger id="airplay-duration" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -375,13 +381,18 @@ export function AirPlayPresentDialog({
                     </SelectItem>
                   </SelectContent>
                 </Select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>Video transport</span>
-                <span className="text-xs font-normal text-muted-foreground">
+              </Field>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="airplay-transport"
+                  className="text-sm font-medium"
+                >
+                  Video transport
+                </FieldLabel>
+                <FieldDescription className="text-xs">
                   Auto uses unicast for 1–4 displays and multicast only when
                   validated.
-                </span>
+                </FieldDescription>
                 <Select
                   items={[
                     { value: "auto", label: "Auto" },
@@ -402,10 +413,7 @@ export function AirPlayPresentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger
-                    className="w-full"
-                    aria-label="Video transport"
-                  >
+                  <SelectTrigger id="airplay-transport" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -416,14 +424,19 @@ export function AirPlayPresentDialog({
                     </SelectItem>
                   </SelectContent>
                 </Select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>Audio display</span>
-                <span className="text-xs font-normal text-muted-foreground">
+              </Field>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="airplay-audio-display"
+                  className="text-sm font-medium"
+                >
+                  Audio display
+                </FieldLabel>
+                <FieldDescription className="text-xs">
                   {audioDisplayName
                     ? `Primary audio: ${audioDisplayName}`
                     : "Primary audio uses the selected or automatically chosen gateway."}
-                </span>
+                </FieldDescription>
                 <Select
                   items={[
                     {
@@ -439,7 +452,7 @@ export function AirPlayPresentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full" aria-label="Audio display">
+                  <SelectTrigger id="airplay-audio-display" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -449,7 +462,7 @@ export function AirPlayPresentDialog({
                     <SelectItem value="none">No AirPlay audio</SelectItem>
                   </SelectContent>
                 </Select>
-              </label>
+              </Field>
             </div>
             {create.error && (
               <Alert variant="destructive">

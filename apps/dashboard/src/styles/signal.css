@@ -116,43 +116,58 @@ p {
 }
 
 .layout-editor-left {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  display: block;
   min-height: 0;
   overflow: hidden;
   background: var(--tc-bg-surface);
   border-right: 1px solid var(--tc-border-default);
 }
 
+.layout-sidebar-tabs {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  gap: 0;
+}
+
 .layout-sidebar-nav {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: auto;
+  height: auto;
   gap: 2px;
   padding: var(--tc-space-2);
   background: var(--tc-bg-subtle);
   border-right: 1px solid var(--tc-border-default);
+  border-radius: 0;
 }
 
-.layout-sidebar-nav button {
+.layout-sidebar-nav [data-slot="tabs-trigger"] {
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
+  width: 100%;
   gap: 5px;
   min-height: 58px;
+  height: auto;
   padding: 6px 4px;
   color: var(--tc-text-secondary);
   font: var(--tc-text-caption);
-  background: transparent;
   border: 1px solid transparent;
   border-radius: var(--tc-radius-control);
 }
 
-.layout-sidebar-nav button:hover {
+.layout-sidebar-nav [data-slot="tabs-trigger"]:hover {
   color: var(--tc-text-primary);
   background: var(--tc-bg-surface);
   border-color: var(--tc-border-default);
 }
 
-.layout-sidebar-nav button.is-active {
+.layout-sidebar-nav [data-slot="tabs-trigger"][data-active] {
   color: var(--foreground);
   background: var(--background);
   border-color: var(--input);
@@ -160,6 +175,13 @@ p {
 }
 
 .layout-sidebar-panel {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.layout-sidebar-content {
   min-width: 0;
   min-height: 0;
   overflow: auto;
@@ -208,15 +230,11 @@ p {
   padding: var(--tc-space-3);
 }
 
-.layout-add-grid button {
+.layout-add-grid [data-slot="button"] {
   display: grid;
   place-items: center;
   gap: 5px;
   min-height: 68px;
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-subtle);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-control);
 }
 
 .layout-layers {
@@ -231,7 +249,7 @@ p {
   overflow: auto;
 }
 
-.layout-content-shelf > button {
+.layout-content-shelf > [data-slot="button"] {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
   gap: var(--tc-space-2);
@@ -240,18 +258,16 @@ p {
   padding: 4px;
   color: var(--tc-text-primary);
   text-align: left;
-  background: transparent;
-  border: 1px solid transparent;
   border-radius: var(--tc-radius-control);
   cursor: grab;
 }
 
-.layout-content-shelf > button:hover {
+.layout-content-shelf > [data-slot="button"]:hover {
   background: var(--tc-bg-subtle);
   border-color: var(--tc-border-default);
 }
 
-.layout-content-shelf > button:active {
+.layout-content-shelf > [data-slot="button"]:active {
   cursor: grabbing;
 }
 
@@ -263,7 +279,7 @@ p {
   text-align: center;
 }
 
-.layout-content-shelf > button > span:last-child {
+.layout-content-shelf > [data-slot="button"] > span:last-child {
   display: grid;
   min-width: 0;
 }
@@ -740,7 +756,7 @@ p {
   width: min(620px, calc(100vw - 32px));
 }
 @media (max-width: 1050px) {
-  .layout-editor-left {
+  .layout-sidebar-tabs {
     grid-template-columns: 82px minmax(0, 1fr);
   }
 }
@@ -782,90 +798,6 @@ p {
   gap: var(--tc-space-4);
 }
 
-.status-dot-label--danger {
-  color: var(--tc-status-danger);
-}
-
-.dialog,
-.modal,
-.drawer {
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-elevated);
-  border-color: var(--tc-border-default);
-  border-radius: var(--tc-radius-overlay);
-  box-shadow: var(--tc-shadow-overlay);
-}
-
-.dialog::backdrop {
-  background: var(--tc-overlay-scrim);
-  animation: tc-overlay-fade-in 140ms ease-out both;
-}
-
-.dialog {
-  position: fixed;
-  z-index: 100;
-  width: min(560px, 100%);
-  max-height: min(720px, calc(100vh - 32px));
-  overflow: auto;
-  padding: var(--tc-space-6);
-  border: 1px solid var(--tc-border-default);
-  /* "backwards" rather than "both": a forwards fill leaves the transform
-     property animated forever, and its computed value stays an identity matrix
-     rather than "none". That silently makes every dialog a containing block for
-     fixed-position descendants, which put portaled menus 150px off. */
-  animation: tc-overlay-rise-in 180ms cubic-bezier(0.2, 0, 0, 1) backwards;
-}
-
-.dialog > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--tc-space-4);
-  margin-bottom: var(--tc-space-4);
-}
-
-.dialog h2 {
-  margin: 0;
-  font: var(--tc-text-section-title);
-}
-
-.drawer {
-  display: grid;
-  min-width: 0;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  overflow: hidden;
-  border: 0;
-  border-left: 1px solid var(--tc-border-default);
-  border-radius: 0;
-  animation: tc-drawer-enter 200ms cubic-bezier(0.2, 0, 0, 1) both;
-}
-
-@keyframes tc-overlay-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes tc-overlay-rise-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.992);
-  }
-}
-
-@keyframes tc-drawer-enter {
-  from {
-    opacity: 0.82;
-    transform: translateX(14px);
-  }
-}
-
-@media (max-width: 680px) {
-  .drawer {
-    border-left: 0;
-  }
-}
-
 .skeleton {
   display: inline-block;
   height: 14px;
@@ -890,30 +822,15 @@ p {
   font-size: 13px;
 }
 
-/* Reusable content picker */
-.content-picker-backdrop {
-  position: fixed;
-  z-index: 2000;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: var(--tc-space-4);
-  overflow: auto;
-  background: var(--tc-overlay-scrim);
-}
-
+/* Content library layout inside the generated Dialog surface. */
 .content-picker {
   display: grid;
   grid-template-rows: auto auto minmax(180px, 1fr) auto auto auto;
-  width: min(1180px, 100%);
+  width: min(1180px, calc(100vw - 32px));
   height: min(880px, calc(100dvh - 32px));
   max-height: calc(100dvh - 32px);
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-overlay);
-  background: var(--tc-bg-surface);
-  box-shadow: var(--tc-shadow-overlay);
 }
 
 .content-picker__header,
@@ -932,16 +849,16 @@ p {
   border-bottom: 1px solid var(--tc-border-default);
 }
 
-.content-picker__header h2,
-.content-picker__header p {
+.content-picker__title,
+.content-picker__description {
   margin: 0;
 }
 
-.content-picker__header h2 {
+.content-picker__title {
   font: var(--tc-text-section-title);
 }
 
-.content-picker__header p {
+.content-picker__description {
   margin-top: var(--tc-space-1);
   color: var(--tc-text-secondary);
   font-size: 13px;
@@ -1098,8 +1015,7 @@ p {
   background: var(--tc-bg-subtle);
 }
 
-.selected-content-tray > div,
-.selected-content-tray li {
+.selected-content-tray > div {
   display: flex;
   align-items: center;
   gap: var(--tc-space-2);
@@ -1109,57 +1025,9 @@ p {
   justify-content: space-between;
 }
 
-.selected-content-tray ul {
-  display: flex;
-  gap: var(--tc-space-2);
-  padding: 0 0 var(--tc-space-1);
-  margin: 0;
-  overflow-x: auto;
-  list-style: none;
-}
-
-.selected-content-tray li {
-  flex: 0 0 auto;
-  max-width: 240px;
-  min-height: 32px;
-  padding-left: var(--tc-space-2);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-control);
-  background: var(--tc-bg-surface);
-}
-
-.selected-content-tray li span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .content-picker__footer {
   border-top: 1px solid var(--tc-border-default);
   font-variant-numeric: tabular-nums;
-}
-
-.content-picker-child-backdrop {
-  position: fixed;
-  z-index: 2010;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: var(--tc-space-4);
-  background: var(--tc-overlay-scrim);
-}
-
-.content-picker-backdrop > .details-backdrop {
-  z-index: 110;
-  align-items: center;
-  justify-content: center;
-  padding: var(--tc-space-4);
-}
-
-.content-picker-backdrop > .details-backdrop .asset-details {
-  height: auto;
-  max-height: calc(100vh - 32px);
-  border-radius: var(--tc-radius-overlay);
 }
 
 .upload-content-dialog {
@@ -1168,42 +1036,6 @@ p {
   width: min(720px, 100%);
   max-height: calc(100dvh - 32px);
   overflow: auto;
-  padding: var(--tc-space-6);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-overlay);
-  background: var(--tc-bg-elevated);
-  box-shadow: var(--tc-shadow-overlay);
-}
-
-.upload-content-dialog > header,
-.upload-content-dialog > footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--tc-space-4);
-}
-
-.upload-content-dialog h3,
-.upload-content-dialog p {
-  margin: 0;
-}
-
-.upload-content-dialog p {
-  margin-top: var(--tc-space-1);
-  color: var(--tc-text-secondary);
-}
-
-.picker-upload-dropzone {
-  display: grid;
-  min-height: 180px;
-  place-items: center;
-  align-content: center;
-  gap: var(--tc-space-2);
-  border: 1px dashed var(--tc-border-strong);
-  border-radius: var(--tc-radius-panel);
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-subtle);
-  cursor: pointer;
 }
 
 .picker-upload-dropzone span {
@@ -1553,10 +1385,6 @@ p {
 }
 
 @media (max-width: 768px) {
-  .content-picker-backdrop {
-    padding: var(--tc-space-2);
-  }
-
   .content-picker {
     height: calc(100dvh - 16px);
     max-height: calc(100dvh - 16px);
@@ -1580,10 +1408,6 @@ p {
 }
 
 @media (max-width: 520px) {
-  .content-picker-backdrop {
-    padding: 0;
-  }
-
   .content-picker {
     width: 100%;
     height: 100dvh;
@@ -1643,38 +1467,11 @@ p {
   color: var(--tc-text-secondary);
 }
 
-.source-editor {
-  width: min(760px, calc(100vw - 32px));
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
 .app-editor-route {
   width: min(1120px, 100%);
   margin: 0 auto;
 }
 
-.app-editor-route > .details-backdrop {
-  position: static;
-  z-index: auto;
-  inset: auto;
-  display: block;
-  background: transparent;
-}
-
-.app-editor-route .source-editor {
-  width: 100%;
-  max-height: none;
-  padding: 0;
-  overflow: visible;
-  background: transparent;
-  box-shadow: none;
-}
-
-.app-editor-route .source-editor > header {
-  padding-bottom: var(--tc-space-4);
-  border-bottom: 1px solid var(--tc-border-default);
-}
 .native-app-preview {
   display: grid;
   width: 100%;

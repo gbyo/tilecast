@@ -25,9 +25,9 @@ import type {
 } from "../api/types";
 import { api, ApiError } from "../api/client";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
-  ContextMenu as RheaContextMenu,
+  ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -35,7 +35,7 @@ import {
   ContextMenuTrigger,
 } from "../components/ui/context-menu";
 import {
-  DropdownMenu as RheaDropdownMenu,
+  DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -45,11 +45,7 @@ import {
 import { Field, FieldLabel } from "../components/ui/field";
 import { toast } from "../components/ui/toast";
 import { Input } from "../components/ui/input";
-import {
-  Item as RheaItem,
-  ItemActions as RheaItemActions,
-  ItemGroup as RheaItemGroup,
-} from "../components/ui/item";
+import { Item, ItemActions, ItemGroup } from "../components/ui/item";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -57,7 +53,7 @@ import {
 } from "../components/ui/resizable";
 import { Separator } from "../components/ui/separator";
 import {
-  Sheet as RheaSheet,
+  Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -294,9 +290,10 @@ export function FormBuilder({
     const menuLabel = `Actions for ${name}`;
     const actions = readOnly ? [] : fieldActions(index, field);
     const selectButton = (
-      <button
+      <Button
         type="button"
-        className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
+        variant="ghost"
+        className="h-auto min-w-0 flex-1 flex-col items-start gap-0.5 p-0 text-left font-normal whitespace-normal"
         onClick={() => selectField(index)}
         aria-current={index === selected}
         aria-label={rowLabel}
@@ -305,21 +302,21 @@ export function FormBuilder({
         <span className="text-xs text-muted-foreground">
           {controlMeta(field.control).label}
         </span>
-      </button>
+      </Button>
     );
     const rowActions = !readOnly ? (
-      <RheaItemActions>
-        <RheaDropdownMenu>
+      <ItemActions>
+        <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <RheaButton
+              <Button
                 type="button"
                 variant="ghost"
                 size="icon-xs"
                 aria-label={menuLabel}
               >
                 <MoreHorizontal size={15} aria-hidden="true" />
-              </RheaButton>
+              </Button>
             }
           />
           <DropdownMenuContent align="end" aria-label={menuLabel}>
@@ -342,24 +339,24 @@ export function FormBuilder({
               </Fragment>
             ))}
           </DropdownMenuContent>
-        </RheaDropdownMenu>
-      </RheaItemActions>
+        </DropdownMenu>
+      </ItemActions>
     ) : null;
     if (readOnly)
       return (
-        <RheaItem
+        <Item
           key={rowKeys[index]}
           variant={index === selected ? "muted" : "outline"}
           size="sm"
         >
           {selectButton}
-        </RheaItem>
+        </Item>
       );
     return (
-      <RheaContextMenu key={rowKeys[index]}>
+      <ContextMenu key={rowKeys[index]}>
         <ContextMenuTrigger
           render={
-            <RheaItem
+            <Item
               variant={index === selected ? "muted" : "outline"}
               size="sm"
               onKeyDown={(event) => onRowKeyDown(event, index)}
@@ -387,7 +384,7 @@ export function FormBuilder({
             </Fragment>
           ))}
         </ContextMenuContent>
-      </RheaContextMenu>
+      </ContextMenu>
     );
   };
 
@@ -473,9 +470,9 @@ export function FormBuilder({
           No fields yet. Add the first one below.
         </p>
       ) : (
-        <RheaItemGroup>
+        <ItemGroup>
           {draft.fields.map((field, index) => renderFieldRow(field, index))}
-        </RheaItemGroup>
+        </ItemGroup>
       )}
       {!readOnly && <FormFieldPalette onAdd={addField} />}
     </section>
@@ -559,7 +556,7 @@ export function FormBuilder({
                   : "Saved"}
           </span>
           <div className="flex flex-wrap gap-2">
-            <RheaButton
+            <Button
               variant="secondary"
               disabled={!dirty || saveDraft.isPending}
               aria-busy={saveDraft.isPending || undefined}
@@ -567,8 +564,8 @@ export function FormBuilder({
             >
               {saveDraft.isPending && <Spinner aria-hidden="true" />}
               Save draft
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               variant="default"
               disabled={
                 publish.isPending ||
@@ -578,7 +575,7 @@ export function FormBuilder({
               onClick={() => setShowPublish(true)}
             >
               Publish
-            </RheaButton>
+            </Button>
           </div>
         </div>
       )}
@@ -591,12 +588,12 @@ export function FormBuilder({
             them.
           </AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
               Stay on page
-            </RheaButton>
-            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
               Leave without saving
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -622,14 +619,14 @@ export function FormBuilder({
             )}
           </AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton
+            <Button
               variant="ghost"
               onClick={() => setShowPublish(false)}
               disabled={publish.isPending}
             >
               Cancel
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               variant="default"
               disabled={publish.isPending}
               aria-busy={publish.isPending || undefined}
@@ -637,7 +634,7 @@ export function FormBuilder({
             >
               {publish.isPending && <Spinner aria-hidden="true" />}
               Publish revision
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -699,7 +696,7 @@ export function FormBuilder({
       )}
 
       {!readOnly && selectedField && (
-        <RheaSheet
+        <Sheet
           open={inspectorOpen && !desktop}
           onOpenChange={(open) => {
             if (!open) setInspectorOpen(false);
@@ -724,7 +721,7 @@ export function FormBuilder({
               />
             </div>
           </SheetContent>
-        </RheaSheet>
+        </Sheet>
       )}
     </div>
   );

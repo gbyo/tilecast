@@ -4,7 +4,13 @@ import { Link } from "react-router";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
 import {
   Drawer,
   DrawerContent,
@@ -13,7 +19,7 @@ import {
   DrawerTitle,
 } from "../components/ui/drawer";
 import {
-  Sheet as RheaSheet,
+  Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -23,7 +29,6 @@ import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDuration,
   formatWhen,
@@ -115,13 +120,16 @@ export function IncidentsTab({
           </p>
         </header>
         {items.length === 0 ? (
-          <EmptyState
-            message={
-              hasActiveFilters
-                ? "No incidents match these filters."
-                : "No incidents have been recorded."
-            }
-          />
+          <Empty className="min-h-40 p-6">
+            <EmptyHeader>
+              <EmptyTitle>No incidents</EmptyTitle>
+              <EmptyDescription>
+                {hasActiveFilters
+                  ? "No incidents match these filters."
+                  : "No incidents have been recorded."}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ul className="grid list-none gap-2 p-0">
             {items.map((incident) => (
@@ -138,13 +146,9 @@ export function IncidentsTab({
         )}
         {hasActiveFilters && items.length === 0 && (
           <div>
-            <RheaButton
-              type="button"
-              variant="secondary"
-              onClick={onClearFilters}
-            >
+            <Button type="button" variant="secondary" onClick={onClearFilters}>
               Clear filters
-            </RheaButton>
+            </Button>
           </div>
         )}
       </section>
@@ -384,7 +388,7 @@ function IncidentDrawer({
   };
 
   return desktop ? (
-    <RheaSheet
+    <Sheet
       open={open}
       onOpenChange={handleOpenChange}
       onOpenChangeComplete={onOpenChangeComplete}
@@ -393,7 +397,7 @@ function IncidentDrawer({
         {header}
         {content}
       </SheetContent>
-    </RheaSheet>
+    </Sheet>
   ) : (
     <Drawer
       open={open}

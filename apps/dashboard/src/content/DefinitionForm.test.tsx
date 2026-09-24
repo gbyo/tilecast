@@ -84,7 +84,7 @@ function catalog(dataSources: DataSourceDefinition[]) {
   } as ContentDefinitionCatalog;
 }
 
-// Field pickers use the Rhea Select primitive: a combobox trigger with popup
+// Field pickers use the Base UI Select primitive: a combobox trigger with popup
 // options and no native select element, so option text is read by opening the
 // dropdown. The Data Source control is a chooser dialog and is driven directly.
 async function optionsFor(labelText: string | RegExp) {

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { AspectRatio } from "../components/ui/aspect-ratio";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   clearLoginBackground,
   getLoginBackground,
@@ -249,7 +249,7 @@ function BrandingAssetUpload({
               event.target.value = "";
             }}
           />
-          <RheaButton
+          <Button
             type="button"
             variant="default"
             disabled={!editable || busy}
@@ -260,9 +260,9 @@ function BrandingAssetUpload({
               : value
                 ? "Replace image"
                 : "Upload image"}
-          </RheaButton>
+          </Button>
           {value && (
-            <RheaButton
+            <Button
               type="button"
               variant="ghost"
               disabled={!editable || busy}
@@ -277,7 +277,7 @@ function BrandingAssetUpload({
               }}
             >
               Remove
-            </RheaButton>
+            </Button>
           )}
         </div>
         {(error || actionError) && (

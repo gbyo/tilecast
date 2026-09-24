@@ -14,9 +14,9 @@ import {
 import type { DragEvent, KeyboardEvent } from "react";
 import type { PlaylistItem } from "../../api/types";
 import { Badge } from "../ui/badge";
-import { Button as RheaButton } from "../ui/button";
+import { Button } from "../ui/button";
 import {
-  ContextMenu as RheaContextMenu,
+  ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -33,11 +33,7 @@ import {
 } from "../ui/empty";
 import { Kbd } from "../ui/kbd";
 import { ScrollArea } from "../ui/scroll-area";
-import {
-  Tooltip as RheaTooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import {
   formatItemDuration,
   itemHasTransitionOverride,
@@ -106,14 +102,14 @@ export function PlaylistTimeline({
         </div>
         {!tagDriven && canManage && (
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton type="button" variant="outline" onClick={onAddLayout}>
+            <Button type="button" variant="outline" onClick={onAddLayout}>
               <PanelsTopLeft size={15} aria-hidden="true" />
               Add Layout
-            </RheaButton>
-            <RheaButton type="button" onClick={onAddContent}>
+            </Button>
+            <Button type="button" onClick={onAddContent}>
               <Plus size={15} aria-hidden="true" />
               Add content
-            </RheaButton>
+            </Button>
           </div>
         )}
       </div>
@@ -145,10 +141,10 @@ export function PlaylistTimeline({
           </EmptyHeader>
           {!tagDriven && canManage && (
             <EmptyContent>
-              <RheaButton type="button" onClick={onAddContent}>
+              <Button type="button" onClick={onAddContent}>
                 <Plus size={15} aria-hidden="true" />
                 Add content
-              </RheaButton>
+              </Button>
             </EmptyContent>
           )}
         </Empty>
@@ -246,7 +242,7 @@ function PlaylistTimelineItem({
   };
 
   return (
-    <RheaContextMenu>
+    <ContextMenu>
       <ContextMenuTrigger
         render={
           <article
@@ -259,9 +255,11 @@ function PlaylistTimelineItem({
           />
         }
       >
-        <button
+        <Button
           type="button"
-          className="flex shrink-0 cursor-grab items-center gap-1 rounded-lg p-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          variant="ghost"
+          size="sm"
+          className="h-auto shrink-0 cursor-grab gap-1 rounded-lg p-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed"
           draggable={canManage}
           disabled={!canManage}
           aria-label={`Reorder ${item.assetName}`}
@@ -278,11 +276,12 @@ function PlaylistTimelineItem({
           <span className="tabular-nums">
             {String(index + 1).padStart(2, "0")}
           </span>
-        </button>
+        </Button>
 
-        <button
+        <Button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left hover:bg-muted"
+          variant="ghost"
+          className="h-auto min-w-0 flex-1 justify-start gap-3 rounded-lg p-1 text-left whitespace-normal"
           aria-label={`Inspect ${item.assetName}`}
           aria-pressed={selected}
           onClick={() => onSelect(item.id)}
@@ -306,7 +305,7 @@ function PlaylistTimelineItem({
               )}
             </span>
           </span>
-        </button>
+        </Button>
 
         <div className="flex shrink-0 flex-wrap items-center gap-1">
           {item.usePlayerDefaults ? (
@@ -321,10 +320,10 @@ function PlaylistTimelineItem({
 
         {canManage && (
           <div className="flex shrink-0 items-center gap-1">
-            <RheaTooltip>
+            <Tooltip>
               <TooltipTrigger
                 render={
-                  <RheaButton
+                  <Button
                     type="button"
                     variant="ghost"
                     size="icon"
@@ -333,17 +332,17 @@ function PlaylistTimelineItem({
                     onClick={() => onMove(item.id, -1)}
                   >
                     <ArrowUp size={15} aria-hidden="true" />
-                  </RheaButton>
+                  </Button>
                 }
               />
               <TooltipContent>
                 Move up <Kbd>Alt+↑</Kbd>
               </TooltipContent>
-            </RheaTooltip>
-            <RheaTooltip>
+            </Tooltip>
+            <Tooltip>
               <TooltipTrigger
                 render={
-                  <RheaButton
+                  <Button
                     type="button"
                     variant="ghost"
                     size="icon"
@@ -352,13 +351,13 @@ function PlaylistTimelineItem({
                     onClick={() => onMove(item.id, 1)}
                   >
                     <ArrowDown size={15} aria-hidden="true" />
-                  </RheaButton>
+                  </Button>
                 }
               />
               <TooltipContent>
                 Move down <Kbd>Alt+↓</Kbd>
               </TooltipContent>
-            </RheaTooltip>
+            </Tooltip>
           </div>
         )}
 
@@ -406,7 +405,7 @@ function PlaylistTimelineItem({
           </>
         )}
       </ContextMenuContent>
-    </RheaContextMenu>
+    </ContextMenu>
   );
 }
 

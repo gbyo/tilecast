@@ -13,7 +13,7 @@ import { FormField } from "../components/FormField";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Item,
   ItemActions,
@@ -39,7 +39,7 @@ import {
   FieldLabel,
 } from "../components/ui/field";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -277,7 +277,7 @@ export function BrandBugsPage() {
                     Manage
                   </Link>
                   {manageable && (
-                    <RheaButton
+                    <Button
                       type="button"
                       size="icon"
                       variant="destructive"
@@ -294,7 +294,7 @@ export function BrandBugsPage() {
                       }}
                     >
                       <Trash2 size={16} aria-hidden="true" />
-                    </RheaButton>
+                    </Button>
                   )}
                 </ItemActions>
               </Item>
@@ -444,7 +444,7 @@ export function BrandBugEditorPage() {
           />
           <Field>
             <FieldLabel htmlFor="brand-bug-image">Logo image</FieldLabel>
-            <RheaSelect
+            <Select
               items={[
                 { value: "none", label: "No image" },
                 ...(images.data?.items ?? []).map((item) => ({
@@ -471,7 +471,7 @@ export function BrandBugEditorPage() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
             <FieldDescription>
               Uploaded, processed images only.
             </FieldDescription>
@@ -491,7 +491,7 @@ export function BrandBugEditorPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <Field>
               <FieldLabel htmlFor="brand-bug-corner">Corner</FieldLabel>
-              <RheaSelect
+              <Select
                 items={(
                   Object.keys(cornerLabels) as BrandBugInput["corner"][]
                 ).map((value) => ({ value, label: cornerLabels[value] }))}
@@ -516,7 +516,7 @@ export function BrandBugEditorPage() {
                     ),
                   )}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <FormField
               id="brand-bug-width"
@@ -560,7 +560,7 @@ export function BrandBugEditorPage() {
             />
             <Field>
               <FieldLabel htmlFor="brand-bug-backing">Backing</FieldLabel>
-              <RheaSelect
+              <Select
                 items={backingOptions}
                 name="backgroundStyle"
                 value={backgroundStyle}
@@ -579,7 +579,7 @@ export function BrandBugEditorPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -698,13 +698,13 @@ export function BrandBugEditorPage() {
           >
             Cancel
           </Link>
-          <RheaButton type="submit" disabled={save.isPending}>
+          <Button type="submit" disabled={save.isPending}>
             {save.isPending
               ? "Saving…"
               : editing
                 ? "Save changes"
                 : "Create instance"}
-          </RheaButton>
+          </Button>
         </div>
       </form>
     </main>

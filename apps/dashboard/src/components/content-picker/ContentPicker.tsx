@@ -4,13 +4,19 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Globe2, Upload, X } from "lucide-react";
-import { createPortal } from "react-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import type { Asset, WidgetProvider } from "../../api/types";
 import { ContentLibraryGrid } from "./ContentLibraryGrid";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import {
   ContentPickerToolbar,
   type ContentPickerFilter,
@@ -36,6 +42,7 @@ export type ContentPickerProps = {
   description?: string;
   onConfirm: (items: Asset[]) => Promise<void | ContentPickerResult> | void;
   onClose: () => void;
+  onCloseComplete?: () => void;
   /**
    * Leaves the picker to build a new Widget. The caller owns the round trip,
    * because only it knows where the author should land afterwards; the create
@@ -57,6 +64,7 @@ export function ContentPicker({
   description = "Select existing content or upload media. Apps are managed in their own library.",
   onConfirm,
   onClose,
+  onCloseComplete,
   onCreateWidget,
 }: ContentPickerProps) {
   const queryClient = useQueryClient();
@@ -71,10 +79,9 @@ export function ContentPicker({
   const [initialIds] = useState(() => new Set(selectedIds));
   const [created, setCreated] = useState<Map<string, Asset>>(new Map());
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
-  const [child, setChild] = useState<"upload">();
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [failures, setFailures] = useState<ContentPickerResult["failures"]>([]);
-  const dialog = useRef<HTMLElement>(null);
   const folders = useQuery({
     queryKey: ["content-folders"],
     queryFn: api.contentFolders,
@@ -90,6 +97,9 @@ export function ContentPicker({
     queryFn: api.contentTags,
     enabled: open,
   });
+  useEffect(() => {
+    if (!open) setUploadOpen(false);
+  }, [open]);
   // Narrow the request to what the caller accepts. Without this an "All" page of 48
   // mixed items can be filtered down to a handful client-side, so a widgets-only picker
   // looks nearly empty while the library scrolls on.
@@ -155,34 +165,6 @@ export function ContentPicker({
       return next;
     });
   }, [initialIds, loaded, mode]);
-  useEffect(() => {
-    if (!open) return;
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !child) {
-        event.preventDefault();
-        onClose();
-      }
-      if (event.key === "Tab" && !child && dialog.current) {
-        const focusable = [
-          ...dialog.current.querySelectorAll<HTMLElement>(
-            'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-          ),
-        ];
-        const first = focusable[0];
-        const last = focusable.at(-1);
-        if (!first || !last) return;
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    addEventListener("keydown", escape);
-    return () => removeEventListener("keydown", escape);
-  }, [child, onClose, open]);
   const trackCreated = (asset: Asset) => {
     setCreated((current) => new Map(current).set(asset.id, asset));
     setHighlighted((current) => new Set(current).add(asset.id));
@@ -214,7 +196,6 @@ export function ContentPicker({
       })();
     }
   };
-  if (!open) return null;
   const allowed = new Set(allowedTypes);
   const providers = allowedProviders ? new Set(allowedProviders) : undefined;
   const combined = [...created.values(), ...loaded].filter(
@@ -267,23 +248,30 @@ export function ContentPicker({
       setConfirming(false);
     }
   };
-  return createPortal(
-    <div className="content-picker-backdrop">
-      <section
-        ref={dialog}
-        className="content-picker"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="content-picker-title"
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+      onOpenChangeComplete={(nextOpen) => {
+        if (!nextOpen) onCloseComplete?.();
+      }}
+    >
+      <DialogContent
+        className="content-picker max-w-none gap-0 p-0"
+        showCloseButton={false}
       >
-        <header className="content-picker__header">
+        <DialogHeader className="content-picker__header">
           <div>
-            <h2 id="content-picker-title">{title}</h2>
-            <p>{description}</p>
+            <DialogTitle className="content-picker__title">{title}</DialogTitle>
+            <DialogDescription className="content-picker__description">
+              {description}
+            </DialogDescription>
           </div>
           <div className="content-picker__primary-actions">
             {(allowed.has("image") || allowed.has("video")) && (
-              <Button variant="secondary" onClick={() => setChild("upload")}>
+              <Button variant="secondary" onClick={() => setUploadOpen(true)}>
                 <Upload size={16} /> Upload media
               </Button>
             )}
@@ -301,7 +289,7 @@ export function ContentPicker({
               <X size={18} />
             </Button>
           </div>
-        </header>
+        </DialogHeader>
         <ContentPickerToolbar
           search={search}
           filter={filter}
@@ -410,15 +398,13 @@ export function ContentPicker({
             </Button>
           </div>
         </footer>
-      </section>
-      {child === "upload" && (
-        <UploadContentDialog
-          csrf={csrf}
-          onCreated={trackCreated}
-          onClose={() => setChild(undefined)}
-        />
-      )}
-    </div>,
-    document.body,
+      </DialogContent>
+      <UploadContentDialog
+        open={open && uploadOpen}
+        csrf={csrf}
+        onCreated={trackCreated}
+        onClose={() => setUploadOpen(false)}
+      />
+    </Dialog>
   );
 }

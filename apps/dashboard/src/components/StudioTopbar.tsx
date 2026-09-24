@@ -622,16 +622,15 @@ export function StudioTopbar({
         canCreate={canCreate}
         canPair={canPair}
       />
-      {uploadOpen && (
-        <UploadContentDialog
-          csrf={csrfToken}
-          closeLabel="Done"
-          onCreated={() => {
-            void queryClient.invalidateQueries({ queryKey: ["assets"] });
-          }}
-          onClose={() => setUploadOpen(false)}
-        />
-      )}
+      <UploadContentDialog
+        open={uploadOpen}
+        csrf={csrfToken}
+        closeLabel="Done"
+        onCreated={() => {
+          void queryClient.invalidateQueries({ queryKey: ["assets"] });
+        }}
+        onClose={() => setUploadOpen(false)}
+      />
     </>
   );
 }

@@ -8,7 +8,7 @@ import {
   DashboardListToolbar,
   DashboardSearch,
 } from "../components/DashboardListToolbar";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -71,10 +71,10 @@ export function PlaylistsPage() {
         </div>
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton type="button" onClick={() => setCreating(true)}>
+            <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               Create playlist
-            </RheaButton>
+            </Button>
           </div>
         )}
       </header>

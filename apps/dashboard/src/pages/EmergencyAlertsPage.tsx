@@ -18,7 +18,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Card,
   CardContent,
@@ -422,7 +422,7 @@ export function EmergencyAlertsPage() {
                         </NativeSelectOption>
                       ))}
                     </NativeSelect>
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="outline"
                       size="sm"
@@ -436,7 +436,7 @@ export function EmergencyAlertsPage() {
                     >
                       <Plus data-icon="inline-start" aria-hidden="true" />
                       Monitor entire state
-                    </RheaButton>
+                    </Button>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="nws-zone">
@@ -463,7 +463,7 @@ export function EmergencyAlertsPage() {
                         </NativeSelectOption>
                       ))}
                     </NativeSelect>
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="outline"
                       size="sm"
@@ -480,7 +480,7 @@ export function EmergencyAlertsPage() {
                     >
                       <Plus data-icon="inline-start" aria-hidden="true" />
                       Add location
-                    </RheaButton>
+                    </Button>
                     {zoneOptions.isError && (
                       <FieldError>
                         Counties and forecast zones could not be loaded from
@@ -496,7 +496,7 @@ export function EmergencyAlertsPage() {
                   {areas.map((area) => (
                     <Badge key={area} variant="secondary" className="pr-0.5">
                       Entire {areaName(area)}
-                      <RheaButton
+                      <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
@@ -508,13 +508,13 @@ export function EmergencyAlertsPage() {
                         }
                       >
                         <X aria-hidden="true" />
-                      </RheaButton>
+                      </Button>
                     </Badge>
                   ))}
                   {zones.map((zone) => (
                     <Badge key={zone} variant="secondary" className="pr-0.5">
                       {zoneLabel(zone, zoneOptions.data?.items ?? [])}
-                      <RheaButton
+                      <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
@@ -526,7 +526,7 @@ export function EmergencyAlertsPage() {
                         }
                       >
                         <X aria-hidden="true" />
-                      </RheaButton>
+                      </Button>
                     </Badge>
                   ))}
                   {areas.length + zones.length === 0 && (
@@ -583,7 +583,7 @@ export function EmergencyAlertsPage() {
             )}
           </CardContent>
           <CardFooter className="flex-wrap gap-2">
-            <RheaButton
+            <Button
               type="button"
               disabled={!editable || saveMonitor.isPending}
               onClick={() => saveMonitor.mutate()}
@@ -592,15 +592,15 @@ export function EmergencyAlertsPage() {
                 <Spinner data-icon="inline-start" aria-hidden="true" />
               )}
               Save NWS monitor
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               variant="outline"
               disabled={!editable || poll.isPending}
               onClick={() => poll.mutate()}
             >
               {poll.isPending ? "Checking…" : "Check now"}
-            </RheaButton>
+            </Button>
           </CardFooter>
         </Card>
 
@@ -636,7 +636,7 @@ export function EmergencyAlertsPage() {
                     </ItemContent>
                     {editable && (
                       <ItemActions>
-                        <RheaButton
+                        <Button
                           type="button"
                           variant="outline"
                           size="sm"
@@ -648,8 +648,8 @@ export function EmergencyAlertsPage() {
                           }}
                         >
                           Edit
-                        </RheaButton>
-                        <RheaButton
+                        </Button>
+                        <Button
                           type="button"
                           variant="destructive"
                           size="sm"
@@ -664,7 +664,7 @@ export function EmergencyAlertsPage() {
                           }}
                         >
                           Delete
-                        </RheaButton>
+                        </Button>
                       </ItemActions>
                     )}
                   </Item>
@@ -951,14 +951,14 @@ export function EmergencyAlertsPage() {
                   </Alert>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  <RheaButton type="submit" disabled={saveRule.isPending}>
+                  <Button type="submit" disabled={saveRule.isPending}>
                     {saveRule.isPending && (
                       <Spinner data-icon="inline-start" aria-hidden="true" />
                     )}
                     {editing ? "Save rule" : "Add rule"}
-                  </RheaButton>
+                  </Button>
                   {editing && (
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="outline"
                       onClick={() => {
@@ -968,7 +968,7 @@ export function EmergencyAlertsPage() {
                       }}
                     >
                       Cancel
-                    </RheaButton>
+                    </Button>
                   )}
                 </div>
               </form>

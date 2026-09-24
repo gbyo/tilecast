@@ -13,7 +13,6 @@ import {
   ActivityPagination,
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDuration,
   formatWhen,
@@ -55,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { Field, FieldLabel } from "../components/ui/field";
 import {
   Sheet,
   SheetContent,
@@ -192,8 +192,13 @@ export function ProofTab({
                 them and can be larger when zones play at once.
               </p>
             </div>
-            <label className="grid gap-1 text-xs font-medium">
-              <span>Group by</span>
+            <Field className="w-fit gap-1">
+              <FieldLabel
+                htmlFor="proof-group-by"
+                className="text-xs font-medium"
+              >
+                Group by
+              </FieldLabel>
               <Select
                 items={proofDimensionOptions}
                 value={dimension}
@@ -201,7 +206,7 @@ export function ProofTab({
                   if (next) setDimension(next);
                 }}
               >
-                <SelectTrigger size="sm" className="w-44" aria-label="Group by">
+                <SelectTrigger id="proof-group-by" size="sm" className="w-44">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -212,7 +217,7 @@ export function ProofTab({
                   ))}
                 </SelectContent>
               </Select>
-            </label>
+            </Field>
           </header>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <MetricTile
@@ -386,8 +391,10 @@ export function ProofTab({
                       <ResultBadge value={item.result} />
                     </TableCell>
                     <TableCell className="px-3 py-2 text-muted-foreground">
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         aria-label={`Open details for ${item.screenName} playback`}
                         className="rounded-md p-1 hover:bg-muted hover:text-foreground"
                         onClick={() => {
@@ -396,7 +403,7 @@ export function ProofTab({
                         }}
                       >
                         <ChevronRight size={17} aria-hidden="true" />
-                      </button>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -818,7 +825,14 @@ export function EventsTab({
         </Table>
       </div>
       {!query.data?.items?.length && (
-        <EmptyState message="No technical screen events matched these filters." />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>No technical events</EmptyTitle>
+            <EmptyDescription>
+              No technical screen events matched these filters.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       <ActivityPagination
         pagination={pagination}
@@ -927,7 +941,14 @@ export function AuditTab({
         </Table>
       </div>
       {!query.data?.items?.length && (
-        <EmptyState message="No administrative changes matched these filters." />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>No administrative changes</EmptyTitle>
+            <EmptyDescription>
+              No administrative changes matched these filters.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       <ActivityPagination
         pagination={pagination}

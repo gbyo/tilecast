@@ -1,5 +1,5 @@
 import { Separator } from "../components/ui/separator";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import type { FormFieldControl } from "../api/types";
 import { CONTROLS } from "./formSchema";
 
@@ -20,7 +20,7 @@ export function FormFieldPalette({
       <Separator />
       <div className="grid grid-cols-2 gap-1">
         {CONTROLS.map((meta) => (
-          <RheaButton
+          <Button
             key={meta.control}
             type="button"
             variant="outline"
@@ -34,7 +34,7 @@ export function FormFieldPalette({
             <span className="text-left text-[0.7rem] font-normal text-muted-foreground">
               {meta.description}
             </span>
-          </RheaButton>
+          </Button>
         ))}
       </div>
     </div>

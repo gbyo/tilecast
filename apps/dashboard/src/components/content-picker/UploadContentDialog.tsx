@@ -1,9 +1,17 @@
-import { Upload, X } from "lucide-react";
+import { Upload } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { api } from "../../api/client";
 import type { Asset } from "../../api/types";
 import { useConfirm } from "../ConfirmDialog";
 import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { droppedFiles } from "../content/dragDrop";
 
 type UploadItem = {
@@ -20,19 +28,22 @@ const accepted =
 const chunkSize = 4 * 1024 * 1024;
 
 export function UploadContentDialog({
+  open,
   csrf,
   closeLabel = "Return to content",
   onCreated,
   onClose,
+  onCloseComplete,
 }: {
+  open: boolean;
   csrf: string;
   closeLabel?: string;
   onCreated: (asset: Asset) => void;
   onClose: () => void;
+  onCloseComplete?: () => void;
 }) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const input = useRef<HTMLInputElement>(null);
-  const dialog = useRef<HTMLElement>(null);
   const { confirm, dialog: confirmDialog } = useConfirm();
   const active = items.some((item) =>
     ["waiting", "uploading"].includes(item.state),
@@ -101,66 +112,29 @@ export function UploadContentDialog({
   return (
     <>
       {confirmDialog}
-      <div
-        className="content-picker-child-backdrop"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.stopPropagation();
-            close();
-          }
-          if (event.key === "Tab" && dialog.current) {
-            const controls = [
-              ...dialog.current.querySelectorAll<HTMLElement>(
-                'button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
-              ),
-            ];
-            const first = controls[0];
-            const last = controls.at(-1);
-            if (
-              first &&
-              last &&
-              event.shiftKey &&
-              document.activeElement === first
-            ) {
-              event.preventDefault();
-              last.focus();
-            } else if (
-              first &&
-              last &&
-              !event.shiftKey &&
-              document.activeElement === last
-            ) {
-              event.preventDefault();
-              first.focus();
-            }
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) close();
+        }}
+        onOpenChangeComplete={(nextOpen) => {
+          if (!nextOpen) {
+            setItems([]);
+            onCloseComplete?.();
           }
         }}
       >
-        <section
-          ref={dialog}
-          className="upload-content-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="upload-content-title"
-        >
-          <header>
-            <div>
-              <h3 id="upload-content-title">Upload media</h3>
-              <p>Upload one or more images or videos.</p>
-            </div>
-            <Button
-              autoFocus
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close uploads"
-              onClick={close}
-            >
-              <X size={18} />
-            </Button>
-          </header>
-          <button
+        <DialogContent className="upload-content-dialog max-w-[min(45rem,calc(100%-2rem))] gap-4 overflow-y-auto p-6">
+          <DialogHeader>
+            <DialogTitle>Upload media</DialogTitle>
+            <DialogDescription>
+              Upload one or more images or videos.
+            </DialogDescription>
+          </DialogHeader>
+          <Button
             type="button"
-            className="picker-upload-dropzone"
+            variant="outline"
+            className="picker-upload-dropzone h-auto w-full grid min-h-[11.25rem] place-items-center content-center gap-2 border-dashed bg-muted py-8 text-foreground hover:bg-accent"
             onClick={() => input.current?.click()}
             onDragOver={(event) => event.preventDefault()}
             onDrop={drop}
@@ -168,7 +142,7 @@ export function UploadContentDialog({
             <Upload size={24} />
             <strong>Drop files here or choose files</strong>
             <span>Images and videos · multiple files supported</span>
-          </button>
+          </Button>
           <input
             ref={input}
             className="visually-hidden"
@@ -188,13 +162,13 @@ export function UploadContentDialog({
               </div>
             ))}
           </div>
-          <footer>
+          <DialogFooter>
             <Button variant="secondary" onClick={close}>
               {closeLabel}
             </Button>
-          </footer>
-        </section>
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

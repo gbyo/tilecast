@@ -9,8 +9,15 @@ import type {
 import { api } from "../api/client";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Empty,
   EmptyDescription,
@@ -226,9 +233,9 @@ function AccessRow({
               Always a manager
             </span>
           ) : editing ? null : (
-            <RheaButton variant="ghost" size="sm" onClick={onEdit}>
+            <Button variant="ghost" size="sm" onClick={onEdit}>
               Edit access
-            </RheaButton>
+            </Button>
           )}
         </TableCell>
       </TableRow>
@@ -317,26 +324,31 @@ function GrantAccess({
             </EmptyHeader>
           </Empty>
         ) : (
-          <ul className="grid gap-1">
+          <ItemGroup className="gap-1">
             {(directory.data ?? [])
               .filter((user) => !excludeUserIds.has(user.id))
               .map((user) => (
-                <li key={user.id}>
-                  <button
-                    type="button"
-                    className="flex w-full flex-col gap-0.5 rounded-xl border border-border px-3 py-2 text-left hover:bg-muted"
-                    onClick={() => setSelected(user)}
-                  >
-                    <strong className="text-sm">
-                      {user.name || user.username}
-                    </strong>
-                    <span className="text-xs text-muted-foreground">
+                <Item
+                  key={user.id}
+                  variant="outline"
+                  size="sm"
+                  render={
+                    <button
+                      type="button"
+                      className="w-full text-left hover:bg-muted"
+                    />
+                  }
+                  onClick={() => setSelected(user)}
+                >
+                  <ItemContent>
+                    <ItemTitle>{user.name || user.username}</ItemTitle>
+                    <ItemDescription>
                       @{user.username} · {user.role}
-                    </span>
-                  </button>
-                </li>
+                    </ItemDescription>
+                  </ItemContent>
+                </Item>
               ))}
-          </ul>
+          </ItemGroup>
         )
       ) : null}
     </section>
@@ -384,7 +396,7 @@ function CapabilityEditor({
             <li key={cap.value} className="grid gap-0.5">
               {/* Base UI names the span from the wrapping label. */}
               <label className="flex items-center gap-2 text-sm">
-                <RheaCheckbox
+                <Checkbox
                   checked={isChecked}
                   disabled={isImplied || saving}
                   onCheckedChange={() => toggle(cap.value)}
@@ -399,10 +411,10 @@ function CapabilityEditor({
         })}
       </ul>
       <div className="flex flex-wrap gap-2">
-        <RheaButton variant="ghost" onClick={onCancel} disabled={saving}>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
           Cancel
-        </RheaButton>
-        <RheaButton
+        </Button>
+        <Button
           variant="default"
           disabled={saving}
           aria-busy={saving || undefined}
@@ -410,7 +422,7 @@ function CapabilityEditor({
         >
           {saving && <Spinner aria-hidden="true" />}
           Save access
-        </RheaButton>
+        </Button>
       </div>
     </div>
   );

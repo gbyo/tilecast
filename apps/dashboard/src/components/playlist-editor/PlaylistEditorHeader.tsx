@@ -11,9 +11,9 @@ import {
 import { Link } from "react-router";
 import type { Playlist } from "../../api/types";
 import { Badge } from "../ui/badge";
-import { Button as RheaButton } from "../ui/button";
+import { Button } from "../ui/button";
 import {
-  DropdownMenu as RheaDropdownMenu,
+  DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -85,12 +85,12 @@ export function PlaylistEditorHeader({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <RheaButton type="button" variant="outline" onClick={onPreview}>
+        <Button type="button" variant="outline" onClick={onPreview}>
           <ExternalLink size={15} aria-hidden="true" />
           Preview
-        </RheaButton>
+        </Button>
         {canSubmit && (
-          <RheaButton
+          <Button
             type="button"
             disabled={!hasChanges || publishPending}
             onClick={onPublish}
@@ -101,9 +101,9 @@ export function PlaylistEditorHeader({
               : canPublish
                 ? "Publish"
                 : "Submit for review"}
-          </RheaButton>
+          </Button>
         )}
-        <RheaDropdownMenu>
+        <DropdownMenu>
           <DropdownMenuTrigger
             className="inline-flex size-8 items-center justify-center rounded-xl hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
             aria-label="More playlist actions"
@@ -135,7 +135,7 @@ export function PlaylistEditorHeader({
               </>
             )}
           </DropdownMenuContent>
-        </RheaDropdownMenu>
+        </DropdownMenu>
       </div>
     </header>
   );

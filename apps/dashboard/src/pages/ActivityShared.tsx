@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { CheckCircle2 } from "lucide-react";
 import { Pagination } from "../components/Pagination";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -9,13 +8,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "../components/ui/empty";
 import { Skeleton } from "../components/ui/skeleton";
 
 export type ActivityResult =
@@ -333,20 +325,6 @@ export function ErrorNotice({ error }: { error: Error }) {
     </Alert>
   );
 }
-export function EmptyState({ message }: { message: string }) {
-  return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <CheckCircle2 size={22} aria-hidden="true" />
-        </EmptyMedia>
-        <EmptyTitle>No results</EmptyTitle>
-        <EmptyDescription>{message}</EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  );
-}
-
 export function formatWhen(value: string) {
   return new Date(value).toLocaleString([], {
     month: "short",

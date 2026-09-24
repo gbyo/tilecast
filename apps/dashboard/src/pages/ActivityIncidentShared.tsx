@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { formatWhen, humanize, ResultBadge } from "./ActivityShared";
 import { screenActivityLink } from "./activityLinks";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 
 export type IncidentStatus =
   "open" | "acknowledged" | "recovered" | "resolved" | "ignored";
@@ -223,7 +223,7 @@ export function IncidentRow({
           >
             {formatWhen(incident.openedAt)}
           </time>
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="sm"
@@ -235,7 +235,7 @@ export function IncidentRow({
             }
           >
             Details
-          </RheaButton>
+          </Button>
         </div>
       </div>
       {!onOpenDetail && expanded && (
@@ -335,7 +335,7 @@ export function IncidentActionButtons({
   return (
     <>
       {actionsFor(incident.status).map((item) => (
-        <RheaButton
+        <Button
           key={item.action}
           type="button"
           variant="secondary"
@@ -344,7 +344,7 @@ export function IncidentActionButtons({
           onClick={() => onAct(item.action)}
         >
           {item.label}
-        </RheaButton>
+        </Button>
       ))}
     </>
   );

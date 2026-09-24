@@ -3,7 +3,7 @@ import { PanelsTopLeft } from "lucide-react";
 import { useEffect, useState, type DragEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import { Alert, AlertDescription } from "../ui/alert";
-import { Button as RheaButton } from "../ui/button";
+import { Button } from "../ui/button";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -21,7 +21,7 @@ import {
 } from "../ui/resizable";
 import { Separator } from "../ui/separator";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import {
-  Sheet as RheaSheet,
+  Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -657,22 +657,22 @@ export function PlaylistEditorPage() {
                     </div>
                   </dl>
                   <div className="flex flex-wrap gap-2">
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={openDetails}
                     >
                       Playlist details
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={openHistory}
                     >
                       History
-                    </RheaButton>
+                    </Button>
                   </div>
                 </aside>
               )}
@@ -709,7 +709,7 @@ export function PlaylistEditorPage() {
       )}
 
       {desktop ? (
-        <RheaSheet
+        <Sheet
           open={historyOpen}
           onOpenChange={(open) => {
             if (!open) setHistoryOpen(false);
@@ -733,7 +733,7 @@ export function PlaylistEditorPage() {
               />
             </div>
           </SheetContent>
-        </RheaSheet>
+        </Sheet>
       ) : (
         <Drawer
           open={historyOpen}
@@ -813,24 +813,22 @@ export function PlaylistEditorPage() {
         onSaveTagRule={() => saveTagRule.mutate()}
       />
 
-      {picker && (
-        <ContentPicker
-          open
-          mode="multiple"
-          csrf={csrf}
-          allowedTypes={["image", "video", "widget"]}
-          confirmLabel="Add to playlist"
-          onConfirm={add}
-          onClose={() => setPicker(false)}
-          onCreateWidget={() =>
-            void navigate(
-              `/widgets/new?returnTo=${encodeURIComponent(`/playlists/${id}`)}`,
-            )
-          }
-        />
-      )}
+      <ContentPicker
+        open={picker}
+        mode="multiple"
+        csrf={csrf}
+        allowedTypes={["image", "video", "widget"]}
+        confirmLabel="Add to playlist"
+        onConfirm={add}
+        onClose={() => setPicker(false)}
+        onCreateWidget={() =>
+          void navigate(
+            `/widgets/new?returnTo=${encodeURIComponent(`/playlists/${id}`)}`,
+          )
+        }
+      />
 
-      <RheaDialog
+      <Dialog
         open={layoutPicker}
         onOpenChange={(open) => {
           if (!open) setLayoutPicker(false);
@@ -847,7 +845,7 @@ export function PlaylistEditorPage() {
             {(layouts.data?.items ?? [])
               .filter((layout) => layout.publishedRevision)
               .map((layout) => (
-                <RheaButton
+                <Button
                   type="button"
                   variant="outline"
                   className="justify-start"
@@ -856,7 +854,7 @@ export function PlaylistEditorPage() {
                 >
                   <PanelsTopLeft size={16} aria-hidden="true" />
                   {layout.name}
-                </RheaButton>
+                </Button>
               ))}
             {(layouts.data?.items ?? []).filter(
               (layout) => layout.publishedRevision,
@@ -867,17 +865,17 @@ export function PlaylistEditorPage() {
             )}
           </div>
           <DialogFooter>
-            <RheaButton
+            <Button
               type="button"
               variant="outline"
               onClick={() => setLayoutPicker(false)}
             >
               Cancel
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
-      </RheaDialog>
-      <RheaAlertDialog
+      </Dialog>
+      <AlertDialog
         open={confirmingDelete}
         onOpenChange={(open) => {
           if (!open) setConfirmingDelete(false);
@@ -904,7 +902,7 @@ export function PlaylistEditorPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
     </section>
   );
 }

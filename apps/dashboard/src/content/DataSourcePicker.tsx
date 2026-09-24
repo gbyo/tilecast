@@ -24,14 +24,14 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { DataSource, DataSourceProvider } from "../api/types";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -47,6 +47,15 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { Input } from "../components/ui/input";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
 import { ConnectDataFlow } from "./DataSourceCreateFlow";
 import { previewRecordMaps } from "./previewRecords";
 import { providerLabel, sourceIcon } from "./dataSourceProviderMeta";
@@ -333,14 +342,14 @@ export function ConnectDataNotice({
         </EmptyHeader>
         {canCreate && (
           <EmptyContent>
-            <RheaButton
+            <Button
               type="button"
               variant="secondary"
               size="sm"
               onClick={connect.open}
             >
               <Plus size={15} aria-hidden="true" /> Connect new data
-            </RheaButton>
+            </Button>
           </EmptyContent>
         )}
       </Empty>
@@ -434,9 +443,10 @@ export function DataSourcePicker({
               {label}
               {required ? " *" : ""}
             </span>
-            <button
+            <Button
               type="button"
-              className="flex w-full items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              variant="outline"
+              className="h-auto w-full justify-start gap-2 p-3 text-left whitespace-normal"
               aria-label={`${label}: ${
                 selected?.name ??
                 (missing ? "Unavailable Data Source" : "Choose data")
@@ -469,7 +479,7 @@ export function DataSourcePicker({
                 </small>
               </span>
               <ChevronRight size={18} aria-hidden="true" />
-            </button>
+            </Button>
             {description && (
               <small className="text-xs text-muted-foreground">
                 {description}
@@ -556,7 +566,7 @@ function DataSourceSelectionDialog({
       )
     : sources;
   return (
-    <RheaDialog
+    <Dialog
       open={open}
       onOpenChange={(next) => {
         if (!next) {
@@ -581,61 +591,75 @@ function DataSourceSelectionDialog({
             onChange={(event) => setQuery(event.target.value)}
           />
         )}
-        <ul className="grid gap-1">
+        <ItemGroup className="gap-1">
           {allowEmpty && (
-            <li>
-              <button
-                type="button"
-                onClick={() => onSelect("")}
-                className="flex w-full items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span aria-hidden="true">
-                  <X size={18} />
-                </span>
-                <span className="grid flex-1 gap-0.5">
-                  <strong className="text-sm font-medium">No data</strong>
-                  <small className="text-xs text-muted-foreground">
-                    Leave this Widget disconnected.
-                  </small>
-                </span>
-                <span aria-hidden="true" />
-                {!value && <Check size={18} aria-label="Selected" />}
-              </button>
-            </li>
+            <Item
+              variant={!value ? "muted" : "outline"}
+              size="sm"
+              render={
+                <button
+                  type="button"
+                  className="w-full text-left hover:bg-muted"
+                  aria-pressed={!value}
+                />
+              }
+              onClick={() => onSelect("")}
+            >
+              <ItemMedia variant="icon" aria-hidden="true">
+                <X size={18} />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle>No data</ItemTitle>
+                <ItemDescription>
+                  Leave this Widget disconnected.
+                </ItemDescription>
+              </ItemContent>
+              {!value && (
+                <ItemActions>
+                  <Check size={18} aria-label="Selected" />
+                </ItemActions>
+              )}
+            </Item>
           )}
           {visible.map((source) => (
-            <li key={source.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(source.id)}
-                className="flex w-full items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span aria-hidden="true">
-                  {sourceIcon(source.provider, undefined, 20)}
-                </span>
-                <span className="grid flex-1 gap-0.5">
-                  <strong className="truncate text-sm font-medium">
-                    {source.name}
-                  </strong>
+            <Item
+              key={source.id}
+              variant={value === source.id ? "muted" : "outline"}
+              size="sm"
+              render={
+                <button
+                  type="button"
+                  className="w-full text-left hover:bg-muted"
+                  aria-pressed={value === source.id}
+                />
+              }
+              onClick={() => onSelect(source.id)}
+            >
+              <ItemMedia variant="icon" aria-hidden="true">
+                {sourceIcon(source.provider, undefined, 20)}
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle className="truncate">{source.name}</ItemTitle>
+                <ItemDescription>
+                  {providerLabel(source.provider)}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions className="flex-col items-end gap-1">
+                <SourceStatus status={source.status} />
+                {recordCountLabel(source.cachedRecordCount) && (
                   <small className="text-xs text-muted-foreground">
-                    {providerLabel(source.provider)}
+                    {recordCountLabel(source.cachedRecordCount)}
                   </small>
-                </span>
-                <span className="grid items-end gap-1">
-                  <SourceStatus status={source.status} />
-                  {recordCountLabel(source.cachedRecordCount) && (
-                    <small className="text-xs text-muted-foreground">
-                      {recordCountLabel(source.cachedRecordCount)}
-                    </small>
-                  )}
-                </span>
-                {value === source.id && (
-                  <Check size={18} aria-label="Selected" />
                 )}
-              </button>
-            </li>
+              </ItemActions>
+              {value === source.id && (
+                <ItemActions>
+                  <Check size={18} aria-label="Selected" />
+                </ItemActions>
+              )}
+            </Item>
           ))}
-        </ul>
+        </ItemGroup>
         {needle && visible.length === 0 && (
           <p className="text-sm text-muted-foreground">
             No compatible sources match “{query}”.
@@ -643,15 +667,15 @@ function DataSourceSelectionDialog({
         )}
         <DialogFooter>
           {canCreate && (
-            <RheaButton type="button" onClick={onConnect}>
+            <Button type="button" onClick={onConnect}>
               <Plus size={15} aria-hidden="true" /> Connect new data
-            </RheaButton>
+            </Button>
           )}
-          <RheaButton type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
-          </RheaButton>
+          </Button>
         </DialogFooter>
       </DialogContent>
-    </RheaDialog>
+    </Dialog>
   );
 }

@@ -44,9 +44,9 @@ export function SettingsSection({
                 key={definition.key}
               >
                 <div className="grid content-start gap-1">
-                  <label className="text-sm font-medium">
+                  <span className="text-sm font-medium">
                     {definition.title}
-                  </label>
+                  </span>
                   <p className="text-sm text-muted-foreground">
                     {descriptionFor(definition)}
                   </p>

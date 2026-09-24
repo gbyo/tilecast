@@ -12,7 +12,6 @@ import { api } from "../api/client";
 import type { ContentSubmission, SubmissionStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
-import { ViewTabs } from "../components/ViewTabs";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -54,6 +53,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 const filters: { value: "" | SubmissionStatus; label: string }[] = [
   { value: "in_review", label: "Needs review" },
@@ -259,12 +259,29 @@ export function ContentSubmissionInboxPage() {
           </AlertDescription>
         </Alert>
       )}
-      <ViewTabs
-        label="Submission state"
-        value={filter}
-        items={filters}
-        onValueChange={setFilter}
-      />
+      <ToggleGroup
+        value={[filter || "all"]}
+        onValueChange={(values) =>
+          setFilter(
+            values[0] && values[0] !== "all"
+              ? (values[0] as SubmissionStatus)
+              : "",
+          )
+        }
+        variant="outline"
+        size="sm"
+        spacing={1}
+        aria-label="Submission state filter"
+      >
+        {filters.map((item) => (
+          <ToggleGroupItem
+            key={item.value || "all"}
+            value={item.value || "all"}
+          >
+            {item.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
       {query.isLoading ? (
         <p className="text-sm text-muted-foreground">Loading submissions…</p>
       ) : query.error ? (

@@ -5,7 +5,7 @@ import { Button } from "../ui/button";
 import { Field, FieldDescription, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -139,7 +139,7 @@ export function PlaylistDetailsDrawer({
         </p>
         <Field>
           <FieldLabel htmlFor="playlist-details-source">Source</FieldLabel>
-          <RheaSelect
+          <Select
             disabled={!canManage}
             value={sourceType}
             onValueChange={(next) =>
@@ -157,14 +157,14 @@ export function PlaylistDetailsDrawer({
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
 
         {sourceType === "tag" && (
           <>
             <Field>
               <FieldLabel htmlFor="playlist-details-match">Match</FieldLabel>
-              <RheaSelect
+              <Select
                 disabled={!canManage}
                 value={tagMatch}
                 onValueChange={(next) =>
@@ -182,7 +182,7 @@ export function PlaylistDetailsDrawer({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field>
               <span className="text-sm font-medium">Media tags</span>

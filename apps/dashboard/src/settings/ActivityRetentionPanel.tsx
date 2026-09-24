@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { toast } from "../components/ui/toast";
@@ -153,14 +153,14 @@ export function ActivityRetentionPanel({
           </p>
         </div>
         {value && (
-          <RheaButton
+          <Button
             variant="default"
             type="button"
             disabled={save.isPending || !dirty || !checked?.ok}
             onClick={() => checked?.ok && save.mutate(checked.payload)}
           >
             {save.isPending ? "Saving…" : "Save retention"}
-          </RheaButton>
+          </Button>
         )}
       </header>
 
@@ -177,7 +177,7 @@ export function ActivityRetentionPanel({
                 ? query.error.message
                 : "Retention settings could not be loaded."}
             </span>
-            <RheaButton
+            <Button
               type="button"
               variant="secondary"
               size="sm"
@@ -185,7 +185,7 @@ export function ActivityRetentionPanel({
               disabled={query.isFetching}
             >
               {query.isFetching ? "Retrying…" : "Try again"}
-            </RheaButton>
+            </Button>
           </AlertDescription>
         </Alert>
       )}

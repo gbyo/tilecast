@@ -3,18 +3,18 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Button as RheaButton } from "../../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
+import { Button } from "../../components/ui/button";
+import { Checkbox } from "../../components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Switch as RheaSwitch } from "../../components/ui/switch";
+import { Switch } from "../../components/ui/switch";
 import { Textarea } from "../../components/ui/textarea";
 import type {
   DataSourceDetail,
@@ -172,13 +172,13 @@ export function LiveDataSourceEditor({
       onClose={onClose}
       footer={
         !readOnly && (
-          <RheaButton
+          <Button
             type="button"
             disabled={save.isPending || !name.trim()}
             onClick={() => save.mutate()}
           >
             {save.isPending ? "Saving…" : "Save Data Source"}
-          </RheaButton>
+          </Button>
         )
       }
     >
@@ -309,7 +309,7 @@ export function LiveDataSourceEditor({
             </Field>
             <Field>
               <FieldLabel htmlFor="cap-feed-mode">Feed mode</FieldLabel>
-              <RheaSelect
+              <Select
                 value={(configuration as CAPAlertsSourceConfig).feedMode}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -329,7 +329,7 @@ export function LiveDataSourceEditor({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor="cap-language">Preferred language</FieldLabel>
@@ -348,7 +348,7 @@ export function LiveDataSourceEditor({
             </Field>
             <Field>
               <FieldLabel htmlFor="cap-severity">Minimum severity</FieldLabel>
-              <RheaSelect
+              <Select
                 value={(configuration as CAPAlertsSourceConfig).minimumSeverity}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -369,7 +369,7 @@ export function LiveDataSourceEditor({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
           </div>
           <Field>
@@ -459,7 +459,7 @@ export function LiveDataSourceEditor({
               <FieldLabel htmlFor="air-quality-standard">
                 AQI standard
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={(configuration as AirQualitySourceConfig).aqiStandard}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -482,7 +482,7 @@ export function LiveDataSourceEditor({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
           </div>
           <fieldset className="grid gap-2">
@@ -494,7 +494,7 @@ export function LiveDataSourceEditor({
                   key={pollutant}
                   className="flex items-center gap-2 text-sm"
                 >
-                  <RheaCheckbox
+                  <Checkbox
                     checked={(
                       configuration as AirQualitySourceConfig
                     ).pollutants.includes(pollutant)}
@@ -517,7 +517,7 @@ export function LiveDataSourceEditor({
           </fieldset>
           {/* The wrapping label names the switch; no extra aria-label. */}
           <label className="flex items-center gap-2 text-sm">
-            <RheaSwitch
+            <Switch
               checked={
                 (configuration as AirQualitySourceConfig).nonCommercialAccepted
               }
@@ -537,14 +537,14 @@ export function LiveDataSourceEditor({
         </>
       )}
       {!readOnly && (
-        <RheaButton
+        <Button
           type="button"
           variant="outline"
           disabled={previewMutation.isPending}
           onClick={() => previewMutation.mutate()}
         >
           {previewMutation.isPending ? "Loading preview…" : "Preview real data"}
-        </RheaButton>
+        </Button>
       )}
       {preview && (
         <div className="grid gap-2">

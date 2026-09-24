@@ -4,12 +4,12 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Button as RheaButton } from "../../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
+import { Button } from "../../components/ui/button";
+import { Checkbox } from "../../components/ui/checkbox";
 import { Field, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -156,7 +156,7 @@ export function CalendarDataSourceEditor({
       onClose={onClose}
       footer={
         <>
-          <RheaButton
+          <Button
             type="button"
             variant="outline"
             disabled={previewMutation.isPending}
@@ -165,15 +165,15 @@ export function CalendarDataSourceEditor({
             {previewMutation.isPending
               ? "Loading preview…"
               : "Preview real data"}
-          </RheaButton>
+          </Button>
           {!readOnly && (
-            <RheaButton
+            <Button
               type="button"
               disabled={save.isPending || !name.trim()}
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save Data Source"}
-            </RheaButton>
+            </Button>
           )}
         </>
       }
@@ -231,7 +231,7 @@ export function CalendarDataSourceEditor({
                   }
                 />
                 {!readOnly && configuration.calendars.length > 1 && (
-                  <RheaButton
+                  <Button
                     type="button"
                     variant="ghost"
                     size="icon"
@@ -246,14 +246,14 @@ export function CalendarDataSourceEditor({
                     }
                   >
                     <Trash2 size={16} aria-hidden="true" />
-                  </RheaButton>
+                  </Button>
                 )}
               </div>
             </Field>
           </div>
         ))}
         {!readOnly && configuration.calendars.length < 8 && (
-          <RheaButton
+          <Button
             type="button"
             variant="outline"
             onClick={() =>
@@ -270,13 +270,13 @@ export function CalendarDataSourceEditor({
             }
           >
             <Plus size={16} aria-hidden="true" /> Add calendar
-          </RheaButton>
+          </Button>
         )}
       </fieldset>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field>
           <FieldLabel htmlFor="calendar-display">Display</FieldLabel>
-          <RheaSelect
+          <Select
             disabled={readOnly}
             value={configuration.displayMode}
             onValueChange={(next) =>
@@ -297,7 +297,7 @@ export function CalendarDataSourceEditor({
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor="calendar-max-events">Maximum events</FieldLabel>
@@ -341,7 +341,7 @@ export function CalendarDataSourceEditor({
           ).map((field) => (
             // The wrapping label names the checkbox; no extra aria-label.
             <label key={field} className="flex items-center gap-2 text-sm">
-              <RheaCheckbox
+              <Checkbox
                 disabled={readOnly}
                 checked={configuration.fields[field]}
                 onCheckedChange={(checked) =>
@@ -374,7 +374,7 @@ export function CalendarDataSourceEditor({
                   key={feed.name}
                   className="flex items-center gap-2 text-sm"
                 >
-                  <RheaCheckbox
+                  <Checkbox
                     disabled={readOnly}
                     checked={selected}
                     onCheckedChange={(checked) =>
@@ -427,7 +427,7 @@ export function CalendarDataSourceEditor({
         </Field>
         <Field>
           <FieldLabel htmlFor="calendar-refresh">Refresh interval</FieldLabel>
-          <RheaSelect
+          <Select
             disabled={readOnly}
             value={configuration.refreshIntervalSeconds}
             onValueChange={(next) =>
@@ -448,11 +448,11 @@ export function CalendarDataSourceEditor({
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor="calendar-staleness">Keep cached data</FieldLabel>
-          <RheaSelect
+          <Select
             disabled={readOnly}
             value={configuration.stalenessLimitHours}
             onValueChange={(next) =>
@@ -476,7 +476,7 @@ export function CalendarDataSourceEditor({
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
       </div>
       {diagnostic && (

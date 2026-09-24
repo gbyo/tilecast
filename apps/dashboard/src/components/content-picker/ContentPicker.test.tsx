@@ -76,10 +76,11 @@ describe("ContentPicker", () => {
     const { container } = picker("multiple");
 
     await screen.findByRole("button", { name: /Welcome/ });
-    expect(container.querySelector(".content-picker-backdrop")).toBeNull();
+    expect(container.querySelector('[data-slot="dialog-content"]')).toBeNull();
     expect(
-      document.body.querySelector(".content-picker-backdrop"),
+      document.body.querySelector('[data-slot="dialog-content"]'),
     ).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Choose content" })).toBeTruthy();
   });
 
   it("selects and confirms multiple reusable content items", async () => {

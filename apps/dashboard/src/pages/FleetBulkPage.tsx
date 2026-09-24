@@ -25,7 +25,7 @@ import {
 import { toast } from "../components/ui/toast";
 import { Checkbox } from "../components/ui/checkbox";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -53,7 +53,7 @@ function BulkSelect({
   return (
     <div className="bulk-field">
       <label htmlFor={id}>{label}</label>
-      <RheaSelect
+      <Select
         items={options}
         value={value}
         onValueChange={(next) => onChange(next ?? "")}
@@ -68,7 +68,7 @@ function BulkSelect({
             </SelectItem>
           ))}
         </SelectContent>
-      </RheaSelect>
+      </Select>
       {hint ? <p>{hint}</p> : null}
     </div>
   );

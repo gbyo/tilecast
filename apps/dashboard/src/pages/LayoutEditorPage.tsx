@@ -4,6 +4,12 @@ import { DateInput } from "../components/date-picker";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -30,6 +36,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Input } from "../components/ui/input";
+import { Field, FieldLabel } from "../components/ui/field";
 import { Kbd } from "../components/ui/kbd";
 import {
   Menubar,
@@ -637,6 +644,7 @@ export function LayoutEditorPage() {
   const previewFrameRef = useRef<HTMLDivElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [picker, setPicker] = useState<"media" | "widgets" | "playlists">();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<
     | { kind: "placement"; id: string; name: string }
     | { kind: "layout"; name: string }
@@ -1410,7 +1418,7 @@ export function LayoutEditorPage() {
     [selection, update],
   );
   // Right-click target for the canvas menu. Capture-phase handlers set this
-  // before the Rhea trigger opens, so the content always matches the pointer.
+  // before the Base UI trigger opens, so the content always matches the pointer.
   const [menuTarget, setMenuTarget] = useState<LayoutMenuTarget | null>(null);
   const openPlacementMenu = (
     _event: ReactMouseEvent<HTMLElement>,
@@ -1944,326 +1952,370 @@ export function LayoutEditorPage() {
         ((event.clientY - bounds.top) / bounds.height) * document.canvas.height,
     });
   };
-  const librarySidebar = (
-    <aside className="layout-editor-left">
-      <nav className="layout-sidebar-nav" aria-label="Layout builder">
-        {(
-          [
-            ["media", "Media", ImageIcon],
-            ["widgets", "Widgets", AppWindow],
-            ["playlists", "Playlists", ListVideo],
-            ["elements", "Elements", RectangleHorizontal],
-            ["layers", "Layers", BoxSelect],
-            ["settings", "Settings", Settings],
-          ] as const
-        ).map(([section, label, Icon]) => (
-          <button
-            key={section}
-            type="button"
-            className={sidebarSection === section ? "is-active" : ""}
-            aria-pressed={sidebarSection === section}
-            onClick={() => setSidebarSection(section)}
-          >
-            <Icon size={18} />
-            <span>{label}</span>
-          </button>
-        ))}
-      </nav>
-      <div className="layout-sidebar-panel">
-        {(sidebarSection === "media" ||
-          sidebarSection === "widgets" ||
-          sidebarSection === "playlists") && (
-          <>
-            <div className="layout-panel-heading">
-              <strong>
-                {
-                  {
-                    media: "Media",
-                    widgets: "Widgets",
-                    playlists: "Playlists",
-                  }[sidebarSection]
-                }
-              </strong>
-            </div>
-            <Button
-              type="button"
-              variant="default"
-              className="layout-library-browse"
-              onClick={() => setPicker(sidebarSection)}
-            >
-              <Search size={16} aria-hidden="true" />
+  const sidebarSections = [
+    ["media", "Media", ImageIcon],
+    ["widgets", "Widgets", AppWindow],
+    ["playlists", "Playlists", ListVideo],
+    ["elements", "Elements", RectangleHorizontal],
+    ["layers", "Layers", BoxSelect],
+    ["settings", "Settings", Settings],
+  ] as const;
+  const renderSidebarPanel = (section: LayoutSidebarSection) => {
+    if (
+      section === "media" ||
+      section === "widgets" ||
+      section === "playlists"
+    ) {
+      return (
+        <>
+          <div className="layout-panel-heading">
+            <strong>
               {
-                {
-                  media: "Browse media library",
-                  widgets: "Browse apps",
-                  playlists: "Browse playlists",
-                }[sidebarSection]
+                { media: "Media", widgets: "Widgets", playlists: "Playlists" }[
+                  section
+                ]
               }
+            </strong>
+          </div>
+          <Button
+            type="button"
+            variant="default"
+            className="layout-library-browse"
+            onClick={() => {
+              setPicker(section);
+              setPickerOpen(true);
+            }}
+          >
+            <Search size={16} aria-hidden="true" />
+            {
+              {
+                media: "Browse media library",
+                widgets: "Browse apps",
+                playlists: "Browse playlists",
+              }[section]
+            }
+          </Button>
+          <div className="layout-panel-heading layout-panel-heading--sub">
+            <strong>Recent</strong>
+            <span>Drag to canvas</span>
+          </div>
+          <div className="layout-content-shelf">
+            {recentLibraryItems.map((item) => {
+              const asset = item.kind === "asset" ? item.asset : undefined;
+              const playlist =
+                item.kind === "playlist" ? item.playlist : undefined;
+              const name = asset?.name ?? playlist?.name ?? "";
+              return (
+                <Button
+                  key={`${item.kind}-${asset?.id ?? playlist?.id}`}
+                  type="button"
+                  variant="ghost"
+                  className="layout-content-shelf__item h-auto w-full justify-start gap-2 p-1 text-left whitespace-normal"
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "copy";
+                    event.dataTransfer.setData(
+                      "application/x-tilecast-layout-library",
+                      JSON.stringify({
+                        kind: item.kind,
+                        id: asset?.id ?? playlist?.id,
+                      }),
+                    );
+                  }}
+                  onClick={() => addLibraryItem(item)}
+                  title={`Add ${name}`}
+                >
+                  <span className="layout-content-shelf__preview">
+                    {asset?.thumbnailUrl ? (
+                      <img src={asset.thumbnailUrl} alt="" draggable={false} />
+                    ) : asset?.type === "widget" ? (
+                      <AppWindow size={18} />
+                    ) : playlist ? (
+                      <ListVideo size={18} />
+                    ) : (
+                      <ImageIcon size={18} />
+                    )}
+                  </span>
+                  <span>
+                    <strong>{name}</strong>
+                    <small>
+                      {playlist
+                        ? `${playlist.itemCount} items`
+                        : (asset?.widget?.provider ?? asset?.type)}
+                    </small>
+                  </span>
+                </Button>
+              );
+            })}
+            {!recentLibraryItems.length && (
+              <p className="layout-content-shelf__empty">
+                No recently created {section}. Use the browse button above to
+                search the whole library.
+              </p>
+            )}
+          </div>
+        </>
+      );
+    }
+    if (section === "elements") {
+      return (
+        <>
+          <div className="layout-panel-heading">
+            <strong>Elements</strong>
+          </div>
+          <div className="layout-add-grid">
+            <Button
+              variant="outline"
+              className="layout-add-grid__button h-auto min-h-[68px] w-full grid grid-cols-1 justify-items-center gap-1 whitespace-normal font-normal"
+              onClick={() => addPrimitive("text")}
+            >
+              <Type size={20} />
+              Text
             </Button>
-            <div className="layout-panel-heading layout-panel-heading--sub">
-              <strong>Recent</strong>
-              <span>Drag to canvas</span>
-            </div>
-            <div className="layout-content-shelf">
-              {recentLibraryItems.map((item) => {
-                const asset = item.kind === "asset" ? item.asset : undefined;
-                const playlist =
-                  item.kind === "playlist" ? item.playlist : undefined;
-                const name = asset?.name ?? playlist?.name ?? "";
-                return (
-                  <button
-                    key={`${item.kind}-${asset?.id ?? playlist?.id}`}
-                    draggable
-                    onDragStart={(event) => {
-                      event.dataTransfer.effectAllowed = "copy";
-                      event.dataTransfer.setData(
-                        "application/x-tilecast-layout-library",
-                        JSON.stringify({
-                          kind: item.kind,
-                          id: asset?.id ?? playlist?.id,
-                        }),
-                      );
-                    }}
-                    onClick={() => addLibraryItem(item)}
-                    title={`Add ${name}`}
+            <Button
+              variant="outline"
+              className="layout-add-grid__button h-auto min-h-[68px] w-full grid grid-cols-1 justify-items-center gap-1 whitespace-normal font-normal"
+              onClick={() => addPrimitive("rectangle")}
+            >
+              <RectangleHorizontal size={20} />
+              Rectangle
+            </Button>
+            <Button
+              variant="outline"
+              className="layout-add-grid__button h-auto min-h-[68px] w-full grid grid-cols-1 justify-items-center gap-1 whitespace-normal font-normal"
+              onClick={() => addPrimitive("circle")}
+            >
+              <Circle size={20} />
+              Circle
+            </Button>
+            <Button
+              variant="outline"
+              className="layout-add-grid__button h-auto min-h-[68px] w-full grid grid-cols-1 justify-items-center gap-1 whitespace-normal font-normal"
+              onClick={() => addPrimitive("line")}
+            >
+              <Minus size={20} />
+              Line
+            </Button>
+          </div>
+        </>
+      );
+    }
+    if (section === "layers") {
+      return (
+        <>
+          <div className="layout-panel-heading">
+            <strong>Layers</strong>
+            <span>{document.placements.length}</span>
+          </div>
+          <div className="layout-layers">
+            {[...document.placements]
+              .sort((a, b) => b.layer - a.layer)
+              .map((item) => (
+                <ContextMenu key={item.id}>
+                  <ContextMenuTrigger
+                    render={
+                      <div
+                        className={`layout-layer-row${
+                          selection.has(item.id) ? " is-selected" : ""
+                        }`}
+                        onContextMenu={(event) =>
+                          openPlacementMenu(event, item)
+                        }
+                      />
+                    }
                   >
-                    <span className="layout-content-shelf__preview">
-                      {asset?.thumbnailUrl ? (
-                        <img
-                          src={asset.thumbnailUrl}
-                          alt=""
-                          draggable={false}
-                        />
-                      ) : asset?.type === "widget" ? (
-                        <AppWindow size={18} />
-                      ) : playlist ? (
-                        <ListVideo size={18} />
-                      ) : (
-                        <ImageIcon size={18} />
-                      )}
-                    </span>
-                    <span>
-                      <strong>{name}</strong>
-                      <small>
-                        {playlist
-                          ? `${playlist.itemCount} items`
-                          : (asset?.widget?.provider ?? asset?.type)}
-                      </small>
-                    </span>
-                  </button>
-                );
-              })}
-              {!recentLibraryItems.length && (
-                <p className="layout-content-shelf__empty">
-                  No recently created {sidebarSection}. Use the browse button
-                  above to search the whole library.
-                </p>
-              )}
-            </div>
-          </>
-        )}
-        {sidebarSection === "elements" && (
-          <>
-            <div className="layout-panel-heading">
-              <strong>Elements</strong>
-            </div>
-            <div className="layout-add-grid">
-              <button onClick={() => addPrimitive("text")}>
-                <Type size={20} />
-                Text
-              </button>
-              <button onClick={() => addPrimitive("rectangle")}>
-                <RectangleHorizontal size={20} />
-                Rectangle
-              </button>
-              <button onClick={() => addPrimitive("circle")}>
-                <Circle size={20} />
-                Circle
-              </button>
-              <button onClick={() => addPrimitive("line")}>
-                <Minus size={20} />
-                Line
-              </button>
-            </div>
-          </>
-        )}
-        {sidebarSection === "layers" && (
-          <>
-            <div className="layout-panel-heading">
-              <strong>Layers</strong>
-              <span>{document.placements.length}</span>
-            </div>
-            <div className="layout-layers">
-              {[...document.placements]
-                .sort((a, b) => b.layer - a.layer)
-                .map((item) => (
-                  <ContextMenu key={item.id}>
-                    <ContextMenuTrigger
-                      render={
-                        <div
-                          className={`layout-layer-row${
-                            selection.has(item.id) ? " is-selected" : ""
-                          }`}
-                          onContextMenu={(event) =>
-                            openPlacementMenu(event, item)
-                          }
-                        />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="layout-layer-select h-auto min-w-0 w-full justify-start gap-1 p-0 text-left font-normal whitespace-normal"
+                      aria-pressed={selection.has(item.id)}
+                      onClick={(event) =>
+                        setSelection(
+                          new Set(
+                            event.shiftKey
+                              ? [...selection, item.id]
+                              : [item.id],
+                          ),
+                        )
                       }
                     >
-                      <button
-                        type="button"
-                        className="layout-layer-select"
-                        aria-pressed={selection.has(item.id)}
-                        onClick={(event) =>
-                          setSelection(
-                            new Set(
-                              event.shiftKey
-                                ? [...selection, item.id]
-                                : [item.id],
-                            ),
-                          )
-                        }
-                      >
-                        <span className="layout-layer-icon">
-                          {item.primitive?.kind === "text" ? (
-                            <Type size={14} />
-                          ) : item.primitive?.kind === "group" ? (
-                            <Group size={14} />
-                          ) : (
-                            <BoxSelect size={14} />
-                          )}
-                        </span>
-                        <span>{item.name}</span>
-                      </button>
-                      <span className="layout-layer-actions">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="layout-layer-toggle"
-                          aria-label={
-                            item.visible
-                              ? `Hide ${item.name}`
-                              : `Show ${item.name}`
-                          }
-                          aria-pressed={item.visible}
-                          title={item.visible ? "Hide" : "Show"}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            update((d) => {
-                              const target = d.placements.find(
-                                (x) => x.id === item.id,
-                              );
-                              if (target) target.visible = !target.visible;
-                            });
-                          }}
-                        >
-                          {item.visible ? (
-                            <Eye size={13} aria-hidden="true" />
-                          ) : (
-                            <EyeOff size={13} aria-hidden="true" />
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="layout-layer-toggle"
-                          aria-label={
-                            item.locked
-                              ? `Unlock ${item.name}`
-                              : `Lock ${item.name}`
-                          }
-                          aria-pressed={item.locked}
-                          title={item.locked ? "Unlock" : "Lock"}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            update((d) => {
-                              const target = d.placements.find(
-                                (x) => x.id === item.id,
-                              );
-                              if (target) target.locked = !target.locked;
-                            });
-                          }}
-                        >
-                          {item.locked ? (
-                            <Lock size={13} aria-hidden="true" />
-                          ) : (
-                            <LockOpen size={13} aria-hidden="true" />
-                          )}
-                        </Button>
+                      <span className="layout-layer-icon">
+                        {item.primitive?.kind === "text" ? (
+                          <Type size={14} />
+                        ) : item.primitive?.kind === "group" ? (
+                          <Group size={14} />
+                        ) : (
+                          <BoxSelect size={14} />
+                        )}
                       </span>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent aria-label={`Actions for ${item.name}`}>
-                      <LayoutEditorMenuEntries
-                        items={placementMenuItems(item)}
-                      />
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ))}
-            </div>
-            {!desktop && primary && (
-              <div className="layout-layer-inspector">
-                <div className="layout-panel-heading">
-                  <strong>Selected layer</strong>
-                  <span>{selected.length} selected</span>
-                </div>
-                <PlacementInspector
-                  item={primary}
-                  content={
-                    primary.widgetId
-                      ? contentByID.get(primary.widgetId)
-                      : primary.assetId
-                        ? contentByID.get(primary.assetId)
-                        : undefined
-                  }
-                  playlist={
-                    primary.playlistId
-                      ? playlistByID.get(primary.playlistId)
-                      : undefined
-                  }
-                  dataSources={dataSources}
-                  update={(change) => mutateSelected(change)}
-                  duplicate={duplicateSelection}
-                  group={groupSelection}
-                  ungroup={ungroupSelection}
-                  canGroup={selection.size > 1}
-                />
+                      <span>{item.name}</span>
+                    </Button>
+                    <span className="layout-layer-actions">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="layout-layer-toggle"
+                        aria-label={
+                          item.visible
+                            ? `Hide ${item.name}`
+                            : `Show ${item.name}`
+                        }
+                        aria-pressed={item.visible}
+                        title={item.visible ? "Hide" : "Show"}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          update((d) => {
+                            const target = d.placements.find(
+                              (x) => x.id === item.id,
+                            );
+                            if (target) target.visible = !target.visible;
+                          });
+                        }}
+                      >
+                        {item.visible ? (
+                          <Eye size={13} aria-hidden="true" />
+                        ) : (
+                          <EyeOff size={13} aria-hidden="true" />
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="layout-layer-toggle"
+                        aria-label={
+                          item.locked
+                            ? `Unlock ${item.name}`
+                            : `Lock ${item.name}`
+                        }
+                        aria-pressed={item.locked}
+                        title={item.locked ? "Unlock" : "Lock"}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          update((d) => {
+                            const target = d.placements.find(
+                              (x) => x.id === item.id,
+                            );
+                            if (target) target.locked = !target.locked;
+                          });
+                        }}
+                      >
+                        {item.locked ? (
+                          <Lock size={13} aria-hidden="true" />
+                        ) : (
+                          <LockOpen size={13} aria-hidden="true" />
+                        )}
+                      </Button>
+                    </span>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent aria-label={`Actions for ${item.name}`}>
+                    <LayoutEditorMenuEntries items={placementMenuItems(item)} />
+                  </ContextMenuContent>
+                </ContextMenu>
+              ))}
+          </div>
+          {!desktop && primary && (
+            <div className="layout-layer-inspector">
+              <div className="layout-panel-heading">
+                <strong>Selected layer</strong>
+                <span>{selected.length} selected</span>
               </div>
-            )}
-          </>
-        )}
-        {sidebarSection === "settings" && (
-          <>
-            <div className="layout-panel-heading">
-              <strong>Layout settings</strong>
-            </div>
-            <CanvasInspector document={document} update={update} />
-            {layoutQuery.data && (
-              <UsedByPanel
-                emptyMessage="No campaign, screen, or schedule shows this Layout yet."
-                groups={[
-                  {
-                    label: "Screens",
-                    items: layoutQuery.data.usage.screens,
-                    to: (screenId) => `/screens/${screenId}`,
-                  },
-                  {
-                    label: "Schedules",
-                    items: layoutQuery.data.usage.schedules,
-                    to: (scheduleId) => `/schedules/${scheduleId}`,
-                  },
-                  {
-                    label: "Campaigns",
-                    items: layoutQuery.data.usage.campaigns,
-                    to: (campaignId) => `/campaigns/${campaignId}`,
-                  },
-                ]}
+              <PlacementInspector
+                item={primary}
+                content={
+                  primary.widgetId
+                    ? contentByID.get(primary.widgetId)
+                    : primary.assetId
+                      ? contentByID.get(primary.assetId)
+                      : undefined
+                }
+                playlist={
+                  primary.playlistId
+                    ? playlistByID.get(primary.playlistId)
+                    : undefined
+                }
+                dataSources={dataSources}
+                update={(change) => mutateSelected(change)}
+                duplicate={duplicateSelection}
+                group={groupSelection}
+                ungroup={ungroupSelection}
+                canGroup={selection.size > 1}
               />
-            )}
-          </>
+            </div>
+          )}
+        </>
+      );
+    }
+    return (
+      <>
+        <div className="layout-panel-heading">
+          <strong>Layout settings</strong>
+        </div>
+        <CanvasInspector document={document} update={update} />
+        {layoutQuery.data && (
+          <UsedByPanel
+            emptyMessage="No campaign, screen, or schedule shows this Layout yet."
+            groups={[
+              {
+                label: "Screens",
+                items: layoutQuery.data.usage.screens,
+                to: (screenId) => `/screens/${screenId}`,
+              },
+              {
+                label: "Schedules",
+                items: layoutQuery.data.usage.schedules,
+                to: (scheduleId) => `/schedules/${scheduleId}`,
+              },
+              {
+                label: "Campaigns",
+                items: layoutQuery.data.usage.campaigns,
+                to: (campaignId) => `/campaigns/${campaignId}`,
+              },
+            ]}
+          />
         )}
-      </div>
+      </>
+    );
+  };
+  const librarySidebar = (
+    <aside className="layout-editor-left">
+      <Tabs
+        value={sidebarSection}
+        onValueChange={(value) => {
+          if (value) setSidebarSection(value as LayoutSidebarSection);
+        }}
+        orientation="vertical"
+        className="layout-sidebar-tabs"
+      >
+        <TabsList
+          variant="line"
+          className="layout-sidebar-nav"
+          aria-label="Layout builder"
+        >
+          {sidebarSections.map(([section, label, Icon]) => (
+            <TabsTrigger
+              key={section}
+              value={section}
+              className="layout-sidebar-tab"
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <div className="layout-sidebar-panel">
+          {sidebarSections.map(([section]) => (
+            <TabsContent
+              key={section}
+              value={section}
+              className="layout-sidebar-content"
+            >
+              {renderSidebarPanel(section)}
+            </TabsContent>
+          ))}
+        </div>
+      </Tabs>
     </aside>
   );
 
@@ -2537,15 +2589,21 @@ export function LayoutEditorPage() {
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-2">
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>Name</span>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="rename-target-name"
+                  className="text-sm font-medium"
+                >
+                  Name
+                </FieldLabel>
                 <Input
+                  id="rename-target-name"
                   value={renameValue}
                   autoFocus
                   maxLength={120}
                   onChange={(event) => setRenameValue(event.target.value)}
                 />
-              </label>
+              </Field>
             </div>
             <DialogFooter>
               <Button
@@ -3049,11 +3107,10 @@ export function LayoutEditorPage() {
           {stage}
         </>
       )}
-      {/* Mounted on demand, like the playlist editor: the picker keeps its search and
-          selection in local state, so a fresh mount is the reset. */}
+      {/* Keep the selected picker mounted until its generated Dialog completes closing. */}
       {(picker === "media" || picker === "widgets") && (
         <ContentPicker
-          open
+          open={pickerOpen}
           mode="multiple"
           csrf={csrf}
           allowedTypes={picker === "widgets" ? ["widget"] : ["image", "video"]}
@@ -3066,9 +3123,12 @@ export function LayoutEditorPage() {
           confirmLabel="Add to canvas"
           onConfirm={(assets) => {
             addContentBatch(assets);
-            setPicker(undefined);
+            setPickerOpen(false);
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
           onCreateWidget={() =>
             void navigate(
               `/widgets/new?returnTo=${encodeURIComponent(location.pathname)}`,
@@ -3078,14 +3138,17 @@ export function LayoutEditorPage() {
       )}
       {picker === "playlists" && (
         <PlaylistPicker
-          open
+          open={pickerOpen}
           description="Add a playlist zone that loops independently inside this Layout."
           confirmLabel="Add to canvas"
           onConfirm={(choice) => {
             if (choice.kind === "playlist") addPlaylistZone(choice.playlist);
-            setPicker(undefined);
+            setPickerOpen(false);
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
         />
       )}
       <Dialog open={preview} onOpenChange={setPreview}>
@@ -3277,7 +3340,7 @@ function PlacementView({
       className={`layout-placement ${selected ? "is-selected" : ""} ${item.locked ? "is-locked" : ""}`}
       style={style}
       onPointerDown={onPointerDown}
-      // Capture phase so the menu target is set before the Rhea trigger opens.
+      // Capture phase so the menu target is set before the Base UI trigger opens.
       onContextMenuCapture={onContextMenu}
     >
       {item.type === "playlistZone" ? (
@@ -3407,7 +3470,10 @@ function PlacementView({
         />
       )}
       {selected && !item.locked && onResize && (
-        <button
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-xs"
           className="layout-resize-handle"
           aria-label="Resize"
           onPointerDown={onResize}

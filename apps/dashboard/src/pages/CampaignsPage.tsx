@@ -20,7 +20,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -30,10 +30,10 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -50,7 +50,7 @@ import {
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -168,9 +168,9 @@ function CampaignLibrary() {
         </div>
         {canCreate && (
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton type="button" onClick={() => setCreating(true)}>
+            <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" /> Create campaign
-            </RheaButton>
+            </Button>
           </div>
         )}
       </header>
@@ -215,7 +215,7 @@ function CampaignLibrary() {
           ))}
         </div>
       )}
-      <RheaDialog
+      <Dialog
         open={creating}
         onOpenChange={(open) => {
           if (!open) closeCreate();
@@ -245,19 +245,19 @@ function CampaignLibrary() {
             )}
           </div>
           <DialogFooter>
-            <RheaButton type="button" variant="outline" onClick={closeCreate}>
+            <Button type="button" variant="outline" onClick={closeCreate}>
               Cancel
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               disabled={!name.trim() || create.isPending}
               onClick={() => create.mutate()}
             >
               {create.isPending ? "Creating…" : "Create campaign"}
-            </RheaButton>
+            </Button>
           </DialogFooter>
         </DialogContent>
-      </RheaDialog>
+      </Dialog>
     </section>
   );
 }
@@ -523,45 +523,45 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <RheaButton
+          <Button
             type="button"
             variant="outline"
             onClick={() => void preflightRun.mutate()}
             disabled={preflightRun.isPending}
           >
             Preflight
-          </RheaButton>
+          </Button>
           {canEdit && (
-            <RheaButton
+            <Button
               type="button"
               onClick={() => save.mutate()}
               disabled={save.isPending}
             >
               <Save size={16} aria-hidden="true" /> Save draft
-            </RheaButton>
+            </Button>
           )}
           {canPublish && (
-            <RheaButton
+            <Button
               type="button"
               onClick={() => publish.mutate()}
               disabled={publish.isPending}
             >
               <Send size={16} aria-hidden="true" /> Submit / publish
-            </RheaButton>
+            </Button>
           )}
           {canEdit && (
-            <RheaButton
+            <Button
               type="button"
               variant="outline"
               onClick={() => setConfirmingArchive(true)}
               disabled={archive.isPending}
             >
               <Archive size={16} aria-hidden="true" /> Archive
-            </RheaButton>
+            </Button>
           )}
         </div>
       </header>
-      <RheaAlertDialog
+      <AlertDialog
         open={confirmingArchive}
         onOpenChange={(open) => {
           if (!open) setConfirmingArchive(false);
@@ -587,7 +587,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
       {(save.error ||
         publish.error ||
         restore.error ||
@@ -736,7 +736,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       <FieldLabel htmlFor={`block-type-${block.id}`}>
                         Schedule type
                       </FieldLabel>
-                      <RheaSelect
+                      <Select
                         value={block.type}
                         onValueChange={(next) =>
                           updateBlock(block.id, {
@@ -758,7 +758,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             </SelectItem>
                           ))}
                         </SelectContent>
-                      </RheaSelect>
+                      </Select>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor={`block-timezone-${block.id}`}>
@@ -793,7 +793,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     {/* The wrapping label names the checkbox; no extra
                         aria-label. */}
                     <label className="flex items-center gap-2 text-sm">
-                      <RheaCheckbox
+                      <Checkbox
                         checked={block.enabled}
                         onCheckedChange={(checked) =>
                           updateBlock(block.id, {
@@ -908,7 +908,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                                 key={label}
                                 className="flex items-center gap-2 text-sm"
                               >
-                                <RheaCheckbox
+                                <Checkbox
                                   checked={(block.daysOfWeek ?? []).includes(
                                     day,
                                   )}
@@ -936,7 +936,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 )}
               </div>
               {canEdit && (
-                <RheaButton
+                <Button
                   type="button"
                   variant="outline"
                   className="w-fit"
@@ -950,7 +950,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   }
                 >
                   Remove
-                </RheaButton>
+                </Button>
               )}
             </div>
           ))}
@@ -960,7 +960,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 <FieldLabel htmlFor="campaign-content-type">
                   Content type
                 </FieldLabel>
-                <RheaSelect
+                <Select
                   value={selectedType}
                   onValueChange={(next) => {
                     setSelectedType(next as CampaignBlock["contentType"]);
@@ -981,11 +981,11 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </RheaSelect>
+                </Select>
               </Field>
               <Field>
                 <FieldLabel htmlFor="campaign-content">Content</FieldLabel>
-                <RheaSelect
+                <Select
                   value={selectedContent}
                   onValueChange={(next) => setSelectedContent(next as string)}
                   items={[
@@ -1007,16 +1007,16 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </RheaSelect>
+                </Select>
               </Field>
-              <RheaButton
+              <Button
                 type="button"
                 variant="outline"
                 onClick={addBlock}
                 disabled={!selectedContent}
               >
                 <Plus size={16} aria-hidden="true" /> Add block
-              </RheaButton>
+              </Button>
             </div>
           )}
         </section>
@@ -1043,7 +1043,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   )}
                 </span>
                 {canEdit && (
-                  <RheaButton
+                  <Button
                     type="button"
                     variant="outline"
                     size="sm"
@@ -1057,7 +1057,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     }
                   >
                     Remove
-                  </RheaButton>
+                  </Button>
                 )}
               </div>
             ))}
@@ -1068,7 +1068,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 <FieldLabel htmlFor="campaign-destination-type">
                   Destination type
                 </FieldLabel>
-                <RheaSelect
+                <Select
                   value={destinationType}
                   onValueChange={(next) => {
                     setDestinationType(next as CampaignDestination["type"]);
@@ -1089,13 +1089,13 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </RheaSelect>
+                </Select>
               </Field>
               <Field>
                 <FieldLabel htmlFor="campaign-destination">
                   Destination
                 </FieldLabel>
-                <RheaSelect
+                <Select
                   value={destination}
                   onValueChange={(next) => setDestination(next as string)}
                   items={[
@@ -1120,16 +1120,16 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </RheaSelect>
+                </Select>
               </Field>
-              <RheaButton
+              <Button
                 type="button"
                 variant="outline"
                 onClick={addDestination}
                 disabled={!destination}
               >
                 <Plus size={16} aria-hidden="true" /> Add destination
-              </RheaButton>
+              </Button>
             </div>
           )}
         </section>
@@ -1185,7 +1185,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 </span>
               </div>
               {canEdit && (
-                <RheaButton
+                <Button
                   type="button"
                   variant="outline"
                   size="sm"
@@ -1193,7 +1193,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   disabled={restore.isPending}
                 >
                   <RotateCcw size={16} aria-hidden="true" /> Restore to draft
-                </RheaButton>
+                </Button>
               )}
             </div>
           ))}
@@ -1224,7 +1224,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {canEdit && (
-                  <RheaButton
+                  <Button
                     type="button"
                     variant="outline"
                     size="sm"
@@ -1232,10 +1232,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     disabled={restorePublication.isPending}
                   >
                     Restore as draft
-                  </RheaButton>
+                  </Button>
                 )}
                 {canPublish && (
-                  <RheaButton
+                  <Button
                     type="button"
                     variant="outline"
                     size="sm"
@@ -1243,7 +1243,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     disabled={rollback.isPending}
                   >
                     Roll back to this release
-                  </RheaButton>
+                  </Button>
                 )}
               </div>
             </div>

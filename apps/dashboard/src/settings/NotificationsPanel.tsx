@@ -7,8 +7,8 @@ import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Empty,
   EmptyDescription,
@@ -170,7 +170,7 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
                 hours and subscriptions.
               </p>
             </div>
-            <RheaButton
+            <Button
               variant="secondary"
               disabled={!emailConfigured || sendTest.isPending}
               onClick={() => {
@@ -180,7 +180,7 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
             >
               <Send size={15} aria-hidden="true" />{" "}
               {sendTest.isPending ? "Sending…" : "Send a test to myself"}
-            </RheaButton>
+            </Button>
           </div>
           {testResult && (
             <p className="text-sm text-muted-foreground">{testResult}</p>
@@ -338,9 +338,9 @@ function WebhookSection({
               recent.
             </span>
             <div>
-              <RheaButton variant="ghost" onClick={onDismissSecret}>
+              <Button variant="ghost" onClick={onDismissSecret}>
                 I have copied it
-              </RheaButton>
+              </Button>
             </div>
           </AlertDescription>
         </Alert>
@@ -393,19 +393,19 @@ function WebhookSection({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <RheaButton variant="ghost" onClick={() => onTest(webhook.id)}>
+                <Button variant="ghost" onClick={() => onTest(webhook.id)}>
                   <Send size={15} aria-hidden="true" /> Test
-                </RheaButton>
-                <RheaButton variant="ghost" onClick={() => onToggle(webhook)}>
+                </Button>
+                <Button variant="ghost" onClick={() => onToggle(webhook)}>
                   {webhook.enabled ? "Disable" : "Enable"}
-                </RheaButton>
-                <RheaButton
+                </Button>
+                <Button
                   variant="destructive"
                   onClick={() => onRemove(webhook)}
                   aria-label={`Remove ${webhook.name}`}
                 >
                   <Trash2 size={15} aria-hidden="true" /> Remove
-                </RheaButton>
+                </Button>
               </div>
             </article>
           ))}
@@ -477,7 +477,7 @@ function WebhookSection({
                 orientation="horizontal"
                 className="items-center"
               >
-                <RheaCheckbox
+                <Checkbox
                   id={"webhook-category-" + category}
                   checked={categories.includes(category)}
                   onCheckedChange={(checked) =>
@@ -504,9 +504,9 @@ function WebhookSection({
           </Alert>
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <RheaButton variant="default" type="submit" disabled={creating}>
+          <Button variant="default" type="submit" disabled={creating}>
             {creating ? "Adding…" : "Add webhook"}
-          </RheaButton>
+          </Button>
         </div>
       </form>
     </section>

@@ -6,6 +6,15 @@ import type { LayoutSummary, Playlist } from "../../api/types";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../ui/item";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -39,6 +48,7 @@ export type PlaylistPickerProps = {
   selectedId?: string;
   onConfirm: (choice: PlaylistPickerChoice) => void;
   onClose: () => void;
+  onCloseComplete?: () => void;
 };
 
 /**
@@ -55,6 +65,7 @@ export function PlaylistPicker({
   selectedId = "",
   onConfirm,
   onClose,
+  onCloseComplete,
 }: PlaylistPickerProps) {
   const kinds: readonly PlaylistPickerKind[] =
     allowedKinds ?? (includeLayouts ? ["playlist", "layout"] : ["playlist"]);
@@ -113,6 +124,9 @@ export function PlaylistPicker({
       onOpenChange={(nextOpen) => {
         if (!nextOpen) onClose();
       }}
+      onOpenChangeComplete={(nextOpen) => {
+        if (!nextOpen) onCloseComplete?.();
+      }}
     >
       <DialogContent className="flex max-h-[min(90vh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
         <DialogHeader>
@@ -159,65 +173,79 @@ export function PlaylistPicker({
                 : `No ${noun} yet. Create one first.`}
             </p>
           ) : (
-            choices.map((choice) => {
-              const id = idOf(choice);
-              const tagDriven =
-                choice.kind === "playlist" &&
-                choice.playlist.sourceType === "tag";
-              return (
-                <button
-                  type="button"
-                  key={`${choice.kind}-${id}`}
-                  className={`flex items-center gap-3 rounded-xl border p-2 text-left hover:bg-muted ${id === chosen ? "border-primary bg-muted" : "border-border"}`}
-                  aria-pressed={id === chosen}
-                  onClick={() => setChosen(id)}
-                  onDoubleClick={() => onConfirm(choice)}
-                >
-                  <span
-                    className="block h-12 w-20 shrink-0 overflow-hidden rounded-lg bg-muted"
-                    data-orientation={
-                      choice.kind === "layout"
-                        ? choice.layout.orientation
-                        : undefined
+            <ItemGroup className="gap-2">
+              {choices.map((choice) => {
+                const id = idOf(choice);
+                const tagDriven =
+                  choice.kind === "playlist" &&
+                  choice.playlist.sourceType === "tag";
+                return (
+                  <Item
+                    key={`${choice.kind}-${id}`}
+                    variant={id === chosen ? "muted" : "outline"}
+                    size="sm"
+                    render={
+                      <button
+                        type="button"
+                        className="w-full text-left hover:bg-muted"
+                        aria-pressed={id === chosen}
+                      />
                     }
-                    aria-hidden="true"
+                    onClick={() => setChosen(id)}
+                    onDoubleClick={() => onConfirm(choice)}
                   >
-                    {choice.kind === "layout" ? (
-                      <LayoutPreview layout={choice.layout} />
-                    ) : (
-                      <PlaylistPreview playlist={choice.playlist} />
+                    <ItemMedia
+                      variant="image"
+                      className="h-12 w-20 rounded-lg bg-muted"
+                      data-orientation={
+                        choice.kind === "layout"
+                          ? choice.layout.orientation
+                          : undefined
+                      }
+                      aria-hidden="true"
+                    >
+                      {choice.kind === "layout" ? (
+                        <LayoutPreview layout={choice.layout} />
+                      ) : (
+                        <PlaylistPreview playlist={choice.playlist} />
+                      )}
+                    </ItemMedia>
+                    <ItemMedia
+                      variant="icon"
+                      className="text-muted-foreground"
+                      aria-hidden="true"
+                    >
+                      {choice.kind === "layout" ? (
+                        <LayoutTemplate size={17} />
+                      ) : tagDriven ? (
+                        <Tags size={17} />
+                      ) : (
+                        <ListVideo size={17} />
+                      )}
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>
+                        {choice.kind === "playlist"
+                          ? choice.playlist.name
+                          : choice.layout.name}
+                      </ItemTitle>
+                      <ItemDescription className="truncate">
+                        {choice.kind === "layout"
+                          ? `Layout · revision ${choice.layout.publishedRevision}`
+                          : `${choice.playlist.itemCount} item${
+                              choice.playlist.itemCount === 1 ? "" : "s"
+                            }${tagDriven ? " · tag-driven" : ""}`}
+                      </ItemDescription>
+                    </ItemContent>
+                    {id === chosen && (
+                      <ItemActions>
+                        <Check size={17} aria-label="Selected" />
+                      </ItemActions>
                     )}
-                  </span>
-                  <span
-                    className="shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  >
-                    {choice.kind === "layout" ? (
-                      <LayoutTemplate size={17} />
-                    ) : tagDriven ? (
-                      <Tags size={17} />
-                    ) : (
-                      <ListVideo size={17} />
-                    )}
-                  </span>
-                  <span className="grid min-w-0 gap-0.5">
-                    <strong className="truncate text-sm">
-                      {choice.kind === "playlist"
-                        ? choice.playlist.name
-                        : choice.layout.name}
-                    </strong>
-                    <small className="truncate text-xs text-muted-foreground">
-                      {choice.kind === "layout"
-                        ? `Layout · revision ${choice.layout.publishedRevision}`
-                        : `${choice.playlist.itemCount} item${
-                            choice.playlist.itemCount === 1 ? "" : "s"
-                          }${tagDriven ? " · tag-driven" : ""}`}
-                    </small>
-                  </span>
-                  {id === chosen && <Check size={17} aria-hidden="true" />}
-                </button>
-              );
-            })
+                  </Item>
+                );
+              })}
+            </ItemGroup>
           )}
         </div>
         <DialogFooter className="border-t border-border pt-3">

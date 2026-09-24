@@ -17,9 +17,14 @@ import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Badge } from "../components/ui/badge";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDay,
   formatDuration,
@@ -353,7 +358,14 @@ function ImportantTimeline({ items }: { items: Overview["timeline"] }) {
         )}
       </header>
       {visible.length === 0 ? (
-        <EmptyState message="No high-value events occurred in this range." />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>No activity</EmptyTitle>
+            <EmptyDescription>
+              No high-value events occurred in this range.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="grid gap-4">
           {days.map((entries) => (

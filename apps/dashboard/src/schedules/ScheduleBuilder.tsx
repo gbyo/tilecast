@@ -536,27 +536,25 @@ export function ScheduleEditorPage() {
             )}
           </footer>
         </form>
-        {playlistOpen && (
-          <PlaylistPicker
-            open
-            includeLayouts
-            confirmLabel="Use this presentation"
-            selectedId={input.layoutId ?? input.playlistId ?? ""}
-            onClose={() => setPlaylistOpen(false)}
-            onConfirm={(choice) => {
-              // A schedule targets one or the other, so choosing clears the other field.
-              set(
-                "playlistId",
-                choice.kind === "playlist" ? choice.playlist.id : undefined,
-              );
-              set(
-                "layoutId",
-                choice.kind === "layout" ? choice.layout.id : undefined,
-              );
-              setPlaylistOpen(false);
-            }}
-          />
-        )}
+        <PlaylistPicker
+          open={playlistOpen}
+          includeLayouts
+          confirmLabel="Use this presentation"
+          selectedId={input.layoutId ?? input.playlistId ?? ""}
+          onClose={() => setPlaylistOpen(false)}
+          onConfirm={(choice) => {
+            // A schedule targets one or the other, so choosing clears the other field.
+            set(
+              "playlistId",
+              choice.kind === "playlist" ? choice.playlist.id : undefined,
+            );
+            set(
+              "layoutId",
+              choice.kind === "layout" ? choice.layout.id : undefined,
+            );
+            setPlaylistOpen(false);
+          }}
+        />
       </section>
     </>
   );

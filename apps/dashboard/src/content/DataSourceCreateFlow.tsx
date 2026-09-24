@@ -13,7 +13,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../api/client";
 import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import { DataSourceEditor } from "./data-sources/dispatcher";
 import {
   providerGalleryDescription,
@@ -137,7 +137,7 @@ export function DataSourceProviderGallery({
                 `Choose what you are connecting. Every provider uses the same compact, predictable setup pattern. ${definitions.offered.length} typed projectors are available in the current server catalog.`}
             </p>
           </div>
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -145,11 +145,11 @@ export function DataSourceProviderGallery({
             onClick={onClose}
           >
             <X size={18} aria-hidden="true" />
-          </RheaButton>
+          </Button>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {definitions.offered.map((definition) => (
-            <RheaButton
+            <Button
               type="button"
               key={definition.id}
               variant="outline"
@@ -161,7 +161,7 @@ export function DataSourceProviderGallery({
               <span className="text-xs font-normal text-muted-foreground">
                 {providerGalleryDescription(definition)}
               </span>
-            </RheaButton>
+            </Button>
           ))}
         </div>
         {!definitions.isLoading && definitions.offered.length === 0 && (
@@ -197,9 +197,9 @@ export function DataSourceCreateShell({
   return (
     <div className="grid w-full min-w-0 gap-5">
       <div className="grid gap-4">
-        <RheaButton type="button" variant="ghost" onClick={onClose}>
+        <Button type="button" variant="ghost" onClick={onClose}>
           <ArrowLeft size={16} aria-hidden="true" /> {backLabel}
-        </RheaButton>
+        </Button>
         <div className="flex items-start gap-3">
           <span className="text-muted-foreground">
             {sourceIcon(provider, definition)}
@@ -315,7 +315,7 @@ export function ConnectDataFlow({
             : providerLabel(provider)
         } Data Source`}
       >
-        <RheaButton
+        <Button
           type="button"
           variant="ghost"
           size="icon"
@@ -324,7 +324,7 @@ export function ConnectDataFlow({
           onClick={onClose}
         >
           <X size={18} aria-hidden="true" />
-        </RheaButton>
+        </Button>
         <DataSourceCreateShell
           provider={provider}
           definition={definition}

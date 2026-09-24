@@ -3,7 +3,7 @@ import type { LayoutDocument } from "../../api/types";
 import { Field, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -36,7 +36,7 @@ export function CanvasInspector({
       <InspectorSection title="Canvas size">
         <Field>
           <FieldLabel htmlFor="canvas-preset">Canvas preset</FieldLabel>
-          <RheaSelect
+          <Select
             value={presetValue}
             onValueChange={(next) => {
               const [width, height] = (next || presetValue)
@@ -66,7 +66,7 @@ export function CanvasInspector({
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField

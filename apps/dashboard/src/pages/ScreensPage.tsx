@@ -121,6 +121,7 @@ import {
   Field,
   FieldContent,
   FieldDescription,
+  FieldError,
   FieldLabel,
   FieldLegend,
   FieldSet,
@@ -420,8 +421,10 @@ function LocationPicker({
     }),
   ];
   return (
-    <label className="grid gap-2 text-sm font-medium">
-      <span>Location (optional)</span>
+    <Field className="gap-2">
+      <FieldLabel htmlFor="screen-location" className="text-sm font-medium">
+        Location (optional)
+      </FieldLabel>
       <Select
         items={items}
         value={value ?? "__unassigned__"}
@@ -429,7 +432,7 @@ function LocationPicker({
           onChange(next === "__unassigned__" || !next ? undefined : next)
         }
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger id="screen-location" className="w-full">
           <SelectValue placeholder="Unassigned" />
         </SelectTrigger>
         <SelectContent>
@@ -451,7 +454,7 @@ function LocationPicker({
       >
         Create new location
       </Link>
-    </label>
+    </Field>
   );
 }
 
@@ -684,14 +687,20 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
                 reason to the cancellation record.
               </DialogDescription>
             </DialogHeader>
-            <label className="grid gap-2 text-sm font-medium">
-              <span>Cancellation reason (optional)</span>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-cancel-reason"
+                className="text-sm font-medium"
+              >
+                Cancellation reason (optional)
+              </FieldLabel>
               <Input
+                id="takeover-cancel-reason"
                 value={cancelReason}
                 maxLength={500}
                 onChange={(event) => setCancelReason(event.target.value)}
               />
-            </label>
+            </Field>
             <DialogFooter>
               <Button
                 variant="outline"
@@ -912,16 +921,27 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
-            <label className="grid gap-2 text-sm font-medium">
-              <span>Takeover name</span>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-name"
+                className="text-sm font-medium"
+              >
+                Takeover name
+              </FieldLabel>
               <Input
+                id="takeover-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 maxLength={180}
               />
-            </label>
-            <label className="grid gap-2 text-sm font-medium">
-              <span>Playlist</span>
+            </Field>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-playlist"
+                className="text-sm font-medium"
+              >
+                Playlist
+              </FieldLabel>
               <Select
                 items={(playlists.data?.items ?? []).map((playlist) => ({
                   value: playlist.id,
@@ -930,7 +950,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                 value={playlistId || null}
                 onValueChange={(value) => setPlaylistId(value ?? "")}
               >
-                <SelectTrigger className="w-full" aria-label="Playlist">
+                <SelectTrigger id="takeover-playlist" className="w-full">
                   <SelectValue placeholder="Select playlist" />
                 </SelectTrigger>
                 <SelectContent>
@@ -941,9 +961,14 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                   ))}
                 </SelectContent>
               </Select>
-            </label>
-            <label className="grid gap-2 text-sm font-medium">
-              <span>Expires in</span>
+            </Field>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-duration"
+                className="text-sm font-medium"
+              >
+                Expires in
+              </FieldLabel>
               <Select
                 items={[
                   { value: "15", label: "15 minutes" },
@@ -956,7 +981,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                   if (value) setMinutes(Number(value));
                 }}
               >
-                <SelectTrigger className="w-full" aria-label="Expires in">
+                <SelectTrigger id="takeover-duration" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -966,7 +991,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                   <SelectItem value="1440">24 hours</SelectItem>
                 </SelectContent>
               </Select>
-            </label>
+            </Field>
             <fieldset className="grid gap-3 border-t border-border pt-4">
               <legend className="text-sm font-semibold">Target screens</legend>
               <div className="flex flex-wrap items-center gap-3">
@@ -1145,16 +1170,22 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
                 takeover can start.
               </DialogDescription>
             </DialogHeader>
-            <label className="grid gap-2 text-sm font-medium">
-              <span>Current password</span>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-current-password"
+                className="text-sm font-medium"
+              >
+                Current password
+              </FieldLabel>
               <Input
+                id="takeover-current-password"
                 type="password"
                 autoComplete="current-password"
                 autoFocus
                 value={activationPassword}
                 onChange={(event) => setActivationPassword(event.target.value)}
               />
-            </label>
+            </Field>
             {activate.error && (
               <Alert variant="destructive">
                 <CircleAlert aria-hidden="true" />
@@ -1601,14 +1632,16 @@ export function ScreenListContent({
                   <span>
                     {filter.facet}: {filter.value}
                   </span>
-                  <button
+                  <Button
                     type="button"
                     aria-label={`Remove filter ${filter.facet}: ${filter.value}`}
                     onClick={filter.remove}
+                    variant="ghost"
+                    size="icon-xs"
                     className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <X className="size-3" aria-hidden="true" />
-                  </button>
+                  </Button>
                 </Badge>
               ))}
               <Button variant="ghost" size="xs" onClick={clearFilters}>
@@ -3330,11 +3363,13 @@ export function ScreenDetailPage() {
                 </AlertDescription>
               </Alert>
             )}
-            <label
-              className="grid gap-2 text-sm font-medium"
-              htmlFor="editScreenName"
-            >
-              <span>Screen name</span>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="editScreenName"
+                className="text-sm font-medium"
+              >
+                Screen name
+              </FieldLabel>
               <Input
                 id="editScreenName"
                 autoFocus
@@ -3342,11 +3377,11 @@ export function ScreenDetailPage() {
                 {...detailsForm.register("name")}
               />
               {detailsForm.formState.errors.name?.message && (
-                <span className="text-xs text-destructive">
+                <FieldError>
                   {detailsForm.formState.errors.name.message}
-                </span>
+                </FieldError>
               )}
-            </label>
+            </Field>
             <LocationPicker
               locations={locations.data?.items ?? []}
               value={detailsForm.watch("locationId")}
@@ -3357,42 +3392,48 @@ export function ScreenDetailPage() {
               }
             />
             <div className="grid gap-4 sm:grid-cols-2">
-              <label
-                className="grid gap-2 text-sm font-medium"
-                htmlFor="editScreenRoomName"
-              >
-                <span>Room name (optional)</span>
+              <Field className="gap-2">
+                <FieldLabel
+                  htmlFor="editScreenRoomName"
+                  className="text-sm font-medium"
+                >
+                  Room name (optional)
+                </FieldLabel>
                 <Input
                   id="editScreenRoomName"
                   {...detailsForm.register("roomName")}
                 />
-              </label>
-              <label
-                className="grid gap-2 text-sm font-medium"
-                htmlFor="editScreenRoomNumber"
-              >
-                <span>Room number (optional)</span>
+              </Field>
+              <Field className="gap-2">
+                <FieldLabel
+                  htmlFor="editScreenRoomNumber"
+                  className="text-sm font-medium"
+                >
+                  Room number (optional)
+                </FieldLabel>
                 <Input
                   id="editScreenRoomNumber"
                   {...detailsForm.register("roomNumber")}
                 />
-              </label>
+              </Field>
             </div>
-            <label
-              className="grid gap-2 text-sm font-medium"
-              htmlFor="editScreenDescription"
-            >
-              <span>Description (optional)</span>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="editScreenDescription"
+                className="text-sm font-medium"
+              >
+                Description (optional)
+              </FieldLabel>
               <Textarea
                 id="editScreenDescription"
                 {...detailsForm.register("description")}
               />
               {detailsForm.formState.errors.description?.message && (
-                <span className="text-xs text-destructive">
+                <FieldError>
                   {detailsForm.formState.errors.description.message}
-                </span>
+                </FieldError>
               )}
-            </label>
+            </Field>
             <DialogFooter>
               <Button
                 variant="outline"
@@ -5123,9 +5164,15 @@ export function ScreenDetailPage() {
                   {screenCommandAction.description}
                 </DialogDescription>
               </DialogHeader>
-              <label className="grid gap-2 text-sm font-medium">
-                <span>{screenCommandAction.input.label}</span>
+              <Field className="gap-2">
+                <FieldLabel
+                  htmlFor="screen-command-input"
+                  className="text-sm font-medium"
+                >
+                  {screenCommandAction.input.label}
+                </FieldLabel>
                 <Input
+                  id="screen-command-input"
                   autoFocus
                   aria-label={screenCommandAction.input.label}
                   type={screenCommandAction.input.type}
@@ -5138,7 +5185,7 @@ export function ScreenDetailPage() {
                     setScreenCommandError("");
                   }}
                 />
-              </label>
+              </Field>
               {screenCommandError && (
                 <p className="text-sm text-destructive" role="alert">
                   {screenCommandError}

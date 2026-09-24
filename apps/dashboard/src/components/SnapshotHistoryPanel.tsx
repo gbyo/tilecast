@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { api } from "../api/client";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { buttonVariants } from "./ui/button";
+import { Button, buttonVariants } from "./ui/button";
 import {
   Empty,
   EmptyContent,
@@ -74,9 +74,10 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {data.items.map((snapshot) => (
           <figure key={snapshot.id} className="min-w-0 space-y-1">
-            <button
+            <Button
               type="button"
-              className="block w-full overflow-hidden rounded-xl border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              variant="ghost"
+              className="block h-auto w-full overflow-hidden rounded-xl border border-border p-0"
               aria-label={`View the snapshot from ${new Date(snapshot.capturedAt).toLocaleString()}`}
               aria-expanded={openId === snapshot.id}
               onClick={() =>
@@ -89,7 +90,7 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
                 loading="lazy"
                 className="aspect-video w-full object-cover"
               />
-            </button>
+            </Button>
             <figcaption className="text-xs text-muted-foreground">
               {new Date(snapshot.capturedAt).toLocaleString()}
               {snapshot.trigger === "manual" ? " · manual" : ""}

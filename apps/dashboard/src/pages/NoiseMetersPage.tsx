@@ -13,7 +13,7 @@ import { FormField } from "../components/FormField";
 import { scheduleWeekdays } from "../schedules/scheduleBuilderModel";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Item,
   ItemActions,
@@ -35,7 +35,7 @@ import {
 } from "../components/ui/empty";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -367,7 +367,7 @@ export function NoiseMetersPage() {
                     Manage
                   </Link>
                   {manageable && (
-                    <RheaButton
+                    <Button
                       type="button"
                       size="icon"
                       variant="destructive"
@@ -384,7 +384,7 @@ export function NoiseMetersPage() {
                       }}
                     >
                       <Trash2 size={16} aria-hidden="true" />
-                    </RheaButton>
+                    </Button>
                   )}
                 </ItemActions>
               </Item>
@@ -636,7 +636,7 @@ export function NoiseMeterEditorPage() {
               <FieldLabel htmlFor="noise-meter-display-mode">
                 Display mode
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={noiseDisplayModeOptions}
                 name="displayMode"
                 value={displayMode}
@@ -658,7 +658,7 @@ export function NoiseMeterEditorPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <FormField
               id="noise-meter-height"
@@ -776,7 +776,7 @@ export function NoiseMeterEditorPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="noise-meter-retention">Retention</FieldLabel>
-              <RheaSelect
+              <Select
                 items={retentionOptions}
                 name="historyRetentionDays"
                 value={String(historyRetentionDays)}
@@ -800,7 +800,7 @@ export function NoiseMeterEditorPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
               <FieldDescription>
                 How long measurements are kept before they are removed
                 automatically.
@@ -846,13 +846,13 @@ export function NoiseMeterEditorPage() {
           >
             Cancel
           </Link>
-          <RheaButton type="submit" disabled={save.isPending}>
+          <Button type="submit" disabled={save.isPending}>
             {save.isPending
               ? "Saving…"
               : editing
                 ? "Save changes"
                 : "Create instance"}
-          </RheaButton>
+          </Button>
         </div>
       </form>
     </main>

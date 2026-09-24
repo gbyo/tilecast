@@ -412,7 +412,9 @@ describe("Activity filters", () => {
     renderPage("/activity?tab=proof");
 
     await user.click(await screen.findByRole("combobox", { name: "Screen" }));
-    await user.click(screen.getByRole("option", { name: "Lobby north" }));
+    await user.click(
+      await screen.findByRole("option", { name: "Lobby north" }),
+    );
 
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toContain(
@@ -439,7 +441,7 @@ describe("Activity filters", () => {
     const user = userEvent.setup();
     renderPage("/activity?tab=proof&screen=screen-1&media=asset-1");
 
-    await user.click(await screen.findByRole("button", { name: "Audit Log" }));
+    await user.click(await screen.findByRole("tab", { name: "Audit Log" }));
 
     await waitFor(() => {
       const search = screen.getByRole("status").textContent ?? "";

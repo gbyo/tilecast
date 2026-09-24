@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { DisplayControlGroupPreview } from "../api/types";
 import { Alert, AlertDescription } from "./ui/alert";
-import { Button as RheaButton } from "./ui/button";
+import { Button } from "./ui/button";
 import { toast } from "./ui/toast";
 
 type GroupDisplayCommand = DisplayControlGroupPreview["commandType"];
@@ -85,7 +85,7 @@ export function DisplayControlGroupActions({
         aria-label="Display Group actions"
       >
         {actions.map((action) => (
-          <RheaButton
+          <Button
             key={action.commandType}
             type="button"
             variant={
@@ -98,7 +98,7 @@ export function DisplayControlGroupActions({
             }}
           >
             {action.label}
-          </RheaButton>
+          </Button>
         ))}
       </div>
       {memberCount === 0 ? (
@@ -146,13 +146,13 @@ export function DisplayControlGroupActions({
               {data.eligibleCount === 1 ? "" : "s"} · capability snapshot
               refreshes automatically
             </span>
-            <RheaButton
+            <Button
               type="button"
               disabled={apply.isPending || data.eligibleCount === 0}
               onClick={() => apply.mutate()}
             >
               {apply.isPending ? "Sending…" : "Send to supported displays"}
-            </RheaButton>
+            </Button>
           </div>
           {lastResult && (
             <Alert>

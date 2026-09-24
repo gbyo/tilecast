@@ -6,6 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { Field, FieldLabel } from "./ui/field";
 
 export type TimeRangePreset = "24h" | "7d" | "30d" | "custom";
 
@@ -118,8 +119,10 @@ export function TimeRangePicker({
       role="group"
       aria-label="Date range"
     >
-      <span className="grid gap-1 text-xs font-medium">
-        <span>Date range</span>
+      <Field className="w-fit gap-1">
+        <FieldLabel htmlFor="time-range-preset" className="text-xs font-medium">
+          Date range
+        </FieldLabel>
         <Select
           items={timeRangeItems}
           value={preset}
@@ -127,7 +130,7 @@ export function TimeRangePicker({
             if (next) onPresetChange(next);
           }}
         >
-          <SelectTrigger className="w-40" aria-label="Date range">
+          <SelectTrigger id="time-range-preset" className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -138,11 +141,16 @@ export function TimeRangePicker({
             ))}
           </SelectContent>
         </Select>
-      </span>
+      </Field>
       {preset === "custom" && (
         <>
-          <label className="grid gap-1 text-xs font-medium">
-            <span>From</span>
+          <Field className="w-fit gap-1">
+            <FieldLabel
+              htmlFor="time-range-from"
+              className="text-xs font-medium"
+            >
+              From
+            </FieldLabel>
             <DateTimeInput
               id="time-range-from"
               aria-label="From"
@@ -151,9 +159,11 @@ export function TimeRangePicker({
               max={customTo || undefined}
               onChange={onCustomFromChange}
             />
-          </label>
-          <label className="grid gap-1 text-xs font-medium">
-            <span>To</span>
+          </Field>
+          <Field className="w-fit gap-1">
+            <FieldLabel htmlFor="time-range-to" className="text-xs font-medium">
+              To
+            </FieldLabel>
             <DateTimeInput
               id="time-range-to"
               aria-label="To"
@@ -162,7 +172,7 @@ export function TimeRangePicker({
               min={customFrom || undefined}
               onChange={onCustomToChange}
             />
-          </label>
+          </Field>
         </>
       )}
     </div>

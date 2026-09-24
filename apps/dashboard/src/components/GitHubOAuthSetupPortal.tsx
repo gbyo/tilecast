@@ -9,7 +9,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button, buttonVariants } from "./ui/button";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Input } from "./ui/input";
+import { Field, FieldLabel } from "./ui/field";
 import { toast } from "./ui/toast";
 
 type ActiveFlow = GitHubDeviceStart & { retryAfterSeconds: number };
@@ -212,7 +213,7 @@ export function GitHubOAuthSetupPortal() {
           </Button>,
           target,
         )}
-      <RheaDialog
+      <Dialog
         open={setupOpen}
         onOpenChange={(open) => {
           if (!open) setSetupOpen(false);
@@ -285,9 +286,15 @@ export function GitHubOAuthSetupPortal() {
               title="Paste the Client ID"
               body="After GitHub registers the app, copy its Client ID and paste it below. Tilecast saves it in persistent application data and then starts sign-in immediately."
             >
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>GitHub Client ID</span>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="github-client-id"
+                  className="text-sm font-medium"
+                >
+                  GitHub Client ID
+                </FieldLabel>
                 <Input
+                  id="github-client-id"
                   value={clientId}
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -295,7 +302,7 @@ export function GitHubOAuthSetupPortal() {
                   placeholder="Ov23li…"
                   onChange={(event) => setClientId(event.target.value)}
                 />
-              </label>
+              </Field>
             </SetupStep>
 
             {message && (
@@ -322,9 +329,9 @@ export function GitHubOAuthSetupPortal() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </RheaDialog>
+      </Dialog>
 
-      <RheaDialog
+      <Dialog
         open={Boolean(flow)}
         onOpenChange={(open) => {
           if (!open) setFlow(null);
@@ -358,7 +365,7 @@ export function GitHubOAuthSetupPortal() {
             </div>
           )}
         </DialogContent>
-      </RheaDialog>
+      </Dialog>
     </>
   );
 }
@@ -403,10 +410,20 @@ function CopyValue({
   onCopy: (label: string, value: string) => Promise<void>;
 }) {
   return (
-    <label className="grid gap-1 text-xs text-muted-foreground">
-      <span>{label}</span>
+    <Field className="gap-1">
+      <FieldLabel
+        htmlFor={`copy-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+        className="text-xs text-muted-foreground"
+      >
+        {label}
+      </FieldLabel>
       <span className="grid grid-cols-[minmax(0,1fr)_auto] gap-1.5">
-        <Input value={value} readOnly className="h-8 text-xs" />
+        <Input
+          id={`copy-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+          value={value}
+          readOnly
+          className="h-8 text-xs"
+        />
         <Button
           type="button"
           variant="ghost"
@@ -422,6 +439,6 @@ function CopyValue({
           )}
         </Button>
       </span>
-    </label>
+    </Field>
   );
 }

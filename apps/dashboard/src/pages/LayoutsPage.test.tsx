@@ -113,7 +113,7 @@ function renderPage() {
 describe("layout library page", () => {
   it("shows the saved layout render instead of rebuilding a live preview", async () => {
     const { container } = renderPage();
-    await screen.findByRole("button", { name: "Edit Lobby" });
+    await screen.findByRole("link", { name: "Edit Lobby" });
     expect(
       container.querySelector(".layout-library-thumbnail"),
     ).toHaveAttribute("src", savedLayout.previewImageUrl);
@@ -122,7 +122,7 @@ describe("layout library page", () => {
   it("labels each toolbar filter with its option label, not its value", async () => {
     const user = userEvent.setup();
     renderPage();
-    await screen.findByRole("button", { name: "Edit Lobby" });
+    await screen.findByRole("link", { name: "Edit Lobby" });
 
     const orientation = screen.getByRole("combobox", {
       name: "Filter layouts by orientation",
@@ -143,7 +143,7 @@ describe("layout library page", () => {
     expect(orientation).toHaveTextContent("Portrait");
     expect(orientation).not.toHaveTextContent("portrait");
     expect(
-      screen.queryByRole("button", { name: "Edit Lobby" }),
+      screen.queryByRole("link", { name: "Edit Lobby" }),
     ).not.toBeInTheDocument();
   });
 
@@ -162,7 +162,7 @@ describe("layout library page", () => {
     // Base UI menus open on the contextmenu event in this suite; the card
     // offers the same actions through right-click and the actions button.
     fireEvent.contextMenu(
-      await screen.findByRole("button", { name: "Edit Lobby" }),
+      await screen.findByRole("link", { name: "Edit Lobby" }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
     const renameDialog = await screen.findByRole("dialog", {

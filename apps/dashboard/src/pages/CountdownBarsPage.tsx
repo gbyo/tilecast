@@ -14,7 +14,7 @@ import { FormField } from "../components/FormField";
 import { scheduleWeekdays } from "../schedules/scheduleBuilderModel";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Item,
   ItemActions,
@@ -41,7 +41,7 @@ import {
   FieldLabel,
 } from "../components/ui/field";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -351,7 +351,7 @@ export function CountdownBarsPage() {
                     Manage
                   </Link>
                   {manageable && (
-                    <RheaButton
+                    <Button
                       type="button"
                       size="icon"
                       variant="destructive"
@@ -368,7 +368,7 @@ export function CountdownBarsPage() {
                       }}
                     >
                       <Trash2 size={16} aria-hidden="true" />
-                    </RheaButton>
+                    </Button>
                   )}
                 </ItemActions>
               </Item>
@@ -616,7 +616,7 @@ export function CountdownBarEditorPage() {
           <h2 className="text-base font-semibold">Timing</h2>
           <Field>
             <FieldLabel htmlFor="countdown-schedule-type">Schedule</FieldLabel>
-            <RheaSelect
+            <Select
               items={scheduleTypeOptions}
               name="scheduleType"
               value={scheduleType}
@@ -634,7 +634,7 @@ export function CountdownBarEditorPage() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
           </Field>
           {scheduleType === "weekly" ? (
             <>
@@ -743,7 +743,7 @@ export function CountdownBarEditorPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="countdown-display-mode">Mode</FieldLabel>
-              <RheaSelect
+              <Select
                 items={displayModeOptions}
                 name="displayMode"
                 value={displayMode}
@@ -761,13 +761,13 @@ export function CountdownBarEditorPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor="countdown-progress-fill">
                 Background countdown
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={progressFillOptions}
                 name="progressFill"
                 value={progressFill}
@@ -788,7 +788,7 @@ export function CountdownBarEditorPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
               <FieldDescription>
                 Drain empties the bar from right to left as the target
                 approaches.
@@ -930,13 +930,13 @@ export function CountdownBarEditorPage() {
           >
             Cancel
           </Link>
-          <RheaButton type="submit" disabled={save.isPending}>
+          <Button type="submit" disabled={save.isPending}>
             {save.isPending
               ? "Saving…"
               : editing
                 ? "Save changes"
                 : "Create instance"}
-          </RheaButton>
+          </Button>
         </div>
       </form>
     </main>

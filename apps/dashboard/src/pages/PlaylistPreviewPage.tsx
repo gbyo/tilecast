@@ -21,6 +21,7 @@ import { api } from "../api/client";
 import type { PlaylistItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { DeclarativePresentationPreview } from "../content/SourceEditors";
+import { Button } from "../components/ui/button";
 
 export function nextPlaylistPreviewItem(
   index: number,
@@ -62,15 +63,17 @@ function PreviewControl({
   children: ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon"
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`grid size-10 cursor-pointer place-items-center rounded-lg border border-[#445668] bg-transparent p-0 text-[#f5f7fa] hover:bg-[#202c38] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6f94eb] disabled:cursor-default disabled:text-[#667582] disabled:hover:bg-transparent ${className}`}
+      className={`cursor-pointer rounded-lg border border-[#445668] bg-transparent p-0 text-[#f5f7fa] hover:bg-[#202c38] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6f94eb] disabled:cursor-default disabled:text-[#667582] disabled:hover:bg-transparent ${className}`}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

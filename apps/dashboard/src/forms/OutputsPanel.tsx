@@ -3,7 +3,7 @@ import type { FormDataSource, FormOutputView } from "../api/types";
 import { api } from "../api/client";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -93,7 +93,7 @@ export function OutputsPanel({
           </span>
         </div>
         {canManage && (
-          <RheaButton
+          <Button
             variant="secondary"
             disabled={rebuild.isPending}
             aria-busy={rebuild.isPending || undefined}
@@ -101,7 +101,7 @@ export function OutputsPanel({
           >
             {rebuild.isPending && <Spinner aria-hidden="true" />}
             Rebuild outputs
-          </RheaButton>
+          </Button>
         )}
       </div>
 

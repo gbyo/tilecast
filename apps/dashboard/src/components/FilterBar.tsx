@@ -9,6 +9,7 @@ import {
 import { useSearchParams } from "react-router";
 import { X } from "lucide-react";
 import { DashboardSearch } from "./DashboardListToolbar";
+import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
   Select,
@@ -287,10 +288,12 @@ export function FilterChips({
       {active.map(({ definition, value }) => {
         const shown = describeValue(definition, value);
         return (
-          <button
+          <Button
             key={definition.key}
             type="button"
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs hover:bg-muted/60"
+            variant="ghost"
+            size="xs"
+            className="h-6 gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-normal text-foreground hover:bg-muted/60"
             // The visible text is repeated verbatim so the accessible name
             // still contains the label a sighted person is reading.
             aria-label={`Remove filter ${definition.label}: ${shown}`}
@@ -299,16 +302,18 @@ export function FilterChips({
             <strong className="font-medium">{definition.label}:</strong>
             <span>{shown}</span>
             <X size={13} aria-hidden="true" />
-          </button>
+          </Button>
         );
       })}
-      <button
+      <Button
         type="button"
-        className="rounded-full px-2 py-0.5 text-xs font-medium text-primary hover:underline"
+        variant="link"
+        size="xs"
+        className="h-6 rounded-full px-2 text-xs font-medium"
         onClick={onClear}
       >
         Clear all
-      </button>
+      </Button>
     </div>
   );
 }

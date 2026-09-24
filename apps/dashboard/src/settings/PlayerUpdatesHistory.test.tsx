@@ -173,11 +173,11 @@ describe("Player update deployment history", () => {
   it("records a platform switch in the URL", async () => {
     renderPanel();
     expect(await screen.findByText("Available Android releases")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Linux" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Linux" }));
     expect(await screen.findByText("Available Linux releases")).toBeTruthy();
     expect(screen.getByTestId("search").textContent).toBe("?platform=linux");
     // Android is the default, so it leaves no parameter behind.
-    await userEvent.click(screen.getByRole("button", { name: "Android" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Android" }));
     expect(await screen.findByText("Available Android releases")).toBeTruthy();
     expect(screen.getByTestId("search").textContent).toBe("");
   });

@@ -18,7 +18,7 @@ import {
   FieldSet,
 } from "../components/ui/field";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -170,7 +170,7 @@ export function TargetFields<TForm extends FieldValues>({
         <FieldLabel htmlFor={`${idPrefix}-target-scope`}>
           Target type
         </FieldLabel>
-        <RheaSelect
+        <Select
           items={targetScopeOptions}
           name="targetScope"
           value={scope}
@@ -191,7 +191,7 @@ export function TargetFields<TForm extends FieldValues>({
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
+        </Select>
       </Field>
       {source && (
         <FieldSet

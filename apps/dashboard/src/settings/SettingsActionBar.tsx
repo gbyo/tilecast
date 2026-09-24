@@ -1,4 +1,4 @@
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 
 export function SettingsActionBar({
   dirty,
@@ -40,28 +40,28 @@ export function SettingsActionBar({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {error && onReload && (
-          <RheaButton type="button" variant="ghost" onClick={onReload}>
+          <Button type="button" variant="ghost" onClick={onReload}>
             Reload settings
-          </RheaButton>
+          </Button>
         )}
         {dirty && (
           <>
-            <RheaButton
+            <Button
               type="button"
               variant="ghost"
               disabled={saving}
               onClick={onCancel}
             >
               Cancel
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               variant="default"
               disabled={saving}
               onClick={onSave}
             >
               {saving ? "Saving…" : "Save changes"}
-            </RheaButton>
+            </Button>
           </>
         )}
       </div>

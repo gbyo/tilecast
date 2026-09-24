@@ -360,55 +360,36 @@ function GenericEditorShell({
     </div>
   );
   return (
-    <div className="details-backdrop">
-      <section
-        className={`asset-details source-editor${preview ? " widget-editor" : ""}`}
-      >
-        <header>
-          <div>
-            <h2>{title}</h2>
-            <p>{description}</p>
-          </div>
-          <Button variant="ghost" onClick={onClose}>
-            Close
-          </Button>
-        </header>
-        {preview ? (
-          <div className="widget-editor__layout">
-            <div className="widget-editor__form">
-              <EditorSection
-                title="Widget details"
-                description="Name this Widget so it is easy to recognize later."
-              >
-                {details}
-              </EditorSection>
-              <EditorSection
-                title="Content and appearance"
-                description="Choose what appears on screen and how it should be presented."
-              >
-                {children}
-              </EditorSection>
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>
-                    {error instanceof ApiError ? error.message : error.message}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-            <aside className="widget-editor__preview" aria-label="Live preview">
-              <header>
-                <strong>Live preview</strong>
-                <span>Updates as you make changes.</span>
-              </header>
-              {previewControl}
-              {preview}
-            </aside>
-          </div>
-        ) : (
-          <div className="source-editor__body">
-            {details}
-            {children}
+    <section
+      className={`source-editor grid gap-4${preview ? " widget-editor" : ""}`}
+      aria-labelledby="definition-editor-title"
+    >
+      <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
+        <div className="grid gap-1">
+          <h2 id="definition-editor-title" className="text-lg font-semibold">
+            {title}
+          </h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        <Button variant="outline" onClick={onClose}>
+          Close
+        </Button>
+      </header>
+      {preview ? (
+        <div className="widget-editor__layout">
+          <div className="widget-editor__form">
+            <EditorSection
+              title="Widget details"
+              description="Name this Widget so it is easy to recognize later."
+            >
+              {details}
+            </EditorSection>
+            <EditorSection
+              title="Content and appearance"
+              description="Choose what appears on screen and how it should be presented."
+            >
+              {children}
+            </EditorSection>
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>
@@ -417,22 +398,42 @@ function GenericEditorShell({
               </Alert>
             )}
           </div>
-        )}
-        <footer>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          {!readOnly && (
-            <Button
-              disabled={pending || saveDisabled || !name.trim()}
-              onClick={onSave}
-            >
-              {pending ? "Saving…" : saveLabel}
-            </Button>
+          <aside className="widget-editor__preview" aria-label="Live preview">
+            <header>
+              <strong>Live preview</strong>
+              <span>Updates as you make changes.</span>
+            </header>
+            {previewControl}
+            {preview}
+          </aside>
+        </div>
+      ) : (
+        <div className="source-editor__body">
+          {details}
+          {children}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {error instanceof ApiError ? error.message : error.message}
+              </AlertDescription>
+            </Alert>
           )}
-        </footer>
-      </section>
-    </div>
+        </div>
+      )}
+      <footer className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        {!readOnly && (
+          <Button
+            disabled={pending || saveDisabled || !name.trim()}
+            onClick={onSave}
+          >
+            {pending ? "Saving…" : saveLabel}
+          </Button>
+        )}
+      </footer>
+    </section>
   );
 }
 
