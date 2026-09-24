@@ -1,0 +1,38 @@
+---
+title: Use Display Control
+description: Send supported power, input, volume, or brightness commands to Linux-connected displays.
+---
+
+Display Control sends a command from a Linux Player to a compatible display. The available controls depend on capabilities the Player reports; an online Player does not guarantee that the connected screen accepts every command.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Control one display
+
+<Steps>
+
+1. Open **Screens** > **Fleet**, select a Linux screen, then open **Device**.
+2. Select **Probe display capabilities** to refresh the reported controls.
+3. Use an available action: **Power on display**, **Power off display**, **Set display input**, **Set display volume**, **Mute display**, **Unmute display**, or **Set display brightness**.
+4. Check the displayed command result and the screen's last reported display state.
+
+</Steps>
+
+The built-in Linux providers use HDMI-CEC for power and input, and DDC/CI for brightness and volume. The Linux host needs `cec-ctl` for HDMI-CEC or `ddcutil` for DDC/CI, access to the connected device, and a compatible display or adapter. Android Players do not provide Display Control.
+
+## Apply a group action
+
+Open a Display Group and select **Display Control**. Review the capability counts, choose **Power on all**, **Power off all**, **Mute all**, or **Unmute all**, then select **Send to supported displays**. Tilecast sends the action only to screens that report the required capability. Offline screens may receive a queued command after they reconnect, before it expires.
+
+The group page offers Mute actions, but the current built-in Linux providers do not report mute capability. A screen without a reported capability is listed as unsupported.
+
+## Understand the result
+
+Tilecast can confirm that it sent or queued a command. It cannot confirm that a TV or monitor physically changed state unless the display reports that state. A command marked **sent, not confirmed** is not proof that the panel turned on, changed input, or changed brightness.
+
+Display power and Player connectivity are separate. A Player may remain online while its display is off. Schedules can target display actions on Linux screens; Android screens and groups that include Android Players cannot receive scheduled display actions.
+
+## Next steps
+
+- Check [screen status](../../operations/screen-status/) when a display or Player appears offline.
+- Use a [Schedule](../../schedules/) for a supported display action at a set time.

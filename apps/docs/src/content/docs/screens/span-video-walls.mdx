@@ -1,0 +1,35 @@
+---
+title: Build a Span video wall
+description: Arrange a Display Group as panels of one shared canvas and prepare content for each screen.
+---
+
+Use **Span** when several displays should show separate panels of one larger image. Use **Mirror** when every display should show the same full image.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Set up the wall
+
+<Steps>
+
+1. Create a [Display Group](../display-groups/) and add every screen that belongs in the wall.
+2. Open the group and select **Wall mode** > **Switch to Span**.
+3. Choose a 2 × 1, 1 × 2, or 2 × 2 preset, or set the canvas width and height.
+4. Arrange each screen's panel by position, size, and rotation. Every group member needs one panel, and panels cannot overlap.
+5. Select **Save wall**.
+
+</Steps>
+
+Tilecast uses the canvas as one coordinate space and sends each Player the panel assigned to its screen. Set each canvas dimension between 320 and 16,384 pixels, and use a panel rotation of 0, 90, 180, or 270 degrees. Current Android and Linux Players support Span; update older Players before switching the group. Select **Return to Mirror** to stop using the shared canvas.
+
+## Choose content and check preparation
+
+Assign a Playlist or published Layout to the Display Group as fallback content, or target the group with a [Schedule](../../schedules/). Images and Layout content are clipped to each screen's panel. For video, Tilecast prepares a panel-sized H.264 file for each screen. Span video panels have no audio track.
+
+In **Span wall editor**, check **Panel preparation** and wait for every required video panel to show **ready**. A geometry change can require new video panels. A queued or failed panel cannot be used; fix the source or geometry and check its status again.
+
+Tilecast keeps the group's presentation position aligned, but each Player and display renders its panel independently. An offline or unprepared member cannot show its panel, so the wall will be incomplete until that screen is ready.
+
+## Next steps
+
+- Review [Display Group](../display-groups/) membership and fallback assignments.
+- Build a [Layout](../../layouts/) or [Schedule](../../schedules/) for the wall.

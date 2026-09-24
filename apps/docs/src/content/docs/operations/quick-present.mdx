@@ -1,0 +1,38 @@
+---
+title: Show content now
+description: Temporarily show a Playlist, Layout, or ready media on a screen or Display Group.
+---
+
+Use **Show now** to put content on a display without changing its schedule or fallback assignment. Owners and Administrators can start a session from a screen or Display Group.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Start a session
+
+For one screen, open **Screens** > **Fleet** and select **Show now**, or open the screen and select **Present**. For a group, open **Screens** > **Display Groups** and select **Show now**.
+
+<Steps>
+
+1. Choose a published Playlist or Layout, or a ready image, video, YouTube widget, or Website widget.
+2. Choose **Duration**: 5, 15, or 30 minutes, 1 hour, or **Until stopped**.
+3. Select **Wake display if needed** when the Player should wake its display.
+4. Select **Show now**.
+
+</Steps>
+
+The selected content must be ready for playback. A Playlist or Layout must already be published.
+
+## What happens when it ends
+
+Tilecast recalculates the presentation that applies at that time. It does not restore a saved playback snapshot. An active schedule or the screen's fallback can resume. See [what plays first](../#what-plays-first) for the priority rules.
+
+An active AirPlay session prevents a new **Show now** session on that screen. If AirPlay starts after **Show now**, AirPlay takes priority on Linux; the Quick Present can resume if it has not expired. A Takeover can interrupt both.
+
+:::note
+Studio offers **Until stopped**, but currently has no control to stop a Quick Present session early. Choose a duration when you need a definite end time.
+:::
+
+## Next steps
+
+- Start a [Takeover](../takeover/) for a fleet override that you can stop early.
+- Set normal playback with a [Schedule](../../schedules/) or Display Group fallback.
