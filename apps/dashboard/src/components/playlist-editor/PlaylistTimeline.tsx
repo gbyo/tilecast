@@ -3,15 +3,21 @@ import {
   ArrowDownToLine,
   ArrowUp,
   ArrowUpToLine,
-  ChevronRight,
   FileImage,
   Globe2,
   GripVertical,
+  MoreHorizontal,
+  PanelRight,
   PanelsTopLeft,
-  Plus,
-  Volume2,
+  Trash2,
+  type LucideIcon,
 } from "lucide-react";
-import type { DragEvent, KeyboardEvent } from "react";
+import {
+  Fragment,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import type { PlaylistItem } from "../../api/types";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -24,6 +30,14 @@ import {
   ContextMenuTrigger,
 } from "../ui/context-menu";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -31,18 +45,39 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../ui/empty";
-import { Kbd } from "../ui/kbd";
-import { ScrollArea } from "../ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../ui/item";
+import {
+  assetStatusLabel,
   formatItemDuration,
   itemHasTransitionOverride,
   playlistDurationLabel,
+  playlistItemSummary,
   type PlaylistTransition,
-  transitionLabel,
 } from "./playlistEditorModel";
+import {
+  playlistItemActions,
+  type PlaylistItemAction,
+  type PlaylistItemActionId,
+} from "./playlistItemActions";
 
 export type TimelineEdge = "top" | "bottom";
+
+const actionIcons: Record<PlaylistItemActionId, LucideIcon> = {
+  inspect: PanelRight,
+  "move-up": ArrowUp,
+  "move-down": ArrowDown,
+  "move-top": ArrowUpToLine,
+  "move-bottom": ArrowDownToLine,
+  remove: Trash2,
+};
 
 export function PlaylistTimeline({
   items,
@@ -51,14 +86,14 @@ export function PlaylistTimeline({
   selectedItemId,
   playlistTransition,
   draggedItemId,
+  emptyAction,
   onSelect,
   onMove,
   onMoveToEdge,
+  onRemove,
   onDragStart,
   onDragEnd,
   onDrop,
-  onAddContent,
-  onAddLayout,
 }: {
   items: PlaylistItem[];
   sourceType: "static" | "tag";
@@ -66,72 +101,56 @@ export function PlaylistTimeline({
   selectedItemId?: string;
   playlistTransition: PlaylistTransition;
   draggedItemId?: string;
+  /** The add action shown inside the empty state, owned by the authoring bar. */
+  emptyAction?: ReactNode;
   onSelect: (itemId: string) => void;
   onMove: (itemId: string, offset: -1 | 1) => void;
   onMoveToEdge: (itemId: string, edge: TimelineEdge) => void;
+  onRemove: (itemId: string) => void;
   onDragStart: (itemId: string) => void;
   onDragEnd: () => void;
   onDrop: (event: DragEvent, targetId: string) => void;
-  onAddContent: () => void;
-  onAddLayout: () => void;
 }) {
   const tagDriven = sourceType === "tag";
+  const runAction = (itemId: string, action: PlaylistItemActionId) => {
+    if (action === "inspect") onSelect(itemId);
+    else if (action === "move-up") onMove(itemId, -1);
+    else if (action === "move-down") onMove(itemId, 1);
+    else if (action === "move-top") onMoveToEdge(itemId, "top");
+    else if (action === "move-bottom") onMoveToEdge(itemId, "bottom");
+    else onRemove(itemId);
+  };
+
   return (
-    <section aria-labelledby="playlist-timeline-title" className="grid gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid min-w-0 gap-1">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Timeline
-          </p>
-          <div className="flex items-center gap-2">
-            <h2
-              id="playlist-timeline-title"
-              className="text-lg font-semibold tracking-tight"
-            >
-              Content
-            </h2>
-            <span className="text-sm text-muted-foreground">
-              {items.length} item{items.length === 1 ? "" : "s"}
+    <section
+      aria-labelledby="playlist-timeline-title"
+      className="grid grid-cols-[minmax(0,1fr)] gap-2"
+    >
+      <div className="sticky top-0 z-20 flex items-baseline justify-between gap-3 border-b bg-background pt-1 pb-2">
+        <h2
+          id="playlist-timeline-title"
+          className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+        >
+          Content
+        </h2>
+        {items.length > 0 && (
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {items.length} item{items.length === 1 ? "" : "s"} ·{" "}
+            <span aria-label="Total playlist duration">
+              {playlistDurationLabel(items)}
             </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {tagDriven
-              ? "Ready media matching the selected tags appears here automatically."
-              : "Items play from top to bottom, then loop."}
           </p>
-        </div>
-        {!tagDriven && canManage && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="outline" onClick={onAddLayout}>
-              <PanelsTopLeft size={15} aria-hidden="true" />
-              Add Layout
-            </Button>
-            <Button type="button" onClick={onAddContent}>
-              <Plus size={15} aria-hidden="true" />
-              Add content
-            </Button>
-          </div>
         )}
       </div>
 
-      {tagDriven && (
-        <div
-          className="rounded-lg bg-muted p-3 text-sm text-muted-foreground"
-          role="note"
-        >
-          Edit the tag rule under Playlist details to change which content
-          appears here.
-        </div>
-      )}
-
       {items.length === 0 ? (
-        <Empty>
+        <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <FileImage size={22} aria-hidden="true" />
+              <FileImage aria-hidden="true" />
             </EmptyMedia>
             <EmptyTitle>
-              {tagDriven ? "No matching content" : "Your timeline is empty"}
+              {tagDriven ? "No matching content" : "This playlist is empty"}
             </EmptyTitle>
             <EmptyDescription>
               {tagDriven
@@ -139,52 +158,31 @@ export function PlaylistTimeline({
                 : "Add ready images, videos, Widgets, or Layouts to begin playback."}
             </EmptyDescription>
           </EmptyHeader>
-          {!tagDriven && canManage && (
-            <EmptyContent>
-              <Button type="button" onClick={onAddContent}>
-                <Plus size={15} aria-hidden="true" />
-                Add content
-              </Button>
-            </EmptyContent>
-          )}
+          {emptyAction && <EmptyContent>{emptyAction}</EmptyContent>}
         </Empty>
       ) : (
-        <>
-          <ScrollArea className="**:data-[slot=scroll-area-viewport]:max-h-[32rem]">
-            <div
-              className="grid gap-2 pr-3"
-              role="list"
-              aria-label="Playlist content timeline"
-            >
-              {items.map((item, index) => (
-                <PlaylistTimelineItem
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  itemCount={items.length}
-                  canManage={canManage}
-                  selected={selectedItemId === item.id}
-                  playlistTransition={playlistTransition}
-                  dragged={draggedItemId === item.id}
-                  onSelect={onSelect}
-                  onMove={onMove}
-                  onMoveToEdge={onMoveToEdge}
-                  onDragStart={onDragStart}
-                  onDragEnd={onDragEnd}
-                  onDrop={onDrop}
-                />
-              ))}
-            </div>
-          </ScrollArea>
-          <footer className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span>
-              {items.length} item{items.length === 1 ? "" : "s"}
-            </span>
-            <span aria-label="Total playlist duration">
-              {playlistDurationLabel(items)}
-            </span>
-          </footer>
-        </>
+        <ItemGroup aria-label="Playlist content timeline" className="gap-1">
+          {items.map((item, index) => (
+            <PlaylistTimelineItem
+              key={item.id}
+              item={item}
+              index={index}
+              actions={playlistItemActions({
+                index,
+                itemCount: items.length,
+                canManage,
+              })}
+              canManage={canManage}
+              selected={selectedItemId === item.id}
+              playlistTransition={playlistTransition}
+              dragged={draggedItemId === item.id}
+              onAction={(action) => runAction(item.id, action)}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onDrop={onDrop}
+            />
+          ))}
+        </ItemGroup>
       )}
     </section>
   );
@@ -193,60 +191,61 @@ export function PlaylistTimeline({
 function PlaylistTimelineItem({
   item,
   index,
-  itemCount,
+  actions,
   canManage,
   selected,
   playlistTransition,
   dragged,
-  onSelect,
-  onMove,
-  onMoveToEdge,
+  onAction,
   onDragStart,
   onDragEnd,
   onDrop,
 }: {
   item: PlaylistItem;
   index: number;
-  itemCount: number;
+  actions: PlaylistItemAction[];
   canManage: boolean;
   selected: boolean;
   playlistTransition: PlaylistTransition;
   dragged: boolean;
-  onSelect: (itemId: string) => void;
-  onMove: (itemId: string, offset: -1 | 1) => void;
-  onMoveToEdge: (itemId: string, edge: TimelineEdge) => void;
+  onAction: (action: PlaylistItemActionId) => void;
   onDragStart: (itemId: string) => void;
   onDragEnd: () => void;
   onDrop: (event: DragEvent, targetId: string) => void;
 }) {
-  const override = itemHasTransitionOverride(item, playlistTransition);
-  const showAudio = item.assetType === "video" && item.audioEnabled;
+  const override =
+    !item.usePlayerDefaults &&
+    itemHasTransitionOverride(item, playlistTransition);
+  const unavailable = item.assetStatus !== "ready";
 
   // Alt+Arrow reorders without leaving the row; Alt+Home/End jumps to an edge.
   // Plain arrows keep their native scroll behavior.
   const onRowKeyDown = (event: KeyboardEvent) => {
     if (!canManage || !event.altKey) return;
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      onMove(item.id, -1);
-    } else if (event.key === "ArrowDown") {
-      event.preventDefault();
-      onMove(item.id, 1);
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      onMoveToEdge(item.id, "top");
-    } else if (event.key === "End") {
-      event.preventDefault();
-      onMoveToEdge(item.id, "bottom");
-    }
+    const action = (
+      {
+        ArrowUp: "move-up",
+        ArrowDown: "move-down",
+        Home: "move-top",
+        End: "move-bottom",
+      } as Record<string, PlaylistItemActionId | undefined>
+    )[event.key];
+    if (!action) return;
+    event.preventDefault();
+    onAction(action);
   };
 
   return (
     <ContextMenu>
       <ContextMenuTrigger
         render={
-          <article
-            className={`flex items-center gap-2 rounded-xl border border-border p-2 ${selected ? "border-primary bg-muted" : ""} ${dragged ? "opacity-50" : ""}`}
+          <Item
+            role="listitem"
+            size="sm"
+            variant={selected ? "muted" : "default"}
+            data-selected={selected || undefined}
+            data-playlist-item={item.id}
+            className={`relative flex-nowrap py-2 hover:bg-muted/50 has-[[data-slot=playlist-item-inspect]:focus-visible]:border-ring has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-[3px] has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-ring/50 data-selected:border-border ${dragged ? "opacity-50" : ""}`}
             onDragOver={(event) => {
               if (canManage) event.preventDefault();
             }}
@@ -255,178 +254,174 @@ function PlaylistTimelineItem({
           />
         }
       >
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-auto shrink-0 cursor-grab gap-1 rounded-lg p-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed"
-          draggable={canManage}
-          disabled={!canManage}
-          aria-label={`Reorder ${item.assetName}`}
-          title={canManage ? "Drag to reorder" : undefined}
-          onDragStart={(event) => {
-            event.stopPropagation();
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData("text/plain", item.id);
-            onDragStart(item.id);
-          }}
-          onDragEnd={onDragEnd}
-        >
-          <GripVertical size={18} aria-hidden="true" />
-          <span className="tabular-nums">
+        <div className="relative z-10 flex w-12 shrink-0 items-center gap-0.5 text-muted-foreground">
+          {canManage ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="cursor-grab active:cursor-grabbing"
+              draggable
+              aria-label={`Reorder ${item.assetName}`}
+              title="Drag to reorder"
+              onDragStart={(event) => {
+                event.stopPropagation();
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", item.id);
+                onDragStart(item.id);
+              }}
+              onDragEnd={onDragEnd}
+            >
+              <GripVertical aria-hidden="true" />
+            </Button>
+          ) : (
+            <span className="size-6" aria-hidden="true" />
+          )}
+          <span className="text-xs tabular-nums" aria-hidden="true">
             {String(index + 1).padStart(2, "0")}
           </span>
-        </Button>
-
-        <Button
-          type="button"
-          variant="ghost"
-          className="h-auto min-w-0 flex-1 justify-start gap-3 rounded-lg p-1 text-left whitespace-normal"
-          aria-label={`Inspect ${item.assetName}`}
-          aria-pressed={selected}
-          onClick={() => onSelect(item.id)}
-        >
-          <TimelineThumbnail item={item} />
-          <span className="grid min-w-0 gap-0.5">
-            <strong className="truncate text-sm">{item.assetName}</strong>
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-              <span>{item.assetType}</span>
-              <span>{formatItemDuration(item)}</span>
-              <span>
-                {item.usePlayerDefaults
-                  ? "Player defaults"
-                  : transitionLabel(item.transition)}
-              </span>
-              {item.assetType === "video" && (
-                <span className="flex items-center gap-1">
-                  <Volume2 size={13} aria-hidden="true" /> Audio
-                  {showAudio ? " on" : " off"}
-                </span>
-              )}
-            </span>
-          </span>
-        </Button>
-
-        <div className="flex shrink-0 flex-wrap items-center gap-1">
-          {item.usePlayerDefaults ? (
-            <Badge variant="secondary">Player defaults</Badge>
-          ) : (
-            override && <Badge variant="outline">Override</Badge>
-          )}
-          {item.assetStatus !== "ready" && (
-            <Badge variant="destructive">{item.assetStatus}</Badge>
-          )}
         </div>
 
-        {canManage && (
-          <div className="flex shrink-0 items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Move ${item.assetName} up`}
-                    disabled={index === 0}
-                    onClick={() => onMove(item.id, -1)}
-                  >
-                    <ArrowUp size={15} aria-hidden="true" />
-                  </Button>
-                }
-              />
-              <TooltipContent>
-                Move up <Kbd>Alt+↑</Kbd>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Move ${item.assetName} down`}
-                    disabled={index === itemCount - 1}
-                    onClick={() => onMove(item.id, 1)}
-                  >
-                    <ArrowDown size={15} aria-hidden="true" />
-                  </Button>
-                }
-              />
-              <TooltipContent>
-                Move down <Kbd>Alt+↓</Kbd>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        )}
+        <TimelineMedia item={item} />
 
-        <span className="shrink-0 text-muted-foreground" aria-hidden="true">
-          <ChevronRight size={18} />
-        </span>
+        <ItemContent className="min-w-0 gap-0.5">
+          <ItemTitle className="w-full min-w-0">
+            {/* The inspect control stretches over the whole row, so any click on
+                the row selects it while the handle and menu stay above it. */}
+            <button
+              type="button"
+              data-slot="playlist-item-inspect"
+              className="truncate text-left outline-none after:absolute after:inset-0 after:rounded-md"
+              aria-label={`Inspect ${item.assetName}`}
+              aria-pressed={selected}
+              onClick={() => onAction("inspect")}
+            >
+              {item.assetName}
+            </button>
+          </ItemTitle>
+          <ItemDescription className="truncate text-xs">
+            {playlistItemSummary(item)}
+          </ItemDescription>
+        </ItemContent>
+
+        <ItemActions className="relative z-10 gap-1.5">
+          {override && <Badge variant="outline">Override</Badge>}
+          {unavailable && (
+            <Badge variant="destructive">
+              {assetStatusLabel(item.assetStatus)}
+            </Badge>
+          )}
+          <span className="min-w-12 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+            {formatItemDuration(item)}
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Actions for ${item.assetName}`}
+                />
+              }
+            >
+              <MoreHorizontal aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-52"
+              aria-label={`Actions for ${item.assetName}`}
+            >
+              <PlaylistItemMenuEntries
+                actions={actions}
+                onAction={onAction}
+                Item={DropdownMenuItem}
+                Separator={DropdownMenuSeparator}
+                Shortcut={DropdownMenuShortcut}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </ItemActions>
       </ContextMenuTrigger>
-      <ContextMenuContent aria-label={`Actions for ${item.assetName}`}>
-        <ContextMenuItem onClick={() => onSelect(item.id)}>
-          Inspect item
-        </ContextMenuItem>
-        {canManage && (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              disabled={index === 0}
-              onClick={() => onMove(item.id, -1)}
-            >
-              Move up
-              <ContextMenuShortcut>Alt+↑</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem
-              disabled={index === itemCount - 1}
-              onClick={() => onMove(item.id, 1)}
-            >
-              Move down
-              <ContextMenuShortcut>Alt+↓</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem
-              disabled={index === 0}
-              onClick={() => onMoveToEdge(item.id, "top")}
-            >
-              <ArrowUpToLine size={14} aria-hidden="true" />
-              Move to top
-              <ContextMenuShortcut>Alt+Home</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem
-              disabled={index === itemCount - 1}
-              onClick={() => onMoveToEdge(item.id, "bottom")}
-            >
-              <ArrowDownToLine size={14} aria-hidden="true" />
-              Move to bottom
-              <ContextMenuShortcut>Alt+End</ContextMenuShortcut>
-            </ContextMenuItem>
-          </>
-        )}
+      <ContextMenuContent
+        className="min-w-52"
+        aria-label={`Actions for ${item.assetName}`}
+      >
+        <PlaylistItemMenuEntries
+          actions={actions}
+          onAction={onAction}
+          Item={ContextMenuItem}
+          Separator={ContextMenuSeparator}
+          Shortcut={ContextMenuShortcut}
+        />
       </ContextMenuContent>
     </ContextMenu>
   );
 }
 
-function TimelineThumbnail({ item }: { item: PlaylistItem }) {
-  if (item.assetType === "layout") {
+type MenuItemComponent = (props: {
+  disabled?: boolean;
+  variant?: "default" | "destructive";
+  onClick?: () => void;
+  children?: ReactNode;
+}) => ReactNode;
+
+function PlaylistItemMenuEntries({
+  actions,
+  onAction,
+  Item: MenuItem,
+  Separator,
+  Shortcut,
+}: {
+  actions: PlaylistItemAction[];
+  onAction: (action: PlaylistItemActionId) => void;
+  Item: MenuItemComponent;
+  Separator: (props: Record<never, never>) => ReactNode;
+  Shortcut: (props: { children?: ReactNode }) => ReactNode;
+}) {
+  return actions.map((action, index) => {
+    const Icon = actionIcons[action.id];
     return (
-      <span className="grid size-12 shrink-0 place-content-center rounded-lg bg-muted text-muted-foreground">
-        <PanelsTopLeft size={24} aria-hidden="true" />
-      </span>
+      <Fragment key={action.id}>
+        {index > 0 && actions[index - 1]?.group !== action.group && (
+          <Separator />
+        )}
+        <MenuItem
+          disabled={action.disabled}
+          variant={action.destructive ? "destructive" : "default"}
+          onClick={() => onAction(action.id)}
+        >
+          <Icon aria-hidden="true" />
+          {action.label}
+          {action.shortcut && <Shortcut>{action.shortcut}</Shortcut>}
+        </MenuItem>
+      </Fragment>
     );
-  }
-  if (item.assetType === "widget") {
+  });
+}
+
+function TimelineMedia({ item }: { item: PlaylistItem }) {
+  if (item.assetType === "layout" || item.assetType === "widget") {
+    const Icon = item.assetType === "layout" ? PanelsTopLeft : Globe2;
     return (
-      <span className="grid size-12 shrink-0 place-content-center rounded-lg bg-muted text-muted-foreground">
-        <Globe2 size={24} aria-hidden="true" />
-      </span>
+      <ItemMedia
+        variant="icon"
+        className="size-9 rounded-sm bg-muted text-muted-foreground"
+      >
+        <Icon aria-hidden="true" />
+      </ItemMedia>
     );
   }
   return (
-    <span className="grid size-12 shrink-0 place-content-center overflow-hidden rounded-lg bg-muted">
-      <img src={item.thumbnailUrl} alt="" className="size-full object-cover" />
-    </span>
+    <ItemMedia
+      variant="image"
+      className="size-9 bg-muted group-data-[size=sm]/item:size-9"
+    >
+      {item.thumbnailUrl ? (
+        <img src={item.thumbnailUrl} alt="" draggable={false} />
+      ) : (
+        <FileImage aria-hidden="true" className="m-auto size-4" />
+      )}
+    </ItemMedia>
   );
 }

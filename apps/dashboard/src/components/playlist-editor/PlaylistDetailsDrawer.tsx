@@ -1,9 +1,22 @@
-import { Save, Tag, X } from "lucide-react";
+import type { ReactNode } from "react";
 import type { ContentTag } from "../../api/types";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
-import { Field, FieldDescription, FieldLabel } from "../ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../ui/field";
 import { Input } from "../ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "../ui/input-group";
 import {
   Select,
   SelectContent,
@@ -13,8 +26,10 @@ import {
 } from "../ui/select";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerDescription,
+  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from "../ui/drawer";
@@ -25,7 +40,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../ui/sheet";
+import { Spinner } from "../ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Textarea } from "../ui/textarea";
+import { Toggle } from "../ui/toggle";
+
+export type PlaylistDetailsTab = "general" | "source" | "usage";
 
 const sourceTypeOptions = [
   { value: "static", label: "Manual timeline" },
@@ -40,6 +60,7 @@ const tagMatchOptions = [
 export function PlaylistDetailsDrawer({
   desktop,
   open,
+  tab,
   canManage,
   sourceType,
   name,
@@ -48,12 +69,14 @@ export function PlaylistDetailsDrawer({
   tagIds,
   tagImageSeconds,
   tags,
+  usage,
   metadataDirty,
   tagRuleDirty,
   metadataSaving,
   tagRuleSaving,
   metadataError,
   tagRuleError,
+  onTabChange,
   onClose,
   onNameChange,
   onDescriptionChange,
@@ -66,6 +89,7 @@ export function PlaylistDetailsDrawer({
 }: {
   desktop: boolean;
   open: boolean;
+  tab: PlaylistDetailsTab;
   canManage: boolean;
   sourceType: "static" | "tag";
   name: string;
@@ -74,12 +98,15 @@ export function PlaylistDetailsDrawer({
   tagIds: string[];
   tagImageSeconds: number;
   tags: ContentTag[];
+  /** The Used By composition shown under the Usage tab. */
+  usage: ReactNode;
   metadataDirty: boolean;
   tagRuleDirty: boolean;
   metadataSaving: boolean;
   tagRuleSaving: boolean;
   metadataError?: string;
   tagRuleError?: string;
+  onTabChange: (tab: PlaylistDetailsTab) => void;
   onClose: () => void;
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
@@ -90,199 +117,204 @@ export function PlaylistDetailsDrawer({
   onSaveMetadata: () => void;
   onSaveTagRule: () => void;
 }) {
-  const sections = (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-      <section className="grid gap-3">
-        <h3 className="text-sm font-medium">Details</h3>
-        <Field>
-          <FieldLabel htmlFor="playlist-details-name">Name</FieldLabel>
-          <Input
-            id="playlist-details-name"
-            disabled={!canManage}
-            value={name}
-            onChange={(event) => onNameChange(event.target.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="playlist-details-description">
-            Description
-          </FieldLabel>
-          <Textarea
-            id="playlist-details-description"
-            disabled={!canManage}
-            value={description}
-            onChange={(event) => onDescriptionChange(event.target.value)}
-          />
-        </Field>
-        {metadataError && (
-          <Alert variant="destructive">
-            <AlertDescription>{metadataError}</AlertDescription>
-          </Alert>
-        )}
-        <div>
-          <Button
-            type="button"
-            size="sm"
-            disabled={!canManage || !metadataDirty || metadataSaving}
-            onClick={onSaveMetadata}
-          >
-            <Save size={14} aria-hidden="true" />
-            {metadataSaving ? "Saving…" : "Save details"}
-          </Button>
-        </div>
-      </section>
-
-      <section className="grid gap-3">
-        <h3 className="text-sm font-medium">Content source</h3>
-        <p className="text-sm text-muted-foreground">
-          Choose a manual timeline or let matching ready media appear from tags.
-        </p>
-        <Field>
-          <FieldLabel htmlFor="playlist-details-source">Source</FieldLabel>
-          <Select
-            disabled={!canManage}
-            value={sourceType}
-            onValueChange={(next) =>
-              onSourceTypeChange(next as "static" | "tag")
-            }
-            items={sourceTypeOptions}
-          >
-            <SelectTrigger id="playlist-details-source" aria-label="Source">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sourceTypeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        {sourceType === "tag" && (
-          <>
+  const body = (
+    <Tabs
+      value={tab}
+      onValueChange={(value) => onTabChange(value as PlaylistDetailsTab)}
+      className="min-h-0 flex-1 gap-0"
+    >
+      <TabsList variant="line" className="mx-4 shrink-0">
+        <TabsTrigger value="general">General</TabsTrigger>
+        <TabsTrigger value="source">Content source</TabsTrigger>
+        <TabsTrigger value="usage">Usage</TabsTrigger>
+      </TabsList>
+      <div className="min-h-0 flex-1 overflow-y-auto border-t px-4 pt-5 pb-4">
+        <TabsContent value="general">
+          <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="playlist-details-match">Match</FieldLabel>
+              <FieldLabel htmlFor="playlist-details-name">Name</FieldLabel>
+              <Input
+                id="playlist-details-name"
+                disabled={!canManage}
+                value={name}
+                onChange={(event) => onNameChange(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="playlist-details-description">
+                Description
+              </FieldLabel>
+              <Textarea
+                id="playlist-details-description"
+                disabled={!canManage}
+                value={description}
+                onChange={(event) => onDescriptionChange(event.target.value)}
+              />
+              <FieldDescription>
+                Saved separately from timeline edits.
+              </FieldDescription>
+            </Field>
+            {metadataError && (
+              <Alert variant="destructive">
+                <AlertDescription>{metadataError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <Button
+                type="button"
+                disabled={!canManage || !metadataDirty || metadataSaving}
+                onClick={onSaveMetadata}
+              >
+                {metadataSaving && <Spinner aria-hidden="true" />}
+                Save details
+              </Button>
+            </div>
+          </FieldGroup>
+        </TabsContent>
+
+        <TabsContent value="source">
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="playlist-details-source">Source</FieldLabel>
               <Select
                 disabled={!canManage}
-                value={tagMatch}
+                value={sourceType}
                 onValueChange={(next) =>
-                  onTagMatchChange(next as "any" | "all")
+                  onSourceTypeChange(next as "static" | "tag")
                 }
-                items={tagMatchOptions}
+                items={sourceTypeOptions}
               >
-                <SelectTrigger id="playlist-details-match" aria-label="Match">
+                <SelectTrigger id="playlist-details-source" aria-label="Source">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {tagMatchOptions.map((option) => (
+                  {sourceTypeOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
-            <Field>
-              <span className="text-sm font-medium">Media tags</span>
-              <div className="flex flex-wrap gap-2">
-                {tags.length ? (
-                  tags.map((tag) => {
-                    const active = tagIds.includes(tag.id);
-                    return (
-                      <Button
-                        key={tag.id}
-                        type="button"
-                        variant={active ? "default" : "outline"}
-                        size="sm"
-                        aria-pressed={active}
-                        disabled={!canManage}
-                        onClick={() => onTagToggle(tag.id)}
-                      >
-                        <span
-                          className="size-2 rounded-full"
-                          style={{ backgroundColor: tag.color }}
-                          aria-hidden="true"
-                        />
-                        {tag.name}
-                      </Button>
-                    );
-                  })
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    No tags available
-                  </span>
-                )}
-              </div>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="playlist-details-image-duration">
-                Image duration
-              </FieldLabel>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="playlist-details-image-duration"
-                  className="w-28"
-                  type="number"
-                  min="1"
-                  max="86400"
-                  disabled={!canManage}
-                  value={tagImageSeconds}
-                  onChange={(event) =>
-                    onTagImageSecondsChange(Number(event.target.value))
-                  }
-                />
-                <span className="text-sm text-muted-foreground">seconds</span>
-              </div>
               <FieldDescription>
-                Applied to matching image content.
+                Choose a manual timeline, or let matching ready media appear
+                from tags.
               </FieldDescription>
             </Field>
-            {tagIds.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Select at least one tag before saving this source.
-              </p>
+
+            {sourceType === "tag" && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="playlist-details-match">
+                    Match
+                  </FieldLabel>
+                  <Select
+                    disabled={!canManage}
+                    value={tagMatch}
+                    onValueChange={(next) =>
+                      onTagMatchChange(next as "any" | "all")
+                    }
+                    items={tagMatchOptions}
+                  >
+                    <SelectTrigger
+                      id="playlist-details-match"
+                      aria-label="Match"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tagMatchOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <FieldSet>
+                  <FieldLegend variant="label">Media tags</FieldLegend>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.length ? (
+                      tags.map((tag) => (
+                        <Toggle
+                          key={tag.id}
+                          variant="outline"
+                          size="sm"
+                          pressed={tagIds.includes(tag.id)}
+                          disabled={!canManage}
+                          onPressedChange={() => onTagToggle(tag.id)}
+                        >
+                          <span
+                            className="size-2 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                            aria-hidden="true"
+                          />
+                          {tag.name}
+                        </Toggle>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        No tags available
+                      </span>
+                    )}
+                  </div>
+                  {tagIds.length === 0 && (
+                    <FieldDescription>
+                      Select at least one tag before saving this source.
+                    </FieldDescription>
+                  )}
+                </FieldSet>
+                <Field>
+                  <FieldLabel htmlFor="playlist-details-image-duration">
+                    Image duration
+                  </FieldLabel>
+                  <InputGroup className="w-32">
+                    <InputGroupInput
+                      id="playlist-details-image-duration"
+                      type="number"
+                      min="1"
+                      max="86400"
+                      disabled={!canManage}
+                      value={tagImageSeconds}
+                      onChange={(event) =>
+                        onTagImageSecondsChange(Number(event.target.value))
+                      }
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupText>seconds</InputGroupText>
+                    </InputGroupAddon>
+                  </InputGroup>
+                  <FieldDescription>
+                    Applied to matching image content.
+                  </FieldDescription>
+                </Field>
+              </>
             )}
-          </>
-        )}
-        {tagRuleError && (
-          <Alert variant="destructive">
-            <AlertDescription>{tagRuleError}</AlertDescription>
-          </Alert>
-        )}
-        <div>
-          <Button
-            type="button"
-            size="sm"
-            disabled={
-              !canManage ||
-              !tagRuleDirty ||
-              tagRuleSaving ||
-              (sourceType === "tag" && tagIds.length === 0)
-            }
-            onClick={onSaveTagRule}
-          >
-            <Tag size={14} aria-hidden="true" />
-            {tagRuleSaving ? "Saving…" : "Save content source"}
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
-  const eyebrow =
-    sourceType === "tag" ? "Tag-driven playlist" : "Playlist settings";
-  const closeButton = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      className="absolute top-2 right-3"
-      aria-label="Close playlist details"
-      onClick={onClose}
-    >
-      <X aria-hidden="true" />
-    </Button>
+            {tagRuleError && (
+              <Alert variant="destructive">
+                <AlertDescription>{tagRuleError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <Button
+                type="button"
+                disabled={
+                  !canManage ||
+                  !tagRuleDirty ||
+                  tagRuleSaving ||
+                  (sourceType === "tag" && tagIds.length === 0)
+                }
+                onClick={onSaveTagRule}
+              >
+                {tagRuleSaving && <Spinner aria-hidden="true" />}
+                Save content source
+              </Button>
+            </div>
+          </FieldGroup>
+        </TabsContent>
+
+        <TabsContent value="usage">{usage}</TabsContent>
+      </div>
+    </Tabs>
   );
 
   if (desktop) {
@@ -293,22 +325,14 @@ export function PlaylistDetailsDrawer({
           if (!open) onClose();
         }}
       >
-        <SheetContent
-          side="right"
-          showCloseButton={false}
-          className="overflow-hidden"
-        >
-          <SheetHeader className="relative pr-12">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              {eyebrow}
-            </p>
+        <SheetContent side="right" className="gap-0 overflow-hidden">
+          <SheetHeader>
             <SheetTitle>Playlist details</SheetTitle>
             <SheetDescription>
-              Name and description are saved separately from timeline edits.
+              Name, content source, and where this playlist plays.
             </SheetDescription>
-            {closeButton}
           </SheetHeader>
-          {sections}
+          {body}
         </SheetContent>
       </Sheet>
     );
@@ -323,17 +347,18 @@ export function PlaylistDetailsDrawer({
       showSwipeHandle
     >
       <DrawerContent className="max-h-[calc(100dvh-2rem)]">
-        <DrawerHeader className="relative pr-12">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {eyebrow}
-          </p>
+        <DrawerHeader>
           <DrawerTitle>Playlist details</DrawerTitle>
           <DrawerDescription>
-            Name and description are saved separately from timeline edits.
+            Name, content source, and where this playlist plays.
           </DrawerDescription>
-          {closeButton}
         </DrawerHeader>
-        {sections}
+        {body}
+        <DrawerFooter className="border-t">
+          <DrawerClose render={<Button type="button" variant="outline" />}>
+            Done
+          </DrawerClose>
+        </DrawerFooter>
       </DrawerContent>
     </Drawer>
   );

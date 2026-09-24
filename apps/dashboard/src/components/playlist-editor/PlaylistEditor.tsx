@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PanelsTopLeft } from "lucide-react";
-import { useEffect, useState, type DragEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   AlertDialog,
@@ -19,7 +25,9 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "../ui/resizable";
-import { Separator } from "../ui/separator";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
+import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "../ui/item";
+import { ScrollArea } from "../ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -56,13 +64,19 @@ import { ContentPicker, type ContentPickerResult } from "../content-picker";
 import { UsedByPanel } from "../../content/UsedByPanel";
 import { PlaylistRevisionsPanel } from "../PlaylistRevisionsPanel";
 import { useDesktopLayout } from "../../hooks/use-desktop-layout";
-import { PlaylistDetailsDrawer } from "./PlaylistDetailsDrawer";
+import {
+  PlaylistAddButton,
+  PlaylistAuthoringBar,
+} from "./PlaylistAuthoringBar";
+import {
+  PlaylistDetailsDrawer,
+  type PlaylistDetailsTab,
+} from "./PlaylistDetailsDrawer";
 import { PlaylistEditorHeader } from "./PlaylistEditorHeader";
 import {
   PlaylistItemInspector,
-  PlaylistItemInspectorBody,
+  PlaylistItemInspectorPane,
 } from "./PlaylistItemInspector";
-import { PlaylistPlaybackDefaults } from "./PlaylistPlaybackDefaults";
 import { PlaylistTimeline } from "./PlaylistTimeline";
 import {
   canManagePlaylists,
@@ -101,6 +115,7 @@ export function PlaylistEditorPage() {
   const [layoutPicker, setLayoutPicker] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsTab, setDetailsTab] = useState<PlaylistDetailsTab>("general");
   const [itemInspectorOpen, setItemInspectorOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>();
   const [draggedItemId, setDraggedItemId] = useState<string>();
@@ -111,8 +126,12 @@ export function PlaylistEditorPage() {
   const desktop = useDesktopLayout();
   const [addFailure, setAddFailure] = useState("");
   const [editorError, setEditorError] = useState("");
-  const [playbackMessage, setPlaybackMessage] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [removingItemId, setRemovingItemId] = useState<string>();
+  // The last inspector width a user chose, restored when the pane reopens.
+  const inspectorSize = useRef(32);
+  const [chrome, setChrome] = useState<HTMLDivElement | null>(null);
+  const editorHeight = useViewportFillHeight(desktop ? chrome : null);
 
   const layouts = useQuery({
     queryKey: ["layouts", "playlist-items"],
@@ -263,11 +282,12 @@ export function PlaylistEditorPage() {
     onSuccess: (playlist, input) => {
       update(playlist);
       setEditorError("");
-      setPlaybackMessage(
-        input.transition
-          ? `Set ${transitionLabel(input.transition)} for all playlist items.`
-          : `Updated fixed image durations to ${input.durationMs / 1000} seconds.`,
-      );
+      toast.add({
+        title: input.transition
+          ? `Transition set to ${transitionLabel(input.transition)} for every item.`
+          : `Image durations set to ${input.durationMs / 1000} seconds.`,
+        type: "success",
+      });
     },
     onError: (error) => setEditorError(error.message),
   });
@@ -308,6 +328,13 @@ export function PlaylistEditorPage() {
             error instanceof Error ? error.message : "Could not add item.",
         });
       }
+    }
+    const added = selected.length - failures.length;
+    if (added > 0) {
+      toast.add({
+        title: `${added} item${added === 1 ? "" : "s"} added to the playlist.`,
+        type: "success",
+      });
     }
     if (failures.length === 0) setPicker(false);
     return { failures };
@@ -356,6 +383,7 @@ export function PlaylistEditorPage() {
       update(next);
       setLayoutPicker(false);
       setAddFailure("");
+      toast.add({ title: "Layout added to the playlist.", type: "success" });
     } catch (error) {
       setAddFailure(
         error instanceof Error ? error.message : "Could not add the Layout.",
@@ -384,9 +412,18 @@ export function PlaylistEditorPage() {
 
   if (query.isLoading) {
     return (
-      <div className="grid gap-2">
-        <Skeleton className="h-12" />
-        <Skeleton className="h-12" />
+      <div
+        className="grid gap-4"
+        aria-busy="true"
+        aria-label="Loading playlist"
+      >
+        <Skeleton className="h-9 w-72" />
+        <Skeleton className="h-9 w-full max-w-xl" />
+        <div className="grid gap-2">
+          <Skeleton className="h-14" />
+          <Skeleton className="h-14" />
+          <Skeleton className="h-14" />
+        </div>
       </div>
     );
   }
@@ -404,13 +441,19 @@ export function PlaylistEditorPage() {
   const imageDuration = playlistImageDuration(items);
   const editableTimeline = canManage && sourceType === "static";
   const selectedItem = items.find((item) => item.id === selectedItemId);
+  const selectedIndex = selectedItem ? items.indexOf(selectedItem) : -1;
+  const removingItem = items.find((item) => item.id === removingItemId);
+  const publishedLayouts = (layouts.data?.items ?? []).filter(
+    (layout) => layout.publishedRevision,
+  );
 
   const openHistory = () => {
     setHistoryOpen(true);
     setDetailsOpen(false);
     setItemInspectorOpen(false);
   };
-  const openDetails = () => {
+  const openDetails = (tab: PlaylistDetailsTab = "general") => {
+    setDetailsTab(tab);
     setDetailsOpen(true);
     setHistoryOpen(false);
     setItemInspectorOpen(false);
@@ -422,275 +465,229 @@ export function PlaylistEditorPage() {
     setDetailsOpen(false);
     setEditorError("");
   };
+  // Closing the inline inspector returns focus to the row it described.
+  const closeInlineInspector = () => {
+    const closing = selectedItemId;
+    setSelectedItemId(undefined);
+    if (closing) {
+      window.requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLButtonElement>(
+            `[data-playlist-item="${closing}"] [data-slot=playlist-item-inspect]`,
+          )
+          ?.focus(),
+      );
+    }
+  };
+  const openPicker = () => {
+    setAddFailure("");
+    setPicker(true);
+  };
+  const openLayoutPicker = () => {
+    setAddFailure("");
+    setLayoutPicker(true);
+  };
+  const inspectorProps = selectedItem && {
+    item: selectedItem,
+    index: selectedIndex,
+    canManage: editableTimeline,
+    playlistTransition: commonTransition,
+    saving: updateItem.isPending || deleteItem.isPending,
+    error: updateItem.error?.message || deleteItem.error?.message,
+    onChange: (input: PlaylistItemInput) => {
+      setEditorError("");
+      updateItem.mutate({ itemId: selectedItem.id, input });
+    },
+    onDelete: () => deleteItem.mutate(selectedItem.id),
+  };
 
-  const sequence = (
-    <>
-      <PlaylistPlaybackDefaults
-        items={items}
-        sourceType={sourceType}
-        canManage={canManage}
-        transition={commonTransition}
-        imageDuration={imageDuration}
-        transitionPending={bulkUpdate.isPending}
-        imageDurationPending={bulkUpdate.isPending}
-        onTransitionChange={(transition) => {
-          setPlaybackMessage("");
-          bulkUpdate.mutate({ transition });
-        }}
-        onImageDurationChange={(seconds) => {
-          setPlaybackMessage("");
-          bulkUpdate.mutate({ durationMs: Math.round(seconds * 1000) });
-        }}
-        onOpenDetails={openDetails}
-      />
-      <PlaylistTimeline
-        items={items}
-        sourceType={sourceType}
-        canManage={editableTimeline}
-        selectedItemId={selectedItemId}
-        playlistTransition={commonTransition}
-        draggedItemId={draggedItemId}
-        onSelect={selectItem}
-        onMove={(itemId, offset) => {
-          if (!editableTimeline) return;
-          commitOrder(movePlaylistItem(items, itemId, offset));
-        }}
-        onMoveToEdge={(itemId, edge) => {
-          if (!editableTimeline) return;
-          commitOrder(movePlaylistItemToEdge(items, itemId, edge));
-        }}
-        onDragStart={setDraggedItemId}
-        onDragEnd={() => setDraggedItemId(undefined)}
-        onDrop={handleDrop}
-        onAddContent={() => {
-          setAddFailure("");
-          setPicker(true);
-        }}
-        onAddLayout={() => {
-          setAddFailure("");
-          setLayoutPicker(true);
-        }}
-      />
-      <div className="grid min-w-0 gap-4">
-        <UsedByPanel
-          compact
-          emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."
-          groups={[
-            {
-              label: "Layouts",
-              items: (playlist.layoutUsage ?? []).map((layout) => ({
-                id: layout.id,
-                name: layout.name,
-                hint: layout.published ? "Published" : "Draft",
-              })),
-              to: (layoutId) => `/layouts/${layoutId}`,
-            },
-            {
-              label: "Screens",
-              items: playlist.usage?.screens ?? [],
-              to: (screenId) => `/screens/${screenId}`,
-            },
-            {
-              label: "Schedules",
-              items: playlist.usage?.schedules ?? [],
-              to: (scheduleId) => `/schedules/${scheduleId}`,
-            },
-            {
-              label: "Campaigns",
-              items: playlist.usage?.campaigns ?? [],
-              to: (campaignId) => `/campaigns/${campaignId}`,
-            },
-          ]}
-        />
-      </div>
-    </>
+  const timeline = (
+    <PlaylistTimeline
+      items={items}
+      sourceType={sourceType}
+      canManage={editableTimeline}
+      selectedItemId={selectedItemId}
+      playlistTransition={commonTransition}
+      draggedItemId={draggedItemId}
+      emptyAction={
+        editableTimeline ? (
+          <PlaylistAddButton
+            onAddContent={openPicker}
+            onAddLayout={openLayoutPicker}
+          />
+        ) : undefined
+      }
+      onSelect={selectItem}
+      onMove={(itemId, offset) => {
+        if (!editableTimeline) return;
+        commitOrder(movePlaylistItem(items, itemId, offset));
+      }}
+      onMoveToEdge={(itemId, edge) => {
+        if (!editableTimeline) return;
+        commitOrder(movePlaylistItemToEdge(items, itemId, edge));
+      }}
+      onRemove={(itemId) => {
+        if (editableTimeline) setRemovingItemId(itemId);
+      }}
+      onDragStart={setDraggedItemId}
+      onDragEnd={() => setDraggedItemId(undefined)}
+      onDrop={handleDrop}
+    />
+  );
+
+  const usage = (
+    <UsedByPanel
+      emptyMessage="No Layout, campaign, screen, or schedule plays this playlist yet."
+      groups={[
+        {
+          label: "Layouts",
+          items: (playlist.layoutUsage ?? []).map((layout) => ({
+            id: layout.id,
+            name: layout.name,
+            hint: layout.published ? "Published" : "Draft",
+          })),
+          to: (layoutId) => `/layouts/${layoutId}`,
+        },
+        {
+          label: "Screens",
+          items: playlist.usage?.screens ?? [],
+          to: (screenId) => `/screens/${screenId}`,
+        },
+        {
+          label: "Schedules",
+          items: playlist.usage?.schedules ?? [],
+          to: (scheduleId) => `/schedules/${scheduleId}`,
+        },
+        {
+          label: "Campaigns",
+          items: playlist.usage?.campaigns ?? [],
+          to: (campaignId) => `/campaigns/${campaignId}`,
+        },
+      ]}
+    />
   );
 
   return (
-    <section className="grid gap-4">
-      <PlaylistEditorHeader
-        playlist={playlist}
-        sourceType={sourceType}
-        canManage={canManage}
-        canDelete={canPublish}
-        canSubmit={canSubmit}
-        canPublish={canPublish}
-        publishPending={publish.isPending}
-        onPreview={() => openPlaylistPreview(playlist.id)}
-        onPublish={() => publish.mutate()}
-        onOpenHistory={openHistory}
-        onOpenDetails={openDetails}
-        onDuplicate={() => duplicate.mutate()}
-        onDelete={() => setConfirmingDelete(true)}
-      />
+    <section className="grid grid-cols-[minmax(0,1fr)] gap-5">
+      <div ref={setChrome} className="grid grid-cols-[minmax(0,1fr)] gap-5">
+        <PlaylistEditorHeader
+          playlist={playlist}
+          sourceType={sourceType}
+          canManage={canManage}
+          canDelete={canPublish}
+          canSubmit={canSubmit}
+          canPublish={canPublish}
+          publishPending={publish.isPending}
+          onPreview={() => openPlaylistPreview(playlist.id)}
+          onPublish={() => publish.mutate()}
+          onOpenHistory={openHistory}
+          onOpenDetails={() => openDetails()}
+          onDuplicate={() => duplicate.mutate()}
+          onDelete={() => setConfirmingDelete(true)}
+        />
 
-      <div className="grid gap-2" aria-live="polite">
-        {playlist.warnings.map((warning) => (
-          <Alert key={warning} variant="destructive">
-            <AlertDescription>{warning}</AlertDescription>
-          </Alert>
-        ))}
-        {publish.error && (
-          <Alert variant="destructive">
-            <AlertDescription>{publish.error.message}</AlertDescription>
-          </Alert>
+        {(playlist.warnings.length > 0 ||
+          publish.error ||
+          editorError ||
+          addFailure) && (
+          <div className="grid gap-2" role="alert">
+            {playlist.warnings.map((warning) => (
+              <Alert key={warning} variant="destructive">
+                <AlertDescription>{warning}</AlertDescription>
+              </Alert>
+            ))}
+            {publish.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{publish.error.message}</AlertDescription>
+              </Alert>
+            )}
+            {editorError && (
+              <Alert variant="destructive">
+                <AlertDescription>{editorError}</AlertDescription>
+              </Alert>
+            )}
+            {addFailure && (
+              <Alert variant="destructive">
+                <AlertDescription>{addFailure}</AlertDescription>
+              </Alert>
+            )}
+          </div>
         )}
-        {publish.isSuccess && (
-          <Alert>
-            <AlertDescription>
-              The playlist was submitted or published. Check Content review for
-              its immutable submission.
-            </AlertDescription>
-          </Alert>
-        )}
-        {editorError && (
-          <Alert variant="destructive">
-            <AlertDescription>{editorError}</AlertDescription>
-          </Alert>
-        )}
-        {playbackMessage && (
-          <Alert>
-            <AlertDescription>{playbackMessage}</AlertDescription>
-          </Alert>
-        )}
-        {addFailure && (
-          <Alert variant="destructive">
-            <AlertDescription>{addFailure}</AlertDescription>
-          </Alert>
-        )}
+
+        <PlaylistAuthoringBar
+          items={items}
+          sourceType={sourceType}
+          canManage={canManage}
+          transition={commonTransition}
+          imageDuration={imageDuration}
+          pending={bulkUpdate.isPending}
+          onTransitionChange={(transition) => bulkUpdate.mutate({ transition })}
+          onImageDurationChange={(seconds) =>
+            bulkUpdate.mutate({ durationMs: Math.round(seconds * 1000) })
+          }
+          onAddContent={openPicker}
+          onAddLayout={openLayoutPicker}
+          onEditSource={() => openDetails("source")}
+        />
       </div>
 
       {desktop ? (
-        <ResizablePanelGroup
-          orientation="horizontal"
-          role="group"
-          aria-label="Playlist sequence and inspector"
-        >
-          <ResizablePanel
-            defaultSize="62%"
-            minSize="35%"
-            id="playlist-sequence"
-            aria-label="Playlist sequence"
+        // The desktop editor fills the viewport so the sequence and the
+        // inspector scroll independently: selecting item 40 keeps its
+        // inspector in view. The inspector exists only while an item is
+        // selected, so the timeline otherwise takes the full width.
+        <div style={{ height: editorHeight }} className="min-h-80">
+          <ResizablePanelGroup
+            orientation="horizontal"
+            role="group"
+            aria-label="Playlist sequence and inspector"
+            onLayoutChanged={(layout) => {
+              const size = layout["playlist-inspector"];
+              if (size) inspectorSize.current = size;
+            }}
           >
-            <div className="grid min-w-0 content-start gap-6 pr-4">
-              {sequence}
-            </div>
-          </ResizablePanel>
-          <ResizableHandle
-            withHandle
-            aria-label="Resize sequence and inspector panes"
-          />
-          <ResizablePanel
-            defaultSize="38%"
-            minSize="25%"
-            id="playlist-inspector"
-            aria-label="Inspector"
-          >
-            <div className="grid min-w-0 content-start gap-4 pl-4">
-              {selectedItem ? (
-                <aside aria-label="Item inspector" className="grid gap-4">
-                  <div className="grid gap-1">
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      {`Item ${items.findIndex((item) => item.id === selectedItem.id) + 1} · ${selectedItem.assetType}`}
-                    </p>
-                    <h2 className="text-lg font-semibold tracking-tight">
-                      {selectedItem.assetName}
-                    </h2>
-                  </div>
-                  <Separator />
-                  <PlaylistItemInspectorBody
-                    item={selectedItem}
-                    index={items.findIndex(
-                      (item) => item.id === selectedItem.id,
-                    )}
-                    canManage={editableTimeline}
-                    playlistTransition={commonTransition}
-                    saving={updateItem.isPending || deleteItem.isPending}
-                    error={
-                      updateItem.error?.message || deleteItem.error?.message
-                    }
-                    onClose={() => setSelectedItemId(undefined)}
-                    onChange={(input) => {
-                      setEditorError("");
-                      updateItem.mutate({ itemId: selectedItem.id, input });
-                    }}
-                    onDelete={() => deleteItem.mutate(selectedItem.id)}
-                  />
-                </aside>
-              ) : (
-                <aside aria-label="Inspector" className="grid gap-4">
-                  <div className="grid gap-1">
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      Inspector
-                    </p>
-                    <h2 className="text-lg font-semibold tracking-tight">
-                      Playlist settings
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Select a timeline row to edit that item. Nothing is
-                      selected.
-                    </p>
-                  </div>
-                  <Separator />
-                  <dl className="grid gap-2 text-sm">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-muted-foreground">Name</dt>
-                      <dd className="min-w-0 truncate font-medium">{name}</dd>
+            <ResizablePanel
+              id="playlist-sequence"
+              minSize="50%"
+              aria-label="Playlist sequence"
+            >
+              <ScrollArea className="h-full">
+                <div className="p-1 pr-4">{timeline}</div>
+              </ScrollArea>
+            </ResizablePanel>
+            {inspectorProps && (
+              <>
+                <ResizableHandle
+                  withHandle
+                  aria-label="Resize sequence and inspector panes"
+                />
+                <ResizablePanel
+                  id="playlist-inspector"
+                  defaultSize={`${inspectorSize.current}%`}
+                  minSize="26%"
+                  maxSize="45%"
+                  aria-label="Inspector"
+                >
+                  <ScrollArea className="h-full">
+                    <div className="p-1 pl-5">
+                      <PlaylistItemInspectorPane
+                        {...inspectorProps}
+                        onClose={closeInlineInspector}
+                      />
                     </div>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-muted-foreground">Source</dt>
-                      <dd className="font-medium">
-                        {sourceType === "tag" ? "Tag-driven" : "Static"}
-                      </dd>
-                    </div>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-muted-foreground">Items</dt>
-                      <dd className="font-medium tabular-nums">
-                        {items.length}
-                      </dd>
-                    </div>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-muted-foreground">Transition</dt>
-                      <dd className="font-medium">
-                        {transitionLabel(commonTransition)}
-                      </dd>
-                    </div>
-                  </dl>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={openDetails}
-                    >
-                      Playlist details
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={openHistory}
-                    >
-                      History
-                    </Button>
-                  </div>
-                </aside>
-              )}
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+                  </ScrollArea>
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
+        </div>
       ) : (
-        sequence
+        timeline
       )}
 
-      {!desktop && selectedItem && (
+      {!desktop && inspectorProps && selectedItem && (
         <PlaylistItemInspector
-          item={selectedItem}
-          index={items.findIndex((item) => item.id === selectedItem.id)}
-          canManage={editableTimeline}
-          playlistTransition={commonTransition}
-          saving={updateItem.isPending || deleteItem.isPending}
-          error={updateItem.error?.message || deleteItem.error?.message}
+          {...inspectorProps}
           open={itemInspectorOpen}
           onClose={() => setItemInspectorOpen(false)}
           onOpenChangeComplete={(open) => {
@@ -700,11 +697,6 @@ export function PlaylistEditorPage() {
               );
             }
           }}
-          onChange={(input) => {
-            setEditorError("");
-            updateItem.mutate({ itemId: selectedItem.id, input });
-          }}
-          onDelete={() => deleteItem.mutate(selectedItem.id)}
         />
       )}
 
@@ -717,15 +709,12 @@ export function PlaylistEditorPage() {
         >
           <SheetContent side="right" className="overflow-y-auto">
             <SheetHeader>
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Playlist revisions
-              </p>
               <SheetTitle>History</SheetTitle>
               <SheetDescription>
                 Every published revision is kept for review and restore.
               </SheetDescription>
             </SheetHeader>
-            <div className="px-4">
+            <div className="px-4 pb-4">
               <PlaylistRevisionsPanel
                 playlistId={id}
                 canRestore={canPublish}
@@ -744,9 +733,6 @@ export function PlaylistEditorPage() {
         >
           <DrawerContent className="max-h-[calc(100dvh-2rem)]">
             <DrawerHeader>
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Playlist revisions
-              </p>
               <DrawerTitle>History</DrawerTitle>
               <DrawerDescription>
                 Every published revision is kept for review and restore.
@@ -766,6 +752,7 @@ export function PlaylistEditorPage() {
       <PlaylistDetailsDrawer
         desktop={desktop}
         open={detailsOpen}
+        tab={detailsTab}
         canManage={canManage}
         sourceType={sourceType}
         name={name}
@@ -774,12 +761,14 @@ export function PlaylistEditorPage() {
         tagIds={tagIds}
         tagImageSeconds={tagImageSeconds}
         tags={tags.data ?? []}
+        usage={usage}
         metadataDirty={metadataDirty}
         tagRuleDirty={tagRuleDirty}
         metadataSaving={save.isPending}
         tagRuleSaving={saveTagRule.isPending}
         metadataError={save.error?.message}
         tagRuleError={saveTagRule.error?.message}
+        onTabChange={setDetailsTab}
         onClose={() => setDetailsOpen(false)}
         onNameChange={(value) => {
           setName(value);
@@ -841,29 +830,41 @@ export function PlaylistEditorPage() {
               A Layout plays fullscreen for 30 seconds by default.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2">
-            {(layouts.data?.items ?? [])
-              .filter((layout) => layout.publishedRevision)
-              .map((layout) => (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="justify-start"
+          {publishedLayouts.length > 0 ? (
+            <ItemGroup className="gap-1">
+              {publishedLayouts.map((layout) => (
+                <Item
                   key={layout.id}
-                  onClick={() => void addLayout(layout.id)}
+                  role="listitem"
+                  size="sm"
+                  variant="outline"
+                  render={
+                    <button
+                      type="button"
+                      onClick={() => void addLayout(layout.id)}
+                    />
+                  }
+                  className="text-left hover:bg-muted"
                 >
-                  <PanelsTopLeft size={16} aria-hidden="true" />
-                  {layout.name}
-                </Button>
+                  <ItemMedia variant="icon">
+                    <PanelsTopLeft aria-hidden="true" />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{layout.name}</ItemTitle>
+                  </ItemContent>
+                </Item>
               ))}
-            {(layouts.data?.items ?? []).filter(
-              (layout) => layout.publishedRevision,
-            ).length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Publish a Layout before adding it to a playlist.
-              </p>
-            )}
-          </div>
+            </ItemGroup>
+          ) : (
+            <Empty className="border border-dashed py-8">
+              <EmptyHeader>
+                <EmptyTitle>No published Layouts</EmptyTitle>
+                <EmptyDescription>
+                  Publish a Layout before adding it to a playlist.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
           <DialogFooter>
             <Button
               type="button"
@@ -875,6 +876,38 @@ export function PlaylistEditorPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={removingItem != null}
+        onOpenChange={(open) => {
+          if (!open) setRemovingItemId(undefined);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {removingItem?.assetName} from this playlist?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The item leaves the timeline but its media stays in the library.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (removingItemId) deleteItem.mutate(removingItemId);
+                setRemovingItemId(undefined);
+              }}
+            >
+              Remove item
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog
         open={confirmingDelete}
         onOpenChange={(open) => {
@@ -892,6 +925,7 @@ export function PlaylistEditorPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               disabled={remove.isPending}
               onClick={() => {
                 setConfirmingDelete(false);
@@ -905,4 +939,30 @@ export function PlaylistEditorPage() {
       </AlertDialog>
     </section>
   );
+}
+
+// useViewportFillHeight sizes the desktop editor region to the space left
+// below the page chrome, so the region never pushes the document into a
+// second, outer scroll. It re-measures when the chrome above it changes
+// height (a warning appears, the header wraps) or the window resizes.
+function useViewportFillHeight(chrome: HTMLElement | null) {
+  const [height, setHeight] = useState<number>();
+  useLayoutEffect(() => {
+    if (!chrome) return;
+    const measure = () => {
+      const bottom = chrome.getBoundingClientRect().bottom;
+      // 20px separates the chrome from the region; 24px matches the Studio
+      // content area's bottom padding.
+      setHeight(Math.max(320, Math.floor(window.innerHeight - bottom - 44)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(chrome);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [chrome]);
+  return height;
 }

@@ -19,11 +19,13 @@ function PickerSelect({
   value,
   onChange,
   options,
+  className = "w-36",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: readonly { value: string; label: string }[];
+  className?: string;
 }) {
   return (
     <Select
@@ -31,7 +33,10 @@ function PickerSelect({
       value={value}
       onValueChange={(next) => onChange(next ?? "")}
     >
-      <SelectTrigger aria-label={label} className="w-44 max-sm:flex-1">
+      <SelectTrigger
+        aria-label={label}
+        className={`${className} max-sm:flex-1`}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -87,8 +92,9 @@ export function ContentPickerToolbar({
   onSort: (value: string) => void;
   onView: (value: "grid" | "list") => void;
 }) {
-  // A caller that only accepts media should not be offered app tabs that can never
-  // match, and vice versa. "All" stays only when there is more than one thing to pick.
+  // A caller that only accepts media should not be offered app types that can
+  // never match, and vice versa. The type filter only appears when there is
+  // more than one type to choose between.
   const allowed = new Set(allowedTypes);
   const filters: {
     value: ContentPickerFilter;
@@ -103,33 +109,29 @@ export function ContentPickerToolbar({
     { value: "youtube", label: "YouTube", type: "widget" },
     { value: "calendar", label: "Calendars", type: "widget" },
   ];
+  const typeOptions = filters.filter(({ type }) => !type || allowed.has(type));
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/50 px-6 py-3 max-md:px-4">
+    <div className="flex flex-wrap items-center gap-2">
       <DashboardSearch
         autoFocus
         value={search}
         onValueChange={onSearch}
         label="Search content"
         placeholder="Search content"
+        className="max-w-none basis-60"
       />
-      <ToggleGroup
-        className="max-w-full overflow-x-auto"
-        aria-label="Content type"
-        multiple={false}
-        value={[filter]}
-        onValueChange={(next) => {
-          const first = next[0] as ContentPickerFilter | undefined;
-          if (first !== undefined) onFilter(first);
-        }}
-      >
-        {filters
-          .filter(({ type }) => !type || allowed.has(type))
-          .map(({ value, label }) => (
-            <ToggleGroupItem key={value} value={value}>
-              {label}
-            </ToggleGroupItem>
-          ))}
-      </ToggleGroup>
+      {typeOptions.length > 2 && (
+        <PickerSelect
+          label="Content type"
+          value={filter}
+          onChange={(value) => onFilter(value as ContentPickerFilter)}
+          options={typeOptions.map(({ value, label }) => ({
+            value,
+            label: value === "all" ? "All types" : label,
+          }))}
+          className="w-32"
+        />
+      )}
       {folders.length > 0 && onFolderFilter && (
         <PickerSelect
           label="Filter by folder"
@@ -170,6 +172,7 @@ export function ContentPickerToolbar({
         />
       )}
       <PickerSelect
+        className="w-44"
         label="Sort content"
         value={sort}
         onChange={onSort}
@@ -181,6 +184,7 @@ export function ContentPickerToolbar({
         ]}
       />
       <ToggleGroup
+        className="ml-auto"
         aria-label="Content view"
         variant="outline"
         spacing={0}

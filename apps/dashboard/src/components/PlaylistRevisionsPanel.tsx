@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
+import { Skeleton } from "./ui/skeleton";
 import {
   Item,
   ItemActions,
@@ -62,7 +63,13 @@ export function PlaylistRevisionsPanel({
   });
 
   if (revisions.isLoading)
-    return <div className="table-loading">Loading history…</div>;
+    return (
+      <div className="grid gap-2" aria-busy="true" aria-label="Loading history">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+      </div>
+    );
   if (revisions.error)
     return (
       <Alert variant="destructive">
@@ -76,18 +83,18 @@ export function PlaylistRevisionsPanel({
 
   return (
     <section
-      className={`settings-subsection${embedded ? " playlist-history-panel" : ""}`}
+      className="grid gap-4"
       aria-label={embedded ? "Playlist revision history" : undefined}
     >
       {embedded ? (
-        <p className="playlist-history-panel__intro">
+        <p className="text-sm text-muted-foreground">
           The last {revisions.data?.kept} revisions are kept. Restoring makes a
           new revision, so it can be undone the same way.
         </p>
       ) : (
-        <header>
-          <h3>History</h3>
-          <p>
+        <header className="grid gap-1">
+          <h3 className="text-sm font-medium">History</h3>
+          <p className="text-sm text-muted-foreground">
             The last {revisions.data?.kept} revisions are kept. Restoring makes
             a new revision, so it can be undone the same way.
           </p>
@@ -148,7 +155,7 @@ export function PlaylistRevisionsPanel({
                       restore.mutate(revision.revision);
                     }}
                   >
-                    <History size={14} /> Restore
+                    <History aria-hidden="true" /> Restore
                   </Button>
                 ) : revision.isCurrent ? (
                   "Current"
@@ -163,7 +170,7 @@ export function PlaylistRevisionsPanel({
 
       {(hiddenRevisionCount > 0 ||
         visibleRevisionCount > initialRevisionCount) && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {hiddenRevisionCount > 0 && (
             <Button
               type="button"

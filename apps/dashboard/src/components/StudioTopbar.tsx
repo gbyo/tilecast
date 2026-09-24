@@ -40,7 +40,7 @@ import {
 } from "./ui/command";
 import { Kbd } from "./ui/kbd";
 import { SiteHeader } from "./studio/SiteHeader";
-import { UploadContentDialog } from "./content-picker/UploadContentDialog";
+import { MediaUploadDialog } from "./content-picker/MediaUploadDialog";
 
 type CommandGroupName =
   | "Quick actions"
@@ -622,11 +622,10 @@ export function StudioTopbar({
         canCreate={canCreate}
         canPair={canPair}
       />
-      <UploadContentDialog
+      <MediaUploadDialog
         open={uploadOpen}
         csrf={csrfToken}
-        closeLabel="Done"
-        onCreated={() => {
+        onAsset={() => {
           void queryClient.invalidateQueries({ queryKey: ["assets"] });
         }}
         onClose={() => setUploadOpen(false)}

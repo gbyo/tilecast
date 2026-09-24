@@ -1,25 +1,51 @@
 import {
+  CircleCheck,
+  CircleDashed,
+  CircleDot,
   Copy,
   ExternalLink,
   History,
   MoreHorizontal,
-  Settings2,
   Send,
+  Settings2,
   Trash2,
-  ArrowLeft,
 } from "lucide-react";
-import { Link } from "react-router";
 import type { Playlist } from "../../api/types";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { Spinner } from "../ui/spinner";
 import { playlistDurationLabel } from "./playlistEditorModel";
+
+export type PlaylistPublicationState =
+  "published" | "unpublished-changes" | "draft";
+
+export function playlistPublicationState(
+  playlist: Playlist,
+): PlaylistPublicationState {
+  if (playlist.publishedRevision == null) return "draft";
+  return playlist.hasUnpublishedChanges ||
+    playlist.draftRevision !== playlist.publishedRevision
+    ? "unpublished-changes"
+    : "published";
+}
+
+const publicationBadge = {
+  published: { label: "Published", Icon: CircleCheck, variant: "secondary" },
+  "unpublished-changes": {
+    label: "Unpublished changes",
+    Icon: CircleDot,
+    variant: "outline",
+  },
+  draft: { label: "Draft", Icon: CircleDashed, variant: "outline" },
+} as const;
 
 export function PlaylistEditorHeader({
   playlist,
@@ -50,88 +76,91 @@ export function PlaylistEditorHeader({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
-  const hasChanges = Boolean(
-    playlist.hasUnpublishedChanges ||
-    playlist.draftRevision !== playlist.publishedRevision,
-  );
-  const isPublished = !hasChanges && playlist.publishedRevision != null;
-  const duration = playlistDurationLabel(playlist.items);
+  const state = playlistPublicationState(playlist);
+  const badge = publicationBadge[state];
+  const itemCount = playlist.items?.length ?? playlist.itemCount;
 
   return (
-    <header className="flex flex-wrap items-start justify-between gap-3">
-      <div className="grid min-w-0 gap-1">
-        <Link
-          to="/playlists"
-          className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft size={15} aria-hidden="true" />
-          Playlists
-        </Link>
-        <h1 className="truncate text-2xl font-semibold tracking-tight">
+    <header className="flex flex-col items-start gap-x-4 gap-y-3 sm:flex-row sm:justify-between">
+      <div className="grid w-full min-w-0 gap-1.5 sm:flex-1">
+        <h1 className="line-clamp-2 text-2xl font-semibold tracking-tight break-words sm:truncate">
           {playlist.name}
         </h1>
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-          <Badge variant={isPublished ? "default" : "secondary"}>
-            {isPublished ? "Published" : "Draft"}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          <Badge variant={badge.variant}>
+            <badge.Icon aria-hidden="true" />
+            {badge.label}
           </Badge>
-          <span>{playlist.itemCount} items</span>
-          <span>{duration}</span>
-          {sourceType === "tag" && <span>Tag-driven</span>}
-          {hasChanges && (
-            <span className="font-medium text-amber-600 dark:text-amber-400">
-              Unpublished changes
-            </span>
-          )}
-        </p>
+          <span className="tabular-nums">
+            {itemCount} item{itemCount === 1 ? "" : "s"} ·{" "}
+            {playlistDurationLabel(playlist.items)}
+            {sourceType === "tag" && " · Tag-driven"}
+          </span>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Button type="button" variant="outline" onClick={onPreview}>
-          <ExternalLink size={15} aria-hidden="true" />
+          <ExternalLink aria-hidden="true" />
           Preview
         </Button>
         {canSubmit && (
           <Button
             type="button"
-            disabled={!hasChanges || publishPending}
+            disabled={state === "published" || publishPending}
+            aria-busy={publishPending || undefined}
             onClick={onPublish}
           >
-            <Send size={15} aria-hidden="true" />
-            {publishPending
-              ? "Publishing…"
-              : canPublish
-                ? "Publish"
-                : "Submit for review"}
+            {publishPending ? (
+              <Spinner aria-hidden="true" />
+            ) : (
+              <Send aria-hidden="true" />
+            )}
+            {canPublish ? "Publish" : "Submit for review"}
           </Button>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="inline-flex size-8 items-center justify-center rounded-xl hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
-            aria-label="More playlist actions"
+            render={
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="More playlist actions"
+              />
+            }
           >
-            <MoreHorizontal size={18} aria-hidden="true" />
+            <MoreHorizontal aria-hidden="true" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" aria-label="Playlist actions">
-            <DropdownMenuItem onClick={onOpenHistory}>
-              <History size={16} aria-hidden="true" />
-              History
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onOpenDetails}>
-              <Settings2 size={16} aria-hidden="true" />
-              Playlist details
-            </DropdownMenuItem>
+          <DropdownMenuContent
+            align="end"
+            className="min-w-48"
+            aria-label="Playlist actions"
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={onOpenDetails}>
+                <Settings2 aria-hidden="true" />
+                Playlist details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onOpenHistory}>
+                <History aria-hidden="true" />
+                History
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
             {canManage && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onDuplicate}>
-                  <Copy size={16} aria-hidden="true" />
-                  Duplicate playlist
-                </DropdownMenuItem>
-                {canDelete && (
-                  <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                    <Trash2 size={16} aria-hidden="true" />
-                    Delete playlist
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={onDuplicate}>
+                    <Copy aria-hidden="true" />
+                    Duplicate
                   </DropdownMenuItem>
-                )}
+                  {canDelete && (
+                    <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                      <Trash2 aria-hidden="true" />
+                      Delete
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuGroup>
               </>
             )}
           </DropdownMenuContent>

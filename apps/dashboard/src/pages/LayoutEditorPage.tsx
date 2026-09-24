@@ -1,6 +1,12 @@
 import { cn } from "cn";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
 import { DateInput } from "../components/date-picker";
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
@@ -33,11 +39,21 @@ import {
   ItemContent,
   ItemDescription,
   ItemGroup,
+  ItemMedia,
   ItemTitle,
 } from "../components/ui/item";
 import { Input } from "../components/ui/input";
 import { Field, FieldLabel } from "../components/ui/field";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import { Kbd } from "../components/ui/kbd";
+import { Separator } from "../components/ui/separator";
+import { Skeleton } from "../components/ui/skeleton";
+import { Spinner } from "../components/ui/spinner";
 import {
   Menubar,
   MenubarCheckboxItem,
@@ -103,6 +119,9 @@ import {
   ArrowUpToLine,
   BoxSelect,
   Circle,
+  CircleAlert,
+  CircleDot,
+  CloudCheck,
   ClipboardPaste,
   Copy,
   CopyPlus,
@@ -119,6 +138,7 @@ import {
   Magnet,
   Maximize2,
   Minus,
+  MoreHorizontal,
   MousePointerClick,
   Pencil,
   Plus,
@@ -129,6 +149,7 @@ import {
   Search,
   Settings,
   Trash2,
+  TriangleAlert,
   Type,
   Undo2,
   Ungroup,
@@ -641,7 +662,9 @@ export function LayoutEditorPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [previewScale, setPreviewScale] = useState(0);
-  const previewFrameRef = useRef<HTMLDivElement>(null);
+  // State rather than a ref: the frame mounts inside the Dialog portal after
+  // the preview opens, and measuring must wait for it to exist.
+  const [previewFrame, setPreviewFrame] = useState<HTMLDivElement | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [picker, setPicker] = useState<"media" | "widgets" | "playlists">();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -657,6 +680,9 @@ export function LayoutEditorPage() {
   const [pickedPlaylists, setPickedPlaylists] = useState<Playlist[]>([]);
   const [guides, setGuides] = useState<{ x?: number; y?: number }>({});
   const canvasRef = useRef<HTMLDivElement>(null);
+  // History opens from a menu item that unmounts, so focus returns to the
+  // menu's trigger when the dialog closes.
+  const fileMenuTrigger = useRef<HTMLButtonElement>(null);
   const zoomIn = useCallback(
     () => setZoom((value) => Math.min(1.5, value + 0.1)),
     [],
@@ -891,7 +917,7 @@ export function LayoutEditorPage() {
   // Track the rendered size of the preview frame so widgets can convert canvas
   // pixels into screen pixels the same way the Player scales the whole canvas.
   useLayoutEffect(() => {
-    const frame = previewFrameRef.current;
+    const frame = previewFrame;
     if (!preview || !frame || !document) return;
     const measure = () =>
       setPreviewScale(frame.clientWidth / document.canvas.width);
@@ -899,7 +925,7 @@ export function LayoutEditorPage() {
     const observer = new ResizeObserver(measure);
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [preview, document]);
+  }, [preview, previewFrame, document]);
   const publish = useMutation<unknown, ApiError>({
     mutationFn: () =>
       canPublish
@@ -1895,7 +1921,16 @@ export function LayoutEditorPage() {
       </Empty>
     );
   if (layoutQuery.isLoading || !document)
-    return <p className="status-copy">Loading Layout editor…</p>;
+    return (
+      <div
+        className="grid gap-3"
+        aria-busy="true"
+        aria-label="Loading Layout editor"
+      >
+        <Skeleton className="h-12" />
+        <Skeleton className="h-[60vh]" />
+      </div>
+    );
   const libraryAssets = [...(contentQuery.data?.items ?? []), ...pickedAssets];
   const libraryPlaylists = [
     ...(playlistsQuery.data?.items ?? []),
@@ -1952,107 +1987,205 @@ export function LayoutEditorPage() {
         ((event.clientY - bounds.top) / bounds.height) * document.canvas.height,
     });
   };
+  const openPreview = () => {
+    setPreview(true);
+    void loadLayoutPreview();
+  };
+  const openHistory = () => {
+    setHistoryOpen(true);
+    void revisions.refetch();
+  };
+  // On desktop the right-hand pane always shows Layout settings when nothing
+  // is selected, so the Settings section only exists in the narrow layout.
   const sidebarSections = [
     ["media", "Media", ImageIcon],
     ["widgets", "Widgets", AppWindow],
     ["playlists", "Playlists", ListVideo],
     ["elements", "Elements", RectangleHorizontal],
     ["layers", "Layers", BoxSelect],
-    ["settings", "Settings", Settings],
+    ...(desktop ? [] : ([["settings", "Settings", Settings]] as const)),
   ] as const;
+  const activeSidebarSection =
+    desktop && sidebarSection === "settings" ? "media" : sidebarSection;
+  const layoutUsage = layoutQuery.data && (
+    <UsedByPanel
+      emptyMessage="No campaign, screen, or schedule shows this Layout yet."
+      groups={[
+        {
+          label: "Screens",
+          items: layoutQuery.data.usage.screens,
+          to: (screenId) => `/screens/${screenId}`,
+        },
+        {
+          label: "Schedules",
+          items: layoutQuery.data.usage.schedules,
+          to: (scheduleId) => `/schedules/${scheduleId}`,
+        },
+        {
+          label: "Campaigns",
+          items: layoutQuery.data.usage.campaigns,
+          to: (campaignId) => `/campaigns/${campaignId}`,
+        },
+      ]}
+    />
+  );
+  const placementInspector = primary && (
+    <PlacementInspector
+      item={primary}
+      content={
+        primary.widgetId
+          ? contentByID.get(primary.widgetId)
+          : primary.assetId
+            ? contentByID.get(primary.assetId)
+            : undefined
+      }
+      playlist={
+        primary.playlistId ? playlistByID.get(primary.playlistId) : undefined
+      }
+      dataSources={dataSources}
+      update={(change) => mutateSelected(change)}
+      duplicate={duplicateSelection}
+      group={groupSelection}
+      ungroup={ungroupSelection}
+      canGroup={selection.size > 1}
+    />
+  );
+  const layoutSettings = (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 p-3">
+      <CanvasInspector document={document} update={update} />
+      {layoutUsage && (
+        <>
+          <Separator />
+          {layoutUsage}
+        </>
+      )}
+    </div>
+  );
   const renderSidebarPanel = (section: LayoutSidebarSection) => {
     if (
       section === "media" ||
       section === "widgets" ||
       section === "playlists"
     ) {
+      const label = {
+        media: "Media",
+        widgets: "Widgets",
+        playlists: "Playlists",
+      }[section];
       return (
         <>
-          <div className="layout-panel-heading">
-            <strong>
+          <LayoutPaneHeading title={label} />
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 p-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setPicker(section);
+                setPickerOpen(true);
+              }}
+            >
+              <Search aria-hidden="true" />
               {
-                { media: "Media", widgets: "Widgets", playlists: "Playlists" }[
-                  section
-                ]
+                {
+                  media: "Browse media library",
+                  widgets: "Browse apps",
+                  playlists: "Browse playlists",
+                }[section]
               }
-            </strong>
-          </div>
-          <Button
-            type="button"
-            variant="default"
-            className="layout-library-browse"
-            onClick={() => {
-              setPicker(section);
-              setPickerOpen(true);
-            }}
-          >
-            <Search size={16} aria-hidden="true" />
-            {
-              {
-                media: "Browse media library",
-                widgets: "Browse apps",
-                playlists: "Browse playlists",
-              }[section]
-            }
-          </Button>
-          <div className="layout-panel-heading layout-panel-heading--sub">
-            <strong>Recent</strong>
-            <span>Drag to canvas</span>
-          </div>
-          <div className="layout-content-shelf">
-            {recentLibraryItems.map((item) => {
-              const asset = item.kind === "asset" ? item.asset : undefined;
-              const playlist =
-                item.kind === "playlist" ? item.playlist : undefined;
-              const name = asset?.name ?? playlist?.name ?? "";
-              return (
-                <Button
-                  key={`${item.kind}-${asset?.id ?? playlist?.id}`}
-                  type="button"
-                  variant="ghost"
-                  className="layout-content-shelf__item h-auto w-full justify-start gap-2 p-1 text-left whitespace-normal"
-                  draggable
-                  onDragStart={(event) => {
-                    event.dataTransfer.effectAllowed = "copy";
-                    event.dataTransfer.setData(
-                      "application/x-tilecast-layout-library",
-                      JSON.stringify({
-                        kind: item.kind,
-                        id: asset?.id ?? playlist?.id,
-                      }),
-                    );
-                  }}
-                  onClick={() => addLibraryItem(item)}
-                  title={`Add ${name}`}
+            </Button>
+            <section
+              className="grid grid-cols-[minmax(0,1fr)] gap-2"
+              aria-labelledby={`recent-${section}`}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <h3
+                  id={`recent-${section}`}
+                  className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
                 >
-                  <span className="layout-content-shelf__preview">
-                    {asset?.thumbnailUrl ? (
-                      <img src={asset.thumbnailUrl} alt="" draggable={false} />
-                    ) : asset?.type === "widget" ? (
-                      <AppWindow size={18} />
-                    ) : playlist ? (
-                      <ListVideo size={18} />
-                    ) : (
-                      <ImageIcon size={18} />
-                    )}
+                  Recent
+                </h3>
+                {recentLibraryItems.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    Drag to canvas
                   </span>
-                  <span>
-                    <strong>{name}</strong>
-                    <small>
-                      {playlist
-                        ? `${playlist.itemCount} items`
-                        : (asset?.widget?.provider ?? asset?.type)}
-                    </small>
-                  </span>
-                </Button>
-              );
-            })}
-            {!recentLibraryItems.length && (
-              <p className="layout-content-shelf__empty">
-                No recently created {section}. Use the browse button above to
-                search the whole library.
-              </p>
-            )}
+                )}
+              </div>
+              {recentLibraryItems.length ? (
+                <ItemGroup className="gap-0.5">
+                  {recentLibraryItems.map((item) => {
+                    const asset =
+                      item.kind === "asset" ? item.asset : undefined;
+                    const playlist =
+                      item.kind === "playlist" ? item.playlist : undefined;
+                    const name = asset?.name ?? playlist?.name ?? "";
+                    return (
+                      <Item
+                        key={`${item.kind}-${asset?.id ?? playlist?.id}`}
+                        role="listitem"
+                        size="xs"
+                        className="cursor-grab flex-nowrap text-left hover:bg-muted active:cursor-grabbing"
+                        render={
+                          <button
+                            type="button"
+                            draggable
+                            title={`Add ${name}`}
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = "copy";
+                              event.dataTransfer.setData(
+                                "application/x-tilecast-layout-library",
+                                JSON.stringify({
+                                  kind: item.kind,
+                                  id: asset?.id ?? playlist?.id,
+                                }),
+                              );
+                            }}
+                            onClick={() => addLibraryItem(item)}
+                          />
+                        }
+                      >
+                        <ItemMedia
+                          variant={asset?.thumbnailUrl ? "image" : "icon"}
+                          className="size-9 rounded-sm bg-muted text-muted-foreground"
+                        >
+                          {asset?.thumbnailUrl ? (
+                            <img
+                              src={asset.thumbnailUrl}
+                              alt=""
+                              draggable={false}
+                            />
+                          ) : asset?.type === "widget" ? (
+                            <AppWindow aria-hidden="true" />
+                          ) : playlist ? (
+                            <ListVideo aria-hidden="true" />
+                          ) : (
+                            <ImageIcon aria-hidden="true" />
+                          )}
+                        </ItemMedia>
+                        <ItemContent className="min-w-0 gap-0">
+                          <ItemTitle className="block w-full truncate">
+                            {name}
+                          </ItemTitle>
+                          <ItemDescription className="truncate capitalize">
+                            {playlist
+                              ? `${playlist.itemCount} items`
+                              : (asset?.widget?.provider ?? asset?.type)}
+                          </ItemDescription>
+                        </ItemContent>
+                      </Item>
+                    );
+                  })}
+                </ItemGroup>
+              ) : (
+                <Empty className="border border-dashed p-4 md:p-4">
+                  <EmptyHeader>
+                    <EmptyDescription className="text-xs">
+                      No recent {section}. Browse the whole library above.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              )}
+            </section>
           </div>
         </>
       );
@@ -2060,42 +2193,27 @@ export function LayoutEditorPage() {
     if (section === "elements") {
       return (
         <>
-          <div className="layout-panel-heading">
-            <strong>Elements</strong>
-          </div>
-          <div className="layout-add-grid">
-            <Button
-              variant="outline"
-              className="layout-add-grid__button h-auto min-h-[68px] w-full grid grid-cols-1 justify-items-center gap-1 whitespace-normal font-normal"
-              onClick={() => addPrimitive("text")}
-            >
-              <Type size={20} />
-              Text
-            </Button>
-            <Button
-              variant="outline"
-              className="layout-add-grid__button h-auto min-h-[68px] w-full grid grid-cols-1 justify-items-center gap-1 whitespace-normal font-normal"
-              onClick={() => addPrimitive("rectangle")}
-            >
-              <RectangleHorizontal size={20} />
-              Rectangle
-            </Button>
-            <Button
-              variant="outline"
-              className="layout-add-grid__button h-auto min-h-[68px] w-full grid grid-cols-1 justify-items-center gap-1 whitespace-normal font-normal"
-              onClick={() => addPrimitive("circle")}
-            >
-              <Circle size={20} />
-              Circle
-            </Button>
-            <Button
-              variant="outline"
-              className="layout-add-grid__button h-auto min-h-[68px] w-full grid grid-cols-1 justify-items-center gap-1 whitespace-normal font-normal"
-              onClick={() => addPrimitive("line")}
-            >
-              <Minus size={20} />
-              Line
-            </Button>
+          <LayoutPaneHeading title="Elements" />
+          <div className="grid grid-cols-2 gap-2 p-3">
+            {(
+              [
+                ["text", "Text", Type],
+                ["rectangle", "Rectangle", RectangleHorizontal],
+                ["circle", "Circle", Circle],
+                ["line", "Line", Minus],
+              ] as const
+            ).map(([kind, label, Icon]) => (
+              <Button
+                key={kind}
+                type="button"
+                variant="outline"
+                className="h-auto min-h-17 flex-col gap-1.5 py-3 font-normal"
+                onClick={() => addPrimitive(kind)}
+              >
+                <Icon className="size-5" aria-hidden="true" />
+                {label}
+              </Button>
+            ))}
           </div>
         </>
       );
@@ -2103,21 +2221,23 @@ export function LayoutEditorPage() {
     if (section === "layers") {
       return (
         <>
-          <div className="layout-panel-heading">
-            <strong>Layers</strong>
-            <span>{document.placements.length}</span>
-          </div>
-          <div className="layout-layers">
+          <LayoutPaneHeading
+            title="Layers"
+            meta={String(document.placements.length)}
+          />
+          <ItemGroup className="gap-0.5 p-2" aria-label="Layers">
             {[...document.placements]
               .sort((a, b) => b.layer - a.layer)
               .map((item) => (
                 <ContextMenu key={item.id}>
                   <ContextMenuTrigger
                     render={
-                      <div
-                        className={`layout-layer-row${
-                          selection.has(item.id) ? " is-selected" : ""
-                        }`}
+                      <Item
+                        role="listitem"
+                        size="xs"
+                        variant={selection.has(item.id) ? "muted" : "default"}
+                        data-layer-row={item.id}
+                        className="flex-nowrap gap-1 py-1 pr-1 hover:bg-muted/50 data-[variant=muted]:border-border"
                         onContextMenu={(event) =>
                           openPlacementMenu(event, item)
                         }
@@ -2127,7 +2247,8 @@ export function LayoutEditorPage() {
                     <Button
                       type="button"
                       variant="ghost"
-                      className="layout-layer-select h-auto min-w-0 w-full justify-start gap-1 p-0 text-left font-normal whitespace-normal"
+                      size="sm"
+                      className="min-w-0 flex-1 justify-start gap-2 px-1.5 font-normal"
                       aria-pressed={selection.has(item.id)}
                       onClick={(event) =>
                         setSelection(
@@ -2139,23 +2260,20 @@ export function LayoutEditorPage() {
                         )
                       }
                     >
-                      <span className="layout-layer-icon">
-                        {item.primitive?.kind === "text" ? (
-                          <Type size={14} />
-                        ) : item.primitive?.kind === "group" ? (
-                          <Group size={14} />
-                        ) : (
-                          <BoxSelect size={14} />
-                        )}
-                      </span>
-                      <span>{item.name}</span>
+                      {item.primitive?.kind === "text" ? (
+                        <Type aria-hidden="true" />
+                      ) : item.primitive?.kind === "group" ? (
+                        <Group aria-hidden="true" />
+                      ) : (
+                        <BoxSelect aria-hidden="true" />
+                      )}
+                      <span className="truncate">{item.name}</span>
                     </Button>
-                    <span className="layout-layer-actions">
+                    <ItemActions className="gap-0.5">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        className="layout-layer-toggle"
                         aria-label={
                           item.visible
                             ? `Hide ${item.name}`
@@ -2174,16 +2292,15 @@ export function LayoutEditorPage() {
                         }}
                       >
                         {item.visible ? (
-                          <Eye size={13} aria-hidden="true" />
+                          <Eye aria-hidden="true" />
                         ) : (
-                          <EyeOff size={13} aria-hidden="true" />
+                          <EyeOff aria-hidden="true" />
                         )}
                       </Button>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        className="layout-layer-toggle"
                         aria-label={
                           item.locked
                             ? `Unlock ${item.name}`
@@ -2202,119 +2319,86 @@ export function LayoutEditorPage() {
                         }}
                       >
                         {item.locked ? (
-                          <Lock size={13} aria-hidden="true" />
+                          <Lock aria-hidden="true" />
                         ) : (
-                          <LockOpen size={13} aria-hidden="true" />
+                          <LockOpen aria-hidden="true" />
                         )}
                       </Button>
-                    </span>
+                    </ItemActions>
                   </ContextMenuTrigger>
                   <ContextMenuContent aria-label={`Actions for ${item.name}`}>
                     <LayoutEditorMenuEntries items={placementMenuItems(item)} />
                   </ContextMenuContent>
                 </ContextMenu>
               ))}
-          </div>
+          </ItemGroup>
+          {!document.placements.length && (
+            <Empty className="m-3 border border-dashed p-4 md:p-4">
+              <EmptyHeader>
+                <EmptyDescription className="text-xs">
+                  Add media, apps, or elements to build this Layout.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
           {!desktop && primary && (
-            <div className="layout-layer-inspector">
-              <div className="layout-panel-heading">
-                <strong>Selected layer</strong>
-                <span>{selected.length} selected</span>
-              </div>
-              <PlacementInspector
-                item={primary}
-                content={
-                  primary.widgetId
-                    ? contentByID.get(primary.widgetId)
-                    : primary.assetId
-                      ? contentByID.get(primary.assetId)
-                      : undefined
-                }
-                playlist={
-                  primary.playlistId
-                    ? playlistByID.get(primary.playlistId)
-                    : undefined
-                }
-                dataSources={dataSources}
-                update={(change) => mutateSelected(change)}
-                duplicate={duplicateSelection}
-                group={groupSelection}
-                ungroup={ungroupSelection}
-                canGroup={selection.size > 1}
+            <>
+              <Separator />
+              <LayoutPaneHeading
+                title="Selected layer"
+                meta={`${selected.length} selected`}
               />
-            </div>
+              <div className="p-3">{placementInspector}</div>
+            </>
           )}
         </>
       );
     }
     return (
       <>
-        <div className="layout-panel-heading">
-          <strong>Layout settings</strong>
-        </div>
-        <CanvasInspector document={document} update={update} />
-        {layoutQuery.data && (
-          <UsedByPanel
-            emptyMessage="No campaign, screen, or schedule shows this Layout yet."
-            groups={[
-              {
-                label: "Screens",
-                items: layoutQuery.data.usage.screens,
-                to: (screenId) => `/screens/${screenId}`,
-              },
-              {
-                label: "Schedules",
-                items: layoutQuery.data.usage.schedules,
-                to: (scheduleId) => `/schedules/${scheduleId}`,
-              },
-              {
-                label: "Campaigns",
-                items: layoutQuery.data.usage.campaigns,
-                to: (campaignId) => `/campaigns/${campaignId}`,
-              },
-            ]}
-          />
-        )}
+        <LayoutPaneHeading title="Layout settings" />
+        {layoutSettings}
       </>
     );
   };
   const librarySidebar = (
-    <aside className="layout-editor-left">
+    <aside
+      aria-label="Layout library"
+      className="h-full min-h-0 overflow-hidden bg-background max-lg:max-h-[60vh] max-lg:border-b"
+    >
       <Tabs
-        value={sidebarSection}
+        value={activeSidebarSection}
         onValueChange={(value) => {
           if (value) setSidebarSection(value as LayoutSidebarSection);
         }}
         orientation="vertical"
-        className="layout-sidebar-tabs"
+        className="h-full gap-0"
       >
         <TabsList
           variant="line"
-          className="layout-sidebar-nav"
+          className="h-full w-20 shrink-0 justify-start gap-1 rounded-none border-r px-1.5 py-2"
           aria-label="Layout builder"
         >
           {sidebarSections.map(([section, label, Icon]) => (
             <TabsTrigger
               key={section}
               value={section}
-              className="layout-sidebar-tab"
+              className="h-auto flex-none flex-col justify-center gap-1 py-2 text-xs group-data-vertical/tabs:justify-center"
             >
-              <Icon size={18} />
-              <span>{label}</span>
+              <Icon aria-hidden="true" />
+              {label}
             </TabsTrigger>
           ))}
         </TabsList>
-        <div className="layout-sidebar-panel">
-          {sidebarSections.map(([section]) => (
-            <TabsContent
-              key={section}
-              value={section}
-              className="layout-sidebar-content"
-            >
-              {renderSidebarPanel(section)}
-            </TabsContent>
-          ))}
-        </div>
+        {sidebarSections.map(([section]) => (
+          <TabsContent
+            key={section}
+            value={section}
+            className="min-h-0 min-w-0 overflow-y-auto"
+          >
+            {renderSidebarPanel(section)}
+          </TabsContent>
+        ))}
       </Tabs>
     </aside>
   );
@@ -2625,33 +2709,296 @@ export function LayoutEditorPage() {
           </form>
         </DialogContent>
       </Dialog>
-      <div className="layout-editor-toolbar">
-        <strong>{layoutQuery.data?.name}</strong>
-        <Button
-          variant="ghost"
-          size="icon"
-          title="Rename Layout"
-          aria-label={`Rename ${layoutQuery.data?.name ?? "Layout"}`}
-          onClick={() => {
-            openRename({
-              kind: "layout",
-              name: layoutQuery.data?.name ?? "",
-            });
-          }}
-          disabled={rename.isPending}
-        >
-          <Pencil size={16} aria-hidden="true" />
-        </Button>
-        <span className="toolbar-divider" />
-        {desktop && (
-          <Menubar
-            aria-label="Layout editor commands"
-            className="shrink-0 border-0 p-0 shadow-none"
+      <div className="flex min-h-12 shrink-0 items-center gap-3 border-b bg-background px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <h1
+            className="max-w-64 truncate text-sm font-semibold"
+            title={layoutQuery.data?.name}
           >
-            <MenubarMenu>
-              <MenubarTrigger>File</MenubarTrigger>
-              <MenubarContent className="min-w-52">
-                <MenubarItem
+            {layoutQuery.data?.name}
+          </h1>
+          {desktop ? (
+            <Menubar
+              aria-label="Layout editor commands"
+              className="shrink-0 border-0 p-0 shadow-none"
+            >
+              <MenubarMenu>
+                <MenubarTrigger ref={fileMenuTrigger}>File</MenubarTrigger>
+                <MenubarContent className="min-w-52">
+                  <MenubarItem
+                    disabled={rename.isPending}
+                    onClick={() =>
+                      openRename({
+                        kind: "layout",
+                        name: layoutQuery.data?.name ?? "",
+                      })
+                    }
+                  >
+                    <Pencil aria-hidden="true" />
+                    Rename Layout…
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={
+                      saveState === "saved" ||
+                      saveState === "saving" ||
+                      saveState === "conflict"
+                    }
+                    onClick={() => void save()}
+                  >
+                    <Save aria-hidden="true" />
+                    Save now
+                    <MenubarShortcut>Ctrl/⌘ S</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarSeparator />
+                  <MenubarItem onClick={openPreview}>
+                    <Scan aria-hidden="true" />
+                    Preview
+                  </MenubarItem>
+                  <MenubarItem onClick={openHistory}>
+                    <History aria-hidden="true" />
+                    History…
+                  </MenubarItem>
+                  {canSubmit && (
+                    <>
+                      <MenubarSeparator />
+                      <MenubarItem
+                        disabled={saveState !== "saved" || publish.isPending}
+                        onClick={() => publish.mutate()}
+                      >
+                        {canPublish ? "Publish" : "Submit for review"}
+                      </MenubarItem>
+                    </>
+                  )}
+                </MenubarContent>
+              </MenubarMenu>
+              <MenubarMenu>
+                <MenubarTrigger>Edit</MenubarTrigger>
+                <MenubarContent className="min-w-52">
+                  <MenubarItem disabled={!past.length} onClick={undo}>
+                    Undo
+                    <MenubarShortcut>Ctrl/⌘ Z</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem disabled={!future.length} onClick={redo}>
+                    Redo
+                    <MenubarShortcut>Ctrl/⌘ ⇧ Z</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarSeparator />
+                  <MenubarItem
+                    disabled={!selection.size}
+                    onClick={copySelection}
+                  >
+                    Copy
+                    <MenubarShortcut>Ctrl/⌘ C</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!clipboard.current.length}
+                    onClick={pasteClipboard}
+                  >
+                    Paste
+                    <MenubarShortcut>Ctrl/⌘ V</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!selection.size}
+                    onClick={duplicateSelection}
+                  >
+                    Duplicate
+                    <MenubarShortcut>Ctrl/⌘ D</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarSeparator />
+                  <MenubarItem
+                    disabled={!document.placements.length}
+                    onClick={selectAll}
+                  >
+                    Select all
+                    <MenubarShortcut>Ctrl/⌘ A</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!selection.size}
+                    onClick={() => setSelection(new Set())}
+                  >
+                    Deselect
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!selection.size}
+                    variant="destructive"
+                    onClick={deleteSelection}
+                  >
+                    Delete selection
+                    <MenubarShortcut>Del</MenubarShortcut>
+                  </MenubarItem>
+                </MenubarContent>
+              </MenubarMenu>
+              <MenubarMenu>
+                <MenubarTrigger>Arrange</MenubarTrigger>
+                <MenubarContent className="min-w-52">
+                  <MenubarItem
+                    disabled={selection.size < 2}
+                    onClick={groupSelection}
+                  >
+                    Group selection
+                    <MenubarShortcut>Ctrl/⌘ G</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={
+                      !selected.some((item) => item.primitive?.kind === "group")
+                    }
+                    onClick={ungroupSelection}
+                  >
+                    Ungroup
+                  </MenubarItem>
+                  <MenubarSub>
+                    <MenubarSubTrigger disabled={!selected.length}>
+                      Layer order
+                    </MenubarSubTrigger>
+                    <MenubarSubContent>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => arrangeSelection("front")}
+                      >
+                        Bring to front
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => arrangeSelection("forward")}
+                      >
+                        Bring forward
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => arrangeSelection("backward")}
+                      >
+                        Send backward
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => arrangeSelection("back")}
+                      >
+                        Send to back
+                      </MenubarItem>
+                    </MenubarSubContent>
+                  </MenubarSub>
+                  <MenubarSub>
+                    <MenubarSubTrigger disabled={!selected.length}>
+                      Align selection
+                    </MenubarSubTrigger>
+                    <MenubarSubContent>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("left")}
+                      >
+                        Align left
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("hcenter")}
+                      >
+                        Horizontal centres
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("right")}
+                      >
+                        Align right
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("top")}
+                      >
+                        Align top
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("vmiddle")}
+                      >
+                        Vertical centres
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("bottom")}
+                      >
+                        Align bottom
+                      </MenubarItem>
+                      <MenubarSeparator />
+                      <MenubarItem
+                        disabled={selected.length < 3}
+                        onClick={() => distributeSelection("horizontal")}
+                      >
+                        Distribute horizontally
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={selected.length < 3}
+                        onClick={() => distributeSelection("vertical")}
+                      >
+                        Distribute vertically
+                      </MenubarItem>
+                      <MenubarSeparator />
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={fillCanvas}
+                      >
+                        Fill canvas
+                      </MenubarItem>
+                    </MenubarSubContent>
+                  </MenubarSub>
+                  <MenubarSeparator />
+                  <MenubarItem
+                    disabled={!selected.length}
+                    onClick={() => toggleSelectionFlag("locked")}
+                  >
+                    {selected.some((item) => item.locked) ? "Unlock" : "Lock"}{" "}
+                    selection
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!selected.length}
+                    onClick={() => toggleSelectionFlag("visible")}
+                  >
+                    {selected.some((item) => !item.visible)
+                      ? "Show selection"
+                      : "Hide selection"}
+                  </MenubarItem>
+                </MenubarContent>
+              </MenubarMenu>
+              <MenubarMenu>
+                <MenubarTrigger>View</MenubarTrigger>
+                <MenubarContent className="min-w-52">
+                  <MenubarCheckboxItem
+                    checked={snap}
+                    onCheckedChange={(checked) => setSnap(checked)}
+                  >
+                    Snap to grid
+                  </MenubarCheckboxItem>
+                  <MenubarCheckboxItem
+                    checked={safeArea}
+                    onCheckedChange={(checked) => setSafeArea(checked)}
+                  >
+                    Show safe area
+                  </MenubarCheckboxItem>
+                  <MenubarSeparator />
+                  <MenubarItem onClick={zoomOut}>Zoom out</MenubarItem>
+                  <MenubarItem onClick={zoomIn}>Zoom in</MenubarItem>
+                  <MenubarItem onClick={fitZoom}>
+                    Fit canvas to view
+                  </MenubarItem>
+                </MenubarContent>
+              </MenubarMenu>
+            </Menubar>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                ref={fileMenuTrigger}
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Layout file actions"
+                  />
+                }
+              >
+                <MoreHorizontal aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-48">
+                <DropdownMenuItem
                   disabled={rename.isPending}
                   onClick={() =>
                     openRename({
@@ -2660,9 +3007,10 @@ export function LayoutEditorPage() {
                     })
                   }
                 >
-                  Rename layout
-                </MenubarItem>
-                <MenubarItem
+                  <Pencil aria-hidden="true" />
+                  Rename Layout…
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   disabled={
                     saveState === "saved" ||
                     saveState === "saving" ||
@@ -2670,376 +3018,122 @@ export function LayoutEditorPage() {
                   }
                   onClick={() => void save()}
                 >
+                  <Save aria-hidden="true" />
                   Save now
-                  <MenubarShortcut>Ctrl/⌘ S</MenubarShortcut>
-                </MenubarItem>
-                <MenubarSeparator />
-                <MenubarItem
-                  onClick={() => {
-                    setPreview(true);
-                    void loadLayoutPreview();
-                  }}
-                >
-                  Preview
-                </MenubarItem>
-                <MenubarItem
-                  onClick={() => {
-                    setHistoryOpen(true);
-                    void revisions.refetch();
-                  }}
-                >
-                  Published revisions
-                </MenubarItem>
-                {canSubmit && (
-                  <>
-                    <MenubarSeparator />
-                    <MenubarItem
-                      disabled={saveState !== "saved" || publish.isPending}
-                      onClick={() => publish.mutate()}
-                    >
-                      {canPublish ? "Publish" : "Submit for review"}
-                    </MenubarItem>
-                  </>
-                )}
-              </MenubarContent>
-            </MenubarMenu>
-            <MenubarMenu>
-              <MenubarTrigger>Edit</MenubarTrigger>
-              <MenubarContent className="min-w-52">
-                <MenubarItem disabled={!past.length} onClick={undo}>
-                  Undo
-                  <MenubarShortcut>Ctrl/⌘ Z</MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem disabled={!future.length} onClick={redo}>
-                  Redo
-                  <MenubarShortcut>Ctrl/⌘ ⇧ Z</MenubarShortcut>
-                </MenubarItem>
-                <MenubarSeparator />
-                <MenubarItem disabled={!selection.size} onClick={copySelection}>
-                  Copy
-                  <MenubarShortcut>Ctrl/⌘ C</MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!clipboard.current.length}
-                  onClick={pasteClipboard}
-                >
-                  Paste
-                  <MenubarShortcut>Ctrl/⌘ V</MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!selection.size}
-                  onClick={duplicateSelection}
-                >
-                  Duplicate
-                  <MenubarShortcut>Ctrl/⌘ D</MenubarShortcut>
-                </MenubarItem>
-                <MenubarSeparator />
-                <MenubarItem
-                  disabled={!document.placements.length}
-                  onClick={selectAll}
-                >
-                  Select all
-                  <MenubarShortcut>Ctrl/⌘ A</MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!selection.size}
-                  onClick={() => setSelection(new Set())}
-                >
-                  Deselect
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!selection.size}
-                  variant="destructive"
-                  onClick={deleteSelection}
-                >
-                  Delete selection
-                  <MenubarShortcut>Del</MenubarShortcut>
-                </MenubarItem>
-              </MenubarContent>
-            </MenubarMenu>
-            <MenubarMenu>
-              <MenubarTrigger>Arrange</MenubarTrigger>
-              <MenubarContent className="min-w-52">
-                <MenubarItem
-                  disabled={selection.size < 2}
-                  onClick={groupSelection}
-                >
-                  Group selection
-                  <MenubarShortcut>Ctrl/⌘ G</MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  disabled={
-                    !selected.some((item) => item.primitive?.kind === "group")
-                  }
-                  onClick={ungroupSelection}
-                >
-                  Ungroup
-                </MenubarItem>
-                <MenubarSub>
-                  <MenubarSubTrigger disabled={!selected.length}>
-                    Layer order
-                  </MenubarSubTrigger>
-                  <MenubarSubContent>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => arrangeSelection("front")}
-                    >
-                      Bring to front
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => arrangeSelection("forward")}
-                    >
-                      Bring forward
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => arrangeSelection("backward")}
-                    >
-                      Send backward
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => arrangeSelection("back")}
-                    >
-                      Send to back
-                    </MenubarItem>
-                  </MenubarSubContent>
-                </MenubarSub>
-                <MenubarSub>
-                  <MenubarSubTrigger disabled={!selected.length}>
-                    Align selection
-                  </MenubarSubTrigger>
-                  <MenubarSubContent>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("left")}
-                    >
-                      Align left
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("hcenter")}
-                    >
-                      Horizontal centres
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("right")}
-                    >
-                      Align right
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("top")}
-                    >
-                      Align top
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("vmiddle")}
-                    >
-                      Vertical centres
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("bottom")}
-                    >
-                      Align bottom
-                    </MenubarItem>
-                    <MenubarSeparator />
-                    <MenubarItem
-                      disabled={selected.length < 3}
-                      onClick={() => distributeSelection("horizontal")}
-                    >
-                      Distribute horizontally
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={selected.length < 3}
-                      onClick={() => distributeSelection("vertical")}
-                    >
-                      Distribute vertically
-                    </MenubarItem>
-                    <MenubarSeparator />
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={fillCanvas}
-                    >
-                      Fill canvas
-                    </MenubarItem>
-                  </MenubarSubContent>
-                </MenubarSub>
-                <MenubarSeparator />
-                <MenubarItem
-                  disabled={!selected.length}
-                  onClick={() => toggleSelectionFlag("locked")}
-                >
-                  {selected.some((item) => item.locked) ? "Unlock" : "Lock"}{" "}
-                  selection
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!selected.length}
-                  onClick={() => toggleSelectionFlag("visible")}
-                >
-                  {selected.some((item) => !item.visible)
-                    ? "Show selection"
-                    : "Hide selection"}
-                </MenubarItem>
-              </MenubarContent>
-            </MenubarMenu>
-            <MenubarMenu>
-              <MenubarTrigger>View</MenubarTrigger>
-              <MenubarContent className="min-w-52">
-                <MenubarCheckboxItem
-                  checked={snap}
-                  onCheckedChange={(checked) => setSnap(checked)}
-                >
-                  Snap to grid
-                </MenubarCheckboxItem>
-                <MenubarCheckboxItem
-                  checked={safeArea}
-                  onCheckedChange={(checked) => setSafeArea(checked)}
-                >
-                  Show safe area
-                </MenubarCheckboxItem>
-                <MenubarSeparator />
-                <MenubarItem onClick={zoomOut}>Zoom out</MenubarItem>
-                <MenubarItem onClick={zoomIn}>Zoom in</MenubarItem>
-                <MenubarItem onClick={fitZoom}>Fit canvas to view</MenubarItem>
-              </MenubarContent>
-            </MenubarMenu>
-          </Menubar>
-        )}
-        <span className="toolbar-divider" />
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Undo"
-                onClick={undo}
-                disabled={!past.length}
-              >
-                <Undo2 size={17} aria-hidden="true" />
-              </Button>
-            }
-          />
-          <TooltipContent>
-            Undo <Kbd>Ctrl+Z</Kbd>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Redo"
-                onClick={redo}
-                disabled={!future.length}
-              >
-                <Redo2 size={17} aria-hidden="true" />
-              </Button>
-            }
-          />
-          <TooltipContent>
-            Redo <Kbd>Ctrl+Shift+Z</Kbd>
-          </TooltipContent>
-        </Tooltip>
-        <span className="toolbar-divider" />
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setPreview(true);
-            void loadLayoutPreview();
-          }}
-        >
-          <Scan size={16} aria-hidden="true" />
-          Preview
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setHistoryOpen(true);
-            void revisions.refetch();
-          }}
-        >
-          <History size={16} aria-hidden="true" />
-          History
-        </Button>
-        <Button
-          type="button"
-          variant={
-            saveState === "unsaved" || saveState === "error"
-              ? "outline"
-              : "ghost"
-          }
-          size="sm"
-          className={cn(
-            "ml-auto text-xs text-muted-foreground disabled:opacity-100",
-            saveState === "unsaved" && "text-amber-700 dark:text-amber-400",
-            (saveState === "conflict" || saveState === "error") &&
-              "text-destructive",
-            saveState === "saving" && "[&_svg]:animate-pulse",
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openHistory}>
+                  <History aria-hidden="true" />
+                  History…
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-          onClick={() => void save()}
-          disabled={
-            saveState === "saved" ||
-            saveState === "saving" ||
-            saveState === "conflict"
-          }
-          title={
-            saveState === "error"
-              ? "Try saving again"
-              : saveState === "unsaved"
-                ? "Save now (Ctrl/Command + S)"
-                : undefined
-          }
-          aria-live="polite"
-        >
-          <Save size={14} aria-hidden="true" />
-          {saveState === "saved"
-            ? "Saved"
-            : saveState === "saving"
-              ? "Saving…"
-              : saveState === "conflict"
-                ? "Reload required"
-                : saveState === "error"
-                  ? "Retry save"
-                  : "Save now"}
-        </Button>
-        {canSubmit && (
+        </div>
+        <ButtonGroup aria-label="Undo and redo">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Undo"
+                  onClick={undo}
+                  disabled={!past.length}
+                />
+              }
+            >
+              <Undo2 aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>
+              Undo <Kbd>Ctrl+Z</Kbd>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Redo"
+                  onClick={redo}
+                  disabled={!future.length}
+                />
+              }
+            >
+              <Redo2 aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>
+              Redo <Kbd>Ctrl+Shift+Z</Kbd>
+            </TooltipContent>
+          </Tooltip>
+        </ButtonGroup>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <LayoutSaveStatus state={saveState} onRetry={() => void save()} />
+          <Separator orientation="vertical" className="mx-1 h-5 self-center" />
           <Button
-            variant="default"
+            type="button"
+            variant="outline"
             size="sm"
-            disabled={saveState !== "saved" || publish.isPending}
-            onClick={() => publish.mutate()}
+            onClick={openPreview}
           >
-            {publish.isPending
-              ? canPublish
-                ? "Publishing…"
-                : "Submitting…"
-              : canPublish
-                ? "Publish"
-                : "Submit for review"}
+            <Scan aria-hidden="true" />
+            Preview
           </Button>
-        )}
+          {canSubmit && (
+            <Button
+              type="button"
+              size="sm"
+              disabled={saveState !== "saved" || publish.isPending}
+              aria-busy={publish.isPending || undefined}
+              onClick={() => publish.mutate()}
+            >
+              {publish.isPending && <Spinner aria-hidden="true" />}
+              {canPublish ? "Publish" : "Submit for review"}
+            </Button>
+          )}
+        </div>
       </div>
+      {saveState === "conflict" && (
+        <Alert
+          variant="destructive"
+          className="shrink-0 rounded-none border-x-0 border-t-0"
+        >
+          <TriangleAlert aria-hidden="true" />
+          <AlertTitle>This Layout changed somewhere else</AlertTitle>
+          <AlertDescription>
+            Reload to continue from the latest draft. Edits made here since the
+            last save cannot be saved over it.
+          </AlertDescription>
+          <AlertAction>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.reload()}
+            >
+              Reload
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
       {desktop ? (
+        // Three stable panes: the inspector always exists, showing Layout
+        // settings until something is selected, so selecting never resizes
+        // the canvas.
         <ResizablePanelGroup
           orientation="horizontal"
-          className="layout-editor-panes"
+          className="min-h-0 flex-1"
           role="group"
           aria-label="Layout library, canvas, and inspector"
         >
           <ResizablePanel
             id="layout-library-pane"
             defaultSize="24%"
-            minSize="15%"
-            className="layout-editor-pane"
+            minSize="16%"
+            maxSize="36%"
+            className="min-h-0 min-w-0"
           >
             {librarySidebar}
           </ResizablePanel>
@@ -3051,55 +3145,41 @@ export function LayoutEditorPage() {
             id="layout-stage-pane"
             defaultSize="52%"
             minSize="30%"
-            className="layout-editor-pane"
+            className="min-h-0 min-w-0"
           >
             {stage}
           </ResizablePanel>
-          {selection.size > 0 && primary ? (
-            <>
-              <ResizableHandle
-                withHandle
-                aria-label="Resize canvas and inspector panes"
-              />
-              <ResizablePanel
-                id="layout-inspector-pane"
-                defaultSize="24%"
-                minSize="18%"
-                className="layout-editor-pane"
-              >
-                <aside
-                  className="layout-inspector-pane"
-                  aria-label="Layer inspector"
-                >
-                  <div className="layout-panel-heading">
-                    <strong>Inspector</strong>
-                    <span>{selected.length} selected</span>
-                  </div>
-                  <PlacementInspector
-                    item={primary}
-                    content={
-                      primary.widgetId
-                        ? contentByID.get(primary.widgetId)
-                        : primary.assetId
-                          ? contentByID.get(primary.assetId)
-                          : undefined
-                    }
-                    playlist={
-                      primary.playlistId
-                        ? playlistByID.get(primary.playlistId)
-                        : undefined
-                    }
-                    dataSources={dataSources}
-                    update={(change) => mutateSelected(change)}
-                    duplicate={duplicateSelection}
-                    group={groupSelection}
-                    ungroup={ungroupSelection}
-                    canGroup={selection.size > 1}
+          <ResizableHandle
+            withHandle
+            aria-label="Resize canvas and inspector panes"
+          />
+          <ResizablePanel
+            id="layout-inspector-pane"
+            defaultSize="24%"
+            minSize="18%"
+            maxSize="36%"
+            className="min-h-0 min-w-0"
+          >
+            <aside
+              aria-label={primary ? "Layer inspector" : "Layout settings"}
+              className="h-full overflow-y-auto bg-background"
+            >
+              {primary ? (
+                <>
+                  <LayoutPaneHeading
+                    title="Inspector"
+                    meta={`${selected.length} selected`}
                   />
-                </aside>
-              </ResizablePanel>
-            </>
-          ) : null}
+                  <div className="p-3">{placementInspector}</div>
+                </>
+              ) : (
+                <>
+                  <LayoutPaneHeading title="Layout settings" />
+                  {layoutSettings}
+                </>
+              )}
+            </aside>
+          </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
         <>
@@ -3191,7 +3271,7 @@ export function LayoutEditorPage() {
             </Button>
           </div>
           <div
-            ref={previewFrameRef}
+            ref={setPreviewFrame}
             className="layout-preview-frame"
             style={{
               aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
@@ -3238,16 +3318,22 @@ export function LayoutEditorPage() {
         </DialogContent>
       </Dialog>
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-        <DialogContent className="layout-history-dialog max-h-[90dvh] overflow-y-auto">
+        <DialogContent
+          finalFocus={fileMenuTrigger}
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+        >
           <DialogHeader>
             <DialogTitle>Published revisions</DialogTitle>
             <DialogDescription>
               Restoring creates a new editable draft.
             </DialogDescription>
           </DialogHeader>
-          <div className="source-editor__body">
+          <div>
             {revisions.isLoading ? (
-              <p>Loading history…</p>
+              <div className="grid gap-2" aria-busy="true">
+                <Skeleton className="h-12" />
+                <Skeleton className="h-12" />
+              </div>
             ) : revisions.data?.items?.length ? (
               <ItemGroup className="gap-0 divide-y divide-border">
                 {revisions.data.items.map((revision) => (
@@ -3265,7 +3351,8 @@ export function LayoutEditorPage() {
                     </ItemContent>
                     <ItemActions>
                       <Button
-                        variant="secondary"
+                        variant="outline"
+                        size="sm"
                         onClick={() => restore.mutate(revision.id)}
                       >
                         Restore as draft
@@ -3286,7 +3373,7 @@ export function LayoutEditorPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setHistoryOpen(false)}>
+            <Button variant="outline" onClick={() => setHistoryOpen(false)}>
               Close
             </Button>
           </DialogFooter>
@@ -3478,6 +3565,69 @@ function PlacementView({
           aria-label="Resize"
           onPointerDown={onResize}
         />
+      )}
+    </div>
+  );
+}
+
+function LayoutPaneHeading({ title, meta }: { title: string; meta?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 border-b px-3 py-2.5">
+      <h2 className="text-sm font-medium">{title}</h2>
+      {meta && <span className="text-xs text-muted-foreground">{meta}</span>}
+    </div>
+  );
+}
+
+// Autosave state is status, not a button: File > Save and Ctrl/Command+S stay
+// available, and only a failed save offers an inline retry.
+function LayoutSaveStatus({
+  state,
+  onRetry,
+}: {
+  state: SaveState;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        role="status"
+        className={cn(
+          "flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3.5",
+          (state === "error" || state === "conflict") && "text-destructive",
+        )}
+      >
+        {state === "saving" ? (
+          <>
+            <Spinner aria-hidden="true" />
+            Saving…
+          </>
+        ) : state === "unsaved" ? (
+          <>
+            <CircleDot aria-hidden="true" />
+            Unsaved
+          </>
+        ) : state === "error" ? (
+          <>
+            <CircleAlert aria-hidden="true" />
+            Not saved
+          </>
+        ) : state === "conflict" ? (
+          <>
+            <TriangleAlert aria-hidden="true" />
+            Reload required
+          </>
+        ) : (
+          <>
+            <CloudCheck aria-hidden="true" />
+            Saved
+          </>
+        )}
+      </span>
+      {state === "error" && (
+        <Button type="button" variant="outline" size="xs" onClick={onRetry}>
+          Retry
+        </Button>
       )}
     </div>
   );

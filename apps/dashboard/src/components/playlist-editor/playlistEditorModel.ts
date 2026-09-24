@@ -1,4 +1,8 @@
-import type { PlaylistItem, PlaylistItemInput } from "../../api/types";
+import type {
+  AssetStatus,
+  PlaylistItem,
+  PlaylistItemInput,
+} from "../../api/types";
 
 export type PlaylistTransition = PlaylistItem["transition"] | "mixed";
 
@@ -88,6 +92,53 @@ export function formatItemDuration(item: PlaylistItem) {
   }
   if (item.durationMs != null) return formatDuration(item.durationMs);
   return "Until source ends";
+}
+
+export function playlistItemTypeLabel(item: PlaylistItem) {
+  if (item.assetType === "widget") {
+    return item.widgetProvider === "youtube" ? "YouTube widget" : "Widget";
+  }
+  return (
+    {
+      image: "Image",
+      video: "Video",
+      layout: "Layout",
+    } as const satisfies Record<
+      Exclude<PlaylistItem["assetType"], "widget">,
+      string
+    >
+  )[item.assetType];
+}
+
+// playlistItemSummary is the single muted metadata line under a timeline row:
+// what the item is, how it transitions in, and whether a video plays sound.
+export function playlistItemSummary(item: PlaylistItem) {
+  const parts = [
+    playlistItemTypeLabel(item),
+    item.usePlayerDefaults
+      ? "Player defaults"
+      : transitionLabel(item.transition),
+  ];
+  if (item.assetType === "video" && !item.usePlayerDefaults) {
+    parts.push(item.audioEnabled ? "Audio" : "Muted");
+  }
+  return parts.join(" · ");
+}
+
+export function assetStatusLabel(status: AssetStatus) {
+  return (
+    {
+      ready: "Ready",
+      uploading: "Uploading",
+      uploaded: "Uploaded",
+      queued: "Waiting",
+      inspecting: "Inspecting",
+      processing: "Processing",
+      failed: "Failed",
+      deleting: "Deleting",
+      deleted: "Unavailable",
+    } satisfies Record<AssetStatus, string>
+  )[status];
 }
 
 export function transitionLabel(transition: PlaylistTransition) {
