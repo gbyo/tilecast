@@ -7,6 +7,7 @@ export function TilecastStudioLogo({ className }: { className?: string }) {
       viewBox="0 0 171 22"
       fill="currentColor"
       role="img"
+      // i18n-ignore: product names stay in Latin script in every language
       aria-label="Tilecast Studio"
     >
       <g transform="matrix(1,0,0,1,-24.859685,-17.224775)">

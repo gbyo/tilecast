@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import "./SecurityQr.css";
 
 /**
@@ -8,6 +9,7 @@ import "./SecurityQr.css";
  * failure says so rather than leaving a placeholder that never resolves.
  */
 export function SecurityQr({ uri }: { uri: string }) {
+  const { t } = useTranslation("account");
   const [dataUrl, setDataUrl] = useState<string>();
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -26,17 +28,13 @@ export function SecurityQr({ uri }: { uri: string }) {
     };
   }, [uri]);
   if (failed)
-    return (
-      <p className="security-status">
-        The QR code could not be displayed. Enter the key below by hand instead.
-      </p>
-    );
+    return <p className="security-status">{t("security.qr.failed")}</p>;
   if (!dataUrl) return <div className="security-qr security-qr--pending" />;
   return (
     <img
       className="security-qr"
       src={dataUrl}
-      alt="Authenticator setup QR code"
+      alt={t("security.qr.alt")}
       width={220}
       height={220}
     />

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
   Collapsible,
@@ -102,14 +103,15 @@ function CompactUsedByPanel({
   groups: UsedByGroup[];
   total: number;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const [open, setOpen] = useState(false);
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="grid gap-2">
       <CollapsibleTrigger className="flex cursor-pointer items-center justify-between gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <span className="text-sm font-medium">
-          Used by{" "}
+          {t("widgets.usedBy.title")}{" "}
           <Badge variant="secondary">
-            {total} {total === 1 ? "place" : "places"}
+            {t("widgets.usedBy.places", { count: total })}
           </Badge>
         </span>
         <ChevronDown

@@ -362,7 +362,9 @@
     "reasonLabel": "Motivo de cancelación (opcional)",
     "keepActive": "Mantener la toma de control",
     "ending": "Terminando…",
-    "activeBadge": "Activas: {{count}}",
+    "activeBadge_one": "Activa: {{count}}",
+    "activeBadge_many": "Activas: {{count}}",
+    "activeBadge_other": "Activas: {{count}}",
     "dialogBody": "Reemplaza temporalmente los horarios y el contenido alternativo en las pantallas seleccionadas. Las tomas de control existentes que se superpongan se reemplazan.",
     "nameLabel": "Nombre de la toma de control",
     "playlistLabel": "Lista de reproducción",
@@ -708,7 +710,10 @@
   },
   "preview": {
     "snapshotsTitle": "Historial de capturas",
-    "snapshotsBody": "Fotogramas capturados anteriormente e informados por este reproductor."
+    "snapshotsBody": "Fotogramas capturados anteriormente e informados por este reproductor.",
+    "noContent": "Todavía no hay contenido",
+    "unavailable": "Vista previa no disponible",
+    "openLayoutHint": "Abre el diseño para seguir editando."
   },
   "scope": {
     "ownerNote": "El acceso de propiedad se aplica a toda la flota.",
@@ -880,5 +885,79 @@
     "queued_other": "{{count}} comandos en cola{{failed}}.",
     "queued_many": "{{count}} de comandos en cola{{failed}}.",
     "queuedFailed": " · {{count}} fallidos"
+  },
+  "livePreview": {
+    "title": "Vista previa en directo",
+    "onDemand": "A petición",
+    "watchLive": "Ver en directo",
+    "imageAlt": "Salida actual de Tilecast para {{name}}",
+    "unknownScreen": "pantalla",
+    "unnamedScreen": "pantalla",
+    "capturedTitle": "Capturado {{date}}",
+    "sessionFailed": "La sesión de vista previa falló.",
+    "lastCapture": "Última captura",
+    "notCaptured": "Sin captura",
+    "player": "Reproductor",
+    "image": "Imagen",
+    "noImage": "Sin imagen",
+    "protectedNote": "Las pantallas protegidas no se capturan.",
+    "states": {
+      "loading": {
+        "label": "Cargando",
+        "description": "Esperando la respuesta del reproductor vinculado."
+      },
+      "live": {
+        "label": "En directo",
+        "description": "Se actualiza cada 20 segundos aproximadamente mientras esta página está abierta."
+      },
+      "offline": {
+        "label": "Sin conexión",
+        "description": "La sesión continuará cuando el reproductor se reconecte."
+      },
+      "stale": {
+        "label": "Obsoleto",
+        "description": "El reproductor no ha enviado una captura reciente."
+      },
+      "unavailable": {
+        "label": "No disponible",
+        "description": "La pantalla actual del reproductor no se puede previsualizar."
+      },
+      "captureError": {
+        "label": "Error de captura",
+        "description": "Usa Actualizar para solicitar otra captura."
+      }
+    },
+    "overlay": {
+      "loading": "Solicitando una captura reciente…",
+      "live": "La vista previa en directo está lista.",
+      "offline": "El reproductor está sin conexión.",
+      "stale": "La última vista previa está desactualizada.",
+      "captureError": "El reproductor no pudo capturar su ventana.",
+      "unknown": "Vista previa no disponible."
+    },
+    "unavailable": {
+      "protected": "La vista previa está en pausa mientras el reproductor muestra una pantalla protegida.",
+      "notYet": "Aún no hay vista previa disponible de este reproductor."
+    },
+    "age": {
+      "seconds": "hace {{value}} s",
+      "minutes": "hace {{value}} min",
+      "hours": "hace {{value}} h",
+      "days": "hace {{value}} d"
+    }
+  },
+  "snapshots": {
+    "label": "Historial de capturas",
+    "loading": "Cargando el historial de capturas…",
+    "loadError": "No se pudo cargar el historial de capturas",
+    "disabledTitle": "El historial de capturas está desactivado.",
+    "disabledBody": "Tilecast no está guardando imágenes de lo que mostró esta pantalla. Un propietario o administrador puede activarlo en <settingsLink>Ajustes, Historial de capturas</settingsLink>.",
+    "emptyTitle": "Aún no hay capturas",
+    "emptyBody": "Tilecast captura fotogramas según una programación de las pantallas que están informando.",
+    "retention": "Conserva hasta {{max}} por pantalla durante {{days}} días.",
+    "viewSnapshot": "Ver la captura del {{date}}",
+    "snapshotAlt": "Pantalla el {{date}}",
+    "manualSuffix": " · manual",
+    "openFull": "Abrir a tamaño completo"
   }
 }

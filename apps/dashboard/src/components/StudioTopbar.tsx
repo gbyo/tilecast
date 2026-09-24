@@ -176,7 +176,7 @@ function routeGroup(to: string): CommandGroupName {
   return "navigation";
 }
 
-function collectRouteResults(routes: readonly RouteObject[]) {
+function collectRouteResults(routes: readonly RouteObject[], t: NavigationT) {
   const results: (Omit<CommandResult, "score"> & { keywords?: string[] })[] =
     [];
   const seen = new Set<string>();
@@ -187,7 +187,9 @@ function collectRouteResults(routes: readonly RouteObject[]) {
       results.push({
         id: `route:${item.to}`,
         label: item.label,
-        description: item.description,
+        description: item.descriptionKey
+          ? t(item.descriptionKey)
+          : item.description,
         to: item.to,
         category: routeGroup(item.to),
         Icon: resultIcon(item.to),
@@ -304,7 +306,7 @@ export function buildCommandResults(
 ) {
   const providers: CommandProvider[] = [
     { id: "actions", results: () => collectActionResults(t, permissions) },
-    { id: "routes", results: () => collectRouteResults(routes) },
+    { id: "routes", results: () => collectRouteResults(routes, t) },
     { id: "plugins", results: () => collectPluginResults(t, plugins) },
     {
       id: "screens",

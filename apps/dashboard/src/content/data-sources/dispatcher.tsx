@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { DataSourceDetail, DataSourceProvider } from "../../api/types";
 import { GenericDataSourceEditor } from "../GenericDefinitionEditors";
@@ -34,12 +35,13 @@ export function DataSourceEditor({
   const definition = definitions.data?.dataSources?.find(
     (candidate) => candidate.id === provider,
   );
+  const { t } = useTranslation(["content", "common"]);
   // Release-defined providers are anything the legacy editors below do not handle. Wait for
   // the catalog before routing them, so a new definition renders through the generic editor
   // without a hardcoded provider check here.
   if (!legacyDataSourceProviders.has(provider) && definitions.isLoading)
     return (
-      <div className="table-loading">Loading Data Source definition...</div>
+      <div className="table-loading">{t("dataSources.loading.definition")}</div>
     );
   if (definition && !definition.legacyEditor)
     return (
