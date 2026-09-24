@@ -527,8 +527,11 @@ export function BrandBugEditorPage() {
               </FieldLabel>
               <RheaSelect
                 items={(
-                  Object.keys(cornerLabels) as BrandBugInput["corner"][]
-                ).map((value) => ({ value, label: cornerLabels[value] }))}
+                  Object.keys(cornerLabelKeys) as BrandBugInput["corner"][]
+                ).map((value) => ({
+                  value,
+                  label: t(cornerLabelKeys[value]),
+                }))}
                 name="corner"
                 value={corner}
                 onValueChange={(next) => {
@@ -602,7 +605,10 @@ export function BrandBugEditorPage() {
                 {t("brandBug.editor.backingLabel")}
               </FieldLabel>
               <RheaSelect
-                items={backingOptions}
+                items={backingOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 name="backgroundStyle"
                 value={backgroundStyle}
                 onValueChange={(next) => {

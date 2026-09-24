@@ -546,7 +546,10 @@ export function NoiseMeterHistoryPage() {
             {t("history.exportLabel")}
           </FieldLabel>
           <RheaSelect
-            items={granularityOptions}
+            items={granularityOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
             value={granularity}
             onValueChange={(value) => setGranularity(value ?? "raw")}
           >

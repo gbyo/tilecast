@@ -257,141 +257,141 @@ function IncidentDrawer({
 
       <IncidentFacts incident={incident} />
 
-          <section className="grid gap-1">
-            <h4 className="text-sm font-semibold">
-              {t("incidents.drawer.recoveryPath")}
-            </h4>
-            {/* Stated from what was recorded, including when nothing has. */}
-            <p className="text-sm text-muted-foreground">
-              {detail?.recoveryPath ?? t("common:status.loading")}
-            </p>
-          </section>
+      <section className="grid gap-1">
+        <h4 className="text-sm font-semibold">
+          {t("incidents.drawer.recoveryPath")}
+        </h4>
+        {/* Stated from what was recorded, including when nothing has. */}
+        <p className="text-sm text-muted-foreground">
+          {detail?.recoveryPath ?? t("common:status.loading")}
+        </p>
+      </section>
 
       {query.isLoading && <Loading />}
 
-          {detail && (
-            <>
-              <DrawerSection
-                title={t("incidents.drawer.sections.timeline")}
-                empty={t("incidents.drawer.sections.timelineEmpty")}
+      {detail && (
+        <>
+          <DrawerSection
+            title={t("incidents.drawer.sections.timeline")}
+            empty={t("incidents.drawer.sections.timelineEmpty")}
+          >
+            {detail.timeline.map((entry) => (
+              <TimelineEntry
+                key={entry.id}
+                when={entry.occurredAt}
+                tag={humanize(entry.role)}
               >
-                {detail.timeline.map((entry) => (
-                  <TimelineEntry
-                    key={entry.id}
-                    when={entry.occurredAt}
-                    tag={humanize(entry.role)}
-                  >
-                    {entry.summary}
-                    {entry.actorName ? ` — ${entry.actorName}` : ""}
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
-
-              <DrawerSection
-                title={t("incidents.drawer.sections.events")}
-                empty={t("incidents.drawer.sections.eventsEmpty")}
-              >
-                {detail.relatedEvents.map((event) => (
-                  <TimelineEntry
-                    key={event.id}
-                    when={event.timestamp}
-                    tag={event.category}
-                  >
-                    {humanize(event.eventType)}
-                    {event.failureMessage ? ` — ${event.failureMessage}` : ""}
-                    <TechnicalDetails value={event.details} />
-                  </TimelineEntry>
-                ))}
+                {entry.summary}
+                {entry.actorName ? ` — ${entry.actorName}` : ""}
+              </TimelineEntry>
+            ))}
           </DrawerSection>
 
-              <DrawerSection
-                title={t("incidents.drawer.sections.playback")}
-                empty={t("incidents.drawer.sections.playbackEmpty")}
+          <DrawerSection
+            title={t("incidents.drawer.sections.events")}
+            empty={t("incidents.drawer.sections.eventsEmpty")}
+          >
+            {detail.relatedEvents.map((event) => (
+              <TimelineEntry
+                key={event.id}
+                when={event.timestamp}
+                tag={event.category}
               >
-                {detail.proofSessions.map((session) => (
-                  <TimelineEntry
-                    key={session.id}
-                    when={session.startedAt}
-                    tag={session.sessionType}
-                  >
-                    <ResourceLink
-                      type={session.contentType ?? session.presentationType}
-                      id={session.contentId ?? session.presentationId}
-                      label={
-                        session.contentName ||
-                        session.presentationName ||
-                        session.contentId ||
-                        t("shared.unnamedPresentation")
-                      }
-                    />
-                    {session.actualDurationMs != null &&
-                      ` · ${formatDuration(session.actualDurationMs)}`}
-                    {session.terminalReason &&
-                      ` · ${t("incidents.drawer.sessionEnded", {
-                        reason: humanize(session.terminalReason).toLowerCase(),
-                      })}`}{" "}
-                    <ResultBadge value={session.result} />
-                  </TimelineEntry>
-                ))}
-              </DrawerSection>
+                {humanize(event.eventType)}
+                {event.failureMessage ? ` — ${event.failureMessage}` : ""}
+                <TechnicalDetails value={event.details} />
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
+
+          <DrawerSection
+            title={t("incidents.drawer.sections.playback")}
+            empty={t("incidents.drawer.sections.playbackEmpty")}
+          >
+            {detail.proofSessions.map((session) => (
+              <TimelineEntry
+                key={session.id}
+                when={session.startedAt}
+                tag={session.sessionType}
+              >
+                <ResourceLink
+                  type={session.contentType ?? session.presentationType}
+                  id={session.contentId ?? session.presentationId}
+                  label={
+                    session.contentName ||
+                    session.presentationName ||
+                    session.contentId ||
+                    t("shared.unnamedPresentation")
+                  }
+                />
+                {session.actualDurationMs != null &&
+                  ` · ${formatDuration(session.actualDurationMs)}`}
+                {session.terminalReason &&
+                  ` · ${t("incidents.drawer.sessionEnded", {
+                    reason: humanize(session.terminalReason).toLowerCase(),
+                  })}`}{" "}
+                <ResultBadge value={session.result} />
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
 
           {/* Commands and updates are activity events with their own
                   categories, so they arrive in the related-events stream above and
                   are surfaced here as their own view of it. */}
-              <DrawerSection
-                title={t("incidents.drawer.sections.commands")}
-                empty={t("incidents.drawer.sections.commandsEmpty")}
-              >
-                {detail.relatedEvents
-                  .filter((event) =>
-                    ["commands", "updates"].includes(event.category),
-                  )
-                  .map((event) => (
-                    <TimelineEntry
-                      key={`command-${event.id}`}
-                      when={event.timestamp}
-                      tag={event.category}
-                    >
-                      {humanize(event.eventType)}{" "}
-                      <ResultBadge value={event.result} />
-                    </TimelineEntry>
-                  ))}
-              </DrawerSection>
-
-              <DrawerSection
-                title={t("incidents.drawer.sections.audit")}
-                empty={t("incidents.drawer.sections.auditEmpty")}
-              >
-                {detail.auditChanges.map((record) => (
-                  <TimelineEntry
-                    key={record.id}
-                    when={record.timestamp}
-                    tag="audit"
-                  >
-                    {record.summary || humanize(record.action)} — {record.actorName}
-                  </TimelineEntry>
-                ))}
+          <DrawerSection
+            title={t("incidents.drawer.sections.commands")}
+            empty={t("incidents.drawer.sections.commandsEmpty")}
+          >
+            {detail.relatedEvents
+              .filter((event) =>
+                ["commands", "updates"].includes(event.category),
+              )
+              .map((event) => (
+                <TimelineEntry
+                  key={`command-${event.id}`}
+                  when={event.timestamp}
+                  tag={event.category}
+                >
+                  {humanize(event.eventType)}{" "}
+                  <ResultBadge value={event.result} />
+                </TimelineEntry>
+              ))}
           </DrawerSection>
 
-              {detail.screens.length > 0 && (
-                <DrawerSection
-                  title={t("incidents.drawer.sections.screens")}
-                  empty=""
-                >
-                  {detail.screens.map((screen) => (
-                    <div key={screen.screenId} className="text-sm">
-                      <Link
-                        to={screenActivityLink(screen.screenId)}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {screen.screenName}
-                      </Link>
-                    </div>
-                  ))}
-                </DrawerSection>
-              )}
-            </>
+          <DrawerSection
+            title={t("incidents.drawer.sections.audit")}
+            empty={t("incidents.drawer.sections.auditEmpty")}
+          >
+            {detail.auditChanges.map((record) => (
+              <TimelineEntry
+                key={record.id}
+                when={record.timestamp}
+                tag="audit"
+              >
+                {record.summary || humanize(record.action)} — {record.actorName}
+              </TimelineEntry>
+            ))}
+          </DrawerSection>
+
+          {detail.screens.length > 0 && (
+            <DrawerSection
+              title={t("incidents.drawer.sections.screens")}
+              empty=""
+            >
+              {detail.screens.map((screen) => (
+                <div key={screen.screenId} className="text-sm">
+                  <Link
+                    to={screenActivityLink(screen.screenId)}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {screen.screenName}
+                  </Link>
+                </div>
+              ))}
+            </DrawerSection>
           )}
+        </>
+      )}
     </div>
   );
   const handleOpenChange = (nextOpen: boolean) => {

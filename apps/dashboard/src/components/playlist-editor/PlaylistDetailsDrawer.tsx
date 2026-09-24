@@ -105,9 +105,7 @@ export function PlaylistDetailsDrawer({
               : t("details.kindSettings")}
           </p>
           <DrawerTitle>{t("details.title")}</DrawerTitle>
-          <DrawerDescription>
-            {t("details.description")}
-          </DrawerDescription>
+          <DrawerDescription>{t("details.description")}</DrawerDescription>
           <RheaButton
             type="button"
             variant="ghost"
