@@ -32,6 +32,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
+import { Field, FieldLabel } from "../components/ui/field";
 import { Switch as RheaSwitch } from "../components/ui/switch";
 
 type PolicyGroupTitleKey =
@@ -263,14 +264,20 @@ export function PlayerPolicyEditor({
             onChange={(event) => setSearch(event.target.value)}
           />
         </InputGroup>
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+        <Field orientation="horizontal" className="items-center">
           <RheaSwitch
+            id="player-settings-overridden-only"
             checked={overriddenOnly}
             onCheckedChange={setOverriddenOnly}
             aria-label={t("policies.overriddenOnly")}
           />
-          {t("policies.overriddenOnly")}
-        </label>
+          <FieldLabel
+            htmlFor="player-settings-overridden-only"
+            className="font-normal"
+          >
+            {t("policies.overriddenOnly")}
+          </FieldLabel>
+        </Field>
         <Badge variant="secondary">
           {t("policies.overrides", { count: overrideCount })}
         </Badge>
@@ -542,16 +549,22 @@ function PolicyRow({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+        <Field orientation="horizontal" className="items-center">
           <RheaSwitch
             size="sm"
+            id={"player-setting-override-" + definition.key}
             aria-label={t("policies.overrideSetting", { title })}
             checked={overridden}
             disabled={!manageable}
             onCheckedChange={(next) => onToggle(next)}
           />
-          {overridden ? t("policies.overrideOn") : t("policies.overrideOff")}
-        </label>
+          <FieldLabel
+            htmlFor={"player-setting-override-" + definition.key}
+            className="font-normal"
+          >
+            {overridden ? t("policies.overrideOn") : t("policies.overrideOff")}
+          </FieldLabel>
+        </Field>
         {overridden && (
           <RheaButton
             type="button"

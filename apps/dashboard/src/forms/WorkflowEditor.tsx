@@ -15,6 +15,7 @@ import { Button as RheaButton } from "../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -119,6 +120,7 @@ export function WorkflowEditor({
       ),
     [states, transitions, t],
   );
+  const initialStateIndex = states.findIndex((state) => state.initial);
 
   const save = useMutation({
     mutationFn: () =>
@@ -260,126 +262,159 @@ export function WorkflowEditor({
             {t("workflow.addState")}
           </RheaButton>
         </div>
-        {states.map((state, index) => {
-          const locked = state.removable === false;
-          return (
-            <div
-              key={index}
-              className="grid gap-3 rounded-xl border border-border p-4"
-            >
-              <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
-                <Field>
-                  <FieldLabel htmlFor={`workflow-state-label-${index}`}>
-                    {t("workflow.stateLabel")}
-                  </FieldLabel>
-                  <Input
-                    id={`workflow-state-label-${index}`}
-                    value={state.label}
-                    onChange={(e) =>
-                      updateState(index, { label: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`workflow-state-key-${index}`}>
-                    {t("workflow.stateKey")}
-                  </FieldLabel>
-                  <Input
-                    id={`workflow-state-key-${index}`}
-                    value={state.key}
-                    disabled={locked}
-                    onChange={(e) =>
-                      updateState(index, {
-                        key: slugifyStateKey(e.target.value),
-                      })
-                    }
-                  />
-                  <FieldDescription>
-                    {locked ? t("workflow.lockedHint") : t("workflow.keyHint")}
-                  </FieldDescription>
-                </Field>
-                <span className="sm:pb-1">
-                  <Badge {...formToneBadgeProps("neutral")}>
-                    {t("workflow.stateRecords", {
-                      count: state.recordCount ?? 0,
-                    })}
-                  </Badge>
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                {/* The wrapping label names the radio; no extra aria-label. */}
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="initial-state"
-                    className="size-4 shrink-0 accent-primary"
-                    checked={state.initial}
-                    onChange={() => setInitial(index)}
-                  />
-                  <span>{t("workflow.initialOption")}</span>
-                </label>
-                {/* Base UI names the span from the wrapping label. */}
-                <label className="flex items-center gap-2 text-sm">
-                  <RheaCheckbox
-                    checked={state.eligibleForOutput}
-                    onCheckedChange={(checked) =>
-                      updateState(index, {
-                        eligibleForOutput: checked === true,
-                      })
-                    }
-                  />
-                  <span>{t("workflow.eligibleOption")}</span>
-                </label>
-                {/* Base UI names the span from the wrapping label. */}
-                <label className="flex items-center gap-2 text-sm">
-                  <RheaCheckbox
-                    checked={state.terminal}
-                    onCheckedChange={(checked) =>
-                      updateState(index, { terminal: checked === true })
-                    }
-                  />
-                  <span>{t("workflow.terminalOption")}</span>
-                </label>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                    aria-label={t("workflow.moveUp", { label: state.label })}
-                    disabled={index === 0}
-                    onClick={() => moveState(index, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                    aria-label={t("workflow.moveDown", { label: state.label })}
-                    disabled={index === states.length - 1}
-                    onClick={() => moveState(index, 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                    aria-label={t("workflow.deleteState", {
-                      label: state.label,
-                    })}
-                    disabled={locked}
-                    title={
-                      locked
-                        ? t("workflow.deleteLockedTitle")
-                        : t("workflow.deleteTitle")
-                    }
-                    onClick={() => removeState(index)}
-                  >
-                    ✕
-                  </button>
+        <RadioGroup
+          aria-label={t("workflow.initialOption")}
+          value={initialStateIndex >= 0 ? String(initialStateIndex) : ""}
+          onValueChange={(value) => {
+            const index = Number(value);
+            if (
+              Number.isInteger(index) &&
+              index >= 0 &&
+              index < states.length
+            ) {
+              setInitial(index);
+            }
+          }}
+          className="grid gap-3"
+        >
+          {states.map((state, index) => {
+            const locked = state.removable === false;
+            return (
+              <div
+                key={index}
+                className="grid gap-3 rounded-xl border border-border p-4"
+              >
+                <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
+                  <Field>
+                    <FieldLabel htmlFor={`workflow-state-label-${index}`}>
+                      {t("workflow.stateLabel")}
+                    </FieldLabel>
+                    <Input
+                      id={`workflow-state-label-${index}`}
+                      value={state.label}
+                      onChange={(e) =>
+                        updateState(index, { label: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`workflow-state-key-${index}`}>
+                      {t("workflow.stateKey")}
+                    </FieldLabel>
+                    <Input
+                      id={`workflow-state-key-${index}`}
+                      value={state.key}
+                      disabled={locked}
+                      onChange={(e) =>
+                        updateState(index, {
+                          key: slugifyStateKey(e.target.value),
+                        })
+                      }
+                    />
+                    <FieldDescription>
+                      {locked
+                        ? t("workflow.lockedHint")
+                        : t("workflow.keyHint")}
+                    </FieldDescription>
+                  </Field>
+                  <span className="sm:pb-1">
+                    <Badge {...formToneBadgeProps("neutral")}>
+                      {t("workflow.stateRecords", {
+                        count: state.recordCount ?? 0,
+                      })}
+                    </Badge>
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Field orientation="horizontal" className="items-center">
+                    <RadioGroupItem
+                      id={`workflow-state-initial-${index}`}
+                      value={String(index)}
+                    />
+                    <FieldLabel
+                      htmlFor={`workflow-state-initial-${index}`}
+                      className="font-normal"
+                    >
+                      {t("workflow.initialOption")}
+                    </FieldLabel>
+                  </Field>
+                  <Field orientation="horizontal" className="items-center">
+                    <RheaCheckbox
+                      id={`workflow-state-output-${index}`}
+                      checked={state.eligibleForOutput}
+                      onCheckedChange={(checked) =>
+                        updateState(index, {
+                          eligibleForOutput: checked === true,
+                        })
+                      }
+                    />
+                    <FieldLabel
+                      htmlFor={`workflow-state-output-${index}`}
+                      className="font-normal"
+                    >
+                      {t("workflow.eligibleOption")}
+                    </FieldLabel>
+                  </Field>
+                  <Field orientation="horizontal" className="items-center">
+                    <RheaCheckbox
+                      id={`workflow-state-terminal-${index}`}
+                      checked={state.terminal}
+                      onCheckedChange={(checked) =>
+                        updateState(index, { terminal: checked === true })
+                      }
+                    />
+                    <FieldLabel
+                      htmlFor={`workflow-state-terminal-${index}`}
+                      className="font-normal"
+                    >
+                      {t("workflow.terminalOption")}
+                    </FieldLabel>
+                  </Field>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      aria-label={t("workflow.moveUp", {
+                        label: state.label,
+                      })}
+                      disabled={index === 0}
+                      onClick={() => moveState(index, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      aria-label={t("workflow.moveDown", {
+                        label: state.label,
+                      })}
+                      disabled={index === states.length - 1}
+                      onClick={() => moveState(index, 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      aria-label={t("workflow.deleteState", {
+                        label: state.label,
+                      })}
+                      disabled={locked}
+                      title={
+                        locked
+                          ? t("workflow.deleteLockedTitle")
+                          : t("workflow.deleteTitle")
+                      }
+                      onClick={() => removeState(index)}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </RadioGroup>
       </section>
 
       <section

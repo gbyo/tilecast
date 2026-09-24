@@ -177,8 +177,10 @@
       "opacityLabel": "Opacidad (%)",
       "windowFrom": "Mostrar desde",
       "windowFromHint": "Deja en blanco para mostrar en cuanto se habilite.",
+      "windowFromTime": "Hora de inicio",
       "windowUntil": "Mostrar hasta",
-      "windowUntilHint": "Deja en blanco para mostrar indefinidamente."
+      "windowUntilHint": "Deja en blanco para mostrar indefinidamente.",
+      "windowUntilTime": "Hora de finalización"
     },
     "validation": {
       "textMax": "El texto está limitado a 180 caracteres.",

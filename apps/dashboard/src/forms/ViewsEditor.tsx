@@ -19,7 +19,13 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
-import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
   Select as RheaSelect,
@@ -446,28 +452,37 @@ function ViewForm({
         </Field>
       </div>
 
-      <fieldset className="grid gap-3 rounded-xl border border-border p-4">
-        <legend className="text-sm font-medium">
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
           {t("views.statesLegend")}
-        </legend>
+        </FieldLegend>
         <div className="flex flex-wrap gap-2">
           {form.workflow.states.map((state) => (
-            /* Base UI names the span from the wrapping label. */
-            <label key={state.key} className="flex items-center gap-2 text-sm">
+            <Field
+              key={state.key}
+              orientation="horizontal"
+              className="items-center"
+            >
               <RheaCheckbox
+                id={"form-view-state-" + state.key}
                 checked={draft.includedStates.includes(state.key)}
                 onCheckedChange={() => toggleState(state.key)}
               />
-              <span>{state.label}</span>
-            </label>
+              <FieldLabel
+                htmlFor={"form-view-state-" + state.key}
+                className="font-normal"
+              >
+                {state.label}
+              </FieldLabel>
+            </Field>
           ))}
         </div>
-      </fieldset>
+      </FieldSet>
 
-      <fieldset className="grid gap-3 rounded-xl border border-border p-4">
-        <legend className="text-sm font-medium">
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
           {t("views.fieldsLegend")}
-        </legend>
+        </FieldLegend>
         <div>
           {/* No wrapping label: the control sits alone under the section legend. */}
           <RheaSelect
@@ -552,12 +567,12 @@ function ViewForm({
             </li>
           )}
         </ol>
-      </fieldset>
+      </FieldSet>
 
-      <fieldset className="grid gap-3 rounded-xl border border-border p-4">
-        <legend className="text-sm font-medium">
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
           {t("views.filtersLegend")}
-        </legend>
+        </FieldLegend>
         {draft.fieldFilters.map((filter, index) => {
           const operators = operatorsForType(fieldType(filter.field), t);
           return (
@@ -673,10 +688,12 @@ function ViewForm({
         >
           {t("views.addFilter")}
         </RheaButton>
-      </fieldset>
+      </FieldSet>
 
-      <fieldset className="grid gap-3 rounded-xl border border-border p-4">
-        <legend className="text-sm font-medium">{t("views.sortLegend")}</legend>
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          {t("views.sortLegend")}
+        </FieldLegend>
         {draft.sort.map((rule, index) => (
           <div key={index} className="flex flex-wrap items-center gap-2">
             <RheaSelect
@@ -758,13 +775,15 @@ function ViewForm({
         >
           {t("views.addSort")}
         </RheaButton>
-      </fieldset>
+      </FieldSet>
 
-      <fieldset className="grid gap-3 rounded-xl border border-border p-4">
-        <legend className="text-sm font-medium">{t("views.timeLegend")}</legend>
-        {/* Base UI names the span from the wrapping label. */}
-        <label className="flex items-center gap-2 text-sm">
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          {t("views.timeLegend")}
+        </FieldLegend>
+        <Field orientation="horizontal" className="items-center">
           <RheaCheckbox
+            id="form-view-time-window-enabled"
             checked={draft.timeFilter.enabled}
             onCheckedChange={(checked) =>
               update({
@@ -775,8 +794,13 @@ function ViewForm({
               })
             }
           />
-          <span>{t("views.timeEnabled")}</span>
-        </label>
+          <FieldLabel
+            htmlFor="form-view-time-window-enabled"
+            className="font-normal"
+          >
+            {t("views.timeEnabled")}
+          </FieldLabel>
+        </Field>
         {draft.timeFilter.enabled && (
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
@@ -853,9 +877,9 @@ function ViewForm({
                 </SelectContent>
               </RheaSelect>
             </Field>
-            {/* Base UI names the span from the wrapping label. */}
-            <label className="flex items-center gap-2 text-sm">
+            <Field orientation="horizontal" className="items-center">
               <RheaCheckbox
+                id="form-view-start-before-now"
                 checked={Boolean(draft.timeFilter.startBeforeNow)}
                 onCheckedChange={(checked) =>
                   update({
@@ -866,11 +890,16 @@ function ViewForm({
                   })
                 }
               />
-              <span>{t("views.startBeforeNow")}</span>
-            </label>
-            {/* Base UI names the span from the wrapping label. */}
-            <label className="flex items-center gap-2 text-sm">
+              <FieldLabel
+                htmlFor="form-view-start-before-now"
+                className="font-normal"
+              >
+                {t("views.startBeforeNow")}
+              </FieldLabel>
+            </Field>
+            <Field orientation="horizontal" className="items-center">
               <RheaCheckbox
+                id="form-view-end-after-now"
                 checked={Boolean(draft.timeFilter.endAfterNow)}
                 onCheckedChange={(checked) =>
                   update({
@@ -881,11 +910,16 @@ function ViewForm({
                   })
                 }
               />
-              <span>{t("views.endAfterNow")}</span>
-            </label>
+              <FieldLabel
+                htmlFor="form-view-end-after-now"
+                className="font-normal"
+              >
+                {t("views.endAfterNow")}
+              </FieldLabel>
+            </Field>
           </div>
         )}
-      </fieldset>
+      </FieldSet>
 
       <div className="flex flex-wrap gap-2">
         <RheaButton variant="ghost" onClick={onDone}>

@@ -69,6 +69,14 @@ import { previewAge } from "../components/livePreviewState";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
 import { AspectRatio } from "../components/ui/aspect-ratio";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "../components/ui/combobox";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
@@ -112,8 +120,16 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import { Field, FieldLabel } from "../components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Textarea } from "../components/ui/textarea";
 import {
   Item,
@@ -2710,6 +2726,7 @@ function ApprovalPanel({
   onDone: (screenId?: string) => void;
 }) {
   const { t } = useTranslation("screens");
+  const { t: commonT } = useTranslation("common");
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const queryClient = useQueryClient();
@@ -2818,6 +2835,12 @@ function ApprovalPanel({
     }
     approve.mutate(values);
   };
+  const eligibleScreens = (screens.data?.items ?? []).filter(
+    (screen) => screen.id !== request.existingScreenId,
+  );
+  const selectedReplacementScreen = eligibleScreens.find(
+    (screen) => screen.id === replacementScreenId,
+  );
   const metadata = request.metadata;
   return (
     <section className="approval-card">
@@ -2874,89 +2897,109 @@ function ApprovalPanel({
           </div>
         )}
       </dl>
-      <fieldset className="pairing-destination">
-        <legend>{t("approval.destination")}</legend>
-        <label className="radio-control">
-          <input
-            type="radio"
-            name="pairingDestination"
-            value="new_screen"
-            checked={destination === "new_screen"}
-            onChange={() => setDestination("new_screen")}
-          />
-          <span>
-            <strong>{t("approval.newScreen")}</strong>
-            <small>{t("approval.newScreenHint")}</small>
-          </span>
-        </label>
-        {request.previouslyPaired && request.hasActiveCredential && (
-          <label className="radio-control">
-            <input
-              type="radio"
-              name="pairingDestination"
-              value="credential_repair"
-              checked={destination === "credential_repair"}
-              onChange={() => setDestination("credential_repair")}
-            />
-            <span>
-              <strong>{t("approval.repair")}</strong>
-              <small>
-                {t("approval.repairHint", {
-                  name: request.existingScreenName ?? "",
-                })}
-              </small>
-            </span>
-          </label>
-        )}
-        <label className="radio-control">
-          <input
-            type="radio"
-            name="pairingDestination"
-            value="replace_hardware"
-            checked={destination === "replace_hardware"}
-            onChange={() => setDestination("replace_hardware")}
-          />
-          <span>
-            <strong>{t("approval.replace")}</strong>
-            <small>{t("approval.replaceHint")}</small>
-          </span>
-        </label>
-        {destination === "replace_hardware" && (
-          <label className="grid gap-2 text-sm font-medium">
-            <span>{t("approval.existingScreen")}</span>
-            <Select
-              items={(screens.data?.items ?? []).map((screen) => ({
-                value: screen.id,
-                label: screen.location
-                  ? `${screen.name} — ${screen.location}`
-                  : screen.name,
-              }))}
-              value={replacementScreenId || null}
-              onValueChange={(value) => setReplacementScreenId(value ?? "")}
-            >
-              <SelectTrigger
-                className="w-full"
-                aria-label={t("approval.existingScreen")}
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          {t("approval.destination")}
+        </FieldLegend>
+        <RadioGroup
+          aria-label={t("approval.destination")}
+          value={destination}
+          onValueChange={(value) => setDestination(value as PairingDestination)}
+          className="grid gap-2"
+        >
+          <Field orientation="horizontal" className="items-start">
+            <RadioGroupItem id="pairing-destination-new" value="new_screen" />
+            <FieldContent>
+              <FieldLabel
+                htmlFor="pairing-destination-new"
+                className="font-normal"
               >
-                <SelectValue placeholder={t("approval.chooseScreen")} />
-              </SelectTrigger>
-              <SelectContent>
-                {(screens.data?.items ?? [])
-                  .filter((screen) => screen.id !== request.existingScreenId)
-                  .map((screen) => (
-                    <SelectItem key={screen.id} value={screen.id}>
+                {t("approval.newScreen")}
+              </FieldLabel>
+              <FieldDescription>{t("approval.newScreenHint")}</FieldDescription>
+            </FieldContent>
+          </Field>
+          {request.previouslyPaired && request.hasActiveCredential && (
+            <Field orientation="horizontal" className="items-start">
+              <RadioGroupItem
+                id="pairing-destination-repair"
+                value="credential_repair"
+              />
+              <FieldContent>
+                <FieldLabel
+                  htmlFor="pairing-destination-repair"
+                  className="font-normal"
+                >
+                  {t("approval.repair")}
+                </FieldLabel>
+                <FieldDescription>
+                  {t("approval.repairHint", {
+                    name: request.existingScreenName ?? "",
+                  })}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          )}
+          <Field orientation="horizontal" className="items-start">
+            <RadioGroupItem
+              id="pairing-destination-replace"
+              value="replace_hardware"
+            />
+            <FieldContent>
+              <FieldLabel
+                htmlFor="pairing-destination-replace"
+                className="font-normal"
+              >
+                {t("approval.replace")}
+              </FieldLabel>
+              <FieldDescription>{t("approval.replaceHint")}</FieldDescription>
+            </FieldContent>
+          </Field>
+        </RadioGroup>
+        {destination === "replace_hardware" && (
+          <Field>
+            <FieldLabel htmlFor="pairing-existing-screen">
+              {t("approval.existingScreen")}
+            </FieldLabel>
+            <Combobox
+              items={eligibleScreens}
+              value={selectedReplacementScreen ?? null}
+              itemToStringLabel={(screen: Screen) =>
+                screen.location
+                  ? screen.name + " — " + screen.location
+                  : screen.name
+              }
+              onValueChange={(value) => setReplacementScreenId(value?.id ?? "")}
+            >
+              <ComboboxInput
+                id="pairing-existing-screen"
+                aria-label={t("approval.existingScreen")}
+                placeholder={t("approval.searchScreens")}
+                showClear
+                className="w-full"
+              />
+              <ComboboxContent>
+                <ComboboxEmpty>
+                  {screens.isLoading
+                    ? commonT("status.loading")
+                    : screens.isError
+                      ? t("approval.screensLoadError")
+                      : t("approval.noMatchingScreens")}
+                </ComboboxEmpty>
+                <ComboboxList>
+                  {(screen: Screen) => (
+                    <ComboboxItem key={screen.id} value={screen}>
                       {screen.name}
                       {screen.location ? ` — ${screen.location}` : ""}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <small className="text-xs text-muted-foreground">
-              {t("approval.selectHint")}
-            </small>
-          </label>
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+            <FieldDescription>{t("approval.selectHint")}</FieldDescription>
+          </Field>
         )}
-      </fieldset>
+      </FieldSet>
       {request.previouslyPaired && (
         <Alert role="status">
           <AlertTitle>

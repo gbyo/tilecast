@@ -45,6 +45,7 @@
     "details": {
       "archiveAsset": "Archivar archivo",
       "availableFrom": "Disponible desde",
+      "availableFromTime": "Hora de inicio de disponibilidad",
       "availableHint": "Déjalo en blanco para que este contenido esté disponible de inmediato.",
       "collections": "Colecciones",
       "descriptionField": "Descripción",
@@ -52,6 +53,7 @@
       "detectedType": "Tipo detectado",
       "draftHint": "Borrador",
       "expiresAt": "Vence",
+      "expiresAtTime": "Hora de vencimiento",
       "expiresHint": "El reproductor deja de usarlo en esta fecha y hora locales, incluso sin conexión.",
       "eyebrow": "Archivo multimedia",
       "folder": "Carpeta",
@@ -582,6 +584,7 @@
       },
       "countdown": {
         "target": "Fecha y hora objetivo",
+        "targetTime": "Hora objetivo",
         "mode": "Modo",
         "modeDown": "Cuenta atrás",
         "modeUp": "Cuenta adelante",

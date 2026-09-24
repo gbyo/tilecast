@@ -438,6 +438,8 @@ function RecordReviewBody({
             </FieldLabel>
             <DateTimeInput
               id="record-review-display-at"
+              aria-label={t("review.fromLabel")}
+              timeLabel={t("review.displayTime")}
               value={displayAt}
               disabled={!canEdit}
               onChange={setDisplayAt}
@@ -449,6 +451,8 @@ function RecordReviewBody({
             </FieldLabel>
             <DateTimeInput
               id="record-review-expires-at"
+              aria-label={t("review.expiresLabel")}
+              timeLabel={t("review.expiryTime")}
               value={expiresAt}
               min={displayAt}
               disabled={!canEdit}

@@ -111,6 +111,8 @@
     "weekdaysLabel": "Active weekdays",
     "starts": "Starts",
     "ends": "Ends",
+    "startsTimeLabel": "Start time",
+    "endsTimeLabel": "End time",
     "overnight24h": "24-hour window",
     "overnightTitle": "Overnight schedule",
     "overnightHint": "Playback ends the following day.",
@@ -231,6 +233,10 @@
   "datePicker": {
     "pickDate": "Pick a date",
     "clear": "Clear date",
-    "time": "Time"
+    "time": "Time",
+    "timeFor": "{{label}} time",
+    "previewTime": "Preview time of day",
+    "fromTime": "From time",
+    "toTime": "To time"
   }
 }

@@ -47,6 +47,41 @@ describe("FormRenderer", () => {
     expect(screen.getByLabelText(/Title/)).toBeDisabled();
   });
 
+  it("renders image fields as attachment rows with replace and remove actions", () => {
+    const onSelect = vi.fn();
+    const onRemove = vi.fn();
+    render(
+      <FormRenderer
+        schema={{
+          fields: [{ key: "photo", label: "Photo", control: "image" }],
+        }}
+        idPrefix="upload"
+        onChange={() => {}}
+        imageHandlers={{
+          state: () => ({
+            pendingName: "notice.png",
+            pendingUrl: "blob:preview",
+          }),
+          onSelect,
+          onRemove,
+        }}
+      />,
+    );
+
+    expect(screen.getByText("notice.png")).toBeVisible();
+    expect(screen.getByText("Uploads when you save.")).toBeVisible();
+    const file = new File(["image"], "replacement.png", {
+      type: "image/png",
+    });
+    fireEvent.change(screen.getByLabelText("Replace Photo"), {
+      target: { files: [file] },
+    });
+    expect(onSelect).toHaveBeenCalledWith("photo", file);
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(onRemove).toHaveBeenCalledWith("photo");
+  });
+
   it("announces a field error through the control it belongs to", () => {
     render(
       <FormRenderer

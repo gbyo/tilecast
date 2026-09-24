@@ -41,6 +41,36 @@ describe("DateInput", () => {
     await user.click(await screen.findByRole("button", { name: "Clear date" }));
     expect(onChange).toHaveBeenCalledWith("");
   });
+
+  it("forwards field semantics and disables dates outside the range", async () => {
+    render(
+      <>
+        <span id="date-help">Choose an active day.</span>
+        <DateInput
+          id="starts-on"
+          value="2026-09-10"
+          min="2026-09-10"
+          max="2026-09-20"
+          required
+          aria-label="Starts on"
+          aria-describedby="date-help"
+          aria-invalid
+          onChange={vi.fn()}
+        />
+      </>,
+    );
+    const trigger = screen.getByRole("button", { name: "Starts on" });
+    expect(trigger).toHaveAttribute("aria-describedby", "date-help");
+    expect(trigger).toHaveAttribute("aria-invalid", "true");
+    expect(trigger).toHaveAttribute("aria-required", "true");
+
+    await userEvent.setup().click(trigger);
+    expect(
+      await screen.findByRole("button", { name: /September 9/ }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /September 21/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /September 15/ })).toBeEnabled();
+  });
 });
 
 describe("DateTimeInput", () => {
@@ -73,5 +103,43 @@ describe("DateTimeInput", () => {
 
     await user.click(await screen.findByRole("button", { name: "Clear date" }));
     expect(onChange).toHaveBeenCalledWith("");
+  });
+
+  it("limits time only on the matching boundary dates", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <DateTimeInput
+        id="maintenance-window"
+        value="2026-09-23T10:30"
+        min="2026-09-23T09:15"
+        max="2026-09-24T17:45"
+        aria-label="Maintenance window"
+        aria-describedby="window-help"
+        aria-invalid
+        required
+        onBlur={vi.fn()}
+        onChange={onChange}
+      />,
+    );
+
+    const time = screen.getByLabelText("Maintenance window time");
+    expect(time).toHaveAttribute("min", "09:15");
+    expect(time).not.toHaveAttribute("max");
+    expect(time).toHaveAttribute("aria-describedby", "window-help");
+    expect(time).toHaveAttribute("aria-invalid", "true");
+    expect(time).toHaveAttribute("aria-required", "true");
+
+    rerender(
+      <DateTimeInput
+        id="maintenance-window"
+        value="2026-09-24T10:30"
+        min="2026-09-23T09:15"
+        max="2026-09-24T17:45"
+        aria-label="Maintenance window"
+        onChange={onChange}
+      />,
+    );
+    expect(time).not.toHaveAttribute("min");
+    expect(time).toHaveAttribute("max", "17:45");
   });
 });

@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Stamp, Trash2 } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import type { BrandBug, BrandBugInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { FormField } from "../components/FormField";
+import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button as RheaButton, buttonVariants } from "../components/ui/button";
@@ -32,7 +33,12 @@ import {
   EmptyTitle,
   EmptyContent,
 } from "../components/ui/empty";
-import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "../components/ui/field";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -349,6 +355,7 @@ export function BrandBugEditorPage() {
       ),
   });
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -401,7 +408,6 @@ export function BrandBugEditorPage() {
   const imageAssetId = watch("imageAssetId");
   const targetScope = watch("targetScope");
   const targetSource = useTargetSource(targetScope);
-  const chosenTargets = watch("targetIds") ?? [];
   const submit = (values: BrandBugFormValues) => {
     save.mutate({
       name: values.name,
@@ -659,8 +665,9 @@ export function BrandBugEditorPage() {
             />
           </div>
           <RegisterCheckbox
+            control={control}
+            name="enabled"
             label={t("shared.enabledLabel")}
-            {...register("enabled")}
           />
         </section>
 
@@ -669,21 +676,69 @@ export function BrandBugEditorPage() {
             {t("brandBug.editor.sections.window")}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              id="brand-bug-starts"
-              label={t("brandBug.editor.windowFrom")}
-              type="datetime-local"
-              hint={t("brandBug.editor.windowFromHint")}
-              error={errors.startsAt?.message}
-              {...register("startsAt")}
+            <Controller
+              control={control}
+              name="startsAt"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="brand-bug-starts-date">
+                    {t("brandBug.editor.windowFrom")}
+                  </FieldLabel>
+                  <DateTimeInput
+                    id="brand-bug-starts"
+                    aria-label={t("brandBug.editor.windowFrom")}
+                    timeLabel={t("brandBug.editor.windowFromTime")}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    aria-invalid={fieldState.invalid}
+                    aria-describedby={
+                      fieldState.error
+                        ? "brand-bug-starts-hint brand-bug-starts-error"
+                        : "brand-bug-starts-hint"
+                    }
+                  />
+                  <FieldDescription id="brand-bug-starts-hint">
+                    {t("brandBug.editor.windowFromHint")}
+                  </FieldDescription>
+                  <FieldError
+                    id="brand-bug-starts-error"
+                    errors={[fieldState.error]}
+                  />
+                </Field>
+              )}
             />
-            <FormField
-              id="brand-bug-ends"
-              label={t("brandBug.editor.windowUntil")}
-              type="datetime-local"
-              hint={t("brandBug.editor.windowUntilHint")}
-              error={errors.endsAt?.message}
-              {...register("endsAt")}
+            <Controller
+              control={control}
+              name="endsAt"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="brand-bug-ends-date">
+                    {t("brandBug.editor.windowUntil")}
+                  </FieldLabel>
+                  <DateTimeInput
+                    id="brand-bug-ends"
+                    aria-label={t("brandBug.editor.windowUntil")}
+                    timeLabel={t("brandBug.editor.windowUntilTime")}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    aria-invalid={fieldState.invalid}
+                    aria-describedby={
+                      fieldState.error
+                        ? "brand-bug-ends-hint brand-bug-ends-error"
+                        : "brand-bug-ends-hint"
+                    }
+                  />
+                  <FieldDescription id="brand-bug-ends-hint">
+                    {t("brandBug.editor.windowUntilHint")}
+                  </FieldDescription>
+                  <FieldError
+                    id="brand-bug-ends-error"
+                    errors={[fieldState.error]}
+                  />
+                </Field>
+              )}
             />
           </div>
         </section>
@@ -696,9 +751,8 @@ export function BrandBugEditorPage() {
             idPrefix="brand-bug"
             scope={targetScope}
             source={targetSource}
-            chosenCount={chosenTargets.length}
             error={errors.targetIds?.message}
-            registerTargetIds={register("targetIds")}
+            control={control}
             onScopeChange={(value) => {
               setValue("targetIds", []);
               setValue("targetScope", value, { shouldDirty: true });

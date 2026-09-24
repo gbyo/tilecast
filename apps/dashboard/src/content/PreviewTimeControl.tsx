@@ -2,8 +2,8 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { previewTimeInputValue, type PreviewTime } from "./previewTime";
 import { Button } from "../components/ui/button";
+import { DateTimeInput } from "../components/date-picker";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
-import { Input } from "../components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 /**
@@ -17,7 +17,7 @@ export function PreviewTimeControl({
   value: PreviewTime;
   onChange: (time: PreviewTime) => void;
 }) {
-  const { t } = useTranslation(["content", "common"]);
+  const { t } = useTranslation(["content", "common", "schedules"]);
   const fixed = value.mode === "fixed";
   const inputId = useId();
   return (
@@ -56,14 +56,12 @@ export function PreviewTimeControl({
             <FieldLabel htmlFor={inputId} className="text-xs">
               {t("widgets.preview.time.dateTimeLabel")}
             </FieldLabel>
-            <Input
+            <DateTimeInput
               id={inputId}
-              type="datetime-local"
               aria-label={t("widgets.preview.time.dateTimeLabel")}
+              timeLabel={t("datePicker.previewTime", { ns: "schedules" })}
               value={value.value}
-              onChange={(event) =>
-                onChange({ mode: "fixed", value: event.target.value })
-              }
+              onChange={(next) => onChange({ mode: "fixed", value: next })}
             />
           </Field>
           <Button

@@ -42,6 +42,7 @@
     "details": {
       "archiveAsset": "Archive asset",
       "availableFrom": "Available from",
+      "availableFromTime": "Availability start time",
       "availableHint": "Leave blank to make this content available immediately.",
       "collections": "Collections",
       "descriptionField": "Description",
@@ -49,6 +50,7 @@
       "detectedType": "Detected type",
       "draftHint": "Draft",
       "expiresAt": "Expires at",
+      "expiresAtTime": "Expiration time",
       "expiresHint": "The Player stops using it at this local date and time, even offline.",
       "eyebrow": "Media asset",
       "folder": "Folder",
@@ -568,6 +570,7 @@
       },
       "countdown": {
         "target": "Target date and time",
+        "targetTime": "Target time",
         "mode": "Mode",
         "modeDown": "Count down",
         "modeUp": "Count up",

@@ -423,6 +423,7 @@ export function NoiseMeterEditorPage() {
     enabled: editing,
   });
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -492,7 +493,6 @@ export function NoiseMeterEditorPage() {
   };
   const targetScope = watch("targetScope");
   const targetSource = useTargetSource(targetScope);
-  const chosenTargets = watch("targetIds") ?? [];
   const submit = (values: NoiseMeterFormValues) => {
     save.mutate({
       name: values.name,
@@ -711,8 +711,9 @@ export function NoiseMeterEditorPage() {
             />
           </div>
           <RegisterCheckbox
+            control={control}
+            name="enabled"
             label={t("shared.enabledLabel")}
-            {...register("enabled")}
           />
         </section>
 
@@ -726,8 +727,9 @@ export function NoiseMeterEditorPage() {
             </p>
           </header>
           <RegisterCheckbox
+            control={control}
+            name="scheduleEnabled"
             label={t("noiseMeter.editor.windowEnabledLabel")}
-            {...register("scheduleEnabled")}
           />
           {scheduleEnabled && (
             <>
@@ -813,8 +815,9 @@ export function NoiseMeterEditorPage() {
             </p>
           </header>
           <RegisterCheckbox
+            control={control}
+            name="historyEnabled"
             label={t("noiseMeter.editor.historyEnabledLabel")}
-            {...register("historyEnabled")}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
@@ -859,8 +862,9 @@ export function NoiseMeterEditorPage() {
             </Field>
           </div>
           <RegisterCheckbox
+            control={control}
+            name="historyActiveHoursOnly"
             label={t("noiseMeter.editor.activeHoursLabel")}
-            {...register("historyActiveHoursOnly")}
           />
           <p className="text-sm text-muted-foreground">
             {t("noiseMeter.editor.activeHoursNote")}
@@ -875,9 +879,8 @@ export function NoiseMeterEditorPage() {
             idPrefix="noise-meter"
             scope={targetScope}
             source={targetSource}
-            chosenCount={chosenTargets.length}
             error={errors.targetIds?.message}
-            registerTargetIds={register("targetIds")}
+            control={control}
             onScopeChange={(value) => {
               setValue("targetIds", []);
               setValue("targetScope", value, { shouldDirty: true });

@@ -11,6 +11,7 @@ import { apiErrorMessage, useFormatLocale } from "../../i18n";
 import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import { DateInput } from "../../components/date-picker";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
 import { Field, FieldLabel } from "../../components/ui/field";
@@ -1380,19 +1381,18 @@ export function StructuredDataSourceEditor({
                           <FieldLabel htmlFor="date-start">
                             {t("dataSources.structured.startDate")}
                           </FieldLabel>
-                          <Input
+                          <DateInput
                             id="date-start"
-                            type="date"
                             value={
                               configuration.dateSelection.customStartDate ?? ""
                             }
                             disabled={readOnly}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               setConfiguration((current) => ({
                                 ...current,
                                 dateSelection: {
                                   ...current.dateSelection,
-                                  customStartDate: event.target.value,
+                                  customStartDate: value,
                                 },
                               }))
                             }
@@ -1402,19 +1402,18 @@ export function StructuredDataSourceEditor({
                           <FieldLabel htmlFor="date-end">
                             {t("dataSources.structured.endDate")}
                           </FieldLabel>
-                          <Input
+                          <DateInput
                             id="date-end"
-                            type="date"
                             value={
                               configuration.dateSelection.customEndDate ?? ""
                             }
                             disabled={readOnly}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               setConfiguration((current) => ({
                                 ...current,
                                 dateSelection: {
                                   ...current.dateSelection,
-                                  customEndDate: event.target.value,
+                                  customEndDate: value,
                                 },
                               }))
                             }
@@ -1466,11 +1465,10 @@ export function StructuredDataSourceEditor({
                       <FieldLabel htmlFor="preview-date">
                         {t("dataSources.structured.previewDate")}
                       </FieldLabel>
-                      <Input
+                      <DateInput
                         id="preview-date"
-                        type="date"
                         value={previewDate}
-                        onChange={(event) => setPreviewDate(event.target.value)}
+                        onChange={setPreviewDate}
                       />
                     </Field>
                   </>

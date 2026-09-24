@@ -115,6 +115,8 @@
     "weekdaysLabel": "Активные дни недели",
     "starts": "Начало",
     "ends": "Окончание",
+    "startsTimeLabel": "Время начала",
+    "endsTimeLabel": "Время окончания",
     "overnight24h": "24-часовое окно",
     "overnightTitle": "Ночное расписание",
     "overnightHint": "Воспроизведение закончится на следующий день.",
@@ -243,6 +245,10 @@
   "datePicker": {
     "pickDate": "Выберите дату",
     "clear": "Очистить дату",
-    "time": "Время"
+    "time": "Время",
+    "timeFor": "Время: {{label}}",
+    "previewTime": "Время предпросмотра",
+    "fromTime": "Время начала",
+    "toTime": "Время окончания"
   }
 }

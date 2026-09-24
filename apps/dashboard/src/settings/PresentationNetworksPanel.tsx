@@ -27,7 +27,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
   Select as RheaSelect,
@@ -446,16 +452,21 @@ export function PresentationNetworksPanel({
                     </RheaSelect>
                   </Field>
                   <div className="flex items-end pb-2">
-                    {/* The wrapping label names the checkbox; no extra aria-label. */}
-                    <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <Field orientation="horizontal" className="items-center">
                       <RheaCheckbox
+                        id="presentation-network-hidden"
                         checked={draft.hidden}
                         onCheckedChange={(checked) =>
                           setDraft({ ...draft, hidden: checked === true })
                         }
                       />
-                      <span>{t("networks.fields.hidden")}</span>
-                    </label>
+                      <FieldLabel
+                        htmlFor="presentation-network-hidden"
+                        className="font-normal"
+                      >
+                        {t("networks.fields.hidden")}
+                      </FieldLabel>
+                    </Field>
                   </div>
                 </div>
 
@@ -561,10 +572,10 @@ export function PresentationNetworksPanel({
                   </>
                 )}
 
-                <fieldset className="grid gap-2 rounded-xl border border-border p-4">
-                  <legend className="px-1 text-sm font-medium">
+                <FieldSet className="grid gap-2 rounded-xl border border-border p-4">
+                  <FieldLegend variant="label" className="mb-0 px-1">
                     {t("networks.assignedTitle")}
-                  </legend>
+                  </FieldLegend>
                   <p className="text-sm text-muted-foreground">
                     {t("networks.assignedHint")}
                   </p>
@@ -575,11 +586,13 @@ export function PresentationNetworksPanel({
                   ) : linuxScreens.length ? (
                     <div className="grid gap-2">
                       {linuxScreens.map((screen) => (
-                        <label
+                        <Field
                           key={screen.id}
-                          className="flex cursor-pointer items-center gap-2 text-sm"
+                          orientation="horizontal"
+                          className="items-center"
                         >
                           <RheaCheckbox
+                            id={"presentation-network-screen-" + screen.id}
                             checked={assignmentIds.includes(screen.id)}
                             onCheckedChange={(checked) =>
                               setAssignmentIds((current) =>
@@ -589,11 +602,14 @@ export function PresentationNetworksPanel({
                               )
                             }
                           />
-                          <span>
+                          <FieldLabel
+                            htmlFor={"presentation-network-screen-" + screen.id}
+                            className="font-normal"
+                          >
                             {screen.name} ·{" "}
                             {screen.location || t("networks.noLocation")}
-                          </span>
-                        </label>
+                          </FieldLabel>
+                        </Field>
                       ))}
                     </div>
                   ) : (
@@ -601,7 +617,7 @@ export function PresentationNetworksPanel({
                       {t("networks.noPlayers")}
                     </span>
                   )}
-                </fieldset>
+                </FieldSet>
 
                 {detail.error && (
                   <Alert variant="destructive">

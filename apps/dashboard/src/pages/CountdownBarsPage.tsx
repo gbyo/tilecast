@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock3, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import { api } from "../api/client";
 import type { CountdownBarInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
+import { DateTimeInput } from "../components/date-picker";
 import { FormField } from "../components/FormField";
 import { scheduleWeekdays } from "../schedules/scheduleBuilderModel";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -34,7 +35,12 @@ import {
   EmptyTitle,
   EmptyContent,
 } from "../components/ui/empty";
-import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "../components/ui/field";
 import {
   Select as RheaSelect,
   SelectContent,
@@ -412,6 +418,7 @@ export function CountdownBarEditorPage() {
     pulseSeconds: true,
   });
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -541,7 +548,6 @@ export function CountdownBarEditorPage() {
     });
   };
   const targetSource = useTargetSource(targetScope);
-  const chosenTargets = watch("targetIds") ?? [];
   const submit = (values: FormValues) => {
     save.mutate({
       name: values.name,
@@ -622,8 +628,9 @@ export function CountdownBarEditorPage() {
             {...register("completionText")}
           />
           <RegisterCheckbox
+            control={control}
+            name="showConfetti"
             label={t("countdown.editor.confettiLabel")}
-            {...register("showConfetti")}
           />
         </section>
 
@@ -715,13 +722,37 @@ export function CountdownBarEditorPage() {
               </div>
             </>
           ) : (
-            <FormField
-              id="countdown-one-time"
-              label={t("countdown.editor.oneTimeLabel")}
-              type="datetime-local"
-              hint={t("countdown.editor.oneTimeHint")}
-              error={errors.oneTimeAt?.message}
-              {...register("oneTimeAt")}
+            <Controller
+              control={control}
+              name="oneTimeAt"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="countdown-one-time">
+                    {t("countdown.editor.oneTimeLabel")}
+                  </FieldLabel>
+                  <DateTimeInput
+                    id="countdown-one-time"
+                    aria-label={t("countdown.editor.oneTimeLabel")}
+                    timeLabel={t("countdown.editor.targetTimeLabel")}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    aria-invalid={fieldState.invalid}
+                    aria-describedby={
+                      fieldState.error
+                        ? "countdown-one-time-hint countdown-one-time-error"
+                        : "countdown-one-time-hint"
+                    }
+                  />
+                  <FieldDescription id="countdown-one-time-hint">
+                    {t("countdown.editor.oneTimeHint")}
+                  </FieldDescription>
+                  <FieldError
+                    id="countdown-one-time-error"
+                    errors={[fieldState.error]}
+                  />
+                </Field>
+              )}
             />
           )}
           <div className="grid gap-4 sm:grid-cols-2">
@@ -866,8 +897,9 @@ export function CountdownBarEditorPage() {
             />
           </div>
           <RegisterCheckbox
+            control={control}
+            name="enabled"
             label={t("shared.enabledLabel")}
-            {...register("enabled")}
           />
         </section>
 
@@ -881,8 +913,9 @@ export function CountdownBarEditorPage() {
             </p>
           </header>
           <RegisterCheckbox
+            control={control}
+            name="urgencyEnabled"
             label={t("countdown.editor.urgencyEnabledLabel")}
-            {...register("urgencyEnabled")}
           />
           {urgencyEnabled && (
             <div className="grid gap-4 sm:grid-cols-3">
@@ -941,9 +974,8 @@ export function CountdownBarEditorPage() {
             idPrefix="countdown"
             scope={targetScope}
             source={targetSource}
-            chosenCount={chosenTargets.length}
             error={errors.targetIds?.message}
-            registerTargetIds={register("targetIds")}
+            control={control}
             onScopeChange={(value) => {
               // Ids from the previous scope would otherwise stay registered and
               // be submitted alongside the new scope's picks.

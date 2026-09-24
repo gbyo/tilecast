@@ -933,21 +933,25 @@ function OneTimeTiming({
     <div className="schedule-timing-fields">
       <div className="schedule-datetime-pair">
         <Field>
-          <FieldLabel htmlFor="schedule-onetime-start-date">
+          <FieldLabel htmlFor="schedule-onetime-start">
             {t("timing.starts")}
           </FieldLabel>
           <DateTimeInput
             id="schedule-onetime-start"
+            aria-label={t("timing.starts")}
+            timeLabel={t("timing.startsTimeLabel")}
             value={localDateTime(input.oneTimeStart)}
             onChange={(value) => set("oneTimeStart", toISOString(value))}
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="schedule-onetime-end-date">
+          <FieldLabel htmlFor="schedule-onetime-end">
             {t("timing.ends")}
           </FieldLabel>
           <DateTimeInput
             id="schedule-onetime-end"
+            aria-label={t("timing.ends")}
+            timeLabel={t("timing.endsTimeLabel")}
             value={localDateTime(input.oneTimeEnd)}
             min={localDateTime(input.oneTimeStart)}
             onChange={(value) => set("oneTimeEnd", toISOString(value))}

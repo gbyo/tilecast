@@ -1429,6 +1429,7 @@
       "canaryLabel": "Pantallas canario",
       "canaryHint": "Los demás destinos esperan hasta que cada canario se reconecte. Usa 0 para desplegar a todos los destinos a la vez.",
       "windowLabel": "Ventana de mantenimiento",
+      "windowTimeLabel": "Hora de la ventana de mantenimiento",
       "windowHint": "Los reproductores instalan a partir de esta hora local en cada pantalla.",
       "targetsLabel": "Pantallas y Grupos de pantallas de destino",
       "searchPlaceholder": "Buscar por nombre",

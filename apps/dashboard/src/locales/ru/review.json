@@ -158,6 +158,7 @@
     "publish": {
       "publishNow": "Опубликовать сейчас",
       "publishAtLabel": "Опубликовать в",
+      "publishAtTimeLabel": "Время публикации",
       "publishAtHint": "Запланируйте публикацию на будущие дату и время.",
       "schedule": "Запланировать"
     },

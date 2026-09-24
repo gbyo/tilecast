@@ -113,6 +113,8 @@
     "weekdaysLabel": "Días activos de la semana",
     "starts": "Inicio",
     "ends": "Fin",
+    "startsTimeLabel": "Hora de inicio",
+    "endsTimeLabel": "Hora de fin",
     "overnight24h": "Intervalo de 24 horas",
     "overnightTitle": "Programación nocturna",
     "overnightHint": "La reproducción termina al día siguiente.",
@@ -237,6 +239,10 @@
   "datePicker": {
     "pickDate": "Elige una fecha",
     "clear": "Borrar fecha",
-    "time": "Hora"
+    "time": "Hora",
+    "timeFor": "Hora de {{label}}",
+    "previewTime": "Hora de vista previa",
+    "fromTime": "Hora de inicio",
+    "toTime": "Hora de fin"
   }
 }

@@ -1,5 +1,6 @@
 import { cn } from "cn";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
+import { DateInput } from "../components/date-picker";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
@@ -2855,12 +2856,11 @@ export function LayoutEditorPage() {
             <span>
               {document.canvas.width} × {document.canvas.height}
             </span>
-            <Input
-              type="date"
+            <DateInput
+              id="layout-preview-date"
               aria-label={t("editor.previewDateLabel")}
               value={previewDate}
-              onChange={(event) => {
-                const date = event.target.value;
+              onChange={(date) => {
                 setPreviewDate(date);
                 void loadLayoutPreview(date);
               }}

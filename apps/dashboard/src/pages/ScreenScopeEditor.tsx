@@ -5,6 +5,13 @@ import { api } from "../api/client";
 import type { ScreenScope } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Field,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../components/ui/field";
 
 // No selection means the whole fleet. That is stated rather than implied,
 // because an empty list of grants reads equally well as "nothing", and getting
@@ -81,57 +88,73 @@ export function ScreenScopeEditor({
         <p className="text-sm text-muted-foreground">{t("scope.loading")}</p>
       ) : (
         <>
-          <fieldset className="setting-control--checks">
-            <legend className="text-xs font-medium">
-              {t("scope.locations")}
-            </legend>
+          <FieldSet className="grid gap-2">
+            <FieldLegend variant="label">{t("scope.locations")}</FieldLegend>
             {!locations.data?.items?.length ? (
-              <span className="setting-dependency">
+              <p className="text-sm text-muted-foreground">
                 {t("scope.noLocations")}
-              </span>
+              </p>
             ) : (
-              locations.data.items.map((location) => (
-                <label className="check-option" key={location.id}>
-                  <input
-                    type="checkbox"
-                    disabled={disabled}
-                    checked={has("location", location.id)}
-                    onChange={(event) =>
-                      toggle(
-                        { type: "location", id: location.id },
-                        event.target.checked,
-                      )
-                    }
-                  />
-                  {location.name}
-                </label>
-              ))
+              locations.data.items.map((location) => {
+                const id = `screen-scope-location-${location.id}`;
+                return (
+                  <Field
+                    key={location.id}
+                    data-disabled={disabled}
+                    orientation="horizontal"
+                    className="items-center"
+                  >
+                    <Checkbox
+                      id={id}
+                      disabled={disabled}
+                      checked={has("location", location.id)}
+                      onCheckedChange={(checked) =>
+                        toggle(
+                          { type: "location", id: location.id },
+                          checked === true,
+                        )
+                      }
+                    />
+                    <FieldLabel htmlFor={id}>{location.name}</FieldLabel>
+                  </Field>
+                );
+              })
             )}
-          </fieldset>
+          </FieldSet>
 
-          <fieldset className="setting-control--checks">
-            <legend className="text-xs font-medium">{t("scope.groups")}</legend>
+          <FieldSet className="grid gap-2">
+            <FieldLegend variant="label">{t("scope.groups")}</FieldLegend>
             {!groups.data?.items?.length ? (
-              <span className="setting-dependency">{t("scope.noGroups")}</span>
+              <p className="text-sm text-muted-foreground">
+                {t("scope.noGroups")}
+              </p>
             ) : (
-              groups.data.items.map((group) => (
-                <label className="check-option" key={group.id}>
-                  <input
-                    type="checkbox"
-                    disabled={disabled}
-                    checked={has("group", group.id)}
-                    onChange={(event) =>
-                      toggle(
-                        { type: "group", id: group.id },
-                        event.target.checked,
-                      )
-                    }
-                  />
-                  {group.name}
-                </label>
-              ))
+              groups.data.items.map((group) => {
+                const id = `screen-scope-group-${group.id}`;
+                return (
+                  <Field
+                    key={group.id}
+                    data-disabled={disabled}
+                    orientation="horizontal"
+                    className="items-center"
+                  >
+                    <Checkbox
+                      id={id}
+                      disabled={disabled}
+                      checked={has("group", group.id)}
+                      onCheckedChange={(checked) =>
+                        toggle(
+                          { type: "group", id: group.id },
+                          checked === true,
+                        )
+                      }
+                    />
+                    <FieldLabel htmlFor={id}>{group.name}</FieldLabel>
+                  </Field>
+                );
+              })
             )}
-          </fieldset>
+          </FieldSet>
 
           <div className="settings-subsection__action">
             <div>{saved && <span>{t("scope.saved")}</span>}</div>

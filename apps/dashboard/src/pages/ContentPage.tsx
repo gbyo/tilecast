@@ -62,6 +62,7 @@ import { Badge } from "../components/ui/badge";
 import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
+import { DateTimeInput } from "../components/date-picker";
 import {
   Collapsible,
   CollapsibleContent,
@@ -2724,12 +2725,13 @@ function MediaAssetDetails({
           <FieldLabel htmlFor="asset-available-from">
             {t("media.details.availableFrom")}
           </FieldLabel>
-          <Input
+          <DateTimeInput
             id="asset-available-from"
-            type="datetime-local"
+            aria-label={t("media.details.availableFrom")}
+            timeLabel={t("media.details.availableFromTime")}
             value={availableFrom}
             disabled={!canManage}
-            onChange={(event) => setAvailableFrom(event.target.value)}
+            onChange={setAvailableFrom}
           />
           <p className="text-sm text-muted-foreground">
             {t("media.details.availableHint")}
@@ -2739,12 +2741,13 @@ function MediaAssetDetails({
           <FieldLabel htmlFor="asset-expires-at">
             {t("media.details.expiresAt")}
           </FieldLabel>
-          <Input
+          <DateTimeInput
             id="asset-expires-at"
-            type="datetime-local"
+            aria-label={t("media.details.expiresAt")}
+            timeLabel={t("media.details.expiresAtTime")}
             value={expiresAt}
             disabled={!canManage}
-            onChange={(event) => setExpiresAt(event.target.value)}
+            onChange={setExpiresAt}
           />
           <p className="text-sm text-muted-foreground">
             {t("media.details.expiresHint")}

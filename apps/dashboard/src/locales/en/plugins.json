@@ -175,8 +175,10 @@
       "opacityLabel": "Opacity (%)",
       "windowFrom": "Show from",
       "windowFromHint": "Leave blank to show as soon as it is enabled.",
+      "windowFromTime": "Start time",
       "windowUntil": "Show until",
-      "windowUntilHint": "Leave blank to show indefinitely."
+      "windowUntilHint": "Leave blank to show indefinitely.",
+      "windowUntilTime": "End time"
     },
     "validation": {
       "textMax": "Text is limited to 180 characters.",
