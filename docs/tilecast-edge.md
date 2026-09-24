@@ -251,7 +251,7 @@ Pins have a reason and a holder: the active and pending presentation, prefetch, 
 
 ### 10.2 Trusted runtime
 
-The renderer loads a trusted DOM runtime from `tilecast://runtime/…`. The runtime is the Electron player's renderer, used without modification, which keeps presentation behavior identical during migration. Runtime file names are validated against a fixed grammar. Host-to-page delivery calls one fixed function with typed arguments; no script source is built from strings.
+The renderer loads a trusted DOM runtime from `tilecast://runtime/…`. Electron and WPE host the same shared Tilecast Player Runtime (`@tilecast/player-runtime`), so presentation behavior stays identical during migration. The shared runtime is introduced by the Player Runtime layer immediately above this foundation; until that layer lands, the foundation assembles the Electron player's renderer, used without modification. Runtime file names are validated against a fixed grammar. Host-to-page delivery calls one fixed function with typed arguments; no script source is built from strings.
 
 ### 10.3 Media access
 

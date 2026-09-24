@@ -67,12 +67,13 @@ These hold across every milestone.
 
 ## 3. Next work
 
-The milestones are in [`tilecast-edge.md`](tilecast-edge.md) §18.1. M1 is this foundation. The open pull requests continue it:
+The milestones are in [`tilecast-edge.md`](tilecast-edge.md) §18.1. M1 is this foundation. The work above it is a stack of pull requests, each based on the one below:
 
-| Milestone                | Pull request | Notes                                                                                                                             |
-| ------------------------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| M2 Server presence       | Edge W1      | Player WebSocket, fallback heartbeat, server clock sampling. Builds on `AuthenticatedServer::player_heartbeat` and `server_link`. |
-| M3 Manifests and content | Edge W2      | Manifest reconciliation, CAS preparation, the daemon-owned media capability channel, schedule selection.                          |
+| Layer                                                  | Scope                                                                                                                                                                          |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Player Runtime                                         | `@tilecast/player-runtime`: the shared Lit and XState display runtime that both the Electron player and `tilecast-renderer-wpe` host, with the cross-engine conformance suite. |
+| M2 Server presence and M3 Manifests and content (#530) | Player WebSocket, fallback heartbeat, server clock sampling, manifest reconciliation, CAS preparation, the daemon-owned media capability channel, schedule selection.          |
+| M4 to M6, M7 to M10, M11 and M12 readiness             | One pull request per group, in that order.                                                                                                                                     |
 
 Each later milestone uses the same three headings in its pull request description:
 
@@ -95,5 +96,6 @@ Each later milestone uses the same three headings in its pull request descriptio
 | `apps/edge/ci/test-linux.sh` (in `tilecast-edge-dev`)           | The same on Linux, with fmt and clippy.                                   |
 | `apps/edge/renderer-wpe/ci/run-e2e.sh` (in `tilecast-edge-dev`) | Daemon plus real WPE renderer scenarios.                                  |
 | `apps/edge/ci/e2e_server.py`                                    | Real server pairing, legacy import, identity gate, heartbeat, revocation. |
+| `.github/workflows/ci-edge.yml`                                 | The three rows above on every Edge pull request, for any base branch.     |
 
 An IPC protocol change needs fixtures in `packages/edge-protocol/fixtures` and tests on the Rust and C sides.
