@@ -17,6 +17,7 @@ edge-platform.workspace = true
 edge-protocol.workspace = true
 edge-server.workspace = true
 edge-state.workspace = true
+futures-util.workspace = true
 jiff.workspace = true
 ring.workspace = true
 rustix = { workspace = true, features = ["process"] }
@@ -30,6 +31,7 @@ toml.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+zbus.workspace = true
 
 [dev-dependencies]
 bytes.workspace = true

@@ -757,6 +757,11 @@ impl PresentationEngine {
         self.configure.kiosk.clone()
     }
 
+    /// The display the ready renderer reported, if any.
+    pub fn renderer_display(&self) -> Option<edge_protocol::ipc::event::DisplayInfo> {
+        self.renderer.as_ref().and_then(|link| link.ready.as_ref()).and_then(|ready| ready.display.clone())
+    }
+
     /// Whether a renderer is connected and has reported ready.
     pub fn renderer_is_ready(&self) -> bool {
         self.renderer.as_ref().is_some_and(|link| link.ready.is_some())

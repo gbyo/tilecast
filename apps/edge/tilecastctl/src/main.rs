@@ -10,8 +10,9 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use edge_ipc::client::{ClientOptions, IpcClient};
 use edge_platform::paths::{DEFAULT_RUNTIME_DIR, SOCKET_NAME};
+use edge_protocol::bounded::SafeText;
 use edge_protocol::ipc::Role;
-use edge_protocol::ipc::method::{Empty, Method};
+use edge_protocol::ipc::method::{Empty, Method, SubmitServerUrlParams};
 use edge_protocol::ipc::status::DaemonStatus;
 use serde_json::Value;
 
@@ -38,6 +39,16 @@ enum Command {
     Cache,
     /// Show the status surface on screen (renderer self-test).
     SelfTest,
+    /// Pair this unpaired screen with a Tilecast Server (headless setup).
+    /// The screen shows the code to approve in Studio.
+    Pair {
+        /// Server address, for example https://signs.example.org.
+        url: String,
+    },
+    /// Abandon a pairing in progress and clear its secrets.
+    PairingReset,
+    /// List Tilecast Servers announced on the local network.
+    Discover,
 }
 
 fn main() -> ExitCode {
@@ -67,7 +78,17 @@ async fn run(cli: Cli) -> ExitCode {
         Command::Capabilities => Method::CapabilitiesGet(Empty {}),
         Command::Cache => Method::CasStatus(Empty {}),
         Command::SelfTest => Method::DiagnosticsShowStatus(Empty {}),
+        Command::Pair { url } => match SafeText::new(url) {
+            Ok(url) => Method::PairingStart(SubmitServerUrlParams { url }),
+            Err(_) => {
+                eprintln!("tilecastctl: the server address is too long or contains control characters");
+                return ExitCode::from(2);
+            }
+        },
+        Command::PairingReset => Method::PairingReset(Empty {}),
+        Command::Discover => Method::DiscoveryList(Empty {}),
     };
+    let is_pairing = matches!(method, Method::PairingStart(_));
     let is_status = matches!(method, Method::StatusGet(_));
     let result = match client.request(method).await {
         Ok(Ok(value)) => value,
@@ -80,6 +101,11 @@ async fn run(cli: Cli) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if is_pairing && result.get("ok") != Some(&Value::Bool(true)) {
+        let message = result.get("error").and_then(Value::as_str).unwrap_or("pairing could not start");
+        eprintln!("tilecastctl: {message}");
+        return ExitCode::from(4);
+    }
     if cli.json || !is_status {
         println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
     } else {
@@ -109,6 +135,14 @@ fn print_status(value: &Value) {
             if server.has_device_credential { "stored" } else { "absent" }
         ),
         None => println!("  server: not configured"),
+    }
+    if let Some(pairing) = &status.pairing {
+        println!(
+            "  pairing: {}{}{}",
+            pairing.state,
+            pairing.code.as_ref().map(|code| format!(" · code {code} (approve it in Studio)")).unwrap_or_default(),
+            pairing.reason.as_ref().map(|r| format!(" ({r})")).unwrap_or_default()
+        );
     }
     let link = &status.link;
     println!(
