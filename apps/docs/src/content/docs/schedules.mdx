@@ -5,12 +5,16 @@ description: Set a Playlist or published Layout to play on selected screens or D
 
 Create a weekly schedule to show a Playlist or Layout at the same local time on selected days. For example, use one to play a lunch menu from Monday through Friday, 10:30 to 13:00.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Before you start
 
 - An **Owner** or **Administrator** account is needed to create or change schedules.
 - Prepare a Playlist with content that is **Ready**, or publish the Layout you want to schedule. Tilecast won't save a schedule that references an empty Playlist, unready media, or an unpublished Layout.
 
 ## Create the schedule
+
+<Steps>
 
 1. Open **Operations** > **Schedules**, then select **Create schedule**.
 2. Under **Content**, enter a **Schedule name** and select **Choose presentation**. Choose a Playlist or published Layout, then select **Use this presentation**.
@@ -19,6 +23,8 @@ Create a weekly schedule to show a Playlist or Layout at the same local time on 
 5. Under **Targets**, choose **Screens** or **Display Groups**, then search for and select one or more targets.
 6. Under **Advanced options**, leave **Enabled** on. Choose **Normal** priority unless another schedule for the same targets should take precedence.
 7. Review the **Schedule summary** and **Conflict preview**, then select **Save schedule**.
+
+</Steps>
 
 Add a **Date range** if the weekday rule should start or stop on specific dates. Without one, the rule repeats every selected weekday.
 

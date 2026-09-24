@@ -5,6 +5,8 @@ description: Run Tilecast Server with Docker Compose and choose a safe address f
 
 Tilecast Server runs on a host you control with Docker Engine and Docker Compose v2. The repository Compose file builds the server and starts PostgreSQL beside it. Cloudflare Tunnel is optional.
 
+import { FileTree, Steps } from "@astrojs/starlight/components";
+
 ## Before you start
 
 - Choose a host that can stay on while displays need Tilecast.
@@ -14,6 +16,8 @@ Tilecast Server runs on a host you control with Docker Engine and Docker Compose
 ## Start Tilecast Server
 
 Run these commands from the root of a clone of the [Tilecast repository](https://github.com/gbyo/tilecast).
+
+<Steps>
 
 1. Copy the example environment file.
 
@@ -40,6 +44,8 @@ Run these commands from the root of a clone of the [Tilecast repository](https:/
 
 5. Open `TILECAST_PUBLIC_URL` in a browser. On first visit, enter the organization name and create the first Owner account.
 
+</Steps>
+
 The server applies its database migrations before it accepts requests. There is no separate migration command.
 
 :::caution
@@ -64,7 +70,17 @@ The Compose health check uses `/readyz`. A failed readiness check returns HTTP 5
 
 ## Preserve installation data
 
-Compose uses two named volumes. `postgres_data` holds the database. `tilecast_data` holds uploaded and processed media, thumbnails, backups, and cached Player releases. Preserve both when replacing containers or hosts.
+Compose uses two named volumes. Preserve both when replacing containers or hosts.
+
+<FileTree>
+
+- postgres_data/ Tilecast database.
+- tilecast_data/ Media, backups, and cached Player releases under `/data`.
+  - media/ Uploaded and processed media and thumbnails.
+  - backups/ Full installation archives from **Settings** \> **Backup and restore**.
+  - updates/ Verified Android and Linux Player releases cached for deployment.
+
+</FileTree>
 
 :::caution
 `docker compose down --volumes` removes the named volumes and their stored data. Do not use it when you only want to recreate or update the containers.

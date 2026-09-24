@@ -5,12 +5,16 @@ description: Approve a Tilecast Player, repair its credential, or replace Player
 
 Pairing gives a Tilecast Player its own credential to connect to Tilecast Server. Use the same approval flow to enroll a new screen, repair a Player installation, or move an existing screen to replacement hardware.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Before you start
 
 - Sign in as an **Owner** or **Administrator**. Editors and Viewers can monitor screens, but can't approve or reject pairing requests.
 - Connect Tilecast Player to the intended server. The Player must show its pairing code while you approve it.
 
 ## Approve a Player
+
+<Steps>
 
 1. On the display, open Tilecast Player and connect it to the Tilecast Server for this installation. Leave the pairing code visible.
 2. In Studio, open **Screens** > **Fleet**, then select **Pair screen**.
@@ -29,6 +33,8 @@ Pairing gives a Tilecast Player its own credential to connect to Tilecast Server
    - Hardware replacement: select **Replace hardware**, review the confirmation, then select **Confirm pairing**.
 
 7. Keep the Player connected until it completes enrollment.
+
+</Steps>
 
 The request expires after ten minutes. If the code expires before approval, create a new pairing request on the Player.
 

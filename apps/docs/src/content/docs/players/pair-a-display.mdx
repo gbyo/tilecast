@@ -5,12 +5,16 @@ description: Approve a Tilecast Player and enroll it as a screen.
 
 Pairing enrolls a Player as a screen in your Tilecast installation. An Owner or Administrator must approve the request in Studio.
 
+import { Steps } from "@astrojs/starlight/components";
+
 ## Before you start
 
 - Confirm that the Player can reach the Tilecast Server address.
 - Sign in to Studio as an Owner or Administrator.
 
 ## Pair the Player
+
+<Steps>
 
 1. Open Tilecast Player on the display.
 2. Choose a nearby Tilecast Server, or enter its address. Use HTTPS for a public hostname. For a private LAN, HTTP is allowed for a private IPv4 address, `localhost`, or a `.local` name. Enter only the server address and optional port, without a path.
@@ -20,6 +24,8 @@ Pairing enrolls a Player as a screen in your Tilecast installation. An Owner or 
 6. Enter the code and compare the request details with the physical display. Studio shows the platform, device model, Player version, display resolution, locale, time zone, and network address when available.
 7. Select **Create new screen**, enter a screen name, and add location or room details if useful.
 8. Select **Approve and pair**.
+
+</Steps>
 
 The Player enrolls after approval. An Android Player then opens the required commissioning checklist. Complete it before normal playback; see [Install Tilecast Player on Android TV](../install-android/). A Linux Player returns to its paired screen and waits for content.
 

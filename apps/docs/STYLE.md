@@ -107,10 +107,15 @@ definition once one exists.
 
 ## Procedures
 
-- Use a numbered list for steps the reader performs in order.
+- Use Starlight's `<Steps>` component for an ordered task the reader performs.
+  Import it from `@astrojs/starlight/components` and wrap the whole ordered
+  list. A page that uses a component must be `.mdx`; the route stays the same.
 - Start each step with an imperative verb: "Open", "Select", "Enter", "Run".
 - Put one action in each step. A step can end with the result the reader should
   see.
+- Don't wrap a short ranked list or a conceptual sequence in `<Steps>`. The
+  policy-precedence list in "Set Player policies" stays a normal numbered
+  list, for example.
 - List prerequisites only when the procedure fails without them. Put them in a
   short "Before you start" section.
 - Put a warning, limit, or recovery step next to the action it affects, not in a
@@ -118,6 +123,69 @@ definition once one exists.
 - Use Starlight asides (`:::note`, `:::caution`, `:::danger`) sparingly. A
   caution is for something that can lose data, lock someone out, or leave a
   display blank.
+
+```mdx
+import { Steps } from "@astrojs/starlight/components";
+
+<Steps>
+
+1. Open **Screens** > **Fleet**.
+2. Select **Pair screen**.
+
+</Steps>
+```
+
+## Equivalent choices
+
+- Use Starlight's `<Tabs>` with `<TabItem>` when two paths accomplish the same
+  task, such as Android TV and Linux install or update behavior.
+- Synchronize repeated choices with `syncKey`. Player platform tabs use
+  `syncKey="player-platform"` with the labels `Android TV` and `Linux`, so a
+  reader's choice carries across pages. API language tabs use
+  `syncKey="api-example-language"`.
+- Don't hide fundamentally different workflows behind tabs. The Android and
+  Linux install guides stay separate pages; tabs cover only the parts that
+  are truly parallel.
+- Don't invent a redundant example only to justify a tab set.
+
+## Filesystem structures
+
+- Use Starlight's `<FileTree>` for an actual file or volume hierarchy, such as
+  the repository layout or the Docker volume contents. Text after the file
+  name renders as a comment: `- tilecast_data/ Media and backups.`
+- Don't use `FileTree` for ordinary lists.
+
+## Links, buttons, and labels
+
+- Use a normal inline link for references inside a sentence.
+- Use Starlight's `<LinkButton>` only for a page's strongest next action, such
+  as the end of Getting Started or a developer page pointing at the
+  contribution guide. Prefer `primary` for the main next step, `secondary`
+  for a supporting one, and `minimal` for a quiet external link. Don't put
+  five buttons on a page.
+- Use Starlight's `<Badge>` only for a platform, capability, lifecycle, or
+  plugin status that changes what the reader should do, such as `Linux only`
+  or `US` on a capability table. Don't badge ordinary pages or decorate text
+  with labels like "Core" or "Recommended".
+- Sidebar badges follow the same rule. They are configured in
+  `astro.config.mjs` next to the page's slug and must stay readable in light
+  and dark themes on narrow screens. Don't add a `New` badge without a plan
+  for removing it.
+- Prefer Starlight's built-in icon names for component and hero-action icons.
+  Don't import an icon library into the docs for decoration.
+
+## Drafts, search, and banners
+
+- If a page is worth keeping while research or review is incomplete, mark it
+  `draft: true` instead of publishing placeholder copy. Drafts render during
+  local development but are excluded from the production build. Never publish
+  "Coming soon", a fake guide, or guessed functionality.
+- Use `pagefind: false` only for pages that should genuinely not appear in
+  search, such as the custom 404 page. Don't exclude a page only because it
+  is short.
+- A page banner (`banner:` frontmatter) is for a meaningful temporary notice
+  such as a breaking upgrade requirement or deprecated functionality. Don't
+  add a banner to announce the docs themselves.
 
 ## Tutorials and quickstarts
 
@@ -136,7 +204,9 @@ windows for content".
 - Document what Tilecast does today. Check the current code, Studio labels, or
   the engineering docs before you describe a behavior.
 - Don't describe planned features, and don't write placeholder pages. A section
-  that has no content yet should not have a page yet.
+  that has no content yet should not have a page yet. When a page is worth
+  keeping while its review is incomplete, mark it `draft: true` (see
+  "Drafts, search, and banners") instead of publishing a guess.
 - State real limits plainly. If a feature depends on the network, the device,
   or the firmware, say so where the reader makes that choice.
 
