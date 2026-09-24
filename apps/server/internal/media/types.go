@@ -205,9 +205,10 @@ type DataSourceInput struct {
 
 // DataSourceField describes one field a Data Source exposes, for Widget field selection.
 type DataSourceField struct {
-	Key   string `json:"key"`
-	Label string `json:"label"`
-	Type  string `json:"type"`
+	Key      string `json:"key"`
+	Label    string `json:"label"`
+	Type     string `json:"type"`
+	Currency string `json:"currency,omitempty"`
 }
 
 type TypedRecord struct {

@@ -100,6 +100,7 @@ import { PlayerSocket } from "./socket";
 import { activeHoursFromConfig, evaluateActiveHours } from "./active-hours";
 import { renderWidget } from "./widget-render";
 import { renderLayout } from "./layout-render";
+import { resolveRegionalFormatting } from "./format";
 import {
   fallbackDurationMsFor,
   resolvePlaybackItemSettings,
@@ -2214,6 +2215,9 @@ export class PlayerRuntime {
           dataSources: maps.dataSources,
           at,
           playback: this.config?.playback,
+          regionalFormat: resolveRegionalFormatting(
+            this.config?.playback?.["regionalFormat"],
+          ),
         },
         viewport,
       );
@@ -2287,6 +2291,9 @@ export class PlayerRuntime {
         dataSources: maps.dataSources,
         at,
         assets: manifest.assets,
+        regionalFormat: resolveRegionalFormatting(
+          this.config?.playback?.["regionalFormat"],
+        ),
       });
       if (!payload) {
         return null;

@@ -646,23 +646,23 @@ func (s *Service) fetchLiveSource(ctx context.Context, rawURL, accept string) ([
 }
 
 func transitDepartureFields() []DataSourceField {
-	return []DataSourceField{{"stopId", "Stop ID", "text"}, {"stopName", "Stop", "text"}, {"routeId", "Route ID", "text"}, {"route", "Route", "text"}, {"headsign", "Destination", "text"}, {"scheduledTime", "Scheduled time", "datetime"}, {"predictedTime", "Predicted time", "datetime"}, {"delaySeconds", "Delay", "duration"}, {"status", "Status", "text"}, {"platform", "Platform", "text"}, {"freshness", "Updated", "datetime"}}
+	return []DataSourceField{{"stopId", "Stop ID", "text", ""}, {"stopName", "Stop", "text", ""}, {"routeId", "Route ID", "text", ""}, {"route", "Route", "text", ""}, {"headsign", "Destination", "text", ""}, {"scheduledTime", "Scheduled time", "datetime", ""}, {"predictedTime", "Predicted time", "datetime", ""}, {"delaySeconds", "Delay", "duration", ""}, {"status", "Status", "text", ""}, {"platform", "Platform", "text", ""}, {"freshness", "Updated", "datetime", ""}}
 }
 
 func transitAlertFields() []DataSourceField {
-	return []DataSourceField{{"headline", "Headline", "text"}, {"description", "Description", "text"}, {"severity", "Severity", "text"}, {"effect", "Effect", "text"}, {"routes", "Routes", "text"}, {"url", "Information URL", "url"}, {"freshness", "Updated", "datetime"}}
+	return []DataSourceField{{"headline", "Headline", "text", ""}, {"description", "Description", "text", ""}, {"severity", "Severity", "text", ""}, {"effect", "Effect", "text", ""}, {"routes", "Routes", "text", ""}, {"url", "Information URL", "url", ""}, {"freshness", "Updated", "datetime", ""}}
 }
 
 func capAlertFields() []DataSourceField {
-	return []DataSourceField{{"event", "Event", "text"}, {"headline", "Headline", "text"}, {"description", "Description", "text"}, {"instruction", "Instruction", "text"}, {"severity", "Severity", "text"}, {"urgency", "Urgency", "text"}, {"certainty", "Certainty", "text"}, {"effective", "Effective", "datetime"}, {"expires", "Expires", "datetime"}, {"sender", "Sender", "text"}, {"area", "Area", "text"}, {"url", "Information URL", "url"}}
+	return []DataSourceField{{"event", "Event", "text", ""}, {"headline", "Headline", "text", ""}, {"description", "Description", "text", ""}, {"instruction", "Instruction", "text", ""}, {"severity", "Severity", "text", ""}, {"urgency", "Urgency", "text", ""}, {"certainty", "Certainty", "text", ""}, {"effective", "Effective", "datetime", ""}, {"expires", "Expires", "datetime", ""}, {"sender", "Sender", "text", ""}, {"area", "Area", "text", ""}, {"url", "Information URL", "url", ""}}
 }
 
 func airQualityFields(c AirQualitySourceConfig) []DataSourceField {
-	fields := []DataSourceField{{"location", "Location", "text"}}
+	fields := []DataSourceField{{"location", "Location", "text", ""}}
 	aqi := map[string]string{"us": "us_aqi", "european": "european_aqi"}[c.AQIStandard]
-	fields = append(fields, DataSourceField{aqi, strings.ToUpper(strings.ReplaceAll(aqi, "_", " ")), "integer"})
+	fields = append(fields, DataSourceField{aqi, strings.ToUpper(strings.ReplaceAll(aqi, "_", " ")), "integer", ""})
 	for _, pollutant := range c.Pollutants {
-		fields = append(fields, DataSourceField{pollutant, strings.ToUpper(strings.ReplaceAll(pollutant, "_", " ")), "number"})
+		fields = append(fields, DataSourceField{pollutant, strings.ToUpper(strings.ReplaceAll(pollutant, "_", " ")), "number", ""})
 	}
 	return fields
 }

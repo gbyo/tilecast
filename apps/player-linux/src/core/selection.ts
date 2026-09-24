@@ -14,6 +14,15 @@ export type SelectionMode =
 export type NoMatchBehavior =
   "fallback_text" | "next_available" | "empty" | "hide" | "last_known_good";
 
+export type FirstDayOfWeek =
+  | "sunday"
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday";
+
 /** Local calendar date (YYYY-MM-DD) for an instant in a timezone. */
 export function localDate(timezone: string, at: Date): string {
   try {
@@ -44,6 +53,19 @@ function isoWeekday(date: string): number {
   return dow === 0 ? 7 : dow;
 }
 
+function daysBackToWeekStart(date: string, firstDay: FirstDayOfWeek): number {
+  const firstDayNumber: Record<FirstDayOfWeek, number> = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+  };
+  return ((isoWeekday(date) % 7) - firstDayNumber[firstDay] + 7) % 7;
+}
+
 /** Half-open [start, end) date window for a selection mode. */
 export function windowForMode(
   mode: SelectionMode,
@@ -51,6 +73,7 @@ export function windowForMode(
   at: Date,
   customStart?: string,
   customEnd?: string,
+  firstDayOfWeek: FirstDayOfWeek = "monday",
 ): { start: string; end: string } {
   const today = localDate(timezone, at);
   switch (mode) {
@@ -61,8 +84,7 @@ export function windowForMode(
       return { start: t, end: addDays(t, 1) };
     }
     case "current_week": {
-      // Week starting Monday.
-      const back = isoWeekday(today) - 1;
+      const back = daysBackToWeekStart(today, firstDayOfWeek);
       const start = addDays(today, -back);
       return { start, end: addDays(start, 7) };
     }
@@ -96,6 +118,7 @@ export function selectByDate<T extends DatedRecord>(
     customEnd?: string;
     excludePast?: boolean;
     noMatchBehavior?: NoMatchBehavior;
+    firstDayOfWeek?: FirstDayOfWeek;
   },
 ): { records: T[]; usedFallback: boolean; hidden: boolean } {
   const dated = records.filter(
@@ -120,6 +143,7 @@ export function selectByDate<T extends DatedRecord>(
     opts.at,
     opts.customStart,
     opts.customEnd,
+    opts.firstDayOfWeek,
   );
   let matched = dated.filter((r) => {
     const d = r.date.slice(0, 10);
@@ -182,6 +206,7 @@ export function selectCalendarEvents<T extends CalendarLike>(
   timezone: string,
   at: Date,
   maxEvents: number,
+  firstDayOfWeek: FirstDayOfWeek = "monday",
 ): T[] {
   const today = localDate(timezone, at);
   const now = at.getTime();
@@ -200,7 +225,7 @@ export function selectCalendarEvents<T extends CalendarLike>(
       );
       break;
     case "this_week": {
-      const back = isoWeekday(today) - 1;
+      const back = daysBackToWeekStart(today, firstDayOfWeek);
       const weekStart = addDays(today, -back);
       const weekEnd = addDays(weekStart, 7);
       filtered = upcoming.filter((e) => {

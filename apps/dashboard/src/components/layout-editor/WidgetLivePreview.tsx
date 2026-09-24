@@ -9,8 +9,8 @@ import type { CSSProperties, ReactNode } from "react";
 import QRCode from "qrcode";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { useFormatLocale } from "../../i18n";
 import type {
   Asset,
   CalendarEvent,
@@ -219,7 +219,18 @@ export function AppPlacementPreview({
   item: LayoutPlacement;
 }) {
   const { t } = useTranslation("layouts");
-  const formatLocale = useFormatLocale();
+  const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings });
+  const regional = settings.data?.values ?? {};
+  const regionalLocale = regionalSetting(
+    regional,
+    "organization.locale",
+    "en-US",
+  );
+  const regionalTimezone = regionalSetting(
+    regional,
+    "organization.timezone",
+    "UTC",
+  );
   if (asset?.thumbnailUrl)
     return (
       <img
@@ -247,20 +258,19 @@ export function AppPlacementPreview({
     "#F5F7FA";
   let value = asset?.name ?? item.name;
   if (provider === "clock") {
-    const timezone =
-      typeof config.timezone === "string" ? config.timezone : "UTC";
-    value = new Intl.DateTimeFormat(formatLocale, {
-      timeStyle: config.showSeconds ? "medium" : "short",
-      timeZone: timezone,
-    }).format(new Date());
+    value = clockText(
+      config as unknown as ClockWidgetConfig,
+      regionalLocale,
+      regionalTimezone,
+      regionalSetting(regional, "organization.time_format", "locale"),
+    );
   } else if (provider === "date") {
-    const timezone =
-      typeof config.timezone === "string" ? config.timezone : "UTC";
-    value = new Intl.DateTimeFormat(formatLocale, {
-      dateStyle:
-        (config.format as "full" | "long" | "medium" | "short") ?? "full",
-      timeZone: timezone,
-    }).format(new Date());
+    value = dateText(
+      config as unknown as DateWidgetConfig,
+      regionalLocale,
+      regionalTimezone,
+      regionalSetting(regional, "organization.date_format", "locale"),
+    );
   } else if (provider === "qrcode")
     value =
       typeof config.label === "string" && config.label
@@ -354,22 +364,72 @@ export function menuFieldLabel(field: string): string {
   return field.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function clockText(cfg: ClockWidgetConfig, locale: string): string {
-  const is24 = cfg.format === "24";
-  return new Intl.DateTimeFormat(locale, {
-    timeZone: cfg.timezone || "UTC",
-    hour12: !is24,
-    hour: is24 ? "2-digit" : "numeric",
-    minute: "2-digit",
-    ...(cfg.showSeconds ? { second: "2-digit" as const } : {}),
-  }).format(new Date());
+function regionalSetting(
+  values: Record<string, unknown> | undefined,
+  key: string,
+  fallback: string,
+): string {
+  const value = values?.[key];
+  return typeof value === "string" ? value : fallback;
 }
 
-export function dateText(cfg: DateWidgetConfig, locale: string): string {
+export function clockText(
+  cfg: ClockWidgetConfig,
+  locale: string,
+  organizationTimezone: string,
+  organizationTimeFormat: string,
+  now = new Date(),
+): string {
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: cfg.timezone || organizationTimezone,
+    hour: "numeric",
+    minute: "2-digit",
+    ...(cfg.showSeconds ? { second: "2-digit" as const } : {}),
+  };
+  const choice = cfg.format === "locale" ? organizationTimeFormat : cfg.format;
+  if (choice === "12" || choice === "12-hour") options.hour12 = true;
+  if (choice === "24" || choice === "24-hour") options.hour12 = false;
+  if (choice === "24" || choice === "24-hour") options.hour = "2-digit";
+  return new Intl.DateTimeFormat(locale, options).format(now);
+}
+
+export function dateText(
+  cfg: DateWidgetConfig,
+  locale: string,
+  organizationTimezone: string,
+  organizationDateFormat: string,
+  now = new Date(),
+): string {
+  const timezone = cfg.timezone || organizationTimezone;
+  const dateFormat =
+    cfg.format === "locale" ? organizationDateFormat : "locale";
+  if (
+    dateFormat === "yyyy-MM-dd" ||
+    dateFormat === "MM/dd/yyyy" ||
+    dateFormat === "dd/MM/yyyy"
+  ) {
+    const parts = new Intl.DateTimeFormat(locale, {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+    const part = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((entry) => entry.type === type)?.value ?? "";
+    if (dateFormat === "yyyy-MM-dd")
+      return [part("year"), part("month"), part("day")].join("-");
+    const order =
+      dateFormat === "MM/dd/yyyy"
+        ? ["month", "day", "year"]
+        : ["day", "month", "year"];
+    return order
+      .map((type) => part(type as Intl.DateTimeFormatPartTypes))
+      .join("/");
+  }
   return new Intl.DateTimeFormat(locale, {
-    dateStyle: cfg.format || "full",
-    timeZone: cfg.timezone || "UTC",
-  }).format(new Date());
+    dateStyle: cfg.format === "locale" ? "short" : cfg.format,
+    timeZone: timezone,
+  }).format(now);
 }
 
 export function tickerText(
@@ -753,7 +813,18 @@ export function WidgetLivePreview({
   );
   const sourceId = cfg.dataSourceId as string | undefined;
   const source = sourceId ? live[sourceId] : undefined;
-  const formatLocale = useFormatLocale();
+  const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings });
+  const regional = settings.data?.values ?? {};
+  const regionalLocale = regionalSetting(
+    regional,
+    "organization.locale",
+    "en-US",
+  );
+  const regionalTimezone = regionalSetting(
+    regional,
+    "organization.timezone",
+    "UTC",
+  );
   switch (provider) {
     case "clock":
       return (
@@ -764,7 +835,12 @@ export function WidgetLivePreview({
           contentPadding={(cfg as unknown as ClockWidgetConfig).contentPadding}
         >
           <FittedText
-            text={clockText(cfg as unknown as ClockWidgetConfig, formatLocale)}
+            text={clockText(
+              cfg as unknown as ClockWidgetConfig,
+              regionalLocale,
+              regionalTimezone,
+              regionalSetting(regional, "organization.time_format", "locale"),
+            )}
             color={fg}
             fontPx={Math.max(item.width, item.height) * scale}
             weight={600}
@@ -781,7 +857,12 @@ export function WidgetLivePreview({
           contentPadding={(cfg as unknown as DateWidgetConfig).contentPadding}
         >
           <FittedText
-            text={dateText(cfg as unknown as DateWidgetConfig, formatLocale)}
+            text={dateText(
+              cfg as unknown as DateWidgetConfig,
+              regionalLocale,
+              regionalTimezone,
+              regionalSetting(regional, "organization.date_format", "locale"),
+            )}
             color={fg}
             fontPx={Math.max(item.width, item.height) * scale}
             weight={500}

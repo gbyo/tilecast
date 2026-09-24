@@ -54,6 +54,7 @@ private fun DocumentDataset.toLayoutStructuredSource(): StructuredSourceConfig {
             staleAt = cache.staleAt,
             usingCachedData = cache.usingCachedData,
             unavailable = cache.unavailable,
+            fieldCurrencies = fields.mapNotNull { field -> field.currency.takeIf(String::isNotBlank)?.let { field.key to it } }.toMap(),
         ),
     )
 }
@@ -69,6 +70,7 @@ private fun TypedRecordData.toLayoutStructuredSource(): StructuredSourceConfig {
             staleAt = staleAt,
             usingCachedData = usingCachedData,
             unavailable = unavailable,
+            fieldCurrencies = fields.mapNotNull { field -> field.currency.takeIf(String::isNotBlank)?.let { field.key to it } }.toMap(),
         ),
     )
 }

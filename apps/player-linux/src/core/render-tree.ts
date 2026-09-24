@@ -86,7 +86,8 @@ export type RenderNode =
   | {
       t: "clock";
       timezone: string;
-      hour12: boolean;
+      locale?: string;
+      hour12?: boolean;
       showSeconds: boolean;
       style: TextStyle;
     }

@@ -10,10 +10,104 @@ describe("formatValue", () => {
   });
 
   it("formats percent and currency", () => {
-    expect(formatValue("42", { format: "percent" })).toBe("42%");
-    expect(formatValue("1000", { format: "currency" })).toBe("$1,000");
+    expect(formatValue("42", { format: "percent" })).toMatch(/42\s*%/);
+    expect(formatValue("1000", { format: "currency" })).toBe("1,000");
     expect(formatValue("9.5", { format: "currency", precision: 2 })).toBe(
-      "$9.50",
+      "9.50",
+    );
+  });
+
+  it.each(["en-US", "en-GB", "de-DE", "es-ES", "ru-RU"])(
+    "uses organization locale %s for numbers and dates",
+    (locale) => {
+      const regionalFormat = {
+        locale,
+        timezone: "UTC",
+        dateFormat: "locale" as const,
+        timeFormat: "locale" as const,
+        firstDayOfWeek: "monday" as const,
+      };
+      const formattedNumber = formatValue("1234.5", {
+        format: "number",
+        precision: 1,
+        regionalFormat,
+      }).replace(/[\u00a0\u202f]/g, " ");
+      const expectedNumber = new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      })
+        .format(1234.5)
+        .replace(/[\u00a0\u202f]/g, " ");
+      expect(formattedNumber).toBe(expectedNumber);
+      const formattedDate = formatValue("2026-07-04", {
+        format: "date-short",
+        regionalFormat,
+      });
+      const expectedDate = new Intl.DateTimeFormat(locale, {
+        dateStyle: "short",
+        timeZone: "UTC",
+      }).format(new Date("2026-07-04T00:00:00Z"));
+      expect(formattedDate.replace(/[\u00a0\u202f]/g, " ")).toBe(
+        expectedDate.replace(/[\u00a0\u202f]/g, " "),
+      );
+    },
+  );
+
+  it("keeps explicit currency metadata authoritative across locales", () => {
+    const regionalFormat = {
+      locale: "de-DE",
+      timezone: "Europe/Berlin",
+      dateFormat: "locale" as const,
+      timeFormat: "locale" as const,
+      firstDayOfWeek: "monday" as const,
+    };
+    const eur = formatValue("1234.5", {
+      format: "currency",
+      currency: "EUR",
+      precision: 2,
+      regionalFormat,
+    });
+    expect(eur.replace(/\u00a0/g, " ")).toMatch(/1\.234,50\s*€/);
+    expect(eur).not.toContain("$");
+    expect(
+      formatValue("1234", {
+        format: "currency",
+        currency: "JPY",
+        regionalFormat,
+      }),
+    ).toContain("¥");
+    const legacy = formatValue("1234.5", {
+      format: "currency",
+      regionalFormat,
+    });
+    expect(legacy).not.toMatch(/[€£$¥]/);
+    expect(legacy.replace(/\u00a0/g, " ")).toBe("1.234,5");
+  });
+
+  it("honors explicit hour choices and organization time zone", () => {
+    const base = {
+      locale: "en-GB",
+      timezone: "Asia/Tokyo",
+      dateFormat: "locale" as const,
+      timeFormat: "locale" as const,
+      firstDayOfWeek: "monday" as const,
+    };
+    const instant = "2026-07-04T13:05:00Z";
+    const twelveHour = formatValue(instant, {
+      format: "time",
+      regionalFormat: { ...base, timeFormat: "12-hour" },
+    });
+    const twentyFourHour = formatValue(instant, {
+      format: "time",
+      regionalFormat: { ...base, timeFormat: "24-hour" },
+    });
+    expect(twelveHour).toMatch(/10:05\s*pm/i);
+    expect(twentyFourHour).toMatch(/22:05/);
+  });
+
+  it("uses legacy output only when a regional profile is absent", () => {
+    expect(formatValue("1234.5", { format: "number", precision: 1 })).toBe(
+      "1,234.5",
     );
   });
 
@@ -34,7 +128,11 @@ describe("formatValue", () => {
       format: "date-short",
       timezone: "UTC",
     });
-    expect(short).toMatch(/Jul\s*4/);
+    const expectedShort = new Intl.DateTimeFormat("en-US", {
+      dateStyle: "short",
+      timeZone: "UTC",
+    }).format(new Date("2026-07-04T00:00:00Z"));
+    expect(short).toBe(expectedShort);
     const long = formatValue("2026-07-04", {
       format: "date-long",
       timezone: "UTC",

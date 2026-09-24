@@ -133,7 +133,7 @@ describe("Widget editor experience", () => {
       screen.getByText("Used to find this Widget in Content and playlists."),
     ).toBeTruthy();
     expect(
-      screen.getByText(/Use an IANA timezone such as America\/New_York/),
+      screen.getByText(/Leave blank to use the organization timezone/),
     ).toBeTruthy();
 
     const contentSection = screen

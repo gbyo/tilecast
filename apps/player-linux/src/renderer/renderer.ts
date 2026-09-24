@@ -1225,16 +1225,27 @@ function applyAutoFit(container: HTMLElement): void {
 
 function formatClock(node: AnyNode): string {
   const now = new Date();
+  const locale = String(node["locale"] ?? "en-US");
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: String(node["timezone"] ?? "UTC"),
+    hour: "numeric",
+    minute: "2-digit",
+    second: node["showSeconds"] ? "2-digit" : undefined,
+  };
+  if (typeof node["hour12"] === "boolean") {
+    options.hour12 = node["hour12"];
+  } else if (!node["locale"]) {
+    // Preserve the original en-US 12-hour output for clock nodes compiled by
+    // older Servers, which do not carry an organization profile.
+    options.hour12 = true;
+  }
   try {
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone: String(node["timezone"] ?? "UTC"),
-      hour: "numeric",
-      minute: "2-digit",
-      second: node["showSeconds"] ? "2-digit" : undefined,
-      hour12: node["hour12"] !== false,
-    }).format(now);
+    return new Intl.DateTimeFormat(locale, options).format(now);
   } catch {
-    return now.toLocaleTimeString();
+    return new Intl.DateTimeFormat(locale, {
+      ...options,
+      timeZone: "UTC",
+    }).format(now);
   }
 }
 

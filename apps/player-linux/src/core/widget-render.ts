@@ -11,7 +11,13 @@
  * renderer.
  */
 
-import { formatValue, safeColor, type ValueFormat } from "./format";
+import {
+  formatValue,
+  resolveRegionalFormatting,
+  safeColor,
+  type RegionalFormatting,
+  type ValueFormat,
+} from "./format";
 import type { CountdownRecurrence } from "./countdown";
 import { normalizeSource, type NormalizedSource } from "./datasource";
 import { qrDataUri } from "./qr";
@@ -30,6 +36,7 @@ export interface WidgetRenderContext {
   dataSources: Map<string, ManifestDataSource>;
   assets?: readonly ManifestAsset[];
   at: Date;
+  regionalFormat?: RegionalFormatting;
   /** Pixel height available, used to scale font sizes sensibly. */
   zoneHeight?: number;
 }
@@ -84,16 +91,19 @@ export function renderWidget(
   widget: ManifestWidget,
   ctx: WidgetRenderContext,
 ): WidgetRenderPayload | null {
+  const regionalFormat =
+    ctx.regionalFormat ?? resolveRegionalFormatting(undefined);
   // v13 declarative presentation takes precedence.
   if (widget.presentation?.kind === "native" && widget.presentation.native) {
     const datasets = new Map<string, NormalizedSource>();
     for (const [id, source] of ctx.dataSources) {
-      datasets.set(id, normalizeSource(source, ctx.at));
+      datasets.set(id, normalizeSource(source, ctx.at, regionalFormat));
     }
     const root = renderPresentation(widget.presentation.native.root, {
       datasets,
       at: ctx.at,
       assets: ctx.assets,
+      regionalFormat,
     });
     // The surface carries the author's background, so the payload reports it rather than
     // letting the default show through wherever the payload background is used.
@@ -102,6 +112,7 @@ export function renderWidget(
     const autoSkip = presentationSignalsEmpty(widget.presentation.native.root, {
       datasets,
       at: ctx.at,
+      regionalFormat,
     });
     return { background, root: root ?? emptyNode(""), autoSkip };
   }
@@ -147,8 +158,16 @@ export function renderWidget(
     case "clock":
       return centered({
         t: "clock",
-        timezone: str(config, "timezone", "UTC"),
-        hour12: str(config, "format", "12") === "12",
+        timezone: str(config, "timezone") || regionalFormat.timezone,
+        locale: regionalFormat.locale,
+        hour12:
+          str(config, "format", "locale") === "12"
+            ? true
+            : str(config, "format", "locale") === "24"
+              ? false
+              : regionalFormat.timeFormat === "locale"
+                ? undefined
+                : regionalFormat.timeFormat === "12-hour",
         showSeconds: bool(config, "showSeconds", false),
         style: {
           color: fg,
@@ -163,7 +182,8 @@ export function renderWidget(
         t: "text",
         value: formatValue(ctx.at.toISOString(), {
           format: dateFormatFor(str(config, "format", "full")),
-          timezone: str(config, "timezone", "UTC"),
+          timezone: str(config, "timezone") || regionalFormat.timezone,
+          regionalFormat,
         }),
         style: {
           color: fg,
@@ -283,7 +303,9 @@ export function renderWidget(
 }
 
 function dateFormatFor(format: string): ValueFormat {
-  return format === "short" || format === "medium" ? "date-short" : "date-long";
+  return format === "short" || format === "medium" || format === "locale"
+    ? "date-short"
+    : "date-long";
 }
 
 function textNode(value: string, color: string, fontSize: number): RenderNode {
@@ -308,7 +330,13 @@ function resolveSource(
 ): NormalizedSource | null {
   const id = str(config, "dataSourceId");
   const source = id ? ctx.dataSources.get(id) : undefined;
-  return source ? normalizeSource(source, ctx.at) : null;
+  return source
+    ? normalizeSource(
+        source,
+        ctx.at,
+        ctx.regionalFormat ?? resolveRegionalFormatting(undefined),
+      )
+    : null;
 }
 
 function renderTicker(
@@ -371,7 +399,7 @@ function renderMetric(
   const source = resolveSource(config, ctx);
   const record = source?.records[0];
   const valueField = str(config, "valueField");
-  const raw = record?.fields[valueField];
+  const raw = record?.rawFields[valueField] ?? record?.fields[valueField];
   const value =
     raw === undefined
       ? str(config, "emptyState", "No value available")
@@ -380,6 +408,8 @@ function renderMetric(
           precision: num(config, "precision", 0),
           prefix: str(config, "prefix"),
           suffix: str(config, "suffix"),
+          currency: source?.fieldCurrencies[valueField],
+          regionalFormat: ctx.regionalFormat,
         });
   const label =
     str(config, "label") ||
@@ -570,7 +600,16 @@ function renderDisplay(
 
   // Table has explicit columns; menu/list/agenda use primary/secondary fields.
   if (widget.provider === "table") {
-    return renderTable(config, records, fg, bg, spacing);
+    return renderTable(
+      config,
+      records,
+      fg,
+      bg,
+      spacing,
+      source?.fieldTypes ?? {},
+      source?.fieldCurrencies ?? {},
+      ctx.regionalFormat,
+    );
   }
 
   const primaryField =
@@ -606,10 +645,13 @@ function renderDisplay(
 
 function renderTable(
   config: Record<string, unknown>,
-  records: { fields: Record<string, string> }[],
+  records: NormalizedSource["records"],
   fg: string,
   bg: string,
   spacing: number,
+  fieldTypes: Record<string, string>,
+  fieldCurrencies: Record<string, string>,
+  regionalFormat?: RegionalFormatting,
 ): WidgetRenderPayload {
   const columns = Array.isArray(config["columns"])
     ? (config["columns"] as Record<string, unknown>[])
@@ -633,11 +675,19 @@ function renderTable(
     t: "box",
     style: { direction: "row", gap: 16, padding: spacing },
     children: columns.map((c) => {
-      const value = formatValue(r.fields[str(c, "field")] ?? "", {
-        format: str(c, "format", "text") as ValueFormat,
+      const field = str(c, "field");
+      const format = str(c, "format", fieldTypes[field] ?? "text");
+      const raw =
+        format === "text"
+          ? (r.fields[field] ?? r.rawFields[field] ?? "")
+          : (r.rawFields[field] ?? r.fields[field] ?? "");
+      const value = formatValue(raw, {
+        format: format as ValueFormat,
         precision: num(c, "precision", 0),
         prefix: str(c, "prefix"),
         suffix: str(c, "suffix"),
+        currency: fieldCurrencies[str(c, "field")],
+        regionalFormat,
       });
       const align = str(c, "alignment", "left");
       return {
