@@ -21,6 +21,7 @@ import {
 } from "../components/DashboardListToolbar";
 import { PlaylistPreview } from "../components/PresentationPreview";
 import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
 import {
   Empty,
   EmptyContent,
@@ -29,6 +30,15 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
 import {
   Select,
   SelectContent,
@@ -389,14 +399,65 @@ export function PlaylistLibraryPage() {
             </Button>
           </EmptyContent>
         </Empty>
+      ) : view === "list" ? (
+        <ItemGroup className="gap-2">
+          {visiblePlaylists.map((playlist) => (
+            <Item
+              key={playlist.id}
+              variant="outline"
+              render={
+                <Link
+                  to={`/playlists/${playlist.id}`}
+                  title={`Open ${playlist.name}`}
+                />
+              }
+            >
+              <ItemMedia
+                variant="image"
+                className="size-16 rounded-md bg-muted sm:size-20"
+              >
+                <div className="size-full" aria-hidden="true">
+                  <PlaylistPreview playlist={playlist} />
+                </div>
+              </ItemMedia>
+              <ItemContent className="min-w-0">
+                <ItemTitle>
+                  {playlist.sourceType === "tag" && (
+                    <Tags size={15} aria-hidden="true" className="shrink-0" />
+                  )}
+                  {playlist.name}
+                </ItemTitle>
+                <ItemDescription>
+                  {playlist.description || "No description"}
+                </ItemDescription>
+                <ItemDescription className="flex flex-wrap items-center gap-x-2">
+                  <span>{t("count.items", { count: playlist.itemCount })}</span>
+                  <span>
+                    {t("library.revision", { revision: playlist.revision })}
+                  </span>
+                  <span>
+                    {formatPlaylistUpdatedAt(
+                      playlist.updatedAt,
+                      t,
+                      Date.now(),
+                      formatLocale,
+                    )}
+                  </span>
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Badge variant="outline">{playlistStatus(playlist, t)}</Badge>
+                <ChevronRight
+                  size={17}
+                  aria-hidden="true"
+                  className="text-muted-foreground"
+                />
+              </ItemActions>
+            </Item>
+          ))}
+        </ItemGroup>
       ) : (
-        <div
-          className={
-            view === "grid"
-              ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-              : "grid gap-2"
-          }
-        >
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visiblePlaylists.map((playlist) => (
             <article
               key={playlist.id}

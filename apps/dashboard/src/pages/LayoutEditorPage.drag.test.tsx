@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -289,6 +290,102 @@ describe("Layout editor drag: snap-then-clamp", () => {
   });
 });
 
+describe("Layout editor chrome", () => {
+  it("keeps three stable panes and shows Layout settings when nothing is selected", async () => {
+    mockAuth();
+    mockDesktop();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+
+    const panes = screen.getByRole("group", {
+      name: "Layout library, canvas, and inspector",
+    });
+    expect(panes.querySelectorAll("[data-panel]")).toHaveLength(3);
+    const settings = screen.getByRole("complementary", {
+      name: "Layout settings",
+    });
+    expect(
+      within(settings).getByRole("combobox", { name: "Canvas preset" }),
+    ).toBeInTheDocument();
+    // The canvas settings are not duplicated in the library pane.
+    expect(screen.queryByRole("tab", { name: "Settings" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Text" }));
+    expect(
+      await screen.findByRole("complementary", { name: "Layer inspector" }),
+    ).toHaveTextContent("1 selected");
+    expect(panes.querySelectorAll("[data-panel]")).toHaveLength(3);
+    expect(
+      screen.queryByRole("complementary", { name: "Layout settings" }),
+    ).toBeNull();
+  });
+
+  it("groups Undo and Redo and keeps file commands in the Menubar", async () => {
+    mockAuth();
+    mockDesktop();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+
+    const history = screen.getByRole("group", { name: "Undo and redo" });
+    expect(
+      within(history).getByRole("button", { name: "Undo" }),
+    ).toBeDisabled();
+    expect(
+      within(history).getByRole("button", { name: "Redo" }),
+    ).toBeDisabled();
+    // No standalone rename or history triggers beside the Menubar.
+    expect(screen.queryByRole("button", { name: /Rename/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "History" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "File" }));
+    expect(
+      await screen.findByRole("menuitem", { name: /Rename Layout/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: /History/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Save now/ })).toHaveAttribute(
+      "data-disabled",
+    );
+  });
+
+  it("reports autosave as status text rather than a disabled button", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    const placement = await screen.findByText("New text");
+
+    expect(screen.getByRole("status")).toHaveTextContent("Saved");
+    expect(screen.queryByRole("button", { name: /Saved/ })).toBeNull();
+
+    dragBy(placement.closest(".layout-placement")!, 20, 20);
+    expect(screen.getByRole("status")).toHaveTextContent("Unsaved");
+    await waitFor(() => expect(api.saveLayoutDraft).toHaveBeenCalled(), {
+      timeout: 2_000,
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Saved"),
+    );
+  });
+
+  it("offers a retry when a save fails", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    vi.mocked(api.saveLayoutDraft).mockRejectedValueOnce(new Error("offline"));
+    const placement = await screen.findByText("New text");
+
+    dragBy(placement.closest(".layout-placement")!, 20, 20);
+    await waitFor(
+      () => expect(screen.getByRole("status")).toHaveTextContent("Not saved"),
+      { timeout: 2_000 },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Saved"),
+    );
+  });
+});
+
 describe("Layout editor layers and zoom controls", () => {
   it("uses generated preview and history dialogs with Escape focus return", async () => {
     mockAuth();
@@ -315,8 +412,13 @@ describe("Layout editor layers and zoom controls", () => {
     );
     expect(preview).toHaveFocus();
 
-    const history = screen.getByRole("button", { name: "History" });
-    await user.click(history);
+    // History lives with the other file commands rather than the toolbar.
+    expect(screen.queryByRole("button", { name: "History" })).toBeNull();
+    const fileActions = screen.getByRole("button", {
+      name: "Layout file actions",
+    });
+    await user.click(fileActions);
+    await user.click(await screen.findByRole("menuitem", { name: "History…" }));
     expect(
       await screen.findByRole("dialog", { name: "Published revisions" }),
     ).toBeInTheDocument();
@@ -326,7 +428,7 @@ describe("Layout editor layers and zoom controls", () => {
         screen.queryByRole("dialog", { name: "Published revisions" }),
       ).not.toBeInTheDocument(),
     );
-    expect(history).toHaveFocus();
+    await waitFor(() => expect(fileActions).toHaveFocus());
   });
 
   it("offers the desktop editor command families without hiding the primary toolbar", async () => {
@@ -344,7 +446,7 @@ describe("Layout editor layers and zoom controls", () => {
     fireEvent.click(
       await screen.findByRole("menuitem", { name: /Select all/ }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
 
     expect(screen.getAllByRole("button", { name: "Text" })[0]).toHaveAttribute(
       "aria-pressed",
@@ -356,7 +458,7 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
 
     const hide = await screen.findByRole("button", {
       name: "Hide Text",
@@ -380,11 +482,11 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
 
     const row = screen
       .getByRole("button", { name: "Text" })
-      .closest(".layout-layer-row")!;
+      .closest("[data-layer-row]")!;
     fireEvent.contextMenu(row);
     expect(
       await screen.findByRole("menuitem", { name: "Hide" }),
@@ -410,7 +512,7 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
     fireEvent.click(screen.getByRole("button", { name: "Text" }));
 
     expect(await screen.findByText("Position & size")).toBeInTheDocument();
@@ -419,5 +521,32 @@ describe("Layout editor layers and zoom controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
     expect(screen.queryByLabelText("Layer opacity")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Layer name")).toBeInTheDocument();
+  });
+
+  it("switches library sections as tabs and keeps the picker until it closes", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+    const user = userEvent.setup();
+
+    const playlistsTab = screen.getByRole("tab", { name: "Playlists" });
+    await user.click(playlistsTab);
+    expect(playlistsTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Media" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+
+    const browse = screen.getByRole("button", { name: "Browse playlists" });
+    await user.click(browse);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    // A fresh open works after the previous picker finished closing.
+    await user.click(screen.getByRole("button", { name: "Browse playlists" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 });

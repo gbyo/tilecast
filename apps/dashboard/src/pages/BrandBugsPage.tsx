@@ -14,7 +14,7 @@ import { FormField } from "../components/FormField";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Item,
   ItemActions,
@@ -40,7 +40,7 @@ import {
   FieldLabel,
 } from "../components/ui/field";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -293,7 +293,7 @@ export function BrandBugsPage() {
                     {t("shared.manage")}
                   </Link>
                   {manageable && (
-                    <RheaButton
+                    <Button
                       type="button"
                       size="icon"
                       variant="destructive"
@@ -314,7 +314,7 @@ export function BrandBugsPage() {
                       }}
                     >
                       <Trash2 size={16} aria-hidden="true" />
-                    </RheaButton>
+                    </Button>
                   )}
                 </ItemActions>
               </Item>
@@ -471,7 +471,7 @@ export function BrandBugEditorPage() {
             <FieldLabel htmlFor="brand-bug-image">
               {t("brandBug.editor.logoLabel")}
             </FieldLabel>
-            <RheaSelect
+            <Select
               items={[
                 { value: "none", label: "No image" },
                 ...(images.data?.items ?? []).map((item) => ({
@@ -509,7 +509,7 @@ export function BrandBugEditorPage() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
+            </Select>
             <FieldDescription>{t("brandBug.editor.logoHint")}</FieldDescription>
           </Field>
           <FormField
@@ -531,7 +531,7 @@ export function BrandBugEditorPage() {
               <FieldLabel htmlFor="brand-bug-corner">
                 {t("brandBug.editor.cornerLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={(
                   Object.keys(cornerLabelKeys) as BrandBugInput["corner"][]
                 ).map((value) => ({
@@ -562,7 +562,7 @@ export function BrandBugEditorPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <FormField
               id="brand-bug-width"
@@ -610,7 +610,7 @@ export function BrandBugEditorPage() {
               <FieldLabel htmlFor="brand-bug-backing">
                 {t("brandBug.editor.backingLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={backingOptions.map((option) => ({
                   value: option.value,
                   label: t(option.labelKey),
@@ -641,7 +641,7 @@ export function BrandBugEditorPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -772,13 +772,13 @@ export function BrandBugEditorPage() {
           >
             {t("common:actions.cancel")}
           </Link>
-          <RheaButton type="submit" disabled={save.isPending}>
+          <Button type="submit" disabled={save.isPending}>
             {save.isPending
               ? t("common:actions.saving")
               : editing
                 ? t("common:actions.saveChanges")
                 : t("shared.createInstance")}
-          </RheaButton>
+          </Button>
         </div>
       </form>
     </main>

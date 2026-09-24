@@ -2,9 +2,8 @@ import { Link, useLocation } from "react-router";
 
 /**
  * Route navigation rendered as real links, so destinations can be opened in
- * a new tab like any other destination. Same-page state selection must use
- * ViewTabs instead: a link that points at the page it is already on cannot
- * be opened anywhere new.
+ * a new tab like any other destination. Same-page state selection belongs in
+ * actual Tabs or filter controls, rather than a link to the current route.
  */
 export function ResourceTabs({
   label,

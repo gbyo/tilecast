@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router";
@@ -173,11 +173,22 @@ describe("Player update deployment history", () => {
   it("records a platform switch in the URL", async () => {
     renderPanel();
     expect(await screen.findByText("Available Android releases")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Linux" }));
+    const platforms = screen.getByRole("tablist", { name: "Player platform" });
+    expect(
+      within(platforms)
+        .getByRole("tab", { name: "Android" })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    await userEvent.click(screen.getByRole("tab", { name: "Linux" }));
     expect(await screen.findByText("Available Linux releases")).toBeTruthy();
+    expect(screen.queryByText("Available Android releases")).toBeNull();
+    expect(
+      screen.getByRole("tab", { name: "Linux" }).getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(screen.getByRole("tabpanel")).toBeTruthy();
     expect(screen.getByTestId("search").textContent).toBe("?platform=linux");
     // Android is the default, so it leaves no parameter behind.
-    await userEvent.click(screen.getByRole("button", { name: "Android" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Android" }));
     expect(await screen.findByText("Available Android releases")).toBeTruthy();
     expect(screen.getByTestId("search").textContent).toBe("");
   });

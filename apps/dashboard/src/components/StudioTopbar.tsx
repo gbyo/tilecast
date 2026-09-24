@@ -42,7 +42,7 @@ import {
 } from "./ui/command";
 import { Kbd } from "./ui/kbd";
 import { SiteHeader } from "./studio/SiteHeader";
-import { UploadContentDialog } from "./content-picker/UploadContentDialog";
+import { MediaUploadDialog } from "./content-picker/MediaUploadDialog";
 
 // Command categories are translation keys into palette.groups. Display names
 // are resolved with t() at render in groupCommandResults.
@@ -661,16 +661,14 @@ export function StudioTopbar({
         canCreate={canCreate}
         canPair={canPair}
       />
-      {uploadOpen && (
-        <UploadContentDialog
-          csrf={csrfToken}
-          closeLabel="Done"
-          onCreated={() => {
-            void queryClient.invalidateQueries({ queryKey: ["assets"] });
-          }}
-          onClose={() => setUploadOpen(false)}
-        />
-      )}
+      <MediaUploadDialog
+        open={uploadOpen}
+        csrf={csrfToken}
+        onAsset={() => {
+          void queryClient.invalidateQueries({ queryKey: ["assets"] });
+        }}
+        onClose={() => setUploadOpen(false)}
+      />
     </>
   );
 }

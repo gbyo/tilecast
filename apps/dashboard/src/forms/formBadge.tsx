@@ -5,7 +5,7 @@ export type FormStatusTone =
   "success" | "info" | "warning" | "danger" | "neutral";
 
 /**
- * Maps a workflow status tone to Rhea Badge props. The label text always
+ * Maps a workflow status tone to Base Vega Badge props. The label text always
  * carries the meaning; color is an enhancement, never the only signal.
  */
 export function formToneBadgeProps(

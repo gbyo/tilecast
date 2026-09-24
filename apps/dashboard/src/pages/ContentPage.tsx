@@ -34,6 +34,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
+import { rfc3339ToLocalDateTime } from "../lib/dateTime";
 import {
   DashboardListToolbar,
   DashboardSearch,
@@ -1481,11 +1482,12 @@ function MediaAssetCard({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={onSelect}
           aria-label={openLabel}
-          className="grid gap-2 p-3 pt-10 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          className="grid h-auto w-full grid-cols-1 justify-items-stretch gap-2 p-3 pt-10 text-left whitespace-normal focus-visible:ring-inset"
         >
           <AspectRatio
             ratio={16 / 9}
@@ -1506,7 +1508,7 @@ function MediaAssetCard({
           <Badge variant={status.variant} className="w-fit">
             {status.label}
           </Badge>
-        </button>
+        </Button>
         {asset.type === "widget" && !archived && (
           <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2">
             <span className="text-xs text-muted-foreground">
@@ -1593,18 +1595,20 @@ function MediaAssetListRow({
       )}
       <ItemContent>
         <ItemTitle>
-          <button
+          <Button
             type="button"
+            variant="link"
+            size="sm"
             onClick={onSelect}
             aria-label={
               archived
                 ? t("media.card.viewAsset", { name: asset.name })
                 : t("media.card.editAsset", { name: asset.name })
             }
-            className="truncate text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-auto min-w-0 max-w-full justify-start p-0 text-left font-medium whitespace-normal"
           >
             {asset.name}
-          </button>
+          </Button>
         </ItemTitle>
         <ItemDescription>
           <AssetSummary asset={asset} /> · {formatBytes(asset.originalSize)}
@@ -2647,10 +2651,10 @@ function MediaAssetDetails({
   const [name, setName] = useState(asset.name);
   const [description, setDescription] = useState(asset.description);
   const [availableFrom, setAvailableFrom] = useState(
-    dateTimeLocalValue(asset.availableFrom),
+    rfc3339ToLocalDateTime(asset.availableFrom),
   );
   const [expiresAt, setExpiresAt] = useState(
-    dateTimeLocalValue(asset.expiresAt),
+    rfc3339ToLocalDateTime(asset.expiresAt),
   );
   const mutation = useMutation({
     mutationFn: () =>
@@ -2935,13 +2939,6 @@ function MediaAssetDetails({
       </DrawerContent>
     </Drawer>
   );
-}
-
-function dateTimeLocalValue(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
 }
 
 const defaultWebsite: WebsiteInput = {

@@ -285,7 +285,16 @@
       "loadingContent": "Загрузка контента…",
       "loadMore": "Загрузить ещё",
       "noMatch": "Нет подходящего контента",
-      "noMatchHint": "Попробуйте другой запрос или создайте новый контент."
+      "noMatchHint": "Попробуйте другой запрос или создайте новый контент.",
+      "alreadyAdded": "{{type}} · Уже добавлено",
+      "newBadge": "Новое",
+      "loadingLabel": "Загрузка контента",
+      "loadErrorHint": "Проверьте подключение к Tilecast и повторите попытку.",
+      "emptyTitle": "Контента пока нет",
+      "noMatchClearHint": "Попробуйте другой запрос или сбросьте фильтры.",
+      "emptyUploadHint": "Загрузите изображения или видео, чтобы начать собирать библиотеку.",
+      "emptyWidgetHint": "Создайте виджет, чтобы добавить его сюда.",
+      "clearFilters": "Сбросить фильтры"
     },
     "playlist": {
       "addPlaylist": "Добавить плейлист",
@@ -341,21 +350,42 @@
       "sortNewest": "Сначала новые",
       "sortOldest": "Сначала старые",
       "sortRecent": "Недавно обновлённые",
-      "clearContentSearch": "Очистить поиск контента"
+      "clearContentSearch": "Очистить поиск контента",
+      "allTypes": "Все типы"
     },
     "tray": {
       "clearSelection": "Снять выделение",
       "removeFromSelection": "Убрать {{name}} из выбранного",
-      "selectedCount": "{{count}} выбрано"
+      "selectedCount": "{{count}} выбрано",
+      "selectedContent": "Выбранный контент",
+      "clear": "Очистить"
     },
     "upload": {
       "acceptedHint": "Изображения и видео · можно выбрать несколько файлов",
       "activeConfirm": "Загрузки ещё активны. Закрыть окно загрузки?",
-      "closeUploads": "Закрыть загрузки",
       "dropHint": "Перетащите файлы сюда или выберите файлы",
       "returnToContent": "Вернуться к контенту",
       "subtitle": "Загрузите одно или несколько изображений или видео.",
-      "uploadMedia": "Загрузить медиа"
+      "uploadMedia": "Загрузить медиа",
+      "newUploadsHint": "Новые загрузки уже выбраны и показываются первыми в <libraryLink>библиотеке</libraryLink>.",
+      "waitingForProcessing": "Ожидает обработки",
+      "stageProgress": "{{stage}} · {{percent}}%",
+      "processingFailed": "Не удалось обработать файл. Проверьте его и повторите попытку.",
+      "uploadFailed": "Не удалось загрузить файл. Проверьте его и повторите попытку.",
+      "dropTitle": "Перетащите изображения или видео сюда",
+      "formatsHint": "JPEG, PNG, WebP, GIF, MP4, MOV, WebM или MKV. Можно выбрать несколько файлов.",
+      "rowWaiting": "Ожидает загрузки · {{size}}",
+      "rowUploading": "Загрузка · {{percent}}% · {{uploaded}} из {{total}}",
+      "processingProgressLabel": "Прогресс обработки {{name}}",
+      "retryUpload": "Повторить загрузку {{name}}",
+      "dismiss": "Скрыть {{name}}",
+      "activeConfirmBody": "Передача продолжится в фоновом режиме, но это окно перестанет показывать её ход.",
+      "dialogDescription": "Загруженные изображения и видео появятся в медиатеке после завершения обработки.",
+      "done": "Готово"
+    },
+    "tabs": {
+      "library": "Библиотека",
+      "upload": "Загрузка"
     }
   },
   "widgets": {

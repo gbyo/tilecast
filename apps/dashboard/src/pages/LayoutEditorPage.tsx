@@ -1,7 +1,19 @@
 import { cn } from "cn";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
 import { DateInput } from "../components/date-picker";
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { Checkbox } from "../components/ui/checkbox";
 import {
   ContextMenu,
@@ -17,6 +29,7 @@ import { ButtonGroup, ButtonGroupText } from "../components/ui/button-group";
 import {
   Empty,
   EmptyContent,
+  EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
@@ -26,10 +39,21 @@ import {
   ItemContent,
   ItemDescription,
   ItemGroup,
+  ItemMedia,
   ItemTitle,
 } from "../components/ui/item";
 import { Input } from "../components/ui/input";
+import { Field, FieldLabel } from "../components/ui/field";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import { Kbd } from "../components/ui/kbd";
+import { Separator } from "../components/ui/separator";
+import { Skeleton } from "../components/ui/skeleton";
+import { Spinner } from "../components/ui/spinner";
 import {
   Menubar,
   MenubarCheckboxItem,
@@ -95,6 +119,9 @@ import {
   ArrowUpToLine,
   BoxSelect,
   Circle,
+  CircleAlert,
+  CircleDot,
+  CloudCheck,
   ClipboardPaste,
   Copy,
   CopyPlus,
@@ -111,6 +138,7 @@ import {
   Magnet,
   Maximize2,
   Minus,
+  MoreHorizontal,
   MousePointerClick,
   Pencil,
   Plus,
@@ -121,6 +149,7 @@ import {
   Search,
   Settings,
   Trash2,
+  TriangleAlert,
   Type,
   Undo2,
   Ungroup,
@@ -638,9 +667,12 @@ export function LayoutEditorPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [previewScale, setPreviewScale] = useState(0);
-  const previewFrameRef = useRef<HTMLDivElement>(null);
+  // State rather than a ref: the frame mounts inside the Dialog portal after
+  // the preview opens, and measuring must wait for it to exist.
+  const [previewFrame, setPreviewFrame] = useState<HTMLDivElement | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [picker, setPicker] = useState<"media" | "widgets" | "playlists">();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<
     | { kind: "placement"; id: string; name: string }
     | { kind: "layout"; name: string }
@@ -653,6 +685,9 @@ export function LayoutEditorPage() {
   const [pickedPlaylists, setPickedPlaylists] = useState<Playlist[]>([]);
   const [guides, setGuides] = useState<{ x?: number; y?: number }>({});
   const canvasRef = useRef<HTMLDivElement>(null);
+  // History opens from a menu item that unmounts, so focus returns to the
+  // menu's trigger when the dialog closes.
+  const fileMenuTrigger = useRef<HTMLButtonElement>(null);
   const zoomIn = useCallback(
     () => setZoom((value) => Math.min(1.5, value + 0.1)),
     [],
@@ -890,7 +925,7 @@ export function LayoutEditorPage() {
   // Track the rendered size of the preview frame so widgets can convert canvas
   // pixels into screen pixels the same way the Player scales the whole canvas.
   useLayoutEffect(() => {
-    const frame = previewFrameRef.current;
+    const frame = previewFrame;
     if (!preview || !frame || !document) return;
     const measure = () =>
       setPreviewScale(frame.clientWidth / document.canvas.width);
@@ -898,7 +933,7 @@ export function LayoutEditorPage() {
     const observer = new ResizeObserver(measure);
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [preview, document]);
+  }, [preview, previewFrame, document]);
   const publish = useMutation<unknown, ApiError>({
     mutationFn: () =>
       canPublish
@@ -907,8 +942,8 @@ export function LayoutEditorPage() {
     onSuccess: () => {
       toast.add({
         title: canPublish
-          ? "Layout published."
-          : "Layout submitted for review.",
+          ? t("editor.toastPublished")
+          : t("editor.toastSubmitted"),
         type: "success",
       });
       void queryClient.invalidateQueries({ queryKey: ["layout", id] });
@@ -927,7 +962,7 @@ export function LayoutEditorPage() {
         csrf,
       ),
     onSuccess: () => {
-      toast.add({ title: t("editor.renameSuccess"), type: "success" });
+      toast.add({ title: t("editor.toastRenamed"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["layout", id] });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
     },
@@ -936,7 +971,10 @@ export function LayoutEditorPage() {
     mutationFn: (revisionId: string) =>
       api.restoreLayoutRevision(id, revisionId, serverRevision, csrf),
     onSuccess: (saved) => {
-      toast.add({ title: t("editor.revisionRestoreSuccess"), type: "success" });
+      toast.add({
+        title: t("editor.toastRestored"),
+        type: "success",
+      });
       const next = clone(saved.draft);
       setDocument(next);
       documentRef.current = next;
@@ -1415,7 +1453,7 @@ export function LayoutEditorPage() {
     [selection, update],
   );
   // Right-click target for the canvas menu. Capture-phase handlers set this
-  // before the Rhea trigger opens, so the content always matches the pointer.
+  // before the Base UI trigger opens, so the content always matches the pointer.
   const [menuTarget, setMenuTarget] = useState<LayoutMenuTarget | null>(null);
   const openPlacementMenu = (
     _event: ReactMouseEvent<HTMLElement>,
@@ -1900,7 +1938,16 @@ export function LayoutEditorPage() {
       </Empty>
     );
   if (layoutQuery.isLoading || !document)
-    return <p className="status-copy">{t("editor.loading")}</p>;
+    return (
+      <div
+        className="grid gap-3"
+        aria-busy="true"
+        aria-label={t("editor.loadingLabel")}
+      >
+        <Skeleton className="h-12" />
+        <Skeleton className="h-[60vh]" />
+      </div>
+    );
   const libraryAssets = [...(contentQuery.data?.items ?? []), ...pickedAssets];
   const libraryPlaylists = [
     ...(playlistsQuery.data?.items ?? []),
@@ -1957,345 +2004,446 @@ export function LayoutEditorPage() {
         ((event.clientY - bounds.top) / bounds.height) * document.canvas.height,
     });
   };
-  const sectionTitles = {
-    media: t("editor.sectionMedia"),
-    widgets: t("editor.sectionWidgets"),
-    playlists: t("editor.sectionPlaylists"),
-    elements: t("editor.sectionElements"),
-    layers: t("editor.sectionLayers"),
-    settings: t("editor.sectionSettings"),
-  } as const;
-  const browseLabels = {
-    media: t("editor.browseMedia"),
-    widgets: t("editor.browseWidgets"),
-    playlists: t("editor.browsePlaylists"),
-  } as const;
-  const shelfEmptyLabels = {
-    media: t("editor.shelfEmptyMedia"),
-    widgets: t("editor.shelfEmptyWidgets"),
-    playlists: t("editor.shelfEmptyPlaylists"),
-  } as const;
-  const librarySidebar = (
-    <aside className="layout-editor-left">
-      <nav className="layout-sidebar-nav" aria-label={t("editor.builderLabel")}>
-        {(
-          [
-            ["media", ImageIcon],
-            ["widgets", AppWindow],
-            ["playlists", ListVideo],
-            ["elements", RectangleHorizontal],
-            ["layers", BoxSelect],
-            ["settings", Settings],
-          ] as const
-        ).map(([section, Icon]) => (
-          <button
-            key={section}
-            type="button"
-            className={sidebarSection === section ? "is-active" : ""}
-            aria-pressed={sidebarSection === section}
-            onClick={() => setSidebarSection(section)}
-          >
-            <Icon size={18} />
-            <span>{sectionTitles[section]}</span>
-          </button>
-        ))}
-      </nav>
-      <div className="layout-sidebar-panel">
-        {(sidebarSection === "media" ||
-          sidebarSection === "widgets" ||
-          sidebarSection === "playlists") && (
-          <>
-            <div className="layout-panel-heading">
-              <strong>{sectionTitles[sidebarSection]}</strong>
-            </div>
+  const openPreview = () => {
+    setPreview(true);
+    void loadLayoutPreview();
+  };
+  const openHistory = () => {
+    setHistoryOpen(true);
+    void revisions.refetch();
+  };
+  // On desktop the right-hand pane always shows Layout settings when nothing
+  // is selected, so the Settings section only exists in the narrow layout.
+  const sidebarSections = [
+    ["media", t("editor.sectionMedia"), ImageIcon],
+    ["widgets", t("editor.sectionWidgets"), AppWindow],
+    ["playlists", t("editor.sectionPlaylists"), ListVideo],
+    ["elements", t("editor.sectionElements"), RectangleHorizontal],
+    ["layers", t("editor.sectionLayers"), BoxSelect],
+    ...(desktop
+      ? []
+      : ([["settings", t("editor.tabSettings"), Settings]] as const)),
+  ] as const;
+  const activeSidebarSection =
+    desktop && sidebarSection === "settings" ? "media" : sidebarSection;
+  const layoutUsage = layoutQuery.data && (
+    <UsedByPanel
+      emptyMessage={t("editor.usageEmpty")}
+      groups={[
+        {
+          label: t("editor.usageScreens"),
+          items: layoutQuery.data.usage.screens,
+          to: (screenId) => `/screens/${screenId}`,
+        },
+        {
+          label: t("editor.usageSchedules"),
+          items: layoutQuery.data.usage.schedules,
+          to: (scheduleId) => `/schedules/${scheduleId}`,
+        },
+        {
+          label: t("editor.usageCampaigns"),
+          items: layoutQuery.data.usage.campaigns,
+          to: (campaignId) => `/campaigns/${campaignId}`,
+        },
+      ]}
+    />
+  );
+  const placementInspector = primary && (
+    <PlacementInspector
+      item={primary}
+      content={
+        primary.widgetId
+          ? contentByID.get(primary.widgetId)
+          : primary.assetId
+            ? contentByID.get(primary.assetId)
+            : undefined
+      }
+      playlist={
+        primary.playlistId ? playlistByID.get(primary.playlistId) : undefined
+      }
+      dataSources={dataSources}
+      update={(change) => mutateSelected(change)}
+      duplicate={duplicateSelection}
+      group={groupSelection}
+      ungroup={ungroupSelection}
+      canGroup={selection.size > 1}
+    />
+  );
+  const layoutSettings = (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 p-3">
+      <CanvasInspector document={document} update={update} />
+      {layoutUsage && (
+        <>
+          <Separator />
+          {layoutUsage}
+        </>
+      )}
+    </div>
+  );
+  const renderSidebarPanel = (section: LayoutSidebarSection) => {
+    if (
+      section === "media" ||
+      section === "widgets" ||
+      section === "playlists"
+    ) {
+      const label = {
+        media: t("editor.sectionMedia"),
+        widgets: t("editor.sectionWidgets"),
+        playlists: t("editor.sectionPlaylists"),
+      }[section];
+      return (
+        <>
+          <LayoutPaneHeading title={label} />
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 p-3">
             <Button
               type="button"
-              variant="default"
-              className="layout-library-browse"
-              onClick={() => setPicker(sidebarSection)}
+              variant="outline"
+              className="h-auto min-h-9 w-full py-2 whitespace-normal"
+              onClick={() => {
+                setPicker(section);
+                setPickerOpen(true);
+              }}
             >
-              <Search size={16} aria-hidden="true" />
-              {browseLabels[sidebarSection]}
+              <Search aria-hidden="true" />
+              {
+                {
+                  media: t("editor.browseMedia"),
+                  widgets: t("editor.browseWidgets"),
+                  playlists: t("editor.browsePlaylists"),
+                }[section]
+              }
             </Button>
-            <div className="layout-panel-heading layout-panel-heading--sub">
-              <strong>{t("editor.shelfRecent")}</strong>
-              <span>{t("editor.shelfDragHint")}</span>
-            </div>
-            <div className="layout-content-shelf">
-              {recentLibraryItems.map((item) => {
-                const asset = item.kind === "asset" ? item.asset : undefined;
-                const playlist =
-                  item.kind === "playlist" ? item.playlist : undefined;
-                const name = asset?.name ?? playlist?.name ?? "";
-                return (
-                  <button
-                    key={`${item.kind}-${asset?.id ?? playlist?.id}`}
-                    draggable
-                    onDragStart={(event) => {
-                      event.dataTransfer.effectAllowed = "copy";
-                      event.dataTransfer.setData(
-                        "application/x-tilecast-layout-library",
-                        JSON.stringify({
-                          kind: item.kind,
-                          id: asset?.id ?? playlist?.id,
-                        }),
-                      );
-                    }}
-                    onClick={() => addLibraryItem(item)}
-                    title={t("editor.shelfAdd", { name })}
-                  >
-                    <span className="layout-content-shelf__preview">
-                      {asset?.thumbnailUrl ? (
-                        <img
-                          src={asset.thumbnailUrl}
-                          alt=""
-                          draggable={false}
-                        />
-                      ) : asset?.type === "widget" ? (
-                        <AppWindow size={18} />
-                      ) : playlist ? (
-                        <ListVideo size={18} />
-                      ) : (
-                        <ImageIcon size={18} />
-                      )}
-                    </span>
-                    <span>
-                      <strong>{name}</strong>
-                      <small>
-                        {playlist
-                          ? t("common:count.items", {
-                              count: playlist.itemCount,
-                            })
-                          : (asset?.widget?.provider ?? asset?.type)}
-                      </small>
-                    </span>
-                  </button>
-                );
-              })}
-              {!recentLibraryItems.length && (
-                <p className="layout-content-shelf__empty">
-                  {shelfEmptyLabels[sidebarSection]}
-                </p>
-              )}
-            </div>
-          </>
-        )}
-        {sidebarSection === "elements" && (
-          <>
-            <div className="layout-panel-heading">
-              <strong>{t("editor.sectionElements")}</strong>
-            </div>
-            <div className="layout-add-grid">
-              <button onClick={() => addPrimitive("text")}>
-                <Type size={20} />
-                {t("elementKinds.text")}
-              </button>
-              <button onClick={() => addPrimitive("rectangle")}>
-                <RectangleHorizontal size={20} />
-                {t("elementKinds.rectangle")}
-              </button>
-              <button onClick={() => addPrimitive("circle")}>
-                <Circle size={20} />
-                {t("elementKinds.circle")}
-              </button>
-              <button onClick={() => addPrimitive("line")}>
-                <Minus size={20} />
-                {t("elementKinds.line")}
-              </button>
-            </div>
-          </>
-        )}
-        {sidebarSection === "layers" && (
-          <>
-            <div className="layout-panel-heading">
-              <strong>{t("editor.sectionLayers")}</strong>
-              <span>{document.placements.length}</span>
-            </div>
-            <div className="layout-layers">
-              {[...document.placements]
-                .sort((a, b) => b.layer - a.layer)
-                .map((item) => (
-                  <ContextMenu key={item.id}>
-                    <ContextMenuTrigger
-                      render={
-                        <div
-                          className={`layout-layer-row${
-                            selection.has(item.id) ? " is-selected" : ""
-                          }`}
-                          onContextMenu={(event) =>
-                            openPlacementMenu(event, item)
-                          }
-                        />
-                      }
-                    >
-                      <button
-                        type="button"
-                        className="layout-layer-select"
-                        aria-pressed={selection.has(item.id)}
-                        onClick={(event) =>
-                          setSelection(
-                            new Set(
-                              event.shiftKey
-                                ? [...selection, item.id]
-                                : [item.id],
-                            ),
-                          )
+            <section
+              className="grid grid-cols-[minmax(0,1fr)] gap-2"
+              aria-labelledby={`recent-${section}`}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <h3
+                  id={`recent-${section}`}
+                  className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                >
+                  {t("editor.shelfRecent")}
+                </h3>
+                {recentLibraryItems.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {t("editor.shelfDragHint")}
+                  </span>
+                )}
+              </div>
+              {recentLibraryItems.length ? (
+                <ItemGroup className="gap-0.5">
+                  {recentLibraryItems.map((item) => {
+                    const asset =
+                      item.kind === "asset" ? item.asset : undefined;
+                    const playlist =
+                      item.kind === "playlist" ? item.playlist : undefined;
+                    const name = asset?.name ?? playlist?.name ?? "";
+                    return (
+                      <Item
+                        key={`${item.kind}-${asset?.id ?? playlist?.id}`}
+                        role="listitem"
+                        size="xs"
+                        className="cursor-grab flex-nowrap text-left hover:bg-muted active:cursor-grabbing"
+                        render={
+                          <button
+                            type="button"
+                            draggable
+                            title={t("editor.shelfAdd", { name })}
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = "copy";
+                              event.dataTransfer.setData(
+                                "application/x-tilecast-layout-library",
+                                JSON.stringify({
+                                  kind: item.kind,
+                                  id: asset?.id ?? playlist?.id,
+                                }),
+                              );
+                            }}
+                            onClick={() => addLibraryItem(item)}
+                          />
                         }
                       >
-                        <span className="layout-layer-icon">
-                          {item.primitive?.kind === "text" ? (
-                            <Type size={14} />
-                          ) : item.primitive?.kind === "group" ? (
-                            <Group size={14} />
-                          ) : (
-                            <BoxSelect size={14} />
-                          )}
-                        </span>
-                        <span>{item.name}</span>
-                      </button>
-                      <span className="layout-layer-actions">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="layout-layer-toggle"
-                          aria-label={
-                            item.visible
-                              ? t("editor.layerHide", { name: item.name })
-                              : t("editor.layerShow", { name: item.name })
-                          }
-                          aria-pressed={item.visible}
-                          title={
-                            item.visible
-                              ? t("editor.menuHide")
-                              : t("editor.menuShow")
-                          }
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            update((d) => {
-                              const target = d.placements.find(
-                                (x) => x.id === item.id,
-                              );
-                              if (target) target.visible = !target.visible;
-                            });
-                          }}
+                        <ItemMedia
+                          variant={asset?.thumbnailUrl ? "image" : "icon"}
+                          className="size-9 rounded-sm bg-muted text-muted-foreground"
                         >
-                          {item.visible ? (
-                            <Eye size={13} aria-hidden="true" />
+                          {asset?.thumbnailUrl ? (
+                            <img
+                              src={asset.thumbnailUrl}
+                              alt=""
+                              draggable={false}
+                            />
+                          ) : asset?.type === "widget" ? (
+                            <AppWindow aria-hidden="true" />
+                          ) : playlist ? (
+                            <ListVideo aria-hidden="true" />
                           ) : (
-                            <EyeOff size={13} aria-hidden="true" />
+                            <ImageIcon aria-hidden="true" />
                           )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="layout-layer-toggle"
-                          aria-label={
-                            item.locked
-                              ? t("editor.layerUnlock", { name: item.name })
-                              : t("editor.layerLock", { name: item.name })
-                          }
-                          aria-pressed={item.locked}
-                          title={
-                            item.locked
-                              ? t("editor.menuUnlock")
-                              : t("editor.menuLock")
-                          }
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            update((d) => {
-                              const target = d.placements.find(
-                                (x) => x.id === item.id,
-                              );
-                              if (target) target.locked = !target.locked;
-                            });
-                          }}
-                        >
-                          {item.locked ? (
-                            <Lock size={13} aria-hidden="true" />
-                          ) : (
-                            <LockOpen size={13} aria-hidden="true" />
-                          )}
-                        </Button>
-                      </span>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent
-                      aria-label={t("editor.layerActions", {
-                        name: item.name,
-                      })}
-                    >
-                      <LayoutEditorMenuEntries
-                        items={placementMenuItems(item)}
+                        </ItemMedia>
+                        <ItemContent className="min-w-0 gap-0">
+                          <ItemTitle className="block w-full truncate">
+                            {name}
+                          </ItemTitle>
+                          <ItemDescription className="truncate">
+                            {playlist
+                              ? t("common:count.items", {
+                                  count: playlist.itemCount,
+                                })
+                              : asset?.type === "widget"
+                                ? t("editor.recentWidget")
+                                : asset?.type === "video"
+                                  ? tContent("media.type.video")
+                                  : tContent("media.type.image")}
+                          </ItemDescription>
+                        </ItemContent>
+                      </Item>
+                    );
+                  })}
+                </ItemGroup>
+              ) : (
+                <Empty className="border border-dashed p-4 md:p-4">
+                  <EmptyHeader>
+                    <EmptyDescription className="text-xs">
+                      {
+                        {
+                          media: t("editor.shelfEmptyMedia"),
+                          widgets: t("editor.shelfEmptyWidgets"),
+                          playlists: t("editor.shelfEmptyPlaylists"),
+                        }[section]
+                      }
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              )}
+            </section>
+          </div>
+        </>
+      );
+    }
+    if (section === "elements") {
+      return (
+        <>
+          <LayoutPaneHeading title={t("editor.sectionElements")} />
+          <div className="grid grid-cols-2 gap-2 p-3">
+            {(
+              [
+                ["text", t("elementKinds.text"), Type],
+                ["rectangle", t("elementKinds.rectangle"), RectangleHorizontal],
+                ["circle", t("elementKinds.circle"), Circle],
+                ["line", t("elementKinds.line"), Minus],
+              ] as const
+            ).map(([kind, label, Icon]) => (
+              <Button
+                key={kind}
+                type="button"
+                variant="outline"
+                className="h-auto min-h-17 flex-col gap-1.5 py-3 font-normal"
+                onClick={() => addPrimitive(kind)}
+              >
+                <Icon className="size-5" aria-hidden="true" />
+                {label}
+              </Button>
+            ))}
+          </div>
+        </>
+      );
+    }
+    if (section === "layers") {
+      return (
+        <>
+          <LayoutPaneHeading
+            title={t("editor.sectionLayers")}
+            meta={String(document.placements.length)}
+          />
+          <ItemGroup
+            className="gap-0.5 p-2"
+            aria-label={t("editor.sectionLayers")}
+          >
+            {[...document.placements]
+              .sort((a, b) => b.layer - a.layer)
+              .map((item) => (
+                <ContextMenu key={item.id}>
+                  <ContextMenuTrigger
+                    render={
+                      <Item
+                        role="listitem"
+                        size="xs"
+                        variant={selection.has(item.id) ? "muted" : "default"}
+                        data-layer-row={item.id}
+                        className="flex-nowrap gap-1 py-1 pr-1 hover:bg-muted/50 data-[variant=muted]:border-border"
+                        onContextMenu={(event) =>
+                          openPlacementMenu(event, item)
+                        }
                       />
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ))}
-            </div>
-            {!desktop && primary && (
-              <div className="layout-layer-inspector">
-                <div className="layout-panel-heading">
-                  <strong>{t("editor.selectedLayerTitle")}</strong>
-                  <span>
-                    {t("editor.selectedCount", { count: selected.length })}
-                  </span>
-                </div>
-                <PlacementInspector
-                  item={primary}
-                  content={
-                    primary.widgetId
-                      ? contentByID.get(primary.widgetId)
-                      : primary.assetId
-                        ? contentByID.get(primary.assetId)
-                        : undefined
-                  }
-                  playlist={
-                    primary.playlistId
-                      ? playlistByID.get(primary.playlistId)
-                      : undefined
-                  }
-                  dataSources={dataSources}
-                  update={(change) => mutateSelected(change)}
-                  duplicate={duplicateSelection}
-                  group={groupSelection}
-                  ungroup={ungroupSelection}
-                  canGroup={selection.size > 1}
-                />
-              </div>
-            )}
-          </>
-        )}
-        {sidebarSection === "settings" && (
-          <>
-            <div className="layout-panel-heading">
-              <strong>{t("editor.sectionSettings")}</strong>
-            </div>
-            <CanvasInspector document={document} update={update} />
-            {layoutQuery.data && (
-              <UsedByPanel
-                emptyMessage={t("editor.usageEmpty")}
-                groups={[
-                  {
-                    label: t("editor.usageScreens"),
-                    items: layoutQuery.data.usage.screens,
-                    to: (screenId) => `/screens/${screenId}`,
-                  },
-                  {
-                    label: t("editor.usageSchedules"),
-                    items: layoutQuery.data.usage.schedules,
-                    to: (scheduleId) => `/schedules/${scheduleId}`,
-                  },
-                  {
-                    label: t("editor.usageCampaigns"),
-                    items: layoutQuery.data.usage.campaigns,
-                    to: (campaignId) => `/campaigns/${campaignId}`,
-                  },
-                ]}
+                    }
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="min-w-0 flex-1 justify-start gap-2 px-1.5 font-normal"
+                      aria-pressed={selection.has(item.id)}
+                      onClick={(event) =>
+                        setSelection(
+                          new Set(
+                            event.shiftKey
+                              ? [...selection, item.id]
+                              : [item.id],
+                          ),
+                        )
+                      }
+                    >
+                      {item.primitive?.kind === "text" ? (
+                        <Type aria-hidden="true" />
+                      ) : item.primitive?.kind === "group" ? (
+                        <Group aria-hidden="true" />
+                      ) : (
+                        <BoxSelect aria-hidden="true" />
+                      )}
+                      <span className="truncate">{item.name}</span>
+                    </Button>
+                    <ItemActions className="gap-0.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={
+                          item.visible
+                            ? t("editor.layerHide", { name: item.name })
+                            : t("editor.layerShow", { name: item.name })
+                        }
+                        aria-pressed={item.visible}
+                        title={
+                          item.visible
+                            ? t("editor.menuHide")
+                            : t("editor.menuShow")
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          update((d) => {
+                            const target = d.placements.find(
+                              (x) => x.id === item.id,
+                            );
+                            if (target) target.visible = !target.visible;
+                          });
+                        }}
+                      >
+                        {item.visible ? (
+                          <Eye aria-hidden="true" />
+                        ) : (
+                          <EyeOff aria-hidden="true" />
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={
+                          item.locked
+                            ? t("editor.layerUnlock", { name: item.name })
+                            : t("editor.layerLock", { name: item.name })
+                        }
+                        aria-pressed={item.locked}
+                        title={
+                          item.locked
+                            ? t("editor.menuUnlock")
+                            : t("editor.menuLock")
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          update((d) => {
+                            const target = d.placements.find(
+                              (x) => x.id === item.id,
+                            );
+                            if (target) target.locked = !target.locked;
+                          });
+                        }}
+                      >
+                        {item.locked ? (
+                          <Lock aria-hidden="true" />
+                        ) : (
+                          <LockOpen aria-hidden="true" />
+                        )}
+                      </Button>
+                    </ItemActions>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent
+                    aria-label={t("editor.layerActions", { name: item.name })}
+                  >
+                    <LayoutEditorMenuEntries items={placementMenuItems(item)} />
+                  </ContextMenuContent>
+                </ContextMenu>
+              ))}
+          </ItemGroup>
+          {!document.placements.length && (
+            <Empty className="m-3 border border-dashed p-4 md:p-4">
+              <EmptyHeader>
+                <EmptyDescription className="text-xs">
+                  {t("editor.layersEmpty")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+          {!desktop && primary && (
+            <>
+              <Separator />
+              <LayoutPaneHeading
+                title={t("editor.selectedLayerTitle")}
+                meta={t("editor.selectedCount", { count: selected.length })}
               />
-            )}
-          </>
-        )}
-      </div>
+              <div className="p-3">{placementInspector}</div>
+            </>
+          )}
+        </>
+      );
+    }
+    return (
+      <>
+        <LayoutPaneHeading title={t("editor.sectionSettings")} />
+        {layoutSettings}
+      </>
+    );
+  };
+  const librarySidebar = (
+    <aside
+      aria-label={t("editor.libraryLabel")}
+      className="h-full min-h-0 overflow-hidden bg-background max-lg:max-h-[60vh] max-lg:border-b"
+    >
+      <Tabs
+        value={activeSidebarSection}
+        onValueChange={(value) => {
+          if (value) setSidebarSection(value as LayoutSidebarSection);
+        }}
+        orientation="vertical"
+        className="h-full gap-0"
+      >
+        <TabsList
+          variant="line"
+          className="h-full w-20 shrink-0 justify-start gap-1 rounded-none border-r px-1.5 py-2"
+          aria-label={t("editor.builderLabel")}
+        >
+          {sidebarSections.map(([section, label, Icon]) => (
+            <TabsTrigger
+              key={section}
+              value={section}
+              className="h-auto flex-none flex-col justify-center gap-1 py-2 text-xs group-data-vertical/tabs:justify-center"
+            >
+              <Icon aria-hidden="true" />
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {sidebarSections.map(([section]) => (
+          <TabsContent
+            key={section}
+            value={section}
+            className="min-h-0 min-w-0 overflow-y-auto"
+          >
+            {renderSidebarPanel(section)}
+          </TabsContent>
+        ))}
+      </Tabs>
     </aside>
   );
 
@@ -2569,15 +2717,21 @@ export function LayoutEditorPage() {
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-2">
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>{t("editor.renameNameLabel")}</span>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="rename-target-name"
+                  className="text-sm font-medium"
+                >
+                  {t("editor.renameNameLabel")}
+                </FieldLabel>
                 <Input
+                  id="rename-target-name"
                   value={renameValue}
                   autoFocus
                   maxLength={120}
                   onChange={(event) => setRenameValue(event.target.value)}
                 />
-              </label>
+              </Field>
             </div>
             <DialogFooter>
               <Button
@@ -2599,35 +2753,323 @@ export function LayoutEditorPage() {
           </form>
         </DialogContent>
       </Dialog>
-      <div className="layout-editor-toolbar">
-        <strong>{layoutQuery.data?.name}</strong>
-        <Button
-          variant="ghost"
-          size="icon"
-          title={t("editor.renameLayoutTitle")}
-          aria-label={t("editor.toolbarRenameAction", {
-            name: layoutQuery.data?.name ?? t("editor.toolbarDefaultName"),
-          })}
-          onClick={() => {
-            openRename({
-              kind: "layout",
-              name: layoutQuery.data?.name ?? "",
-            });
-          }}
-          disabled={rename.isPending}
-        >
-          <Pencil size={16} aria-hidden="true" />
-        </Button>
-        <span className="toolbar-divider" />
-        {desktop && (
-          <Menubar
-            aria-label={t("editor.commandSurface.ariaLabel")}
-            className="shrink-0 border-0 p-0 shadow-none"
+      <div className="flex min-h-12 shrink-0 items-center gap-3 border-b bg-background px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <h1
+            className="max-w-64 truncate text-sm font-semibold"
+            title={layoutQuery.data?.name}
           >
-            <MenubarMenu>
-              <MenubarTrigger>{t("editor.commandSurface.file")}</MenubarTrigger>
-              <MenubarContent className="min-w-52">
-                <MenubarItem
+            {layoutQuery.data?.name}
+          </h1>
+          {desktop ? (
+            <Menubar
+              aria-label={t("editor.menubar.label")}
+              className="shrink-0 border-0 p-0 shadow-none"
+            >
+              <MenubarMenu>
+                <MenubarTrigger ref={fileMenuTrigger}>
+                  {t("editor.menubar.file")}
+                </MenubarTrigger>
+                <MenubarContent className="min-w-52">
+                  <MenubarItem
+                    disabled={rename.isPending}
+                    onClick={() =>
+                      openRename({
+                        kind: "layout",
+                        name: layoutQuery.data?.name ?? "",
+                      })
+                    }
+                  >
+                    <Pencil aria-hidden="true" />
+                    {t("editor.menubar.renameLayout")}
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={
+                      saveState === "saved" ||
+                      saveState === "saving" ||
+                      saveState === "conflict"
+                    }
+                    onClick={() => void save()}
+                  >
+                    <Save aria-hidden="true" />
+                    {t("editor.saveNow")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ S
+                    </MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarSeparator />
+                  <MenubarItem onClick={openPreview}>
+                    <Scan aria-hidden="true" />
+                    {t("editor.toolbarPreview")}
+                  </MenubarItem>
+                  <MenubarItem onClick={openHistory}>
+                    <History aria-hidden="true" />
+                    {t("editor.menubar.history")}
+                  </MenubarItem>
+                  {canSubmit && (
+                    <>
+                      <MenubarSeparator />
+                      <MenubarItem
+                        disabled={saveState !== "saved" || publish.isPending}
+                        onClick={() => publish.mutate()}
+                      >
+                        {canPublish
+                          ? t("editor.publishAction")
+                          : t("editor.submitAction")}
+                      </MenubarItem>
+                    </>
+                  )}
+                </MenubarContent>
+              </MenubarMenu>
+              <MenubarMenu>
+                <MenubarTrigger>{t("editor.menubar.edit")}</MenubarTrigger>
+                <MenubarContent className="min-w-52">
+                  <MenubarItem disabled={!past.length} onClick={undo}>
+                    {t("editor.menuUndo")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ Z
+                    </MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem disabled={!future.length} onClick={redo}>
+                    {t("editor.menuRedo")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ ⇧ Z
+                    </MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarSeparator />
+                  <MenubarItem
+                    disabled={!selection.size}
+                    onClick={copySelection}
+                  >
+                    {t("editor.menuCopy")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ C
+                    </MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!clipboard.current.length}
+                    onClick={pasteClipboard}
+                  >
+                    {t("editor.menuPaste")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ V
+                    </MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!selection.size}
+                    onClick={duplicateSelection}
+                  >
+                    {t("editor.menuDuplicate")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ D
+                    </MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarSeparator />
+                  <MenubarItem
+                    disabled={!document.placements.length}
+                    onClick={selectAll}
+                  >
+                    {t("editor.menuSelectAll")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ A
+                    </MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!selection.size}
+                    onClick={() => setSelection(new Set())}
+                  >
+                    {t("editor.menuDeselect")}
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!selection.size}
+                    variant="destructive"
+                    onClick={deleteSelection}
+                  >
+                    {t("editor.shortcutDelete")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Del
+                    </MenubarShortcut>
+                  </MenubarItem>
+                </MenubarContent>
+              </MenubarMenu>
+              <MenubarMenu>
+                <MenubarTrigger>{t("editor.menuArrange")}</MenubarTrigger>
+                <MenubarContent className="min-w-52">
+                  <MenubarItem
+                    disabled={selection.size < 2}
+                    onClick={groupSelection}
+                  >
+                    {t("editor.menuGroup")}
+                    <MenubarShortcut>
+                      {/* i18n-ignore: key name */}Ctrl/⌘ G
+                    </MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={
+                      !selected.some((item) => item.primitive?.kind === "group")
+                    }
+                    onClick={ungroupSelection}
+                  >
+                    {t("editor.menuUngroup")}
+                  </MenubarItem>
+                  <MenubarSub>
+                    <MenubarSubTrigger disabled={!selected.length}>
+                      {t("editor.menubar.layerOrder")}
+                    </MenubarSubTrigger>
+                    <MenubarSubContent>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => arrangeSelection("front")}
+                      >
+                        {t("editor.menuBringToFront")}
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => arrangeSelection("forward")}
+                      >
+                        {t("editor.menuBringForward")}
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => arrangeSelection("backward")}
+                      >
+                        {t("editor.menuSendBackward")}
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => arrangeSelection("back")}
+                      >
+                        {t("editor.menuSendToBack")}
+                      </MenubarItem>
+                    </MenubarSubContent>
+                  </MenubarSub>
+                  <MenubarSub>
+                    <MenubarSubTrigger disabled={!selected.length}>
+                      {t("editor.menubar.alignSelection")}
+                    </MenubarSubTrigger>
+                    <MenubarSubContent>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("left")}
+                      >
+                        {t("editor.menubar.alignLeft")}
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("hcenter")}
+                      >
+                        {t("editor.menuAlignHCenter")}
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("right")}
+                      >
+                        {t("editor.menubar.alignRight")}
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("top")}
+                      >
+                        {t("editor.menubar.alignTop")}
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("vmiddle")}
+                      >
+                        {t("editor.menuAlignVCenter")}
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={() => alignSelection("bottom")}
+                      >
+                        {t("editor.menubar.alignBottom")}
+                      </MenubarItem>
+                      <MenubarSeparator />
+                      <MenubarItem
+                        disabled={selected.length < 3}
+                        onClick={() => distributeSelection("horizontal")}
+                      >
+                        {t("editor.menuDistributeH")}
+                      </MenubarItem>
+                      <MenubarItem
+                        disabled={selected.length < 3}
+                        onClick={() => distributeSelection("vertical")}
+                      >
+                        {t("editor.menuDistributeV")}
+                      </MenubarItem>
+                      <MenubarSeparator />
+                      <MenubarItem
+                        disabled={!selected.length}
+                        onClick={fillCanvas}
+                      >
+                        {t("editor.menuFillCanvas")}
+                      </MenubarItem>
+                    </MenubarSubContent>
+                  </MenubarSub>
+                  <MenubarSeparator />
+                  <MenubarItem
+                    disabled={!selected.length}
+                    onClick={() => toggleSelectionFlag("locked")}
+                  >
+                    {selected.some((item) => item.locked)
+                      ? t("editor.menubar.unlockSelection")
+                      : t("editor.menubar.lockSelection")}
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={!selected.length}
+                    onClick={() => toggleSelectionFlag("visible")}
+                  >
+                    {selected.some((item) => !item.visible)
+                      ? t("editor.menubar.showSelection")
+                      : t("editor.menubar.hideSelection")}
+                  </MenubarItem>
+                </MenubarContent>
+              </MenubarMenu>
+              <MenubarMenu>
+                <MenubarTrigger>{t("editor.menubar.view")}</MenubarTrigger>
+                <MenubarContent className="min-w-52">
+                  <MenubarCheckboxItem
+                    checked={snap}
+                    onCheckedChange={(checked) => setSnap(checked)}
+                  >
+                    {t("editor.menuSnapOn")}
+                  </MenubarCheckboxItem>
+                  <MenubarCheckboxItem
+                    checked={safeArea}
+                    onCheckedChange={(checked) => setSafeArea(checked)}
+                  >
+                    {t("editor.menuSafeAreaShow")}
+                  </MenubarCheckboxItem>
+                  <MenubarSeparator />
+                  <MenubarItem onClick={zoomOut}>
+                    {t("editor.zoomOut")}
+                  </MenubarItem>
+                  <MenubarItem onClick={zoomIn}>
+                    {t("editor.zoomIn")}
+                  </MenubarItem>
+                  <MenubarItem onClick={fitZoom}>
+                    {t("editor.zoomFit")}
+                  </MenubarItem>
+                </MenubarContent>
+              </MenubarMenu>
+            </Menubar>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                ref={fileMenuTrigger}
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("editor.menubar.fileActions")}
+                  />
+                }
+              >
+                <MoreHorizontal aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-48">
+                <DropdownMenuItem
                   disabled={rename.isPending}
                   onClick={() =>
                     openRename({
@@ -2636,9 +3078,10 @@ export function LayoutEditorPage() {
                     })
                   }
                 >
-                  {t("editor.commandSurface.renameLayout")}
-                </MenubarItem>
-                <MenubarItem
+                  <Pencil aria-hidden="true" />
+                  {t("editor.menubar.renameLayout")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   disabled={
                     saveState === "saved" ||
                     saveState === "saving" ||
@@ -2646,407 +3089,123 @@ export function LayoutEditorPage() {
                   }
                   onClick={() => void save()}
                 >
-                  {t("editor.commandSurface.saveNow")}
-                  <MenubarShortcut>
-                    {t("editor.commandSurface.shortcutSave")}
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarSeparator />
-                <MenubarItem
-                  onClick={() => {
-                    setPreview(true);
-                    void loadLayoutPreview();
-                  }}
-                >
-                  {t("editor.commandSurface.preview")}
-                </MenubarItem>
-                <MenubarItem
-                  onClick={() => {
-                    setHistoryOpen(true);
-                    void revisions.refetch();
-                  }}
-                >
-                  {t("editor.commandSurface.publishedRevisions")}
-                </MenubarItem>
-                {canSubmit && (
-                  <>
-                    <MenubarSeparator />
-                    <MenubarItem
-                      disabled={saveState !== "saved" || publish.isPending}
-                      onClick={() => publish.mutate()}
-                    >
-                      {canPublish
-                        ? t("editor.commandSurface.publish")
-                        : t("editor.commandSurface.submitForReview")}
-                    </MenubarItem>
-                  </>
-                )}
-              </MenubarContent>
-            </MenubarMenu>
-            <MenubarMenu>
-              <MenubarTrigger>{t("editor.commandSurface.edit")}</MenubarTrigger>
-              <MenubarContent className="min-w-52">
-                <MenubarItem disabled={!past.length} onClick={undo}>
-                  {t("editor.commandSurface.undo")}
-                  <MenubarShortcut>
-                    {t("editor.commandSurface.shortcutUndo")}
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem disabled={!future.length} onClick={redo}>
-                  {t("editor.commandSurface.redo")}
-                  <MenubarShortcut>
-                    {t("editor.commandSurface.shortcutRedo")}
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarSeparator />
-                <MenubarItem disabled={!selection.size} onClick={copySelection}>
-                  {t("editor.commandSurface.copy")}
-                  <MenubarShortcut>
-                    {t("editor.commandSurface.shortcutCopy")}
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!clipboard.current.length}
-                  onClick={pasteClipboard}
-                >
-                  {t("editor.commandSurface.paste")}
-                  <MenubarShortcut>
-                    {t("editor.commandSurface.shortcutPaste")}
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!selection.size}
-                  onClick={duplicateSelection}
-                >
-                  {t("editor.commandSurface.duplicate")}
-                  <MenubarShortcut>
-                    {t("editor.commandSurface.shortcutDuplicate")}
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarSeparator />
-                <MenubarItem
-                  disabled={!document.placements.length}
-                  onClick={selectAll}
-                >
-                  {t("editor.commandSurface.selectAll")}
-                  <MenubarShortcut>
-                    {t("editor.commandSurface.shortcutSelectAll")}
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!selection.size}
-                  onClick={() => setSelection(new Set())}
-                >
-                  {t("editor.commandSurface.deselect")}
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!selection.size}
-                  variant="destructive"
-                  onClick={deleteSelection}
-                >
-                  {t("editor.commandSurface.deleteSelection")}
-                  <MenubarShortcut>
-                    {t("editor.commandSurface.shortcutDelete")}
-                  </MenubarShortcut>
-                </MenubarItem>
-              </MenubarContent>
-            </MenubarMenu>
-            <MenubarMenu>
-              <MenubarTrigger>
-                {t("editor.commandSurface.arrange")}
-              </MenubarTrigger>
-              <MenubarContent className="min-w-52">
-                <MenubarItem
-                  disabled={selection.size < 2}
-                  onClick={groupSelection}
-                >
-                  {t("editor.commandSurface.groupSelection")}
-                  <MenubarShortcut>
-                    {t("editor.commandSurface.shortcutGroup")}
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  disabled={
-                    !selected.some((item) => item.primitive?.kind === "group")
-                  }
-                  onClick={ungroupSelection}
-                >
-                  {t("editor.commandSurface.ungroup")}
-                </MenubarItem>
-                <MenubarSub>
-                  <MenubarSubTrigger disabled={!selected.length}>
-                    {t("editor.commandSurface.layerOrder")}
-                  </MenubarSubTrigger>
-                  <MenubarSubContent>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => arrangeSelection("front")}
-                    >
-                      {t("editor.commandSurface.bringToFront")}
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => arrangeSelection("forward")}
-                    >
-                      {t("editor.commandSurface.bringForward")}
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => arrangeSelection("backward")}
-                    >
-                      {t("editor.commandSurface.sendBackward")}
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => arrangeSelection("back")}
-                    >
-                      {t("editor.commandSurface.sendToBack")}
-                    </MenubarItem>
-                  </MenubarSubContent>
-                </MenubarSub>
-                <MenubarSub>
-                  <MenubarSubTrigger disabled={!selected.length}>
-                    {t("editor.commandSurface.alignSelection")}
-                  </MenubarSubTrigger>
-                  <MenubarSubContent>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("left")}
-                    >
-                      {t("editor.commandSurface.alignLeft")}
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("hcenter")}
-                    >
-                      {t("editor.commandSurface.horizontalCenters")}
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("right")}
-                    >
-                      {t("editor.commandSurface.alignRight")}
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("top")}
-                    >
-                      {t("editor.commandSurface.alignTop")}
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("vmiddle")}
-                    >
-                      {t("editor.commandSurface.verticalCenters")}
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={() => alignSelection("bottom")}
-                    >
-                      {t("editor.commandSurface.alignBottom")}
-                    </MenubarItem>
-                    <MenubarSeparator />
-                    <MenubarItem
-                      disabled={selected.length < 3}
-                      onClick={() => distributeSelection("horizontal")}
-                    >
-                      {t("editor.commandSurface.distributeHorizontally")}
-                    </MenubarItem>
-                    <MenubarItem
-                      disabled={selected.length < 3}
-                      onClick={() => distributeSelection("vertical")}
-                    >
-                      {t("editor.commandSurface.distributeVertically")}
-                    </MenubarItem>
-                    <MenubarSeparator />
-                    <MenubarItem
-                      disabled={!selected.length}
-                      onClick={fillCanvas}
-                    >
-                      {t("editor.commandSurface.fillCanvas")}
-                    </MenubarItem>
-                  </MenubarSubContent>
-                </MenubarSub>
-                <MenubarSeparator />
-                <MenubarItem
-                  disabled={!selected.length}
-                  onClick={() => toggleSelectionFlag("locked")}
-                >
-                  {selected.some((item) => item.locked)
-                    ? t("editor.commandSurface.unlockSelection")
-                    : t("editor.commandSurface.lockSelection")}
-                </MenubarItem>
-                <MenubarItem
-                  disabled={!selected.length}
-                  onClick={() => toggleSelectionFlag("visible")}
-                >
-                  {selected.some((item) => !item.visible)
-                    ? t("editor.commandSurface.showSelection")
-                    : t("editor.commandSurface.hideSelection")}
-                </MenubarItem>
-              </MenubarContent>
-            </MenubarMenu>
-            <MenubarMenu>
-              <MenubarTrigger>{t("editor.commandSurface.view")}</MenubarTrigger>
-              <MenubarContent className="min-w-52">
-                <MenubarCheckboxItem
-                  checked={snap}
-                  onCheckedChange={(checked) => setSnap(checked)}
-                >
-                  {t("editor.commandSurface.snapToGrid")}
-                </MenubarCheckboxItem>
-                <MenubarCheckboxItem
-                  checked={safeArea}
-                  onCheckedChange={(checked) => setSafeArea(checked)}
-                >
-                  {t("editor.commandSurface.showSafeArea")}
-                </MenubarCheckboxItem>
-                <MenubarSeparator />
-                <MenubarItem onClick={zoomOut}>
-                  {t("editor.commandSurface.zoomOut")}
-                </MenubarItem>
-                <MenubarItem onClick={zoomIn}>
-                  {t("editor.commandSurface.zoomIn")}
-                </MenubarItem>
-                <MenubarItem onClick={fitZoom}>
-                  {t("editor.commandSurface.fitCanvasToView")}
-                </MenubarItem>
-              </MenubarContent>
-            </MenubarMenu>
-          </Menubar>
-        )}
-        <span className="toolbar-divider" />
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t("editor.menuUndo")}
-                onClick={undo}
-                disabled={!past.length}
-              >
-                <Undo2 size={17} aria-hidden="true" />
-              </Button>
-            }
-          />
-          <TooltipContent>
-            {t("editor.menuUndo")}{" "}
-            <Kbd>{/* i18n-ignore: key name */}Ctrl+Z</Kbd>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t("editor.menuRedo")}
-                onClick={redo}
-                disabled={!future.length}
-              >
-                <Redo2 size={17} aria-hidden="true" />
-              </Button>
-            }
-          />
-          <TooltipContent>
-            {t("editor.menuRedo")}{" "}
-            <Kbd>{/* i18n-ignore: key name */}Ctrl+Shift+Z</Kbd>
-          </TooltipContent>
-        </Tooltip>
-        <span className="toolbar-divider" />
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setPreview(true);
-            void loadLayoutPreview();
-          }}
-        >
-          <Scan size={16} aria-hidden="true" />
-          {t("editor.toolbarPreview")}
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setHistoryOpen(true);
-            void revisions.refetch();
-          }}
-        >
-          <History size={16} aria-hidden="true" />
-          {t("editor.toolbarHistory")}
-        </Button>
-        <Button
-          type="button"
-          variant={
-            saveState === "unsaved" || saveState === "error"
-              ? "outline"
-              : "ghost"
-          }
-          size="sm"
-          className={cn(
-            "ml-auto text-xs text-muted-foreground disabled:opacity-100",
-            saveState === "unsaved" && "text-amber-700 dark:text-amber-400",
-            (saveState === "conflict" || saveState === "error") &&
-              "text-destructive",
-            saveState === "saving" && "[&_svg]:animate-pulse",
+                  <Save aria-hidden="true" />
+                  {t("editor.saveNow")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openHistory}>
+                  <History aria-hidden="true" />
+                  {t("editor.menubar.history")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-          onClick={() => void save()}
-          disabled={
-            saveState === "saved" ||
-            saveState === "saving" ||
-            saveState === "conflict"
-          }
-          title={
-            saveState === "error"
-              ? t("editor.saveRetryTitle")
-              : saveState === "unsaved"
-                ? t("editor.saveNowTitle")
-                : undefined
-          }
-          aria-live="polite"
-        >
-          <Save size={14} aria-hidden="true" />
-          {saveState === "saved"
-            ? t("editor.saveSaved")
-            : saveState === "saving"
-              ? t("common:actions.saving")
-              : saveState === "conflict"
-                ? t("editor.saveConflict")
-                : saveState === "error"
-                  ? t("editor.saveRetry")
-                  : t("editor.saveNow")}
-        </Button>
-        {canSubmit && (
+        </div>
+        <ButtonGroup aria-label={t("editor.undoRedoLabel")}>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={t("editor.menuUndo")}
+                  onClick={undo}
+                  disabled={!past.length}
+                />
+              }
+            >
+              <Undo2 aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>
+              {t("editor.menuUndo")}{" "}
+              <Kbd>{/* i18n-ignore: key name */}Ctrl+Z</Kbd>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={t("editor.menuRedo")}
+                  onClick={redo}
+                  disabled={!future.length}
+                />
+              }
+            >
+              <Redo2 aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>
+              {t("editor.menuRedo")}{" "}
+              <Kbd>{/* i18n-ignore: key name */}Ctrl+Shift+Z</Kbd>
+            </TooltipContent>
+          </Tooltip>
+        </ButtonGroup>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <LayoutSaveStatus state={saveState} onRetry={() => void save()} />
+          <Separator orientation="vertical" className="mx-1 h-5 self-center" />
           <Button
-            variant="default"
+            type="button"
+            variant="outline"
             size="sm"
-            disabled={saveState !== "saved" || publish.isPending}
-            onClick={() => publish.mutate()}
+            onClick={openPreview}
           >
-            {publish.isPending
-              ? canPublish
-                ? t("editor.publishBusy")
-                : t("editor.submitBusy")
-              : canPublish
+            <Scan aria-hidden="true" />
+            {t("editor.toolbarPreview")}
+          </Button>
+          {canSubmit && (
+            <Button
+              type="button"
+              size="sm"
+              disabled={saveState !== "saved" || publish.isPending}
+              aria-busy={publish.isPending || undefined}
+              onClick={() => publish.mutate()}
+            >
+              {publish.isPending && <Spinner aria-hidden="true" />}
+              {canPublish
                 ? t("editor.publishAction")
                 : t("editor.submitAction")}
-          </Button>
-        )}
+            </Button>
+          )}
+        </div>
       </div>
+      {saveState === "conflict" && (
+        <Alert
+          variant="destructive"
+          className="shrink-0 rounded-none border-x-0 border-t-0"
+        >
+          <TriangleAlert aria-hidden="true" />
+          <AlertTitle>{t("editor.conflictTitle")}</AlertTitle>
+          <AlertDescription>{t("editor.conflictDescription")}</AlertDescription>
+          <AlertAction>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.reload()}
+            >
+              {t("editor.conflictReload")}
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
       {desktop ? (
+        // Three stable panes: the inspector always exists, showing Layout
+        // settings until something is selected, so selecting never resizes
+        // the canvas.
         <ResizablePanelGroup
           orientation="horizontal"
-          className="layout-editor-panes"
+          className="min-h-0 flex-1"
           role="group"
           aria-label={t("editor.panesGroup")}
         >
           <ResizablePanel
             id="layout-library-pane"
             defaultSize="24%"
-            minSize="15%"
-            className="layout-editor-pane"
+            minSize="16%"
+            maxSize="36%"
+            className="min-h-0 min-w-0"
           >
             {librarySidebar}
           </ResizablePanel>
@@ -3058,57 +3217,45 @@ export function LayoutEditorPage() {
             id="layout-stage-pane"
             defaultSize="52%"
             minSize="30%"
-            className="layout-editor-pane"
+            className="min-h-0 min-w-0"
           >
             {stage}
           </ResizablePanel>
-          {selection.size > 0 && primary ? (
-            <>
-              <ResizableHandle
-                withHandle
-                aria-label={t("editor.panesResizeInspector")}
-              />
-              <ResizablePanel
-                id="layout-inspector-pane"
-                defaultSize="24%"
-                minSize="18%"
-                className="layout-editor-pane"
-              >
-                <aside
-                  className="layout-inspector-pane"
-                  aria-label={t("editor.panesInspector")}
-                >
-                  <div className="layout-panel-heading">
-                    <strong>{t("editor.panesInspectorTitle")}</strong>
-                    <span>
-                      {t("editor.selectedCount", { count: selected.length })}
-                    </span>
-                  </div>
-                  <PlacementInspector
-                    item={primary}
-                    content={
-                      primary.widgetId
-                        ? contentByID.get(primary.widgetId)
-                        : primary.assetId
-                          ? contentByID.get(primary.assetId)
-                          : undefined
-                    }
-                    playlist={
-                      primary.playlistId
-                        ? playlistByID.get(primary.playlistId)
-                        : undefined
-                    }
-                    dataSources={dataSources}
-                    update={(change) => mutateSelected(change)}
-                    duplicate={duplicateSelection}
-                    group={groupSelection}
-                    ungroup={ungroupSelection}
-                    canGroup={selection.size > 1}
+          <ResizableHandle
+            withHandle
+            aria-label={t("editor.panesResizeInspector")}
+          />
+          <ResizablePanel
+            id="layout-inspector-pane"
+            defaultSize="24%"
+            minSize="18%"
+            maxSize="36%"
+            className="min-h-0 min-w-0"
+          >
+            <aside
+              aria-label={
+                primary
+                  ? t("editor.panesInspector")
+                  : t("editor.sectionSettings")
+              }
+              className="h-full overflow-y-auto bg-background"
+            >
+              {primary ? (
+                <>
+                  <LayoutPaneHeading
+                    title={t("editor.panesInspectorTitle")}
+                    meta={t("editor.selectedCount", { count: selected.length })}
                   />
-                </aside>
-              </ResizablePanel>
-            </>
-          ) : null}
+                  <div className="p-3">{placementInspector}</div>
+                </>
+              ) : (
+                <>
+                  <LayoutPaneHeading title={t("editor.sectionSettings")} />
+                  {layoutSettings}
+                </>
+              )}
+            </aside>
+          </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
         <>
@@ -3116,11 +3263,10 @@ export function LayoutEditorPage() {
           {stage}
         </>
       )}
-      {/* Mounted on demand, like the playlist editor: the picker keeps its search and
-          selection in local state, so a fresh mount is the reset. */}
+      {/* Keep the selected picker mounted until its generated Dialog completes closing. */}
       {(picker === "media" || picker === "widgets") && (
         <ContentPicker
-          open
+          open={pickerOpen}
           mode="multiple"
           csrf={csrf}
           allowedTypes={picker === "widgets" ? ["widget"] : ["image", "video"]}
@@ -3137,9 +3283,12 @@ export function LayoutEditorPage() {
           confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(assets) => {
             addContentBatch(assets);
-            setPicker(undefined);
+            setPickerOpen(false);
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
           onCreateWidget={() =>
             void navigate(
               `/widgets/new?returnTo=${encodeURIComponent(location.pathname)}`,
@@ -3149,14 +3298,17 @@ export function LayoutEditorPage() {
       )}
       {picker === "playlists" && (
         <PlaylistPicker
-          open
+          open={pickerOpen}
           description={t("editor.pickerPlaylistDescription")}
           confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(choice) => {
             if (choice.kind === "playlist") addPlaylistZone(choice.playlist);
-            setPicker(undefined);
+            setPickerOpen(false);
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
         />
       )}
       <Dialog open={preview} onOpenChange={setPreview}>
@@ -3203,7 +3355,7 @@ export function LayoutEditorPage() {
             </Button>
           </div>
           <div
-            ref={previewFrameRef}
+            ref={setPreviewFrame}
             className="layout-preview-frame"
             style={{
               aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
@@ -3250,16 +3402,22 @@ export function LayoutEditorPage() {
         </DialogContent>
       </Dialog>
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-        <DialogContent className="layout-history-dialog max-h-[90dvh] overflow-y-auto">
+        <DialogContent
+          finalFocus={fileMenuTrigger}
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+        >
           <DialogHeader>
             <DialogTitle>{t("editor.historyTitle")}</DialogTitle>
             <DialogDescription>
               {t("editor.historyDescription")}
             </DialogDescription>
           </DialogHeader>
-          <div className="source-editor__body">
+          <div>
             {revisions.isLoading ? (
-              <p>{t("editor.historyLoading")}</p>
+              <div className="grid gap-2" aria-busy="true">
+                <Skeleton className="h-12" />
+                <Skeleton className="h-12" />
+              </div>
             ) : revisions.data?.items?.length ? (
               <ItemGroup className="gap-0 divide-y divide-border">
                 {revisions.data.items.map((revision) => (
@@ -3279,12 +3437,15 @@ export function LayoutEditorPage() {
                           formatLocale,
                         )}
                         {" · "}
-                        <code>{revision.documentSha256.slice(0, 12)}</code>
+                        {t("editor.historyDigest", {
+                          digest: revision.documentSha256.slice(0, 12),
+                        })}
                       </ItemDescription>
                     </ItemContent>
                     <ItemActions>
                       <Button
-                        variant="secondary"
+                        variant="outline"
+                        size="sm"
                         onClick={() => restore.mutate(revision.id)}
                       >
                         {t("editor.historyRestore")}
@@ -3297,12 +3458,15 @@ export function LayoutEditorPage() {
               <Empty className="border-0 py-6">
                 <EmptyHeader>
                   <EmptyTitle>{t("editor.historyEmpty")}</EmptyTitle>
+                  <EmptyDescription>
+                    {t("editor.historyEmptyDescription")}
+                  </EmptyDescription>
                 </EmptyHeader>
               </Empty>
             )}
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setHistoryOpen(false)}>
+            <Button variant="outline" onClick={() => setHistoryOpen(false)}>
               {t("common:actions.close")}
             </Button>
           </DialogFooter>
@@ -3357,7 +3521,7 @@ function PlacementView({
       className={`layout-placement ${selected ? "is-selected" : ""} ${item.locked ? "is-locked" : ""}`}
       style={style}
       onPointerDown={onPointerDown}
-      // Capture phase so the menu target is set before the Rhea trigger opens.
+      // Capture phase so the menu target is set before the Base UI trigger opens.
       onContextMenuCapture={onContextMenu}
     >
       {item.type === "playlistZone" ? (
@@ -3491,11 +3655,78 @@ function PlacementView({
         />
       )}
       {selected && !item.locked && onResize && (
-        <button
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-xs"
           className="layout-resize-handle"
           aria-label={t("editor.resizeLabel")}
           onPointerDown={onResize}
         />
+      )}
+    </div>
+  );
+}
+
+function LayoutPaneHeading({ title, meta }: { title: string; meta?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 border-b px-3 py-2.5">
+      <h2 className="text-sm font-medium">{title}</h2>
+      {meta && <span className="text-xs text-muted-foreground">{meta}</span>}
+    </div>
+  );
+}
+
+// Autosave state is status, not a button: File > Save and Ctrl/Command+S stay
+// available, and only a failed save offers an inline retry.
+function LayoutSaveStatus({
+  state,
+  onRetry,
+}: {
+  state: SaveState;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation(["layouts", "common"]);
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        role="status"
+        className={cn(
+          "flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3.5",
+          (state === "error" || state === "conflict") && "text-destructive",
+        )}
+      >
+        {state === "saving" ? (
+          <>
+            <Spinner aria-hidden="true" />
+            {t("common:actions.saving")}
+          </>
+        ) : state === "unsaved" ? (
+          <>
+            <CircleDot aria-hidden="true" />
+            {t("editor.saveUnsaved")}
+          </>
+        ) : state === "error" ? (
+          <>
+            <CircleAlert aria-hidden="true" />
+            {t("editor.saveFailed")}
+          </>
+        ) : state === "conflict" ? (
+          <>
+            <TriangleAlert aria-hidden="true" />
+            {t("editor.saveConflict")}
+          </>
+        ) : (
+          <>
+            <CloudCheck aria-hidden="true" />
+            {t("editor.saveSaved")}
+          </>
+        )}
+      </span>
+      {state === "error" && (
+        <Button type="button" variant="outline" size="xs" onClick={onRetry}>
+          {t("common:actions.retry")}
+        </Button>
       )}
     </div>
   );

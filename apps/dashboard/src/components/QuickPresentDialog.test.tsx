@@ -128,7 +128,7 @@ describe("QuickPresentDialog", () => {
       await screen.findByRole("dialog", { name: "Choose media or web" }),
     ).toBeInTheDocument();
     await user.click(
-      await screen.findByRole("button", { name: /Status website/ }),
+      await screen.findByRole("checkbox", { name: /Status website/ }),
     );
     await user.click(screen.getByRole("button", { name: "Use content (1)" }));
     await waitFor(() =>

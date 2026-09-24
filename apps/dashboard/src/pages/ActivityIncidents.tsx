@@ -6,11 +6,16 @@ import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
 import { buttonVariants } from "../components/ui/button";
 import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   humanize,
   Loading,
@@ -142,7 +147,12 @@ export function NeedsAttentionPanel() {
       )}
 
       {failing.length === 0 ? (
-        <EmptyState message={t("incidents.emptyAttention")} />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("incidents.emptyAttentionTitle")}</EmptyTitle>
+            <EmptyDescription>{t("incidents.emptyAttention")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
           <ul className="grid list-none gap-2 p-0">

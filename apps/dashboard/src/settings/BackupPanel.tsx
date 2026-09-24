@@ -8,7 +8,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -135,7 +135,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                 {t("backups.description")}
               </p>
             </div>
-            <RheaButton
+            <Button
               variant="default"
               disabled={busy || create.isPending}
               onClick={() => {
@@ -149,7 +149,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
               }}
             >
               {create.isPending ? t("backups.queuing") : t("backups.create")}
-            </RheaButton>
+            </Button>
           </div>
           {data?.lastSuccessful && (
             <p className="text-sm text-muted-foreground">
@@ -219,14 +219,14 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                     </ItemDescription>
                   </ItemContent>
                   <ItemActions className="flex-wrap">
-                    <RheaButton
+                    <Button
                       variant="ghost"
                       disabled={busy}
                       onClick={() => verify.mutate(archive.id)}
                     >
                       <ShieldCheck size={15} aria-hidden="true" />{" "}
                       {t("backups.verify")}
-                    </RheaButton>
+                    </Button>
                     <a
                       className={buttonVariants({ variant: "ghost" })}
                       href={`/api/v1/system/backups/${archive.id}/download`}
@@ -234,7 +234,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       <Download size={15} aria-hidden="true" />{" "}
                       {t("backups.download")}
                     </a>
-                    <RheaButton
+                    <Button
                       variant="ghost"
                       disabled={busy}
                       onClick={() => {
@@ -252,8 +252,8 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                     >
                       <RotateCcw size={15} aria-hidden="true" />{" "}
                       {t("backups.restore")}
-                    </RheaButton>
-                    <RheaButton
+                    </Button>
+                    <Button
                       variant="destructive"
                       disabled={busy}
                       onClick={() => remove.mutate(archive)}
@@ -263,7 +263,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                     >
                       <Trash2 size={15} aria-hidden="true" />{" "}
                       {t("common:actions.delete")}
-                    </RheaButton>
+                    </Button>
                   </ItemActions>
                 </Item>
               ))}

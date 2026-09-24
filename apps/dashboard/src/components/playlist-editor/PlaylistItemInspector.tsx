@@ -1,10 +1,10 @@
-import { AlertCircle, Check, Info, Trash2 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { AlertCircle, Info, Trash2, X } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlaylistItem, PlaylistItemInput } from "../../api/types";
 import { useFormatLocale } from "../../i18n";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -14,15 +14,25 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
-import { Button as RheaButton } from "../ui/button";
-import { Field, FieldDescription, FieldLabel } from "../ui/field";
+import { Button } from "../ui/button";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+} from "../ui/field";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
+  InputGroupText,
 } from "../ui/input-group";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -30,67 +40,49 @@ import {
 } from "../ui/select";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerDescription,
+  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from "../ui/drawer";
-import { Slider as RheaSlider } from "../ui/slider";
-import { Switch as RheaSwitch } from "../ui/switch";
+import { Slider } from "../ui/slider";
+import { Spinner } from "../ui/spinner";
+import { Switch } from "../ui/switch";
 import {
+  assetStatusLabel,
   itemInput,
+  playlistItemTypeLabel,
   playlistItemUsesFixedDuration,
   transitionLabel,
 } from "./playlistEditorModel";
 
-const itemTransitionOptions: {
-  value: PlaylistItem["transition"];
-  labelKey:
-    | "inspector.transitionOptions.none"
-    | "inspector.transitionOptions.fade"
-    | "inspector.transitionOptions.crossfade";
-}[] = [
+const itemTransitionOptions = [
   { value: "none", labelKey: "inspector.transitionOptions.none" },
   { value: "fade", labelKey: "inspector.transitionOptions.fade" },
   { value: "crossfade", labelKey: "inspector.transitionOptions.crossfade" },
-];
+] as const;
 
-const fitModeOptions: {
-  value: PlaylistItem["fitMode"];
-  labelKey:
-    | "inspector.fitOptions.contain"
-    | "inspector.fitOptions.cover"
-    | "inspector.fitOptions.stretch";
-}[] = [
+const fitModeOptions = [
   { value: "contain", labelKey: "inspector.fitOptions.contain" },
   { value: "cover", labelKey: "inspector.fitOptions.cover" },
   { value: "stretch", labelKey: "inspector.fitOptions.stretch" },
-];
+] as const;
 
-const deliveryOptions: {
-  value: PlaylistItem["deliveryPolicy"];
-  labelKey:
-    | "inspector.deliveryOptions.download"
-    | "inspector.deliveryOptions.stream"
-    | "inspector.deliveryOptions.automatic";
-}[] = [
+const deliveryOptions = [
   { value: "download", labelKey: "inspector.deliveryOptions.download" },
   { value: "stream", labelKey: "inspector.deliveryOptions.stream" },
   { value: "automatic", labelKey: "inspector.deliveryOptions.automatic" },
-];
+] as const;
 
-const widgetBehaviorOptions: {
-  value: "until_end" | "fixed_duration";
-  labelKey:
-    | "inspector.widgetBehavior.untilEnd"
-    | "inspector.widgetBehavior.fixedDuration";
-}[] = [
+const widgetBehaviorOptions = [
   { value: "until_end", labelKey: "inspector.widgetBehavior.untilEnd" },
   {
     value: "fixed_duration",
     labelKey: "inspector.widgetBehavior.fixedDuration",
   },
-];
+] as const;
 
 export function PlaylistItemInspector({
   item,
@@ -123,12 +115,12 @@ export function PlaylistItemInspector({
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {t("inspector.itemHeading", {
               index: index + 1,
-              type: item.assetType,
+              type: playlistItemTypeLabel(item, t),
             })}
           </p>
-          <DrawerTitle>{item.assetName}</DrawerTitle>
+          <DrawerTitle className="truncate">{item.assetName}</DrawerTitle>
           <DrawerDescription className="sr-only">
-            Edit playlist item settings.
+            {t("inspector.drawerDescription")}
           </DrawerDescription>
         </DrawerHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -144,8 +136,50 @@ export function PlaylistItemInspector({
             onDelete={onDelete}
           />
         </div>
+        <DrawerFooter className="border-t">
+          <DrawerClose render={<Button type="button" variant="outline" />}>
+            {t("inspector.done")}
+          </DrawerClose>
+        </DrawerFooter>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+// PlaylistItemInspectorPane is the desktop inline inspector: it exists only
+// while an item is selected, so the timeline keeps the full width otherwise.
+export function PlaylistItemInspectorPane(props: InspectorProps) {
+  const { item, index, onClose } = props;
+  const { t } = useTranslation("playlists");
+  return (
+    <aside
+      aria-label={t("editor.itemInspectorLabel")}
+      className="grid content-start gap-5"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="grid min-w-0 gap-1">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            {t("inspector.itemHeading", {
+              index: index + 1,
+              type: playlistItemTypeLabel(item, t),
+            })}
+          </p>
+          <h2 className="truncate text-base font-semibold tracking-tight">
+            {item.assetName}
+          </h2>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t("inspector.close")}
+          onClick={onClose}
+        >
+          <X aria-hidden="true" />
+        </Button>
+      </div>
+      <PlaylistItemInspectorBody {...props} />
+    </aside>
   );
 }
 
@@ -170,7 +204,6 @@ export function PlaylistItemInspectorBody({
   playlistTransition,
   saving,
   error,
-  onClose,
   onChange,
   onDelete,
 }: InspectorProps) {
@@ -203,341 +236,388 @@ export function PlaylistItemInspectorBody({
 
   return (
     <>
-      <div className="grid gap-6">
+      <FieldGroup className="gap-6">
         {item.dynamic && (
           <Alert>
-            <Info size={16} aria-hidden="true" />
+            <Info aria-hidden="true" />
             <AlertDescription>{t("inspector.dynamicNotice")}</AlertDescription>
           </Alert>
         )}
         {error && (
           <Alert variant="destructive">
-            <AlertCircle size={16} aria-hidden="true" />
+            <AlertCircle aria-hidden="true" />
             <AlertTitle>{t("inspector.saveErrorTitle")}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {saving && (
-          <div
-            className="flex items-center gap-2 text-sm text-muted-foreground"
-            role="status"
-          >
-            <Check size={13} aria-hidden="true" />
-            {t("inspector.saving")}
-          </div>
+        {item.assetStatus !== "ready" && (
+          <Alert variant="destructive">
+            <AlertCircle aria-hidden="true" />
+            <AlertTitle>
+              {t("inspector.notReadyTitle", {
+                status: assetStatusLabel(item.assetStatus, t),
+              })}
+            </AlertTitle>
+            <AlertDescription>
+              {t("inspector.notReadyDescription")}
+            </AlertDescription>
+          </Alert>
         )}
 
-        <InspectorSection title={t("inspector.sections.playback")}>
-          {(item.assetType === "image" || item.assetType === "video") && (
-            // The wrapping label names the switch; no extra aria-label.
-            <label className="flex items-start gap-2 text-sm">
-              <RheaSwitch
-                checked={usesPlayerDefaults}
-                disabled={!editable}
-                onCheckedChange={(checked) =>
-                  handlePlayerDefaultsChange(checked === true)
-                }
-                className="mt-0.5"
-              />
-              <span className="grid gap-0.5">
-                <strong className="font-medium">
-                  {t("inspector.playerDefaults")}
-                </strong>
-                <small className="text-xs text-muted-foreground">
-                  {t("inspector.playerDefaultsHint")}
-                </small>
-              </span>
-            </label>
-          )}
-          <Field>
-            <FieldLabel htmlFor="inspector-transition">
-              {t("inspector.transitionLabel")}
-            </FieldLabel>
-            <RheaSelect
-              disabled={!editable || usesPlayerDefaults}
-              value={item.transition}
-              onValueChange={(next) => {
-                if (
-                  next === "none" ||
-                  next === "fade" ||
-                  next === "crossfade"
-                ) {
-                  set("transition", next);
-                }
-              }}
-              items={itemTransitionOptions.map((option) => ({
-                value: option.value,
-                label: t(option.labelKey),
-              }))}
-            >
-              <SelectTrigger
-                id="inspector-transition"
-                aria-label={t("inspector.transitionAria")}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {itemTransitionOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {t(option.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </RheaSelect>
-            <FieldDescription>
-              {usesPlayerDefaults
-                ? t("inspector.defaultsOffHint")
-                : playlistTransition !== "mixed" &&
-                    item.transition !== playlistTransition
-                  ? t("inspector.overridesPlaylist", {
-                      transition: transitionLabel(playlistTransition, t),
-                    })
-                  : t("inspector.followsPlaylist")}
-            </FieldDescription>
-          </Field>
-          {item.transition === "crossfade" && (
-            <p className="text-xs text-muted-foreground">
-              {t("inspector.crossfadeHint")}
-            </p>
-          )}
-          <Field>
-            <FieldLabel htmlFor="inspector-fit">
-              {t("inspector.fitLabel")}
-            </FieldLabel>
-            <RheaSelect
-              disabled={!editable || usesPlayerDefaults}
-              value={item.fitMode}
-              onValueChange={(next) =>
-                set("fitMode", next as PlaylistItem["fitMode"])
-              }
-              items={fitModeOptions.map((option) => ({
-                value: option.value,
-                label: t(option.labelKey),
-              }))}
-            >
-              <SelectTrigger
-                id="inspector-fit"
-                aria-label={t("inspector.fitAria")}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {fitModeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {t(option.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </RheaSelect>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="inspector-delivery">
-              {t("inspector.deliveryLabel")}
-            </FieldLabel>
-            <RheaSelect
-              disabled={!editable}
-              value={item.deliveryPolicy}
-              onValueChange={(next) =>
-                set("deliveryPolicy", next as PlaylistItem["deliveryPolicy"])
-              }
-              items={itemDeliveryOptions.map((option) => ({
-                value: option.value,
-                label: t(option.labelKey),
-              }))}
-            >
-              <SelectTrigger
-                id="inspector-delivery"
-                aria-label={t("inspector.deliveryAria")}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {itemDeliveryOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {t(option.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </RheaSelect>
-          </Field>
-        </InspectorSection>
-
-        <InspectorSection title={t("inspector.sections.duration")}>
-          {item.assetType === "layout" ? (
-            <SecondsField
-              id="layout-duration"
-              label={t("inspector.layoutDuration")}
-              value={item.durationMs ?? 30_000}
-              disabled={!editable}
-              onChange={(value) => set("durationMs", value)}
-            />
-          ) : item.assetType === "widget" &&
-            item.widgetProvider === "youtube" ? (
-            <>
-              <Field>
-                <FieldLabel htmlFor="inspector-widget-behavior">
-                  {t("inspector.widgetBehaviorLabel")}
-                </FieldLabel>
-                <RheaSelect
+        <FieldSet>
+          <FieldLegend variant="label">
+            {t("inspector.sections.playback")}
+          </FieldLegend>
+          <FieldGroup className="gap-4">
+            {(item.assetType === "image" || item.assetType === "video") && (
+              <Field orientation="horizontal">
+                <Switch
+                  id="inspector-player-defaults"
+                  checked={usesPlayerDefaults}
                   disabled={!editable}
-                  value={
-                    item.durationMs == null ? "until_end" : "fixed_duration"
+                  onCheckedChange={(checked) =>
+                    handlePlayerDefaultsChange(checked === true)
                   }
-                  onValueChange={(next) =>
-                    set("durationMs", next === "until_end" ? undefined : 30_000)
-                  }
-                  items={widgetBehaviorOptions.map((option) => ({
-                    value: option.value,
-                    label: t(option.labelKey),
-                  }))}
-                >
-                  <SelectTrigger
-                    id="inspector-widget-behavior"
-                    aria-label={t("inspector.widgetBehaviorAria")}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {widgetBehaviorOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {t(option.labelKey)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </RheaSelect>
-              </Field>
-              {item.durationMs != null && (
-                <SecondsField
-                  id="fixed-duration"
-                  label={t("inspector.fixedDuration")}
-                  value={item.durationMs}
-                  disabled={!editable}
-                  onChange={(value) => set("durationMs", value)}
                 />
-              )}
-            </>
-          ) : playlistItemUsesFixedDuration(item) ? (
-            <SecondsField
-              id="item-duration"
-              label={
-                item.assetType === "image"
-                  ? t("inspector.imageDuration")
-                  : t("inspector.durationFallback")
-              }
-              value={
-                item.durationMs ??
-                (item.assetType === "widget" ? 30_000 : 10_000)
-              }
-              disabled={!editable || usesPlayerDefaults}
-              readOnly={item.assetType === "image" && usesPlayerDefaults}
-              onChange={(value) => set("durationMs", value)}
-            />
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SecondsField
-                id="video-start"
-                label={t("inspector.startLabel")}
-                value={item.videoStartOffsetMs ?? 0}
+                <FieldContent>
+                  <FieldLabel htmlFor="inspector-player-defaults">
+                    {t("inspector.playerDefaults")}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {t("inspector.playerDefaultsHint")}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            )}
+            <Field>
+              <FieldLabel htmlFor="inspector-transition">
+                {t("inspector.transitionLabel")}
+              </FieldLabel>
+              <Select
                 disabled={!editable || usesPlayerDefaults}
-                onChange={(value) => set("videoStartOffsetMs", value)}
-              />
-              <SecondsField
-                id="video-end"
-                label={t("inspector.endLabel")}
-                value={item.videoEndOffsetMs}
+                value={item.transition}
+                onValueChange={(next) => {
+                  if (
+                    next === "none" ||
+                    next === "fade" ||
+                    next === "crossfade"
+                  ) {
+                    set("transition", next);
+                  }
+                }}
+                items={itemTransitionOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
+              >
+                <SelectTrigger
+                  id="inspector-transition"
+                  aria-label={t("inspector.transitionAria")}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {itemTransitionOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {usesPlayerDefaults
+                  ? t("inspector.defaultsOffHint")
+                  : playlistTransition !== "mixed" &&
+                      item.transition !== playlistTransition
+                    ? t("inspector.overridesPlaylist", {
+                        transition: transitionLabel(playlistTransition, t),
+                      })
+                    : item.transition === "crossfade"
+                      ? t("inspector.crossfadeShortHint")
+                      : t("inspector.followsPlaylist")}
+              </FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="inspector-fit">
+                {t("inspector.fitLabel")}
+              </FieldLabel>
+              <Select
                 disabled={!editable || usesPlayerDefaults}
-                onChange={(value) => set("videoEndOffsetMs", value)}
-                optional
+                value={item.fitMode}
+                onValueChange={(next) =>
+                  set("fitMode", next as PlaylistItem["fitMode"])
+                }
+                items={fitModeOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
+              >
+                <SelectTrigger
+                  id="inspector-fit"
+                  aria-label={t("inspector.fitAria")}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {fitModeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="inspector-delivery">
+                {t("inspector.deliveryLabel")}
+              </FieldLabel>
+              <Select
+                disabled={!editable}
+                value={item.deliveryPolicy}
+                onValueChange={(next) =>
+                  set("deliveryPolicy", next as PlaylistItem["deliveryPolicy"])
+                }
+                items={itemDeliveryOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
+              >
+                <SelectTrigger
+                  id="inspector-delivery"
+                  aria-label={t("inspector.deliveryAria")}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {itemDeliveryOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </FieldGroup>
+        </FieldSet>
+
+        <FieldSeparator />
+
+        <FieldSet>
+          <FieldLegend variant="label">
+            {t("inspector.sections.duration")}
+          </FieldLegend>
+          <FieldGroup className="gap-4">
+            {item.assetType === "layout" ? (
+              <SecondsField
+                id="layout-duration"
+                label={t("inspector.layoutDuration")}
+                value={item.durationMs ?? 30_000}
+                disabled={!editable}
+                onChange={(value) => set("durationMs", value)}
               />
-            </div>
-          )}
-        </InspectorSection>
+            ) : item.assetType === "widget" &&
+              item.widgetProvider === "youtube" ? (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="inspector-widget-behavior">
+                    {t("inspector.widgetBehaviorLabel")}
+                  </FieldLabel>
+                  <Select
+                    disabled={!editable}
+                    value={
+                      item.durationMs == null ? "until_end" : "fixed_duration"
+                    }
+                    onValueChange={(next) =>
+                      set(
+                        "durationMs",
+                        next === "until_end" ? undefined : 30_000,
+                      )
+                    }
+                    items={widgetBehaviorOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    }))}
+                  >
+                    <SelectTrigger
+                      id="inspector-widget-behavior"
+                      aria-label={t("inspector.widgetBehaviorAria")}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {widgetBehaviorOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {t(option.labelKey)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {item.durationMs != null && (
+                  <SecondsField
+                    id="fixed-duration"
+                    label={t("inspector.fixedDuration")}
+                    value={item.durationMs}
+                    disabled={!editable}
+                    onChange={(value) => set("durationMs", value)}
+                  />
+                )}
+              </>
+            ) : playlistItemUsesFixedDuration(item) ? (
+              <SecondsField
+                id={item.assetType === "image" ? "image-duration" : "duration"}
+                label={
+                  item.assetType === "image"
+                    ? t("inspector.imageDuration")
+                    : t("inspector.durationFallback")
+                }
+                value={
+                  item.durationMs ??
+                  (item.assetType === "widget" ? 30_000 : 10_000)
+                }
+                disabled={!editable || usesPlayerDefaults}
+                readOnly={item.assetType === "image" && usesPlayerDefaults}
+                onChange={(value) => set("durationMs", value)}
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <SecondsField
+                  id="start"
+                  label={t("inspector.startLabel")}
+                  value={item.videoStartOffsetMs ?? 0}
+                  disabled={!editable || usesPlayerDefaults}
+                  onChange={(value) => set("videoStartOffsetMs", value)}
+                />
+                <SecondsField
+                  id="end"
+                  label={t("inspector.endLabel")}
+                  value={item.videoEndOffsetMs}
+                  disabled={!editable || usesPlayerDefaults}
+                  onChange={(value) => set("videoEndOffsetMs", value)}
+                  optional
+                />
+              </div>
+            )}
+          </FieldGroup>
+        </FieldSet>
 
         {item.assetType === "video" && (
-          <InspectorSection title={t("inspector.sections.audio")}>
-            {/* The wrapping label names the switch; no extra aria-label. */}
-            <label className="flex items-center gap-2 text-sm">
-              <RheaSwitch
-                checked={item.audioEnabled}
-                disabled={!editable || usesPlayerDefaults}
-                onCheckedChange={(checked) =>
-                  set("audioEnabled", checked === true)
-                }
-              />
-              <span className="font-medium">{t("inspector.audioEnabled")}</span>
-            </label>
-            <Field>
-              <FieldLabel htmlFor="inspector-volume">
-                {t("inspector.volumeLabel")}
-              </FieldLabel>
-              <div className="flex items-center gap-3">
-                <RheaSlider
-                  id="inspector-volume"
-                  aria-label={t("inspector.volumeAria")}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={[item.volume]}
-                  disabled={!editable || usesPlayerDefaults}
-                  onValueChange={(next) =>
-                    set(
-                      "volume",
-                      Number(Array.isArray(next) ? (next[0] ?? 0) : next),
-                    )
-                  }
-                  className="flex-1"
-                />
-                <output className="w-12 shrink-0 text-right text-sm tabular-nums">
-                  {Math.round(item.volume * 100)}%
-                </output>
-              </div>
-            </Field>
-          </InspectorSection>
+          <>
+            <FieldSeparator />
+            <FieldSet>
+              <FieldLegend variant="label">
+                {t("inspector.sections.audio")}
+              </FieldLegend>
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal">
+                  <Switch
+                    id="inspector-audio"
+                    checked={item.audioEnabled}
+                    disabled={!editable || usesPlayerDefaults}
+                    onCheckedChange={(checked) =>
+                      set("audioEnabled", checked === true)
+                    }
+                  />
+                  <FieldLabel htmlFor="inspector-audio">
+                    {t("inspector.audioEnabled")}
+                  </FieldLabel>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="inspector-volume">
+                    {t("inspector.volumeLabel")}
+                  </FieldLabel>
+                  <div className="flex items-center gap-3">
+                    <Slider
+                      id="inspector-volume"
+                      aria-label={t("inspector.volumeAria")}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={[item.volume]}
+                      disabled={!editable || usesPlayerDefaults}
+                      onValueChange={(next) =>
+                        set(
+                          "volume",
+                          Number(Array.isArray(next) ? (next[0] ?? 0) : next),
+                        )
+                      }
+                      className="flex-1"
+                    />
+                    <output className="w-12 shrink-0 text-right text-sm tabular-nums">
+                      {Math.round(item.volume * 100)}%
+                    </output>
+                  </div>
+                </Field>
+              </FieldGroup>
+            </FieldSet>
+          </>
         )}
 
         {(item.availableFrom || item.expiresAt) && (
-          <InspectorSection title={t("inspector.sections.availability")}>
-            <dl className="grid gap-1 text-sm">
-              {item.availableFrom && (
-                <>
-                  <dt className="text-muted-foreground">
-                    {t("inspector.availableFrom")}
-                  </dt>
-                  <dd>
-                    {new Date(item.availableFrom).toLocaleString(formatLocale)}
-                  </dd>
-                </>
-              )}
-              {item.expiresAt && (
-                <>
-                  <dt className="text-muted-foreground">
-                    {t("inspector.expires")}
-                  </dt>
-                  <dd>
-                    {new Date(item.expiresAt).toLocaleString(formatLocale)}
-                  </dd>
-                </>
-              )}
-            </dl>
-          </InspectorSection>
+          <>
+            <FieldSeparator />
+            <FieldSet>
+              <FieldLegend variant="label">
+                {t("inspector.sections.availability")}
+              </FieldLegend>
+              <dl className="grid gap-1 text-sm">
+                {item.availableFrom && (
+                  <>
+                    <dt className="text-muted-foreground">
+                      {t("inspector.availableFrom")}
+                    </dt>
+                    <dd>
+                      {new Date(item.availableFrom).toLocaleString(
+                        formatLocale,
+                      )}
+                    </dd>
+                  </>
+                )}
+                {item.expiresAt && (
+                  <>
+                    <dt className="text-muted-foreground">
+                      {t("inspector.expires")}
+                    </dt>
+                    <dd>
+                      {new Date(item.expiresAt).toLocaleString(formatLocale)}
+                    </dd>
+                  </>
+                )}
+              </dl>
+            </FieldSet>
+          </>
         )}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {editable && (
-          <RheaButton
-            type="button"
-            variant="destructive"
-            onClick={() => setConfirmingDelete(true)}
-          >
-            <Trash2 size={15} aria-hidden="true" />
-            {t("inspector.removeItem")}
-          </RheaButton>
+
+        {(editable || saving) && (
+          <>
+            <FieldSeparator />
+            <div className="flex items-center justify-between gap-3">
+              {editable && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  <Trash2 aria-hidden="true" />
+                  {t("inspector.removeItem")}
+                </Button>
+              )}
+              <span
+                className="flex items-center gap-2 text-sm text-muted-foreground"
+                role="status"
+              >
+                {saving && (
+                  <>
+                    <Spinner aria-hidden="true" />
+                    {t("common:actions.saving")}
+                  </>
+                )}
+              </span>
+            </div>
+          </>
         )}
-        <RheaButton type="button" variant="outline" onClick={onClose}>
-          {t("inspector.done")}
-        </RheaButton>
-      </div>
-      <RheaAlertDialog
+      </FieldGroup>
+      <AlertDialog
         open={confirmingDelete}
         onOpenChange={(open) => {
           if (!open) setConfirmingDelete(false);
@@ -555,6 +635,7 @@ export function PlaylistItemInspectorBody({
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={() => {
                 setConfirmingDelete(false);
                 onDelete();
@@ -564,23 +645,8 @@ export function PlaylistItemInspectorBody({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
     </>
-  );
-}
-
-function InspectorSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="grid gap-3">
-      <h3 className="text-sm font-medium">{title}</h3>
-      <div className="grid gap-3">{children}</div>
-    </section>
   );
 }
 
@@ -613,11 +679,12 @@ function SecondsField({
           {t("inspector.playerDefaultsValue")}
         </span>
       ) : (
-        <InputGroup className="w-36">
+        <InputGroup className="w-32">
           <InputGroupInput
             id={fieldId}
             aria-label={t("inspector.secondsAria", { label })}
             type="number"
+            inputMode="decimal"
             min="0"
             step="0.1"
             disabled={disabled}
@@ -634,7 +701,9 @@ function SecondsField({
             }}
           />
           <InputGroupAddon align="inline-end">
-            <span aria-hidden="true">{t("units.secondsShort")}</span>
+            <InputGroupText aria-hidden="true">
+              {t("units.secondsShort")}
+            </InputGroupText>
           </InputGroupAddon>
         </InputGroup>
       )}

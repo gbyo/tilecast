@@ -11,8 +11,8 @@ import { useConfirm } from "../components/ConfirmDialog";
 import { DateInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Empty,
   EmptyDescription,
@@ -216,7 +216,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                 </pre>
                 {notice}
                 <div>
-                  <RheaButton
+                  <Button
                     variant="ghost"
                     onClick={() => {
                       setSecret(undefined);
@@ -224,7 +224,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                     }}
                   >
                     {t("integrations.copied")}
-                  </RheaButton>
+                  </Button>
                 </div>
               </AlertDescription>
             </Alert>
@@ -283,7 +283,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                   </ItemContent>
                   <ItemActions>
                     {!token.revokedAt && (
-                      <RheaButton
+                      <Button
                         variant="destructive"
                         onClick={() => revoke.mutate(token)}
                         aria-label={t("integrations.revokeToken", {
@@ -292,7 +292,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                       >
                         <Trash2 size={15} aria-hidden="true" />{" "}
                         {t("integrations.revoke")}
-                      </RheaButton>
+                      </Button>
                     )}
                   </ItemActions>
                 </Item>
@@ -349,7 +349,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                     orientation="horizontal"
                     className="items-start"
                   >
-                    <RheaCheckbox
+                    <Checkbox
                       id={"token-scope-" + scope}
                       checked={scopes.includes(scope)}
                       onCheckedChange={(checked) =>
@@ -417,7 +417,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                         orientation="horizontal"
                         className="items-center"
                       >
-                        <RheaCheckbox
+                        <Checkbox
                           id={"token-source-" + source.id}
                           checked={sourceIds.includes(source.id)}
                           onCheckedChange={(checked) =>
@@ -448,7 +448,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
             )}
 
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <RheaButton
+              <Button
                 variant="default"
                 type="submit"
                 disabled={create.isPending || scopes.length === 0}
@@ -456,7 +456,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                 {create.isPending
                   ? t("integrations.creating")
                   : t("integrations.createAction")}
-              </RheaButton>
+              </Button>
             </div>
           </form>
         </section>

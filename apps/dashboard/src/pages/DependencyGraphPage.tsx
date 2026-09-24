@@ -246,8 +246,9 @@ function RelationshipNode({
   const presentation = typePresentation[node.type];
   const Icon = presentation.icon;
   return (
-    <button
-      className={`grid min-h-[54px] w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border border-border border-l-[3px] bg-card px-3 py-2 text-left text-muted-foreground outline-none hover:border-primary hover:bg-primary/5 hover:text-primary focus-visible:border-primary ${typeAccent[node.type]}`}
+    <Button
+      variant="outline"
+      className={`grid h-auto min-h-[54px] w-full grid-cols-[auto_minmax(0,1fr)] items-center justify-start gap-3 rounded-md border-border border-l-[3px] bg-card px-3 py-2 text-left text-muted-foreground whitespace-normal hover:border-primary hover:bg-primary/5 hover:text-primary ${typeAccent[node.type]}`}
       type="button"
       onClick={() => onSelect(node)}
     >
@@ -261,7 +262,7 @@ function RelationshipNode({
           {relationship ? ` · ${relationship}` : ""}
         </small>
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -636,30 +637,36 @@ export function DependencyGraphPage() {
               data-graph-chrome
               className={`absolute top-3 right-3 z-10 flex overflow-hidden rounded-md border border-border bg-card shadow-sm max-[900px]:top-16 ${selected ? "right-[372px] max-[900px]:right-3" : ""}`}
             >
-              <button
+              <Button
                 type="button"
                 aria-label={t("graph.toolbar.zoomIn")}
                 onClick={() => zoom(1.1)}
-                className="grid h-9 w-9 place-items-center text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-none p-0 text-muted-foreground hover:bg-primary/10 hover:text-primary"
               >
                 <ZoomIn size={16} />
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 aria-label={t("graph.toolbar.zoomOut")}
                 onClick={() => zoom(0.9)}
-                className="grid h-9 w-9 place-items-center border-l border-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-none border-l border-border p-0 text-muted-foreground hover:bg-primary/10 hover:text-primary"
               >
                 <ZoomOut size={16} />
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 aria-label={t("graph.toolbar.fitGraph")}
                 onClick={fitGraph}
-                className="grid h-9 w-9 place-items-center border-l border-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-none border-l border-border p-0 text-muted-foreground hover:bg-primary/10 hover:text-primary"
               >
                 <Focus size={16} />
-              </button>
+              </Button>
             </div>
             <div
               className="absolute bottom-3 left-3 z-[8] flex gap-3 rounded-md border border-border bg-card/90 px-3 py-2 text-xs text-muted-foreground shadow-sm max-sm:hidden"
@@ -762,9 +769,10 @@ export function DependencyGraphPage() {
                   (filtering && !matchingKeys.has(key));
                 const isSelected = key === selectedKey;
                 return (
-                  <button
+                  <Button
                     data-graph-node
-                    className={`absolute grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border border-border border-l-4 bg-card px-2 py-2 text-left text-muted-foreground shadow-sm transition outline-none hover:z-[2] hover:-translate-y-px hover:border-primary hover:shadow-md hover:ring-2 hover:ring-primary/20 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 ${typeAccent[node.type]}${isSelected ? " z-[3] border-primary text-primary ring-4 ring-primary/15" : ""}${muted ? " opacity-25" : ""}`}
+                    variant="outline"
+                    className={`absolute grid h-auto cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center justify-start gap-3 rounded-md border-border border-l-4 bg-card px-2 py-2 text-left text-muted-foreground whitespace-normal shadow-sm transition hover:z-[2] hover:-translate-y-px hover:border-primary hover:shadow-md hover:ring-2 hover:ring-primary/20 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 ${typeAccent[node.type]}${isSelected ? " z-[3] border-primary text-primary ring-4 ring-primary/15" : ""}${muted ? " opacity-25" : ""}`}
                     type="button"
                     key={key}
                     style={{
@@ -785,7 +793,7 @@ export function DependencyGraphPage() {
                         {t(presentation.labelKey)}
                       </small>
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

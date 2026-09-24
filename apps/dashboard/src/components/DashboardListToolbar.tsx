@@ -49,6 +49,7 @@ export function DashboardSearch({
       </InputGroupAddon>
       <InputGroupInput
         type="search"
+        className="[&::-webkit-search-cancel-button]:hidden"
         autoFocus={autoFocus}
         value={value}
         onChange={(event) => onValueChange(event.target.value)}

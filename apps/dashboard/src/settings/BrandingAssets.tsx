@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { AspectRatio } from "../components/ui/aspect-ratio";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   clearLoginBackground,
   getLoginBackground,
@@ -263,7 +263,7 @@ function BrandingAssetUpload({
               event.target.value = "";
             }}
           />
-          <RheaButton
+          <Button
             type="button"
             variant="default"
             disabled={!editable || busy}
@@ -274,9 +274,9 @@ function BrandingAssetUpload({
               : value
                 ? t("branding.replace")
                 : t("branding.upload")}
-          </RheaButton>
+          </Button>
           {value && (
-            <RheaButton
+            <Button
               type="button"
               variant="ghost"
               disabled={!editable || busy}
@@ -291,7 +291,7 @@ function BrandingAssetUpload({
               }}
             >
               {t("branding.remove")}
-            </RheaButton>
+            </Button>
           )}
         </div>
         {(error || actionError) && (

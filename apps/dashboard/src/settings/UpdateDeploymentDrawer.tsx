@@ -2,11 +2,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Search, XCircle } from "lucide-react";
-import { StatusDot } from "../components/StatusDot";
-import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   Drawer,
   DrawerContent,
@@ -22,7 +20,7 @@ import {
   InputGroupInput,
 } from "../components/ui/input-group";
 import {
-  Sheet as RheaSheet,
+  Sheet,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -31,6 +29,7 @@ import {
 } from "../components/ui/sheet";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { api } from "../api/client";
 import type { Screen, UpdateDeploymentScreen } from "../api/types";
@@ -48,6 +47,7 @@ import {
   screenUpdateMeaning,
   screenUpdateStages,
   type ScreenFilter,
+  type ScreenUpdateTone,
 } from "./playerUpdateStates";
 
 export function UpdateDeploymentDrawer({
@@ -138,7 +138,8 @@ export function UpdateDeploymentDrawer({
     <SheetHeader>
       <SheetDescription>
         {deployment
-          ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
+          ? // i18n-ignore: Android and Linux are platform names, not language text
+            `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
           : t("updates.deploymentFallback")}
       </SheetDescription>
       <SheetTitle>
@@ -149,7 +150,8 @@ export function UpdateDeploymentDrawer({
     <DrawerHeader>
       <DrawerDescription>
         {deployment
-          ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
+          ? // i18n-ignore: Android and Linux are platform names, not language text
+            `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
           : t("updates.deploymentFallback")}
       </DrawerDescription>
       <DrawerTitle>
@@ -195,18 +197,19 @@ export function UpdateDeploymentDrawer({
                 {t("updates.detail.status")}
               </dt>
               <dd>
-                <StatusDot
-                  tone={
+                <Badge
+                  {...statusBadgeAppearance(
                     deployment.status === "completed"
                       ? "success"
                       : deployment.status === "cancelled"
                         ? "neutral"
                         : deployment.status === "paused"
                           ? "warning"
-                          : "info"
-                  }
-                  label={humanize(deployment.status)}
-                />
+                          : "info",
+                  )}
+                >
+                  {humanize(deployment.status)}
+                </Badge>
               </dd>
             </div>
             <div className="grid gap-0.5">
@@ -251,33 +254,29 @@ export function UpdateDeploymentDrawer({
           )}
           <DeploymentMeter {...screenStateCounts(allScreens)} />
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <ViewTabs
-              label={t("updates.filterLabel")}
-              value={filter}
-              items={[
-                {
-                  value: "all",
-                  label: t("updates.filter.all", { count: allScreens.length }),
-                },
-                {
-                  value: "attention",
-                  label: t("updates.filter.attention", {
-                    count: counts.attention,
-                  }),
-                },
-                {
-                  value: "progress",
-                  label: t("updates.filter.progress", {
-                    count: counts.progress,
-                  }),
-                },
-                {
-                  value: "done",
-                  label: t("updates.filter.done", { count: counts.done }),
-                },
-              ]}
-              onValueChange={(value) => setFilter(value)}
-            />
+            <ToggleGroup
+              value={[filter]}
+              onValueChange={(values) =>
+                setFilter((values[0] || "all") as ScreenFilter)
+              }
+              variant="outline"
+              size="sm"
+              spacing={1}
+              aria-label={t("updates.filterLabel")}
+            >
+              <ToggleGroupItem value="all">
+                {t("updates.filter.all", { count: allScreens.length })}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="attention">
+                {t("updates.filter.attention", { count: counts.attention })}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="progress">
+                {t("updates.filter.progress", { count: counts.progress })}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="done">
+                {t("updates.filter.done", { count: counts.done })}
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Field className="w-52 gap-1">
               <FieldLabel
                 htmlFor="deployment-screen-search"
@@ -328,7 +327,7 @@ export function UpdateDeploymentDrawer({
       <span className="flex-1 basis-60 text-sm text-muted-foreground">
         {t("updates.cancelHint")}
       </span>
-      <RheaButton
+      <Button
         variant="destructive"
         disabled={cancel.isPending}
         onClick={() => cancel.mutate()}
@@ -339,11 +338,11 @@ export function UpdateDeploymentDrawer({
           <XCircle size={16} aria-hidden="true" />
         )}
         {t("updates.cancel")}
-      </RheaButton>
+      </Button>
     </div>
   );
   return desktop ? (
-    <RheaSheet
+    <Sheet
       open={open}
       onOpenChange={onOpenChange}
       onOpenChangeComplete={onOpenChangeComplete}
@@ -355,7 +354,7 @@ export function UpdateDeploymentDrawer({
           <SheetFooter className="border-t border-border">{footer}</SheetFooter>
         )}
       </SheetContent>
-    </RheaSheet>
+    </Sheet>
   ) : (
     <Drawer
       open={open}
@@ -396,9 +395,15 @@ function DeploymentScreenRow({
   const meaning = screenUpdateMeaning(screen.state);
   const detail = screenUpdateDetail(screen);
   const percent = screenDownloadPercent(screen, artifactSizeBytes);
+  const attentionClassName =
+    meaning.bucket !== "attention"
+      ? ""
+      : meaning.tone === "danger"
+        ? "shadow-[inset_3px_0_0_var(--tc-status-danger)]"
+        : "shadow-[inset_3px_0_0_var(--tc-status-warning)]";
   return (
     <li
-      className={`grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]${meaning.bucket === "attention" ? " shadow-[inset_3px_0_0_var(--tc-status-warning)] has-[.status-dot-label--danger]:shadow-[inset_3px_0_0_var(--tc-status-danger)]" : ""}`}
+      className={`grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] ${attentionClassName}`}
     >
       <div className="deployment-screen__identity grid gap-0.5">
         <strong className="text-sm font-semibold">{screen.screenName}</strong>
@@ -412,7 +417,7 @@ function DeploymentScreenRow({
         </small>
       </div>
       <div className="deployment-screen__status grid justify-items-start gap-1">
-        <StatusDot tone={meaning.tone} label={meaning.label} />
+        <Badge {...statusBadgeAppearance(meaning.tone)}>{meaning.label}</Badge>
         {screen.isCanary && (
           <Badge variant="secondary">{t("updates.canary")}</Badge>
         )}
@@ -445,7 +450,7 @@ function DeploymentScreenRow({
           {formatRelative(screen.updatedAt, t)}
         </time>
         {manageable && screen.state === "failed" && (
-          <RheaButton
+          <Button
             variant="secondary"
             size="sm"
             disabled={retrying}
@@ -457,7 +462,7 @@ function DeploymentScreenRow({
               <RefreshCw size={14} aria-hidden="true" />
             )}{" "}
             {t("common:actions.retry")}
-          </RheaButton>
+          </Button>
         )}
       </div>
     </li>
@@ -539,18 +544,34 @@ export function DeploymentMeter({
       {!compact && (
         <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
           {segments.map((segment) => (
-            <li
-              key={segment.key}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-            >
-              <StatusDot tone={segment.tone} label={`${segment.count}`} />
-              {segment.label}
+            <li key={segment.key} className="inline-flex items-center">
+              <Badge {...statusBadgeAppearance(segment.tone)}>
+                {segment.count} {segment.label}
+              </Badge>
             </li>
           ))}
         </ul>
       )}
     </div>
   );
+}
+
+function statusBadgeAppearance(tone: ScreenUpdateTone) {
+  const variants = {
+    success: "secondary",
+    info: "outline",
+    warning: "outline",
+    danger: "destructive",
+    neutral: "outline",
+  } as const;
+  const colors = {
+    success: "text-[var(--tc-status-success)]",
+    info: "text-[var(--tc-status-info)]",
+    warning: "text-[var(--tc-status-warning)]",
+    danger: "",
+    neutral: "text-[var(--tc-status-neutral)]",
+  } as const;
+  return { variant: variants[tone], className: colors[tone] };
 }
 
 function segmentFillClass(tone: string) {

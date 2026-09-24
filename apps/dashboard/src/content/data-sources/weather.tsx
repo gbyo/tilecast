@@ -5,11 +5,11 @@ import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
 import { apiErrorMessage } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Button as RheaButton } from "../../components/ui/button";
+import { Button } from "../../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -106,7 +106,7 @@ export function WeatherDataSourceEditor({
       onClose={onClose}
       footer={
         !readOnly && (
-          <RheaButton
+          <Button
             type="button"
             disabled={save.isPending || !name.trim()}
             onClick={() => save.mutate()}
@@ -114,7 +114,7 @@ export function WeatherDataSourceEditor({
             {save.isPending
               ? t("common:actions.saving")
               : t("dataSources.editor.save")}
-          </RheaButton>
+          </Button>
         )
       }
     >
@@ -195,7 +195,7 @@ export function WeatherDataSourceEditor({
           <FieldLabel htmlFor="weather-units">
             {t("dataSources.weather.units")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             value={configuration.units}
             disabled={readOnly}
             onValueChange={(next) =>
@@ -227,7 +227,7 @@ export function WeatherDataSourceEditor({
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor="weather-forecast-days">
@@ -261,7 +261,7 @@ export function WeatherDataSourceEditor({
         </FieldDescription>
       </Field>
       {!readOnly && (
-        <RheaButton
+        <Button
           type="button"
           variant="outline"
           disabled={previewMutation.isPending}
@@ -270,7 +270,7 @@ export function WeatherDataSourceEditor({
           {previewMutation.isPending
             ? t("common:status.loading")
             : t("dataSources.preview.forecast")}
-        </RheaButton>
+        </Button>
       )}
       {preview && (
         <div className="grid gap-2">

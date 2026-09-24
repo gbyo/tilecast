@@ -90,8 +90,11 @@ describe("permanent user deletion", () => {
     );
 
     const name = await screen.findByText("Former Editor");
-    const row = name.closest("article");
+    const row = name.closest<HTMLElement>('[data-slot="item"]');
     expect(row).not.toBeNull();
+    expect(
+      row!.querySelector('[data-slot="avatar-fallback"]'),
+    ).toHaveTextContent("FE");
     await userEvent.click(within(row!).getByRole("button", { name: "Edit" }));
     await userEvent.click(
       screen.getByRole("button", { name: "Delete permanently" }),

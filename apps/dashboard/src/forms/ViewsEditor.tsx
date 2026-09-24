@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type {
@@ -11,8 +12,8 @@ import type {
 import { api, ApiError } from "../api/client";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Empty,
   EmptyDescription,
@@ -28,7 +29,7 @@ import {
 } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -52,7 +53,7 @@ import {
 import { formToneBadgeProps } from "./formBadge";
 import { slugifyKey } from "./formKeys";
 
-// Rhea Select has no empty-string item, so the "none" choice in each legacy
+// Base UI Select has no empty-string item, so the "none" choice in each legacy
 // native select is an explicit sentinel mapped back to "" in the handler.
 const NONE_VALUE = "__none__";
 
@@ -185,9 +186,9 @@ function ViewList({
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap gap-2">
-        <RheaButton variant="default" onClick={onNew}>
+        <Button variant="default" onClick={onNew}>
           {t("views.newView")}
-        </RheaButton>
+        </Button>
       </div>
       {error && (
         <Alert variant="destructive">
@@ -236,28 +237,28 @@ function ViewList({
                   </TableCell>
                   <TableCell className="px-3 py-2">
                     <div className="flex flex-wrap justify-end gap-1">
-                      <RheaButton
+                      <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => onEdit(view)}
                       >
                         {t("common:actions.edit")}
-                      </RheaButton>
-                      <RheaButton
+                      </Button>
+                      <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => onDuplicate(view)}
                       >
                         {t("views.duplicate")}
-                      </RheaButton>
-                      <RheaButton
+                      </Button>
+                      <Button
                         variant="ghost"
                         size="sm"
                         disabled={remove.isPending}
                         onClick={() => remove.mutate(view.id)}
                       >
                         {t("common:actions.delete")}
-                      </RheaButton>
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -386,12 +387,12 @@ function ViewForm({
           <AlertTitle>{t("views.leaveTitle")}</AlertTitle>
           <AlertDescription>{t("views.leaveBody")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
               {t("views.stay")}
-            </RheaButton>
-            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
               {t("views.leave")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -463,7 +464,7 @@ function ViewForm({
               orientation="horizontal"
               className="items-center"
             >
-              <RheaCheckbox
+              <Checkbox
                 id={"form-view-state-" + state.key}
                 checked={draft.includedStates.includes(state.key)}
                 onCheckedChange={() => toggleState(state.key)}
@@ -485,7 +486,7 @@ function ViewForm({
         </FieldLegend>
         <div>
           {/* No wrapping label: the control sits alone under the section legend. */}
-          <RheaSelect
+          <Select
             items={[
               { value: NONE_VALUE, label: t("views.addFieldPlaceholder") },
               ...fields
@@ -512,7 +513,7 @@ function ViewForm({
                   </SelectItem>
                 ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </div>
         <ol className="grid gap-2">
           {draft.outputFields.map((key, index) => (
@@ -522,31 +523,37 @@ function ViewForm({
             >
               <span>{fields.find((f) => f.key === key)?.label ?? key}</span>
               <div className="flex gap-1">
-                <button
+                <Button
                   type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                  variant="outline"
+                  size="icon-xs"
+                  className="size-7 p-0 text-sm"
                   aria-label={t("views.moveUp", {
                     label: fields.find((f) => f.key === key)?.label ?? key,
                   })}
                   disabled={index === 0}
                   onClick={() => moveOutputField(index, -1)}
                 >
-                  ↑
-                </button>
-                <button
+                  <ArrowUp size={14} aria-hidden="true" />
+                </Button>
+                <Button
                   type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                  variant="outline"
+                  size="icon-xs"
+                  className="size-7 p-0 text-sm"
                   aria-label={t("views.moveDown", {
                     label: fields.find((f) => f.key === key)?.label ?? key,
                   })}
                   disabled={index === draft.outputFields.length - 1}
                   onClick={() => moveOutputField(index, 1)}
                 >
-                  ↓
-                </button>
-                <button
+                  <ArrowDown size={14} aria-hidden="true" />
+                </Button>
+                <Button
                   type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                  variant="outline"
+                  size="icon-xs"
+                  className="size-7 p-0 text-sm"
                   aria-label={t("views.removeLabel", {
                     label: fields.find((f) => f.key === key)?.label ?? key,
                   })}
@@ -556,8 +563,8 @@ function ViewForm({
                     })
                   }
                 >
-                  ✕
-                </button>
+                  <Trash2 size={14} aria-hidden="true" />
+                </Button>
               </div>
             </li>
           ))}
@@ -577,7 +584,7 @@ function ViewForm({
           const operators = operatorsForType(fieldType(filter.field), t);
           return (
             <div key={index} className="flex flex-wrap items-center gap-2">
-              <RheaSelect
+              <Select
                 items={[
                   { value: NONE_VALUE, label: t("views.fieldPlaceholder") },
                   ...fields.map((field) => ({
@@ -616,8 +623,8 @@ function ViewForm({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
-              <RheaSelect
+              </Select>
+              <Select
                 items={operators}
                 value={filter.operator}
                 onValueChange={(value) => {
@@ -639,7 +646,7 @@ function ViewForm({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
               {filter.operator !== "empty" &&
                 filter.operator !== "not_empty" && (
                   <Input
@@ -652,7 +659,7 @@ function ViewForm({
                     }}
                   />
                 )}
-              <RheaButton
+              <Button
                 variant="ghost"
                 size="sm"
                 onClick={() =>
@@ -664,11 +671,11 @@ function ViewForm({
                 }
               >
                 {t("views.removeItem")}
-              </RheaButton>
+              </Button>
             </div>
           );
         })}
-        <RheaButton
+        <Button
           variant="ghost"
           size="sm"
           onClick={() => {
@@ -687,7 +694,7 @@ function ViewForm({
           }}
         >
           {t("views.addFilter")}
-        </RheaButton>
+        </Button>
       </FieldSet>
 
       <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
@@ -696,7 +703,7 @@ function ViewForm({
         </FieldLegend>
         {draft.sort.map((rule, index) => (
           <div key={index} className="flex flex-wrap items-center gap-2">
-            <RheaSelect
+            <Select
               items={[
                 { value: NONE_VALUE, label: t("views.fieldPlaceholder") },
                 ...fields.map((field) => ({
@@ -727,8 +734,8 @@ function ViewForm({
                   </SelectItem>
                 ))}
               </SelectContent>
-            </RheaSelect>
-            <RheaSelect
+            </Select>
+            <Select
               items={[
                 { value: "asc", label: t("views.ascending") },
                 { value: "desc", label: t("views.descending") },
@@ -750,8 +757,8 @@ function ViewForm({
                 <SelectItem value="asc">{t("views.ascending")}</SelectItem>
                 <SelectItem value="desc">{t("views.descending")}</SelectItem>
               </SelectContent>
-            </RheaSelect>
-            <RheaButton
+            </Select>
+            <Button
               variant="ghost"
               size="sm"
               onClick={() =>
@@ -759,10 +766,10 @@ function ViewForm({
               }
             >
               {t("views.removeItem")}
-            </RheaButton>
+            </Button>
           </div>
         ))}
-        <RheaButton
+        <Button
           variant="ghost"
           size="sm"
           onClick={() => {
@@ -774,7 +781,7 @@ function ViewForm({
           }}
         >
           {t("views.addSort")}
-        </RheaButton>
+        </Button>
       </FieldSet>
 
       <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
@@ -782,7 +789,7 @@ function ViewForm({
           {t("views.timeLegend")}
         </FieldLegend>
         <Field orientation="horizontal" className="items-center">
-          <RheaCheckbox
+          <Checkbox
             id="form-view-time-window-enabled"
             checked={draft.timeFilter.enabled}
             onCheckedChange={(checked) =>
@@ -807,7 +814,7 @@ function ViewForm({
               <FieldLabel htmlFor="form-view-start-field">
                 {t("views.startField")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={[
                   { value: NONE_VALUE, label: t("views.noneOption") },
                   ...timeFields.map((field) => ({
@@ -838,13 +845,13 @@ function ViewForm({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor="form-view-end-field">
                 {t("views.endField")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={[
                   { value: NONE_VALUE, label: t("views.noneOption") },
                   ...timeFields.map((field) => ({
@@ -875,10 +882,10 @@ function ViewForm({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field orientation="horizontal" className="items-center">
-              <RheaCheckbox
+              <Checkbox
                 id="form-view-start-before-now"
                 checked={Boolean(draft.timeFilter.startBeforeNow)}
                 onCheckedChange={(checked) =>
@@ -898,7 +905,7 @@ function ViewForm({
               </FieldLabel>
             </Field>
             <Field orientation="horizontal" className="items-center">
-              <RheaCheckbox
+              <Checkbox
                 id="form-view-end-after-now"
                 checked={Boolean(draft.timeFilter.endAfterNow)}
                 onCheckedChange={(checked) =>
@@ -922,10 +929,10 @@ function ViewForm({
       </FieldSet>
 
       <div className="flex flex-wrap gap-2">
-        <RheaButton variant="ghost" onClick={onDone}>
+        <Button variant="ghost" onClick={onDone}>
           {t("common:actions.back")}
-        </RheaButton>
-        <RheaButton
+        </Button>
+        <Button
           variant="secondary"
           disabled={runPreview.isPending || nameMissing}
           aria-busy={runPreview.isPending || undefined}
@@ -933,8 +940,8 @@ function ViewForm({
         >
           {runPreview.isPending && <Spinner aria-hidden="true" />}
           {t("views.previewButton")}
-        </RheaButton>
-        <RheaButton
+        </Button>
+        <Button
           variant="default"
           disabled={save.isPending || nameMissing}
           aria-busy={save.isPending || undefined}
@@ -942,7 +949,7 @@ function ViewForm({
         >
           {save.isPending && <Spinner aria-hidden="true" />}
           {t("views.saveButton")}
-        </RheaButton>
+        </Button>
       </div>
 
       {preview && (

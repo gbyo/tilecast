@@ -1,12 +1,25 @@
-import { Save, Tag, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ContentTag } from "../../api/types";
 import { Alert, AlertDescription } from "../ui/alert";
-import { Button as RheaButton } from "../ui/button";
-import { Field, FieldDescription, FieldLabel } from "../ui/field";
+import { Button } from "../ui/button";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../ui/field";
 import { Input } from "../ui/input";
 import {
-  Select as RheaSelect,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "../ui/input-group";
+import {
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -14,8 +27,10 @@ import {
 } from "../ui/select";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerDescription,
+  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from "../ui/drawer";
@@ -26,7 +41,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../ui/sheet";
+import { Spinner } from "../ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Textarea } from "../ui/textarea";
+import { Toggle } from "../ui/toggle";
+
+export type PlaylistDetailsTab = "general" | "source" | "usage";
 
 const sourceTypeOptions: {
   value: "static" | "tag";
@@ -47,6 +67,7 @@ const tagMatchOptions: {
 export function PlaylistDetailsDrawer({
   desktop,
   open,
+  tab,
   canManage,
   sourceType,
   name,
@@ -55,12 +76,14 @@ export function PlaylistDetailsDrawer({
   tagIds,
   tagImageSeconds,
   tags,
+  usage,
   metadataDirty,
   tagRuleDirty,
   metadataSaving,
   tagRuleSaving,
   metadataError,
   tagRuleError,
+  onTabChange,
   onClose,
   onNameChange,
   onDescriptionChange,
@@ -73,6 +96,7 @@ export function PlaylistDetailsDrawer({
 }: {
   desktop: boolean;
   open: boolean;
+  tab: PlaylistDetailsTab;
   canManage: boolean;
   sourceType: "static" | "tag";
   name: string;
@@ -81,12 +105,15 @@ export function PlaylistDetailsDrawer({
   tagIds: string[];
   tagImageSeconds: number;
   tags: ContentTag[];
+  /** The Used By composition shown under the Usage tab. */
+  usage: ReactNode;
   metadataDirty: boolean;
   tagRuleDirty: boolean;
   metadataSaving: boolean;
   tagRuleSaving: boolean;
   metadataError?: string;
   tagRuleError?: string;
+  onTabChange: (tab: PlaylistDetailsTab) => void;
   onClose: () => void;
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
@@ -97,226 +124,221 @@ export function PlaylistDetailsDrawer({
   onSaveMetadata: () => void;
   onSaveTagRule: () => void;
 }) {
-  const { t } = useTranslation(["playlists", "common"]);
-  const sections = (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-      <section className="grid gap-3">
-        <h3 className="text-sm font-medium">{t("details.sectionDetails")}</h3>
-        <Field>
-          <FieldLabel htmlFor="playlist-details-name">
-            {t("details.nameLabel")}
-          </FieldLabel>
-          <Input
-            id="playlist-details-name"
-            disabled={!canManage}
-            value={name}
-            onChange={(event) => onNameChange(event.target.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="playlist-details-description">
-            {t("details.descriptionLabel")}
-          </FieldLabel>
-          <Textarea
-            id="playlist-details-description"
-            disabled={!canManage}
-            value={description}
-            onChange={(event) => onDescriptionChange(event.target.value)}
-          />
-        </Field>
-        {metadataError && (
-          <Alert variant="destructive">
-            <AlertDescription>{metadataError}</AlertDescription>
-          </Alert>
-        )}
-        <div>
-          <RheaButton
-            type="button"
-            size="sm"
-            disabled={!canManage || !metadataDirty || metadataSaving}
-            onClick={onSaveMetadata}
-          >
-            <Save size={14} aria-hidden="true" />
-            {metadataSaving
-              ? t("common:actions.saving")
-              : t("details.saveDetails")}
-          </RheaButton>
-        </div>
-      </section>
-
-      <section className="grid gap-3">
-        <h3 className="text-sm font-medium">{t("details.sourceTitle")}</h3>
-        <p className="text-sm text-muted-foreground">
-          {t("details.sourceDescription")}
-        </p>
-        <Field>
-          <FieldLabel htmlFor="playlist-details-source">
-            {t("details.sourceLabel")}
-          </FieldLabel>
-          <RheaSelect
-            disabled={!canManage}
-            value={sourceType}
-            onValueChange={(next) =>
-              onSourceTypeChange(next as "static" | "tag")
-            }
-            items={sourceTypeOptions.map((option) => ({
-              value: option.value,
-              label: t(option.labelKey),
-            }))}
-          >
-            <SelectTrigger
-              id="playlist-details-source"
-              aria-label={t("details.sourceLabel")}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sourceTypeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {t(option.labelKey)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </RheaSelect>
-        </Field>
-
-        {sourceType === "tag" && (
-          <>
+  const { t } = useTranslation("playlists");
+  const sourceTypeItems = sourceTypeOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const tagMatchItems = tagMatchOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const body = (
+    <Tabs
+      value={tab}
+      onValueChange={(value) => onTabChange(value as PlaylistDetailsTab)}
+      className="min-h-0 flex-1 gap-0"
+    >
+      <TabsList variant="line" className="mx-4 shrink-0">
+        <TabsTrigger value="general">{t("details.tabs.general")}</TabsTrigger>
+        <TabsTrigger value="source">{t("details.tabs.source")}</TabsTrigger>
+        <TabsTrigger value="usage">{t("details.tabs.usage")}</TabsTrigger>
+      </TabsList>
+      <div className="min-h-0 flex-1 overflow-y-auto border-t px-4 pt-5 pb-4">
+        <TabsContent value="general">
+          <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="playlist-details-match">
-                {t("details.matchLabel")}
+              <FieldLabel htmlFor="playlist-details-name">
+                {t("details.nameLabel")}
               </FieldLabel>
-              <RheaSelect
+              <Input
+                id="playlist-details-name"
                 disabled={!canManage}
-                value={tagMatch}
+                value={name}
+                onChange={(event) => onNameChange(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="playlist-details-description">
+                {t("details.descriptionLabel")}
+              </FieldLabel>
+              <Textarea
+                id="playlist-details-description"
+                disabled={!canManage}
+                value={description}
+                onChange={(event) => onDescriptionChange(event.target.value)}
+              />
+              <FieldDescription>
+                {t("details.descriptionHint")}
+              </FieldDescription>
+            </Field>
+            {metadataError && (
+              <Alert variant="destructive">
+                <AlertDescription>{metadataError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <Button
+                type="button"
+                disabled={!canManage || !metadataDirty || metadataSaving}
+                onClick={onSaveMetadata}
+              >
+                {metadataSaving && <Spinner aria-hidden="true" />}
+                {t("details.saveDetails")}
+              </Button>
+            </div>
+          </FieldGroup>
+        </TabsContent>
+
+        <TabsContent value="source">
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="playlist-details-source">
+                {t("details.sourceLabel")}
+              </FieldLabel>
+              <Select
+                disabled={!canManage}
+                value={sourceType}
                 onValueChange={(next) =>
-                  onTagMatchChange(next as "any" | "all")
+                  onSourceTypeChange(next as "static" | "tag")
                 }
-                items={tagMatchOptions.map((option) => ({
-                  value: option.value,
-                  label: t(option.labelKey),
-                }))}
+                items={sourceTypeItems}
               >
                 <SelectTrigger
-                  id="playlist-details-match"
-                  aria-label={t("details.matchLabel")}
+                  id="playlist-details-source"
+                  aria-label={t("details.sourceLabel")}
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {tagMatchOptions.map((option) => (
+                  {sourceTypeItems.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {t(option.labelKey)}
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
+              <FieldDescription>{t("details.sourceHint")}</FieldDescription>
             </Field>
-            <Field>
-              <span className="text-sm font-medium">
-                {t("details.tagsLabel")}
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {tags.length ? (
-                  tags.map((tag) => {
-                    const active = tagIds.includes(tag.id);
-                    return (
-                      <RheaButton
-                        key={tag.id}
-                        type="button"
-                        variant={active ? "default" : "outline"}
-                        size="sm"
-                        aria-pressed={active}
-                        disabled={!canManage}
-                        onClick={() => onTagToggle(tag.id)}
-                      >
-                        <span
-                          className="size-2 rounded-full"
-                          style={{ backgroundColor: tag.color }}
-                          aria-hidden="true"
-                        />
-                        {tag.name}
-                      </RheaButton>
-                    );
-                  })
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    {t("details.noTags")}
-                  </span>
-                )}
-              </div>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="playlist-details-image-duration">
-                {t("details.imageDurationLabel")}
-              </FieldLabel>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="playlist-details-image-duration"
-                  className="w-28"
-                  type="number"
-                  min="1"
-                  max="86400"
-                  disabled={!canManage}
-                  value={tagImageSeconds}
-                  onChange={(event) =>
-                    onTagImageSecondsChange(Number(event.target.value))
-                  }
-                />
-                <span className="text-sm text-muted-foreground">
-                  {t("details.secondsUnit")}
-                </span>
-              </div>
-              <FieldDescription>
-                {t("details.imageDurationHint")}
-              </FieldDescription>
-            </Field>
-            {tagIds.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                {t("details.tagRequired")}
-              </p>
+
+            {sourceType === "tag" && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="playlist-details-match">
+                    {t("details.matchLabel")}
+                  </FieldLabel>
+                  <Select
+                    disabled={!canManage}
+                    value={tagMatch}
+                    onValueChange={(next) =>
+                      onTagMatchChange(next as "any" | "all")
+                    }
+                    items={tagMatchItems}
+                  >
+                    <SelectTrigger
+                      id="playlist-details-match"
+                      aria-label={t("details.matchLabel")}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tagMatchItems.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <FieldSet>
+                  <FieldLegend variant="label">
+                    {t("details.tagsLabel")}
+                  </FieldLegend>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.length ? (
+                      tags.map((tag) => (
+                        <Toggle
+                          key={tag.id}
+                          variant="outline"
+                          size="sm"
+                          pressed={tagIds.includes(tag.id)}
+                          disabled={!canManage}
+                          onPressedChange={() => onTagToggle(tag.id)}
+                        >
+                          <span
+                            className="size-2 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                            aria-hidden="true"
+                          />
+                          {tag.name}
+                        </Toggle>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {t("details.noTags")}
+                      </span>
+                    )}
+                  </div>
+                  {tagIds.length === 0 && (
+                    <FieldDescription>
+                      {t("details.tagRequired")}
+                    </FieldDescription>
+                  )}
+                </FieldSet>
+                <Field>
+                  <FieldLabel htmlFor="playlist-details-image-duration">
+                    {t("details.imageDurationLabel")}
+                  </FieldLabel>
+                  <InputGroup className="w-32">
+                    <InputGroupInput
+                      id="playlist-details-image-duration"
+                      type="number"
+                      min="1"
+                      max="86400"
+                      disabled={!canManage}
+                      value={tagImageSeconds}
+                      onChange={(event) =>
+                        onTagImageSecondsChange(Number(event.target.value))
+                      }
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupText>
+                        {t("details.secondsUnit")}
+                      </InputGroupText>
+                    </InputGroupAddon>
+                  </InputGroup>
+                  <FieldDescription>
+                    {t("details.imageDurationHint")}
+                  </FieldDescription>
+                </Field>
+              </>
             )}
-          </>
-        )}
-        {tagRuleError && (
-          <Alert variant="destructive">
-            <AlertDescription>{tagRuleError}</AlertDescription>
-          </Alert>
-        )}
-        <div>
-          <RheaButton
-            type="button"
-            size="sm"
-            disabled={
-              !canManage ||
-              !tagRuleDirty ||
-              tagRuleSaving ||
-              (sourceType === "tag" && tagIds.length === 0)
-            }
-            onClick={onSaveTagRule}
-          >
-            <Tag size={14} aria-hidden="true" />
-            {tagRuleSaving
-              ? t("common:actions.saving")
-              : t("details.saveSource")}
-          </RheaButton>
-        </div>
-      </section>
-    </div>
-  );
-  const eyebrow =
-    sourceType === "tag" ? t("details.kindTag") : t("details.kindSettings");
-  const closeButton = (
-    <RheaButton
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      className="absolute top-2 right-3"
-      aria-label={t("common:actions.close")}
-      onClick={onClose}
-    >
-      <X aria-hidden="true" />
-    </RheaButton>
+            {tagRuleError && (
+              <Alert variant="destructive">
+                <AlertDescription>{tagRuleError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <Button
+                type="button"
+                disabled={
+                  !canManage ||
+                  !tagRuleDirty ||
+                  tagRuleSaving ||
+                  (sourceType === "tag" && tagIds.length === 0)
+                }
+                onClick={onSaveTagRule}
+              >
+                {tagRuleSaving && <Spinner aria-hidden="true" />}
+                {t("details.saveSource")}
+              </Button>
+            </div>
+          </FieldGroup>
+        </TabsContent>
+
+        <TabsContent value="usage">{usage}</TabsContent>
+      </div>
+    </Tabs>
   );
 
   if (desktop) {
@@ -327,20 +349,14 @@ export function PlaylistDetailsDrawer({
           if (!nextOpen) onClose();
         }}
       >
-        <SheetContent
-          side="right"
-          showCloseButton={false}
-          className="overflow-hidden"
-        >
-          <SheetHeader className="relative pr-12">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              {eyebrow}
-            </p>
+        <SheetContent side="right" className="gap-0 overflow-hidden">
+          <SheetHeader>
             <SheetTitle>{t("details.title")}</SheetTitle>
-            <SheetDescription>{t("details.description")}</SheetDescription>
-            {closeButton}
+            <SheetDescription>
+              {t("details.drawerDescription")}
+            </SheetDescription>
           </SheetHeader>
-          {sections}
+          {body}
         </SheetContent>
       </Sheet>
     );
@@ -355,15 +371,18 @@ export function PlaylistDetailsDrawer({
       showSwipeHandle
     >
       <DrawerContent className="max-h-[calc(100dvh-2rem)]">
-        <DrawerHeader className="relative pr-12">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {eyebrow}
-          </p>
+        <DrawerHeader>
           <DrawerTitle>{t("details.title")}</DrawerTitle>
-          <DrawerDescription>{t("details.description")}</DrawerDescription>
-          {closeButton}
+          <DrawerDescription>
+            {t("details.drawerDescription")}
+          </DrawerDescription>
         </DrawerHeader>
-        {sections}
+        {body}
+        <DrawerFooter className="border-t">
+          <DrawerClose render={<Button type="button" variant="outline" />}>
+            {t("details.done")}
+          </DrawerClose>
+        </DrawerFooter>
       </DrawerContent>
     </Drawer>
   );

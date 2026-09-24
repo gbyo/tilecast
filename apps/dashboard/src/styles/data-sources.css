@@ -62,14 +62,6 @@
   }
 }
 
-/* Editor surfaces theme through Signal tokens (relocated from the retired
-   issue-fixes sheet). */
-.asset-details {
-  color: var(--tc-text-primary);
-  background: var(--tc-bg-surface);
-  border-color: var(--tc-border-default);
-}
-
 /* Widget authoring keeps the configuration grouped and the live result in view. */
 .widget-editor > .source-editor__body {
   display: grid;

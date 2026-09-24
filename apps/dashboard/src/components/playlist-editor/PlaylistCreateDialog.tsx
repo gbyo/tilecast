@@ -3,9 +3,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Button as RheaButton } from "../../components/ui/button";
+import { Button } from "../../components/ui/button";
 import {
-  Dialog as RheaDialog,
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -42,7 +42,7 @@ export function PlaylistCreateDialog({
     },
   });
   return (
-    <RheaDialog
+    <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) onClose();
@@ -70,7 +70,7 @@ export function PlaylistCreateDialog({
               {t("create.typeLabel")}
             </legend>
             <div className="grid gap-2 sm:grid-cols-2">
-              <RheaButton
+              <Button
                 type="button"
                 variant={sourceType === "static" ? "default" : "outline"}
                 className="h-auto flex-col items-start gap-1 p-3 text-left"
@@ -81,8 +81,8 @@ export function PlaylistCreateDialog({
                 <span className="text-xs font-normal opacity-80">
                   {t("create.standardDescription")}
                 </span>
-              </RheaButton>
-              <RheaButton
+              </Button>
+              <Button
                 type="button"
                 variant={sourceType === "tag" ? "default" : "outline"}
                 className="h-auto flex-col items-start gap-1 p-3 text-left"
@@ -93,7 +93,7 @@ export function PlaylistCreateDialog({
                 <span className="text-xs font-normal opacity-80">
                   {t("create.tagDescription")}
                 </span>
-              </RheaButton>
+              </Button>
             </div>
           </fieldset>
           {create.error && (
@@ -103,18 +103,18 @@ export function PlaylistCreateDialog({
           )}
         </div>
         <DialogFooter>
-          <RheaButton type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             {t("common:actions.cancel")}
-          </RheaButton>
-          <RheaButton
+          </Button>
+          <Button
             type="button"
             disabled={!name.trim() || create.isPending}
             onClick={() => create.mutate()}
           >
             {create.isPending ? t("create.creating") : t("create.submit")}
-          </RheaButton>
+          </Button>
         </DialogFooter>
       </DialogContent>
-    </RheaDialog>
+    </Dialog>
   );
 }

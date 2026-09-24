@@ -126,7 +126,16 @@
     "secondsUnit": "seconds",
     "imageDurationHint": "Applied to matching image content.",
     "tagRequired": "Select at least one tag before saving this source.",
-    "saveSource": "Save content source"
+    "saveSource": "Save content source",
+    "tabs": {
+      "general": "General",
+      "source": "Content source",
+      "usage": "Usage"
+    },
+    "descriptionHint": "Saved separately from timeline edits.",
+    "sourceHint": "Choose a manual timeline, or let matching ready media appear from tags.",
+    "drawerDescription": "Name, content source, and where this playlist plays.",
+    "done": "Done"
   },
   "editor": {
     "loadError": "Playlist could not be loaded.",
@@ -172,7 +181,23 @@
         "schedules": "Schedules",
         "campaigns": "Campaigns"
       }
-    }
+    },
+    "toasts": {
+      "detailsSaved": "Playlist details saved.",
+      "sourceSaved": "Playlist content source saved.",
+      "published": "Playlist published.",
+      "submitted": "Playlist submitted for review.",
+      "duplicated": "Playlist duplicated.",
+      "deleted": "Playlist deleted.",
+      "itemRemoved": "Playlist item removed.",
+      "transitionSet": "Transition set to {{transition}} for every item.",
+      "imageDurationsSet": "Image durations set to {{seconds}} seconds.",
+      "layoutAdded": "Layout added to the playlist.",
+      "itemsAdded_one": "{{count}} item added to the playlist.",
+      "itemsAdded_other": "{{count}} items added to the playlist."
+    },
+    "loadingLabel": "Loading playlist",
+    "noPublishedLayoutsTitle": "No published Layouts"
   },
   "header": {
     "back": "Playlists",
@@ -189,7 +214,11 @@
     "history": "History",
     "details": "Playlist details",
     "duplicate": "Duplicate playlist",
-    "delete": "Delete playlist"
+    "delete": "Delete playlist",
+    "menu": {
+      "duplicate": "Duplicate",
+      "delete": "Delete"
+    }
   },
   "inspector": {
     "itemHeading": "Item {{index}} · {{type}}",
@@ -253,7 +282,12 @@
     "widgetBehavior": {
       "untilEnd": "Play until video ends",
       "fixedDuration": "Play for a fixed duration"
-    }
+    },
+    "drawerDescription": "Edit playlist item settings.",
+    "close": "Close item inspector",
+    "notReadyTitle": "{{status}} content",
+    "notReadyDescription": "Players skip this item until its media is ready.",
+    "crossfadeShortHint": "Visuals blend. Audio changes at the item boundary."
   },
   "defaults": {
     "eyebrow": "Playback",
@@ -288,6 +322,28 @@
       "none": "None",
       "fade": "Fade",
       "crossfade": "Crossfade"
+    },
+    "itemType": {
+      "image": "Image",
+      "video": "Video",
+      "layout": "Layout",
+      "widget": "Widget",
+      "youtubeWidget": "YouTube widget"
+    },
+    "summary": {
+      "audio": "Audio",
+      "muted": "Muted"
+    },
+    "assetStatus": {
+      "ready": "Ready",
+      "uploading": "Uploading",
+      "uploaded": "Uploaded",
+      "queued": "Waiting",
+      "inspecting": "Inspecting",
+      "processing": "Processing",
+      "failed": "Failed",
+      "deleting": "Deleting",
+      "deleted": "Unavailable"
     }
   },
   "timeline": {
@@ -317,7 +373,12 @@
     "moveBottom": "Move to bottom",
     "moveUpFor": "Move {{name}} up",
     "moveDownFor": "Move {{name}} down",
-    "actionsFor": "Actions for {{name}}"
+    "actionsFor": "Actions for {{name}}",
+    "emptyPlaylistTitle": "This playlist is empty",
+    "actions": {
+      "inspect": "Inspect",
+      "remove": "Remove from playlist"
+    }
   },
   "history": {
     "loading": "Loading history…",
@@ -339,6 +400,24 @@
     "showRecent": "Show recent only",
     "restored": "Restored revision {{from}} as revision {{to}}.",
     "restoredWithSkipped_one": "Restored revision {{from}} as revision {{to}}. {{count}} item could not be restored because the content was deleted.",
-    "restoredWithSkipped_other": "Restored revision {{from}} as revision {{to}}. {{count}} items could not be restored because the content was deleted."
+    "restoredWithSkipped_other": "Restored revision {{from}} as revision {{to}}. {{count}} items could not be restored because the content was deleted.",
+    "loadingLabel": "Loading history",
+    "restoredToast": "Playlist revision restored."
+  },
+  "authoring": {
+    "addGroup": "Add to playlist",
+    "moreWaysToAdd": "More ways to add",
+    "mediaOrWidget": "Media or Widget",
+    "publishedLayout": "Published Layout",
+    "toolbarLabel": "Playlist authoring",
+    "tagSourceNote": "Items come from media tags.",
+    "editSource": "Edit content source",
+    "transitionDescription": "Applies to every item.",
+    "crossfadeInfo": "About crossfade audio",
+    "crossfadeTooltip": "Crossfade blends visuals. Audio still changes at the normal item boundary.",
+    "imagesLabel": "Images",
+    "imageDurationDescription": "Updates every fixed-duration image item.",
+    "imageDurationMixed": "Mixed",
+    "imageDurationAuto": "Auto"
   }
 }

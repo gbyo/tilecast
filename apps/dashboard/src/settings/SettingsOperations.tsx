@@ -1,8 +1,7 @@
 import { useConfirm } from "../components/ConfirmDialog";
 import { DateTimeInput } from "../components/date-picker";
-import { StatusDot } from "../components/StatusDot";
-import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
@@ -36,6 +35,12 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { toast } from "../components/ui/toast";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -718,16 +723,9 @@ export function PlayerUpdatesPanel({
   const windowMissing = mode === "maintenance_window" && !windowStart;
   return (
     <div className="grid gap-4">
-      <ViewTabs
-        label={t("updates.panel.platformLabel")}
+      <Tabs
         value={platform}
-        items={[
-          // i18n-ignore: Android and Linux are platform names, not language text
-          { value: "android", label: "Android" },
-          // i18n-ignore: Android and Linux are platform names, not language text
-          { value: "linux", label: "Linux" },
-        ]}
-        onValueChange={(value) => {
+        onValueChange={(value: string) => {
           if (value === platform) return;
           const next = new URLSearchParams(searchParams);
           if (value === "android") next.delete("platform");
@@ -742,1019 +740,1075 @@ export function PlayerUpdatesPanel({
           setDeploymentDrawerOpen(false);
           setOpenDeployment(undefined);
         }}
-      />
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div className="grid gap-1">
-            <h3 className="text-base font-semibold">
-              {t("updates.panel.releasesTitle", { platform: platformLabel })}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              <Trans
-                i18nKey="updates.panel.releasesHint"
-                ns="settings"
-                components={{
-                  // i18n-ignore: repository name is a constant, not language text
-                  repo: <code>Gibsonmb71/tilecast</code>, // i18n-ignore
-                }}
-              />
-            </p>
-          </div>
-          {owner && (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button
-                variant="secondary"
-                disabled={check.isPending}
-                onClick={() => check.mutate()}
-              >
-                {check.isPending ? (
-                  <Spinner />
-                ) : (
-                  <RefreshCw size={16} aria-hidden="true" />
-                )}
-                {check.isPending
-                  ? t("updates.panel.syncing")
-                  : t("updates.panel.sync")}
-              </Button>
-              <Button
-                variant="default"
-                aria-expanded={showUpload}
-                onClick={() => setShowUpload((visible) => !visible)}
-              >
-                <Upload size={16} aria-hidden="true" />
-                {t("updates.panel.uploadRelease")}
-              </Button>
-            </div>
-          )}
-        </header>
-        {releases.data && (
-          <div className="grid gap-3 rounded-xl border border-border p-4">
-            <div className="flex items-center gap-3">
-              <Github size={20} aria-hidden="true" />
-              <div className="grid gap-0.5">
-                <strong className="text-sm font-semibold">
-                  {t("updates.panel.githubTitle")}
-                </strong>
-                <span className="text-sm text-muted-foreground">
-                  {releases.data.githubAuth.connected
-                    ? releases.data.githubAuth.login
-                      ? t("updates.panel.authorizedAs", {
-                          login: releases.data.githubAuth.login,
-                        })
-                      : t("updates.panel.authorizedToken")
-                    : t("updates.panel.anonymous")}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusDot
-                tone={
-                  releases.data.githubAuth.connected ? "success" : "neutral"
-                }
-                label={
-                  releases.data.githubAuth.connected
-                    ? t("updates.panel.connected")
-                    : t("updates.panel.notConnected")
-                }
-              />
-              {owner &&
-                !githubFlow &&
-                (releases.data.githubAuth.canDisconnect ? (
-                  <Button
-                    variant="ghost"
-                    disabled={disconnectGitHub.isPending}
-                    onClick={() => disconnectGitHub.mutate()}
-                  >
-                    {disconnectGitHub.isPending ? (
-                      <Spinner />
-                    ) : (
-                      <LogOut size={16} aria-hidden="true" />
-                    )}
-                    {disconnectGitHub.isPending
-                      ? t("updates.panel.disconnecting")
-                      : t("updates.panel.disconnect")}
-                  </Button>
-                ) : !releases.data.githubAuth.connected ? (
-                  <Button
-                    variant="secondary"
-                    disabled={
-                      !releases.data.githubAuth.available ||
-                      startGitHubAuth.isPending
-                    }
-                    onClick={() => startGitHubAuth.mutate()}
-                  >
-                    {startGitHubAuth.isPending ? (
-                      <Spinner />
-                    ) : (
-                      <Github size={16} aria-hidden="true" />
-                    )}
-                    {startGitHubAuth.isPending
-                      ? t("updates.panel.starting")
-                      : t("updates.panel.connect")}
-                  </Button>
-                ) : null)}
-            </div>
-            {githubFlow && (
-              <div className="flex flex-wrap items-center gap-3" role="status">
-                <div className="grid gap-0.5">
-                  <span className="text-sm text-muted-foreground">
-                    {t("updates.panel.oneTimeCode")}
-                  </span>
-                  <strong className="font-mono text-sm">
-                    {githubFlow.userCode}
-                  </strong>
-                </div>
-                <a
-                  className={buttonVariants({ variant: "default" })}
-                  href={githubFlow.verificationUri}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <ExternalLink size={16} aria-hidden="true" />
-                  {t("updates.panel.openGitHub")}
-                </a>
-                <Button variant="ghost" onClick={() => setGitHubFlow(null)}>
-                  {t("common:actions.cancel")}
-                </Button>
-                <small className="text-xs text-muted-foreground">
-                  {t("updates.panel.waitingAuth")}
-                </small>
-              </div>
-            )}
-            {!releases.data.githubAuth.available &&
-              !releases.data.githubAuth.connected && (
-                <small className="text-xs text-muted-foreground">
+        className="grid gap-4"
+      >
+        <TabsList variant="line" aria-label={t("updates.panel.platformLabel")}>
+          {/* i18n-ignore: Android and Linux are platform names, not language text */}
+          <TabsTrigger value="android">Android</TabsTrigger>
+          {/* i18n-ignore: Android and Linux are platform names, not language text */}
+          <TabsTrigger value="linux">Linux</TabsTrigger>
+        </TabsList>
+        <TabsContent value={platform} className="grid gap-4">
+          <section className="grid gap-3 rounded-xl border border-border p-4">
+            <header className="flex flex-wrap items-start justify-between gap-3">
+              <div className="grid gap-1">
+                <h3 className="text-base font-semibold">
+                  {t("updates.panel.releasesTitle", {
+                    platform: platformLabel,
+                  })}
+                </h3>
+                <p className="text-sm text-muted-foreground">
                   <Trans
-                    i18nKey="updates.panel.setupHint"
+                    i18nKey="updates.panel.releasesHint"
                     ns="settings"
                     components={{
-                      // i18n-ignore: environment variable name is a constant
-                      clientId: <code>TILECAST_GITHUB_CLIENT_ID</code>, // i18n-ignore
+                      // i18n-ignore: repository name is a constant, not language text
+                      repo: <code>Gibsonmb71/tilecast</code>, // i18n-ignore
                     }}
                   />
-                </small>
-              )}
-            {githubAuthMessage && (
-              <small className="text-xs text-muted-foreground" role="status">
-                {githubAuthMessage}
-              </small>
-            )}
-          </div>
-        )}
-        {showUpload && (
-          <PlayerReleaseUpload
-            platform={platform}
-            csrfToken={auth.status?.csrfToken ?? ""}
-            onImported={() => {
-              void client.invalidateQueries({ queryKey: ["player-releases"] });
-            }}
-          />
-        )}
-        <div className="mt-4 grid gap-3">
-          {releases.data && !releases.data.manifestKeyConfigured && (
-            <Alert variant="destructive">
-              <AlertTitle>{t("updates.panel.verificationTitle")}</AlertTitle>
-              <AlertDescription>
-                <Trans
-                  i18nKey="updates.panel.verificationHint"
-                  ns="settings"
-                  components={{
-                    // i18n-ignore: environment variable name is a constant
-                    key: <code>TILECAST_UPDATE_MANIFEST_PUBLIC_KEY</code>, // i18n-ignore
-                  }}
-                />
-              </AlertDescription>
-            </Alert>
-          )}
-          {(check.error || releases.data?.providerError) && (
-            <Alert variant="destructive">
-              <AlertTitle>{t("updates.panel.syncErrorTitle")}</AlertTitle>
-              <AlertDescription>
-                {check.error?.message ?? releases.data?.providerError}
-              </AlertDescription>
-            </Alert>
-          )}
-          {cache.error && (
-            <Alert variant="destructive">
-              <AlertTitle>{t("updates.panel.cacheErrorTitle")}</AlertTitle>
-              <AlertDescription>
-                {mutationError(cache.error, tErrors)}
-              </AlertDescription>
-            </Alert>
-          )}
-          {purge.error && (
-            <Alert variant="destructive">
-              <AlertTitle>{t("updates.panel.removeErrorTitle")}</AlertTitle>
-              <AlertDescription>
-                {mutationError(purge.error, tErrors)}
-              </AlertDescription>
-            </Alert>
-          )}
-          {purgeNotice && (
-            <Alert role="status">
-              <AlertDescription>{purgeNotice}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-        {releaseItems.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
-            {releases.isLoading
-              ? t("updates.panel.loadingReleases")
-              : releases.error
-                ? t("updates.panel.loadError", {
-                    error: mutationError(releases.error, tErrors),
-                  })
-                : t("updates.panel.emptyReleases", {
-                    platform: platformLabel,
-                  })}
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <Table className="w-full min-w-[48rem] text-sm">
-                <caption className="sr-only">
-                  {t("updates.panel.releasesCaption", {
-                    platform: platformLabel,
-                  })}
-                </caption>
-                <TableHeader>
-                  <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
-                    <TableHead scope="col" className="px-3 py-2 font-medium">
-                      {t("updates.panel.version")}
-                    </TableHead>
-                    <TableHead scope="col" className="px-3 py-2 font-medium">
-                      {t("updates.panel.source")}
-                    </TableHead>
-                    <TableHead scope="col" className="px-3 py-2 font-medium">
-                      {t("updates.panel.published")}
-                    </TableHead>
-                    <TableHead scope="col" className="px-3 py-2 font-medium">
-                      {t("updates.panel.size")}
-                    </TableHead>
-                    <TableHead scope="col" className="px-3 py-2 font-medium">
-                      {t("updates.panel.status")}
-                    </TableHead>
-                    {owner && (
-                      <TableHead
-                        scope="col"
-                        aria-label={t("updates.panel.actionsColumn")}
-                        className="px-3 py-2"
-                      />
+                </p>
+              </div>
+              {owner && (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={check.isPending}
+                    onClick={() => check.mutate()}
+                  >
+                    {check.isPending ? (
+                      <Spinner />
+                    ) : (
+                      <RefreshCw size={16} aria-hidden="true" />
                     )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody id="player-releases-table-body">
-                  {visibleReleaseItems.map((release) => {
-                    const readiness = releaseReadiness(release, t);
-                    return (
-                      <TableRow
-                        key={release.id}
-                        className="border-b border-border last:border-0"
+                    {check.isPending
+                      ? t("updates.panel.syncing")
+                      : t("updates.panel.sync")}
+                  </Button>
+                  <Button
+                    variant="default"
+                    aria-expanded={showUpload}
+                    onClick={() => setShowUpload((visible) => !visible)}
+                  >
+                    <Upload size={16} aria-hidden="true" />
+                    {t("updates.panel.uploadRelease")}
+                  </Button>
+                </div>
+              )}
+            </header>
+            {releases.data && (
+              <div className="grid gap-3 rounded-xl border border-border p-4">
+                <div className="flex items-center gap-3">
+                  <Github size={20} aria-hidden="true" />
+                  <div className="grid gap-0.5">
+                    <strong className="text-sm font-semibold">
+                      {t("updates.panel.githubTitle")}
+                    </strong>
+                    <span className="text-sm text-muted-foreground">
+                      {releases.data.githubAuth.connected
+                        ? releases.data.githubAuth.login
+                          ? t("updates.panel.authorizedAs", {
+                              login: releases.data.githubAuth.login,
+                            })
+                          : t("updates.panel.authorizedToken")
+                        : t("updates.panel.anonymous")}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    {...statusBadgeAppearance(
+                      releases.data.githubAuth.connected
+                        ? "success"
+                        : "neutral",
+                    )}
+                  >
+                    {releases.data.githubAuth.connected
+                      ? t("updates.panel.connected")
+                      : t("updates.panel.notConnected")}
+                  </Badge>
+                  {owner &&
+                    !githubFlow &&
+                    (releases.data.githubAuth.canDisconnect ? (
+                      <Button
+                        variant="ghost"
+                        disabled={disconnectGitHub.isPending}
+                        onClick={() => disconnectGitHub.mutate()}
                       >
+                        {disconnectGitHub.isPending ? (
+                          <Spinner />
+                        ) : (
+                          <LogOut size={16} aria-hidden="true" />
+                        )}
+                        {disconnectGitHub.isPending
+                          ? t("updates.panel.disconnecting")
+                          : t("updates.panel.disconnect")}
+                      </Button>
+                    ) : !releases.data.githubAuth.connected ? (
+                      <Button
+                        variant="secondary"
+                        disabled={
+                          !releases.data.githubAuth.available ||
+                          startGitHubAuth.isPending
+                        }
+                        onClick={() => startGitHubAuth.mutate()}
+                      >
+                        {startGitHubAuth.isPending ? (
+                          <Spinner />
+                        ) : (
+                          <Github size={16} aria-hidden="true" />
+                        )}
+                        {startGitHubAuth.isPending
+                          ? t("updates.panel.starting")
+                          : t("updates.panel.connect")}
+                      </Button>
+                    ) : null)}
+                </div>
+                {githubFlow && (
+                  <div
+                    className="flex flex-wrap items-center gap-3"
+                    role="status"
+                  >
+                    <div className="grid gap-0.5">
+                      <span className="text-sm text-muted-foreground">
+                        {t("updates.panel.oneTimeCode")}
+                      </span>
+                      <strong className="font-mono text-sm">
+                        {githubFlow.userCode}
+                      </strong>
+                    </div>
+                    <a
+                      className={buttonVariants({ variant: "default" })}
+                      href={githubFlow.verificationUri}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <ExternalLink size={16} aria-hidden="true" />
+                      {t("updates.panel.openGitHub")}
+                    </a>
+                    <Button variant="ghost" onClick={() => setGitHubFlow(null)}>
+                      {t("common:actions.cancel")}
+                    </Button>
+                    <small className="text-xs text-muted-foreground">
+                      {t("updates.panel.waitingAuth")}
+                    </small>
+                  </div>
+                )}
+                {!releases.data.githubAuth.available &&
+                  !releases.data.githubAuth.connected && (
+                    <small className="text-xs text-muted-foreground">
+                      <Trans
+                        i18nKey="updates.panel.setupHint"
+                        ns="settings"
+                        components={{
+                          // i18n-ignore: environment variable name is a constant
+                          clientId: <code>TILECAST_GITHUB_CLIENT_ID</code>, // i18n-ignore
+                        }}
+                      />
+                    </small>
+                  )}
+                {githubAuthMessage && (
+                  <small
+                    className="text-xs text-muted-foreground"
+                    role="status"
+                  >
+                    {githubAuthMessage}
+                  </small>
+                )}
+              </div>
+            )}
+            {showUpload && (
+              <PlayerReleaseUpload
+                platform={platform}
+                csrfToken={auth.status?.csrfToken ?? ""}
+                onImported={() => {
+                  void client.invalidateQueries({
+                    queryKey: ["player-releases"],
+                  });
+                }}
+              />
+            )}
+            <div className="mt-4 grid gap-3">
+              {releases.data && !releases.data.manifestKeyConfigured && (
+                <Alert variant="destructive">
+                  <AlertTitle>
+                    {t("updates.panel.verificationTitle")}
+                  </AlertTitle>
+                  <AlertDescription>
+                    <Trans
+                      i18nKey="updates.panel.verificationHint"
+                      ns="settings"
+                      components={{
+                        // i18n-ignore: environment variable name is a constant
+                        key: <code>TILECAST_UPDATE_MANIFEST_PUBLIC_KEY</code>, // i18n-ignore
+                      }}
+                    />
+                  </AlertDescription>
+                </Alert>
+              )}
+              {(check.error || releases.data?.providerError) && (
+                <Alert variant="destructive">
+                  <AlertTitle>{t("updates.panel.syncErrorTitle")}</AlertTitle>
+                  <AlertDescription>
+                    {check.error?.message ?? releases.data?.providerError}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {cache.error && (
+                <Alert variant="destructive">
+                  <AlertTitle>{t("updates.panel.cacheErrorTitle")}</AlertTitle>
+                  <AlertDescription>
+                    {mutationError(cache.error, tErrors)}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {purge.error && (
+                <Alert variant="destructive">
+                  <AlertTitle>{t("updates.panel.removeErrorTitle")}</AlertTitle>
+                  <AlertDescription>
+                    {mutationError(purge.error, tErrors)}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {purgeNotice && (
+                <Alert role="status">
+                  <AlertDescription>{purgeNotice}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+            {releaseItems.length === 0 ? (
+              <div className="mt-4 rounded-xl border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
+                {releases.isLoading
+                  ? t("updates.panel.loadingReleases")
+                  : releases.error
+                    ? t("updates.panel.loadError", {
+                        error: mutationError(releases.error, tErrors),
+                      })
+                    : t("updates.panel.emptyReleases", {
+                        platform: platformLabel,
+                      })}
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto rounded-xl border border-border">
+                  <Table className="w-full min-w-[48rem] text-sm">
+                    <caption className="sr-only">
+                      {t("updates.panel.releasesCaption", {
+                        platform: platformLabel,
+                      })}
+                    </caption>
+                    <TableHeader>
+                      <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
                         <TableHead
-                          scope="row"
-                          className="px-3 py-2 text-left font-normal"
+                          scope="col"
+                          className="px-3 py-2 font-medium"
                         >
-                          <span className="flex flex-wrap items-center gap-2">
-                            <strong className="font-semibold">
-                              {release.versionName}
-                            </strong>
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                              {release.channel === "beta"
-                                ? t("updates.panel.channelBeta")
-                                : t("updates.panel.channelStable")}
-                            </span>
-                          </span>
-                          <small className="font-mono text-xs text-muted-foreground">
-                            {t("updates.panel.code", {
-                              code: release.versionCode,
-                            })}
-                          </small>
+                          {t("updates.panel.version")}
                         </TableHead>
-                        <TableCell className="px-3 py-2">
-                          {release.source === "upload"
-                            ? t("updates.panel.sourceUpload")
-                            : t("updates.panel.sourceGitHub")}
-                        </TableCell>
-                        <TableCell className="px-3 py-2 whitespace-nowrap">
-                          {new Date(release.publishedAt).toLocaleDateString(
-                            locale,
-                          )}
-                        </TableCell>
-                        <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
-                          {formatBytes(release.apkSizeBytes)}
-                        </TableCell>
-                        <TableCell className="px-3 py-2">
-                          <StatusDot
-                            tone={readiness.tone}
-                            label={readiness.label}
-                          />
-                          {release.cacheStatus === "downloading" && (
-                            <span className="player-release-cache-progress grid gap-1">
-                              <progress
-                                aria-label={t("updates.panel.cachingLabel", {
-                                  version: release.versionName,
-                                  downloaded: formatBytes(
-                                    release.downloadedBytes,
-                                  ),
-                                  total: formatBytes(release.apkSizeBytes),
-                                })}
-                                value={Math.min(
-                                  release.downloadedBytes,
-                                  release.apkSizeBytes,
-                                )}
-                                max={release.apkSizeBytes}
-                                className="w-full"
-                              />
-                              <small className="text-xs text-muted-foreground">
-                                {t("updates.panel.downloadProgress", {
-                                  downloaded: formatBytes(
-                                    release.downloadedBytes,
-                                  ),
-                                  total: formatBytes(release.apkSizeBytes),
-                                })}
-                              </small>
-                            </span>
-                          )}
-                          {readiness.detail && (
-                            <small className="text-xs text-muted-foreground">
-                              {readiness.detail}
-                            </small>
-                          )}
-                        </TableCell>
+                        <TableHead
+                          scope="col"
+                          className="px-3 py-2 font-medium"
+                        >
+                          {t("updates.panel.source")}
+                        </TableHead>
+                        <TableHead
+                          scope="col"
+                          className="px-3 py-2 font-medium"
+                        >
+                          {t("updates.panel.published")}
+                        </TableHead>
+                        <TableHead
+                          scope="col"
+                          className="px-3 py-2 font-medium"
+                        >
+                          {t("updates.panel.size")}
+                        </TableHead>
+                        <TableHead
+                          scope="col"
+                          className="px-3 py-2 font-medium"
+                        >
+                          {t("updates.panel.status")}
+                        </TableHead>
                         {owner && (
-                          <TableCell className="px-3 py-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              {readiness.cacheable && (
-                                <ReleaseCacheButton
-                                  downloading={
-                                    cache.isPending &&
-                                    cache.variables === release.id
-                                  }
-                                  onDownload={() => cache.mutate(release.id)}
-                                />
-                              )}
-                              {purgeAction(release) && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  title={
-                                    purgeAction(release) === "delete"
-                                      ? t("updates.panel.purgeDeleteTitle")
-                                      : t("updates.panel.purgeFreeTitle")
-                                  }
-                                  disabled={
-                                    purge.isPending &&
-                                    purge.variables?.id === release.id
-                                  }
-                                  onClick={() => setPurging(release)}
-                                >
-                                  {purge.isPending &&
-                                  purge.variables?.id === release.id ? (
-                                    <Spinner />
-                                  ) : (
-                                    <Trash2 size={15} aria-hidden="true" />
-                                  )}
-                                  {purgeAction(release) === "delete"
-                                    ? t("updates.panel.rowDelete")
-                                    : t("updates.panel.rowFree")}
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
+                          <TableHead
+                            scope="col"
+                            aria-label={t("updates.panel.actionsColumn")}
+                            className="px-3 py-2"
+                          />
                         )}
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            {releaseItems.length > defaultVisibleReleaseCount && (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm text-muted-foreground">
-                  {t("updates.panel.showing", {
-                    shown: visibleReleaseItems.length,
-                    total: releaseItems.length,
-                  })}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-controls="player-releases-table-body"
-                  aria-expanded={showAllReleases}
-                  onClick={() => setShowAllReleases((visible) => !visible)}
-                >
-                  {showAllReleases
-                    ? t("updates.panel.showFewer")
-                    : t("updates.panel.showAll", {
+                    </TableHeader>
+                    <TableBody id="player-releases-table-body">
+                      {visibleReleaseItems.map((release) => {
+                        const readiness = releaseReadiness(release, t);
+                        return (
+                          <TableRow
+                            key={release.id}
+                            className="border-b border-border last:border-0"
+                          >
+                            <TableHead
+                              scope="row"
+                              className="px-3 py-2 text-left font-normal"
+                            >
+                              <span className="flex flex-wrap items-center gap-2">
+                                <strong className="font-semibold">
+                                  {release.versionName}
+                                </strong>
+                                <Badge variant="secondary">
+                                  {release.channel === "beta"
+                                    ? t("updates.panel.channelBeta")
+                                    : t("updates.panel.channelStable")}
+                                </Badge>
+                              </span>
+                              <small className="font-mono text-xs text-muted-foreground">
+                                {t("updates.panel.code", {
+                                  code: release.versionCode,
+                                })}
+                              </small>
+                            </TableHead>
+                            <TableCell className="px-3 py-2">
+                              {release.source === "upload"
+                                ? t("updates.panel.sourceUpload")
+                                : t("updates.panel.sourceGitHub")}
+                            </TableCell>
+                            <TableCell className="px-3 py-2 whitespace-nowrap">
+                              {new Date(release.publishedAt).toLocaleDateString(
+                                locale,
+                              )}
+                            </TableCell>
+                            <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
+                              {formatBytes(release.apkSizeBytes)}
+                            </TableCell>
+                            <TableCell className="px-3 py-2">
+                              <Badge {...statusBadgeAppearance(readiness.tone)}>
+                                {readiness.label}
+                              </Badge>
+                              {release.cacheStatus === "downloading" && (
+                                <span className="player-release-cache-progress grid gap-1">
+                                  <progress
+                                    aria-label={t(
+                                      "updates.panel.cachingLabel",
+                                      {
+                                        version: release.versionName,
+                                        downloaded: formatBytes(
+                                          release.downloadedBytes,
+                                        ),
+                                        total: formatBytes(
+                                          release.apkSizeBytes,
+                                        ),
+                                      },
+                                    )}
+                                    value={Math.min(
+                                      release.downloadedBytes,
+                                      release.apkSizeBytes,
+                                    )}
+                                    max={release.apkSizeBytes}
+                                    className="w-full"
+                                  />
+                                  <small className="text-xs text-muted-foreground">
+                                    {t("updates.panel.downloadProgress", {
+                                      downloaded: formatBytes(
+                                        release.downloadedBytes,
+                                      ),
+                                      total: formatBytes(release.apkSizeBytes),
+                                    })}
+                                  </small>
+                                </span>
+                              )}
+                              {readiness.detail && (
+                                <small className="text-xs text-muted-foreground">
+                                  {readiness.detail}
+                                </small>
+                              )}
+                            </TableCell>
+                            {owner && (
+                              <TableCell className="px-3 py-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {readiness.cacheable && (
+                                    <ReleaseCacheButton
+                                      downloading={
+                                        cache.isPending &&
+                                        cache.variables === release.id
+                                      }
+                                      onDownload={() =>
+                                        cache.mutate(release.id)
+                                      }
+                                    />
+                                  )}
+                                  {purgeAction(release) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      title={
+                                        purgeAction(release) === "delete"
+                                          ? t("updates.panel.purgeDeleteTitle")
+                                          : t("updates.panel.purgeFreeTitle")
+                                      }
+                                      disabled={
+                                        purge.isPending &&
+                                        purge.variables?.id === release.id
+                                      }
+                                      onClick={() => setPurging(release)}
+                                    >
+                                      {purge.isPending &&
+                                      purge.variables?.id === release.id ? (
+                                        <Spinner />
+                                      ) : (
+                                        <Trash2 size={15} aria-hidden="true" />
+                                      )}
+                                      {purgeAction(release) === "delete"
+                                        ? t("updates.panel.rowDelete")
+                                        : t("updates.panel.rowFree")}
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                {releaseItems.length > defaultVisibleReleaseCount && (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {t("updates.panel.showing", {
+                        shown: visibleReleaseItems.length,
                         total: releaseItems.length,
                       })}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-        <Dialog
-          open={Boolean(purging)}
-          onOpenChange={(open) => {
-            if (!open) setPurging(undefined);
-          }}
-        >
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {purging && purgeAction(purging) === "delete"
-                  ? t("updates.panel.purgeDeleteHeading")
-                  : t("updates.panel.purgeFreeHeading")}
-              </DialogTitle>
-            </DialogHeader>
-            {purging && (
-              <div className="grid gap-3 text-sm">
-                <p>
-                  {t("updates.panel.freesStorage", {
-                    version: purging.versionName,
-                    code: purging.versionCode,
-                    size: formatBytes(purging.apkSizeBytes),
-                  })}
-                </p>
-                {purgeAction(purging) === "delete" ? (
-                  <p>{t("updates.panel.neverDeployed")}</p>
-                ) : (
-                  <p>
-                    {t("updates.panel.historyHint", {
-                      count: purging.deploymentCount,
-                      ref:
-                        purging.deploymentCount === 1
-                          ? t("updates.panel.historyRefOne")
-                          : t("updates.panel.historyRefOther"),
-                    })}
-                  </p>
-                )}
-                {purgeAction(purging) === "free" &&
-                  purging.source === "upload" && (
-                    <Alert role="status">
-                      <AlertTitle>{t("updates.panel.directTitle")}</AlertTitle>
-                      <AlertDescription>
-                        {t("updates.panel.directHint")}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setPurging(undefined)}>
-                {t("common:actions.cancel")}
-              </Button>
-              {purging && (
-                <Button
-                  variant="destructive"
-                  disabled={purge.isPending}
-                  onClick={() => purge.mutate(purging)}
-                >
-                  {purge.isPending ? (
-                    <Spinner />
-                  ) : (
-                    <Trash2 size={16} aria-hidden="true" />
-                  )}
-                  {purgeAction(purging) === "delete"
-                    ? t("updates.panel.confirmDelete")
-                    : t("updates.panel.confirmFree")}
-                </Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </section>
-      {manageable && (
-        <section className="grid gap-4 rounded-xl border border-border p-4">
-          <header className="grid gap-1">
-            <h3 className="text-base font-semibold">
-              {t("updates.panel.deployTitle")}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {t("updates.panel.deployHint", { platform: platformLabel })}
-            </p>
-          </header>
-          <div className="grid gap-4 border-b border-border pb-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="deployment-release">
-                {t("updates.panel.releaseLabel")}
-              </FieldLabel>
-              <Select
-                items={[
-                  {
-                    value: "none",
-                    label: deployableReleases.length
-                      ? t("updates.panel.selectRelease")
-                      : t("updates.panel.noRelease"),
-                  },
-                  ...deployableReleases.map((item) => ({
-                    value: item.id,
-                    label: `${item.versionName} · ${item.channel}`,
-                  })),
-                ]}
-                name="release"
-                value={releaseId || "none"}
-                onValueChange={(next) =>
-                  setReleaseId(!next || next === "none" ? "" : next)
-                }
-                disabled={!deployableReleases.length}
-              >
-                <SelectTrigger
-                  id="deployment-release"
-                  aria-label={t("updates.panel.releaseLabel")}
-                >
-                  <SelectValue>
-                    {releaseId
-                      ? (() => {
-                          const selected = deployableReleases.find(
-                            (item) => item.id === releaseId,
-                          );
-                          return selected
-                            ? `${selected.versionName} · ${
-                                selected.channel === "beta"
-                                  ? t("updates.panel.channelBeta")
-                                  : t("updates.panel.channelStable")
-                              }`
-                            : releaseId;
-                        })()
-                      : deployableReleases.length
-                        ? t("updates.panel.selectRelease")
-                        : t("updates.panel.noRelease")}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">
-                    {deployableReleases.length
-                      ? t("updates.panel.selectRelease")
-                      : t("updates.panel.noRelease")}
-                  </SelectItem>
-                  {deployableReleases.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.versionName} ·{" "}
-                      {item.channel === "beta"
-                        ? t("updates.panel.channelBeta")
-                        : t("updates.panel.channelStable")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="deployment-mode">
-                {t("updates.panel.modeLabel")}
-              </FieldLabel>
-              <Select
-                items={[
-                  {
-                    value: "download_only",
-                    label: t("updates.panel.modeDownloadOnly"),
-                  },
-                  {
-                    value: "install_now",
-                    label: t("updates.panel.modeInstallNow"),
-                  },
-                  {
-                    value: "maintenance_window",
-                    label: t("updates.panel.modeMaintenanceWindow"),
-                  },
-                ]}
-                name="mode"
-                value={mode}
-                onValueChange={(next) => {
-                  if (next) setMode(next);
-                }}
-              >
-                <SelectTrigger
-                  id="deployment-mode"
-                  aria-label={t("updates.panel.modeLabel")}
-                >
-                  <SelectValue>
-                    {mode === "download_only"
-                      ? t("updates.panel.modeDownloadOnly")
-                      : mode === "install_now"
-                        ? t("updates.panel.modeInstallNow")
-                        : mode === "maintenance_window"
-                          ? t("updates.panel.modeMaintenanceWindow")
-                          : mode}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="download_only">
-                    {t("updates.panel.modeDownloadOnly")}
-                  </SelectItem>
-                  <SelectItem value="install_now">
-                    {t("updates.panel.modeInstallNow")}
-                  </SelectItem>
-                  <SelectItem value="maintenance_window">
-                    {t("updates.panel.modeMaintenanceWindow")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="deployment-canary">
-                {t("updates.panel.canaryLabel")}
-              </FieldLabel>
-              <Input
-                id="deployment-canary"
-                type="number"
-                min="0"
-                max="50"
-                value={canarySize}
-                onChange={(event) =>
-                  setCanarySize(Math.max(0, Number(event.target.value)))
-                }
-              />
-              <small className="text-xs text-muted-foreground">
-                {t("updates.panel.canaryHint")}
-              </small>
-            </Field>
-            {mode === "maintenance_window" && (
-              <Field>
-                <FieldLabel htmlFor="deployment-window">
-                  {t("updates.panel.windowLabel")}
-                </FieldLabel>
-                <DateTimeInput
-                  id="deployment-window"
-                  aria-label={t("updates.panel.windowLabel")}
-                  timeLabel={t("updates.panel.windowTimeLabel")}
-                  value={windowStart}
-                  onChange={setWindowStart}
-                />
-                <small className="text-xs text-muted-foreground">
-                  {t("updates.panel.windowHint")}
-                </small>
-              </Field>
-            )}
-          </div>
-          <div className="grid gap-2 overflow-hidden rounded-xl border border-border bg-card p-4">
-            <Field className="gap-1">
-              <FieldLabel htmlFor="deployment-target-search">
-                {t("updates.panel.targetsLabel")}
-              </FieldLabel>
-              <InputGroup>
-                <InputGroupAddon>
-                  <Search aria-hidden="true" />
-                </InputGroupAddon>
-                <InputGroupInput
-                  id="deployment-target-search"
-                  type="search"
-                  value={targetSearch}
-                  onChange={(event) => setTargetSearch(event.target.value)}
-                  placeholder={t("updates.panel.searchPlaceholder")}
-                />
-              </InputGroup>
-            </Field>
-            <div
-              className="grid gap-4 sm:grid-cols-2"
-              role="group"
-              aria-label={t("updates.panel.targetsGroup")}
-            >
-              <div className="grid content-start gap-2">
-                <h4 className="text-sm font-semibold">
-                  {t("updates.panel.screensHeading", {
-                    platform: platformLabel,
-                  })}{" "}
-                  <span className="font-normal text-muted-foreground">
-                    {matchingScreens.length}
-                  </span>
-                </h4>
-                <div className="grid max-h-64 gap-1 overflow-y-auto">
-                  {matchingScreens.map((screen) => (
-                    <Target
-                      key={screen.id}
-                      checked={screenIds.includes(screen.id)}
-                      label={screen.name}
-                      detail={`${screen.playerVersion} · ${screen.status}`}
-                      onChange={(checked) =>
-                        setScreenIds(
-                          checked
-                            ? [...screenIds, screen.id]
-                            : screenIds.filter((id) => id !== screen.id),
-                        )
-                      }
-                    />
-                  ))}
-                  {!matchingScreens.length && (
-                    <p className="text-sm text-muted-foreground">
-                      {platformScreens.length
-                        ? t("updates.panel.noScreenMatch")
-                        : t("updates.panel.noScreensEnrolled", {
-                            platform: platformLabel,
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-controls="player-releases-table-body"
+                      aria-expanded={showAllReleases}
+                      onClick={() => setShowAllReleases((visible) => !visible)}
+                    >
+                      {showAllReleases
+                        ? t("updates.panel.showFewer")
+                        : t("updates.panel.showAll", {
+                            total: releaseItems.length,
                           })}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="grid content-start gap-2">
-                <h4 className="text-sm font-semibold">
-                  {t("updates.panel.groupsHeading")}{" "}
-                  <span className="font-normal text-muted-foreground">
-                    {matchingGroups.length}
-                  </span>
-                </h4>
-                <div className="grid max-h-64 gap-1 overflow-y-auto">
-                  {matchingGroups.map((group) => (
-                    <Target
-                      key={group.id}
-                      checked={groupIds.includes(group.id)}
-                      label={group.name}
-                      detail={t("updates.panel.groupSize", {
-                        count: group.membershipCount,
-                      })}
-                      onChange={(checked) =>
-                        setGroupIds(
-                          checked
-                            ? [...groupIds, group.id]
-                            : groupIds.filter((id) => id !== group.id),
-                        )
-                      }
-                    />
-                  ))}
-                  {!matchingGroups.length && (
-                    <p className="text-sm text-muted-foreground">
-                      {groups.data?.items?.length
-                        ? t("updates.panel.noGroupMatch")
-                        : t("updates.panel.noGroups")}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-          {(deploy.error || deploySuccess) && (
-            <div className="mt-4 grid gap-3">
-              <Alert
-                variant={deploy.error ? "destructive" : "default"}
-                role={deploy.error ? undefined : "status"}
-              >
-                <AlertDescription>
-                  {deploy.error
-                    ? mutationError(deploy.error, tErrors)
-                    : deploySuccess}
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
-          <div className="mt-3 flex min-h-14 flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <strong className="text-sm font-semibold text-foreground">
-                {selectedScreens.length === 1
-                  ? t("updates.panel.selectedOne", {
-                      count: selectedScreens.length,
-                    })
-                  : t("updates.panel.selectedOther", {
-                      count: selectedScreens.length,
-                    })}
-              </strong>
-              {offlineTargets > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  {t("updates.panel.offlineCount", { count: offlineTargets })}
-                </span>
-              )}
-              {selectionCount > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setScreenIds([]);
-                    setGroupIds([]);
-                  }}
-                >
-                  {t("updates.panel.clearSelection")}
-                </Button>
-              )}
-            </div>
-            <Button
-              variant="default"
-              disabled={
-                !releaseId ||
-                !selectedScreens.length ||
-                windowMissing ||
-                deploy.isPending
-              }
-              onClick={() => setConfirmDeploy(true)}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+            <Dialog
+              open={Boolean(purging)}
+              onOpenChange={(open) => {
+                if (!open) setPurging(undefined);
+              }}
             >
-              {deploy.isPending ? (
-                <Spinner />
-              ) : (
-                <Rocket size={16} aria-hidden="true" />
-              )}
-              {deploy.isPending
-                ? t("updates.panel.creating")
-                : t("updates.panel.deployAction")}
-            </Button>
-          </div>
-          <Dialog
-            open={confirmDeploy}
-            onOpenChange={(open) => {
-              if (!open) setConfirmDeploy(false);
-            }}
-          >
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>{t("updates.panel.confirmTitle")}</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-3 text-sm">
-                <p>
-                  {selectedScreens.length === 1
-                    ? t("updates.panel.confirmSummaryOne", {
-                        count: selectedScreens.length,
-                        version:
-                          releaseItems.find((item) => item.id === releaseId)
-                            ?.versionName ?? t("updates.panel.versionFallback"),
-                        mode: modeDisplayName.toLowerCase(),
-                      })
-                    : t("updates.panel.confirmSummaryOther", {
-                        count: selectedScreens.length,
-                        version:
-                          releaseItems.find((item) => item.id === releaseId)
-                            ?.versionName ?? t("updates.panel.versionFallback"),
-                        mode: modeDisplayName.toLowerCase(),
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>
+                    {purging && purgeAction(purging) === "delete"
+                      ? t("updates.panel.purgeDeleteHeading")
+                      : t("updates.panel.purgeFreeHeading")}
+                  </DialogTitle>
+                </DialogHeader>
+                {purging && (
+                  <div className="grid gap-3 text-sm">
+                    <p>
+                      {t("updates.panel.freesStorage", {
+                        version: purging.versionName,
+                        code: purging.versionCode,
+                        size: formatBytes(purging.apkSizeBytes),
                       })}
-                </p>
-                <p>
-                  {platform === "android"
-                    ? t("updates.panel.androidNote")
-                    : t("updates.panel.linuxNote")}
-                </p>
-                {offlineTargets > 0 && (
-                  <p>
-                    {offlineTargets === 1
-                      ? t("updates.panel.offlineNoteOne", {
-                          count: offlineTargets,
-                        })
-                      : t("updates.panel.offlineNoteOther", {
-                          count: offlineTargets,
+                    </p>
+                    {purgeAction(purging) === "delete" ? (
+                      <p>{t("updates.panel.neverDeployed")}</p>
+                    ) : (
+                      <p>
+                        {t("updates.panel.historyHint", {
+                          count: purging.deploymentCount,
+                          ref:
+                            purging.deploymentCount === 1
+                              ? t("updates.panel.historyRefOne")
+                              : t("updates.panel.historyRefOther"),
                         })}
-                  </p>
+                      </p>
+                    )}
+                    {purgeAction(purging) === "free" &&
+                      purging.source === "upload" && (
+                        <Alert role="status">
+                          <AlertTitle>
+                            {t("updates.panel.directTitle")}
+                          </AlertTitle>
+                          <AlertDescription>
+                            {t("updates.panel.directHint")}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setPurging(undefined)}>
+                    {t("common:actions.cancel")}
+                  </Button>
+                  {purging && (
+                    <Button
+                      variant="destructive"
+                      disabled={purge.isPending}
+                      onClick={() => purge.mutate(purging)}
+                    >
+                      {purge.isPending ? (
+                        <Spinner />
+                      ) : (
+                        <Trash2 size={16} aria-hidden="true" />
+                      )}
+                      {purgeAction(purging) === "delete"
+                        ? t("updates.panel.confirmDelete")
+                        : t("updates.panel.confirmFree")}
+                    </Button>
+                  )}
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </section>
+          {manageable && (
+            <section className="grid gap-4 rounded-xl border border-border p-4">
+              <header className="grid gap-1">
+                <h3 className="text-base font-semibold">
+                  {t("updates.panel.deployTitle")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("updates.panel.deployHint", { platform: platformLabel })}
+                </p>
+              </header>
+              <div className="grid gap-4 border-b border-border pb-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="deployment-release">
+                    {t("updates.panel.releaseLabel")}
+                  </FieldLabel>
+                  <Select
+                    items={[
+                      {
+                        value: "none",
+                        label: deployableReleases.length
+                          ? t("updates.panel.selectRelease")
+                          : t("updates.panel.noRelease"),
+                      },
+                      ...deployableReleases.map((item) => ({
+                        value: item.id,
+                        label: `${item.versionName} · ${item.channel}`,
+                      })),
+                    ]}
+                    name="release"
+                    value={releaseId || "none"}
+                    onValueChange={(next) =>
+                      setReleaseId(!next || next === "none" ? "" : next)
+                    }
+                    disabled={!deployableReleases.length}
+                  >
+                    <SelectTrigger
+                      id="deployment-release"
+                      aria-label={t("updates.panel.releaseLabel")}
+                    >
+                      <SelectValue>
+                        {releaseId
+                          ? (() => {
+                              const selected = deployableReleases.find(
+                                (item) => item.id === releaseId,
+                              );
+                              return selected
+                                ? `${selected.versionName} · ${
+                                    selected.channel === "beta"
+                                      ? t("updates.panel.channelBeta")
+                                      : t("updates.panel.channelStable")
+                                  }`
+                                : releaseId;
+                            })()
+                          : deployableReleases.length
+                            ? t("updates.panel.selectRelease")
+                            : t("updates.panel.noRelease")}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        {deployableReleases.length
+                          ? t("updates.panel.selectRelease")
+                          : t("updates.panel.noRelease")}
+                      </SelectItem>
+                      {deployableReleases.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.versionName} ·{" "}
+                          {item.channel === "beta"
+                            ? t("updates.panel.channelBeta")
+                            : t("updates.panel.channelStable")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="deployment-mode">
+                    {t("updates.panel.modeLabel")}
+                  </FieldLabel>
+                  <Select
+                    items={[
+                      {
+                        value: "download_only",
+                        label: t("updates.panel.modeDownloadOnly"),
+                      },
+                      {
+                        value: "install_now",
+                        label: t("updates.panel.modeInstallNow"),
+                      },
+                      {
+                        value: "maintenance_window",
+                        label: t("updates.panel.modeMaintenanceWindow"),
+                      },
+                    ]}
+                    name="mode"
+                    value={mode}
+                    onValueChange={(next) => {
+                      if (next) setMode(next);
+                    }}
+                  >
+                    <SelectTrigger
+                      id="deployment-mode"
+                      aria-label={t("updates.panel.modeLabel")}
+                    >
+                      <SelectValue>
+                        {mode === "download_only"
+                          ? t("updates.panel.modeDownloadOnly")
+                          : mode === "install_now"
+                            ? t("updates.panel.modeInstallNow")
+                            : mode === "maintenance_window"
+                              ? t("updates.panel.modeMaintenanceWindow")
+                              : mode}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="download_only">
+                        {t("updates.panel.modeDownloadOnly")}
+                      </SelectItem>
+                      <SelectItem value="install_now">
+                        {t("updates.panel.modeInstallNow")}
+                      </SelectItem>
+                      <SelectItem value="maintenance_window">
+                        {t("updates.panel.modeMaintenanceWindow")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="deployment-canary">
+                    {t("updates.panel.canaryLabel")}
+                  </FieldLabel>
+                  <Input
+                    id="deployment-canary"
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={canarySize}
+                    onChange={(event) =>
+                      setCanarySize(Math.max(0, Number(event.target.value)))
+                    }
+                  />
+                  <small className="text-xs text-muted-foreground">
+                    {t("updates.panel.canaryHint")}
+                  </small>
+                </Field>
+                {mode === "maintenance_window" && (
+                  <Field>
+                    <FieldLabel htmlFor="deployment-window">
+                      {t("updates.panel.windowLabel")}
+                    </FieldLabel>
+                    <DateTimeInput
+                      id="deployment-window"
+                      aria-label={t("updates.panel.windowLabel")}
+                      timeLabel={t("updates.panel.windowTimeLabel")}
+                      value={windowStart}
+                      onChange={setWindowStart}
+                    />
+                    <small className="text-xs text-muted-foreground">
+                      {t("updates.panel.windowHint")}
+                    </small>
+                  </Field>
                 )}
               </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setConfirmDeploy(false)}>
-                  {t("common:actions.cancel")}
-                </Button>
+              <div className="grid gap-2 overflow-hidden rounded-xl border border-border bg-card p-4">
+                <Field className="gap-1">
+                  <FieldLabel htmlFor="deployment-target-search">
+                    {t("updates.panel.targetsLabel")}
+                  </FieldLabel>
+                  <InputGroup>
+                    <InputGroupAddon>
+                      <Search aria-hidden="true" />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      id="deployment-target-search"
+                      type="search"
+                      value={targetSearch}
+                      onChange={(event) => setTargetSearch(event.target.value)}
+                      placeholder={t("updates.panel.searchPlaceholder")}
+                    />
+                  </InputGroup>
+                </Field>
+                <div
+                  className="grid gap-4 sm:grid-cols-2"
+                  role="group"
+                  aria-label={t("updates.panel.targetsGroup")}
+                >
+                  <div className="grid content-start gap-2">
+                    <h4 className="text-sm font-semibold">
+                      {t("updates.panel.screensHeading", {
+                        platform: platformLabel,
+                      })}{" "}
+                      <span className="font-normal text-muted-foreground">
+                        {matchingScreens.length}
+                      </span>
+                    </h4>
+                    <div className="grid max-h-64 gap-1 overflow-y-auto">
+                      {matchingScreens.map((screen) => (
+                        <Target
+                          key={screen.id}
+                          checked={screenIds.includes(screen.id)}
+                          label={screen.name}
+                          detail={`${screen.playerVersion} · ${screen.status}`}
+                          onChange={(checked) =>
+                            setScreenIds(
+                              checked
+                                ? [...screenIds, screen.id]
+                                : screenIds.filter((id) => id !== screen.id),
+                            )
+                          }
+                        />
+                      ))}
+                      {!matchingScreens.length && (
+                        <p className="text-sm text-muted-foreground">
+                          {platformScreens.length
+                            ? t("updates.panel.noScreenMatch")
+                            : t("updates.panel.noScreensEnrolled", {
+                                platform: platformLabel,
+                              })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid content-start gap-2">
+                    <h4 className="text-sm font-semibold">
+                      {t("updates.panel.groupsHeading")}{" "}
+                      <span className="font-normal text-muted-foreground">
+                        {matchingGroups.length}
+                      </span>
+                    </h4>
+                    <div className="grid max-h-64 gap-1 overflow-y-auto">
+                      {matchingGroups.map((group) => (
+                        <Target
+                          key={group.id}
+                          checked={groupIds.includes(group.id)}
+                          label={group.name}
+                          detail={t("updates.panel.groupSize", {
+                            count: group.membershipCount,
+                          })}
+                          onChange={(checked) =>
+                            setGroupIds(
+                              checked
+                                ? [...groupIds, group.id]
+                                : groupIds.filter((id) => id !== group.id),
+                            )
+                          }
+                        />
+                      ))}
+                      {!matchingGroups.length && (
+                        <p className="text-sm text-muted-foreground">
+                          {groups.data?.items?.length
+                            ? t("updates.panel.noGroupMatch")
+                            : t("updates.panel.noGroups")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {(deploy.error || deploySuccess) && (
+                <div className="mt-4 grid gap-3">
+                  <Alert
+                    variant={deploy.error ? "destructive" : "default"}
+                    role={deploy.error ? undefined : "status"}
+                  >
+                    <AlertDescription>
+                      {deploy.error
+                        ? mutationError(deploy.error, tErrors)
+                        : deploySuccess}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+              <div className="mt-3 flex min-h-14 flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <strong className="text-sm font-semibold text-foreground">
+                    {selectedScreens.length === 1
+                      ? t("updates.panel.selectedOne", {
+                          count: selectedScreens.length,
+                        })
+                      : t("updates.panel.selectedOther", {
+                          count: selectedScreens.length,
+                        })}
+                  </strong>
+                  {offlineTargets > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      {t("updates.panel.offlineCount", {
+                        count: offlineTargets,
+                      })}
+                    </span>
+                  )}
+                  {selectionCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setScreenIds([]);
+                        setGroupIds([]);
+                      }}
+                    >
+                      {t("updates.panel.clearSelection")}
+                    </Button>
+                  )}
+                </div>
                 <Button
                   variant="default"
-                  disabled={deploy.isPending}
-                  onClick={() => deploy.mutate()}
+                  disabled={
+                    !releaseId ||
+                    !selectedScreens.length ||
+                    windowMissing ||
+                    deploy.isPending
+                  }
+                  onClick={() => setConfirmDeploy(true)}
                 >
                   {deploy.isPending ? (
                     <Spinner />
                   ) : (
                     <Rocket size={16} aria-hidden="true" />
                   )}
-                  {t("updates.panel.deployAction")}
+                  {deploy.isPending
+                    ? t("updates.panel.creating")
+                    : t("updates.panel.deployAction")}
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </section>
-      )}
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">
-            {t("updates.panel.historyTitle")}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {t("updates.panel.historyHint")}
-          </p>
-        </header>
-        {deployments.error && (
-          <div className="mt-4 grid gap-3">
-            <Alert variant="destructive">
-              <AlertTitle>{t("updates.panel.historyLoadError")}</AlertTitle>
-              <AlertDescription>
-                {mutationError(deployments.error, tErrors)}
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <Table className="w-full min-w-[48rem] text-sm">
-            <caption className="sr-only">
-              {t("updates.panel.historyCaption", {
-                platform: platformLabel,
-              })}
-            </caption>
-            <TableHeader>
-              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
-                <TableHead scope="col" className="px-3 py-2 font-medium">
-                  {t("updates.panel.colDeployment")}
-                </TableHead>
-                <TableHead scope="col" className="px-3 py-2 font-medium">
-                  {t("updates.panel.colStatus")}
-                </TableHead>
-                <TableHead scope="col" className="px-3 py-2 font-medium">
-                  {t("updates.panel.colScreens")}
-                </TableHead>
-                <TableHead scope="col" className="px-3 py-2 font-medium">
-                  {t("updates.panel.colNeeds")}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {platformDeployments.map((item) => {
-                const headline = deploymentHeadline(item);
-                const needsAttention =
-                  item.failedCount > 0 ||
-                  item.waitingForUserCount > 0 ||
-                  item.status === "paused";
-                return (
-                  <TableRow
-                    key={item.id}
-                    className="border-b border-border last:border-0"
-                  >
-                    <TableHead
-                      scope="row"
-                      className="px-3 py-2 text-left font-normal"
-                    >
-                      <strong className="font-semibold">{item.name}</strong>
-                      <small className="block font-mono text-xs text-muted-foreground">
-                        {item.versionName} ({item.versionCode}) ·{" "}
-                        {modeName(item.mode)}
-                      </small>
-                    </TableHead>
-                    <TableCell className="px-3 py-2">
-                      <UpdateStatus value={item.status} />
-                      <small className="block text-xs text-muted-foreground">
-                        {rolloutSummary(item, t)}
-                      </small>
-                    </TableCell>
-                    <TableCell className="px-3 py-2">
-                      <DeploymentMeter compact {...item} />
-                      <small className="text-xs text-muted-foreground">
-                        {outstandingSummary(item, t)}
-                      </small>
-                    </TableCell>
-                    <TableCell className="px-3 py-2">
-                      <span
-                        className={
-                          needsAttention
-                            ? "text-xs font-semibold text-destructive"
-                            : "text-sm"
-                        }
-                      >
-                        {headline}
-                      </span>
-                      {item.lastFailure && (
-                        <small className="block text-xs text-muted-foreground">
-                          {t("updates.panel.lastFailure", {
-                            error: item.lastFailure,
+              </div>
+              <Dialog
+                open={confirmDeploy}
+                onOpenChange={(open) => {
+                  if (!open) setConfirmDeploy(false);
+                }}
+              >
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>{t("updates.panel.confirmTitle")}</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-3 text-sm">
+                    <p>
+                      {selectedScreens.length === 1
+                        ? t("updates.panel.confirmSummaryOne", {
+                            count: selectedScreens.length,
+                            version:
+                              releaseItems.find((item) => item.id === releaseId)
+                                ?.versionName ??
+                              t("updates.panel.versionFallback"),
+                            mode: modeDisplayName.toLowerCase(),
+                          })
+                        : t("updates.panel.confirmSummaryOther", {
+                            count: selectedScreens.length,
+                            version:
+                              releaseItems.find((item) => item.id === releaseId)
+                                ?.versionName ??
+                              t("updates.panel.versionFallback"),
+                            mode: modeDisplayName.toLowerCase(),
                           })}
-                        </small>
+                    </p>
+                    <p>
+                      {platform === "android"
+                        ? t("updates.panel.androidNote")
+                        : t("updates.panel.linuxNote")}
+                    </p>
+                    {offlineTargets > 0 && (
+                      <p>
+                        {offlineTargets === 1
+                          ? t("updates.panel.offlineNoteOne", {
+                              count: offlineTargets,
+                            })
+                          : t("updates.panel.offlineNoteOther", {
+                              count: offlineTargets,
+                            })}
+                      </p>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setConfirmDeploy(false)}
+                    >
+                      {t("common:actions.cancel")}
+                    </Button>
+                    <Button
+                      variant="default"
+                      disabled={deploy.isPending}
+                      onClick={() => deploy.mutate()}
+                    >
+                      {deploy.isPending ? (
+                        <Spinner />
+                      ) : (
+                        <Rocket size={16} aria-hidden="true" />
                       )}
-                      {/* The way in sits with the sentence that gives a reason
+                      {t("updates.panel.deployAction")}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </section>
+          )}
+          <section className="grid gap-3 rounded-xl border border-border p-4">
+            <header className="grid gap-1">
+              <h3 className="text-base font-semibold">
+                {t("updates.panel.historyTitle")}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {t("updates.panel.historyHint")}
+              </p>
+            </header>
+            {deployments.error && (
+              <div className="mt-4 grid gap-3">
+                <Alert variant="destructive">
+                  <AlertTitle>{t("updates.panel.historyLoadError")}</AlertTitle>
+                  <AlertDescription>
+                    {mutationError(deployments.error, tErrors)}
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <Table className="w-full min-w-[48rem] text-sm">
+                <caption className="sr-only">
+                  {t("updates.panel.historyCaption", {
+                    platform: platformLabel,
+                  })}
+                </caption>
+                <TableHeader>
+                  <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                    <TableHead scope="col" className="px-3 py-2 font-medium">
+                      {t("updates.panel.colDeployment")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-3 py-2 font-medium">
+                      {t("updates.panel.colStatus")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-3 py-2 font-medium">
+                      {t("updates.panel.colScreens")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-3 py-2 font-medium">
+                      {t("updates.panel.colNeeds")}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {platformDeployments.map((item) => {
+                    const headline = deploymentHeadline(item);
+                    const needsAttention =
+                      item.failedCount > 0 ||
+                      item.waitingForUserCount > 0 ||
+                      item.status === "paused";
+                    return (
+                      <TableRow
+                        key={item.id}
+                        className="border-b border-border last:border-0"
+                      >
+                        <TableHead
+                          scope="row"
+                          className="px-3 py-2 text-left font-normal"
+                        >
+                          <strong className="font-semibold">{item.name}</strong>
+                          <small className="block font-mono text-xs text-muted-foreground">
+                            {item.versionName} ({item.versionCode}) ·{" "}
+                            {modeName(item.mode)}
+                          </small>
+                        </TableHead>
+                        <TableCell className="px-3 py-2">
+                          <UpdateStatus value={item.status} />
+                          <small className="block text-xs text-muted-foreground">
+                            {rolloutSummary(item, t)}
+                          </small>
+                        </TableCell>
+                        <TableCell className="px-3 py-2">
+                          <DeploymentMeter compact {...item} />
+                          <small className="text-xs text-muted-foreground">
+                            {outstandingSummary(item, t)}
+                          </small>
+                        </TableCell>
+                        <TableCell className="px-3 py-2">
+                          <span
+                            className={
+                              needsAttention
+                                ? "text-xs font-semibold text-destructive"
+                                : "text-sm"
+                            }
+                          >
+                            {headline}
+                          </span>
+                          {item.lastFailure && (
+                            <small className="block text-xs text-muted-foreground">
+                              {t("updates.panel.lastFailure", {
+                                error: item.lastFailure,
+                              })}
+                            </small>
+                          )}
+                          {/* The way in sits with the sentence that gives a reason
                           to take it, which also keeps this table at four
                           columns: a column of its own for one button forced a
                           horizontal scroll in a narrow settings pane. */}
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          setOpenDeployment(item.id);
-                          setDeploymentDrawerOpen(true);
-                        }}
-                      >
-                        <ListChecks size={15} aria-hidden="true" />
-                        {item.targetCount}{" "}
-                        {item.targetCount === 1 ? "screen" : "screens"}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {!deployments.isLoading &&
-                !deployments.error &&
-                platformDeployments.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="px-3 py-4 text-center">
-                      <span className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                        <CheckCircle2 size={18} aria-hidden="true" />
-                        {t("updates.panel.historyEmpty", {
-                          platform: platformLabel,
-                        })}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                )}
-            </TableBody>
-          </Table>
-        </div>
-      </section>
-      {openDeployment && (
-        <UpdateDeploymentDrawer
-          deploymentId={openDeployment}
-          screens={screens.data?.items ?? []}
-          manageable={manageable}
-          open={deploymentDrawerOpen}
-          onOpenChange={setDeploymentDrawerOpen}
-          onOpenChangeComplete={(open) => {
-            if (!open) setOpenDeployment(undefined);
-          }}
-        />
-      )}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setOpenDeployment(item.id);
+                              setDeploymentDrawerOpen(true);
+                            }}
+                          >
+                            <ListChecks size={15} aria-hidden="true" />
+                            {item.targetCount}{" "}
+                            {item.targetCount === 1 ? "screen" : "screens"}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {!deployments.isLoading &&
+                    !deployments.error &&
+                    platformDeployments.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="px-3 py-4 text-center"
+                        >
+                          <span className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                            <CheckCircle2 size={18} aria-hidden="true" />
+                            {t("updates.panel.historyEmpty", {
+                              platform: platformLabel,
+                            })}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+          {openDeployment && (
+            <UpdateDeploymentDrawer
+              deploymentId={openDeployment}
+              screens={screens.data?.items ?? []}
+              manageable={manageable}
+              open={deploymentDrawerOpen}
+              onOpenChange={setDeploymentDrawerOpen}
+              onOpenChangeComplete={(open) => {
+                if (!open) setOpenDeployment(undefined);
+              }}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -1802,6 +1856,24 @@ type ReleaseReadiness = {
   detail: string;
   cacheable: boolean;
 };
+
+function statusBadgeAppearance(tone: ReleaseReadiness["tone"]) {
+  const variants = {
+    success: "secondary",
+    info: "outline",
+    warning: "outline",
+    danger: "destructive",
+    neutral: "outline",
+  } as const;
+  const colors = {
+    success: "text-[var(--tc-status-success)]",
+    info: "text-[var(--tc-status-info)]",
+    warning: "text-[var(--tc-status-warning)]",
+    danger: "",
+    neutral: "text-[var(--tc-status-neutral)]",
+  } as const;
+  return { variant: variants[tone], className: colors[tone] };
+}
 
 // One column replaces the former Verification and Cache pair. A release is only
 // deployable once its manifest signature is verified and the artifact is cached,
@@ -2143,7 +2215,7 @@ function UpdateStatus({ value }: { value: string }) {
             : value === "failed"
               ? t("updates.panel.statusFailed")
               : humanize(value);
-  return <StatusDot tone={tone} label={label} />;
+  return <Badge {...statusBadgeAppearance(tone)}>{label}</Badge>;
 }
 function mutationError(error: unknown, t: TFunction<"errors">): string {
   return error instanceof Error

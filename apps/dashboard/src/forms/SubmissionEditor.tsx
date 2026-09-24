@@ -15,7 +15,7 @@ import type {
 import { api, ApiError } from "../api/client";
 import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
 import {
   FormRenderer,
@@ -439,12 +439,12 @@ export function SubmissionEditor({
           <AlertTitle>{t("editor.leaveTitle")}</AlertTitle>
           <AlertDescription>{t("editor.leaveBody")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
               {t("editor.stay")}
-            </RheaButton>
-            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
               {t("editor.leave")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -499,7 +499,7 @@ export function SubmissionEditor({
 
         {editable ? (
           <div className="flex flex-wrap gap-2">
-            <RheaButton
+            <Button
               type="button"
               variant="secondary"
               disabled={busy !== ""}
@@ -508,9 +508,9 @@ export function SubmissionEditor({
             >
               {busy === "draft" && <Spinner aria-hidden="true" />}
               {t("editor.saveDraft")}
-            </RheaButton>
+            </Button>
             {canSubmit && (
-              <RheaButton
+              <Button
                 type="submit"
                 variant="default"
                 disabled={busy !== ""}
@@ -518,7 +518,7 @@ export function SubmissionEditor({
               >
                 {busy === "submit" && <Spinner aria-hidden="true" />}
                 {submitLabel}
-              </RheaButton>
+              </Button>
             )}
           </div>
         ) : (
@@ -583,13 +583,15 @@ function ErrorSummary({
         <ul className="grid gap-1">
           {invalid.map((field) => (
             <li key={field.key}>
-              <button
+              <Button
                 type="button"
-                className="underline underline-offset-4 hover:text-foreground"
+                variant="link"
+                size="sm"
+                className="h-auto justify-start p-0 text-left whitespace-normal"
                 onClick={() => onSelect(field.key)}
               >
                 {errors[field.key]}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

@@ -1,5 +1,9 @@
 import type { TFunction } from "i18next";
-import type { PlaylistItem, PlaylistItemInput } from "../../api/types";
+import type {
+  AssetStatus,
+  PlaylistItem,
+  PlaylistItemInput,
+} from "../../api/types";
 
 export type PlaylistsT = TFunction<"playlists", undefined>;
 
@@ -94,6 +98,57 @@ export function formatItemDuration(item: PlaylistItem, t: PlaylistsT) {
   }
   if (item.durationMs != null) return formatDuration(item.durationMs, t);
   return t("model.duration.untilSourceEnds");
+}
+
+export function playlistItemTypeLabel(item: PlaylistItem, t: PlaylistsT) {
+  if (item.assetType === "widget") {
+    return item.widgetProvider === "youtube"
+      ? t("model.itemType.youtubeWidget")
+      : t("model.itemType.widget");
+  }
+  if (item.assetType === "video") return t("model.itemType.video");
+  if (item.assetType === "layout") return t("model.itemType.layout");
+  return t("model.itemType.image");
+}
+
+// playlistItemSummary is the single muted metadata line under a timeline row:
+// what the item is, how it transitions in, and whether a video plays sound.
+export function playlistItemSummary(item: PlaylistItem, t: PlaylistsT) {
+  const parts = [
+    playlistItemTypeLabel(item, t),
+    item.usePlayerDefaults
+      ? t("model.duration.playerDefaultsValue")
+      : transitionLabel(item.transition, t),
+  ];
+  if (item.assetType === "video" && !item.usePlayerDefaults) {
+    parts.push(
+      item.audioEnabled ? t("model.summary.audio") : t("model.summary.muted"),
+    );
+  }
+  return parts.join(" · ");
+}
+
+export function assetStatusLabel(status: AssetStatus, t: PlaylistsT) {
+  switch (status) {
+    case "ready":
+      return t("model.assetStatus.ready");
+    case "uploading":
+      return t("model.assetStatus.uploading");
+    case "uploaded":
+      return t("model.assetStatus.uploaded");
+    case "queued":
+      return t("model.assetStatus.queued");
+    case "inspecting":
+      return t("model.assetStatus.inspecting");
+    case "processing":
+      return t("model.assetStatus.processing");
+    case "failed":
+      return t("model.assetStatus.failed");
+    case "deleting":
+      return t("model.assetStatus.deleting");
+    case "deleted":
+      return t("model.assetStatus.deleted");
+  }
 }
 
 export function transitionLabel(transition: PlaylistTransition, t: PlaylistsT) {

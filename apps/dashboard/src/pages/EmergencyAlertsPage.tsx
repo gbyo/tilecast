@@ -21,7 +21,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton, buttonVariants } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Card,
   CardContent,
@@ -439,7 +439,7 @@ export function EmergencyAlertsPage() {
                         </NativeSelectOption>
                       ))}
                     </NativeSelect>
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="outline"
                       size="sm"
@@ -453,7 +453,7 @@ export function EmergencyAlertsPage() {
                     >
                       <Plus data-icon="inline-start" aria-hidden="true" />
                       {t("emergency.monitor.monitorState")}
-                    </RheaButton>
+                    </Button>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="nws-zone">
@@ -485,7 +485,7 @@ export function EmergencyAlertsPage() {
                         </NativeSelectOption>
                       ))}
                     </NativeSelect>
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="outline"
                       size="sm"
@@ -502,7 +502,7 @@ export function EmergencyAlertsPage() {
                     >
                       <Plus data-icon="inline-start" aria-hidden="true" />
                       {t("emergency.monitor.addLocation")}
-                    </RheaButton>
+                    </Button>
                     {zoneOptions.isError && (
                       <FieldError>
                         {t("emergency.monitor.zonesError")}
@@ -519,7 +519,7 @@ export function EmergencyAlertsPage() {
                       {t("emergency.monitor.entireState", {
                         name: areaName(area),
                       })}
-                      <RheaButton
+                      <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
@@ -533,13 +533,13 @@ export function EmergencyAlertsPage() {
                         }
                       >
                         <X aria-hidden="true" />
-                      </RheaButton>
+                      </Button>
                     </Badge>
                   ))}
                   {zones.map((zone) => (
                     <Badge key={zone} variant="secondary" className="pr-0.5">
                       {zoneLabel(zone, zoneOptions.data?.items ?? [], t)}
-                      <RheaButton
+                      <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
@@ -553,7 +553,7 @@ export function EmergencyAlertsPage() {
                         }
                       >
                         <X aria-hidden="true" />
-                      </RheaButton>
+                      </Button>
                     </Badge>
                   ))}
                   {areas.length + zones.length === 0 && (
@@ -639,7 +639,7 @@ export function EmergencyAlertsPage() {
             )}
           </CardContent>
           <CardFooter className="flex-wrap gap-2">
-            <RheaButton
+            <Button
               type="button"
               disabled={!editable || saveMonitor.isPending}
               onClick={() => saveMonitor.mutate()}
@@ -648,8 +648,8 @@ export function EmergencyAlertsPage() {
                 <Spinner data-icon="inline-start" aria-hidden="true" />
               )}
               {t("emergency.monitor.saveMonitor")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               variant="outline"
               disabled={!editable || poll.isPending}
@@ -658,7 +658,7 @@ export function EmergencyAlertsPage() {
               {poll.isPending
                 ? t("emergency.monitor.checking")
                 : t("emergency.monitor.checkNow")}
-            </RheaButton>
+            </Button>
           </CardFooter>
         </Card>
 
@@ -694,7 +694,7 @@ export function EmergencyAlertsPage() {
                     </ItemContent>
                     {editable && (
                       <ItemActions>
-                        <RheaButton
+                        <Button
                           type="button"
                           variant="outline"
                           size="sm"
@@ -706,8 +706,8 @@ export function EmergencyAlertsPage() {
                           }}
                         >
                           {t("common:actions.edit")}
-                        </RheaButton>
-                        <RheaButton
+                        </Button>
+                        <Button
                           type="button"
                           variant="destructive"
                           size="sm"
@@ -724,7 +724,7 @@ export function EmergencyAlertsPage() {
                           }}
                         >
                           {t("common:actions.delete")}
-                        </RheaButton>
+                        </Button>
                       </ItemActions>
                     )}
                   </Item>
@@ -1014,16 +1014,16 @@ export function EmergencyAlertsPage() {
                   </Alert>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  <RheaButton type="submit" disabled={saveRule.isPending}>
+                  <Button type="submit" disabled={saveRule.isPending}>
                     {saveRule.isPending && (
                       <Spinner data-icon="inline-start" aria-hidden="true" />
                     )}
                     {editing
                       ? t("emergency.rules.saveRule")
                       : t("emergency.rules.addRuleButton")}
-                  </RheaButton>
+                  </Button>
                   {editing && (
-                    <RheaButton
+                    <Button
                       type="button"
                       variant="outline"
                       onClick={() => {
@@ -1033,7 +1033,7 @@ export function EmergencyAlertsPage() {
                       }}
                     >
                       {t("common:actions.cancel")}
-                    </RheaButton>
+                    </Button>
                   )}
                 </div>
               </form>

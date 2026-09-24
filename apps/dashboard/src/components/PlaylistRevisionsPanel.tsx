@@ -8,6 +8,7 @@ import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
+import { Skeleton } from "./ui/skeleton";
 import {
   Item,
   ItemActions,
@@ -51,7 +52,7 @@ export function PlaylistRevisionsPanel({
     mutationFn: (revision: number) =>
       api.restorePlaylistRevision(playlistId, revision, csrf),
     onSuccess: (data) => {
-      toast.add({ title: "Playlist revision restored.", type: "success" });
+      toast.add({ title: t("history.restoredToast"), type: "success" });
       setResult(
         data.skippedItems > 0
           ? t("history.restoredWithSkipped", {
@@ -72,7 +73,17 @@ export function PlaylistRevisionsPanel({
   });
 
   if (revisions.isLoading)
-    return <div className="table-loading">{t("history.loading")}</div>;
+    return (
+      <div
+        className="grid gap-2"
+        aria-busy="true"
+        aria-label={t("history.loadingLabel")}
+      >
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+      </div>
+    );
   if (revisions.error)
     return (
       <Alert variant="destructive">
@@ -86,17 +97,19 @@ export function PlaylistRevisionsPanel({
 
   return (
     <section
-      className={`settings-subsection${embedded ? " playlist-history-panel" : ""}`}
+      className="grid gap-4"
       aria-label={embedded ? t("history.panelLabel") : undefined}
     >
       {embedded ? (
-        <p className="playlist-history-panel__intro">
+        <p className="text-sm text-muted-foreground">
           {t("history.intro", { kept: revisions.data?.kept ?? 0 })}
         </p>
       ) : (
-        <header>
-          <h3>{t("history.title")}</h3>
-          <p>{t("history.intro", { kept: revisions.data?.kept ?? 0 })}</p>
+        <header className="grid gap-1">
+          <h3 className="text-sm font-medium">{t("history.title")}</h3>
+          <p className="text-sm text-muted-foreground">
+            {t("history.intro", { kept: revisions.data?.kept ?? 0 })}
+          </p>
         </header>
       )}
 
@@ -160,7 +173,7 @@ export function PlaylistRevisionsPanel({
                       restore.mutate(revision.revision);
                     }}
                   >
-                    <History size={14} /> {t("history.restore")}
+                    <History aria-hidden="true" /> {t("history.restore")}
                   </Button>
                 ) : revision.isCurrent ? (
                   t("history.currentBadge")
@@ -175,7 +188,7 @@ export function PlaylistRevisionsPanel({
 
       {(hiddenRevisionCount > 0 ||
         visibleRevisionCount > initialRevisionCount) && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {hiddenRevisionCount > 0 && (
             <Button
               type="button"

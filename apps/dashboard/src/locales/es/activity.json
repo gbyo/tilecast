@@ -3,7 +3,6 @@
     "loadFailed": "No se pudieron cargar los datos de actividad.",
     "noData": "Sin datos",
     "none": "Ninguno",
-    "noResults": "Sin resultados",
     "loadingActivity": "Cargando actividad",
     "viewDetails": "Ver",
     "detailsUnavailable": "Detalles no disponibles",
@@ -203,7 +202,8 @@
     "timelineDescription": "Eventos importantes de reproducción, recuperación, toma de control y administración.",
     "timelineFilter": "Filtrar la cronología por dominio",
     "all": "Todos",
-    "emptyTimeline": "No hubo eventos importantes en este rango."
+    "emptyTimeline": "No hubo eventos importantes en este rango.",
+    "emptyTimelineTitle": "Sin actividad"
   },
   "uptime": {
     "windows": {
@@ -303,7 +303,8 @@
       "confirmed": "Confirmado",
       "missed": "Perdido",
       "mainReason": "Motivo principal"
-    }
+    },
+    "emptyTitle": "Sin reproducción prevista"
   },
   "incidents": {
     "attentionLabel": "Requiere atención",
@@ -407,7 +408,9 @@
         "auditEmpty": "Ningún cambio administrativo afectó esta pantalla durante el incidente.",
         "screens": "Pantallas afectadas"
       }
-    }
+    },
+    "emptyAttentionTitle": "Sin fallos activos",
+    "emptyTitle": "Sin incidentes"
   },
   "proof": {
     "summaryLabel": "Resumen de prueba de reproducción",
@@ -503,7 +506,8 @@
     "receivedAt": "Recibido {{when}}",
     "sequence": "{{category}} · n.º {{sequence}}",
     "serverAssigned": "servidor",
-    "empty": "Ningún evento técnico de pantalla coincidió con estos filtros."
+    "empty": "Ningún evento técnico de pantalla coincidió con estos filtros.",
+    "emptyTitle": "Sin eventos técnicos"
   },
   "audit": {
     "title": "Registro de auditoría",
@@ -517,7 +521,8 @@
       "summary": "Resumen",
       "details": "Detalles"
     },
-    "empty": "Ningún cambio administrativo coincidió con estos filtros."
+    "empty": "Ningún cambio administrativo coincidió con estos filtros.",
+    "emptyTitle": "Sin cambios administrativos"
   },
   "operations": {
     "title": "Resumen",

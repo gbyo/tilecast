@@ -54,7 +54,7 @@ const preview: BulkPreview = {
   undoWindowMinutes: 15,
 };
 
-// Studio's Select is a Signal combobox, not a native <select>: open it, then
+// Studio's Select is a Base UI combobox, not a native <select>: open it, then
 // click the option.
 async function choose(
   user: ReturnType<typeof userEvent.setup>,

@@ -278,7 +278,16 @@
       "loadingContent": "Cargando contenido…",
       "loadMore": "Cargar más contenido",
       "noMatch": "No hay contenido coincidente",
-      "noMatchHint": "Prueba otra búsqueda o crea contenido nuevo."
+      "noMatchHint": "Prueba otra búsqueda o crea contenido nuevo.",
+      "alreadyAdded": "{{type}} · Ya agregado",
+      "newBadge": "Nuevo",
+      "loadingLabel": "Cargando contenido",
+      "loadErrorHint": "Comprueba la conexión con Tilecast e inténtalo de nuevo.",
+      "emptyTitle": "Aún no hay contenido",
+      "noMatchClearHint": "Prueba otra búsqueda o borra los filtros.",
+      "emptyUploadHint": "Sube imágenes o videos para empezar la biblioteca.",
+      "emptyWidgetHint": "Crea un widget para agregarlo aquí.",
+      "clearFilters": "Borrar filtros"
     },
     "playlist": {
       "addPlaylist": "Agregar lista de reproducción",
@@ -333,21 +342,42 @@
       "sortNewest": "Más recientes",
       "sortOldest": "Más antiguos",
       "sortRecent": "Actualizados recientemente",
-      "clearContentSearch": "Borrar la búsqueda de contenido"
+      "clearContentSearch": "Borrar la búsqueda de contenido",
+      "allTypes": "Todos los tipos"
     },
     "tray": {
       "clearSelection": "Borrar la selección",
       "removeFromSelection": "Quitar {{name}} de la selección",
-      "selectedCount": "{{count}} seleccionados"
+      "selectedCount": "{{count}} seleccionados",
+      "selectedContent": "Contenido seleccionado",
+      "clear": "Borrar"
     },
     "upload": {
       "acceptedHint": "Imágenes y videos · se admiten varios archivos",
       "activeConfirm": "Todavía hay subidas activas. ¿Cerrar esta vista de subidas?",
-      "closeUploads": "Cerrar las subidas",
       "dropHint": "Suelta los archivos aquí o elige archivos",
       "returnToContent": "Volver al contenido",
       "subtitle": "Sube una o más imágenes o videos.",
-      "uploadMedia": "Subir multimedia"
+      "uploadMedia": "Subir multimedia",
+      "newUploadsHint": "Las subidas nuevas quedan seleccionadas y aparecen primero en la <libraryLink>biblioteca</libraryLink>.",
+      "waitingForProcessing": "En espera de procesamiento",
+      "stageProgress": "{{stage}} · {{percent}}%",
+      "processingFailed": "No se pudo procesar el archivo. Revísalo e inténtalo de nuevo.",
+      "uploadFailed": "No se pudo subir el archivo. Revísalo e inténtalo de nuevo.",
+      "dropTitle": "Suelta imágenes o videos aquí",
+      "formatsHint": "JPEG, PNG, WebP, GIF, MP4, MOV, WebM o MKV. Se admiten varios archivos.",
+      "rowWaiting": "En espera de subida · {{size}}",
+      "rowUploading": "Subiendo · {{percent}}% · {{uploaded}} de {{total}}",
+      "processingProgressLabel": "Progreso de procesamiento de {{name}}",
+      "retryUpload": "Reintentar la subida de {{name}}",
+      "dismiss": "Descartar {{name}}",
+      "activeConfirmBody": "Las transferencias siguen en segundo plano, pero esta vista deja de mostrar su progreso.",
+      "dialogDescription": "Las imágenes y los videos subidos aparecen en la biblioteca multimedia cuando termina el procesamiento.",
+      "done": "Listo"
+    },
+    "tabs": {
+      "library": "Biblioteca",
+      "upload": "Subir"
     }
   },
   "widgets": {

@@ -12,18 +12,18 @@ import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { DateInput } from "../../components/date-picker";
-import { Button as RheaButton } from "../../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../../components/ui/checkbox";
+import { Button } from "../../components/ui/button";
+import { Checkbox } from "../../components/ui/checkbox";
 import { Field, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Switch as RheaSwitch } from "../../components/ui/switch";
+import { Switch } from "../../components/ui/switch";
 import type {
   DataSourceDetail,
   StructuredField,
@@ -404,7 +404,7 @@ function MappingSelect({
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <RheaSelect
+      <Select
         items={[
           { value: "", label: "Not used" },
           ...fields.map((field) => ({
@@ -445,7 +445,7 @@ function MappingSelect({
             </SelectItem>
           )}
         </SelectContent>
-      </RheaSelect>
+      </Select>
     </Field>
   );
 }
@@ -729,7 +729,7 @@ export function StructuredDataSourceEditor({
               {t("dataSources.structured.description")}
             </p>
           </div>
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -737,7 +737,7 @@ export function StructuredDataSourceEditor({
             onClick={onClose}
           >
             <X aria-hidden="true" />
-          </RheaButton>
+          </Button>
         </div>
         <div className="grid min-w-0 gap-5">
           <Field>
@@ -804,7 +804,7 @@ export function StructuredDataSourceEditor({
               <FieldLabel htmlFor="structured-presentation">
                 {t("dataSources.structured.presentation")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={configuration.presentation}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -840,7 +840,7 @@ export function StructuredDataSourceEditor({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor="structured-max-items">
@@ -889,7 +889,7 @@ export function StructuredDataSourceEditor({
                       key={field}
                       className="flex items-center gap-2 text-sm"
                     >
-                      <RheaCheckbox
+                      <Checkbox
                         checked={configuration.fields[field]}
                         disabled={readOnly}
                         onCheckedChange={(checked) =>
@@ -936,7 +936,7 @@ export function StructuredDataSourceEditor({
               <FieldLabel htmlFor="structured-sort">
                 {t("dataSources.structured.sort")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={configuration.sort}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -971,7 +971,7 @@ export function StructuredDataSourceEditor({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
           </div>
           {(provider === "json" || provider === "csv") && mapping && (
@@ -1022,7 +1022,7 @@ export function StructuredDataSourceEditor({
                     <FieldLabel htmlFor="csv-delimiter">
                       {t("dataSources.structured.delimiter")}
                     </FieldLabel>
-                    <RheaSelect
+                    <Select
                       value={configuration.delimiter ?? ""}
                       disabled={readOnly}
                       onValueChange={(next) =>
@@ -1058,7 +1058,7 @@ export function StructuredDataSourceEditor({
                           </SelectItem>
                         ))}
                       </SelectContent>
-                    </RheaSelect>
+                    </Select>
                   </Field>
                 )}
                 <div className="grid gap-2">
@@ -1090,7 +1090,7 @@ export function StructuredDataSourceEditor({
                             setValueField(label, event.target.value)
                           }
                         />
-                        <RheaSelect
+                        <Select
                           value={mapping.valueFieldTypes?.[label] ?? "text"}
                           disabled={readOnly}
                           onValueChange={(next) =>
@@ -1129,8 +1129,8 @@ export function StructuredDataSourceEditor({
                               </SelectItem>
                             ))}
                           </SelectContent>
-                        </RheaSelect>
-                        <RheaButton
+                        </Select>
+                        <Button
                           type="button"
                           variant="ghost"
                           size="icon"
@@ -1141,7 +1141,7 @@ export function StructuredDataSourceEditor({
                           onClick={() => removeValueField(label)}
                         >
                           <Trash2 size={15} aria-hidden="true" />
-                        </RheaButton>
+                        </Button>
                       </div>
                     ),
                   )}
@@ -1149,7 +1149,7 @@ export function StructuredDataSourceEditor({
                     unmappedTimestamps.length > 0 &&
                     Object.keys(mapping.valueFields ?? {}).length <
                       maximumValueFields && (
-                      <RheaButton
+                      <Button
                         type="button"
                         variant="ghost"
                         onClick={addTimestampValues}
@@ -1158,12 +1158,12 @@ export function StructuredDataSourceEditor({
                         {t("dataSources.structured.addTimestamps", {
                           count: unmappedTimestamps.length,
                         })}
-                      </RheaButton>
+                      </Button>
                     )}
                   {!readOnly &&
                     Object.keys(mapping.valueFields ?? {}).length <
                       maximumValueFields && (
-                      <RheaButton
+                      <Button
                         type="button"
                         variant="ghost"
                         onClick={() =>
@@ -1176,7 +1176,7 @@ export function StructuredDataSourceEditor({
                       >
                         <Plus size={15} aria-hidden="true" />{" "}
                         {t("dataSources.structured.addValue")}
-                      </RheaButton>
+                      </Button>
                     )}
                 </div>
               </fieldset>
@@ -1185,7 +1185,7 @@ export function StructuredDataSourceEditor({
                   {t("dataSources.structured.dateAware")}
                 </legend>
                 <label className="flex items-start gap-2 text-sm">
-                  <RheaSwitch
+                  <Switch
                     checked={configuration.dateSelection.enabled}
                     disabled={readOnly}
                     onCheckedChange={(checked) =>
@@ -1216,7 +1216,7 @@ export function StructuredDataSourceEditor({
                         <FieldLabel htmlFor="date-format">
                           {t("dataSources.structured.dateFormat")}
                         </FieldLabel>
-                        <RheaSelect
+                        <Select
                           value={configuration.dateSelection.dateFormat}
                           disabled={readOnly}
                           onValueChange={(next) =>
@@ -1258,7 +1258,7 @@ export function StructuredDataSourceEditor({
                               </SelectItem>
                             ))}
                           </SelectContent>
-                        </RheaSelect>
+                        </Select>
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="date-timezone">
@@ -1283,7 +1283,7 @@ export function StructuredDataSourceEditor({
                         <FieldLabel htmlFor="date-mode">
                           {t("dataSources.manual.selection")}
                         </FieldLabel>
-                        <RheaSelect
+                        <Select
                           value={configuration.dateSelection.mode}
                           disabled={readOnly}
                           onValueChange={(next) =>
@@ -1324,13 +1324,13 @@ export function StructuredDataSourceEditor({
                               </SelectItem>
                             ))}
                           </SelectContent>
-                        </RheaSelect>
+                        </Select>
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="date-no-match">
                           {t("dataSources.structured.noMatch")}
                         </FieldLabel>
-                        <RheaSelect
+                        <Select
                           value={configuration.dateSelection.noMatchBehavior}
                           disabled={readOnly}
                           onValueChange={(next) =>
@@ -1372,7 +1372,7 @@ export function StructuredDataSourceEditor({
                               </SelectItem>
                             ))}
                           </SelectContent>
-                        </RheaSelect>
+                        </Select>
                       </Field>
                     </div>
                     {configuration.dateSelection.mode === "custom_range" && (
@@ -1446,7 +1446,7 @@ export function StructuredDataSourceEditor({
                     {/* The wrapping label names the switch; an extra aria-label
                         would double the accessible name. */}
                     <label className="flex items-center gap-2 text-sm">
-                      <RheaSwitch
+                      <Switch
                         checked={configuration.dateSelection.excludePast}
                         disabled={readOnly}
                         onCheckedChange={(checked) =>
@@ -1502,7 +1502,7 @@ export function StructuredDataSourceEditor({
                       }))
                     }
                   />
-                  <RheaSelect
+                  <Select
                     value={filter.operator}
                     disabled={readOnly}
                     onValueChange={(next) =>
@@ -1544,7 +1544,7 @@ export function StructuredDataSourceEditor({
                         </SelectItem>
                       ))}
                     </SelectContent>
-                  </RheaSelect>
+                  </Select>
                   <Input
                     aria-label={t("dataSources.structured.filterValue")}
                     value={filter.value}
@@ -1561,7 +1561,7 @@ export function StructuredDataSourceEditor({
                       }))
                     }
                   />
-                  <RheaButton
+                  <Button
                     type="button"
                     variant="ghost"
                     size="icon"
@@ -1577,11 +1577,11 @@ export function StructuredDataSourceEditor({
                     }
                   >
                     <Trash2 size={15} aria-hidden="true" />
-                  </RheaButton>
+                  </Button>
                 </div>
               ))}
               {!readOnly && (configuration.filters?.length ?? 0) < 8 && (
-                <RheaButton
+                <Button
                   type="button"
                   variant="ghost"
                   onClick={() =>
@@ -1596,7 +1596,7 @@ export function StructuredDataSourceEditor({
                 >
                   <Plus size={15} aria-hidden="true" />{" "}
                   {t("dataSources.structured.addFilter")}
-                </RheaButton>
+                </Button>
               )}
             </div>
           </fieldset>
@@ -1605,7 +1605,7 @@ export function StructuredDataSourceEditor({
               <FieldLabel htmlFor="structured-refresh">
                 {t("dataSources.editor.refreshInterval")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={configuration.refreshIntervalSeconds}
                 disabled={readOnly || Boolean(configuration.uploaded)}
                 onValueChange={(next) =>
@@ -1640,7 +1640,7 @@ export function StructuredDataSourceEditor({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor="structured-empty-state">
@@ -1734,7 +1734,7 @@ export function StructuredDataSourceEditor({
           )}
         </div>
         <footer className="flex flex-wrap items-center gap-2">
-          <RheaButton
+          <Button
             type="button"
             variant="outline"
             disabled={previewMutation.isPending}
@@ -1743,9 +1743,9 @@ export function StructuredDataSourceEditor({
             {previewMutation.isPending
               ? t("dataSources.preview.loading")
               : t("dataSources.preview.mappedData")}
-          </RheaButton>
+          </Button>
           {!readOnly && (
-            <RheaButton
+            <Button
               type="button"
               disabled={save.isPending || !name.trim()}
               onClick={() => save.mutate()}
@@ -1753,7 +1753,7 @@ export function StructuredDataSourceEditor({
               {save.isPending
                 ? t("common:actions.saving")
                 : t("dataSources.editor.save")}
-            </RheaButton>
+            </Button>
           )}
         </footer>
       </section>

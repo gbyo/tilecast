@@ -9,8 +9,8 @@ import { useFormatLocale } from "../i18n";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Empty,
   EmptyDescription,
@@ -200,7 +200,7 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
                 {t("notifications.testHint")}
               </p>
             </div>
-            <RheaButton
+            <Button
               variant="secondary"
               disabled={!emailConfigured || sendTest.isPending}
               onClick={() => {
@@ -212,7 +212,7 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
               {sendTest.isPending
                 ? t("notifications.sending")
                 : t("notifications.sendTest")}
-            </RheaButton>
+            </Button>
           </div>
           {testResult && (
             <p className="text-sm text-muted-foreground">{testResult}</p>
@@ -390,9 +390,9 @@ function WebhookSection({
               />
             </span>
             <div>
-              <RheaButton variant="ghost" onClick={onDismissSecret}>
+              <Button variant="ghost" onClick={onDismissSecret}>
                 {t("integrations.copied")}
-              </RheaButton>
+              </Button>
             </div>
           </AlertDescription>
         </Alert>
@@ -453,16 +453,16 @@ function WebhookSection({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <RheaButton variant="ghost" onClick={() => onTest(webhook.id)}>
+                <Button variant="ghost" onClick={() => onTest(webhook.id)}>
                   <Send size={15} aria-hidden="true" />{" "}
                   {t("notifications.test")}
-                </RheaButton>
-                <RheaButton variant="ghost" onClick={() => onToggle(webhook)}>
+                </Button>
+                <Button variant="ghost" onClick={() => onToggle(webhook)}>
                   {webhook.enabled
                     ? t("notifications.disable")
                     : t("notifications.enable")}
-                </RheaButton>
-                <RheaButton
+                </Button>
+                <Button
                   variant="destructive"
                   onClick={() => onRemove(webhook)}
                   aria-label={t("notifications.removeWebhook", {
@@ -471,7 +471,7 @@ function WebhookSection({
                 >
                   <Trash2 size={15} aria-hidden="true" />{" "}
                   {t("notifications.remove")}
-                </RheaButton>
+                </Button>
               </div>
             </article>
           ))}
@@ -547,7 +547,7 @@ function WebhookSection({
                 orientation="horizontal"
                 className="items-center"
               >
-                <RheaCheckbox
+                <Checkbox
                   id={"webhook-category-" + category}
                   checked={categories.includes(category)}
                   onCheckedChange={(checked) =>
@@ -574,11 +574,11 @@ function WebhookSection({
           </Alert>
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <RheaButton variant="default" type="submit" disabled={creating}>
+          <Button variant="default" type="submit" disabled={creating}>
             {creating
               ? t("notifications.form.adding")
               : t("notifications.form.add")}
-          </RheaButton>
+          </Button>
         </div>
       </form>
     </section>
