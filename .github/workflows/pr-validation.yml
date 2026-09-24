@@ -62,7 +62,10 @@ jobs:
                   server=true
                   container=true
                   ;;
-                apps/dashboard/*|packages/*)
+                apps/dashboard/*)
+                  dashboard=true
+                  ;;
+                packages/*)
                   dashboard=true
                   container=true
                   ;;
