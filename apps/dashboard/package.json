@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "dev": "vite",
     "lint": "eslint . --max-warnings=0",
-    "test": "vitest run"
+    "test": "vitest run",
+    "i18n:scan": "node scripts/i18n-scan.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -22,6 +23,7 @@
     "cmdk": "^1.1.1",
     "cn": "^0.4.0",
     "date-fns": "^4.4.0",
+    "i18next": "^26.4.2",
     "input-otp": "^1.5.0",
     "lucide-react": "^0.525.0",
     "qrcode": "^1.5.4",
@@ -29,6 +31,7 @@
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.83.0",
+    "react-i18next": "^17.0.15",
     "react-resizable-panels": "^4.13.2",
     "react-router": "^8.3.0",
     "recharts": "^3.8.0",

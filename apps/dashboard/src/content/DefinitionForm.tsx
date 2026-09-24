@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import type {
   ContentDefinitionField,
@@ -212,9 +214,12 @@ function preferredExampleType(key: string, types: string[]) {
   return types[0] ?? "text";
 }
 
+type WidgetsT = TFunction<["content", "common"], undefined>;
+
 export function dataFormatGuideFor(
   sourceField: ContentDefinitionField,
   fields: ContentDefinitionField[],
+  t?: WidgetsT,
 ): DataFormatGuide {
   const sourceFields = fields.filter(
     (candidate) => candidate.control === "data_source",
@@ -269,27 +274,31 @@ export function dataFormatGuideFor(
   const shape = kinds
     .map((kind) =>
       kind === "records"
-        ? "record rows"
+        ? (t?.("widgets.form.guide.shapeRecords") ?? "record rows")
         : kind === "object"
-          ? "a single object"
+          ? (t?.("widgets.form.guide.shapeObject") ?? "a single object")
           : kind === "time_series"
-            ? "a time series"
+            ? (t?.("widgets.form.guide.shapeTimeSeries") ?? "a time series")
             : kind.replaceAll("_", " "),
     )
-    .join(" or ");
+    .join(t?.("widgets.form.guide.or") ?? " or ");
   const example = Object.fromEntries(
     deduplicated.map((field) => {
       const type = preferredExampleType(field.key, field.types);
       return [field.key, exampleValue(field.key, type)];
     }),
   );
-  if (Object.keys(example).length === 0) example.title = "Example information";
+  if (Object.keys(example).length === 0)
+    example.title =
+      t?.("widgets.form.guide.exampleTitle") ?? "Example information";
   return {
     shape: shape[0]!.toUpperCase() + shape.slice(1),
     summary:
       deduplicated.length > 0
-        ? "Use these field roles and types. Field names can differ because you map them below."
-        : "Use one item per row; after connecting the source, choose which fields appear.",
+        ? (t?.("widgets.form.guide.summaryMapped") ??
+          "Use these field roles and types. Field names can differ because you map them below.")
+        : (t?.("widgets.form.guide.summaryUnmapped") ??
+          "Use one item per row; after connecting the source, choose which fields appear."),
     fields: deduplicated,
     example,
   };
@@ -318,6 +327,7 @@ function DefinitionControl({
   dataSourceDefinitions: DataSourceDefinition[];
   assets: { id: string; name: string; type: string }[];
 }) {
+  const { t } = useTranslation(["content", "common"]);
   // A field picker resolves against the source chosen by its own `data_source` control, not a
   // hardcoded `dataSourceId`, so a definition may reference several Data Sources.
   const fieldSourceKey =
@@ -344,7 +354,7 @@ function DefinitionControl({
         value={fieldText(value)}
         sources={compatibleSources(field, dataSources, dataSourceDefinitions)}
         createProviders={creatableProviders(field, dataSourceDefinitions)}
-        formatGuide={dataFormatGuideFor(field, fields)}
+        formatGuide={dataFormatGuideFor(field, fields, t)}
         csrf={csrf}
         disabled={readOnly}
         required={field.required}
@@ -413,8 +423,8 @@ function DefinitionControl({
               .map((asset) => ({ value: asset.id, label: asset.name }));
     const placeholder =
       field.control === "data_source_field" && !fieldSourceID
-        ? "Select a Data Source first"
-        : "Select…";
+        ? t("widgets.form.selectSourceFirst")
+        : t("widgets.form.selectPlaceholder");
     const labeledOptions = [{ value: "", label: placeholder }, ...options];
     return (
       <Field>
@@ -468,7 +478,10 @@ function DefinitionControl({
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label={`Remove ${field.label} item ${index + 1}`}
+                aria-label={t("widgets.form.removeItem", {
+                  label: field.label,
+                  index: index + 1,
+                })}
                 onClick={() =>
                   setValue(items.filter((_, current) => current !== index))
                 }
@@ -484,7 +497,7 @@ function DefinitionControl({
             variant="outline"
             onClick={() => setValue([...items, {}])}
           >
-            <Plus size={15} aria-hidden="true" /> Add item
+            <Plus size={15} aria-hidden="true" /> {t("widgets.form.addItem")}
           </RheaButton>
         )}
       </fieldset>

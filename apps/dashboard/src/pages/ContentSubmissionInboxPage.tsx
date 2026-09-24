@@ -5,6 +5,8 @@ import {
   useTable,
 } from "@tanstack/react-table";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trans, useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Link } from "react-router";
 import { Check, Clock3, Inbox, Send, Undo2 } from "lucide-react";
 import { toast } from "../components/ui/toast";
@@ -55,20 +57,38 @@ import {
 } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
 
-const filters: { value: "" | SubmissionStatus; label: string }[] = [
-  { value: "in_review", label: "Needs review" },
-  { value: "changes_requested", label: "Changes requested" },
-  { value: "approved", label: "Approved" },
-  { value: "scheduled", label: "Scheduled" },
-  { value: "publication_failed", label: "Publication failed" },
-  { value: "published", label: "Published" },
-  { value: "", label: "All history" },
-];
+const filterDefs = [
+  { value: "in_review", labelKey: "submissions.filters.needsReview" },
+  {
+    value: "changes_requested",
+    labelKey: "submissions.filters.changesRequested",
+  },
+  { value: "approved", labelKey: "submissions.filters.approved" },
+  { value: "scheduled", labelKey: "submissions.filters.scheduled" },
+  {
+    value: "publication_failed",
+    labelKey: "submissions.filters.publicationFailed",
+  },
+  { value: "published", labelKey: "submissions.filters.published" },
+  { value: "", labelKey: "submissions.filters.allHistory" },
+] as const;
+
+const statusKeys = {
+  in_review: "submissions.status.inReview",
+  changes_requested: "submissions.status.changesRequested",
+  approved: "submissions.status.approved",
+  scheduled: "submissions.status.scheduled",
+  published: "submissions.status.published",
+  superseded: "submissions.status.superseded",
+  cancelled: "submissions.status.cancelled",
+  publication_failed: "submissions.status.publicationFailed",
+} as const satisfies Record<SubmissionStatus, string>;
 
 const features = tableFeatures({});
 const columnHelper = createColumnHelper<typeof features, ContentSubmission>();
 
 export function ContentSubmissionInboxPage() {
+  const { t } = useTranslation(["review", "common"]);
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const role = auth.status?.user?.role ?? "viewer";
@@ -99,8 +119,16 @@ export function ContentSubmissionInboxPage() {
       invalidate();
       setNotes((current) => ({ ...current, [item.id]: "" }));
       if (selectedId === item.id) setDetailsOpen(false);
-      toast.add({ title: "Submission approved.", type: "success" });
+      toast.add({ title: t("submissions.toast.approved"), type: "success" });
     },
+    onError: (err) =>
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.approveFailed"),
+        type: "error",
+      }),
   });
   const requestChanges = useMutation({
     mutationFn: (item: ContentSubmission) =>
@@ -111,8 +139,19 @@ export function ContentSubmissionInboxPage() {
       setRejectId(null);
       setRejectNote("");
       if (selectedId === item.id) setDetailsOpen(false);
-      toast.add({ title: "Changes requested.", type: "success" });
+      toast.add({
+        title: t("submissions.toast.changesRequested"),
+        type: "success",
+      });
     },
+    onError: (err) =>
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.requestChangesFailed"),
+        type: "error",
+      }),
   });
   const publish = useMutation({
     mutationFn: (item: ContentSubmission) =>
@@ -120,8 +159,16 @@ export function ContentSubmissionInboxPage() {
     onSuccess: (_data, item) => {
       invalidate();
       if (selectedId === item.id) setDetailsOpen(false);
-      toast.add({ title: "Submission published.", type: "success" });
+      toast.add({ title: t("submissions.toast.published"), type: "success" });
     },
+    onError: (err) =>
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.publishFailed"),
+        type: "error",
+      }),
   });
   const schedulePublication = useMutation({
     mutationFn: (item: ContentSubmission) =>
@@ -134,16 +181,35 @@ export function ContentSubmissionInboxPage() {
       invalidate();
       setSchedule((current) => ({ ...current, [item.id]: "" }));
       if (selectedId === item.id) setDetailsOpen(false);
-      toast.add({ title: "Publication scheduled.", type: "success" });
+      toast.add({ title: t("submissions.toast.scheduled"), type: "success" });
     },
+    onError: (err) =>
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.scheduleFailed"),
+        type: "error",
+      }),
   });
   const cancelSchedule = useMutation({
     mutationFn: (item: ContentSubmission) =>
       api.cancelContentSchedule(item.id, csrf),
     onSuccess: () => {
       invalidate();
-      toast.add({ title: "Schedule cancelled.", type: "success" });
+      toast.add({
+        title: t("submissions.toast.scheduleCancelled"),
+        type: "success",
+      });
     },
+    onError: (err) =>
+      toast.add({
+        title:
+          err instanceof Error
+            ? err.message
+            : t("submissions.toast.cancelScheduleFailed"),
+        type: "error",
+      }),
   });
   const error =
     approve.error ||
@@ -165,7 +231,7 @@ export function ContentSubmissionInboxPage() {
       columnHelper.columns([
         columnHelper.display({
           id: "submission",
-          header: "Submission",
+          header: t("submissions.table.submission"),
           cell: ({ row }) => {
             const item = row.original;
             return (
@@ -178,9 +244,11 @@ export function ContentSubmissionInboxPage() {
                   {item.contentId.slice(0, 8)}
                 </Link>
                 <span className="text-xs text-muted-foreground">
-                  Draft revision {item.workingRevision} · submitted{" "}
-                  {new Date(item.submittedAt).toLocaleString()}{" "}
-                  {item.submitterName ? `by ${item.submitterName}` : ""}
+                  {submissionMeta(
+                    t,
+                    item,
+                    new Date(item.submittedAt).toLocaleString(),
+                  )}
                 </span>
               </div>
             );
@@ -188,19 +256,23 @@ export function ContentSubmissionInboxPage() {
         }),
         columnHelper.display({
           id: "status",
-          header: "Status",
+          header: t("submissions.table.status"),
           cell: ({ row }) => <SubmissionBadge status={row.original.status} />,
         }),
         columnHelper.display({
           id: "impact",
-          header: "Impact",
+          header: t("submissions.table.impact"),
           cell: ({ row }) => {
             const item = row.original;
             return (
               <span className="text-muted-foreground">
-                Published revision {item.currentPublishedRevision ?? "none"} ·{" "}
-                {item.affectedScreenCount} screens across{" "}
-                {item.affectedLocationCount} locations
+                {t("submissions.itemImpact", {
+                  published:
+                    item.currentPublishedRevision ??
+                    t("submissions.detail.noRevision"),
+                  screens: item.affectedScreenCount,
+                  locations: item.affectedLocationCount,
+                })}
               </span>
             );
           },
@@ -218,12 +290,12 @@ export function ContentSubmissionInboxPage() {
                 setDetailsOpen(true);
               }}
             >
-              Review
+              {t("submissions.table.reviewAction")}
             </Button>
           ),
         }),
       ]),
-    [],
+    [t],
   );
   const table = useTable({
     features,
@@ -235,41 +307,57 @@ export function ContentSubmissionInboxPage() {
   return (
     <section className="grid gap-4">
       <PageHeader
-        title="Content review"
-        description="Every submission freezes the exact draft a reviewer saw. Publishing creates a new immutable runtime revision; later edits stay private until submitted again."
+        title={t("submissions.title")}
+        description={t("submissions.description")}
         actions={
           <Link
             className={buttonVariants({ variant: "secondary" })}
             to="/content-review"
           >
-            Open legacy revision queue
+            {t("submissions.openLegacyQueue")}
           </Link>
         }
       />
       {query.data && (
         <Alert role="status">
           <AlertDescription>
-            Policy: <strong>{query.data.policy}</strong>. Self-approval is{" "}
-            {query.data.allowSelfApproval ? "allowed" : "disabled"}; approved
-            submissions{" "}
-            {query.data.autoPublishOnApproval
-              ? "publish automatically"
-              : "wait for an explicit publish or schedule action"}
-            .
+            <Trans
+              i18nKey="submissions.policyNotice"
+              ns="review"
+              values={{
+                policy: query.data.policy,
+                selfApproval: t(
+                  query.data.allowSelfApproval
+                    ? "submissions.policy.selfApprovalAllowed"
+                    : "submissions.policy.selfApprovalDisabled",
+                ),
+                behavior: t(
+                  query.data.autoPublishOnApproval
+                    ? "submissions.policy.behaviorAuto"
+                    : "submissions.policy.behaviorManual",
+                ),
+              }}
+              components={{ strong: <strong /> }}
+            />
           </AlertDescription>
         </Alert>
       )}
       <ViewTabs
-        label="Submission state"
+        label={t("submissions.filterLabel")}
         value={filter}
-        items={filters}
+        items={filterDefs.map((def) => ({
+          value: def.value,
+          label: t(def.labelKey),
+        }))}
         onValueChange={setFilter}
       />
       {query.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading submissions…</p>
+        <p className="text-sm text-muted-foreground">
+          {t("submissions.loading")}
+        </p>
       ) : query.error ? (
         <Alert variant="destructive">
-          <AlertTitle>Could not load submissions</AlertTitle>
+          <AlertTitle>{t("submissions.loadErrorTitle")}</AlertTitle>
           <AlertDescription>{query.error.message}</AlertDescription>
         </Alert>
       ) : !items.length ? (
@@ -278,9 +366,9 @@ export function ContentSubmissionInboxPage() {
             <EmptyMedia variant="icon">
               <Inbox size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No submissions match this view</EmptyTitle>
+            <EmptyTitle>{t("submissions.emptyTitle")}</EmptyTitle>
             <EmptyDescription>
-              Submissions appear here once content is submitted for review.
+              {t("submissions.emptyDescription")}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -340,31 +428,46 @@ export function ContentSubmissionInboxPage() {
                 {selected.contentId.slice(0, 8)}
               </SheetTitle>
               <SheetDescription>
-                Draft revision {selected.workingRevision} · submitted{" "}
-                {new Date(selected.submittedAt).toLocaleString()}{" "}
-                {selected.submitterName ? `by ${selected.submitterName}` : ""}
+                {submissionMeta(
+                  t,
+                  selected,
+                  new Date(selected.submittedAt).toLocaleString(),
+                )}
               </SheetDescription>
             </SheetHeader>
             <dl className="grid gap-2 text-sm">
               <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">Status</dt>
+                <dt className="text-muted-foreground">
+                  {t("submissions.detail.status")}
+                </dt>
                 <dd>
                   <SubmissionBadge status={selected.status} />
                 </dd>
               </div>
               <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">Published revision</dt>
-                <dd>{selected.currentPublishedRevision ?? "none"}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">Impact</dt>
+                <dt className="text-muted-foreground">
+                  {t("submissions.detail.publishedRevision")}
+                </dt>
                 <dd>
-                  {selected.affectedScreenCount} screens across{" "}
-                  {selected.affectedLocationCount} locations
+                  {selected.currentPublishedRevision ??
+                    t("submissions.detail.noRevision")}
                 </dd>
               </div>
               <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">Snapshot SHA-256</dt>
+                <dt className="text-muted-foreground">
+                  {t("submissions.detail.impact")}
+                </dt>
+                <dd>
+                  {t("submissions.detail.coverage", {
+                    screens: selected.affectedScreenCount,
+                    locations: selected.affectedLocationCount,
+                  })}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-muted-foreground">
+                  {t("submissions.detail.snapshotHash")}
+                </dt>
                 <dd>
                   <code className="text-xs break-all">
                     {selected.snapshotSha256}
@@ -373,18 +476,20 @@ export function ContentSubmissionInboxPage() {
               </div>
               {selected.newerWorkingDraft && (
                 <p className="text-sm text-muted-foreground">
-                  A newer private draft exists.
+                  {t("submissions.detail.newerDraft")}
                 </p>
               )}
               {selected.reviewNote && (
                 <p className="text-sm text-muted-foreground">
-                  Review note: {selected.reviewNote}
+                  {t("submissions.detail.reviewNote", {
+                    note: selected.reviewNote,
+                  })}
                 </p>
               )}
             </dl>
             <Collapsible className="grid gap-2">
               <CollapsibleTrigger className="w-fit cursor-pointer text-sm font-medium underline-offset-4 hover:underline">
-                View exact submitted snapshot
+                {t("submissions.detail.viewSnapshot")}
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
@@ -396,13 +501,13 @@ export function ContentSubmissionInboxPage() {
               <div className="grid gap-2">
                 <Field>
                   <FieldLabel htmlFor="submission-review-note">
-                    Review note
+                    {t("submissions.reviewForm.noteLabel")}
                   </FieldLabel>
                   <Textarea
                     id="submission-review-note"
                     rows={2}
                     value={notes[selected.id] ?? ""}
-                    placeholder="Optional note recorded with approval"
+                    placeholder={t("submissions.reviewForm.notePlaceholder")}
                     onChange={(event) =>
                       setNotes({ ...notes, [selected.id]: event.target.value })
                     }
@@ -413,7 +518,8 @@ export function ContentSubmissionInboxPage() {
                     disabled={busy}
                     onClick={() => approve.mutate(selected)}
                   >
-                    <Check size={15} aria-hidden="true" /> Approve
+                    <Check size={15} aria-hidden="true" />{" "}
+                    {t("submissions.reviewForm.approve")}
                   </Button>
                   <Button
                     variant="secondary"
@@ -423,7 +529,8 @@ export function ContentSubmissionInboxPage() {
                       setRejectId(selected.id);
                     }}
                   >
-                    <Undo2 size={15} aria-hidden="true" /> Request changes
+                    <Undo2 size={15} aria-hidden="true" />{" "}
+                    {t("submissions.reviewForm.requestChanges")}
                   </Button>
                 </div>
               </div>
@@ -468,7 +575,7 @@ export function ContentSubmissionInboxPage() {
                   disabled={busy}
                   onClick={() => cancelSchedule.mutate(selected)}
                 >
-                  Cancel schedule
+                  {t("submissions.detail.cancelSchedule")}
                 </Button>
               )}
             <p className="text-sm">
@@ -476,7 +583,7 @@ export function ContentSubmissionInboxPage() {
                 to={contentHref(selected)}
                 className="font-medium text-primary hover:underline"
               >
-                Open content
+                {t("submissions.detail.openContent")}
               </Link>
             </p>
           </SheetContent>
@@ -493,24 +600,24 @@ export function ContentSubmissionInboxPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Request changes</DialogTitle>
+            <DialogTitle>{t("submissions.rejectDialog.title")}</DialogTitle>
             <DialogDescription>
-              A reason is required so the author knows what to fix.
+              {t("submissions.rejectDialog.description")}
             </DialogDescription>
           </DialogHeader>
           <Field>
             <FieldLabel htmlFor="submission-reject-note">
-              Reason for sending back
+              {t("submissions.rejectDialog.reasonLabel")}
             </FieldLabel>
             <Textarea
               id="submission-reject-note"
               rows={3}
               value={rejectNote}
-              placeholder="What must change before this can be approved?"
+              placeholder={t("submissions.rejectDialog.reasonPlaceholder")}
               onChange={(event) => setRejectNote(event.target.value)}
             />
             <FieldDescription>
-              Recorded with the decision and shown to the author.
+              {t("submissions.rejectDialog.reasonHint")}
             </FieldDescription>
           </Field>
           <DialogFooter>
@@ -522,7 +629,7 @@ export function ContentSubmissionInboxPage() {
                 setRejectNote("");
               }}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               disabled={requestChanges.isPending || !rejectNote.trim()}
@@ -530,7 +637,8 @@ export function ContentSubmissionInboxPage() {
                 if (rejectItem) requestChanges.mutate(rejectItem);
               }}
             >
-              <Undo2 size={15} aria-hidden="true" /> Send back
+              <Undo2 size={15} aria-hidden="true" />{" "}
+              {t("submissions.rejectDialog.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -553,24 +661,28 @@ function PublishActions({
   schedulePublication: () => void;
   disabled: boolean;
 }) {
+  const { t } = useTranslation("review");
   return (
     <div className="grid gap-2">
       <div className="flex flex-wrap gap-2">
         <Button disabled={disabled} onClick={publish}>
-          <Send size={15} aria-hidden="true" /> Publish now
+          <Send size={15} aria-hidden="true" />{" "}
+          {t("submissions.publish.publishNow")}
         </Button>
       </div>
       <Field>
-        <FieldLabel htmlFor="submission-publish-at">Publish at</FieldLabel>
+        <FieldLabel htmlFor="submission-publish-at">
+          {t("submissions.publish.publishAtLabel")}
+        </FieldLabel>
         <DateTimeInput
           id="submission-publish-at"
           aria-label="Publish at"
-          timeLabel="Publication time"
+          timeLabel={t("submissions.publish.publishAtTimeLabel")}
           value={schedule}
           onChange={onSchedule}
         />
         <FieldDescription>
-          Schedule publication for a future date and time.
+          {t("submissions.publish.publishAtHint")}
         </FieldDescription>
       </Field>
       <div className="flex flex-wrap gap-2">
@@ -579,7 +691,8 @@ function PublishActions({
           disabled={disabled || !schedule}
           onClick={schedulePublication}
         >
-          <Clock3 size={15} aria-hidden="true" /> Schedule
+          <Clock3 size={15} aria-hidden="true" />{" "}
+          {t("submissions.publish.schedule")}
         </Button>
       </div>
     </div>
@@ -594,20 +707,26 @@ function contentHref(item: ContentSubmission) {
       : `/campaigns/${item.contentId}`;
 }
 
-function statusLabel(status: SubmissionStatus) {
-  return {
-    in_review: "Needs review",
-    changes_requested: "Changes requested",
-    approved: "Approved",
-    scheduled: "Scheduled",
-    published: "Published",
-    superseded: "Superseded",
-    cancelled: "Cancelled",
-    publication_failed: "Publication failed",
-  }[status];
+function submissionMeta(
+  t: TFunction<"review">,
+  item: ContentSubmission,
+  submittedAt: string,
+): string {
+  if (item.submitterName) {
+    return t("submissions.itemMetaWithSubmitter", {
+      revision: item.workingRevision,
+      submittedAt,
+      submitter: item.submitterName,
+    });
+  }
+  return t("submissions.itemMeta", {
+    revision: item.workingRevision,
+    submittedAt,
+  });
 }
 
 function SubmissionBadge({ status }: { status: SubmissionStatus }) {
+  const { t } = useTranslation("review");
   const variant =
     status === "published"
       ? "default"
@@ -616,5 +735,5 @@ function SubmissionBadge({ status }: { status: SubmissionStatus }) {
         : status === "approved" || status === "scheduled"
           ? "secondary"
           : "outline";
-  return <Badge variant={variant}>{statusLabel(status)}</Badge>;
+  return <Badge variant={variant}>{t(statusKeys[status])}</Badge>;
 }

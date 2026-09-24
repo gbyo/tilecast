@@ -1,7 +1,10 @@
 import { Upload, X } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../../api/client";
 import type { Asset } from "../../api/types";
+import { apiErrorMessage } from "../../i18n";
 import { useConfirm } from "../ConfirmDialog";
 import { Button } from "../ui/button";
 import { droppedFiles } from "../content/dragDrop";
@@ -15,13 +18,25 @@ type UploadItem = {
   error?: string;
 };
 
+function uploadStateLabel(
+  state: UploadItem["state"],
+  t: TFunction<["content", "common"]>,
+) {
+  return {
+    waiting: t("media.status.waiting"),
+    uploading: t("media.status.uploading"),
+    processing: t("media.status.processing"),
+    failed: t("media.status.failed"),
+  }[state];
+}
+
 const accepted =
   "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-matroska";
 const chunkSize = 4 * 1024 * 1024;
 
 export function UploadContentDialog({
   csrf,
-  closeLabel = "Return to content",
+  closeLabel,
   onCreated,
   onClose,
 }: {
@@ -30,10 +45,13 @@ export function UploadContentDialog({
   onCreated: (asset: Asset) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
+  const { t: tErrors } = useTranslation("errors");
   const [items, setItems] = useState<UploadItem[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const resolvedCloseLabel = closeLabel ?? t("picker.upload.returnToContent");
   const active = items.some((item) =>
     ["waiting", "uploading"].includes(item.state),
   );
@@ -43,8 +61,8 @@ export function UploadContentDialog({
       return;
     }
     void confirm({
-      title: "Uploads are still active. Close this upload view?",
-      action: "Close",
+      title: t("picker.upload.activeConfirm"),
+      action: t("common:actions.close"),
     }).then((ok) => {
       if (ok) onClose();
     });
@@ -86,7 +104,10 @@ export function UploadContentDialog({
     } catch (error) {
       update(id, {
         state: "failed",
-        error: error instanceof Error ? error.message : "Upload failed.",
+        error:
+          error instanceof Error
+            ? apiErrorMessage(error)
+            : tErrors("fallback.uploadFailed"),
       });
     }
   };
@@ -145,14 +166,16 @@ export function UploadContentDialog({
         >
           <header>
             <div>
-              <h3 id="upload-content-title">Upload media</h3>
-              <p>Upload one or more images or videos.</p>
+              <h3 id="upload-content-title">
+                {t("picker.upload.uploadMedia")}
+              </h3>
+              <p>{t("picker.upload.subtitle")}</p>
             </div>
             <Button
               autoFocus
               variant="ghost"
               size="icon-sm"
-              aria-label="Close uploads"
+              aria-label={t("picker.upload.closeUploads")}
               onClick={close}
             >
               <X size={18} />
@@ -166,8 +189,8 @@ export function UploadContentDialog({
             onDrop={drop}
           >
             <Upload size={24} />
-            <strong>Drop files here or choose files</strong>
-            <span>Images and videos · multiple files supported</span>
+            <strong>{t("picker.upload.dropHint")}</strong>
+            <span>{t("picker.upload.acceptedHint")}</span>
           </button>
           <input
             ref={input}
@@ -182,7 +205,7 @@ export function UploadContentDialog({
               <div key={item.id}>
                 <span>
                   <strong>{item.name}</strong>
-                  <small>{item.error ?? item.state}</small>
+                  <small>{item.error ?? uploadStateLabel(item.state, t)}</small>
                 </span>
                 <progress value={item.uploaded} max={item.size} />
               </div>
@@ -190,7 +213,7 @@ export function UploadContentDialog({
           </div>
           <footer>
             <Button variant="secondary" onClick={close}>
-              {closeLabel}
+              {resolvedCloseLabel}
             </Button>
           </footer>
         </section>

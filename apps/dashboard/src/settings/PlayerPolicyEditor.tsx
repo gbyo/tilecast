@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, Search } from "lucide-react";
 import { api } from "../api/client";
 import type { SettingDefinition } from "../api/types";
+import type { TFunction } from "i18next";
 import { useAuth } from "../auth/AuthProvider";
 import { SettingControl } from "./SettingControl";
-import { descriptionFor, enumLabel } from "./settingDisplay";
+import { descriptionFor, enumLabel, titleFor } from "./settingDisplay";
 import { normalizeSettingValues } from "./settingValues";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import {
@@ -33,49 +35,73 @@ import {
 import { Field, FieldLabel } from "../components/ui/field";
 import { Switch as RheaSwitch } from "../components/ui/switch";
 
-const policyGroups = [
+type PolicyGroupTitleKey =
+  | "policies.groups.playback.title"
+  | "policies.groups.storage.title"
+  | "policies.groups.sync.title"
+  | "policies.groups.websites.title"
+  | "policies.groups.reliability.title"
+  | "policies.groups.power.title"
+  | "policies.groups.accessibility.title"
+  | "policies.groups.updates.title";
+type PolicyGroupDescriptionKey =
+  | "policies.groups.playback.description"
+  | "policies.groups.storage.description"
+  | "policies.groups.sync.description"
+  | "policies.groups.websites.description"
+  | "policies.groups.reliability.description"
+  | "policies.groups.power.description"
+  | "policies.groups.accessibility.description"
+  | "policies.groups.updates.description";
+
+// Group headings hold translation keys, never rendered text. The titleKey
+// doubles as the stable identifier for expansion state.
+const policyGroups: {
+  titleKey: PolicyGroupTitleKey;
+  descriptionKey: PolicyGroupDescriptionKey;
+  prefixes: readonly string[];
+}[] = [
   {
-    title: "Playback",
-    description: "Default presentation and volume behavior.",
+    titleKey: "policies.groups.playback.title",
+    descriptionKey: "policies.groups.playback.description",
     prefixes: ["player.playback."],
   },
   {
-    title: "Storage and downloads",
-    description: "Local cache limits and content delivery behavior.",
+    titleKey: "policies.groups.storage.title",
+    descriptionKey: "policies.groups.storage.description",
     prefixes: ["player.cache.", "player.download."],
   },
   {
-    title: "Synchronization",
-    description: "Server reconciliation, status, and diagnostics.",
+    titleKey: "policies.groups.sync.title",
+    descriptionKey: "policies.groups.sync.description",
     prefixes: ["player.sync.", "player.identify."],
   },
   {
-    title: "Websites",
-    description: "Timeout, cookies, and local website data behavior.",
+    titleKey: "policies.groups.websites.title",
+    descriptionKey: "policies.groups.websites.description",
     prefixes: ["player.website."],
   },
   {
-    title: "Reliability and kiosk",
-    description:
-      "Shared recovery plus platform-specific Android and Linux kiosk behavior.",
+    titleKey: "policies.groups.reliability.title",
+    descriptionKey: "policies.groups.reliability.description",
     prefixes: ["reliability.", "managed_kiosk.", "linux_kiosk."],
   },
   {
-    title: "Active hours and power",
-    description: "Operating hours, sleep requests, and black-screen fallback.",
+    titleKey: "policies.groups.power.title",
+    descriptionKey: "policies.groups.power.description",
     prefixes: ["power."],
   },
   {
-    title: "Accessibility control",
-    description: "Automatic return behavior and safe maintenance exclusions.",
+    titleKey: "policies.groups.accessibility.title",
+    descriptionKey: "policies.groups.accessibility.description",
     prefixes: ["accessibility."],
   },
   {
-    title: "Player updates",
-    description: "Screen-specific update download and installation behavior.",
+    titleKey: "policies.groups.updates.title",
+    descriptionKey: "policies.groups.updates.description",
     prefixes: ["player.update."],
   },
-] as const;
+];
 
 export function PlayerPolicyEditor({
   target,
@@ -86,6 +112,7 @@ export function PlayerPolicyEditor({
   id: string;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const manageable = ["owner", "administrator"].includes(
     auth.status?.user?.role ?? "",
@@ -125,7 +152,7 @@ export function PlayerPolicyEditor({
               group.prefixes.some((prefix) => key.startsWith(prefix)),
             ),
           )
-          .map((group) => group.title),
+          .map((group) => group.titleKey),
       ),
     );
     initializedRevision.current = policy.data.revision;
@@ -213,12 +240,14 @@ export function PlayerPolicyEditor({
     <section className="space-y-4" aria-labelledby="player-policy-title">
       <header className="space-y-1">
         <h2 id="player-policy-title" className="text-lg font-medium">
-          {target === "screen" ? "Screen behavior" : "Player policy"}
+          {target === "screen"
+            ? t("policies.title.screen")
+            : t("policies.title.group")}
         </h2>
         <p className="text-sm text-muted-foreground">
           {target === "group"
-            ? "Override organization defaults for this Display Group."
-            : "Override inherited playback and device behavior for this screen only."}
+            ? t("policies.description.group")
+            : t("policies.description.screen")}
         </p>
       </header>
 
@@ -230,8 +259,8 @@ export function PlayerPolicyEditor({
           <InputGroupInput
             type="search"
             value={search}
-            placeholder="Search settings"
-            aria-label="Search player settings"
+            placeholder={t("policies.searchPlaceholder")}
+            aria-label={t("policies.searchLabel")}
             onChange={(event) => setSearch(event.target.value)}
           />
         </InputGroup>
@@ -240,16 +269,17 @@ export function PlayerPolicyEditor({
             id="player-settings-overridden-only"
             checked={overriddenOnly}
             onCheckedChange={setOverriddenOnly}
+            aria-label={t("policies.overriddenOnly")}
           />
           <FieldLabel
             htmlFor="player-settings-overridden-only"
             className="font-normal"
           >
-            Overridden only
+            {t("policies.overriddenOnly")}
           </FieldLabel>
         </Field>
         <Badge variant="secondary">
-          {overrideCount} {overrideCount === 1 ? "override" : "overrides"}
+          {t("policies.overrides", { count: overrideCount })}
         </Badge>
         {manageable && (
           <>
@@ -260,7 +290,7 @@ export function PlayerPolicyEditor({
               disabled={!overrideCount || reset.isPending}
               onClick={() => setConfirmReset(true)}
             >
-              Reset all overrides
+              {t("policies.resetAll")}
             </RheaButton>
             <RheaButton
               type="button"
@@ -268,7 +298,9 @@ export function PlayerPolicyEditor({
               disabled={!dirty || save.isPending}
               onClick={() => save.mutate()}
             >
-              {save.isPending ? "Saving…" : "Save changes"}
+              {save.isPending
+                ? t("common:actions.saving")
+                : t("common:actions.saveChanges")}
             </RheaButton>
           </>
         )}
@@ -276,21 +308,20 @@ export function PlayerPolicyEditor({
       <RheaAlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Reset every player-setting override?
-            </AlertDialogTitle>
+            <AlertDialogTitle>{t("policies.resetTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This clears every player-setting override for this target. This
-              cannot be undone.
+              {t("policies.resetDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep overrides</AlertDialogCancel>
+            <AlertDialogCancel>{t("policies.keepOverrides")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={reset.isPending}
               onClick={() => reset.mutate()}
             >
-              {reset.isPending ? "Resetting…" : "Reset all overrides"}
+              {reset.isPending
+                ? t("policies.resetting")
+                : t("policies.resetAll")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -298,15 +329,15 @@ export function PlayerPolicyEditor({
 
       {save.isError && (
         <Alert variant="destructive">
-          <AlertTitle>Settings could not be saved</AlertTitle>
+          <AlertTitle>{t("policies.saveErrorTitle")}</AlertTitle>
           <AlertDescription>
-            Reload the current policy if another administrator changed it.
+            {t("policies.saveErrorDescription")}
           </AlertDescription>
         </Alert>
       )}
       {save.isSuccess && !dirty && (
         <p className="text-sm text-muted-foreground" role="status">
-          Player settings saved.
+          {t("policies.saved")}
         </p>
       )}
 
@@ -321,7 +352,7 @@ export function PlayerPolicyEditor({
             Object.hasOwn(values, definition.key),
           ).length;
           const open =
-            expanded.has(group.title) ||
+            expanded.has(group.titleKey) ||
             Boolean(normalizedSearch && group.definitions.length);
           const hiddenByFilter =
             overriddenOnly && sectionOverrideCount === 0 && !normalizedSearch;
@@ -329,7 +360,7 @@ export function PlayerPolicyEditor({
           return (
             <section
               className="rounded-xl border border-border"
-              key={group.title}
+              key={group.titleKey}
             >
               <button
                 type="button"
@@ -338,23 +369,22 @@ export function PlayerPolicyEditor({
                 onClick={() =>
                   setExpanded((current) => {
                     const next = new Set(current);
-                    if (next.has(group.title)) next.delete(group.title);
-                    else next.add(group.title);
+                    if (next.has(group.titleKey)) next.delete(group.titleKey);
+                    else next.add(group.titleKey);
                     return next;
                   })
                 }
               >
                 <span className="min-w-0">
                   <span className="block text-sm font-medium">
-                    {group.title}
+                    {t(group.titleKey)}
                   </span>
                   <span className="block truncate text-sm text-muted-foreground">
-                    {group.description}
+                    {t(group.descriptionKey)}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-                  {sectionOverrideCount}{" "}
-                  {sectionOverrideCount === 1 ? "override" : "overrides"}
+                  {t("policies.overrides", { count: sectionOverrideCount })}
                   <ChevronDown
                     size={18}
                     aria-hidden="true"
@@ -383,8 +413,8 @@ export function PlayerPolicyEditor({
                         manageable={manageable}
                         overrideSource={
                           target === "group"
-                            ? "Group override"
-                            : "Screen override"
+                            ? t("policies.groupOverride")
+                            : t("policies.screenOverride")
                         }
                         onToggle={(enabled) => {
                           const next = { ...values };
@@ -406,8 +436,8 @@ export function PlayerPolicyEditor({
                   ) : (
                     <p className="py-2 text-sm text-muted-foreground">
                       {normalizedSearch
-                        ? "No matching settings in this section."
-                        : "No screen-level settings are available in this section."}
+                        ? t("policies.emptySearch")
+                        : t("policies.emptySection")}
                     </p>
                   )}
                 </div>
@@ -420,12 +450,14 @@ export function PlayerPolicyEditor({
       {effective.data && (
         <Collapsible>
           <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            Advanced details
+            {t("policies.advancedDetails")}
             <ChevronDown size={16} aria-hidden="true" />
           </CollapsibleTrigger>
           <CollapsibleContent>
             <p className="mt-1 text-sm text-muted-foreground">
-              Effective configuration revision {effective.data.configRevision} ·{" "}
+              {t("policies.effectiveRevision", {
+                revision: effective.data.configRevision,
+              })}{" "}
               <code>{effective.data.hash.slice(0, 12)}</code>
             </p>
           </CollapsibleContent>
@@ -435,7 +467,7 @@ export function PlayerPolicyEditor({
       {manageable && dirty && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           <strong className="text-sm font-medium">
-            Unsaved player-setting changes
+            {t("policies.unsaved")}
           </strong>
           <div className="flex flex-wrap items-center gap-2">
             <RheaButton
@@ -444,14 +476,16 @@ export function PlayerPolicyEditor({
               disabled={save.isPending}
               onClick={cancelChanges}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </RheaButton>
             <RheaButton
               type="button"
               disabled={save.isPending}
               onClick={() => save.mutate()}
             >
-              {save.isPending ? "Saving…" : "Save changes"}
+              {save.isPending
+                ? t("common:actions.saving")
+                : t("common:actions.saveChanges")}
             </RheaButton>
           </div>
         </div>
@@ -481,8 +515,10 @@ function PolicyRow({
   onToggle: (enabled: boolean) => void;
   onChange: (value: unknown) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
+  const title = titleFor(definition);
   const inheritedValue = inherited?.value ?? organizationValue;
-  const source = inherited?.source ?? "Organization default";
+  const source = inherited?.source ?? t("policies.organizationDefault");
   const effectiveValue = overridden ? value : inheritedValue;
   return (
     <div
@@ -491,13 +527,13 @@ function PolicyRow({
       }`}
     >
       <div className="min-w-0 space-y-1">
-        <p className="text-sm font-medium">{definition.title}</p>
+        <p className="text-sm font-medium">{title}</p>
         <p className="text-sm text-muted-foreground">
           {descriptionFor(definition)}
         </p>
         <Collapsible>
           <CollapsibleTrigger className="cursor-pointer text-xs text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            Advanced details
+            {t("policies.advancedDetails")}
           </CollapsibleTrigger>
           <CollapsibleContent>
             <code className="text-xs">{definition.key}</code>
@@ -505,7 +541,7 @@ function PolicyRow({
         </Collapsible>
         <p className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-medium">
-            {formatSettingValue(definition, effectiveValue)}
+            {formatSettingValue(definition, effectiveValue, t)}
           </span>
           <Badge variant="secondary">
             {overridden ? overrideSource : source}
@@ -517,7 +553,7 @@ function PolicyRow({
           <RheaSwitch
             size="sm"
             id={"player-setting-override-" + definition.key}
-            aria-label={`Override ${definition.title}`}
+            aria-label={t("policies.overrideSetting", { title })}
             checked={overridden}
             disabled={!manageable}
             onCheckedChange={(next) => onToggle(next)}
@@ -526,7 +562,7 @@ function PolicyRow({
             htmlFor={"player-setting-override-" + definition.key}
             className="font-normal"
           >
-            {overridden ? "Override on" : "Override"}
+            {overridden ? t("policies.overrideOn") : t("policies.overrideOff")}
           </FieldLabel>
         </Field>
         {overridden && (
@@ -536,7 +572,7 @@ function PolicyRow({
             size="sm"
             onClick={() => onToggle(false)}
           >
-            Revert
+            {t("policies.revert")}
           </RheaButton>
         )}
       </div>
@@ -554,30 +590,61 @@ function PolicyRow({
   );
 }
 
-function formatSettingValue(definition: SettingDefinition, value: unknown) {
+const weekdayKeys = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
+function formatSettingValue(
+  definition: SettingDefinition,
+  value: unknown,
+  t: TFunction<["settings", "common"]>,
+) {
   if (definition.key === "player.playback.default_volume")
     return `${Math.round(Number(value) * 100)}%`;
   if (definition.type === "int64" && definition.key.includes("bytes"))
     return formatBytes(Number(value));
   if (definition.type === "weekday_list") {
-    const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     return Array.isArray(value)
       ? value
-          .map((day) => labels[Number(day) - 1])
+          .map((day) => {
+            const dayKey = weekdayKeys[Number(day) - 1];
+            return dayKey ? t(`controls.weekdays.${dayKey}`) : undefined;
+          })
           .filter(Boolean)
-          .join(", ") || "None"
-      : "None";
+          .join(", ") || t("policies.valueNone")
+      : t("policies.valueNone");
   }
   if (definition.type === "package_list")
-    return Array.isArray(value) ? `${value.length} allowed` : "None allowed";
-  if (definition.type === "bool") return value ? "On" : "Off";
+    return Array.isArray(value)
+      ? t("policies.allowedCount", { count: value.length })
+      : t("policies.valueNoneAllowed");
+  if (definition.type === "bool")
+    return value ? t("controls.bool.on") : t("controls.bool.off");
   if (definition.type === "enum") return enumLabel(String(value));
-  if (definition.key.endsWith("_seconds")) return formatSeconds(Number(value));
+  if (definition.key.endsWith("_seconds"))
+    return formatDurationSeconds(Number(value), t);
   if (definition.key.endsWith("_minutes"))
-    return `${Number(value)} ${Number(value) === 1 ? "minute" : "minutes"}`;
+    return t("policies.duration.minutes", { count: Number(value) });
   if (typeof value === "string" || typeof value === "number")
     return String(value);
-  return "Not set";
+  return t("policies.valueNotSet");
+}
+
+function formatDurationSeconds(
+  value: number,
+  t: TFunction<["settings", "common"]>,
+) {
+  if (value >= 3600 && value % 3600 === 0)
+    return t("policies.duration.hours", { count: value / 3600 });
+  if (value >= 60 && value % 60 === 0)
+    return t("policies.duration.minutes", { count: value / 60 });
+  return t("policies.duration.seconds", { count: value });
 }
 
 function formatBytes(bytes: number) {
@@ -588,14 +655,6 @@ function formatBytes(bytes: number) {
   ] as const;
   const [size, unit] = units.find(([size]) => bytes >= size) ?? units[2];
   return `${Number((bytes / size).toFixed(2))} ${unit}`;
-}
-
-function formatSeconds(seconds: number) {
-  if (seconds >= 3600 && seconds % 3600 === 0)
-    return `${seconds / 3600} ${seconds === 3600 ? "hour" : "hours"}`;
-  if (seconds >= 60 && seconds % 60 === 0)
-    return `${seconds / 60} ${seconds === 60 ? "minute" : "minutes"}`;
-  return `${seconds} ${seconds === 1 ? "second" : "seconds"}`;
 }
 
 function samePolicyValues(

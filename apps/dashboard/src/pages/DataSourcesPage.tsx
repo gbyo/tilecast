@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Link,
   Navigate,
@@ -18,6 +19,7 @@ import {
   useParams,
 } from "react-router";
 import { api, ApiError } from "../api/client";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type { DataSource, DataSourceDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import {
@@ -97,6 +99,7 @@ type SourceAction = {
 };
 
 export function DataSourcesPage() {
+  const { t } = useTranslation(["content", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -118,7 +121,7 @@ export function DataSourcesPage() {
     queryFn: api.contentDefinitions,
   });
   const providerOptions = [
-    { value: "", label: "All Data Source types" },
+    { value: "", label: t("dataSources.list.allTypes") },
     ...(definitions.data?.dataSources ?? [])
       .filter((item) => item.id !== "form")
       .map((item) => ({ value: item.id, label: item.name })),
@@ -149,7 +152,9 @@ export function DataSourcesPage() {
   const actionsFor = (source: DataSource): SourceAction[] => {
     const actions: SourceAction[] = [
       {
-        label: canManage ? "Edit" : "Open",
+        label: canManage
+          ? t("common:actions.edit")
+          : t("dataSources.list.openAction"),
         icon: <SquarePen size={14} aria-hidden="true" />,
         onSelect: () => void navigate(`/data-sources/${source.id}`),
       },
@@ -157,13 +162,13 @@ export function DataSourcesPage() {
     if (canManage)
       actions.push(
         {
-          label: "Duplicate",
+          label: t("dataSources.list.duplicateAction"),
           icon: <Copy size={14} aria-hidden="true" />,
           disabled: duplicate.isPending,
           onSelect: () => duplicate.mutate(source.id),
         },
         {
-          label: "Delete",
+          label: t("common:actions.delete"),
           icon: <Trash2 size={14} aria-hidden="true" />,
           danger: true,
           separated: true,
@@ -184,26 +189,29 @@ export function DataSourcesPage() {
     <section className="w-full min-w-0 space-y-5">
       <header className="space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">Data Sources</h1>
+          <h1 className="text-xl font-semibold">
+            {t("dataSources.list.title")}
+          </h1>
           {canManage && (
             <Button
               type="button"
               onClick={() => void navigate("/data-sources/new")}
             >
-              <Plus size={16} aria-hidden="true" /> Create Data Source
+              <Plus size={16} aria-hidden="true" />{" "}
+              {t("dataSources.list.createButton")}
             </Button>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Reusable connections that fetch, parse, and cache data.
+          {t("dataSources.list.subtitle")}
         </p>
       </header>
       <DashboardListToolbar>
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
-          label="Search Data Sources"
-          placeholder="Search Data Sources"
+          label={t("dataSources.list.searchLabel")}
+          placeholder={t("dataSources.list.searchLabel")}
         />
         <Select
           items={providerOptions}
@@ -213,7 +221,7 @@ export function DataSourcesPage() {
           }}
         >
           <SelectTrigger
-            aria-label="Filter by Data Source provider"
+            aria-label={t("dataSources.list.providerFilter")}
             className="w-52 max-sm:flex-1"
           >
             <SelectValue />
@@ -229,7 +237,7 @@ export function DataSourcesPage() {
         <Button
           type="button"
           variant="outline"
-          aria-label="Sort by updated"
+          aria-label={t("dataSources.list.sortLabel")}
           aria-pressed={!sortAscending}
           onClick={() => setSortAscending((current) => !current)}
         >
@@ -238,15 +246,15 @@ export function DataSourcesPage() {
           ) : (
             <ArrowDown size={16} aria-hidden="true" />
           )}
-          Updated
+          {t("dataSources.list.updatedButton")}
         </Button>
       </DashboardListToolbar>
       {dataSources.isError && (
         <Alert variant="destructive">
           <AlertDescription>
             {dataSources.error instanceof ApiError
-              ? dataSources.error.message
-              : "Data Sources could not be loaded."}
+              ? apiErrorMessage(dataSources.error)
+              : t("dataSources.list.loadError")}
           </AlertDescription>
         </Alert>
       )}
@@ -254,13 +262,13 @@ export function DataSourcesPage() {
         <Alert variant="destructive">
           <AlertDescription>
             {actionError instanceof ApiError
-              ? actionError.message
-              : "The Data Source action could not be completed."}
+              ? apiErrorMessage(actionError)
+              : t("dataSources.list.actionError")}
           </AlertDescription>
         </Alert>
       )}
       {dataSources.isLoading ? (
-        <div className="grid gap-2" aria-label="Loading Data Sources">
+        <div className="grid gap-2" aria-label={t("dataSources.list.loading")}>
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
@@ -271,9 +279,9 @@ export function DataSourcesPage() {
             <EmptyMedia variant="icon">
               <Plus size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No Data Sources yet</EmptyTitle>
+            <EmptyTitle>{t("dataSources.list.emptyTitle")}</EmptyTitle>
             <EmptyDescription>
-              Create a reusable connection to feed your Widgets.
+              {t("dataSources.list.emptyDescription")}
             </EmptyDescription>
           </EmptyHeader>
           {canManage && (
@@ -282,7 +290,7 @@ export function DataSourcesPage() {
                 type="button"
                 onClick={() => void navigate("/data-sources/new")}
               >
-                Create Data Source
+                {t("dataSources.list.createButton")}
               </Button>
             </EmptyContent>
           )}
@@ -292,18 +300,22 @@ export function DataSourcesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Cached records</TableHead>
+                <TableHead>{t("dataSources.list.columns.name")}</TableHead>
+                <TableHead>{t("dataSources.list.columns.provider")}</TableHead>
+                <TableHead>{t("dataSources.list.columns.status")}</TableHead>
+                <TableHead>
+                  {t("dataSources.list.columns.cachedRecords")}
+                </TableHead>
                 <TableHead
                   aria-sort={sortAscending ? "ascending" : "descending"}
                 >
-                  Updated
+                  {t("dataSources.list.columns.updated")}
                 </TableHead>
-                <TableHead>Used by</TableHead>
+                <TableHead>{t("dataSources.list.columns.usedBy")}</TableHead>
                 <TableHead>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">
+                    {t("dataSources.list.columns.actions")}
+                  </span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -314,7 +326,7 @@ export function DataSourcesPage() {
                   source={source}
                   providerName={
                     definitionsByProvider.get(source.provider)?.name ??
-                    providerLabel(source.provider)
+                    providerLabel(source.provider, t)
                   }
                   actions={actionsFor(source)}
                 />
@@ -332,15 +344,18 @@ export function DataSourcesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {pendingDelete?.name ?? "Data Source"}?
+              {t("dataSources.list.deleteTitle", {
+                name:
+                  pendingDelete?.name ??
+                  t("dataSources.providerNames.dataSource"),
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Widgets reading this Data Source will show their empty state. This
-              cannot be undone.
+              {t("dataSources.list.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={remove.isPending}
               onClick={() => {
@@ -350,7 +365,7 @@ export function DataSourcesPage() {
                 }
               }}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -368,7 +383,9 @@ function DataSourceRow({
   providerName: string;
   actions: SourceAction[];
 }) {
-  const menuLabel = `Actions for ${source.name}`;
+  const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
+  const menuLabel = t("dataSources.list.rowActions", { name: source.name });
   const updated = new Date(source.updatedAt);
   return (
     <ContextMenu>
@@ -396,7 +413,7 @@ function DataSourceRow({
         <TableCell>
           {Number.isNaN(updated.getTime())
             ? "—"
-            : updated.toLocaleString(undefined, {
+            : updated.toLocaleString(locale, {
                 dateStyle: "medium",
                 timeStyle: "short",
               })}
@@ -406,7 +423,7 @@ function DataSourceRow({
             to={`/data-sources/${source.id}`}
             className="underline-offset-4 hover:underline"
           >
-            View
+            {t("dataSources.list.viewLink")}
           </Link>
         </TableCell>
         <TableCell>
@@ -459,6 +476,7 @@ export function DataSourceEditorPage({
 }: {
   redirectForms?: boolean;
 } = {}) {
+  const { t } = useTranslation(["content", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -499,7 +517,12 @@ export function DataSourceEditorPage({
     );
   }
   if (id && detail.isLoading)
-    return <Skeleton className="h-24" aria-label="Loading Data Source" />;
+    return (
+      <Skeleton
+        className="h-24"
+        aria-label={t("dataSources.detail.loadingSource")}
+      />
+    );
   // Form Data Sources use a dedicated, full-width management page rather than the compact generic
   // editor shell, and enforce per-form capabilities instead of only global roles.
   if (provider === "form") {
@@ -513,21 +536,24 @@ export function DataSourceEditorPage({
   }
   if (definitions.isLoading)
     return (
-      <Skeleton className="h-24" aria-label="Loading Data Source definition" />
+      <Skeleton
+        className="h-24"
+        aria-label={t("dataSources.loading.definition")}
+      />
     );
   if ((id && !dataSource) || !provider || !definition) {
     return (
       <section className="w-full min-w-0 space-y-5">
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>Data Source unavailable</EmptyTitle>
+            <EmptyTitle>{t("dataSources.detail.unavailableTitle")}</EmptyTitle>
             <EmptyDescription>
-              This Data Source could not be loaded.
+              {t("dataSources.detail.unavailableDescription")}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button type="button" onClick={close}>
-              Back to Data Sources
+              {t("dataSources.detail.backButton")}
             </Button>
           </EmptyContent>
         </Empty>
@@ -557,28 +583,26 @@ export function DataSourceEditorPage({
       ) : (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>
-              You do not have permission to create Data Sources
-            </EmptyTitle>
+            <EmptyTitle>{t("dataSources.detail.noPermissionTitle")}</EmptyTitle>
           </EmptyHeader>
           <EmptyContent>
             <Button type="button" onClick={close}>
-              Back to Data Sources
+              {t("dataSources.detail.backButton")}
             </Button>
           </EmptyContent>
         </Empty>
       )}
       {dataSource && (
         <UsedByPanel
-          emptyMessage="No Widget or Layout binding reads this Data Source yet."
+          emptyMessage={t("dataSources.detail.usedByEmpty")}
           groups={[
             {
-              label: "Widgets",
+              label: t("dataSources.detail.usedByWidgets"),
               items: dataSource.widgetUsage,
               to: (id) => `/widgets/${id}`,
             },
             {
-              label: "Layout text bindings",
+              label: t("dataSources.detail.usedByBindings"),
               // A Layout may bind several fields of one source, so the field is the hint and the
               // layout is what the entry links to.
               items: dataSource.bindingUsage.map((usage) => ({

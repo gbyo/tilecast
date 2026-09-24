@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { DateTimeInput } from "./date-picker";
 import {
   Select,
@@ -28,6 +29,9 @@ const presetDays: Record<Exclude<TimeRangePreset, "custom">, number> = {
   "30d": 30,
 };
 
+// Prose labels for activity sentences ("Measured over last 24 hours").
+// They stay English until the activity namespace converts and translates
+// those sentences with their full context.
 const presetLabels: Record<TimeRangePreset, string> = {
   "24h": "last 24 hours",
   "7d": "last 7 days",
@@ -88,11 +92,18 @@ export function resolveTimeRange(
   };
 }
 
-const timeRangeItems: { value: TimeRangePreset; label: string }[] = [
-  { value: "24h", label: "Last 24 hours" },
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "custom", label: "Custom range" },
+const timeRangeItems: {
+  value: TimeRangePreset;
+  labelKey:
+    | "range.presets.day"
+    | "range.presets.week"
+    | "range.presets.month"
+    | "range.presets.custom";
+}[] = [
+  { value: "24h", labelKey: "range.presets.day" },
+  { value: "7d", labelKey: "range.presets.week" },
+  { value: "30d", labelKey: "range.presets.month" },
+  { value: "custom", labelKey: "range.presets.custom" },
 ];
 
 export function TimeRangePicker({
@@ -112,26 +123,31 @@ export function TimeRangePicker({
   onCustomToChange: (value: string) => void;
   className?: string;
 }) {
+  const { t } = useTranslation("schedules");
+  const items = timeRangeItems.map((item) => ({
+    value: item.value,
+    label: t(item.labelKey),
+  }));
   return (
     <div
       className={`flex flex-wrap items-end gap-2 ${className}`.trim()}
       role="group"
-      aria-label="Date range"
+      aria-label={t("range.label")}
     >
       <span className="grid gap-1 text-xs font-medium">
-        <span>Date range</span>
+        <span>{t("range.label")}</span>
         <Select
-          items={timeRangeItems}
+          items={items}
           value={preset}
           onValueChange={(next) => {
             if (next) onPresetChange(next);
           }}
         >
-          <SelectTrigger className="w-40" aria-label="Date range">
+          <SelectTrigger className="w-40" aria-label={t("range.label")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {timeRangeItems.map((item) => (
+            {items.map((item) => (
               <SelectItem key={item.value} value={item.value}>
                 {item.label}
               </SelectItem>
@@ -142,22 +158,22 @@ export function TimeRangePicker({
       {preset === "custom" && (
         <>
           <label className="grid gap-1 text-xs font-medium">
-            <span>From</span>
+            <span>{t("range.from")}</span>
             <DateTimeInput
               id="time-range-from"
               aria-label="From"
-              timeLabel="From time"
+              timeLabel={t("datePicker.fromTime")}
               value={customFrom}
               max={customTo || undefined}
               onChange={onCustomFromChange}
             />
           </label>
           <label className="grid gap-1 text-xs font-medium">
-            <span>To</span>
+            <span>{t("range.to")}</span>
             <DateTimeInput
               id="time-range-to"
               aria-label="To"
-              timeLabel="To time"
+              timeLabel={t("datePicker.toTime")}
               value={customTo}
               min={customFrom || undefined}
               onChange={onCustomToChange}

@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { toast } from "../components/ui/toast";
 import type {
   FormAvailableTransition,
@@ -7,6 +9,7 @@ import type {
   FormRecordDetail,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -24,6 +27,8 @@ import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
 import { Textarea } from "../components/ui/textarea";
 import { formToneBadgeProps } from "./formBadge";
+import { useFormatLocale } from "../i18n";
+import type { FormsT } from "./formSchema";
 import {
   FormRenderer,
   type FormValues,
@@ -56,6 +61,7 @@ export function RecordReview({
   csrf: string;
   onAfterTransition?: () => void;
 }) {
+  const { t } = useTranslation("forms");
   const queryClient = useQueryClient();
   const detailQuery = useQuery({
     queryKey: ["form-record", form.id, recordId],
@@ -63,15 +69,12 @@ export function RecordReview({
   });
 
   if (detailQuery.isLoading)
-    return <Spinner aria-label="Loading submission…" />;
+    return <Spinner aria-label={t("review.loading")} />;
   if (detailQuery.isError || !detailQuery.data) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Submission unavailable</AlertTitle>
-        <AlertDescription>
-          This submission could not be loaded or you no longer have access to
-          it.
-        </AlertDescription>
+        <AlertTitle>{t("review.unavailable")}</AlertTitle>
+        <AlertDescription>{t("review.unavailableBody")}</AlertDescription>
       </Alert>
     );
   }
@@ -110,6 +113,9 @@ function RecordReviewBody({
   csrf: string;
   onChanged: () => void;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
+  const { t: tErrors } = useTranslation("errors");
+  const locale = useFormatLocale();
   const schema = detail.revision?.schema ??
     form.publishedRevision?.schema ?? { fields: [] };
   const [version, setVersion] = useState(detail.version);
@@ -215,7 +221,7 @@ function RecordReviewBody({
       if (err instanceof ApiError && err.status === 409) {
         await recover();
       }
-      setError(conflictMessage(err));
+      setError(conflictMessage(err, tErrors));
     } finally {
       setBusy(false);
     }
@@ -227,7 +233,9 @@ function RecordReviewBody({
   ) {
     setError("");
     if (transition.requiresNote && noteText.trim() === "") {
-      setError(`A note is required to ${transition.label.toLowerCase()}.`);
+      setError(
+        t("review.noteRequired", { label: transition.label.toLowerCase() }),
+      );
       return;
     }
     setBusy(true);
@@ -248,7 +256,10 @@ function RecordReviewBody({
       setVersion(record.version);
       setNote("");
       setPendingTransition(null);
-      toast.add({ title: "Decision recorded.", type: "success" });
+      toast.add({
+        title: t("review.decisionRecorded"),
+        type: "success",
+      });
       onChanged();
     } catch (err) {
       // On a conflict, fully refresh from the server (values, metadata, images, state, version) and
@@ -256,12 +267,10 @@ function RecordReviewBody({
       // paired with a newer server version.
       if (err instanceof ApiError && err.status === 409) {
         await recover();
-        setError(
-          "This submission changed since you opened it. It has been refreshed — review the latest version and try again.",
-        );
+        setError(t("review.refreshedConflict"));
       } else {
         setError(
-          err instanceof Error ? err.message : "Could not apply the change.",
+          err instanceof Error ? err.message : t("review.applyFallback"),
         );
       }
     } finally {
@@ -280,7 +289,7 @@ function RecordReviewBody({
       onChanged();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not add the comment.",
+        err instanceof Error ? err.message : t("review.commentFallback"),
       );
     } finally {
       setBusy(false);
@@ -310,7 +319,7 @@ function RecordReviewBody({
       if (err instanceof ApiError && err.status === 409) await recover();
       setImages((current) => ({
         ...current,
-        [fieldKey]: { error: conflictMessage(err) },
+        [fieldKey]: { error: conflictMessage(err, tErrors) },
       }));
     }
   }
@@ -335,7 +344,10 @@ function RecordReviewBody({
       if (err instanceof ApiError && err.status === 409) await recover();
       setImages((current) => ({
         ...current,
-        [fieldKey]: { ...current[fieldKey], error: conflictMessage(err) },
+        [fieldKey]: {
+          ...current[fieldKey],
+          error: conflictMessage(err, tErrors),
+        },
       }));
     }
   }
@@ -345,13 +357,20 @@ function RecordReviewBody({
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div className="grid gap-0.5">
           <h2 className="text-xl font-semibold tracking-tight">
-            {detail.displayTitle || "Untitled submission"}
+            {detail.displayTitle || t("review.untitled")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Submitted by {detail.submitterName || "Unknown"} ·{" "}
-            {new Date(detail.createdAt).toLocaleString()}
+            {t("review.submittedBy", {
+              name: detail.submitterName || t("review.unknownSubmitter"),
+            })}{" "}
+            · {new Date(detail.createdAt).toLocaleString(locale)}
             {detail.revision && (
-              <> · Revision {detail.revision.revisionNumber}</>
+              <>
+                {" "}
+                {t("review.revision", {
+                  number: detail.revision.revisionNumber,
+                })}
+              </>
             )}
           </p>
         </div>
@@ -362,7 +381,7 @@ function RecordReviewBody({
 
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Action failed</AlertTitle>
+          <AlertTitle>{t("review.actionFailed")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
@@ -386,12 +405,14 @@ function RecordReviewBody({
 
       <section
         className="grid gap-3 rounded-xl border border-border p-4"
-        aria-label="Display metadata"
+        aria-label={t("review.displaySection")}
       >
-        <h3 className="text-base font-semibold">Display settings</h3>
+        <h3 className="text-base font-semibold">{t("review.displayTitle")}</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor="record-review-title">Display title</FieldLabel>
+            <FieldLabel htmlFor="record-review-title">
+              {t("review.titleLabel")}
+            </FieldLabel>
             <Input
               id="record-review-title"
               value={displayTitle}
@@ -400,7 +421,9 @@ function RecordReviewBody({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="record-review-priority">Priority</FieldLabel>
+            <FieldLabel htmlFor="record-review-priority">
+              {t("review.priorityLabel")}
+            </FieldLabel>
             <Input
               id="record-review-priority"
               type="number"
@@ -410,26 +433,26 @@ function RecordReviewBody({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="record-review-display-at">
-              Display from
+            <FieldLabel htmlFor="record-review-display-at-date">
+              {t("review.fromLabel")}
             </FieldLabel>
             <DateTimeInput
               id="record-review-display-at"
-              aria-label="Display from"
-              timeLabel="Display time"
+              aria-label={t("review.fromLabel")}
+              timeLabel={t("review.displayTime")}
               value={displayAt}
               disabled={!canEdit}
               onChange={setDisplayAt}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="record-review-expires-at">
-              Expires at
+            <FieldLabel htmlFor="record-review-expires-at-date">
+              {t("review.expiresLabel")}
             </FieldLabel>
             <DateTimeInput
               id="record-review-expires-at"
-              aria-label="Expires at"
-              timeLabel="Expiry time"
+              aria-label={t("review.expiresLabel")}
+              timeLabel={t("review.expiryTime")}
               value={expiresAt}
               min={displayAt}
               disabled={!canEdit}
@@ -445,7 +468,7 @@ function RecordReviewBody({
             onClick={() => void handleSave()}
           >
             {busy && <Spinner aria-hidden="true" />}
-            Save changes
+            {t("common:actions.saveChanges")}
           </RheaButton>
         )}
       </section>
@@ -453,9 +476,11 @@ function RecordReviewBody({
       {detail.availableTransitions.length > 0 && (
         <section
           className="grid gap-3 rounded-xl border border-border p-4"
-          aria-label="Decision"
+          aria-label={t("review.decisionSection")}
         >
-          <h3 className="text-base font-semibold">Decision</h3>
+          <h3 className="text-base font-semibold">
+            {t("review.decisionSection")}
+          </h3>
           <div className="flex flex-wrap gap-2">
             {detail.availableTransitions.map((transition) => (
               <RheaButton
@@ -490,28 +515,32 @@ function RecordReviewBody({
           <DialogHeader>
             <DialogTitle>
               {pendingTransition
-                ? `${pendingTransition.label} this submission`
-                : "Record a decision"}
+                ? t("review.decisionTitle", {
+                    label: pendingTransition.label,
+                  })
+                : t("review.decisionFallback")}
             </DialogTitle>
             <DialogDescription>
               {pendingTransition
-                ? `A note is required to ${pendingTransition.label.toLowerCase()}.`
+                ? t("review.noteRequired", {
+                    label: pendingTransition.label.toLowerCase(),
+                  })
                 : ""}
             </DialogDescription>
           </DialogHeader>
           <Field>
-            <FieldLabel htmlFor="record-review-note">Note</FieldLabel>
+            <FieldLabel htmlFor="record-review-note">
+              {t("review.noteLabel")}
+            </FieldLabel>
             <Textarea
               id="record-review-note"
               rows={3}
               value={note}
-              aria-label="Note"
-              placeholder="What changed or what must the author fix?"
+              aria-label={t("review.noteLabel")}
+              placeholder={t("review.notePlaceholder")}
               onChange={(event) => setNote(event.target.value)}
             />
-            <FieldDescription>
-              Recorded with the decision and shown in history.
-            </FieldDescription>
+            <FieldDescription>{t("review.noteHint")}</FieldDescription>
           </Field>
           <DialogFooter>
             <RheaButton
@@ -522,7 +551,7 @@ function RecordReviewBody({
                 setNote("");
               }}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </RheaButton>
             <RheaButton
               disabled={busy || note.trim() === ""}
@@ -531,7 +560,7 @@ function RecordReviewBody({
                   void runTransition(pendingTransition, note);
               }}
             >
-              {pendingTransition?.label ?? "Confirm"}
+              {pendingTransition?.label ?? t("common:actions.confirm")}
             </RheaButton>
           </DialogFooter>
         </DialogContent>
@@ -539,11 +568,15 @@ function RecordReviewBody({
 
       <section
         className="grid gap-3 rounded-xl border border-border p-4"
-        aria-label="Comments"
+        aria-label={t("review.commentsSection")}
       >
-        <h3 className="text-base font-semibold">Comments</h3>
+        <h3 className="text-base font-semibold">
+          {t("review.commentsSection")}
+        </h3>
         {detail.comments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No comments yet.</p>
+          <p className="text-sm text-muted-foreground">
+            {t("review.noComments")}
+          </p>
         ) : (
           <ul className="grid gap-2">
             {detail.comments.map((entry) => (
@@ -553,7 +586,7 @@ function RecordReviewBody({
               >
                 <strong>{entry.authorName}</strong>
                 <span className="text-xs text-muted-foreground">
-                  {new Date(entry.createdAt).toLocaleString()}
+                  {new Date(entry.createdAt).toLocaleString(locale)}
                 </span>
                 <p>{entry.body}</p>
               </li>
@@ -565,8 +598,8 @@ function RecordReviewBody({
             <Textarea
               rows={2}
               value={comment}
-              placeholder="Add a comment"
-              aria-label="Add a comment"
+              placeholder={t("review.addComment")}
+              aria-label={t("review.addComment")}
               onChange={(event) => setComment(event.target.value)}
             />
             <RheaButton
@@ -574,7 +607,7 @@ function RecordReviewBody({
               disabled={busy || comment.trim() === ""}
               onClick={() => void addComment()}
             >
-              Comment
+              {t("review.commentButton")}
             </RheaButton>
           </div>
         )}
@@ -582,18 +615,20 @@ function RecordReviewBody({
 
       <section
         className="grid gap-3 rounded-xl border border-border p-4"
-        aria-label="History"
+        aria-label={t("review.historySection")}
       >
-        <h3 className="text-base font-semibold">History</h3>
+        <h3 className="text-base font-semibold">
+          {t("review.historySection")}
+        </h3>
         <ul className="grid gap-1 text-sm">
           {detail.events.map((event) => (
             <li
               key={event.id}
               className="flex flex-wrap items-center justify-between gap-2"
             >
-              <span>{describeEvent(event)}</span>
+              <span>{describeEvent(event, t)}</span>
               <span className="text-xs text-muted-foreground">
-                {new Date(event.createdAt).toLocaleString()}
+                {new Date(event.createdAt).toLocaleString(locale)}
               </span>
             </li>
           ))}
@@ -603,23 +638,44 @@ function RecordReviewBody({
   );
 }
 
-function describeEvent(event: FormRecordDetail["events"][number]): string {
-  const actor = event.actorName ? ` by ${event.actorName}` : "";
+function describeEvent(
+  event: FormRecordDetail["events"][number],
+  t: FormsT,
+): string {
+  const name = event.actorName;
   switch (event.eventType) {
     case "created":
-      return `Created${actor}`;
+      return name
+        ? t("review.events.createdBy", { name })
+        : t("review.events.created");
     case "edited":
-      return `Edited${actor}`;
-    case "transition":
-      return `Moved ${event.fromState ?? "?"} → ${event.toState ?? "?"}${actor}`;
+      return name
+        ? t("review.events.editedBy", { name })
+        : t("review.events.edited");
+    case "transition": {
+      const from = event.fromState ?? "?";
+      const to = event.toState ?? "?";
+      return name
+        ? t("review.events.movedBy", { from, to, name })
+        : t("review.events.moved", { from, to });
+    }
     case "comment":
-      return `Commented${actor}`;
+      return name
+        ? t("review.events.commentedBy", { name })
+        : t("review.events.commented");
     case "attachment_added":
-      return `Added an attachment${actor}`;
+      return name
+        ? t("review.events.attachmentAddedBy", { name })
+        : t("review.events.attachmentAdded");
     case "attachment_removed":
-      return `Removed an attachment${actor}`;
+      return name
+        ? t("review.events.attachmentRemovedBy", { name })
+        : t("review.events.attachmentRemoved");
     default:
-      return `${event.eventType}${actor}`;
+      return t("review.events.unknown", {
+        type: event.eventType,
+        actor: name ? t("review.events.byActor", { name }) : "",
+      });
   }
 }
 
@@ -641,13 +697,15 @@ function imagesFromDetail(
   return result;
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong.";
+function messageOf(error: unknown, t: TFunction<"errors">): string {
+  return error instanceof Error
+    ? apiErrorMessage(error)
+    : t("fallback.somethingWentWrong");
 }
 
-function conflictMessage(error: unknown): string {
+function conflictMessage(error: unknown, t: TFunction<"errors">): string {
   if (error instanceof ApiError && error.status === 409) {
     return "This submission changed elsewhere. Reload to see the latest version, then try again.";
   }
-  return messageOf(error);
+  return messageOf(error, t);
 }

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { BackupJob, ScreenStatus, User } from "../api/types";
 
@@ -29,13 +30,23 @@ const priorityRank: Record<NotificationPriority, number> = {
   info: 2,
 };
 
-const screenStatusLabels: Record<ScreenStatus, string> = {
-  online: "Online",
-  recent: "Recently online",
-  stale: "Stale",
-  offline: "Offline",
-  disabled: "Disabled",
-  revoked: "Pairing revoked",
+// Status structures hold translation keys, never rendered text. Labels are
+// resolved with t() at call time so notifications follow language changes.
+const screenStatusLabelKeys: Record<
+  ScreenStatus,
+  | "statusLabels.online"
+  | "statusLabels.recent"
+  | "statusLabels.stale"
+  | "statusLabels.offline"
+  | "statusLabels.disabled"
+  | "statusLabels.revoked"
+> = {
+  online: "statusLabels.online",
+  recent: "statusLabels.recent",
+  stale: "statusLabels.stale",
+  offline: "statusLabels.offline",
+  disabled: "statusLabels.disabled",
+  revoked: "statusLabels.revoked",
 };
 
 const screenStatusPriority: Record<ScreenStatus, NotificationPriority> = {
@@ -49,11 +60,8 @@ const screenStatusPriority: Record<ScreenStatus, NotificationPriority> = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function plural(count: number, noun: string) {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
-
 export function useNotifications(user?: User): NotificationFeed {
+  const { t, i18n } = useTranslation("activity");
   const canManageSystem =
     user?.role === "owner" || user?.role === "administrator";
   const canOperate = user?.role !== "viewer";
@@ -105,7 +113,7 @@ export function useNotifications(user?: User): NotificationFeed {
         id: `screen:${screen.id}`,
         priority: screenStatusPriority[screen.status],
         title: screen.name,
-        detail: screenStatusLabels[screen.status],
+        detail: t(screenStatusLabelKeys[screen.status]),
         to: `/screens/${screen.id}`,
       });
     }
@@ -116,7 +124,9 @@ export function useNotifications(user?: User): NotificationFeed {
           id: `deployment-failed:${deployment.id}`,
           priority: "critical",
           title: deployment.name,
-          detail: plural(deployment.failedCount, "failed player update"),
+          detail: t("notifications.failedUpdates", {
+            count: deployment.failedCount,
+          }),
           to: "/settings/player/updates",
         });
       }
@@ -125,7 +135,9 @@ export function useNotifications(user?: User): NotificationFeed {
           id: `deployment-waiting:${deployment.id}`,
           priority: "warning",
           title: deployment.name,
-          detail: `${plural(deployment.waitingForUserCount, "player")} waiting for action`,
+          detail: t("notifications.playersWaiting", {
+            count: deployment.waitingForUserCount,
+          }),
           to: "/settings/player/updates",
         });
       }
@@ -146,11 +158,11 @@ export function useNotifications(user?: User): NotificationFeed {
         priority: job.kind === "restore" ? "critical" : "warning",
         title:
           job.kind === "restore"
-            ? "Restore failed"
+            ? t("notifications.backupRestoreFailed")
             : job.kind === "verify"
-              ? "Backup verification failed"
-              : "Backup failed",
-        detail: job.errorMessage || "Open backup and restore to review.",
+              ? t("notifications.backupVerifyFailed")
+              : t("notifications.backupFailed"),
+        detail: job.errorMessage || t("notifications.backupReview"),
         to: "/settings/operations/backups",
       });
     }
@@ -164,7 +176,9 @@ export function useNotifications(user?: User): NotificationFeed {
           id: `takeover-failed:${takeover.id}`,
           priority: "critical",
           title: takeover.name,
-          detail: `${plural(takeover.failedCount, "screen")} failed to switch to takeover content`,
+          detail: t("notifications.takeoverFailed", {
+            count: takeover.failedCount,
+          }),
           // Screens is where a live takeover is seen and cancelled. Settings
           // only carries its defaults now, which is no help mid-emergency.
           to: "/screens",
@@ -174,7 +188,9 @@ export function useNotifications(user?: User): NotificationFeed {
           id: `takeover:${takeover.id}`,
           priority: "warning",
           title: takeover.name,
-          detail: `Takeover active on ${plural(takeover.affectedCount, "screen")}`,
+          detail: t("notifications.takeoverActive", {
+            count: takeover.affectedCount,
+          }),
           to: "/screens",
         });
       }
@@ -186,8 +202,10 @@ export function useNotifications(user?: User): NotificationFeed {
       collected.push({
         id: "assets-failed",
         priority: "warning",
-        title: "Media processing failed",
-        detail: `${plural(failedAssetCount, "asset")} could not be processed`,
+        title: t("notifications.mediaFailedTitle"),
+        detail: t("notifications.mediaFailed", {
+          count: failedAssetCount,
+        }),
         to: "/assets",
       });
     }
@@ -197,8 +215,10 @@ export function useNotifications(user?: User): NotificationFeed {
       collected.push({
         id: "pending-pairings",
         priority: "info",
-        title: "Screens awaiting approval",
-        detail: `${plural(pending.length, "pairing request")} pending`,
+        title: t("notifications.pairTitle"),
+        detail: t("notifications.pairDetail", {
+          count: pending.length,
+        }),
         to: "/screens/pair",
       });
     }
@@ -209,6 +229,9 @@ export function useNotifications(user?: User): NotificationFeed {
       (left, right) =>
         priorityRank[left.priority] - priorityRank[right.priority],
     );
+    // The translated details depend on the interface language, which the
+    // linter cannot see; rebuilding when it changes keeps them translated.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     screens.data,
     deployments.data,
@@ -216,6 +239,7 @@ export function useNotifications(user?: User): NotificationFeed {
     takeovers.data,
     failedAssets.data,
     pairings.data,
+    i18n.language,
   ]);
 
   return {

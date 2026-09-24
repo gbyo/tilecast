@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, LayoutTemplate, ListVideo, Tags } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { LayoutSummary, Playlist } from "../../api/types";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
@@ -49,28 +50,56 @@ export function PlaylistPicker({
   open,
   title,
   description,
-  confirmLabel = "Add playlist",
+  confirmLabel,
   includeLayouts = false,
   allowedKinds,
   selectedId = "",
   onConfirm,
   onClose,
 }: PlaylistPickerProps) {
+  const { t } = useTranslation(["content", "common"]);
   const kinds: readonly PlaylistPickerKind[] =
     allowedKinds ?? (includeLayouts ? ["playlist", "layout"] : ["playlist"]);
   const canChoosePlaylists = kinds.includes("playlist");
   const canChooseLayouts = kinds.includes("layout");
   const mixedKinds = canChoosePlaylists && canChooseLayouts;
-  const noun = mixedKinds
-    ? "presentations"
+  // One full-sentence key per kind: word order and agreement differ by language.
+  const searchCopy = mixedKinds
+    ? t("picker.playlist.searchPresentations")
     : canChooseLayouts
-      ? "layouts"
-      : "playlists";
+      ? t("picker.playlist.searchLayouts")
+      : t("picker.playlist.searchPlaylists");
+  const loadingCopy = mixedKinds
+    ? t("picker.playlist.loadingPresentations")
+    : canChooseLayouts
+      ? t("picker.playlist.loadingLayouts")
+      : t("picker.playlist.loadingPlaylists");
+  const loadErrorCopy = mixedKinds
+    ? t("picker.playlist.presentationsLoadError")
+    : canChooseLayouts
+      ? t("picker.playlist.layoutsLoadError")
+      : t("picker.playlist.playlistsLoadError");
+  const noMatchCopy = mixedKinds
+    ? t("picker.playlist.noPresentationsMatch")
+    : canChooseLayouts
+      ? t("picker.playlist.noLayoutsMatch")
+      : t("picker.playlist.noPlaylistsMatch");
+  const noneCopy = mixedKinds
+    ? t("picker.playlist.noPresentations")
+    : canChooseLayouts
+      ? t("picker.playlist.noLayouts")
+      : t("picker.playlist.noPlaylists");
   const defaultTitle = mixedKinds
-    ? "Choose presentation"
+    ? t("picker.playlist.choosePresentation")
     : canChooseLayouts
-      ? "Choose layout"
-      : "Choose playlist";
+      ? t("picker.playlist.chooseLayout")
+      : t("picker.playlist.choosePlaylist");
+  const resolvedConfirmLabel = confirmLabel ?? t("picker.playlist.addPlaylist");
+  const clearSearchCopy = mixedKinds
+    ? t("picker.playlist.clearSearchPresentations")
+    : canChooseLayouts
+      ? t("picker.playlist.clearSearchLayouts")
+      : t("picker.playlist.clearSearchPlaylists");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState(selectedId);
   const playlists = useQuery({
@@ -123,23 +152,21 @@ export function PlaylistPicker({
           autoFocus
           value={search}
           onValueChange={setSearch}
-          label={`Search ${noun}`}
-          placeholder={`Search ${noun}`}
+          label={searchCopy}
+          placeholder={searchCopy}
+          clearLabel={clearSearchCopy}
         />
         <div className="grid gap-2">
           {loading ? (
-            <div className="space-y-2" aria-label={`Loading ${noun}`}>
+            <div className="space-y-2" aria-label={loadingCopy}>
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
           ) : failed ? (
             <Alert variant="destructive">
-              <AlertTitle>
-                {noun.charAt(0).toUpperCase() + noun.slice(1)} could not be
-                loaded.
-              </AlertTitle>
+              <AlertTitle>{loadErrorCopy}</AlertTitle>
               <AlertDescription className="flex items-center justify-between gap-3">
-                <span>Retry the library request.</span>
+                <span>{t("picker.playlist.retryRequest")}</span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -148,15 +175,13 @@ export function PlaylistPicker({
                     if (canChooseLayouts) void layouts.refetch();
                   }}
                 >
-                  Try again
+                  {t("picker.errors.tryAgain")}
                 </Button>
               </AlertDescription>
             </Alert>
           ) : !choices.length ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              {search
-                ? `No ${noun} match this search.`
-                : `No ${noun} yet. Create one first.`}
+              {search ? noMatchCopy : noneCopy}
             </p>
           ) : (
             choices.map((choice) => {
@@ -208,10 +233,15 @@ export function PlaylistPicker({
                     </strong>
                     <small className="truncate text-xs text-muted-foreground">
                       {choice.kind === "layout"
-                        ? `Layout · revision ${choice.layout.publishedRevision}`
-                        : `${choice.playlist.itemCount} item${
-                            choice.playlist.itemCount === 1 ? "" : "s"
-                          }${tagDriven ? " · tag-driven" : ""}`}
+                        ? t("picker.playlist.layoutRevision", {
+                            revision: choice.layout.publishedRevision,
+                          })
+                        : t("picker.playlist.itemCount", {
+                            count: choice.playlist.itemCount,
+                          })}
+                      {choice.kind === "playlist" && tagDriven
+                        ? t("picker.playlist.tagDriven")
+                        : ""}
                     </small>
                   </span>
                   {id === chosen && <Check size={17} aria-hidden="true" />}
@@ -222,14 +252,14 @@ export function PlaylistPicker({
         </div>
         <DialogFooter className="border-t border-border pt-3">
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button
             variant="default"
             disabled={!selected}
             onClick={() => selected && onConfirm(selected)}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

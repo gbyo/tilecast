@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -13,6 +14,7 @@ import {
 } from "../components/ui/empty";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
+import { apiErrorMessage } from "../i18n";
 import { usePluginCatalog, usePluginLifecycle } from "./pluginCatalog";
 import { PluginIcon } from "./PluginIcon";
 import { canManage } from "./shared";
@@ -30,6 +32,7 @@ export function PluginRouteGate({
   pluginId: string;
   children: ReactNode;
 }) {
+  const { t } = useTranslation("plugins");
   const auth = useAuth();
   const catalog = usePluginCatalog();
   const { install } = usePluginLifecycle(auth.status?.csrfToken ?? "");
@@ -53,17 +56,26 @@ export function PluginRouteGate({
           <EmptyMedia variant="icon">
             <PluginIcon icon={plugin.icon} />
           </EmptyMedia>
-          <EmptyTitle>{plugin.name} isn&apos;t installed</EmptyTitle>
+          <EmptyTitle>
+            {t("gate.notInstalled", { name: plugin.name })}
+          </EmptyTitle>
           <EmptyDescription>
             {canInstall
-              ? `Install ${plugin.name} to start using it. ${plugin.description}`
-              : `${plugin.description} An Owner or Administrator can install it.`}
+              ? t("gate.installDescription", {
+                  name: plugin.name,
+                  description: plugin.description,
+                })
+              : t("gate.lockedDescription", {
+                  description: plugin.description,
+                })}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           {install.error && (
             <Alert variant="destructive">
-              <AlertDescription>{install.error.message}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(install.error)}
+              </AlertDescription>
             </Alert>
           )}
           <div className="flex flex-wrap justify-center gap-2">
@@ -75,14 +87,14 @@ export function PluginRouteGate({
                 {install.isPending && (
                   <Spinner data-icon="inline-start" aria-hidden="true" />
                 )}
-                Install {plugin.name}
+                {t("gate.installAction", { name: plugin.name })}
               </Button>
             )}
             <Link
               to="/plugins"
               className={buttonVariants({ variant: "outline" })}
             >
-              Back to Plugins
+              {t("gate.backToPlugins")}
             </Link>
           </div>
         </EmptyContent>

@@ -1,0 +1,48 @@
+{
+  "a11y": {
+    "loading": "Cargando",
+    "more": "Más",
+    "sidebarDescription": "Muestra la barra lateral móvil.",
+    "sidebarTitle": "Barra lateral",
+    "toggleSidebar": "Alternar barra lateral"
+  },
+  "actions": {
+    "back": "Atrás",
+    "cancel": "Cancelar",
+    "clearAll": "Borrar todo",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando…",
+    "remove": "Eliminar",
+    "retry": "Reintentar",
+    "save": "Guardar",
+    "saveChanges": "Guardar cambios",
+    "saving": "Guardando…",
+    "skip": "Omitir",
+    "submit": "Enviar"
+  },
+  "status": {
+    "loading": "Cargando…"
+  },
+  "count": {
+    "items_one": "{{count}} elemento",
+    "items_many": "{{count}} de elementos",
+    "items_other": "{{count}} elementos"
+  },
+  "filters": {
+    "active": "Filtros activos",
+    "remove": "Quitar el filtro {{label}}: {{value}}",
+    "title": "Filtros"
+  },
+  "planned": {
+    "eyebrow": "HITO {{milestone}}",
+    "title": "{{feature}} aún no están disponibles.",
+    "body": "Esta instalación incluye actualmente la base del Hito 1. {{feature}} se implementará y se probará en el Hito {{milestone}}.",
+    "backLink": "Volver al estado de la instalación"
+  }
+}

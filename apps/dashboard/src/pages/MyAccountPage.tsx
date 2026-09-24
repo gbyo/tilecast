@@ -1,31 +1,32 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
 import type { User } from "../api/types";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { PreferencesPage } from "./PreferencesPage";
 import { SecurityPage } from "./SecurityPage";
 
-const roleLabels: Record<User["role"], string> = {
-  owner: "Owner",
-  administrator: "Administrator",
-  editor: "Editor",
-  contributor: "Contributor",
-  viewer: "Viewer",
-};
+// Section and role structures hold translation keys, never rendered text.
+// Labels are resolved with t() at render so the page follows language changes.
+const roleKeys = {
+  owner: "roles.owner",
+  administrator: "roles.administrator",
+  editor: "roles.editor",
+  contributor: "roles.contributor",
+  viewer: "roles.viewer",
+} as const satisfies Record<User["role"], string>;
 
 const SECTIONS = [
   {
     id: "preferences",
-    title: "Preferences",
-    description:
-      "Appearance and workflow settings, stored with your account rather than this browser.",
+    titleKey: "myAccount.sections.preferences.title",
+    descriptionKey: "myAccount.sections.preferences.description",
   },
   {
     id: "security",
-    title: "Sign-in security",
-    description:
-      "Whether a second factor is required is an organization setting. What you use to satisfy it is your choice.",
+    titleKey: "myAccount.sections.security.title",
+    descriptionKey: "myAccount.sections.security.description",
   },
 ] as const;
 
@@ -40,6 +41,7 @@ type SectionId = (typeof SECTIONS)[number]["id"];
  * those deep links.
  */
 export function MyAccountPage() {
+  const { t } = useTranslation(["account", "common"]);
   const { status } = useAuth();
   const location = useLocation();
   const user = status?.user;
@@ -57,9 +59,11 @@ export function MyAccountPage() {
     <div className="grid max-w-[900px] gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid gap-1">
-          <h1 className="text-xl font-semibold tracking-tight">My Account</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            {t("myAccount.title")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Settings that belong to you rather than to the organization.
+            {t("myAccount.subtitle")}
           </p>
         </div>
         {user && <SignedInAs user={user} />}
@@ -67,7 +71,7 @@ export function MyAccountPage() {
 
       <div className="grid gap-6 lg:grid-cols-[12rem_minmax(0,1fr)]">
         <nav
-          aria-label="Account sections"
+          aria-label={t("myAccount.navLabel")}
           className="flex gap-1 overflow-x-auto lg:sticky lg:top-6 lg:flex-col lg:self-start"
         >
           {SECTIONS.map((section) => {
@@ -83,7 +87,7 @@ export function MyAccountPage() {
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                {section.title}
+                {t(section.titleKey)}
               </a>
             );
           })}
@@ -100,10 +104,10 @@ export function MyAccountPage() {
                 id="account-preferences-title"
                 className="text-base font-semibold"
               >
-                Preferences
+                {t(SECTIONS[0].titleKey)}
               </h2>
               <p className="mt-0 max-w-[74ch] text-sm text-muted-foreground">
-                {SECTIONS[0].description}
+                {t(SECTIONS[0].descriptionKey)}
               </p>
             </div>
             <div className="grid content-start gap-4">
@@ -121,10 +125,10 @@ export function MyAccountPage() {
                 id="account-security-title"
                 className="text-base font-semibold"
               >
-                Sign-in security
+                {t(SECTIONS[1].titleKey)}
               </h2>
               <p className="mt-0 max-w-[74ch] text-sm text-muted-foreground">
-                {SECTIONS[1].description}
+                {t(SECTIONS[1].descriptionKey)}
               </p>
             </div>
             <SecurityPage />
@@ -141,6 +145,7 @@ export function MyAccountPage() {
  * viewer and an owner should not have to guess why they see different things.
  */
 function SignedInAs({ user }: { user: User }) {
+  const { t } = useTranslation(["account", "common"]);
   return (
     <p className="m-0 flex items-center gap-3">
       <Avatar className="size-9" aria-hidden="true">
@@ -149,10 +154,10 @@ function SignedInAs({ user }: { user: User }) {
         </AvatarFallback>
       </Avatar>
       <span className="grid min-w-0 gap-px">
-        <span className="sr-only">Signed in as </span>
+        <span className="sr-only">{t("myAccount.signedInAs")} </span>
         <strong className="text-sm font-semibold">{user.name}</strong>
         <small className="text-xs text-muted-foreground">
-          {user.username} · {roleLabels[user.role]}
+          {user.username} · {t(roleKeys[user.role])}
         </small>
       </span>
     </p>

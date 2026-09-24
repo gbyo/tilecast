@@ -1,0 +1,47 @@
+{
+  "a11y": {
+    "loading": "Loading",
+    "more": "More",
+    "sidebarDescription": "Displays the mobile sidebar.",
+    "sidebarTitle": "Sidebar",
+    "toggleSidebar": "Toggle Sidebar"
+  },
+  "actions": {
+    "back": "Back",
+    "cancel": "Cancel",
+    "clearAll": "Clear all",
+    "close": "Close",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "next": "Next",
+    "previous": "Previous",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "remove": "Remove",
+    "retry": "Retry",
+    "save": "Save",
+    "saveChanges": "Save changes",
+    "saving": "Saving…",
+    "skip": "Skip",
+    "submit": "Submit"
+  },
+  "status": {
+    "loading": "Loading…"
+  },
+  "count": {
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items"
+  },
+  "filters": {
+    "active": "Active filters",
+    "remove": "Remove filter {{label}}: {{value}}",
+    "title": "Filters"
+  },
+  "planned": {
+    "eyebrow": "MILESTONE {{milestone}}",
+    "title": "{{feature}} are not enabled yet.",
+    "body": "This installation currently includes the Milestone 1 foundation. {{feature}} will be implemented and tested in Milestone {{milestone}}.",
+    "backLink": "Return to installation status"
+  }
+}

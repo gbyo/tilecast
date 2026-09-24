@@ -7,6 +7,7 @@ import {
   type FieldPathByValue,
   type FieldValues,
 } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Checkbox } from "../components/ui/checkbox";
 import {
@@ -24,13 +25,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import type { PluginsT } from "./pluginCatalog";
 
 const targetScopeOptions = [
-  { value: "all", label: "All screens" },
-  { value: "screens", label: "Individual screens" },
-  { value: "sync_groups", label: "Display Groups" },
-  { value: "locations", label: "Locations" },
-];
+  { value: "all", labelKey: "shared.scope.all" },
+  { value: "screens", labelKey: "shared.scope.screens" },
+  { value: "sync_groups", labelKey: "shared.scope.syncGroups" },
+  { value: "locations", labelKey: "shared.scope.locations" },
+] as const;
+
+export function targetScopeLabel(value: TargetScope, t: PluginsT) {
+  const found = targetScopeOptions.find((option) => option.value === value);
+  return found ? t(found.labelKey) : value;
+}
+
+/** Weekday toggle labels, keyed by the numeric scheduleWeekdays value. */
+const weekdayShortKeys = {
+  0: "weekdays.sunday.short",
+  1: "weekdays.monday.short",
+  2: "weekdays.tuesday.short",
+  3: "weekdays.wednesday.short",
+  4: "weekdays.thursday.short",
+  5: "weekdays.friday.short",
+  6: "weekdays.saturday.short",
+} as const;
+
+export function weekdayShortLabel(value: number, t: PluginsT) {
+  const key =
+    weekdayShortKeys[value as keyof typeof weekdayShortKeys] ??
+    weekdayShortKeys[0];
+  return t(key);
+}
 
 /** Base Vega checkbox connected to a typed React Hook Form field. */
 export function RegisterCheckbox<TForm extends FieldValues>({
@@ -105,6 +130,7 @@ export interface TargetSource {
 }
 
 export function useTargetSource(scope: TargetScope): TargetSource | null {
+  const { t } = useTranslation("plugins");
   const screens = useQuery({
     queryKey: ["screens"],
     queryFn: api.screens,
@@ -121,18 +147,22 @@ export function useTargetSource(scope: TargetScope): TargetSource | null {
     enabled: scope === "locations",
   });
   return scope === "screens"
-    ? { query: screens, noun: "screens", empty: "No screens are enrolled yet." }
+    ? {
+        query: screens,
+        noun: t("shared.nouns.screens"),
+        empty: t("shared.empty.screens"),
+      }
     : scope === "sync_groups"
       ? {
           query: groups,
-          noun: "Display Groups",
-          empty: "No Display Groups exist yet.",
+          noun: t("shared.nouns.syncGroups"),
+          empty: t("shared.empty.syncGroups"),
         }
       : scope === "locations"
         ? {
             query: locations,
-            noun: "locations",
-            empty: "No locations exist yet.",
+            noun: t("shared.nouns.locations"),
+            empty: t("shared.empty.locations"),
           }
         : null;
 }
@@ -152,6 +182,7 @@ export function TargetFields<TForm extends FieldValues>({
   control: Control<TForm>;
   onScopeChange: (value: TargetScope) => void;
 }) {
+  const { t } = useTranslation("plugins");
   const targetIds = useController({
     control,
     name: "targetIds" as FieldPathByValue<TForm, string[]>,
@@ -159,7 +190,7 @@ export function TargetFields<TForm extends FieldValues>({
   const selectedIds = Array.isArray(targetIds.field.value)
     ? (targetIds.field.value as string[])
     : [];
-  const errorId = `${idPrefix}-targets-error`;
+  const errorId = idPrefix + "-targets-error";
   const targets = (source?.query.data?.items ?? []).map((item) => ({
     id: item.id,
     name: item.name,
@@ -167,11 +198,14 @@ export function TargetFields<TForm extends FieldValues>({
   return (
     <>
       <Field>
-        <FieldLabel htmlFor={`${idPrefix}-target-scope`}>
-          Target type
+        <FieldLabel htmlFor={idPrefix + "-target-scope"}>
+          {t("shared.targetType")}
         </FieldLabel>
         <RheaSelect
-          items={targetScopeOptions}
+          items={targetScopeOptions.map((option) => ({
+            value: option.value,
+            label: t(option.labelKey),
+          }))}
           name="targetScope"
           value={scope}
           onValueChange={(next) => {
@@ -179,15 +213,15 @@ export function TargetFields<TForm extends FieldValues>({
           }}
         >
           <SelectTrigger
-            id={`${idPrefix}-target-scope`}
-            aria-label="Target type"
+            id={idPrefix + "-target-scope"}
+            aria-label={t("shared.targetType")}
           >
-            <SelectValue />
+            <SelectValue>{targetScopeLabel(scope, t)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {targetScopeOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -200,18 +234,24 @@ export function TargetFields<TForm extends FieldValues>({
           aria-invalid={error ? true : undefined}
         >
           <FieldLegend
+            id={idPrefix + "-targets-label"}
             variant="label"
             className="mb-0 flex w-full items-center justify-between gap-2"
           >
-            <span>Choose targets</span>
+            <span>{t("shared.chooseTargets")}</span>
             <span className="text-xs font-normal text-muted-foreground tabular-nums">
-              {selectedIds.length} of {targets.length} selected
+              {t("shared.selectedCount", {
+                chosen: selectedIds.length,
+                total: targets.length,
+              })}
             </span>
           </FieldLegend>
-          <FieldDescription>Available {source.noun}</FieldDescription>
+          <FieldDescription>
+            {t("shared.available", { noun: source.noun })}
+          </FieldDescription>
           <div className="grid max-h-56 gap-1 overflow-auto">
             {targets.map((target) => {
-              const targetId = `${idPrefix}-target-${target.id}`;
+              const targetId = idPrefix + "-target-" + target.id;
               const checked = selectedIds.includes(target.id);
               return (
                 <Field
@@ -242,9 +282,9 @@ export function TargetFields<TForm extends FieldValues>({
             {!targets.length && (
               <p className="text-sm text-muted-foreground">
                 {source.query.isLoading
-                  ? `Loading ${source.noun}…`
+                  ? t("shared.loadingNoun", { noun: source.noun })
                   : source.query.isError
-                    ? `The ${source.noun} could not be loaded.`
+                    ? t("shared.loadErrorNoun", { noun: source.noun })
                     : source.empty}
               </p>
             )}

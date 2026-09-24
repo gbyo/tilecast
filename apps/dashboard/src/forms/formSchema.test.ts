@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { i18n } from "../i18n";
 import type { FormDataSource, FormFieldControl } from "../api/types";
 import {
   CONTROLS,
@@ -7,6 +8,8 @@ import {
   outputTypeFor,
   publishedOutputKeys,
 } from "./formSchema";
+
+const t = i18n.getFixedT("en", "forms");
 
 describe("formSchema", () => {
   it("supports exactly the backend controls", () => {
@@ -41,10 +44,10 @@ describe("formSchema", () => {
   });
 
   it("creates fields with unique keys and option defaults", () => {
-    const first = newField("select", ["title"]);
+    const first = newField("select", ["title"], t);
     expect(first.control).toBe("select");
     expect(first.options?.length).toBeGreaterThan(0);
-    const second = newField("short_text", [first.key, "title"]);
+    const second = newField("short_text", [first.key, "title"], t);
     expect(second.key).not.toBe(first.key);
   });
 

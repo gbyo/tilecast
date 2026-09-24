@@ -13,9 +13,14 @@ import {
   Play,
   RefreshCw,
 } from "lucide-react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import type { Screen, ScreenStatus } from "../api/types";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
+
+type ScreensT = TFunction<"screens", undefined>;
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -38,14 +43,14 @@ import {
 const features = tableFeatures({ rowSelectionFeature });
 const columnHelper = createColumnHelper<typeof features, Screen>();
 
-const statusLabels: Record<ScreenStatus, string> = {
-  online: "Online",
-  recent: "Recently online",
-  stale: "Stale",
-  offline: "Offline",
-  disabled: "Disabled",
-  revoked: "Pairing revoked",
-};
+const statusLabelKeys = {
+  online: "status.online",
+  recent: "status.recent",
+  stale: "status.stale",
+  offline: "status.offline",
+  disabled: "status.disabled",
+  revoked: "status.revoked",
+} as const satisfies Record<ScreenStatus, string>;
 
 export function ScreenFleetTable({
   screens,
@@ -60,6 +65,8 @@ export function ScreenFleetTable({
   csrfToken: string;
   onSelectionChange: (id: string, selected: boolean) => void;
 }) {
+  const { t } = useTranslation("screens");
+  const formatLocale = useFormatLocale();
   const navigate = useNavigate();
   const rowSelection = useMemo<Record<string, true>>(
     () =>
@@ -79,7 +86,9 @@ export function ScreenFleetTable({
                 header: "",
                 cell: ({ row }) => (
                   <Checkbox
-                    aria-label={`Select ${row.original.name}`}
+                    aria-label={t("table.selectRow", {
+                      name: row.original.name,
+                    })}
                     checked={row.getIsSelected()}
                     onCheckedChange={(checked) =>
                       row.toggleSelected(checked === true)
@@ -91,7 +100,7 @@ export function ScreenFleetTable({
           : []),
         columnHelper.display({
           id: "screen",
-          header: "Screen",
+          header: t("table.colScreen"),
           cell: ({ row }) => {
             const screen = row.original;
             return (
@@ -110,13 +119,15 @@ export function ScreenFleetTable({
                   <span className="max-w-72 truncate text-xs text-muted-foreground">
                     {[
                       screen.roomName,
-                      screen.roomNumber ? `Room ${screen.roomNumber}` : "",
+                      screen.roomNumber
+                        ? t("room.number", { number: screen.roomNumber })
+                        : "",
                       screen.syncGroupName,
                     ]
                       .filter(Boolean)
                       .join(" · ") ||
                       screen.description ||
-                      "No additional details"}
+                      t("table.noDetails")}
                   </span>
                 </span>
               </div>
@@ -125,7 +136,7 @@ export function ScreenFleetTable({
         }),
         columnHelper.display({
           id: "status",
-          header: "Status",
+          header: t("table.colStatus"),
           cell: ({ row }) => {
             const screen = row.original;
             return (
@@ -133,7 +144,8 @@ export function ScreenFleetTable({
                 <StatusBadge status={screen.status} />
                 {screen.updateError && (
                   <Badge variant="destructive" className="gap-1">
-                    <CircleAlert aria-hidden="true" /> Update failed
+                    <CircleAlert aria-hidden="true" />{" "}
+                    {t("shared.updateFailed")}
                   </Badge>
                 )}
               </div>
@@ -142,38 +154,38 @@ export function ScreenFleetTable({
         }),
         columnHelper.display({
           id: "playing",
-          header: "Now playing",
+          header: t("table.colPlaying"),
           cell: ({ row }) => (
             <div className="max-w-56">
               <div className="truncate font-medium">
-                {row.original.nowPlayingName || "Nothing assigned"}
+                {row.original.nowPlayingName || t("shared.nothingAssigned")}
               </div>
               <div className="text-xs text-muted-foreground">
                 {row.original.nowPlayingName
                   ? row.original.nowPlayingType === "playlist"
-                    ? "Playlist"
-                    : "Presentation"
-                  : "No fallback content"}
+                    ? t("list.playingOptions.playlist")
+                    : t("list.playingOptions.presentation")
+                  : t("shared.noFallback")}
               </div>
             </div>
           ),
         }),
         columnHelper.display({
           id: "location",
-          header: "Location",
+          header: t("table.colLocation"),
           cell: ({ row }) => (
             <div className="max-w-40 truncate text-muted-foreground">
-              {row.original.location || "Not set"}
+              {row.original.location || t("shared.notSet")}
             </div>
           ),
         }),
         columnHelper.display({
           id: "platform",
-          header: "Platform / device",
+          header: t("table.colPlatform"),
           cell: ({ row }) => (
             <div className="max-w-48">
               <div className="truncate">
-                {platformLabel(row.original.platform)}
+                {platformLabel(row.original.platform, t)}
               </div>
               <div className="truncate text-xs text-muted-foreground">
                 {[
@@ -185,18 +197,18 @@ export function ScreenFleetTable({
                     : "",
                 ]
                   .filter(Boolean)
-                  .join(" · ") || "Device not reported"}
+                  .join(" · ") || t("table.noDevice")}
               </div>
             </div>
           ),
         }),
         columnHelper.display({
           id: "version",
-          header: "Player version",
+          header: t("table.colVersion"),
           cell: ({ row }) => (
             <div className="max-w-40">
               <div className="truncate">
-                {row.original.playerVersion || "Not reported"}
+                {row.original.playerVersion || t("shared.notReported")}
               </div>
               {row.original.updateState && (
                 <div className="truncate text-xs text-muted-foreground">
@@ -208,18 +220,20 @@ export function ScreenFleetTable({
         }),
         columnHelper.display({
           id: "lastSeen",
-          header: "Last seen",
+          header: t("table.colLastSeen"),
           cell: ({ row }) => (
             <time
               className="text-muted-foreground"
               dateTime={row.original.lastContactAt}
               title={
                 row.original.lastContactAt
-                  ? new Date(row.original.lastContactAt).toLocaleString()
+                  ? new Date(row.original.lastContactAt).toLocaleString(
+                      formatLocale,
+                    )
                   : undefined
               }
             >
-              {formatContact(row.original.lastContactAt)}
+              {formatContact(row.original.lastContactAt, t)}
             </time>
           ),
         }),
@@ -232,7 +246,9 @@ export function ScreenFleetTable({
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       render={<Button variant="ghost" size="icon-sm" />}
-                      aria-label={`Actions for ${row.original.name}`}
+                      aria-label={t("table.rowActions", {
+                        name: row.original.name,
+                      })}
                     >
                       <Ellipsis aria-hidden="true" />
                     </DropdownMenuTrigger>
@@ -240,7 +256,7 @@ export function ScreenFleetTable({
                       <DropdownMenuItem
                         render={<Link to={`/screens/${row.original.id}`} />}
                       >
-                        <Monitor aria-hidden="true" /> Open screen
+                        <Monitor aria-hidden="true" /> {t("grid.openItem")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() =>
@@ -252,7 +268,8 @@ export function ScreenFleetTable({
                           )
                         }
                       >
-                        <RefreshCw aria-hidden="true" /> Restart player
+                        <RefreshCw aria-hidden="true" />{" "}
+                        {t("grid.restartPlayer")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         render={
@@ -261,7 +278,7 @@ export function ScreenFleetTable({
                           />
                         }
                       >
-                        <Pencil aria-hidden="true" /> Assign content
+                        <Pencil aria-hidden="true" /> {t("grid.assignContent")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         render={
@@ -270,14 +287,14 @@ export function ScreenFleetTable({
                           />
                         }
                       >
-                        <Pencil aria-hidden="true" /> Edit details
+                        <Pencil aria-hidden="true" /> {t("grid.editDetails")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         render={
                           <Link to={`/screens/${row.original.id}?present=1`} />
                         }
                       >
-                        <Play aria-hidden="true" /> Show now
+                        <Play aria-hidden="true" /> {t("grid.showNow")}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -290,8 +307,8 @@ export function ScreenFleetTable({
                         }
                       >
                         {row.original.syncGroupId
-                          ? "Open Display Group"
-                          : "Add to Display Group"}
+                          ? t("grid.openGroup")
+                          : t("grid.addToGroup")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -300,7 +317,7 @@ export function ScreenFleetTable({
             ]
           : []),
       ]),
-    [canManage, csrfToken, navigate],
+    [canManage, csrfToken, formatLocale, navigate, t],
   );
   const table = useTable({
     features,
@@ -361,22 +378,28 @@ export function ScreenFleetTable({
 }
 
 function StatusBadge({ status }: { status: ScreenStatus }) {
+  const { t } = useTranslation("screens");
   const variant =
     status === "offline" || status === "stale"
       ? "destructive"
       : status === "recent"
         ? "secondary"
         : "outline";
-  return <Badge variant={variant}>{statusLabels[status] ?? "Unknown"}</Badge>;
+  const labelKey = statusLabelKeys[status];
+  return (
+    <Badge variant={variant}>
+      {labelKey ? t(labelKey) : t("status.unknown")}
+    </Badge>
+  );
 }
 
-function platformLabel(value: string) {
+function platformLabel(value: string, t: ScreensT) {
   const normalized = value.toLowerCase();
-  if (normalized === "linux") return "Linux";
-  if (normalized.includes("fire")) return "Fire TV";
-  if (normalized.includes("google")) return "Google TV";
-  if (normalized.includes("android")) return "Android TV";
-  return value || "Unknown platform";
+  if (normalized === "linux") return t("platform.linux");
+  if (normalized.includes("fire")) return t("platform.fireTv");
+  if (normalized.includes("google")) return t("platform.googleTv");
+  if (normalized.includes("android")) return t("platform.androidTv");
+  return value || t("platform.unknown");
 }
 
 function humanize(value: string) {
@@ -385,14 +408,14 @@ function humanize(value: string) {
     .replace(/^./, (letter) => letter.toUpperCase());
 }
 
-function formatContact(value?: string) {
-  if (!value) return "Never";
+function formatContact(value: string | undefined, t: ScreensT) {
+  if (!value) return t("contact.never");
   const date = new Date(value);
   const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
-  if (seconds < 60) return "Just now";
+  if (seconds < 60) return t("contact.justNow");
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t("contact.shortMinutes", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
+  if (hours < 24) return t("contact.shortHours", { count: hours });
+  return t("contact.shortDays", { count: Math.round(hours / 24) });
 }

@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 import { previewTimeInputValue, type PreviewTime } from "./previewTime";
 import { Button } from "../components/ui/button";
 import { DateTimeInput } from "../components/date-picker";
@@ -16,12 +17,17 @@ export function PreviewTimeControl({
   value: PreviewTime;
   onChange: (time: PreviewTime) => void;
 }) {
+  const { t } = useTranslation(["content", "common", "schedules"]);
   const fixed = value.mode === "fixed";
   const inputId = useId();
   return (
-    <div className="grid gap-2" role="group" aria-label="Preview time">
+    <div
+      className="grid gap-2"
+      role="group"
+      aria-label={t("widgets.preview.time.groupLabel")}
+    >
       <ToggleGroup
-        aria-label="Preview time mode"
+        aria-label={t("widgets.preview.time.modeLabel")}
         variant="outline"
         size="sm"
         className="justify-self-start"
@@ -37,19 +43,23 @@ export function PreviewTimeControl({
             });
         }}
       >
-        <ToggleGroupItem value="live">Live</ToggleGroupItem>
-        <ToggleGroupItem value="fixed">At a time</ToggleGroupItem>
+        <ToggleGroupItem value="live">
+          {t("widgets.preview.time.live")}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="fixed">
+          {t("widgets.preview.time.atTime")}
+        </ToggleGroupItem>
       </ToggleGroup>
       {fixed && (
         <div className="flex flex-wrap items-end gap-2">
           <Field className="min-w-0 flex-[1_1_12rem] gap-1">
             <FieldLabel htmlFor={inputId} className="text-xs">
-              Preview date and time
+              {t("widgets.preview.time.dateTimeLabel")}
             </FieldLabel>
             <DateTimeInput
               id={inputId}
-              aria-label="Preview date and time"
-              timeLabel="Preview time of day"
+              aria-label={t("widgets.preview.time.dateTimeLabel")}
+              timeLabel={t("datePicker.previewTime", { ns: "schedules" })}
               value={value.value}
               onChange={(next) => onChange({ mode: "fixed", value: next })}
             />
@@ -64,14 +74,14 @@ export function PreviewTimeControl({
               })
             }
           >
-            Reset to now
+            {t("widgets.preview.time.resetNow")}
           </Button>
         </div>
       )}
       <FieldDescription className="text-xs">
         {fixed
-          ? "Clocks, dates, countdowns, and schedule selections render at this time, read in your own time zone. A thumbnail saved now captures this preview."
-          : "The preview follows the current time."}
+          ? t("widgets.preview.time.fixedHint")
+          : t("widgets.preview.time.liveHint")}
       </FieldDescription>
     </div>
   );

@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { studioRoutes } from "../App";
 import type { PluginSummary } from "../api/types";
 import { buildCommandResults } from "../components/StudioTopbar";
+import { i18n } from "../i18n";
 import { PluginsPage } from "../pages/PluginsPage";
 import { catalogPlugin } from "./catalogFixtures";
 import { PluginActionsMenu, blockerInstruction } from "./PluginActionsMenu";
@@ -362,7 +363,7 @@ describe("Remove plugin", () => {
 
   it("gives Emergency Alerts steps that match each blocker", () => {
     expect(
-      blockerInstruction([
+      blockerInstruction(i18n.getFixedT("en", "plugins"), [
         { kind: "alert_monitor", count: 1, label: "enabled monitor" },
         { kind: "alert_rule", count: 2, label: "alert rules" },
         { kind: "alert_activation", count: 1, label: "active alert" },
@@ -394,6 +395,7 @@ describe("Plugin navigation", () => {
       "noise",
       undefined,
       catalog,
+      i18n.getFixedT("en", "navigation"),
     );
     const noise = results.find((result) => result.id === "plugin:noise_meter");
     expect(noise).toMatchObject({
@@ -406,6 +408,7 @@ describe("Plugin navigation", () => {
       "countdown",
       undefined,
       catalog,
+      i18n.getFixedT("en", "navigation"),
     ).find((result) => result.id === "plugin:countdown_bar");
     expect(countdown).toMatchObject({
       description: "Plugin · Not installed",

@@ -1,7 +1,8 @@
 import { Save, Tag, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { ContentTag } from "../../api/types";
 import { Alert, AlertDescription } from "../ui/alert";
-import { Button } from "../ui/button";
+import { Button as RheaButton } from "../ui/button";
 import { Field, FieldDescription, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import {
@@ -27,14 +28,20 @@ import {
 } from "../ui/sheet";
 import { Textarea } from "../ui/textarea";
 
-const sourceTypeOptions = [
-  { value: "static", label: "Manual timeline" },
-  { value: "tag", label: "Automatically from media tags" },
+const sourceTypeOptions: {
+  value: "static" | "tag";
+  labelKey: "details.sourceOptions.manual" | "details.sourceOptions.fromTags";
+}[] = [
+  { value: "static", labelKey: "details.sourceOptions.manual" },
+  { value: "tag", labelKey: "details.sourceOptions.fromTags" },
 ];
 
-const tagMatchOptions = [
-  { value: "any", label: "Any selected tag" },
-  { value: "all", label: "All selected tags" },
+const tagMatchOptions: {
+  value: "any" | "all";
+  labelKey: "details.matchOptions.any" | "details.matchOptions.all";
+}[] = [
+  { value: "any", labelKey: "details.matchOptions.any" },
+  { value: "all", labelKey: "details.matchOptions.all" },
 ];
 
 export function PlaylistDetailsDrawer({
@@ -90,12 +97,15 @@ export function PlaylistDetailsDrawer({
   onSaveMetadata: () => void;
   onSaveTagRule: () => void;
 }) {
+  const { t } = useTranslation(["playlists", "common"]);
   const sections = (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
       <section className="grid gap-3">
-        <h3 className="text-sm font-medium">Details</h3>
+        <h3 className="text-sm font-medium">{t("details.sectionDetails")}</h3>
         <Field>
-          <FieldLabel htmlFor="playlist-details-name">Name</FieldLabel>
+          <FieldLabel htmlFor="playlist-details-name">
+            {t("details.nameLabel")}
+          </FieldLabel>
           <Input
             id="playlist-details-name"
             disabled={!canManage}
@@ -105,7 +115,7 @@ export function PlaylistDetailsDrawer({
         </Field>
         <Field>
           <FieldLabel htmlFor="playlist-details-description">
-            Description
+            {t("details.descriptionLabel")}
           </FieldLabel>
           <Textarea
             id="playlist-details-description"
@@ -120,40 +130,50 @@ export function PlaylistDetailsDrawer({
           </Alert>
         )}
         <div>
-          <Button
+          <RheaButton
             type="button"
             size="sm"
             disabled={!canManage || !metadataDirty || metadataSaving}
             onClick={onSaveMetadata}
           >
             <Save size={14} aria-hidden="true" />
-            {metadataSaving ? "Saving…" : "Save details"}
-          </Button>
+            {metadataSaving
+              ? t("common:actions.saving")
+              : t("details.saveDetails")}
+          </RheaButton>
         </div>
       </section>
 
       <section className="grid gap-3">
-        <h3 className="text-sm font-medium">Content source</h3>
+        <h3 className="text-sm font-medium">{t("details.sourceTitle")}</h3>
         <p className="text-sm text-muted-foreground">
-          Choose a manual timeline or let matching ready media appear from tags.
+          {t("details.sourceDescription")}
         </p>
         <Field>
-          <FieldLabel htmlFor="playlist-details-source">Source</FieldLabel>
+          <FieldLabel htmlFor="playlist-details-source">
+            {t("details.sourceLabel")}
+          </FieldLabel>
           <RheaSelect
             disabled={!canManage}
             value={sourceType}
             onValueChange={(next) =>
               onSourceTypeChange(next as "static" | "tag")
             }
-            items={sourceTypeOptions}
+            items={sourceTypeOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
           >
-            <SelectTrigger id="playlist-details-source" aria-label="Source">
+            <SelectTrigger
+              id="playlist-details-source"
+              aria-label={t("details.sourceLabel")}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {sourceTypeOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -163,35 +183,45 @@ export function PlaylistDetailsDrawer({
         {sourceType === "tag" && (
           <>
             <Field>
-              <FieldLabel htmlFor="playlist-details-match">Match</FieldLabel>
+              <FieldLabel htmlFor="playlist-details-match">
+                {t("details.matchLabel")}
+              </FieldLabel>
               <RheaSelect
                 disabled={!canManage}
                 value={tagMatch}
                 onValueChange={(next) =>
                   onTagMatchChange(next as "any" | "all")
                 }
-                items={tagMatchOptions}
+                items={tagMatchOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
               >
-                <SelectTrigger id="playlist-details-match" aria-label="Match">
+                <SelectTrigger
+                  id="playlist-details-match"
+                  aria-label={t("details.matchLabel")}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {tagMatchOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </RheaSelect>
             </Field>
             <Field>
-              <span className="text-sm font-medium">Media tags</span>
+              <span className="text-sm font-medium">
+                {t("details.tagsLabel")}
+              </span>
               <div className="flex flex-wrap gap-2">
                 {tags.length ? (
                   tags.map((tag) => {
                     const active = tagIds.includes(tag.id);
                     return (
-                      <Button
+                      <RheaButton
                         key={tag.id}
                         type="button"
                         variant={active ? "default" : "outline"}
@@ -206,19 +236,19 @@ export function PlaylistDetailsDrawer({
                           aria-hidden="true"
                         />
                         {tag.name}
-                      </Button>
+                      </RheaButton>
                     );
                   })
                 ) : (
                   <span className="text-sm text-muted-foreground">
-                    No tags available
+                    {t("details.noTags")}
                   </span>
                 )}
               </div>
             </Field>
             <Field>
               <FieldLabel htmlFor="playlist-details-image-duration">
-                Image duration
+                {t("details.imageDurationLabel")}
               </FieldLabel>
               <div className="flex items-center gap-2">
                 <Input
@@ -233,15 +263,17 @@ export function PlaylistDetailsDrawer({
                     onTagImageSecondsChange(Number(event.target.value))
                   }
                 />
-                <span className="text-sm text-muted-foreground">seconds</span>
+                <span className="text-sm text-muted-foreground">
+                  {t("details.secondsUnit")}
+                </span>
               </div>
               <FieldDescription>
-                Applied to matching image content.
+                {t("details.imageDurationHint")}
               </FieldDescription>
             </Field>
             {tagIds.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Select at least one tag before saving this source.
+                {t("details.tagRequired")}
               </p>
             )}
           </>
@@ -252,7 +284,7 @@ export function PlaylistDetailsDrawer({
           </Alert>
         )}
         <div>
-          <Button
+          <RheaButton
             type="button"
             size="sm"
             disabled={
@@ -264,33 +296,35 @@ export function PlaylistDetailsDrawer({
             onClick={onSaveTagRule}
           >
             <Tag size={14} aria-hidden="true" />
-            {tagRuleSaving ? "Saving…" : "Save content source"}
-          </Button>
+            {tagRuleSaving
+              ? t("common:actions.saving")
+              : t("details.saveSource")}
+          </RheaButton>
         </div>
       </section>
     </div>
   );
   const eyebrow =
-    sourceType === "tag" ? "Tag-driven playlist" : "Playlist settings";
+    sourceType === "tag" ? t("details.kindTag") : t("details.kindSettings");
   const closeButton = (
-    <Button
+    <RheaButton
       type="button"
       variant="ghost"
       size="icon-sm"
       className="absolute top-2 right-3"
-      aria-label="Close playlist details"
+      aria-label={t("common:actions.close")}
       onClick={onClose}
     >
       <X aria-hidden="true" />
-    </Button>
+    </RheaButton>
   );
 
   if (desktop) {
     return (
       <Sheet
         open={open}
-        onOpenChange={(open) => {
-          if (!open) onClose();
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) onClose();
         }}
       >
         <SheetContent
@@ -302,10 +336,8 @@ export function PlaylistDetailsDrawer({
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {eyebrow}
             </p>
-            <SheetTitle>Playlist details</SheetTitle>
-            <SheetDescription>
-              Name and description are saved separately from timeline edits.
-            </SheetDescription>
+            <SheetTitle>{t("details.title")}</SheetTitle>
+            <SheetDescription>{t("details.description")}</SheetDescription>
             {closeButton}
           </SheetHeader>
           {sections}
@@ -317,8 +349,8 @@ export function PlaylistDetailsDrawer({
   return (
     <Drawer
       open={open}
-      onOpenChange={(open) => {
-        if (!open) onClose();
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
       }}
       showSwipeHandle
     >
@@ -327,10 +359,8 @@ export function PlaylistDetailsDrawer({
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {eyebrow}
           </p>
-          <DrawerTitle>Playlist details</DrawerTitle>
-          <DrawerDescription>
-            Name and description are saved separately from timeline edits.
-          </DrawerDescription>
+          <DrawerTitle>{t("details.title")}</DrawerTitle>
+          <DrawerDescription>{t("details.description")}</DrawerDescription>
           {closeButton}
         </DrawerHeader>
         {sections}

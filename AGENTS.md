@@ -182,6 +182,8 @@ Milestone 3 media tables should reference generated asset IDs. Uploaded filename
 
 Keep UI state separate from API state. New server operations belong in `src/api/client.ts`; public types belong in `src/api/types.ts`. Polling is currently used for screen status, at a ten-second interval.
 
+Studio is localized with react-i18next (English source, Spanish, Russian). Follow [`docs/localization.md`](docs/localization.md): new user-visible text goes through `t()` with keys added to every locale in `src/locales/`, never as a hard-coded English literal. Keep English copy unchanged when converting an existing string, because tests assert on it. `npm run i18n:scan -- --check <path>` must be clean for any file you convert.
+
 The interface is restrained infrastructure software: compact spacing, visible controls, limited corner radii, no decorative gradients, no fake analytics, and no future feature presented as complete. Important operations must not be hover-only. Status must include text or an icon, not color alone.
 
 When adding Milestone 3 media screens, show real processing states and real metadata. Do not add fabricated library totals or storage charts.
@@ -338,6 +340,7 @@ Update documentation with the implementation, not afterward as an approximation.
 - `docs/mdns-discovery.md`
 - `docs/deployment.md`
 - `docs/troubleshooting.md`
+- `docs/localization.md`
 
 For Milestone 3 also document media storage, upload limits, FFmpeg inspection/transcoding behavior, range requests, cleanup semantics, and backup implications.
 

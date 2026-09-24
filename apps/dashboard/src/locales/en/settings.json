@@ -1,0 +1,1809 @@
+{
+  "actionBar": {
+    "unsavedTitle": "Unsaved changes",
+    "unsavedDescription": "Changes are kept while you browse Settings.",
+    "reload": "Reload settings"
+  },
+  "definitions": {
+    "backups": {
+      "schedule_enabled": {
+        "title": "Scheduled backups",
+        "description": "Create full backups automatically on a schedule"
+      },
+      "schedule_frequency": {
+        "title": "Backup frequency"
+      },
+      "schedule_day": {
+        "title": "Backup day",
+        "description": "Day of the week for weekly backups"
+      },
+      "schedule_time": {
+        "title": "Backup time"
+      },
+      "schedule_timezone": {
+        "title": "Backup timezone"
+      },
+      "retention_max_count": {
+        "title": "Scheduled backups to keep"
+      },
+      "retention_max_age_days": {
+        "title": "Maximum scheduled backup age (days)"
+      }
+    },
+    "notifications": {
+      "enabled": {
+        "title": "Send notifications",
+        "description": "Email needs TILECAST_SMTP_HOST on the server. Without it, notifications stay off and nothing fails."
+      },
+      "from_address": {
+        "title": "From address",
+        "description": "Address that notification email is sent from"
+      },
+      "from_name": {
+        "title": "From name"
+      },
+      "minimum_severity": {
+        "title": "Minimum severity",
+        "description": "Conditions below this severity are recorded in Activity but are not sent"
+      },
+      "digest_time": {
+        "title": "Daily digest time"
+      },
+      "timezone": {
+        "title": "Notification timezone",
+        "description": "Applies to the digest time and to quiet hours"
+      },
+      "quiet_hours_enabled": {
+        "title": "Quiet hours",
+        "description": "Holds notifications until quiet hours end. Critical conditions are always sent immediately."
+      },
+      "quiet_hours_start": {
+        "title": "Quiet hours start"
+      },
+      "quiet_hours_end": {
+        "title": "Quiet hours end"
+      },
+      "retention_days": {
+        "title": "Delivery log retention"
+      }
+    },
+    "content_health": {
+      "stale_source_hours": {
+        "title": "Stale Data Source after",
+        "description": "Hours without a successful refresh before a Data Source counts as stale. A weekly calendar tolerates far more than a weather feed."
+      },
+      "expiring_media_days": {
+        "title": "Warn about expiring media",
+        "description": "How far ahead the content health report lists media that is about to expire"
+      }
+    },
+    "snapshots": {
+      "enabled": {
+        "title": "Keep a snapshot history",
+        "description": "Stores periodic screen images so you can see what a screen showed earlier. Snapshots are held in the database and are included in every backup."
+      },
+      "interval_minutes": {
+        "title": "Capture every"
+      },
+      "retention_days": {
+        "title": "Keep snapshots for"
+      },
+      "max_per_screen": {
+        "title": "Snapshots to keep per screen",
+        "description": "The oldest are removed once a screen reaches this many, whatever the retention period says"
+      }
+    },
+    "content": {
+      "approval_required": {
+        "title": "Legacy approval switch",
+        "description": "Retained for compatibility. New installations should use the content review policy."
+      },
+      "review_policy": {
+        "title": "Content review policy",
+        "description": "Choose whether no content, Contributor work, or every publication requires approval."
+      },
+      "allow_self_approval": {
+        "title": "Allow self-approval",
+        "description": "Allow a reviewer to approve their own submission."
+      },
+      "auto_publish_on_approval": {
+        "title": "Automatically publish approved submissions",
+        "description": "Publish immediately or schedule the requested time when a submission is approved."
+      }
+    },
+    "organization": {
+      "name": {
+        "title": "Organization name",
+        "description": "Name shown throughout Tilecast Studio"
+      },
+      "short_name": {
+        "title": "Short name",
+        "description": "Compact organization name"
+      },
+      "timezone": {
+        "title": "Default timezone"
+      },
+      "locale": {
+        "title": "Locale"
+      },
+      "first_day_of_week": {
+        "title": "First day of week"
+      },
+      "date_format": {
+        "title": "Date format"
+      },
+      "time_format": {
+        "title": "Time format"
+      },
+      "support_name": {
+        "title": "Support contact"
+      },
+      "support_email": {
+        "title": "Support email"
+      },
+      "support_message": {
+        "title": "Internal support message"
+      }
+    },
+    "security": {
+      "mfa_required_scope": {
+        "title": "Require multi-factor authentication",
+        "description": "Accounts in scope must enroll an authenticator app or a passkey before they can use Tilecast Studio."
+      }
+    },
+    "branding": {
+      "logo_asset_id": {
+        "title": "Logo"
+      },
+      "icon_asset_id": {
+        "title": "Square icon"
+      },
+      "primary_color": {
+        "title": "Primary color"
+      },
+      "player_background_color": {
+        "title": "Player background"
+      },
+      "player_text_color": {
+        "title": "Player text"
+      },
+      "no_content_title": {
+        "title": "No-content title"
+      },
+      "no_content_message": {
+        "title": "No-content message"
+      },
+      "disabled_title": {
+        "title": "Disabled title"
+      },
+      "disabled_message": {
+        "title": "Disabled message"
+      },
+      "footer_text": {
+        "title": "Footer text"
+      }
+    },
+    "player": {
+      "playback": {
+        "default_fit_mode": {
+          "title": "Default fit mode"
+        },
+        "default_volume": {
+          "title": "Default volume"
+        },
+        "default_image_duration_seconds": {
+          "title": "Default image duration"
+        },
+        "default_transition": {
+          "title": "Default transition"
+        },
+        "default_audio_enabled": {
+          "title": "Default audio enabled"
+        },
+        "resume_after_restart": {
+          "title": "Resume after restart"
+        }
+      },
+      "cache": {
+        "max_bytes": {
+          "title": "Maximum cache bytes"
+        },
+        "minimum_free_bytes": {
+          "title": "Minimum free bytes"
+        }
+      },
+      "download": {
+        "concurrent_limit": {
+          "title": "Concurrent downloads"
+        },
+        "automatic_threshold_bytes": {
+          "title": "Automatic delivery threshold"
+        }
+      },
+      "sync": {
+        "manifest_seconds": {
+          "title": "Manifest reconciliation interval"
+        },
+        "status_seconds": {
+          "title": "Status report interval"
+        }
+      },
+      "website": {
+        "timeout_seconds": {
+          "title": "Website timeout"
+        },
+        "cookie_policy": {
+          "title": "Website cookie policy"
+        },
+        "clear_on_restart": {
+          "title": "Clear website data on restart"
+        }
+      },
+      "identify": {
+        "show_location": {
+          "title": "Show location when identifying"
+        }
+      },
+      "update": {
+        "channel": {
+          "title": "Player update channel",
+          "description": "Stable is the hardened default. Beta releases still require an explicit deployment."
+        }
+      }
+    },
+    "reliability": {
+      "mode": {
+        "title": "Reliability mode",
+        "description": "Managed Kiosk becomes effective only when Android confirms device-policy capability."
+      },
+      "launch_after_boot": {
+        "title": "Launch after boot",
+        "description": "Android only. Linux players start at boot from a systemd user service, installed per screen from the screen's Reliability tab."
+      },
+      "immersive_mode": {
+        "title": "Immersive fullscreen"
+      },
+      "foreground_watchdog_enabled": {
+        "title": "Foreground watchdog"
+      },
+      "playback_stall_seconds": {
+        "title": "Playback stall threshold"
+      },
+      "webview_stall_seconds": {
+        "title": "Website stall threshold"
+      },
+      "maximum_process_restarts": {
+        "title": "Maximum process recoveries"
+      },
+      "restart_window_minutes": {
+        "title": "Recovery window"
+      },
+      "safe_mode_enabled": {
+        "title": "Crash-loop safe mode"
+      }
+    },
+    "power": {
+      "active_hours_enabled": {
+        "title": "Active hours"
+      },
+      "active_hours_timezone": {
+        "title": "Active-hours timezone"
+      },
+      "active_hours_days": {
+        "title": "Active days"
+      },
+      "active_hours_start": {
+        "title": "Start time"
+      },
+      "active_hours_end": {
+        "title": "End time"
+      },
+      "startup_grace_seconds": {
+        "title": "Startup grace",
+        "description": "Android Power Assist only; Linux startup and process recovery are managed by systemd."
+      },
+      "shutdown_prepare_seconds": {
+        "title": "Shutdown preparation",
+        "description": "Android Power Assist and status reporting only; Linux uses its systemd/display-control integration."
+      },
+      "keep_screen_on": {
+        "title": "Keep screen awake during active hours",
+        "description": "Android active-hours wake policy; Linux uses linux_kiosk.prevent_display_sleep for the host display-sleep blocker."
+      },
+      "sleep_outside_active_hours": {
+        "title": "Request sleep outside active hours",
+        "description": "Android Power Assist only; Linux shows its configured branded off-hours surface and does not request operating-system sleep."
+      },
+      "outside_active_hours_display": {
+        "title": "Outside active hours",
+        "description": "Choose what remains visible when the player is outside active hours and the display does not sleep."
+      },
+      "outside_active_hours_text": {
+        "title": "Custom text",
+        "description": "Centered text shown outside active hours. When empty, Tilecast uses the branding footer text."
+      }
+    },
+    "managed_kiosk": {
+      "lock_task_enabled": {
+        "title": "Lock task"
+      },
+      "block_overlays": {
+        "title": "Block overlays where supported"
+      },
+      "allow_settings_during_admin": {
+        "title": "Allow Settings during maintenance"
+      },
+      "admin_session_minutes": {
+        "title": "Maintenance session duration"
+      }
+    },
+    "linux_kiosk": {
+      "fullscreen_enabled": {
+        "title": "Kiosk fullscreen",
+        "description": "Keeps Tilecast in a frameless fullscreen kiosk window on Linux. TILECAST_WINDOWED=1 remains a local development override."
+      },
+      "prevent_display_sleep": {
+        "title": "Prevent display sleep",
+        "description": "Asks the Linux desktop session to keep the display awake while Tilecast Player is running."
+      }
+    },
+    "accessibility": {
+      "control_assist_enabled": {
+        "title": "Accessibility Control Assist",
+        "description": "Hardened players request this behavior by default, but the Android service still requires deliberate local enablement."
+      },
+      "return_delay_seconds": {
+        "title": "Return delay"
+      },
+      "allowed_packages": {
+        "title": "Maintenance applications"
+      },
+      "pause_during_updates": {
+        "title": "Pause during player updates"
+      },
+      "pause_during_admin_session": {
+        "title": "Pause during maintenance"
+      },
+      "report_foreground_package": {
+        "title": "Report foreground package"
+      },
+      "maximum_returns": {
+        "title": "Maximum automatic returns"
+      },
+      "return_window_minutes": {
+        "title": "Return attempt window"
+      }
+    },
+    "media": {
+      "upload": {
+        "max_bytes": {
+          "title": "Studio upload limit"
+        }
+      },
+      "keep_originals": {
+        "title": "Keep originals"
+      },
+      "video": {
+        "max_width": {
+          "title": "Maximum video width"
+        },
+        "max_height": {
+          "title": "Maximum video height"
+        },
+        "max_frame_rate": {
+          "title": "Maximum frame rate"
+        },
+        "default_delivery_policy": {
+          "title": "Default video delivery"
+        },
+        "default_fit_mode": {
+          "title": "Default video fit"
+        }
+      },
+      "image": {
+        "default_fit_mode": {
+          "title": "Default image fit"
+        }
+      },
+      "processing": {
+        "retry_limit": {
+          "title": "Processing retry limit"
+        }
+      },
+      "temporary_upload_retention_hours": {
+        "title": "Temporary upload retention"
+      },
+      "deleted_retention_days": {
+        "title": "Deleted media retention"
+      }
+    },
+    "scheduling": {
+      "prefetch_days": {
+        "title": "Prefetch horizon"
+      },
+      "activation_grace_seconds": {
+        "title": "Activation grace"
+      },
+      "clock_skew_warning_seconds": {
+        "title": "Clock-skew warning"
+      },
+      "default_one_time_duration_minutes": {
+        "title": "Default one-time duration"
+      }
+    },
+    "website": {
+      "default_javascript": {
+        "title": "JavaScript default"
+      },
+      "default_dom_storage": {
+        "title": "DOM storage default"
+      },
+      "default_timeout_seconds": {
+        "title": "Website timeout default"
+      },
+      "default_cookie_policy": {
+        "title": "Default cookie policy"
+      },
+      "default_reload_policy": {
+        "title": "Default reload policy"
+      },
+      "minimum_refresh_seconds": {
+        "title": "Minimum refresh interval"
+      },
+      "default_failure_behavior": {
+        "title": "Default failure behavior"
+      },
+      "default_zoom_percent": {
+        "title": "Default zoom"
+      },
+      "default_fallback_image_id": {
+        "title": "Default fallback image"
+      },
+      "clear_data_on_delete": {
+        "title": "Clear website data after deletion"
+      },
+      "private_http_enabled": {
+        "title": "Private HTTP enabled"
+      }
+    },
+    "takeover": {
+      "default_duration_minutes": {
+        "title": "Default takeover duration"
+      },
+      "maximum_duration_minutes": {
+        "title": "Maximum takeover duration"
+      },
+      "confirmation_required": {
+        "title": "Require takeover confirmation"
+      },
+      "reauthentication_required": {
+        "title": "Require password confirmation"
+      }
+    },
+    "commands": {
+      "default_expiry_minutes": {
+        "title": "Command expiration"
+      },
+      "identify_duration_seconds": {
+        "title": "Identify duration"
+      }
+    },
+    "retention": {
+      "command_history_days": {
+        "title": "Command history retention"
+      },
+      "audit_days": {
+        "title": "Audit retention"
+      },
+      "player_status_days": {
+        "title": "Player status retention"
+      },
+      "expired_pairing_days": {
+        "title": "Expired pairing retention"
+      },
+      "failed_upload_days": {
+        "title": "Failed upload retention"
+      },
+      "deleted_media_metadata_days": {
+        "title": "Deleted media metadata retention"
+      },
+      "takeover_history_days": {
+        "title": "Takeover history retention"
+      },
+      "max_diagnostic_events_per_screen": {
+        "title": "Diagnostic event limit"
+      }
+    },
+    "preference": {
+      "appearance": {
+        "title": "Appearance"
+      },
+      "language": {
+        "title": "Language"
+      },
+      "density": {
+        "title": "Interface density"
+      },
+      "reduced_motion": {
+        "title": "Reduced motion"
+      },
+      "time_format": {
+        "title": "Time format"
+      },
+      "content_view": {
+        "title": "Default content view"
+      },
+      "screens_view": {
+        "title": "Default screens view"
+      },
+      "table_page_size": {
+        "title": "Table page size"
+      },
+      "remember_filters": {
+        "title": "Remember filters"
+      },
+      "hide_completed_uploads_minutes": {
+        "title": "Hide completed uploads after"
+      },
+      "notifications": {
+        "mode": {
+          "title": "Notify me",
+          "description": "Immediate sends each condition as it happens. Digest collects them into one daily message."
+        },
+        "address": {
+          "title": "Send to",
+          "description": "Your email address. Notifications are not sent until this is set."
+        },
+        "incidents": {
+          "title": "Screen problems",
+          "description": "A screen stops reporting, playback fails, or a Player enters safe mode"
+        },
+        "content_health": {
+          "title": "Content problems",
+          "description": "A Data Source is serving stale data, or a playlist has nothing available to play"
+        },
+        "backups": {
+          "title": "Backups"
+        },
+        "updates": {
+          "title": "Player updates"
+        }
+      }
+    }
+  },
+  "enumValues": {
+    "managed_kiosk": "Managed Kiosk",
+    "standard": "Standard reliability",
+    "first_party": "First-party cookies",
+    "first_and_third_party": "First- and third-party cookies",
+    "download_only": "Download only",
+    "on_each_activation": "Reload on each activation",
+    "load_once": "Load once",
+    "fallback_image": "Fallback image",
+    "last_success": "Last successful page",
+    "12-hour": "12-hour",
+    "24-hour": "24-hour",
+    "en_US": "English (United States)",
+    "contain": "Contain",
+    "cover": "Cover",
+    "stretch": "Stretch",
+    "disabled": "Disabled",
+    "enabled": "Enabled",
+    "none": "None",
+    "fade": "Fade",
+    "automatic": "Automatic",
+    "download": "Download",
+    "stream": "Stream",
+    "minimal": "Minimal",
+    "detailed": "Detailed",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "comfortable": "Comfortable",
+    "compact": "Compact",
+    "grid": "Grid",
+    "list": "List",
+    "groups": "Groups",
+    "organization": "Organization default",
+    "sunday": "Sunday",
+    "monday": "Monday",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday",
+    "saturday": "Saturday",
+    "locale": "Use locale",
+    "placeholder": "Tilecast placeholder",
+    "skip": "Skip item",
+    "interval": "Reload on an interval",
+    "bouncing_logo": "Bouncing Tilecast logo",
+    "custom_text": "Custom text",
+    "black": "Black screen",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "info": "Info",
+    "warning": "Warning",
+    "error": "Error",
+    "critical": "Critical",
+    "administrators": "Administrators",
+    "all": "All",
+    "contributors": "Contributors",
+    "everyone": "Everyone",
+    "off": "Off",
+    "beta": "Beta",
+    "stable": "Stable",
+    "digest": "Digest",
+    "immediate": "Immediate",
+    "crossfade": "Crossfade"
+  },
+  "nav": {
+    "groups": {
+      "organization": "Organization",
+      "content": "Content and playback",
+      "players": "Player management",
+      "operations": "Operations",
+      "tools": "System tools"
+    },
+    "items": {
+      "general": "General",
+      "branding": "Branding",
+      "users": "Users",
+      "security": "Sign-in security",
+      "locations": "Locations",
+      "playback": "Playback",
+      "media": "Media",
+      "websites": "Websites",
+      "scheduling": "Scheduling",
+      "reliability": "Reliability and kiosk",
+      "power": "Active hours and power",
+      "accessibility": "Accessibility control",
+      "player-updates": "Player updates",
+      "presentation-networks": "Presentation Networks",
+      "takeover": "Takeovers and commands",
+      "retention": "Data retention",
+      "backups": "Backup and restore",
+      "notifications": "Notifications",
+      "system": "System",
+      "content-review": "Content review",
+      "snapshots": "Snapshot history",
+      "integrations": "Integration tokens",
+      "import-export": "Import and export",
+      "dependency-graph": "Dependency Graph",
+      "preferences": "Preferences"
+    },
+    "sections": {
+      "general": {
+        "title": "General",
+        "description": "Organization identity, regional formats, and support details."
+      },
+      "branding": {
+        "title": "Branding",
+        "description": "Organization identity and the fallback appearance shown by players."
+      },
+      "users": {
+        "title": "Users",
+        "description": "Give each person an individual sign-in and assign only the permissions they need. Appearance and density preferences remain separate for every account."
+      },
+      "security": {
+        "title": "Sign-in security",
+        "description": "Decide who must use a second factor to sign in. Each person manages their own authenticator, passkeys, and recovery codes from My Account → Sign-in security."
+      },
+      "locations": {
+        "title": "Locations",
+        "description": "Reusable buildings and campuses assigned to multiple screens, while room details stay on each player."
+      },
+      "playback": {
+        "title": "Playback",
+        "description": "Default playback, storage, delivery, synchronization, and diagnostics."
+      },
+      "media": {
+        "title": "Media",
+        "description": "Upload limits, delivery defaults, and future media-processing behavior."
+      },
+      "websites": {
+        "title": "Websites",
+        "description": "Safe defaults for website playback, reloads, cookies, and failures."
+      },
+      "scheduling": {
+        "title": "Scheduling",
+        "description": "Schedule preparation, timing, and clock-warning defaults."
+      },
+      "reliability": {
+        "title": "Reliability and kiosk",
+        "description": "Shared recovery with platform-specific Android and Linux kiosk controls."
+      },
+      "power": {
+        "title": "Active hours and power",
+        "description": "Player operating hours and best-effort Android sleep and wake behavior."
+      },
+      "accessibility": {
+        "title": "Accessibility control",
+        "description": "Optional foreground-return assistance with explicit safety pauses."
+      },
+      "player-updates": {
+        "title": "Player updates",
+        "description": "Verified Tilecast Player releases and update deployments."
+      },
+      "presentation-networks": {
+        "title": "Presentation Networks",
+        "description": "Temporarily connect supported Linux players to Wi-Fi for AirPlay and other local presentation features while keeping Ethernet as their primary Tilecast connection."
+      },
+      "takeover": {
+        "title": "Takeovers and commands",
+        "description": "Defaults for a Takeover started by hand and for player commands. Automatic weather alerts are the Emergency Alerts plugin."
+      },
+      "retention": {
+        "title": "Data retention",
+        "description": "Bounded history and cleanup periods for operational records."
+      },
+      "backups": {
+        "title": "Backup and restore",
+        "description": "Create, verify, download, schedule, and restore full installation backups."
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Send alerts by email or webhook."
+      },
+      "system": {
+        "title": "System",
+        "description": "Safe diagnostics and deliberate maintenance actions."
+      },
+      "content-review": {
+        "title": "Content review",
+        "description": "Require approval before a playlist or Layout can be assigned to a screen. A Contributor authors content but cannot publish or assign it."
+      },
+      "snapshots": {
+        "title": "Snapshot history",
+        "description": "Periodic Player screenshots with configurable retention."
+      },
+      "integrations": {
+        "title": "Integration tokens",
+        "description": "Scoped tokens for Manual Tables and fleet health."
+      },
+      "import-export": {
+        "title": "Import and export",
+        "description": "Portable, non-secret Tilecast configuration."
+      },
+      "dependency-graph": {
+        "title": "Dependency Graph",
+        "description": "Follow content and data through presentations, schedules, groups, and screens."
+      },
+      "preferences": {
+        "title": "Preferences",
+        "description": "Appearance and workflow preferences for your Studio account."
+      }
+    }
+  },
+  "section": {
+    "futureOnly": "Applies to future processing only"
+  },
+  "fallback": {
+    "configureSetting": "Configure {{title}} for Tilecast."
+  },
+  "shell": {
+    "sectionsLabel": "Settings sections",
+    "sectionLabel": "Settings section",
+    "unsavedBadge": "Unsaved",
+    "unsavedSuffix": " • Unsaved"
+  },
+  "dependencies": {
+    "customText": "Choose Custom text to edit this setting.",
+    "intervalReload": "Choose interval reloads to set a refresh interval.",
+    "activeHours": "Enable active hours to edit this setting.",
+    "managedKiosk": "Select Managed Kiosk to edit this setting.",
+    "accessibilityAssist": "Enable Accessibility Control Assist to edit this setting."
+  },
+  "controls": {
+    "bool": {
+      "on": "On",
+      "off": "Off"
+    },
+    "weekdays": {
+      "label": "Active days",
+      "monday": "Mon",
+      "tuesday": "Tue",
+      "wednesday": "Wed",
+      "thursday": "Thu",
+      "friday": "Fri",
+      "saturday": "Sat",
+      "sunday": "Sun"
+    },
+    "packageList": {
+      "label": "Android package name",
+      "add": "Add",
+      "invalid": "Enter an Android package name such as com.android.settings.",
+      "remove": "Remove",
+      "removeItem": "Remove {{item}}"
+    },
+    "color": {
+      "picker": "Color picker",
+      "hex": "Hex color",
+      "hint": "Use a six-digit hex color."
+    },
+    "durationUnits": {
+      "seconds": "seconds",
+      "minutes": "minutes",
+      "hours": "hours"
+    },
+    "timeUnits": {
+      "minutes": "minutes",
+      "hours": "hours",
+      "days": "days"
+    },
+    "unitLabel": "{{title}} unit"
+  },
+  "groups": {
+    "playback": {
+      "defaults": {
+        "title": "Playback defaults"
+      },
+      "storage": {
+        "title": "Storage and delivery"
+      },
+      "sync": {
+        "title": "Synchronization"
+      },
+      "identity": {
+        "title": "Identification and diagnostics"
+      }
+    },
+    "reliability": {
+      "mode": {
+        "title": "Reliability mode"
+      },
+      "startup": {
+        "title": "Startup and presentation"
+      },
+      "watchdog": {
+        "title": "Watchdog and recovery"
+      },
+      "androidKiosk": {
+        "title": "Android Managed Kiosk",
+        "description": "Android-only controls that take effect when the device confirms compatible device-owner capability."
+      },
+      "linuxKiosk": {
+        "title": "Linux kiosk",
+        "description": "Linux window and desktop-session behavior. Starting at boot and restarting after process exit come from the player's systemd service, which is set up per screen from the screen's Reliability tab rather than here."
+      }
+    },
+    "power": {
+      "hours": {
+        "title": "Active hours"
+      },
+      "behavior": {
+        "title": "Active-hour behavior"
+      },
+      "outside": {
+        "title": "Outside active hours",
+        "description": "Choose the fallback shown when the player is outside active hours and Android or the television remains awake."
+      }
+    },
+    "accessibility": {
+      "return": {
+        "title": "Automatic return"
+      },
+      "safety": {
+        "title": "Safety pauses"
+      },
+      "allowed": {
+        "title": "Allowed maintenance applications"
+      },
+      "diagnostics": {
+        "title": "Diagnostics"
+      }
+    },
+    "branding": {
+      "fallback": {
+        "title": "Player fallback screen"
+      }
+    },
+    "general": {
+      "identity": {
+        "title": "Organization identity"
+      },
+      "regional": {
+        "title": "Regional formats"
+      },
+      "support": {
+        "title": "Support details"
+      }
+    },
+    "media": {
+      "uploads": {
+        "title": "Uploads and retention"
+      },
+      "future": {
+        "title": "Future video processing"
+      },
+      "delivery": {
+        "title": "Delivery defaults"
+      }
+    },
+    "websites": {
+      "capabilities": {
+        "title": "Page capabilities"
+      },
+      "loading": {
+        "title": "Loading and reloads"
+      },
+      "failure": {
+        "title": "Failure behavior"
+      },
+      "overrides": {
+        "title": "Player overrides"
+      }
+    },
+    "scheduling": {
+      "defaults": {
+        "title": "Schedule defaults"
+      }
+    },
+    "takeover": {
+      "takeover": {
+        "title": "Takeover defaults"
+      },
+      "commands": {
+        "title": "Player command defaults"
+      }
+    },
+    "retention": {
+      "security": {
+        "title": "Security and operational history"
+      },
+      "cleanup": {
+        "title": "Cleanup periods"
+      },
+      "limits": {
+        "title": "Diagnostic limits"
+      }
+    },
+    "backups": {
+      "schedule": {
+        "title": "Automatic backup schedule"
+      },
+      "retention": {
+        "title": "Scheduled backup retention",
+        "description": "Retention applies to scheduled backups. Manually created backups remain until an Owner deletes them."
+      }
+    },
+    "notifications": {
+      "delivery": {
+        "title": "Delivery",
+        "description": "Email needs an SMTP relay configured on the server. Webhooks work without one."
+      },
+      "timing": {
+        "title": "Timing",
+        "description": "A critical condition is always sent immediately, whatever these say."
+      },
+      "history": {
+        "title": "History"
+      }
+    },
+    "preferences": {
+      "notifications": {
+        "title": "Notifications",
+        "description": "What Tilecast tells you about when you are not looking at Studio."
+      },
+      "appearance": {
+        "title": "Appearance"
+      },
+      "dates": {
+        "title": "Dates and tables"
+      },
+      "views": {
+        "title": "Default views"
+      }
+    },
+    "security": {
+      "mfa": {
+        "title": "Multi-factor authentication"
+      }
+    },
+    "snapshots": {
+      "capture": {
+        "title": "Capture",
+        "description": "Snapshots are held in the database and are included in every backup. The caps below are what keep that bounded."
+      }
+    },
+    "content-review": {
+      "approval": {
+        "title": "Approval",
+        "description": "There is no submit step. Content is waiting for review whenever its current revision has no decision, so editing approved content sends it back automatically."
+      }
+    },
+    "additional": {
+      "title": "Additional settings"
+    }
+  },
+  "page": {
+    "loading": "Loading settings…",
+    "leaveWarning": "Leave Settings with unsaved changes?",
+    "leaveSectionTitle": "This section has unsaved changes. Keep them and open another Settings section?",
+    "leaveSectionAction": "Discard changes",
+    "saved": "Settings saved.",
+    "conflict": "These settings changed elsewhere. Reload the latest settings before saving.",
+    "reviewQueue": {
+      "title": "The review queue",
+      "description": "Content waiting for review is listed under Content review in the main navigation."
+    },
+    "takeoverAlert": {
+      "title": "Automatic weather alerts moved to Plugins.",
+      "description": "NWS monitoring, alert rules, and active emergencies are configured in the <alertsLink>Emergency Alerts</alertsLink> plugin. The defaults below apply to a Takeover started by hand and to player commands."
+    },
+    "accessibilityAlert": {
+      "title": "Local setup is required on every player.",
+      "description": "Accessibility Control Assist must be enabled manually in Android Accessibility Settings. Enabling policy here does not grant Android permission."
+    },
+    "powerAlert": {
+      "description": "Start and end times are identical. Choose a distinct range; an earlier end time is treated as overnight."
+    },
+    "mfa": {
+      "allRequired": "Every account must enroll a second factor.",
+      "adminsRequired": "Owners and Administrators must enroll a second factor.",
+      "consequence": "Nobody is signed out. An account in scope that has not enrolled is asked to set up an authenticator app or a passkey at its next sign-in, and cannot use the rest of Studio until it does. An Owner or Administrator can clear a locked-out account’s factors from Settings → Users.",
+      "passkeysUnavailable": "Passkeys are unavailable on this installation.",
+      "passkeysFallback": "{{reason}} Authenticator apps and recovery codes work regardless."
+    },
+    "preview": {
+      "title": "Player preview",
+      "noContentTitle": "No content assigned",
+      "noContentMessage": "This screen is ready for content.",
+      "takeoverNote": "Takeover keeps Tilecast’s fixed high-contrast treatment regardless of custom branding."
+    }
+  },
+  "retention": {
+    "title": "Activity retention",
+    "description": "Cleanup runs in bounded background batches and respects deployment hard limits.",
+    "save": "Save retention",
+    "loading": "Loading retention settings…",
+    "loadError": "Retention settings could not be loaded.",
+    "retrying": "Retrying…",
+    "retry": "Try again",
+    "saveError": "Retention settings could not be saved.",
+    "rangeHint": "{{min}}–{{max}} days",
+    "fields": {
+      "rawEventDays": "Raw Player activity events",
+      "playbackSessionDays": "Proof-of-play sessions",
+      "screenStateDays": "Screen state intervals",
+      "auditLogDays": "Audit logs",
+      "diagnosticMetadataDays": "Detailed diagnostic metadata"
+    },
+    "validation": {
+      "required": "{{label}} is required.",
+      "wholeDays": "{{label}} must be a whole number of days.",
+      "range": "{{label}} must be between {{min}} and {{max}} days."
+    }
+  },
+  "branding": {
+    "title": "Organization images",
+    "description": "Upload images from this device. Tilecast stores the selected asset internally.",
+    "logo": {
+      "title": "Logo",
+      "description": "A wide organization logo for Tilecast Studio and supported player screens."
+    },
+    "icon": {
+      "title": "Square icon",
+      "description": "A square mark for compact branding and icon-sized placements."
+    },
+    "loginBackground": {
+      "title": "Login background",
+      "description": "The full-screen image behind the Tilecast Studio sign-in panel."
+    },
+    "previewAlt": "{{title}} preview",
+    "invalidType": "Choose a PNG, JPEG, WebP, or SVG image.",
+    "uploadFailed": "Upload failed.",
+    "unavailable": "The selected image is unavailable. Upload a replacement.",
+    "uploading": "Uploading {{progress}}%",
+    "replace": "Replace image",
+    "upload": "Upload image",
+    "remove": "Remove"
+  },
+  "backups": {
+    "ownerOnly": "Only the Owner may manage backups.",
+    "loading": "Loading backups…",
+    "loadError": "Backups could not be loaded.",
+    "title": "Installation backups",
+    "description": "Full backups include the database, media files, thumbnails, variants, and cached player updates.",
+    "queuing": "Queuing…",
+    "create": "Create backup",
+    "lastSuccessful": "Last successful backup:",
+    "nextScheduled": "· Next scheduled: {{date}}",
+    "available": "Available backups",
+    "availableHint": "Verify an archive before relying on it or starting a restore.",
+    "empty": "No backups",
+    "emptyHint": "No backups have been created yet.",
+    "verified": "Verified",
+    "versionMeta": "· Tilecast {{tilecastVersion}} · schema {{schemaVersion}}",
+    "verify": "Verify",
+    "download": "Download",
+    "restore": "Restore",
+    "deleteArchive": "Delete {{fileName}}",
+    "recent": "Recent backup activity",
+    "jobInProgress": "{{kind}} in progress",
+    "restoreTitle": "Restore {{fileName}}?",
+    "restoreBody": "Tilecast will become temporarily unavailable and current database and media state will be replaced. A pre-restore backup will be created first.",
+    "restoreBodyMismatch": "Tilecast will become temporarily unavailable and current database and media state will be replaced. A pre-restore backup will be created first. WARNING: This backup belongs to a different installation. Enrolled players will need to be reset and paired again.",
+    "restoreAction": "Restore",
+    "deleteTitle": "Delete {{fileName}}? This cannot be undone.",
+    "deleteLastTitle": "This is the last complete backup. Delete it anyway?",
+    "deleteLastBody": "You will have no known-good backup to restore."
+  },
+  "integrations": {
+    "ownerOnly": "Only the Owner may manage integration tokens.",
+    "title": "Integration tokens",
+    "description": "Grant selected integrations without sharing a Studio password.",
+    "secretNotice": "<strong>Copy this token now.</strong> Shown once.",
+    "copied": "I have copied it",
+    "loading": "Loading tokens…",
+    "empty": "No tokens",
+    "emptyHint": "No integration tokens exist.",
+    "revokeTitle": "Revoke \"{{name}}\"?",
+    "revokeBody": "Anything using it stops working immediately, and a revoked token cannot be re-enabled.",
+    "revokeAction": "Revoke",
+    "revoke": "Revoke",
+    "revokeToken": "Revoke {{name}}",
+    "status": {
+      "revoked": "Revoked",
+      "expired": "Expired",
+      "active": "Active"
+    },
+    "expiry": "Expiry {{date}}",
+    "lastUsed": "Last used {{date}}",
+    "neverUsed": "Never used",
+    "limited_one": "Limited to {{count}} Data Source",
+    "limited_other": "Limited to {{count}} Data Sources",
+    "scopes": {
+      "write": {
+        "title": "Write Manual Table rows",
+        "description": "Replace rows in selected Manual Table Data Sources."
+      },
+      "read": {
+        "title": "Read fleet health",
+        "description": "Read counts of screens by reporting state, unresolved incidents, and content problems, as JSON or Prometheus metrics."
+      }
+    },
+    "createTitle": "Create a token",
+    "nameLabel": "Name",
+    "nameHint": "Name the system that will use it, so the delivery record and the audit log say who did what.",
+    "capabilities": "Capabilities",
+    "expiresLabel": "Expires on",
+    "expiresHint": "The token stops working at the end of this day. Leave it empty for a token that never expires, and revoke it when the system using it is retired.",
+    "limitLabel": "Limit to Data Sources",
+    "limitHint": "Select none to allow every Manual Table Data Source. Naming them is the safer default.",
+    "loadingSources": "Loading Data Sources…",
+    "noSources": "No Manual Table Data Sources exist yet.",
+    "creating": "Creating…",
+    "createAction": "Create token"
+  },
+  "locations": {
+    "searchLabel": "Search locations",
+    "searchPlaceholder": "Search by name or address",
+    "add": "Add location",
+    "saved": "Location saved.",
+    "deleted": "Location deleted.",
+    "deleteConflict": "This location still has screens assigned. Reassign or unassign them before deleting it.",
+    "deleteFailed": "The location could not be deleted.",
+    "loadError": "Location data failed to load.",
+    "loading": "Loading locations…",
+    "noAddress": "No address set",
+    "screens_one": "{{count}} screen",
+    "screens_other": "{{count}} screens",
+    "editLocation": "Edit {{name}}",
+    "deleteLocation": "Delete {{name}}",
+    "blockedTitle": "{{name}} still has screens assigned and cannot be deleted.",
+    "confirmOk": "OK",
+    "deleteTitle": "Delete {{name}}?",
+    "emptySearch": "No locations match",
+    "empty": "No locations yet",
+    "emptySearchHint": "Try a different name or address.",
+    "emptyHint": "Add a building or campus to assign it to screens.",
+    "addTitle": "Add location",
+    "editTitle": "Edit location",
+    "save": "Save location",
+    "fields": {
+      "name": "Location name",
+      "address1": "Address line 1",
+      "address2": "Address line 2",
+      "city": "City",
+      "state": "State",
+      "postal": "ZIP / postal code",
+      "country": "Country",
+      "latitude": "Latitude",
+      "longitude": "Longitude"
+    }
+  },
+  "updates": {
+    "states": {
+      "held": {
+        "label": "Held for canary",
+        "detail": "Starts once every canary screen reports a successful update."
+      },
+      "pending": {
+        "label": "Queued",
+        "detail": "The player has been told to fetch this release."
+      },
+      "offline": {
+        "label": "Waiting to reconnect",
+        "detail": "The screen is unreachable and will start after it comes back."
+      },
+      "downloading": {
+        "label": "Downloading"
+      },
+      "downloaded": {
+        "label": "Downloaded",
+        "detail": "Waiting to verify the downloaded file."
+      },
+      "verifying": {
+        "label": "Verifying",
+        "detail": "Checking the downloaded file against its expected hash."
+      },
+      "ready": {
+        "label": "Ready to install",
+        "detail": "Installation begins at the next moment this mode allows."
+      },
+      "waiting_for_permission": {
+        "label": "Needs install permission",
+        "detail": "Allow this installation source on the TV so the player may install updates."
+      },
+      "waiting_for_user": {
+        "label": "Needs approval on the TV",
+        "detail": "Someone has to approve the installer on the TV itself. This is not a failure."
+      },
+      "installing": {
+        "label": "Installing",
+        "detail": "The player is installing the release now."
+      },
+      "reconnecting": {
+        "label": "Restarting",
+        "detail": "The player restarted into the new version and is reconnecting."
+      },
+      "succeeded": {
+        "label": "Updated"
+      },
+      "already_current": {
+        "label": "Already current",
+        "detail": "This screen was on the deployed version before the rollout began."
+      },
+      "failed": {
+        "label": "Failed",
+        "detail": "The update stopped. Retry once the screen is reachable."
+      },
+      "cancelled": {
+        "label": "Cancelled",
+        "detail": "Stopped before it finished."
+      },
+      "incompatible": {
+        "label": "Incompatible",
+        "detail": "This release cannot run on this screen's Android version."
+      },
+      "unknown": {
+        "label": "Unknown",
+        "detail": "This player reported a state Studio does not recognize."
+      }
+    },
+    "stages": {
+      "queued": "Queued",
+      "downloading": "Downloading",
+      "installing": "Installing",
+      "updated": "Updated"
+    },
+    "segments": {
+      "succeeded": "Updated",
+      "attention": "Waiting on someone",
+      "failed": "Failed",
+      "remaining": "In progress"
+    },
+    "headline": {
+      "cancelled": "Cancelled.",
+      "retry_one": "{{count}} screen needs a retry.",
+      "retry_other": "{{count}} screens need a retry.",
+      "waiting_one": "{{count}} screen is waiting on someone at the TV.",
+      "waiting_other": "{{count}} screens are waiting on someone at the TV.",
+      "pausedFallback": "Paused after a canary failure.",
+      "complete": "Every screen is on this release.",
+      "rolling": "Rolling out. Nothing needs attention."
+    },
+    "requestFailed": "The request failed.",
+    "retryRequested": "Retry requested for this screen.",
+    "cancelledSuccess": "Player update deployment cancelled.",
+    "deploymentTitle": "Deployment",
+    "deploymentFallback": "Player deployment",
+    "loading": "Loading screen statuses",
+    "statusesLoadError": "Screen statuses could not be loaded.",
+    "detail": {
+      "status": "Status",
+      "mode": "Mode",
+      "rollout": "Rollout",
+      "started": "Started"
+    },
+    "rolloutCanary": "{{size}} canary first · {{phase}}",
+    "rolloutAll": "All screens at once",
+    "pausedTitle": "Rollout paused",
+    "pausedDetail": "{{reason}} Remaining screens stay on their current version until the deployment is cancelled and re-created.",
+    "filterLabel": "Screen status filter",
+    "filter": {
+      "all": "All {{count}}",
+      "attention": "Needs attention {{count}}",
+      "progress": "In progress {{count}}",
+      "done": "Finished {{count}}"
+    },
+    "searchScreens": "Search screens",
+    "emptyFilter": "No screen matches this filter.",
+    "emptyNone": "This deployment reaches no screens you can see.",
+    "cancelHint": "Cancelling stops every screen that has not finished. Screens already updated stay on the new release.",
+    "cancel": "Cancel deployment",
+    "canary": "Canary",
+    "firstInstall": "First install · {{version}}",
+    "downloadProgress": "{{percent}}% of {{size}}",
+    "stageTrail": "Update progress",
+    "noScreens": "No screens",
+    "relativeNow": "Just now",
+    "relativeMinutes": "{{count}}m ago",
+    "relativeHours": "{{count}}h ago",
+    "relativeDays": "{{count}}d ago",
+    "panel": {
+      "platformLabel": "Player platform",
+      "releasesTitle": "Available {{platform}} releases",
+      "releasesHint": "Upload a signed release directly or optionally synchronize from <repo>Gibsonmb71/tilecast</repo>.",
+      "syncing": "Synchronizing…",
+      "sync": "Sync from GitHub",
+      "uploadRelease": "Upload release",
+      "loadingReleases": "Loading releases…",
+      "loadError": "Releases could not be loaded. {{error}}",
+      "emptyReleases": "No {{platform}} Player releases have been imported. Tilecast checks GitHub automatically; use Sync from GitHub to retry immediately.",
+      "releasesCaption": "Available {{platform}} Player releases",
+      "version": "Version",
+      "source": "Source",
+      "published": "Published",
+      "size": "Size",
+      "status": "Status",
+      "actionsColumn": "Actions",
+      "code": "Code {{code}}",
+      "channelBeta": "Beta",
+      "channelStable": "Stable",
+      "sourceUpload": "Direct upload",
+      "sourceGitHub": "GitHub",
+      "cachingLabel": "Caching {{version}}: {{downloaded}} of {{total}} downloaded",
+      "downloadProgress": "{{downloaded}} of {{total}}",
+      "purgeDeleteTitle": "Delete this release and free its cached file",
+      "purgeFreeTitle": "Free the cached file and keep the deployment history",
+      "rowDelete": "Delete",
+      "rowFree": "Free file",
+      "showing": "Showing {{shown}} of {{total}} releases, newest first.",
+      "showFewer": "Show fewer releases",
+      "showAll": "Show all {{total}} releases",
+      "purgeDeleteHeading": "Delete this release?",
+      "purgeFreeHeading": "Free this cached file?",
+      "freesStorage": "{{version}} ({{code}}) frees {{size}} of server storage.",
+      "neverDeployed": "It has never been deployed, so the release and its cached file are both removed.",
+      "historyHint": "Open a deployment to read the status of each screen it reaches. Waiting for approval means the TV still needs someone to accept the installer; it is not a failure.",
+      "historyRefOne": "deployment references",
+      "historyRefOther": "deployments reference",
+      "directTitle": "This release was uploaded directly.",
+      "directHint": "Tilecast cannot download it again. Deploying it later requires uploading the same signed release once more.",
+      "confirmDelete": "Delete release",
+      "confirmFree": "Free cached file",
+      "purgeDeleted": "Release deleted and its cached file freed.",
+      "purgeFreed": "Cached file freed. The release stays listed for its deployment history.",
+      "githubTitle": "GitHub connection",
+      "authorizedAs": "Authorized as @{{login}}",
+      "authorizedToken": "Authorized with a server-managed token",
+      "anonymous": "Anonymous API access",
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "disconnecting": "Disconnecting…",
+      "disconnect": "Disconnect",
+      "starting": "Starting…",
+      "connect": "Connect GitHub",
+      "oneTimeCode": "One-time code",
+      "openGitHub": "Open GitHub",
+      "waitingAuth": "Waiting for authorization…",
+      "setupHint": "Configure <clientId>TILECAST_GITHUB_CLIENT_ID</clientId> with a device-flow-enabled GitHub OAuth App to enable sign-in.",
+      "githubConnected": "Connected to GitHub as @{{login}}.",
+      "defaultLogin": "authorized user",
+      "githubDeclined": "GitHub authorization was declined.",
+      "githubExpired": "The GitHub authorization code expired. Start again for a new code.",
+      "githubIncomplete": "GitHub authorization could not be completed.",
+      "githubDisconnected": "GitHub account disconnected.",
+      "verificationTitle": "Player update verification is not configured.",
+      "verificationHint": "Set <key>TILECAST_UPDATE_MANIFEST_PUBLIC_KEY</key> on the Tilecast server to the public Ed25519 key used by the Player release workflow, then restart the server.",
+      "syncErrorTitle": "GitHub releases could not be synchronized.",
+      "cacheErrorTitle": "The release could not be cached.",
+      "removeErrorTitle": "The release could not be removed.",
+      "deployTitle": "New deployment",
+      "deployHint": "Choose a cached, verified release and target {{platform}} screens or Display Groups.",
+      "releaseLabel": "Verified release",
+      "selectRelease": "Select a release",
+      "noRelease": "No release is ready to deploy",
+      "modeLabel": "Deployment mode",
+      "modeDownloadOnly": "Download only",
+      "modeInstallNow": "Download and request installation",
+      "modeMaintenanceWindow": "Maintenance window",
+      "modeNameDownloadOnly": "Download only",
+      "modeNameInstallNow": "Install now",
+      "modeNameMaintenanceWindow": "Maintenance window",
+      "canaryLabel": "Canary screens",
+      "canaryHint": "Remaining targets wait until every canary reconnects. Use 0 to deploy to all targets at once.",
+      "windowLabel": "Maintenance window",
+      "windowTimeLabel": "Maintenance window time",
+      "windowHint": "Players install at or after this local time on each screen.",
+      "targetsLabel": "Target screens and Display Groups",
+      "searchPlaceholder": "Search by name",
+      "targetsGroup": "Deployment targets",
+      "screensHeading": "{{platform}} screens",
+      "groupsHeading": "Display Groups",
+      "groupSize": "{{count}} screens",
+      "noScreenMatch": "No screen matches this search.",
+      "noScreensEnrolled": "No {{platform}} screens are enrolled.",
+      "noGroupMatch": "No Display Group matches this search.",
+      "noGroups": "No Display Groups exist yet.",
+      "selectedOne": "{{count}} screen selected",
+      "selectedOther": "{{count}} screens selected",
+      "offlineCount": "{{count}} offline",
+      "clearSelection": "Clear selection",
+      "creating": "Creating deployment…",
+      "deployAction": "Deploy update",
+      "confirmTitle": "Deploy this Player update?",
+      "confirmSummaryOne": "{{count}} screen will receive {{version}} using {{mode}}.",
+      "confirmSummaryOther": "{{count}} screens will receive {{version}} using {{mode}}.",
+      "versionFallback": "this release",
+      "androidNote": "Android may require installation approval on each TV.",
+      "linuxNote": "Each Linux player restarts into the new version.",
+      "offlineNoteOne": "{{count}} selected screen is offline and will update after reconnecting.",
+      "offlineNoteOther": "{{count}} selected screens are offline and will update after reconnecting.",
+      "deployCreatedOne": "Deployment created for {{count}} screen.",
+      "deployCreatedOther": "Deployment created for {{count}} screens.",
+      "historyTitle": "Deployment history",
+      "historyLoadError": "Deployment history could not be loaded.",
+      "historyCaption": "{{platform}} Player deployment history",
+      "colDeployment": "Deployment",
+      "colStatus": "Status",
+      "colScreens": "Screens",
+      "colNeeds": "What this needs",
+      "lastFailure": "Last failure: {{error}}",
+      "historyEmpty": "No {{platform}} Player deployments have been created.",
+      "rolloutCanary": "{{size}} canaries · {{phase}}",
+      "rolloutAll": "All screens at once",
+      "phaseCanary": "Canary",
+      "updatedCount": "{{succeeded}} of {{target}} updated",
+      "statusActive": "Active",
+      "statusPaused": "Paused",
+      "statusCompleted": "Completed",
+      "statusCancelled": "Cancelled",
+      "statusFailed": "Failed",
+      "cacheTitle": "Download and verify this release",
+      "cacheDownloading": "Downloading…",
+      "cacheDownload": "Download",
+      "readinessVerificationFailed": "Verification failed",
+      "readinessVerifyAgain": "Download and verify again.",
+      "readinessDownloadFailed": "Download failed",
+      "readinessCacheDetail": "Manifest verified. The artifact could not be cached.",
+      "readinessDownloading": "Downloading",
+      "readinessDownloadingDetail": "Verification finishes once the artifact is cached.",
+      "readinessNotCached": "Not cached",
+      "readinessManifestDetail": "Manifest signature verified. Download to deploy.",
+      "readinessDeployableDetail": "Download to make this release deployable.",
+      "readinessVerifying": "Verifying",
+      "readinessVerifyingDetail": "Artifact cached. Full verification has not finished.",
+      "readinessReady": "Ready to deploy",
+      "uploadTitle": "Upload signed {{platform}} release",
+      "releaseUploaded": "Signed player release uploaded.",
+      "uploadHint": "All three files are verified before the {{artifact}} enters Tilecast's private update cache.",
+      "dropTitle": "Drop the release files here",
+      "dropHint": "or choose all three files",
+      "validationLabel": "Release file validation",
+      "fileRequired": "Required",
+      "unexpectedFile": "Unexpected file: {{name}}. Choose only the three signed release files.",
+      "manifestTooBig": "The update manifest must not exceed 128 KB.",
+      "sigTooBig": "The manifest signature must not exceed 4 KB.",
+      "uploading": "Uploading… {{progress}}%",
+      "verifyingAndroid": "Verifying signature, APK, and package metadata…",
+      "verifyingLinux": "Verifying signature and AppImage hash…",
+      "uploadComplete": "Release verified and cached",
+      "uploadedVersion": "Version {{version}} · {{channel}} · {{size}}",
+      "importing": "Importing release…",
+      "uploadVerify": "Upload and verify",
+      "clearFiles": "Clear files"
+    },
+    "setup": {
+      "connect": "Connect GitHub",
+      "title": "Set up GitHub connection",
+      "intro": "Create one GitHub OAuth App for this Tilecast installation. Tilecast only needs the public Client ID; do not create or paste a client secret.",
+      "stepCreateTitle": "Create the OAuth App",
+      "stepCreateBody": "Open GitHub Developer Settings and register a new OAuth App.",
+      "openApps": "Open GitHub OAuth Apps",
+      "stepValuesTitle": "Enter these exact values",
+      "stepValuesBody": "GitHub requires a callback URL even though Tilecast signs in through Device Flow.",
+      "appName": "Application name",
+      "homepageUrl": "Homepage URL",
+      "callbackUrl": "Authorization callback URL",
+      "deviceFlowNote": "Turn on <deviceFlow>Enable Device Flow</deviceFlow> before registering the application.",
+      "copyValue": "Copy {{label}}",
+      "stepClientIdTitle": "Paste the Client ID",
+      "stepClientIdBody": "After GitHub registers the app, copy its Client ID and paste it below. Tilecast saves it in persistent application data and then starts sign-in immediately.",
+      "clientIdLabel": "GitHub Client ID",
+      "saveError": "Tilecast could not save the GitHub Client ID.",
+      "saveConnect": "Save and connect",
+      "connected": "Connected to GitHub as @{{login}}.",
+      "defaultLogin": "authorized user",
+      "declined": "GitHub authorization was declined.",
+      "expired": "The GitHub authorization code expired. Start again for a new code.",
+      "incomplete": "GitHub authorization could not be completed.",
+      "authTitle": "Authorize Tilecast on GitHub",
+      "authBody": "Open GitHub, enter this one-time code, and approve the Tilecast OAuth App. This window will update automatically.",
+      "openGitHub": "Open GitHub",
+      "waiting": "Waiting for authorization…"
+    }
+  },
+  "policies": {
+    "title": {
+      "screen": "Screen behavior",
+      "group": "Player policy"
+    },
+    "description": {
+      "group": "Override organization defaults for this Display Group.",
+      "screen": "Override inherited playback and device behavior for this screen only."
+    },
+    "searchPlaceholder": "Search settings",
+    "searchLabel": "Search player settings",
+    "overriddenOnly": "Overridden only",
+    "overrides_one": "{{count}} override",
+    "overrides_other": "{{count}} overrides",
+    "resetAll": "Reset all overrides",
+    "resetTitle": "Reset every player-setting override?",
+    "resetDescription": "This clears every player-setting override for this target. This cannot be undone.",
+    "keepOverrides": "Keep overrides",
+    "resetting": "Resetting…",
+    "saveErrorTitle": "Settings could not be saved",
+    "saveErrorDescription": "Reload the current policy if another administrator changed it.",
+    "saved": "Player settings saved.",
+    "groups": {
+      "playback": {
+        "title": "Playback",
+        "description": "Default presentation and volume behavior."
+      },
+      "storage": {
+        "title": "Storage and downloads",
+        "description": "Local cache limits and content delivery behavior."
+      },
+      "sync": {
+        "title": "Synchronization",
+        "description": "Server reconciliation, status, and diagnostics."
+      },
+      "websites": {
+        "title": "Websites",
+        "description": "Timeout, cookies, and local website data behavior."
+      },
+      "reliability": {
+        "title": "Reliability and kiosk",
+        "description": "Shared recovery plus platform-specific Android and Linux kiosk behavior."
+      },
+      "power": {
+        "title": "Active hours and power",
+        "description": "Operating hours, sleep requests, and black-screen fallback."
+      },
+      "accessibility": {
+        "title": "Accessibility control",
+        "description": "Automatic return behavior and safe maintenance exclusions."
+      },
+      "updates": {
+        "title": "Player updates",
+        "description": "Screen-specific update download and installation behavior."
+      }
+    },
+    "emptySearch": "No matching settings in this section.",
+    "emptySection": "No screen-level settings are available in this section.",
+    "advancedDetails": "Advanced details",
+    "effectiveRevision": "Effective configuration revision {{revision}} ·",
+    "unsaved": "Unsaved player-setting changes",
+    "groupOverride": "Group override",
+    "screenOverride": "Screen override",
+    "organizationDefault": "Organization default",
+    "overrideSetting": "Override {{title}}",
+    "overrideOn": "Override on",
+    "overrideOff": "Override",
+    "revert": "Revert",
+    "valueNone": "None",
+    "valueNoneAllowed": "None allowed",
+    "valueNotSet": "Not set",
+    "allowedCount_one": "{{count}} allowed",
+    "allowedCount_other": "{{count}} allowed",
+    "duration": {
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "seconds_one": "{{count}} second",
+      "seconds_other": "{{count}} seconds"
+    }
+  },
+  "networks": {
+    "saved": "Presentation Network saved.",
+    "deleted": "Presentation Network deleted.",
+    "saveError": "The Presentation Network could not be saved.",
+    "manageOnly": "Only Owners and Administrators may manage Presentation Networks.",
+    "title": "Temporary Wi-Fi for local presentation",
+    "description": "Presentation Networks let supported Linux players join Wi-Fi only while an AirPlay session needs it. Ethernet remains the normal path for Tilecast traffic, downloads, and group video fan-out.",
+    "credentialsUnavailable": "Credentials are unavailable on this server.",
+    "credentialsHint": "Configure the Presentation Network encryption key before saving a network.",
+    "loadError": "Could not load Presentation Networks.",
+    "listTitle": "Presentation Networks",
+    "listHint": "Credentials are write-only. Editing a network without entering a new credential keeps the saved one.",
+    "add": "Add network",
+    "loading": "Loading Presentation Networks…",
+    "empty": "No Presentation Networks yet",
+    "emptyHint": "Add a staff, guest, or event Wi-Fi network when AirPlay senders cannot reach a player over Ethernet alone.",
+    "addFirst": "Add the first network",
+    "credentialSaved": "Credential saved",
+    "credentialMissing": "Credential missing",
+    "screens_one": "{{count}} screen",
+    "screens_other": "{{count}} screens",
+    "revision": "revision {{revision}}",
+    "edit": "Edit",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteAssigned_one": "{{name}} is assigned to {{count}} screen. Delete it and remove those assignments?",
+    "deleteAssigned_other": "{{name}} is assigned to {{count}} screens. Delete it and remove those assignments?",
+    "deleteError": "The Presentation Network could not be deleted.",
+    "addTitle": "Add Presentation Network",
+    "editTitle": "Edit Presentation Network",
+    "loadingDetail": "Loading network details…",
+    "fields": {
+      "name": "Display name",
+      "nameHint": "A name operators will recognize in Studio.",
+      "ssid": "SSID",
+      "ssidHint": "The Wi-Fi name, not the Studio display name.",
+      "security": "Authentication",
+      "hidden": "Hidden SSID",
+      "secretPsk": "Wi-Fi password / PSK",
+      "secretEnterprise": "Enterprise password",
+      "secretHintNew": "Write-only. It is encrypted before it is stored.",
+      "secretHintSaved": "A credential is saved. Leave this blank to keep it, or enter a new one to rotate it.",
+      "secretHintNone": "No credential is saved yet; enter one to enable provisioning.",
+      "identity": "Enterprise identity",
+      "anonymousIdentity": "Anonymous identity",
+      "anonymousIdentityHint": "Optional outer identity for the RADIUS server.",
+      "ca": "CA certificate",
+      "caHint": "Optional public CA certificate in PEM form. It is used to validate the RADIUS server.",
+      "domain": "Expected server domain",
+      "domainHint": "Requires a CA certificate when set."
+    },
+    "assignedTitle": "Assigned Linux players",
+    "assignedHint": "Only the selected gateway joins this network during a group AirPlay session. Followers stay on Ethernet.",
+    "loadingPlayers": "Loading Linux players…",
+    "noLocation": "No location",
+    "noPlayers": "No Linux players are available for assignment.",
+    "detailError": "Could not load this network.",
+    "retry": "Try again.",
+    "save": "Save network"
+  },
+  "notifications": {
+    "categories": {
+      "incident": "Screen problems",
+      "content_health": "Content problems",
+      "backup": "Backups",
+      "update": "Player updates"
+    },
+    "testSent": "Test message sent to {{sentTo}}.",
+    "toasts": {
+      "webhookCreated": "Notification webhook created.",
+      "webhookUpdated": "Notification webhook updated.",
+      "webhookTestSent": "Webhook test sent.",
+      "webhookRemoved": "Notification webhook removed."
+    },
+    "removeTitle": "Remove the webhook \"{{name}}\"?",
+    "removeBody": "Its signing secret cannot be recovered, so the receiver will need a new one.",
+    "remove": "Remove",
+    "removeWebhook": "Remove {{name}}",
+    "test": "Test",
+    "enable": "Enable",
+    "disable": "Disable",
+    "checking": "Checking notification delivery…",
+    "available": "Available",
+    "configured": "An SMTP relay is configured. Each account chooses what it receives under My Account → Preferences.",
+    "emailUnavailable": "Email is unavailable.",
+    "smtpSetup": "Set <smtpHost>TILECAST_SMTP_HOST</smtpHost> (and <smtpPort>TILECAST_SMTP_PORT</smtpPort>, <smtpUsername>TILECAST_SMTP_USERNAME</smtpUsername>, <smtpPassword>TILECAST_SMTP_PASSWORD</smtpPassword> where the relay needs them), then restart the server.",
+    "testHint": "A test goes to your own notification address and ignores quiet hours and subscriptions.",
+    "sending": "Sending…",
+    "sendTest": "Send a test to myself",
+    "loadingDeliveries": "Loading deliveries…",
+    "deliveriesEmpty": "No deliveries",
+    "deliveriesEmptyHint": "Nothing has been sent yet. Deliveries appear here when a condition is reported.",
+    "afterAttempts": " after {{count}} attempts",
+    "allCategories": "All categories",
+    "lastDelivered": " · Last delivered {{date}}",
+    "neverDelivered": " · Never delivered",
+    "lastError": "Last error: {{error}}",
+    "loadingWebhooks": "Loading webhooks…",
+    "webhooksEmpty": "No webhooks",
+    "webhooksEmptyHint": "No webhooks are configured.",
+    "email": {
+      "title": "Email delivery",
+      "description": "Tilecast sends through an SMTP relay configured on the server, not through an account in Studio."
+    },
+    "deliveries": {
+      "title": "Recent deliveries",
+      "description": "What Tilecast tried to send, and what happened. A failure here means the message did not arrive."
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "description": "Tilecast posts signed JSON to a URL you control. Use a relay to reach a chat service; Tilecast has no per-service integrations."
+    },
+    "secretNotice": "<strong>Copy this signing secret now.</strong> Tilecast does not show it again, and there is no way to read it back.",
+    "verifyHint": "Verify a request by computing <hmac>HMAC-SHA256(secret, timestamp + \".\" + body)</hmac> and comparing it with the <sigHeader>X-Tilecast-Signature</sigHeader> header. Reject a request whose <tsHeader>X-Tilecast-Timestamp</tsHeader> is not recent.",
+    "form": {
+      "name": "Name",
+      "nameHint": "How this receiver is identified in the delivery log.",
+      "url": "URL",
+      "urlHint": "HTTPS is required unless the receiver is on the local network.",
+      "categories": "Categories",
+      "categoriesHint": "Select none to receive every category.",
+      "adding": "Adding…",
+      "add": "Add webhook"
+    }
+  },
+  "operations": {
+    "system": {
+      "ownerOnly": "Owner or Administrator access is required.",
+      "diagnosticsTitle": "Diagnostics",
+      "diagnosticsHint": "Runtime status without secrets or sensitive paths.",
+      "diagnosticsError": "System diagnostics could not be loaded. {{error}}",
+      "loadingDiagnostics": "Loading diagnostics…",
+      "unknownValue": "unknown",
+      "lessThanMinute": "Less than a minute",
+      "fieldTilecast": "Tilecast",
+      "fieldUptime": "Uptime",
+      "fieldDatabase": "Database",
+      "fieldPostgres": "PostgreSQL",
+      "fieldMediaStorage": "Media storage",
+      "fieldConnectedScreens": "Connected screens",
+      "fieldPendingCommands": "Pending commands",
+      "fieldProcessingJobs": "Processing jobs",
+      "fieldServerTimezone": "Server timezone",
+      "maintenanceTitle": "Maintenance",
+      "maintenanceHint": "Run approved maintenance tasks.",
+      "run": "Run",
+      "running": "Running…",
+      "runConfirmTitle": "{{label}}?",
+      "completed": "Maintenance action completed.",
+      "actions": {
+        "expired-upload-cleanup": {
+          "label": "Clean up expired uploads",
+          "description": "Removes expired temporary upload data according to retention policy."
+        },
+        "completed-command-cleanup": {
+          "label": "Clean up command history",
+          "description": "Removes completed commands older than the configured retention period."
+        },
+        "retention-cleanup": {
+          "label": "Run retention cleanup",
+          "description": "Applies configured retention policies to eligible operational records."
+        },
+        "reconcile-config": {
+          "label": "Reconcile player configuration",
+          "description": "Asks connected players to retrieve their current effective configuration."
+        },
+        "validate-media": {
+          "label": "Validate media storage",
+          "description": "Checks media storage and processing-tool availability without changing content."
+        }
+      }
+    },
+    "importExport": {
+      "ownerOnly": "Only the Owner may import or export settings.",
+      "exportTitle": "Export settings",
+      "exportHint": "Download organization settings and policy metadata without credentials, secrets, or media files.",
+      "exportAction": "Export non-secret settings",
+      "importTitle": "Import settings",
+      "importHint": "Tilecast validates the document and shows a preview before anything changes.",
+      "fileLabel": "Settings file",
+      "validating": "Validating…",
+      "validatePreview": "Validate and preview",
+      "validKeys": "{{count}} setting keys are valid.",
+      "policiesPresent": "{{group}} group policies and {{screen}} screen policies are present.",
+      "applyTitle": "Apply this validated settings document?",
+      "apply": "Apply",
+      "applyAction": "Apply imported settings",
+      "imported": "Settings imported."
+    }
+  }
+}

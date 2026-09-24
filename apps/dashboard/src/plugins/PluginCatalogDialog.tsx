@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, ChevronRight, SearchIcon, SearchX } from "lucide-react";
 import type { PluginSummary } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -42,6 +43,16 @@ import { PluginDetail } from "./PluginDetail";
 
 type CategoryFilter = "All" | (typeof pluginCategories)[number];
 
+// Catalog category filters are translation keys; the raw category value stays
+// the filter value so it keeps matching the server's category strings.
+const categoryLabelKeys = {
+  All: "catalog.categories.all",
+  Display: "catalog.categories.display",
+  Automation: "catalog.categories.automation",
+  Workflow: "catalog.categories.workflow",
+  Hardware: "catalog.categories.hardware",
+} as const satisfies Record<CategoryFilter, `catalog.categories.${string}`>;
+
 /**
  * Add plugin: a searchable catalog of the plugins this Tilecast release ships,
  * with a detail step before anything is installed. Installed plugins are left
@@ -68,6 +79,7 @@ export function PluginCatalogDialog({
   installError?: string;
   onInstall: (plugin: PluginSummary) => void;
 }) {
+  const { t } = useTranslation(["plugins", "common"]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("All");
   const selected = plugins.find((plugin) => plugin.id === selectedId);
@@ -98,11 +110,11 @@ export function PluginCatalogDialog({
                 onClick={() => onSelect(null)}
               >
                 <ArrowLeft data-icon="inline-start" aria-hidden="true" />
-                All plugins
+                {t("catalog.back")}
               </Button>
               <DialogTitle className="sr-only">{selected.name}</DialogTitle>
               <DialogDescription className="sr-only">
-                Review {selected.name} before installing it.
+                {t("catalog.reviewDescription", { name: selected.name })}
               </DialogDescription>
             </DialogHeader>
             <ScrollArea className="min-h-0 flex-1">
@@ -115,10 +127,10 @@ export function PluginCatalogDialog({
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               {selected.installed ? (
-                <Button disabled>Installed</Button>
+                <Button disabled>{t("catalog.installed")}</Button>
               ) : canInstall && selected.installable ? (
                 <Button
                   disabled={installing}
@@ -127,11 +139,11 @@ export function PluginCatalogDialog({
                   {installing && (
                     <Spinner data-icon="inline-start" aria-hidden="true" />
                   )}
-                  Install
+                  {t("catalog.install")}
                 </Button>
               ) : (
                 <p className="self-center text-sm text-muted-foreground">
-                  An Owner or Administrator can install plugins.
+                  {t("catalog.installNote")}
                 </p>
               )}
             </DialogFooter>
@@ -139,11 +151,8 @@ export function PluginCatalogDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Add a plugin</DialogTitle>
-              <DialogDescription>
-                Optional features built into this Tilecast release. Installing
-                one never downloads code.
-              </DialogDescription>
+              <DialogTitle>{t("catalog.title")}</DialogTitle>
+              <DialogDescription>{t("catalog.description")}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-3">
               <InputGroup>
@@ -151,15 +160,15 @@ export function PluginCatalogDialog({
                   <SearchIcon aria-hidden="true" />
                 </InputGroupAddon>
                 <InputGroupInput
-                  aria-label="Search plugins"
-                  placeholder="Search plugins…"
+                  aria-label={t("catalog.searchLabel")}
+                  placeholder={t("catalog.searchPlaceholder")}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   autoFocus
                 />
               </InputGroup>
               <ToggleGroup
-                aria-label="Plugin category"
+                aria-label={t("catalog.categoryLabel")}
                 variant="outline"
                 size="sm"
                 className="flex-wrap"
@@ -172,7 +181,7 @@ export function PluginCatalogDialog({
                 {(["All", ...pluginCategories] as CategoryFilter[]).map(
                   (name) => (
                     <ToggleGroupItem key={name} value={name}>
-                      {name}
+                      {t(categoryLabelKeys[name])}
                     </ToggleGroupItem>
                   ),
                 )}
@@ -187,13 +196,13 @@ export function PluginCatalogDialog({
                     </EmptyMedia>
                     <EmptyTitle>
                       {query || category !== "All"
-                        ? "No matching plugins"
-                        : "Every plugin is installed"}
+                        ? t("catalog.emptySearchTitle")
+                        : t("catalog.emptyInstalledTitle")}
                     </EmptyTitle>
                     <EmptyDescription>
                       {query || category !== "All"
-                        ? "Try another search or category."
-                        : "This installation already uses every plugin this release offers."}
+                        ? t("catalog.emptySearchDescription")
+                        : t("catalog.emptyInstalledDescription")}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -215,7 +224,9 @@ export function PluginCatalogDialog({
                           <ItemTitle>
                             {plugin.name}
                             {plugin.installed && (
-                              <Badge variant="secondary">Installed</Badge>
+                              <Badge variant="secondary">
+                                {t("catalog.installed")}
+                              </Badge>
                             )}
                           </ItemTitle>
                           <ItemDescription>
@@ -223,10 +234,11 @@ export function PluginCatalogDialog({
                           </ItemDescription>
                           {headlineRequirements(plugin).length > 0 && (
                             <p className="text-xs text-muted-foreground">
-                              Requires{" "}
-                              {headlineRequirements(plugin)
-                                .map((requirement) => requirement.label)
-                                .join(" + ")}
+                              {t("catalog.requires", {
+                                list: headlineRequirements(plugin)
+                                  .map((requirement) => requirement.label)
+                                  .join(" + "),
+                              })}
                             </p>
                           )}
                         </ItemContent>
