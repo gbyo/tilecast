@@ -929,7 +929,6 @@ export function NativeAppEditor({
                       <DateTimeInput
                         id="countdown-target"
                         aria-label="Target date and time"
-                        timeLabel="Target time"
                         value={(configuration as CountdownWidgetConfig).target}
                         disabled={readOnly}
                         onChange={(value) =>

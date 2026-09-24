@@ -894,7 +894,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           <DateTimeInput
                             id={`block-start-${block.id}`}
                             aria-label="Starts"
-                            timeLabel="Start time"
+                            timeLabel={t("campaigns.editor.startTimeLabel")}
                             value={dateTimeInput(block.oneTimeStart)}
                             onChange={(value) =>
                               updateBlock(block.id, {
@@ -910,7 +910,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           <DateTimeInput
                             id={`block-end-${block.id}`}
                             aria-label="Ends"
-                            timeLabel="End time"
+                            timeLabel={t("campaigns.editor.endTimeLabel")}
                             value={dateTimeInput(block.oneTimeEnd)}
                             onChange={(value) =>
                               updateBlock(block.id, {

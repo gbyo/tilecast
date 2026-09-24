@@ -670,7 +670,6 @@ function PublishActions({
         <DateTimeInput
           id="submission-publish-at"
           aria-label="Publish at"
-          timeLabel="Publication time"
           value={schedule}
           onChange={onSchedule}
         />

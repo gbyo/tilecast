@@ -521,7 +521,6 @@ function FieldControl({
         <DateTimeInput
           {...common}
           aria-label={field.label}
-          timeLabel={field.label + " time"}
           value={stringValue}
           onChange={emit}
         />

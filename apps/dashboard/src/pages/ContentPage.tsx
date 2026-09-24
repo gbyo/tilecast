@@ -2546,7 +2546,6 @@ function MediaAssetDetails({
           <DateTimeInput
             id="asset-available-from"
             aria-label="Available from"
-            timeLabel="Available from time"
             value={availableFrom}
             disabled={!canManage}
             onChange={setAvailableFrom}
@@ -2560,7 +2559,6 @@ function MediaAssetDetails({
           <DateTimeInput
             id="asset-expires-at"
             aria-label="Expires at"
-            timeLabel="Expiry time"
             value={expiresAt}
             disabled={!canManage}
             onChange={setExpiresAt}

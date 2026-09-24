@@ -49,7 +49,6 @@ export function PreviewTimeControl({
             <DateTimeInput
               id={inputId}
               aria-label="Preview date and time"
-              timeLabel="Preview time of day"
               value={value.value}
               onChange={(next) => onChange({ mode: "fixed", value: next })}
             />

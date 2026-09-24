@@ -939,7 +939,6 @@ function OneTimeTiming({
           <DateTimeInput
             id="schedule-onetime-start"
             aria-label={t("timing.starts")}
-            timeLabel="Start time"
             value={localDateTime(input.oneTimeStart)}
             onChange={(value) => set("oneTimeStart", toISOString(value))}
           />
@@ -951,7 +950,6 @@ function OneTimeTiming({
           <DateTimeInput
             id="schedule-onetime-end"
             aria-label={t("timing.ends")}
-            timeLabel="End time"
             value={localDateTime(input.oneTimeEnd)}
             min={localDateTime(input.oneTimeStart)}
             onChange={(value) => set("oneTimeEnd", toISOString(value))}
