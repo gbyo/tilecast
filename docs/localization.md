@@ -4,9 +4,12 @@ Tilecast Studio is translated with [i18next](https://www.i18next.com/) and
 [react-i18next](https://react.i18next.com/). English is the source language.
 Spanish (`es`) and Russian (`ru`) ship alongside it.
 
-The foundation is in place. Most of Studio still renders hard-coded English,
-and the work that remains is converting it one area at a time. This document is
-the contract for that work.
+All sixteen Studio namespaces (`account`, `activity`, `alerts`, `auth`,
+`common`, `content`, `errors`, `forms`, `layouts`, `navigation`, `playlists`,
+`plugins`, `review`, `schedules`, `screens`, `settings`) are converted: no
+user-facing English remains outside the exclusions below. This document is the
+contract for keeping it that way — run `npm run i18n:scan` from
+`apps/dashboard` and fix every finding that is not an intentional exclusion.
 
 Tilecast Player and the server are out of scope. Player strings live in the
 Android, Linux, and Windows projects. Server error messages stay English and
@@ -91,6 +94,16 @@ that line or the line above:
 
 The scan does not see every case. Also look for text built from strings in
 helpers, `new Error("…")` that reaches the screen, and Zod messages.
+
+### Intentional exclusions
+
+These stay English on purpose, each marked `i18n-ignore` at the site:
+
+- **Brand names.** The `Tilecast` and `Tilecast Studio` logo labels are
+  proper nouns; every locale keeps the product name untranslated.
+- **Test fixtures.** `src/plugins/catalogFixtures.ts` mirrors
+  server-shaped English records for tests. Server data stays English and is
+  translated by code in Studio.
 
 ## Namespaces
 

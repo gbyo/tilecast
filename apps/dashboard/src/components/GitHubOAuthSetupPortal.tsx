@@ -93,7 +93,11 @@ export function GitHubOAuthSetupPortal() {
       );
       const connectButton = Array.from(
         actions?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-      ).find((button) => button.textContent?.includes("Connect GitHub"));
+      ).find((button) =>
+        // The settings page renders this label through the same key, so the
+        // match follows the active language instead of English.
+        button.textContent?.includes(t("updates.panel.connect")),
+      );
       if (!configuration || !actions || !connectButton) {
         setTarget(null);
         return;
@@ -111,7 +115,7 @@ export function GitHubOAuthSetupPortal() {
       observer.disconnect();
       restoreHidden();
     };
-  }, [location.pathname, owner]);
+  }, [location.pathname, owner, t]);
 
   const setupValues = useMemo(() => {
     const origin = window.location.origin;
