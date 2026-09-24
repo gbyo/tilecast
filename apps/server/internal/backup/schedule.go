@@ -68,13 +68,13 @@ func ParseScheduleSettings(values map[string]any) (ScheduleConfig, error) {
 }
 
 // NextRun computes the first scheduled occurrence strictly after the given
-// time, honoring the configured IANA timezone. Around DST transitions
-// time.Date normalizes nonexistent wall-clock times forward, so a 02:30
-// schedule still fires on spring-forward days.
+// time, honoring the configured IANA timezone. A wall-clock time that falls
+// inside a spring-forward gap is shifted forward by that gap, so a 02:30
+// schedule becomes 03:30 rather than running early or disappearing that day.
 func (c ScheduleConfig) NextRun(after time.Time) time.Time {
 	local := after.In(c.Location)
 	for day := 0; day <= 8; day++ {
-		candidate := time.Date(local.Year(), local.Month(), local.Day()+day, c.Hour, c.Minute, 0, 0, c.Location)
+		candidate := scheduledWallTime(local.Year(), local.Month(), local.Day()+day, c.Hour, c.Minute, c.Location)
 		if !candidate.After(after) {
 			continue
 		}
@@ -85,6 +85,26 @@ func (c ScheduleConfig) NextRun(after time.Time) time.Time {
 	}
 	// Unreachable: eight days always cover a weekly schedule.
 	return after.Add(24 * time.Hour)
+}
+
+// scheduledWallTime preserves time.Date's normal handling of valid and
+// repeated wall times. For a nonexistent spring-forward time, Go may instead
+// normalize backward (for example, New York 2026-03-08 02:30 becomes 01:30
+// EST). Move that result forward by the missing wall-clock interval so the
+// scheduled job runs after the gap, at 03:30 EDT in that example.
+func scheduledWallTime(year int, month time.Month, day, hour, minute int, location *time.Location) time.Time {
+	candidate := time.Date(year, month, day, hour, minute, 0, 0, location)
+	local := candidate.In(location)
+	if local.Year() != year || local.Month() != month || local.Day() != day {
+		return candidate
+	}
+
+	requestedMinute := hour*60 + minute
+	actualMinute := local.Hour()*60 + local.Minute()
+	if actualMinute >= requestedMinute {
+		return candidate
+	}
+	return candidate.Add(time.Duration(requestedMinute-actualMinute) * time.Minute)
 }
 
 func boolSetting(values map[string]any, key string, fallback bool) bool {
