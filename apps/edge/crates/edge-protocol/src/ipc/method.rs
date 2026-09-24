@@ -39,6 +39,36 @@ pub struct SubmitServerUrlResult {
     pub error: Option<SafeText<240>>,
 }
 
+/// One Tilecast Server announced on the local network. Discovery is advisory:
+/// the address has passed the player URL policy, and installation identity is
+/// still verified before anything is sent to it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DiscoveredServer {
+    pub name: SafeText<120>,
+    pub server_url: SafeText<512>,
+}
+
+pub const MAX_DISCOVERED_SERVERS: usize = 32;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DiscoveryListResult {
+    /// False when the host has no working LAN discovery (for example, no
+    /// Avahi daemon); manual entry always works.
+    pub available: bool,
+    #[serde(deserialize_with = "discovered_servers")]
+    pub servers: Vec<DiscoveredServer>,
+}
+
+fn discovered_servers<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<DiscoveredServer>, D::Error> {
+    let servers = Vec::<DiscoveredServer>::deserialize(d)?;
+    if servers.len() > MAX_DISCOVERED_SERVERS {
+        return Err(serde::de::Error::custom("too many discovered servers"));
+    }
+    Ok(servers)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PingResult {
@@ -61,6 +91,12 @@ pub enum Method {
     /// Ask the renderer to show the daemon's status surface (self-test).
     DiagnosticsShowStatus(Empty),
     SetupSubmitServerUrl(SubmitServerUrlParams),
+    /// Start pairing with a server address from the operator (headless
+    /// installation). Same result as `setup.submit_server_url`.
+    PairingStart(SubmitServerUrlParams),
+    /// Abandon a pairing in progress and clear its secrets.
+    PairingReset(Empty),
+    DiscoveryList(Empty),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -111,6 +147,9 @@ methods! {
     CasVerify => "cas.verify", [Tilecastctl], admin = true;
     DiagnosticsShowStatus => "diagnostics.show_status", [Tilecastctl], admin = true;
     SetupSubmitServerUrl => "setup.submit_server_url", [Renderer], admin = false;
+    PairingStart => "pairing.start", [Tilecastctl], admin = true;
+    PairingReset => "pairing.reset", [Tilecastctl], admin = true;
+    DiscoveryList => "discovery.list", [Renderer, Tilecastctl], admin = false;
 }
 
 /// Stable error codes carried in `error` responses.
@@ -142,6 +181,15 @@ mod tests {
         assert!(Method::decode("cas.verify", json!({"path": "/etc"})).is_err());
         assert!(matches!(Method::decode("shell.exec", json!({})), Err(MethodError::Unknown(_))));
         assert!(Method::decode("ping", json!({"extra": 1})).is_err());
+        let pairing = Method::decode("pairing.start", json!({"url": "https://signs.example.org"})).expect("valid");
+        assert!(pairing.is_administrative());
+        assert_eq!(pairing.allowed_roles(), &[Role::Tilecastctl]);
+        assert!(Method::decode("pairing.reset", json!({})).expect("valid").is_administrative());
+        assert!(!Method::decode("discovery.list", json!({})).expect("valid").is_administrative());
+        let many: Vec<_> = (0..=MAX_DISCOVERED_SERVERS)
+            .map(|_| json!({"name": "Library", "serverUrl": "http://signs.local"}))
+            .collect();
+        assert!(serde_json::from_value::<DiscoveryListResult>(json!({"available": true, "servers": many})).is_err());
         let round = Method::decode("ping", Method::Ping(Empty {}).params()).expect("round trip");
         assert_eq!(round, Method::Ping(Empty {}));
     }
