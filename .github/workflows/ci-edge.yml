@@ -160,6 +160,8 @@ jobs:
           cache-dependency-path: apps/server/go.sum
       - name: Start PostgreSQL
         run: |
+          # A throwaway cluster: trust local connections, as ci/run-e2e-server.sh does.
+          sudo sed -i -E 's/(scram-sha-256|md5|peer)$/trust/' /etc/postgresql/*/main/pg_hba.conf
           sudo systemctl start postgresql.service
           sudo -u postgres createuser --superuser "$USER"
       - run: rustup show active-toolchain
