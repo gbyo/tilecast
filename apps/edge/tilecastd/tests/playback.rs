@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -30,12 +30,13 @@ use edge_server::DeviceCredential;
 use edge_state::repo::binding::{self, CredentialState, ServerBinding};
 use edge_state::repo::manifests::{self, Binding, Stage};
 use edge_state::{OpenOptions, StateDb};
-use http_body_util::{BodyExt as _, Full};
+use http_body_util::combinators::BoxBody;
+use http_body_util::{BodyExt as _, Full, StreamBody};
 use hyper::body::Incoming as Body;
 use hyper::{Request, Response, StatusCode};
 use serde_json::{Value, json};
 use tilecastd::config::EdgeConfig;
-use tilecastd::daemon::{Daemon, DaemonContext};
+use tilecastd::daemon::{Daemon, DaemonContext, Environment};
 
 const CREDENTIAL: &str = "tc_device_01j8xk2m4n6p8q0r2s4t6v8w0y.ZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQ";
 const FEATURES: &[&str] =
@@ -51,6 +52,43 @@ enum AssetMode {
     Unavailable,
     /// Held until released: models a slow download.
     Held,
+    /// Half the body, then the connection breaks: an interrupted download.
+    Truncate,
+    /// A resume is answered with a `Content-Range` that does not start at
+    /// the requested offset.
+    BadRange,
+}
+
+/// How the server's listener behaves, beyond answering 503 (`offline`).
+const LINK_UP: u8 = 0;
+/// Connections are closed as soon as they are made, and requests on kept
+/// connections fail: the server is gone.
+const LINK_REFUSED: u8 = 1;
+/// Connections are accepted and never answered: a WAN outage.
+const LINK_BLACKHOLE: u8 = 2;
+
+type Out = Response<BoxBody<Bytes, std::io::Error>>;
+
+fn body(bytes: impl Into<Bytes>) -> BoxBody<Bytes, std::io::Error> {
+    Full::new(bytes.into()).map_err(|never: Infallible| match never {}).boxed()
+}
+
+/// `bytes=N-` or `bytes=N-M`, as the origin client sends it.
+fn requested_range(request: &Request<Body>, len: usize) -> Option<(usize, usize)> {
+    let value = request.headers().get("range")?.to_str().ok()?.strip_prefix("bytes=")?;
+    let (start, end) = value.split_once('-')?;
+    let start: usize = start.parse().ok()?;
+    let end = if end.is_empty() { len.checked_sub(1)? } else { end.parse::<usize>().ok()?.min(len.checked_sub(1)?) };
+    (start <= end).then_some((start, end))
+}
+
+fn partial(bytes: &[u8], end: usize, claimed_start: usize, mime: &str) -> Out {
+    let mut response = Response::new(body(bytes[claimed_start..=end].to_vec()));
+    *response.status_mut() = StatusCode::PARTIAL_CONTENT;
+    let headers = response.headers_mut();
+    headers.insert("content-range", format!("bytes {claimed_start}-{end}/{}", bytes.len()).parse().unwrap());
+    headers.insert("content-type", mime.parse().unwrap());
+    response
 }
 
 /// Bytes, media type and behavior of one served variant path.
@@ -61,6 +99,19 @@ struct FakeServer {
     manifest: Mutex<Value>,
     manifest_raw: Mutex<Option<String>>,
     offline: AtomicBool,
+    link: AtomicU8,
+    /// Asset requests that carried a `Range` header.
+    range_requests: AtomicUsize,
+    /// The player WebSocket: off by default, which the daemon treats like a
+    /// server that refuses it and falls back to the HTTP heartbeat.
+    socket_enabled: AtomicBool,
+    socket_connections: AtomicUsize,
+    /// `player.status` payloads received over the socket.
+    socket_statuses: Mutex<Vec<Value>>,
+    /// How far the server's clock is ahead of the host's, in its pings.
+    server_clock_ahead_ms: AtomicI64,
+    /// Bumped to drop every open socket without a close frame.
+    socket_generation: AtomicUsize,
     assets: Mutex<HashMap<String, Served>>,
     release: tokio::sync::Notify,
     heartbeats: Mutex<Vec<Value>>,
@@ -83,6 +134,13 @@ impl FakeServer {
             manifest: Mutex::new(Value::Null),
             manifest_raw: Mutex::new(None),
             offline: AtomicBool::new(false),
+            link: AtomicU8::new(LINK_UP),
+            range_requests: AtomicUsize::new(0),
+            socket_enabled: AtomicBool::new(false),
+            socket_connections: AtomicUsize::new(0),
+            socket_statuses: Mutex::new(Vec::new()),
+            server_clock_ahead_ms: AtomicI64::new(0),
+            socket_generation: AtomicUsize::new(0),
             assets: Mutex::new(HashMap::new()),
             release: tokio::sync::Notify::new(),
             heartbeats: Mutex::new(Vec::new()),
@@ -131,20 +189,25 @@ impl FakeServer {
     }
 }
 
-fn data(value: Value) -> Response<Full<Bytes>> {
-    let mut response = Response::new(Full::new(Bytes::from(json!({ "data": value }).to_string())));
+fn data(value: Value) -> Out {
+    let mut response = Response::new(body(Bytes::from(json!({ "data": value }).to_string())));
     response.headers_mut().insert("content-type", "application/json".parse().unwrap());
     response
 }
 
-fn status(code: StatusCode, error: &str) -> Response<Full<Bytes>> {
-    let body = json!({"error": {"code": error, "message": error}}).to_string();
-    let mut response = Response::new(Full::new(Bytes::from(body)));
+fn status(code: StatusCode, error: &str) -> Out {
+    let text = json!({"error": {"code": error, "message": error}}).to_string();
+    let mut response = Response::new(body(Bytes::from(text)));
     *response.status_mut() = code;
     response
 }
 
-async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Response<Full<Bytes>>, Infallible> {
+async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Out, std::io::Error> {
+    match fake.link.load(Ordering::SeqCst) {
+        LINK_REFUSED => return Err(std::io::Error::other("the server is gone")),
+        LINK_BLACKHOLE => std::future::pending::<()>().await,
+        _ => {}
+    }
     if fake.offline.load(Ordering::SeqCst) {
         return Ok(status(StatusCode::SERVICE_UNAVAILABLE, "maintenance"));
     }
@@ -167,16 +230,23 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Respons
         "/api/v1/player/manifest" => {
             fake.manifest_requests.fetch_add(1, Ordering::SeqCst);
             if let Some(raw) = fake.manifest_raw.lock().unwrap().clone() {
-                let mut response = Response::new(Full::new(Bytes::from(format!("{{\"data\":{raw}}}"))));
+                let mut response = Response::new(body(Bytes::from(format!("{{\"data\":{raw}}}"))));
                 response.headers_mut().insert("etag", "\"raw\"".parse().unwrap());
                 return Ok(response);
             }
             let manifest = fake.manifest.lock().unwrap().clone();
             let etag = format!("\"{}\"", Sha256Digest::of(manifest.to_string().as_bytes()).to_hex());
             if request.headers().get("if-none-match").and_then(|v| v.to_str().ok()) == Some(etag.as_str()) {
-                let mut response = Response::new(Full::new(Bytes::new()));
+                let mut response = Response::new(body(Bytes::new()));
                 *response.status_mut() = StatusCode::NOT_MODIFIED;
                 return Ok(response);
+            }
+            // The real server stamps `serverTime` per response; it is not part
+            // of the manifest's identity.
+            let mut manifest = manifest;
+            if manifest.is_object() {
+                let server_now = now_ms() + fake.server_clock_ahead_ms.load(Ordering::SeqCst);
+                manifest["serverTime"] = json!(Timestamp::from_unix_millis(server_now).unwrap().to_string());
             }
             let mut response = data(manifest);
             response.headers_mut().insert("etag", etag.parse().unwrap());
@@ -189,7 +259,7 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Respons
             // The real server's validator is derived from the revision alone.
             let etag = format!("\"config-{}\"", config["configRevision"]);
             if request.headers().get("if-none-match").and_then(|v| v.to_str().ok()) == Some(etag.as_str()) {
-                let mut response = Response::new(Full::new(Bytes::new()));
+                let mut response = Response::new(body(Bytes::new()));
                 *response.status_mut() = StatusCode::NOT_MODIFIED;
                 return Ok(response);
             }
@@ -248,15 +318,36 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Respons
                 AssetMode::Corrupt => {
                     let mut wrong = bytes.clone();
                     wrong[0] ^= 0xff;
-                    Ok(Response::new(Full::new(Bytes::from(wrong))))
+                    Ok(Response::new(body(Bytes::from(wrong))))
                 }
                 AssetMode::Held => {
                     fake.release.notified().await;
-                    Ok(Response::new(Full::new(Bytes::from(bytes))))
+                    Ok(Response::new(body(Bytes::from(bytes))))
                 }
-                AssetMode::Serve => {
-                    let mut response = Response::new(Full::new(Bytes::from(bytes)));
+                AssetMode::Truncate => {
+                    let half = Bytes::from(bytes[..bytes.len() / 2].to_vec());
+                    // The break comes after the first half is on the wire; an
+                    // immediate error would abort before hyper flushed it.
+                    let frames = futures_util::StreamExt::chain(
+                        futures_util::stream::iter([Ok(hyper::body::Frame::data(half))]),
+                        futures_util::stream::once(async {
+                            tokio::time::sleep(Duration::from_millis(300)).await;
+                            Err(std::io::Error::other("connection lost"))
+                        }),
+                    );
+                    let mut response = Response::new(StreamBody::new(frames).boxed());
+                    response.headers_mut().insert("content-length", bytes.len().to_string().parse().unwrap());
+                    Ok(response)
+                }
+                AssetMode::BadRange | AssetMode::Serve => {
+                    if let Some((start, end)) = requested_range(&request, bytes.len()) {
+                        fake.range_requests.fetch_add(1, Ordering::SeqCst);
+                        let claimed = if mode == AssetMode::BadRange { (start + 7).min(end) } else { start };
+                        return Ok(partial(&bytes, end, claimed, &mime));
+                    }
+                    let mut response = Response::new(body(Bytes::from(bytes)));
                     response.headers_mut().insert("content-type", mime.parse().unwrap());
+                    response.headers_mut().insert("accept-ranges", "bytes".parse().unwrap());
                     Ok(response)
                 }
             }
@@ -273,7 +364,25 @@ async fn serve(fake: Arc<FakeServer>) -> String {
     tokio::spawn(async move {
         loop {
             let Ok((stream, _)) = listener.accept().await else { return };
+            match fake.link.load(Ordering::SeqCst) {
+                LINK_REFUSED => continue,
+                LINK_BLACKHOLE => {
+                    tokio::spawn(async move {
+                        tokio::time::sleep(Duration::from_secs(600)).await;
+                        drop(stream);
+                    });
+                    continue;
+                }
+                _ => {}
+            }
             let fake = Arc::clone(&fake);
+            let mut head = [0_u8; 32];
+            let upgrade =
+                matches!(stream.peek(&mut head).await, Ok(n) if head[..n].starts_with(b"GET /api/v1/player/socket"));
+            if upgrade && fake.socket_enabled.load(Ordering::SeqCst) {
+                tokio::spawn(player_socket(fake, stream));
+                continue;
+            }
             tokio::spawn(async move {
                 let service = hyper::service::service_fn(move |request| handle(Arc::clone(&fake), request));
                 let _ = hyper::server::conn::http1::Builder::new()
@@ -283,6 +392,55 @@ async fn serve(fake: Arc<FakeServer>) -> String {
         }
     });
     format!("http://{address}")
+}
+
+/// The ordinary player WebSocket: `server.hello`, then a `server.ping`
+/// carrying the server's clock every 200 ms, recording `player.status`.
+async fn player_socket(fake: Arc<FakeServer>, stream: tokio::net::TcpStream) {
+    use futures_util::{SinkExt as _, StreamExt as _};
+    use tokio_tungstenite::tungstenite::Message;
+    use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request as Upgrade, Response as Accepted};
+    let authorize = |request: &Upgrade, response: Accepted| -> Result<Accepted, ErrorResponse> {
+        let expected = format!("Bearer {CREDENTIAL}");
+        if request.headers().get("authorization").and_then(|v| v.to_str().ok()) == Some(expected.as_str()) {
+            Ok(response)
+        } else {
+            let mut refused = ErrorResponse::new(None);
+            *refused.status_mut() = StatusCode::UNAUTHORIZED;
+            Err(refused)
+        }
+    };
+    let Ok(mut socket) = tokio_tungstenite::accept_hdr_async(stream, authorize).await else { return };
+    fake.socket_connections.fetch_add(1, Ordering::SeqCst);
+    let generation = fake.socket_generation.load(Ordering::SeqCst);
+    let hello = json!({"type": "server.hello", "protocolVersion": 1}).to_string();
+    if socket.send(Message::Text(hello.into())).await.is_err() {
+        return;
+    }
+    let mut ping = tokio::time::interval(Duration::from_millis(200));
+    loop {
+        tokio::select! {
+            _ = ping.tick() => {
+                if fake.socket_generation.load(Ordering::SeqCst) != generation {
+                    // Dropped without a close frame, as a lost connection is.
+                    return;
+                }
+                let server_now = now_ms() + fake.server_clock_ahead_ms.load(Ordering::SeqCst);
+                let timestamp = Timestamp::from_unix_millis(server_now).unwrap().to_string();
+                let message = json!({"type": "server.ping", "timestamp": timestamp}).to_string();
+                if socket.send(Message::Text(message.into())).await.is_err() {
+                    return;
+                }
+            }
+            received = socket.next() => {
+                let Some(Ok(Message::Text(text))) = received else { return };
+                let value: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+                if value["type"] == "player.status" {
+                    fake.socket_statuses.lock().unwrap().push(value["payload"].clone());
+                }
+            }
+        }
+    }
 }
 
 // ------------------------------------------------------------ content
@@ -520,6 +678,36 @@ struct Player {
     context: Arc<DaemonContext>,
     socket: PathBuf,
     task: tokio::task::JoinHandle<anyhow::Result<()>>,
+    /// A daemon on its own runtime can be killed: dropping the runtime stops
+    /// every task where it stands, with no shutdown path.
+    runtime: Option<tokio::runtime::Runtime>,
+}
+
+/// The real wall clock plus a step a test controls: an NTP correction or a
+/// manual clock change, while monotonic time runs on.
+#[derive(Debug, Default)]
+struct SteppedClock(AtomicI64);
+
+impl SteppedClock {
+    fn step(&self, delta_ms: i64) {
+        self.0.fetch_add(delta_ms, Ordering::SeqCst);
+    }
+}
+
+impl edge_protocol::time::WallClock for SteppedClock {
+    fn now(&self) -> Timestamp {
+        Timestamp::from_unix_millis(now_ms() + self.0.load(Ordering::SeqCst)).unwrap()
+    }
+}
+
+/// Free space a test controls.
+#[derive(Debug)]
+struct Space(AtomicU64);
+
+impl edge_platform::disk::SpaceProbe for Space {
+    fn available_bytes(&self, _: &Path) -> std::io::Result<u64> {
+        Ok(self.0.load(Ordering::SeqCst))
+    }
 }
 
 impl Harness {
@@ -553,17 +741,35 @@ impl Harness {
         Binding { installation_id: self.installation, screen_id: self.screen, server_url: self.url.clone() }
     }
 
-    async fn start(&self) -> Player {
+    fn config(&self) -> EdgeConfig {
         let dir = self.dir.path();
         let mut config = EdgeConfig::default();
         config.paths.state_dir = Some(dir.join("state"));
         config.paths.runtime_dir = Some(dir.join("run"));
         config.renderer.binary = dir.join("no-renderer");
-        let daemon = Daemon::start(config, Notifier::disabled()).await.unwrap();
+        config
+    }
+
+    async fn start(&self) -> Player {
+        let daemon = Daemon::start(self.config(), Notifier::disabled()).await.unwrap();
         let socket = daemon.socket_path();
         let context = Arc::clone(daemon.context());
         let task = tokio::spawn(daemon.run());
-        Player { context, socket, task }
+        Player { context, socket, task, runtime: None }
+    }
+
+    /// A daemon on its own runtime, with this configuration and host, that
+    /// the test can kill.
+    async fn start_killable(&self, config: EdgeConfig, environment: Environment) -> Player {
+        let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
+        let daemon = runtime
+            .spawn(async move { Daemon::start_with(config, Notifier::disabled(), environment).await.unwrap() })
+            .await
+            .unwrap();
+        let socket = daemon.socket_path();
+        let context = Arc::clone(daemon.context());
+        let task = runtime.spawn(daemon.run());
+        Player { context, socket, task, runtime: Some(runtime) }
     }
 
     /// A playing presentation of `asset` committed as the active manifest.
@@ -586,6 +792,15 @@ impl Player {
     async fn stop(self) {
         self.context.shutdown.cancel();
         self.task.await.unwrap().unwrap();
+        if let Some(runtime) = self.runtime {
+            runtime.shutdown_background();
+        }
+    }
+
+    /// As SIGKILL or a power cut: no task runs another step and nothing is
+    /// flushed or marked clean.
+    fn kill(mut self) {
+        self.runtime.take().expect("a killable player").shutdown_background();
     }
 
     /// Makes the server link reconcile now, as a WebSocket push would.
@@ -1512,4 +1727,493 @@ async fn two_players_in_a_group_share_one_timeline_that_a_clock_correction_never
         renderer.stop();
         player.stop().await;
     }
+}
+
+// ------------------------------------------------------------ M6: qualification
+//
+// docs/tilecast-edge-next.md §6 maps every qualification scenario to its
+// test. The property throughout: a failure never replaces last-known-good
+// playback, and offline playback never waits for the server.
+
+async fn wait_long(what: &str, seconds: u64, mut check: impl AsyncFnMut() -> bool) {
+    for _ in 0..seconds * 10 {
+        if check().await {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("timed out waiting for {what}");
+}
+
+fn link_state(player: &Player) -> &'static str {
+    player.context.link_state.lock().unwrap().state_token()
+}
+
+/// Every regular file under `root`.
+fn files(root: &Path) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                pending.push(path);
+            } else {
+                out.push(path);
+            }
+        }
+    }
+    out
+}
+
+fn cas_object(player: &Player, asset: &Asset) -> PathBuf {
+    let hex = asset.digest().to_hex();
+    files(&player.context.paths.cas_root())
+        .into_iter()
+        .find(|path| path.file_name().is_some_and(|name| name.to_string_lossy().contains(&hex)))
+        .expect("the verified object")
+}
+
+async fn committed_killable(
+    harness: &Harness,
+    asset: &Asset,
+    version: i64,
+    environment: Environment,
+) -> (Player, FakeRenderer) {
+    harness.fake.add_asset(asset, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, version, &[asset]));
+    let player = harness.start_killable(harness.config(), environment).await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("the committed presentation", || renderer.last().filter(|a| shows(a, asset))).await;
+    let binding = harness.binding();
+    wait_until("promotion", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == version)
+    })
+    .await;
+    (player, renderer)
+}
+
+/// #1 (a server that never answers at boot), #2 (the server goes away while
+/// playing) and #3 (a WAN outage that swallows traffic).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_refused_or_blackholed_server_never_stalls_committed_playback() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let (player, renderer) = harness.committed(&first, 3).await;
+    let binding = harness.binding();
+    let shown = renderer.activation_count();
+
+    harness.fake.link.store(LINK_REFUSED, Ordering::SeqCst);
+    player.push();
+    wait_until("the link to notice", || async { link_state(&player) == "retrying" }).await;
+    settle().await;
+    assert_eq!(renderer.activation_count(), shown, "an outage never re-presents");
+    assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 3);
+
+    // A WAN outage: requests hang. A renderer that restarts meanwhile gets
+    // the committed presentation at once.
+    harness.fake.link.store(LINK_BLACKHOLE, Ordering::SeqCst);
+    player.push();
+    settle().await;
+    renderer.stop();
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("the committed presentation during the outage", || renderer.last().filter(|a| shows(a, &first))).await;
+
+    // A daemon restart while every request hangs: cached playback at once.
+    player.stop().await;
+    renderer.stop();
+    let started = std::time::Instant::now();
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("cached playback at boot", || renderer.last().filter(|a| shows(a, &first))).await;
+    assert!(started.elapsed() < Duration::from_secs(10), "boot waited for the server: {:?}", started.elapsed());
+
+    // Recovery: the next assignment arrives and plays.
+    let second = Asset::new("second", "image/png");
+    harness.fake.add_asset(&second, AssetMode::Serve);
+    harness
+        .fake
+        .set_manifest(with(manifest(harness.screen, 4, &[&second]), |m| m["activationGraceSeconds"] = json!(1)));
+    harness.fake.link.store(LINK_UP, Ordering::SeqCst);
+    wait_long("recovery after the outage", 90, async || {
+        player.push();
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        renderer.last().is_some_and(|a| shows(&a, &second))
+    })
+    .await;
+    renderer.stop();
+    player.stop().await;
+}
+
+/// #5 (interrupted download), #6 (a resume answered with the wrong range)
+/// and #7 (a partial file damaged on disk).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn interrupted_misranged_and_tampered_downloads_never_reach_the_screen() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let (player, renderer) = harness.committed(&first, 3).await;
+    let binding = harness.binding();
+    let cas = player.context.cas.as_ref().unwrap().clone();
+    let (mut committed, mut committed_version) = (first, 3);
+
+    for (version, damage) in [(4, "tampered"), (5, "misranged")] {
+        let next = Asset::new(damage, "image/png");
+        harness.fake.add_asset(&next, AssetMode::Truncate);
+        harness.fake.set_manifest(with(manifest(harness.screen, version, &[&next]), |m| {
+            m["activationGraceSeconds"] = json!(1)
+        }));
+        player.preparation_reset();
+        player.push();
+        player.prepared_as(&binding, "failed").await;
+        assert!(cas.usage().await.unwrap().partial_bytes > 0, "{damage}: the interrupted bytes are kept to resume");
+        assert!(shows(&renderer.last().unwrap(), &committed), "{damage}");
+        assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, committed_version, "{damage}");
+
+        let ranges = harness.fake.range_requests.load(Ordering::SeqCst);
+        if damage == "tampered" {
+            for part in files(&player.context.paths.partial_dir()) {
+                let mut bytes = std::fs::read(&part).unwrap();
+                bytes[0] ^= 0xff;
+                std::fs::write(&part, bytes).unwrap();
+            }
+            harness.fake.set_mode(&next, AssetMode::Serve);
+        } else {
+            harness.fake.set_mode(&next, AssetMode::BadRange);
+        }
+        player.preparation_reset();
+        player.push();
+        wait_until("the resume attempt", || async { harness.fake.range_requests.load(Ordering::SeqCst) > ranges })
+            .await;
+        settle().await;
+        // Whatever the resume produced, damaged bytes never reach the screen.
+        let last = renderer.last().unwrap();
+        assert!(shows(&last, &committed) || shows(&last, &next), "{damage}");
+        if !shows(&last, &next) {
+            harness.fake.set_mode(&next, AssetMode::Serve);
+        }
+        wait_long("the verified replacement", 60, async || {
+            player.push();
+            tokio::time::sleep(Duration::from_millis(400)).await;
+            renderer.last().is_some_and(|a| shows(&a, &next))
+        })
+        .await;
+        let object = std::fs::read(cas_object(&player, &next)).unwrap();
+        assert_eq!(Sha256Digest::of(&object), next.digest(), "{damage}: only verified bytes are stored");
+        wait_until("promotion", || async {
+            player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == version)
+        })
+        .await;
+        (committed, committed_version) = (next, version);
+    }
+    renderer.stop();
+    player.stop().await;
+}
+
+/// #11 (SIGKILL), #8 (a verified object damaged on disk) and #9 offline.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_killed_daemon_rehashes_its_store_and_resumes_cached_playback() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let (player, renderer) = committed_killable(&harness, &first, 3, Environment::default()).await;
+    let object = cas_object(&player, &first);
+    renderer.stop();
+    player.kill();
+
+    // Same-size damage, as a bad sector or a torn write leaves it.
+    let mut bytes = std::fs::read(&object).unwrap();
+    bytes[3] ^= 0xff;
+    std::fs::write(&object, &bytes).unwrap();
+    let player = harness.start_killable(harness.config(), Environment::default()).await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("the repaired presentation", || renderer.last().filter(|a| shows(a, &first))).await;
+    wait_until("the object to be verified again", || async {
+        std::fs::read(cas_object(&player, &first)).is_ok_and(|b| Sha256Digest::of(&b) == first.digest())
+    })
+    .await;
+    assert_eq!(player.stage(&harness.binding(), Stage::Active).await.unwrap().version, 3);
+    renderer.stop();
+    player.kill();
+
+    // Killed again, and restarted with the server gone.
+    harness.fake.link.store(LINK_REFUSED, Ordering::SeqCst);
+    let player = harness.start_killable(harness.config(), Environment::default()).await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("cached playback after an unclean stop", || renderer.last().filter(|a| shows(a, &first))).await;
+    renderer.stop();
+    player.stop().await;
+}
+
+/// #13 (the wall clock moves forward and back) and #14 (a correction while
+/// playing): schedule windows follow wall time; nothing else restarts.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn wall_clock_steps_move_schedule_windows_and_nothing_else() {
+    let harness = Harness::new().await;
+    let direct = Asset::new("direct", "image/png");
+    let scheduled = Asset::new("scheduled", "image/png");
+    harness.fake.add_asset(&scheduled, AssetMode::Serve);
+    let clock = Arc::new(SteppedClock::default());
+    let environment = Environment { clock: clock.clone(), ..Environment::default() };
+    let playlist = uuid::Uuid::new_v4().to_string();
+    let hour = 3_600_000;
+    let at = |offset: i64| Timestamp::from_unix_millis(now_ms() + offset).unwrap().to_string();
+    let mut value = manifest(harness.screen, 3, &[&direct]);
+    value["assets"].as_array_mut().unwrap().push(scheduled.manifest_asset());
+    value["playlists"] = json!([{"id": playlist, "items": [scheduled.item(uuid::Uuid::new_v4())]}]);
+    value["schedules"] = json!([{"id": uuid::Uuid::new_v4().to_string(), "playlistId": playlist, "type": "one_time",
+        "timezone": "UTC", "priority": 10, "specificity": 1, "oneTimeStart": at(hour), "oneTimeEnd": at(2 * hour)}]);
+    harness.fake.add_asset(&direct, AssetMode::Serve);
+    harness.fake.set_manifest(value);
+    let player = harness.start_killable(harness.config(), environment).await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("the direct playlist", || renderer.last().filter(|a| shows(a, &direct))).await;
+
+    // A small correction inside the same window changes nothing.
+    let shown = renderer.activation_count();
+    clock.step(5 * 60_000);
+    player.context.manifest_wake.notify_one();
+    settle().await;
+    assert_eq!(renderer.activation_count(), shown, "a correction that crosses no boundary never re-presents");
+
+    // Into the window, and back out: the daemon finds it within its bounded
+    // sleep, without being woken.
+    clock.step(hour);
+    wait_long("the scheduled window", 45, async || renderer.last().is_some_and(|a| shows(&a, &scheduled))).await;
+    clock.step(-hour);
+    wait_long("the direct playlist again", 45, async || renderer.last().is_some_and(|a| shows(&a, &direct))).await;
+    renderer.stop();
+    player.stop().await;
+}
+
+/// #15: a stale persisted offset is used while there is nothing better, and
+/// the first server sample replaces it; a fresh one within 250 ms is kept.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_stale_persisted_server_offset_gives_way_to_the_next_sample() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let items = [uuid::Uuid::new_v4()];
+    harness.fake.add_asset(&first, AssetMode::Serve);
+    harness.fake.set_manifest(grouped(harness.screen, 3, &[&first], &items));
+    let (player, renderer) = {
+        let player = harness.start().await;
+        let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+        wait_for("the grouped presentation", || renderer.last().filter(|a| a.timing.is_some())).await;
+        (player, renderer)
+    };
+    renderer.stop();
+    player.stop().await;
+
+    // An hour-old sample 90 s off, as a player that sat offline keeps.
+    let stale_at = Timestamp::from_unix_millis(now_ms() - 3_600_000).unwrap();
+    let db = StateDb::open(harness.dir.path().join("state/state.db"), OpenOptions::default()).unwrap();
+    db.run_blocking(move |c| {
+        let mut state = edge_state::repo::playback::get(c)?;
+        state.server_clock_offset_ms = Some(90_000);
+        state.server_clock_synchronized_at = Some(stale_at);
+        edge_state::repo::playback::put(c, &state, stale_at)
+    })
+    .unwrap();
+    drop(db);
+
+    harness.fake.link.store(LINK_REFUSED, Ordering::SeqCst);
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    let offline = wait_for("offline playback", || renderer.last().filter(|a| a.timing.is_some())).await;
+    assert_eq!(offline.timing.unwrap().clock_offset_ms, 90_000, "offline, the persisted offset is the best estimate");
+
+    let offset = async || {
+        let db = player.context.db().unwrap();
+        db.run(|c| edge_state::repo::playback::get(c)).await.unwrap()
+    };
+    harness.fake.server_clock_ahead_ms.store(1_500, Ordering::SeqCst);
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    harness.fake.link.store(LINK_UP, Ordering::SeqCst);
+    player.push();
+    wait_long("the first server sample", 60, async || {
+        offset().await.server_clock_offset_ms.is_some_and(|ms| (ms - 1_500).abs() < 500)
+    })
+    .await;
+    let sampled = offset().await;
+    assert!(sampled.server_clock_synchronized_at.unwrap().unix_millis() > now_ms() - 60_000);
+
+    // Samples within 250 ms of a fresh offset are not written again.
+    harness.fake.server_clock_ahead_ms.store(1_600, Ordering::SeqCst);
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    assert_eq!(offset().await.server_clock_synchronized_at, sampled.server_clock_synchronized_at);
+    renderer.stop();
+    player.stop().await;
+}
+
+/// #4: status goes over the WebSocket; when the socket is lost it falls back
+/// to the HTTP heartbeat and playback never notices.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn losing_the_player_socket_falls_back_to_the_heartbeat() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    harness.fake.set_config(json!({"schemaVersion": 1, "configRevision": 2, "sync": {"statusReportSeconds": 15}}));
+    let first = Asset::new("first", "image/png");
+    let (player, renderer) = harness.committed(&first, 3).await;
+    wait_long("status over the socket", 60, async || !harness.fake.socket_statuses.lock().unwrap().is_empty()).await;
+    let shown = renderer.activation_count();
+    let heartbeats = harness.fake.heartbeats.lock().unwrap().len();
+
+    harness.fake.socket_enabled.store(false, Ordering::SeqCst);
+    harness.fake.socket_generation.fetch_add(1, Ordering::SeqCst);
+    wait_long("the fallback heartbeat", 60, async || {
+        player.push();
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        harness.fake.heartbeats.lock().unwrap().len() > heartbeats
+    })
+    .await;
+    assert_eq!(renderer.activation_count(), shown, "losing the socket never re-presents");
+    assert_eq!(link_state(&player), "connected");
+
+    let connections = harness.fake.socket_connections.load(Ordering::SeqCst);
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    wait_long("the socket to return", 90, async || {
+        player.push();
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        harness.fake.socket_connections.load(Ordering::SeqCst) > connections
+    })
+    .await;
+    renderer.stop();
+    player.stop().await;
+}
+
+/// #16 (free space at the reserve floor) and #17 (the store at its limit):
+/// typed failures, and the committed presentation stays.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_full_disk_or_store_fails_preparation_and_keeps_playing() {
+    let harness = Harness::new().await;
+    let space = Arc::new(Space(AtomicU64::new(u64::MAX / 4)));
+    let environment = Environment { space: space.clone(), ..Environment::default() };
+    let first = Asset::new("first", "image/png");
+    let (player, renderer) = committed_killable(&harness, &first, 3, environment).await;
+    let binding = harness.binding();
+
+    let second = Asset::new("second", "image/png");
+    harness.fake.add_asset(&second, AssetMode::Serve);
+    harness
+        .fake
+        .set_manifest(with(manifest(harness.screen, 4, &[&second]), |m| m["activationGraceSeconds"] = json!(1)));
+    space.0.store(player.context.config.cas.reserved_free_bytes, Ordering::SeqCst);
+    player.preparation_reset();
+    player.push();
+    let reason = player.prepared_as(&binding, "failed").await;
+    assert!(reason.is_some_and(|r| !r.is_empty()), "the reserve floor is a typed failure");
+    assert!(shows(&renderer.last().unwrap(), &first));
+    assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 3);
+    let heartbeat = heartbeat(&player.context).await;
+    assert!(heartbeat["lastSynchronizationError"].is_string());
+    assert_eq!(heartbeat["availableStorageBytes"], json!(player.context.config.cas.reserved_free_bytes));
+    renderer.stop();
+    player.stop().await;
+
+    // The store's own limit, with the active content pinned.
+    let mut config = harness.config();
+    config.cas.limit_bytes = first.bytes.len() as u64 + second.bytes.len() as u64 - 1;
+    let player = harness.start_killable(config, Environment::default()).await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    player.preparation_reset();
+    player.push();
+    let reason = player.prepared_as(&binding, "failed").await;
+    assert!(reason.is_some_and(|r| !r.is_empty()), "the store limit is a typed failure");
+    assert!(shows(&renderer.last().unwrap(), &first), "the pinned active content is never evicted");
+    assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 3);
+    renderer.stop();
+    player.stop().await;
+}
+
+/// #19: a database from a newer release is refused and left exactly as it
+/// was: the daemon enters recovery mode and writes nothing.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_newer_state_schema_is_refused_without_being_touched() {
+    let harness = Harness::new().await;
+    let path = harness.dir.path().join("state/state.db");
+    {
+        let connection = rusqlite::Connection::open(&path).unwrap();
+        connection
+            .execute("INSERT INTO schema_migrations (version, name, applied_at_ms) VALUES (99, 'future', 0)", [])
+            .unwrap();
+    }
+    let before = std::fs::read(&path).unwrap();
+    let player = harness.start().await;
+    let status = tilecastd::ipc_handler::DaemonIpc::new(Arc::clone(&player.context)).status().await;
+    assert_eq!(status.mode, edge_protocol::ipc::status::DaemonMode::Recovery);
+    player.stop().await;
+    assert!(std::fs::read(&path).unwrap() == before, "the newer database was modified");
+    let wal = harness.dir.path().join("state/state.db-wal");
+    assert!(std::fs::metadata(&wal).map_or(true, |m| m.len() == 0), "the refusal wrote to the log");
+}
+
+/// #23: a takeover that arrives while a replacement is still downloading
+/// shows at once; a takeover whose content cannot be prepared changes nothing.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_takeover_during_preparation_outranks_it() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let (player, renderer) = harness.committed(&first, 3).await;
+    let binding = harness.binding();
+    let slow = Asset::new("slow", "image/png");
+    harness.fake.add_asset(&slow, AssetMode::Held);
+    harness.fake.set_manifest(manifest(harness.screen, 4, &[&slow]));
+    player.push();
+    wait_until("the slow preparation", || async { player.preparation().1 == "preparing" }).await;
+
+    let takeover = |version: i64, asset: &Asset| {
+        let playlist = uuid::Uuid::new_v4().to_string();
+        let mut value = manifest(harness.screen, version, &[&first]);
+        value["assets"].as_array_mut().unwrap().push(asset.manifest_asset());
+        value["playlists"] = json!([{"id": playlist, "items": [asset.item(uuid::Uuid::new_v4())]}]);
+        value["takeover"] = json!({"id": uuid::Uuid::new_v4().to_string(), "playlistId": playlist,
+            "activatedAt": Timestamp::from_unix_millis(now_ms() - 1_000).unwrap().to_string(),
+            "expiresAt": Timestamp::from_unix_millis(now_ms() + 3_600_000).unwrap().to_string()});
+        value
+    };
+    let broken = Asset::new("broken", "image/png");
+    harness.fake.add_asset(&broken, AssetMode::Missing);
+    harness.fake.set_manifest(takeover(5, &broken));
+    player.preparation_reset();
+    player.push();
+    player.prepared_as(&binding, "failed").await;
+    assert!(shows(&renderer.last().unwrap(), &first), "a takeover that cannot be prepared changes nothing");
+
+    let alert = Asset::new("alert", "image/png");
+    harness.fake.add_asset(&alert, AssetMode::Serve);
+    harness.fake.set_manifest(takeover(6, &alert));
+    player.push();
+    wait_for("the takeover", || renderer.last().filter(|a| shows(a, &alert))).await;
+    let PresentationDocument::Playing { takeover, .. } = renderer.last().unwrap().presentation else { panic!() };
+    assert!(takeover);
+    harness.fake.release.notify_waiters();
+    wait_until("promotion", || async { player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == 6) })
+        .await;
+    renderer.stop();
+    player.stop().await;
+}
+
+/// #24: Quick Present shows at once, without waiting for an item boundary,
+/// and the assigned content returns when it expires, with no new manifest.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn quick_present_replaces_and_then_restores_the_assignment() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let (player, renderer) = harness.committed(&first, 3).await;
+    let presented = Asset::new("presented", "image/png");
+    harness.fake.add_asset(&presented, AssetMode::Serve);
+    let playlist = uuid::Uuid::new_v4().to_string();
+    let mut value = manifest(harness.screen, 4, &[&first]);
+    value["assets"].as_array_mut().unwrap().push(presented.manifest_asset());
+    value["playlists"] = json!([{"id": playlist, "items": [presented.item(uuid::Uuid::new_v4())]}]);
+    value["presentationOverride"] = json!({"id": uuid::Uuid::new_v4().to_string(), "contentType": "playlist",
+        "contentId": playlist, "contentName": "Show now",
+        "startedAt": Timestamp::from_unix_millis(now_ms() - 1_000).unwrap().to_string(),
+        "expiresAt": Timestamp::from_unix_millis(now_ms() + 6_000).unwrap().to_string()});
+    harness.fake.set_manifest(value);
+    player.push();
+    wait_for("Quick Present", || renderer.last().filter(|a| shows(a, &presented))).await;
+    assert_eq!(heartbeat(&player.context).await["selectionSource"], "quick_present");
+    wait_long("the assignment to return", 30, async || renderer.last().is_some_and(|a| shows(&a, &first))).await;
+    assert_eq!(heartbeat(&player.context).await["selectionSource"], "direct_fallback");
+    renderer.stop();
+    player.stop().await;
 }

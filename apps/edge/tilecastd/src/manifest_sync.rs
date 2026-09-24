@@ -64,6 +64,9 @@ pub async fn reconcile(
     let current = db.run(move |c| manifests::target(c, &target_binding)).await.map_err(|_| SyncError::State)?;
     let fetched = server.player_manifest(current.as_ref().map(|target| target.etag.as_str())).await?;
     let ManifestFetch::Modified { document, etag } = fetched else { return Ok(current) };
+    if let Some(server_time) = document.get("serverTime").and_then(serde_json::Value::as_str) {
+        crate::server_link::sample_server_clock(context, server_time).await;
+    }
     let digest = manifest_digest(&document);
     if current.as_ref().is_some_and(|target| target.digest == digest) {
         return Ok(current);
@@ -118,8 +121,11 @@ impl PrepareError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Prepared {
-    /// Already the active or pending manifest.
+    /// Already the active or pending manifest, with its content intact.
     Current,
+    /// Already the active or pending manifest, whose lost objects were
+    /// downloaded and verified again.
+    Repaired,
     /// Stored as pending and pinned.
     Pending,
     /// A newer target superseded this one during preparation.
@@ -137,15 +143,31 @@ pub async fn prepare_target<P: SourcePlan>(
     let db = context.db().ok_or(PrepareError::State)?;
     let store = context.cas.clone().ok_or(PrepareError::Fetch(PreparationError::StoreUnavailable))?;
     let binding = target.binding.clone();
+    let candidate = Candidate::prepare_candidate(target.document.clone(), binding.screen_id)?;
     for stage in [Stage::Active, Stage::Pending] {
         let stage_binding = binding.clone();
         let stored =
             db.run(move |c| manifests::get_for(c, stage, &stage_binding)).await.map_err(|_| PrepareError::State)?;
         if stored.is_some_and(|stored| stored.digest == target.digest) {
-            return Ok(Prepared::Current);
+            if manifest::verify_cached(context, &candidate).await.is_ok() {
+                return Ok(Prepared::Current);
+            }
+            // An object this manifest needs failed its re-check (a damaged
+            // file after an unclean stop, say) and was removed. Fetch and
+            // verify it again; the stage is unchanged, and activation pins
+            // and shows the manifest once it is whole.
+            let digests = manifest::prepare(&store, plan, &candidate).await?;
+            let reason =
+                if stage == Stage::Active { PinReason::ActivePresentation } else { PinReason::PendingPresentation };
+            store
+                .replace_pins(reason, &manifest::pin_holder(&candidate.digest), digests)
+                .await
+                .map_err(PreparationError::from)?;
+            tracing::info!(component = "manifest", event = "repaired", manifest = %candidate.digest.short());
+            context.manifest_wake.notify_one();
+            return Ok(Prepared::Repaired);
         }
     }
-    let candidate = Candidate::prepare_candidate(target.document.clone(), binding.screen_id)?;
     let digests = manifest::prepare(&store, plan, &candidate).await?;
     let holder = manifest::pin_holder(&candidate.digest);
     store.replace_pins(PinReason::PendingPresentation, &holder, digests).await.map_err(PreparationError::from)?;

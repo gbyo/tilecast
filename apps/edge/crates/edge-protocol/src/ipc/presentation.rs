@@ -189,6 +189,9 @@ impl PresentationDocument {
             if *synchronized && !features.contains(&"synchronized-playback-v1") {
                 features.push("synchronized-playback-v1");
             }
+            if items.iter().any(|item| item.viewport.is_some()) {
+                features.push("span-viewport-v1");
+            }
         }
         features
     }

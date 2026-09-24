@@ -223,6 +223,7 @@ def psql(query):
 
 
 def main():
+    sys.stdout.reconfigure(line_buffering=True)
     parser = argparse.ArgumentParser()
     parser.add_argument("--renderer", help="tilecast-renderer-wpe binary; enables the content phase")
     parser.add_argument("--runtime-dir", help="assembled trusted web runtime (renderer-wpe/assemble-runtime.sh)")
@@ -623,6 +624,9 @@ def main():
                 window (or be a late join), so it is not a boundary."""
                 starts = [found[1:] for found in item_starts(tilecastctl, sockets, seconds)]
                 expected = seconds * 1000 // max(durations) - 1
+                for index, found in enumerate(starts):
+                    print(f"sync {label}: player {index} phases",
+                          [grid_phase_ms(at, epoch, durations) for _, at in found])
                 for found in starts:
                     assert len(found) >= expected, f"{label}: only {len(found)} boundaries in {seconds}s: {found}"
                     for _, at in found:
@@ -633,6 +637,7 @@ def main():
                     other = [b for i, b in starts[1] if i == item_id and abs(b - at) < min(durations) / 2]
                     if other:
                         skews.append(abs(other[0] - at))
+                print(f"sync {label}: skews {skews}")
                 assert len(skews) >= expected, f"{label}: players did not share boundaries: {starts}"
                 assert max(skews) <= 250, f"{label}: boundary skew {max(skews)} ms"
                 print(f"sync {label}: {len(skews)} shared boundaries, skew mean "

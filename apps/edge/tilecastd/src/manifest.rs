@@ -50,7 +50,6 @@ const MAX_LAYOUTS: usize = 128;
 const MAX_WIDGETS: usize = 256;
 const MAX_DATA_SOURCES: usize = 256;
 const MAX_PLUGINS: usize = 64;
-const AUTOMATIC_VIDEO_LIMIT_BYTES: u64 = 256 * 1024 * 1024;
 const DEFAULT_ACTIVATION_GRACE_SECONDS: u64 = 30;
 const LAYOUT_ITEM_PREFIX: &str = "layout-";
 
@@ -68,6 +67,7 @@ pub mod profile {
         "render-tree-v1",
         "layout-v1",
         "synchronized-playback-v1",
+        "span-viewport-v1",
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
@@ -212,7 +212,6 @@ pub enum Incompatibility {
     Website,
     YouTube,
     WebWidget,
-    StreamingDelivery,
     SynchronizedPlayback,
     SpanViewport,
     DisplayControl,
@@ -228,7 +227,6 @@ impl Incompatibility {
             Self::Website => "presentation_incompatible_website",
             Self::YouTube => "presentation_incompatible_youtube",
             Self::WebWidget => "presentation_incompatible_web_widget",
-            Self::StreamingDelivery => "presentation_incompatible_streaming_delivery",
             Self::SynchronizedPlayback => "presentation_incompatible_synchronized_playback",
             Self::SpanViewport => "presentation_incompatible_span",
             Self::DisplayControl => "presentation_incompatible_display_control",
@@ -246,9 +244,8 @@ impl std::fmt::Display for Incompatibility {
             Self::Website => f.write_str("websites need the WPE website isolation that is not qualified yet"),
             Self::YouTube => f.write_str("YouTube needs the WPE website isolation that is not qualified yet"),
             Self::WebWidget => f.write_str("web widgets need the WPE website isolation that is not qualified yet"),
-            Self::StreamingDelivery => f.write_str("server-streamed media has no verified Edge delivery path"),
             Self::SynchronizedPlayback => f.write_str("synchronized group playback is not supported by this renderer"),
-            Self::SpanViewport => f.write_str("Span video walls are not supported by this renderer"),
+            Self::SpanViewport => f.write_str("the Span canvas or panel geometry is malformed"),
             Self::DisplayControl => f.write_str("scheduled display control needs a display control provider"),
             Self::Plugin(kind) => write!(f, "the {kind} plugin is not supported by this renderer"),
             Self::WidgetCapability(name) => write!(f, "a widget needs renderer capability {name}"),
@@ -407,6 +404,40 @@ fn check_layout(layout: &Value, catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usi
 
 /// Everything in `document` this renderer cannot safely provide. An empty
 /// list means compatible.
+/// This screen's panel of a Span canvas, in the runtime's `RuntimeViewport`
+/// shape (the Electron player's `spanViewport`), or `None` for a Mirror
+/// screen. Both objects must be present and the panel must lie inside the
+/// canvas; the server validates the same geometry.
+pub fn span_viewport(document: &Value) -> Result<Option<Value>, Incompatibility> {
+    const MAX_EDGE: u64 = 65_536;
+    let present = |key: &str| document.get(key).filter(|value| !value.is_null());
+    let (canvas, viewport) = match (present("canvas"), present("viewport")) {
+        (None, None) => return Ok(None),
+        (Some(canvas), Some(viewport)) => (canvas, viewport),
+        _ => return Err(Incompatibility::SpanViewport),
+    };
+    let field = |value: &Value, key: &str, max: u64| {
+        value.get(key).and_then(Value::as_u64).filter(|n| *n <= max).ok_or(Incompatibility::SpanViewport)
+    };
+    let (canvas_width, canvas_height) = (field(canvas, "width", MAX_EDGE)?, field(canvas, "height", MAX_EDGE)?);
+    let (x, y) = (field(viewport, "x", MAX_EDGE)?, field(viewport, "y", MAX_EDGE)?);
+    let (width, height) = (field(viewport, "width", MAX_EDGE)?, field(viewport, "height", MAX_EDGE)?);
+    let rotation = field(viewport, "rotation", 270)?;
+    let order = field(viewport, "order", 1_024)?;
+    if width == 0 || height == 0 || x + width > canvas_width || y + height > canvas_height || rotation % 90 != 0 {
+        return Err(Incompatibility::SpanViewport);
+    }
+    let mut out = serde_json::json!({"x": x, "y": y, "width": width, "height": height, "rotation": rotation,
+        "order": order, "canvasWidth": canvas_width, "canvasHeight": canvas_height});
+    for key in ["bezelLeft", "bezelTop", "bezelRight", "bezelBottom"] {
+        if let Some(value) = viewport.get(key).filter(|value| !value.is_null()) {
+            out[key] =
+                serde_json::json!(value.as_u64().filter(|n| *n <= MAX_EDGE).ok_or(Incompatibility::SpanViewport)?);
+        }
+    }
+    Ok(Some(out))
+}
+
 pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibility> {
     let mut out = Vec::new();
     let mut push = |reason: Incompatibility| {
@@ -462,16 +493,11 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
             if !(asset.mime_type.starts_with("image/") || asset.mime_type.starts_with("video/")) {
                 push(Incompatibility::ContentType(asset.mime_type.chars().take(32).collect()));
             }
-            let streamed = match item.get("deliveryPolicy").and_then(Value::as_str) {
-                Some("stream") => true,
-                Some("automatic") => {
-                    asset.mime_type.starts_with("video/") && asset.size_bytes > AUTOMATIC_VIDEO_LIMIT_BYTES
-                }
-                _ => false,
-            };
-            if streamed {
-                push(Incompatibility::StreamingDelivery);
-            }
+            // `stream` and `automatic` delivery need no incompatibility:
+            // Edge verifies every byte before use (docs/tilecast-edge.md
+            // §2), so it downloads such items into the store like any
+            // other. One too large for the store fails preparation with the
+            // store's typed reason and the committed presentation stays.
         }
     }
     if document.get("syncGroup").is_some_and(|group| {
@@ -481,9 +507,7 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
     }) {
         push(Incompatibility::SynchronizedPlayback);
     }
-    if document.get("viewport").is_some_and(|value| !value.is_null())
-        || document.get("canvas").is_some_and(|value| !value.is_null())
-    {
+    if span_viewport(document).is_err() {
         push(Incompatibility::SpanViewport);
     }
     if document
@@ -811,6 +835,10 @@ impl Candidate {
         let mut items = Vec::with_capacity(source_items.len());
         let mut content_by_digest = BTreeMap::new();
         let mut needs_projection = false;
+        // Images are cropped to the panel, as on Electron; Layouts are
+        // clipped by the shared projector; Span video is a server-made panel
+        // variant and is played as it is.
+        let span = span_viewport(&self.document).ok().flatten();
         for item in source_items {
             if !available_at(item, now_ms)? {
                 continue;
@@ -892,6 +920,8 @@ impl Candidate {
             if built.kind == ItemKind::Video {
                 built.video_start_offset_ms = number("videoStartOffsetMs")?;
                 built.video_end_offset_ms = number("videoEndOffsetMs")?;
+            } else {
+                built.viewport = span.clone();
             }
             built.src = text(&content_uri(&asset.digest))?;
             content_by_digest.entry(asset.digest).or_insert(Self::content_ref(asset)?);
@@ -994,9 +1024,18 @@ impl Candidate {
         config: &PlayerConfig,
     ) -> Result<(ProjectionContext, Vec<ContentRef>), ManifestError> {
         let mut manifest = serde_json::Map::new();
-        for key in
-            ["assets", "playlist", "directFallbackPlaylist", "playlists", "widgets", "dataSources", "layouts", "layout"]
-        {
+        for key in [
+            "assets",
+            "playlist",
+            "directFallbackPlaylist",
+            "playlists",
+            "widgets",
+            "dataSources",
+            "layouts",
+            "layout",
+            "canvas",
+            "viewport",
+        ] {
             if let Some(value) = self.document.get(key).filter(|value| !value.is_null()) {
                 manifest.insert(key.to_owned(), value.clone());
             }
@@ -1385,10 +1424,6 @@ mod tests {
                 "presentation_incompatible_website",
             ),
             (
-                Box::new(|v| v["playlist"]["items"][0]["deliveryPolicy"] = serde_json::json!("stream")),
-                "presentation_incompatible_streaming_delivery",
-            ),
-            (
                 // A group without an epoch cannot be placed on a shared timeline.
                 Box::new(|v| v["syncGroup"] = serde_json::json!({"id": ITEM})),
                 "presentation_incompatible_synchronized_playback",
@@ -1422,15 +1457,62 @@ mod tests {
             let reasons = incompatibilities(&candidate.document, &candidate.assets);
             assert_eq!(reasons.first().map(Incompatibility::code), Some(code));
         }
+    }
+
+    #[test]
+    fn span_panels_crop_images_and_reach_the_projector() {
         let mut value = manifest();
-        value["assets"][0]["mimeType"] = serde_json::json!("video/mp4");
-        value["assets"][0]["fileSize"] = serde_json::json!(AUTOMATIC_VIDEO_LIMIT_BYTES + 1);
-        let candidate = parse(value).unwrap();
+        value["schemaVersion"] = serde_json::json!(15);
+        value["canvas"] = serde_json::json!({"width": 3840, "height": 1080});
+        value["viewport"] = serde_json::json!({"x": 1920, "y": 0, "width": 1920, "height": 1080, "rotation": 0,
+            "order": 2, "bezelLeft": 12});
+        let candidate = parse(value.clone()).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        let resolved = candidate.presentation(1_789_000_000_000).unwrap();
+        let PresentationDocument::Playing { items, .. } = &resolved.document else { panic!("playing") };
         assert_eq!(
-            incompatibilities(&candidate.document, &candidate.assets),
-            vec![Incompatibility::StreamingDelivery],
-            "automatic video above the download threshold would need streaming"
+            items[0].viewport,
+            Some(serde_json::json!({"x": 1920, "y": 0, "width": 1920, "height": 1080, "rotation": 0, "order": 2,
+                "canvasWidth": 3840, "canvasHeight": 1080, "bezelLeft": 12}))
         );
+        assert!(resolved.document.required_features().contains(&"span-viewport-v1"));
+
+        for (key, bad) in [
+            (
+                "viewport",
+                serde_json::json!({"x": 2000, "y": 0, "width": 1920, "height": 1080, "rotation": 0, "order": 1}),
+            ),
+            (
+                "viewport",
+                serde_json::json!({"x": 0, "y": 0, "width": 1920, "height": 1080, "rotation": 45, "order": 1}),
+            ),
+            ("viewport", serde_json::json!({"x": 0, "y": 0, "width": 0, "height": 1080, "rotation": 0, "order": 1})),
+            ("canvas", Value::Null),
+        ] {
+            let mut broken = value.clone();
+            broken[key] = bad.clone();
+            let candidate = parse(broken).unwrap();
+            assert_eq!(
+                incompatibilities(&candidate.document, &candidate.assets),
+                vec![Incompatibility::SpanViewport],
+                "{key} {bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn streamed_delivery_is_a_verified_download_on_edge() {
+        for (mime, size, policy) in
+            [("image/png", 100, "stream"), ("video/mp4", 100, "stream"), ("video/mp4", 512 * 1024 * 1024, "automatic")]
+        {
+            let mut value = manifest();
+            value["assets"][0]["mimeType"] = serde_json::json!(mime);
+            value["assets"][0]["fileSize"] = serde_json::json!(size);
+            value["playlist"]["items"][0]["deliveryPolicy"] = serde_json::json!(policy);
+            let candidate = parse(value).unwrap();
+            assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty(), "{policy} {mime}");
+            assert_eq!(candidate.required_downloads, candidate.assets, "{policy} {mime} is downloaded and verified");
+        }
     }
 
     #[test]
