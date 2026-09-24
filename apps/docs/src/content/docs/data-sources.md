@@ -14,6 +14,8 @@ A **Data Source** connects Tilecast to structured information that a Widget or L
 
 The provider determines what you configure. For example, a public calendar needs an ICS feed URL; a JSON or CSV source needs field mappings; a **Manual Table** lets you define typed columns and enter up to 200 rows in Studio. The available catalog can change with the server's installed definitions.
 
+The **CAP Alerts** source can display records from a configured public CAP feed. It is separate from the U.S.-specific [US Weather Alerts](../operations/emergency-alerts/) automation and does not trigger its rules or Takeovers. CAP availability depends on the configured feed; not every country's warning service publishes CAP.
+
 You can also create a Data Source from a compatible source picker while editing a Widget or Layout. The picker filters sources by the data kind that the selected Widget or binding can use.
 
 ## Use its data
