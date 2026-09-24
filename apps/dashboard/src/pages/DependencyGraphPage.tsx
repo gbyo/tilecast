@@ -594,10 +594,10 @@ export function DependencyGraphPage() {
               </InputGroup>
               <Select
                 items={[
-                  { value: "all", label: "All types" },
+                  { value: "all", label: t("graph.toolbar.allTypes") },
                   ...typeOrder.map((nodeType) => ({
                     value: nodeType,
-                    label: typePresentation[nodeType].plural,
+                    label: t(typePresentation[nodeType].pluralKey),
                   })),
                 ]}
                 value={type}

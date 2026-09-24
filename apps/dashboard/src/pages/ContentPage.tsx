@@ -1683,7 +1683,6 @@ export function CreateOrganizerDialog({
   const [name, setName] = useState("");
   const [color, setColor] = useState("#64748b");
   const copy = organizerCopy[kind];
-  const noun = copy.title.slice("Create ".length);
   const create = useMutation({
     mutationFn: (): Promise<unknown> =>
       kind === "folder"
@@ -1693,7 +1692,7 @@ export function CreateOrganizerDialog({
           : api.createContentTag({ name, color }, csrf),
     onSuccess: () => {
       toast.add({
-        title: `${noun.charAt(0).toUpperCase()}${noun.slice(1)} created.`,
+        title: t(copy.createdKey),
         type: "success",
       });
       onCreated();

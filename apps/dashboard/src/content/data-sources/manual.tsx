@@ -346,7 +346,10 @@ export function ManualDataSourceEditor({
                           ),
                         }))
                       }
-                      items={booleanCellOptions}
+                      items={booleanCellOptions.map((option) => ({
+                        value: option.value,
+                        label: t(option.labelKey),
+                      }))}
                     >
                       <SelectTrigger
                         id={`manual-cell-${rowIndex}-${column.key}`}
